@@ -1,4 +1,4 @@
-pub mod jef_reader;
+pub mod readers;
 pub mod models;
 
 fn main() {
