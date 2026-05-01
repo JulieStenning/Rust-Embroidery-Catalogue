@@ -304,7 +304,25 @@ pub fn read_jef(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 mod tests {
     use super::*;
     use crate::models::StitchType;
-
+    
+    #[test]
+    fn test_read_real_jef_file() {
+        // Path to the real JEF file for testing
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Cake 3.jef";
+        let data = std::fs::read(path).expect("Failed to read test JEF file");
+        let pattern = read_jef(&data).expect("Failed to parse JEF file");
+        println!("Stitch count: {}", pattern.stitches.len());
+        println!("Number of colours: {}", pattern.threadlist.len());
+        assert_eq!(pattern.threadlist.len(), 19, "Unexpected number of colours");
+        let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
+        println!("Number of colour changes: {}", num_colour_changes);
+        assert_eq!(num_colour_changes, 18, "Unexpected number of colour changes");
+        for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
+            println!("Stitch {}: x = {}, y = {}", i, stitch.x, stitch.y);
+        }
+        assert!(pattern.stitches.len() > 0, "No stitches found");
+        assert_eq!(pattern.stitches.len(), 15141, "Unexpected stitch count");
+    }
     #[test]
     fn test_read_jef_two_stitches() {
         // Build a minimal JEF file with no colour table and two regular stitches.
