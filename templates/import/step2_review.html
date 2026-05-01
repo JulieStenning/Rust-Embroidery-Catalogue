@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% block title %}Import Designs — Review{% endblock %}
+
+{% block content %}
+{% set ok_files = scanned | selectattr("error", "none") | list %}
+{% set err_files = scanned | selectattr("error") | list %}
+{% set large_scan = (scanned | length) > 200 %}
+{% set error_page_size = 100 %}
+{% set error_total_pages = (((err_files | length) + error_page_size - 1) // error_page_size) if err_files else 1 %}
+
+<h1 class="text-2xl font-bold mb-1">Review Scanned Files</h1>
+<p class="text-gray-500 text-sm mb-4">
+  {{ folder_paths | length }} folder(s) scanned — {{ scanned | length }} file(s) found.
+  Selected files will be <strong>copied into the catalogue</strong>.
+  <a href="/help#importing" class="text-indigo-500 hover:underline ml-1">Import help</a>
+</p>
+
+{% if warn_art_no_spider %}
+<div class="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-5 flex gap-3">
+  <span class="text-amber-500 text-xl leading-none mt-0.5">&#9888;</span>
+  <div class="text-sm text-amber-900">
+    <p class="font-semibold mb-1">Embird Spider images not found for some .art files</p>
+    <p>
+      The app cannot decode Wilcom <code>.art</code> files to generate design previews.
+      <strong>Embird Spider</strong> &mdash; part of the paid
+      <a href="https://www.embird.net/" target="_blank" rel="noopener noreferrer"
+         class="underline hover:text-amber-700">Embird</a> embroidery software suite &mdash;
+      can export full-size preview images alongside your designs.
+      It saves them into a subfolder called <code>_embird_spider</code> next to your design files,
+      and the app uses those images in your catalogue.
+    </p>
+    <p class="mt-1">
+      No such folder was found in the scanned location(s).
+      If you don&rsquo;t have Embird Spider, the app will fall back to the small
+      embedded icon (100&times;100&nbsp;px) stored inside each <code>.art</code> file.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+<form method="post" action="/import/precheck" id="importForm">
+  <!-- Hidden: pass all source folder paths to the confirm route -->
+  {% for fp in folder_paths %}
+  <input type="hidden" name="folder_paths" value="{{ fp }}" />
+  {% endfor %}
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Global designer / source (applied to folders left on "Keep inferred") -->
+  <!-- ------------------------------------------------------------------ -->
+  {% if folder_groups | length > 1 %}
+  <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
+    <h2 class="text-sm font-semibold text-indigo-800 mb-3">Apply to all folders (optional override)</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Global Designer -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Designer</label>
+        <select name="global_designer_choice" id="global_designer_choice"
+          class="w-full border rounded px-2 py-1 text-sm"
+          onchange="toggleGlobalMeta('designer')">
+          <option value="inferred">Keep inferred (per folder)</option>
+          <option value="existing">Choose existing…</option>
+          <option value="create">Create new…</option>
+          <option value="blank">Leave blank</option>
+        </select>
+        <select name="global_designer_id" id="global_designer_id"
+          class="w-full border rounded px-2 py-1 text-sm mt-1 hidden">
+          <option value="">— select designer —</option>
+          {% for d in all_designers %}
+          <option value="{{ d.id }}">{{ d.name }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="global_designer_name" id="global_designer_name"
+          placeholder="New designer name…"
+          class="w-full border rounded px-2 py-1 text-sm mt-1 hidden" />
+      </div>
+      <!-- Global Source -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Source</label>
+        <select name="global_source_choice" id="global_source_choice"
+          class="w-full border rounded px-2 py-1 text-sm"
+          onchange="toggleGlobalMeta('source')">
+          <option value="inferred">Keep inferred (per folder)</option>
+          <option value="existing">Choose existing…</option>
+          <option value="create">Create new…</option>
+          <option value="blank">Leave blank</option>
+        </select>
+        <select name="global_source_id" id="global_source_id"
+          class="w-full border rounded px-2 py-1 text-sm mt-1 hidden">
+          <option value="">— select source —</option>
+          {% for s in all_sources %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="global_source_name" id="global_source_name"
+          placeholder="New source name…"
+          class="w-full border rounded px-2 py-1 text-sm mt-1 hidden" />
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <!-- Single-folder: use hidden inferred values so no global override is sent -->
+  <input type="hidden" name="global_designer_choice" value="inferred" />
+  <input type="hidden" name="global_source_choice" value="inferred" />
+  {% endif %}
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Submit / cancel -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="mb-5 flex gap-3 items-center no-print">
+    <button type="submit" id="importBtn"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      {% if large_scan %}Continue with {{ ok_files | length }} designs →{% else %}Continue →{% endif %}
+    </button>
+    <a href="/import/" id="backLink" class="text-sm text-gray-500 hover:underline self-center">← Cancel</a>
+    {% if not large_scan %}
+    <span class="ml-4 text-gray-300">|</span>
+    <button type="button" onclick="checkAll(true)" class="text-xs text-indigo-600 hover:underline">Select all</button>
+    <button type="button" onclick="checkAll(false)" class="text-xs text-gray-500 hover:underline">Deselect all</button>
+    {% endif %}
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Per-folder groups -->
+  <!-- ------------------------------------------------------------------ -->
+  {% for group in folder_groups %}
+  {% set gkey = group.folder_key %}
+  {% set gdesigns = group.designs %}
+  {% set gok = gdesigns | selectattr("error", "none") | list %}
+  {% set gerr = gdesigns | selectattr("error") | list %}
+
+  <input type="hidden" name="folder_root_{{ gkey }}" value="{{ group.folder_root }}" />
+
+  <div class="bg-white rounded shadow mb-6 overflow-hidden">
+    <!-- Folder header -->
+    <div class="bg-gray-50 border-b px-4 py-3 flex flex-wrap items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <span class="font-semibold text-gray-800 text-sm">{{ group.folder_label }}</span>
+        <code class="ml-2 text-xs text-gray-400 truncate">{{ group.folder_path }}</code>
+      </div>
+      <div class="flex gap-3 text-xs">
+        <span class="text-green-700 font-medium">{{ gok | length }} OK</span>
+        {% if gerr %}
+        <span class="text-red-600 font-medium">{{ gerr | length }} errors</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Per-folder designer / source controls -->
+    <div class="px-4 py-3 border-b bg-gray-50/50">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Designer -->
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Designer for this folder</label>
+          <select name="designer_choice_{{ gkey }}" id="designer_choice_{{ gkey }}"
+            class="w-full border rounded px-2 py-1 text-sm"
+            onchange="toggleFolderMeta('{{ gkey }}', 'designer')">
+            <option value="inferred">Keep inferred</option>
+            <option value="existing">Choose existing…</option>
+            <option value="create">Create new…</option>
+            <option value="blank">Leave blank</option>
+          </select>
+          <select name="designer_id_{{ gkey }}" id="designer_id_{{ gkey }}"
+            class="w-full border rounded px-2 py-1 text-sm mt-1 hidden">
+            <option value="">— select designer —</option>
+            {% for d in all_designers %}
+            <option value="{{ d.id }}">{{ d.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="designer_name_{{ gkey }}" id="designer_name_{{ gkey }}"
+            placeholder="New designer name…"
+            class="w-full border rounded px-2 py-1 text-sm mt-1 hidden" />
+        </div>
+        <!-- Source -->
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Source for this folder</label>
+          <select name="source_choice_{{ gkey }}" id="source_choice_{{ gkey }}"
+            class="w-full border rounded px-2 py-1 text-sm"
+            onchange="toggleFolderMeta('{{ gkey }}', 'source')">
+            <option value="inferred">Keep inferred</option>
+            <option value="existing">Choose existing…</option>
+            <option value="create">Create new…</option>
+            <option value="blank">Leave blank</option>
+          </select>
+          <select name="source_id_{{ gkey }}" id="source_id_{{ gkey }}"
+            class="w-full border rounded px-2 py-1 text-sm mt-1 hidden">
+            <option value="">— select source —</option>
+            {% for s in all_sources %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="source_name_{{ gkey }}" id="source_name_{{ gkey }}"
+            placeholder="New source name…"
+            class="w-full border rounded px-2 py-1 text-sm mt-1 hidden" />
+        </div>
+      </div>
+    </div>
+
+    {% if large_scan %}
+    {# SUMMARY MODE — too many files, auto-select all OK files as hidden inputs #}
+    {% for sd in gok %}
+    <input type="hidden" name="selected_files" value="{{ sd.filepath }}" />
+    {% endfor %}
+    {% if gerr %}
+    <div class="px-4 py-2 text-xs text-red-600">{{ gerr | length }} file(s) with errors will be skipped.</div>
+    {% endif %}
+    {% else %}
+    {# DETAIL MODE — show per-row table with checkboxes #}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+        <tr>
+          <th class="px-3 py-2 w-8"></th>
+          <th class="px-3 py-2 text-left">Filename</th>
+          <th class="px-3 py-2 text-left">Size (mm)</th>
+          <th class="px-3 py-2 text-left">Stitches</th>
+          <th class="px-3 py-2 text-left">Colours</th>
+          <th class="px-3 py-2 text-left">Hoop</th>
+          <th class="px-3 py-2 text-left">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for sd in gdesigns %}
+        <tr class="{% if sd.error %}bg-red-50{% endif %}">
+          <td class="px-3 py-2">
+            {% if not sd.error %}
+              <input type="checkbox" name="selected_files" value="{{ sd.filepath }}" checked class="accent-indigo-600" />
+            {% endif %}
+          </td>
+          <td class="px-3 py-2 font-mono text-xs max-w-xs truncate" title="{{ sd.filepath }}">{{ sd.filename }}</td>
+          <td class="px-3 py-2 text-xs">
+            {% if sd.width_mm and sd.height_mm %}{{ sd.width_mm }} × {{ sd.height_mm }}{% else %}—{% endif %}
+          </td>
+          <td class="px-3 py-2 text-xs">{{ sd.stitch_count if sd.stitch_count is not none else '—' }}</td>
+          <td class="px-3 py-2 text-xs">{{ sd.color_count if sd.color_count is not none else '—' }}</td>
+          <td class="px-3 py-2 text-xs">{{ sd.hoop_name or '—' }}</td>
+          <td class="px-3 py-2 text-xs">
+            {% if sd.error %}
+              <span class="text-red-600" title="{{ sd.error }}">⚠ Error</span>
+            {% else %}
+              <span class="text-green-600">OK</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="px-3 py-4 text-gray-400 text-center">No supported files found in this folder.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Error detail table (shown only in large-scan mode when there are errors) -->
+  {% if large_scan and err_files %}
+  <div class="bg-white rounded shadow overflow-hidden mb-4">
+    <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b">
+      <h2 class="text-base font-semibold text-red-700">Files with errors ({{ err_files | length }})</h2>
+      {% if error_total_pages > 1 %}
+      <span id="errorPageSummary" class="text-xs text-gray-500">
+        Page 1 of {{ error_total_pages }} &middot; showing 1–{{ [error_page_size, (err_files | length)] | min }} of {{ err_files | length }}
+      </span>
+      {% endif %}
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-red-50 text-red-700 uppercase text-xs">
+        <tr>
+          <th class="px-3 py-2 text-left">Filename</th>
+          <th class="px-3 py-2 text-left">Error</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for sd in err_files %}
+        {% set row_page = (loop.index0 // error_page_size) + 1 %}
+        <tr class="bg-red-50 error-row{% if row_page != 1 %} hidden{% endif %}" data-error-page="{{ row_page }}">
+          <td class="px-3 py-2 font-mono text-xs max-w-xs truncate" title="{{ sd.filepath }}">{{ sd.filename }}</td>
+          <td class="px-3 py-2 text-xs text-red-600 break-all">{{ sd.error }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if error_total_pages > 1 %}
+    <nav id="errorPager" class="px-4 py-3 flex items-center justify-center gap-2 text-sm flex-wrap" data-total-pages="{{ error_total_pages }}">
+      <button type="button" id="errorPrev" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">&lsaquo; Prev</button>
+      <div class="flex items-center gap-1 flex-wrap">
+        {% for p in range(1, error_total_pages + 1) %}
+        <button type="button" class="error-page-btn px-3 py-1 border rounded hover:bg-gray-100{% if p == 1 %} bg-red-600 text-white border-red-600 hover:bg-red-600{% endif %}" data-page="{{ p }}">{{ p }}</button>
+        {% endfor %}
+      </div>
+      <button type="button" id="errorNext" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">Next &rsaquo;</button>
+    </nav>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="flex gap-3 items-center mb-6">
+    <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      {% if large_scan %}Continue with {{ ok_files | length }} designs →{% else %}Continue →{% endif %}
+    </button>
+    <a href="/import/" class="text-sm text-gray-500 hover:underline self-center">← Back</a>
+  </div>
+
+</form>
+
+<!-- Full-page loading overlay shown while import is running -->
+<div id="importOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl shadow-xl px-10 py-8 flex flex-col items-center gap-4 max-w-xs text-center">
+    <svg class="animate-spin h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <p class="font-semibold text-gray-800">Importing designs…</p>
+    <p class="text-sm text-gray-500">Please keep this page open until it finishes. Navigating away will cancel the import.</p>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+</style>
+
+<script>
+function checkAll(state) {
+  document.querySelectorAll('input[name="selected_files"]').forEach(cb => cb.checked = state);
+}
+
+function toggleFolderMeta(key, type) {
+  const choice = document.getElementById(type + '_choice_' + key).value;
+  const idEl = document.getElementById(type + '_id_' + key);
+  const nameEl = document.getElementById(type + '_name_' + key);
+  if (idEl) idEl.classList.toggle('hidden', choice !== 'existing');
+  if (nameEl) nameEl.classList.toggle('hidden', choice !== 'create');
+}
+
+function toggleGlobalMeta(type) {
+  const choice = document.getElementById('global_' + type + '_choice').value;
+  const idEl = document.getElementById('global_' + type + '_id');
+  const nameEl = document.getElementById('global_' + type + '_name');
+  if (idEl) idEl.classList.toggle('hidden', choice !== 'existing');
+  if (nameEl) nameEl.classList.toggle('hidden', choice !== 'create');
+}
+
+function initErrorPagination() {
+  const pager = document.getElementById('errorPager');
+  const rows = Array.from(document.querySelectorAll('.error-row'));
+  if (!pager || !rows.length) return;
+
+  const totalPages = Number(pager.dataset.totalPages || '1');
+  const pageSize = {{ error_page_size }};
+  const totalRows = rows.length;
+  const prevBtn = document.getElementById('errorPrev');
+  const nextBtn = document.getElementById('errorNext');
+  const summary = document.getElementById('errorPageSummary');
+  const pageButtons = Array.from(document.querySelectorAll('.error-page-btn'));
+  let currentPage = 1;
+
+  function renderPage(page) {
+    currentPage = Math.max(1, Math.min(totalPages, page));
+    rows.forEach((row) => {
+      row.classList.toggle('hidden', Number(row.dataset.errorPage) !== currentPage);
+    });
+    const start = (currentPage - 1) * pageSize + 1;
+    const end = Math.min(totalRows, currentPage * pageSize);
+    if (summary) summary.textContent = `Page ${currentPage} of ${totalPages} · showing ${start}–${end} of ${totalRows}`;
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+    pageButtons.forEach((btn) => {
+      const isActive = Number(btn.dataset.page) === currentPage;
+      btn.classList.toggle('bg-red-600', isActive);
+      btn.classList.toggle('text-white', isActive);
+      btn.classList.toggle('border-red-600', isActive);
+      btn.classList.toggle('hover:bg-red-600', isActive);
+    });
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', () => renderPage(currentPage - 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => renderPage(currentPage + 1));
+  pageButtons.forEach((btn) => {
+    btn.addEventListener('click', () => renderPage(Number(btn.dataset.page)));
+  });
+  renderPage(1);
+}
+
+initErrorPagination();
+
+document.getElementById('importForm').addEventListener('submit', function() {
+  const overlay = document.getElementById('importOverlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+  document.querySelectorAll('button[type="submit"]').forEach(btn => btn.disabled = true);
+  const backLink = document.getElementById('backLink');
+  if (backLink) backLink.style.pointerEvents = 'none';
+  document.querySelectorAll('button[type="button"]').forEach(btn => btn.disabled = true);
+});
+</script>
+{% endblock %}

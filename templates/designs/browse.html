@@ -1,0 +1,859 @@
+{% extends "base.html" %}
+{% block title %}Browse Designs — Embroidery Catalogue{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Browse Designs</h1>
+
+<!-- Search panel -->
+<form method="get" action="/designs/" class="bg-white rounded shadow p-4 mb-6 space-y-4 no-print"
+      onsubmit="this.querySelectorAll('select, input[type=text]').forEach(el => { if (!el.value.trim()) el.disabled = true; })">
+
+  <div class="border rounded-lg bg-white p-4 space-y-2">
+    <label class="block text-sm font-medium text-gray-700 mb-1" for="q">General search</label>
+    <div class="flex flex-wrap items-center gap-4">
+      <input type="text" id="q" name="q" value="{{ filters.q or '' }}"
+             placeholder='e.g. rose "cross stitch" -applique or *.hus'
+             title='Enter keywords or use operators like "phrase", -exclude, OR, * and ?'
+             class="border rounded px-3 py-1.5 text-sm flex-1 min-w-[22rem] font-mono" />
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm text-gray-700 select-none whitespace-nowrap"
+             title="Show only designs that still need tag or metadata review">
+        <input type="checkbox" name="unverified" value="true"
+               {% if filters.unverified %}checked{% endif %}
+               class="rounded accent-indigo-600" />
+        Unverified only
+      </label>
+    </div>
+    <p class="text-xs text-gray-400 mt-0.5">
+      Supports Google-like syntax:
+      <code class="bg-gray-100 px-0.5 rounded">"exact phrase"</code> &nbsp;&middot;&nbsp;
+      <code class="bg-gray-100 px-0.5 rounded">-exclude</code> &nbsp;&middot;&nbsp;
+      <code class="bg-gray-100 px-0.5 rounded">word1 OR word2</code> &nbsp;&middot;&nbsp;
+      <code class="bg-gray-100 px-0.5 rounded">*.hus</code>
+      &nbsp;&middot;&nbsp;
+      <a href="/help#search" class="text-indigo-500 hover:underline">Search help</a>
+    </p>
+  </div>
+
+  <details class="border rounded-lg bg-white overflow-visible relative z-20">
+    <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 font-semibold text-gray-800">
+      Additional filters
+    </summary>
+    <div class="p-4 space-y-4">
+      <div class="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="all_words">All of these words</label>
+          <input type="text" id="all_words" name="all_words" value="{{ filters.all_words or '' }}"
+                 placeholder="e.g. rose flower"
+                 class="border rounded px-3 py-1.5 text-sm w-full" />
+          <p class="text-xs text-gray-400 mt-0.5">Every word must appear (AND)</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="exact_phrase">This exact phrase</label>
+          <input type="text" id="exact_phrase" name="exact_phrase" value="{{ filters.exact_phrase or '' }}"
+                 placeholder="e.g. cross stitch"
+                 class="border rounded px-3 py-1.5 text-sm w-full" />
+          <p class="text-xs text-gray-400 mt-0.5">Phrase must appear verbatim</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="any_words">Any of these words</label>
+          <input type="text" id="any_words" name="any_words" value="{{ filters.any_words or '' }}"
+                 placeholder="e.g. rose tulip daisy"
+                 class="border rounded px-3 py-1.5 text-sm w-full" />
+          <p class="text-xs text-gray-400 mt-0.5">At least one word must appear (OR)</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="none_words">None of these words</label>
+          <input type="text" id="none_words" name="none_words" value="{{ filters.none_words or '' }}"
+                 placeholder="e.g. applique border"
+                 class="border rounded px-3 py-1.5 text-sm w-full" />
+          <p class="text-xs text-gray-400 mt-0.5">Results must NOT contain any of these words</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-4 items-end">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Filename</label>
+          <input type="text" name="filename" value="{{ filters.filename or '' }}"
+                 placeholder="e.g. rose* or *.jef"
+                 title="Use * for any text and ? for a single character"
+                 class="border rounded px-3 py-1.5 text-sm w-full font-mono" />
+          <p class="text-xs text-gray-400 mt-0.5"><code class="bg-gray-100 px-0.5 rounded">*</code> = any text &nbsp;·&nbsp; <code class="bg-gray-100 px-0.5 rounded">?</code> = one char</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Designer</label>
+          <select name="designer_id" class="border rounded px-3 py-1.5 text-sm w-full">
+            <option value="">Any</option>
+            {% for d in designers %}
+              <option value="{{ d.id }}" {% if filters.designer_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {%- set image_tags = tags | selectattr('tag_group', 'equalto', 'image') | list -%}
+        {%- set stitching_tags = tags | selectattr('tag_group', 'equalto', 'stitching') | list -%}
+        {%- set unclassified_tags = tags | rejectattr('tag_group') | list -%}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Image tags</label>
+          <details class="relative tag-filter-dropdown z-30" id="imageTagDropdown">
+            <summary class="border rounded px-3 py-1.5 text-sm cursor-pointer list-none flex items-center justify-between gap-2 bg-white min-w-[10rem] hover:border-indigo-400">
+              <span class="tag-filter-summary truncate max-w-[12rem]">
+                {%- set sel_image = image_tags | selectattr('id', 'in', filters.tag_ids) | list -%}
+                {%- set sel_other = unclassified_tags | selectattr('id', 'in', filters.tag_ids) | list -%}
+                {%- if -1 in filters.tag_ids -%}
+                  &mdash; Untagged
+                {%- elif not sel_image and not sel_other -%}
+                  Any
+                {%- else -%}
+                  {{ (sel_image + sel_other) | map(attribute='description') | join(' · ') }}
+                {%- endif -%}
+              </span>
+              <span class="text-gray-400 text-xs flex-shrink-0">&#9660;</span>
+            </summary>
+            <div class="absolute left-0 top-full z-[80] bg-white border rounded shadow-lg mt-1 p-2 max-h-64 overflow-y-auto min-w-[16rem]">
+              <label class="flex items-center gap-1.5 text-sm py-0.5 cursor-pointer hover:text-indigo-600">
+                <input type="checkbox" name="tag_ids" value="-1" class="rounded accent-indigo-600 dt-filter-cb"
+                       {% if -1 in filters.tag_ids %}checked{% endif %} />
+                &mdash; Untagged
+              </label>
+              {% if image_tags %}
+              <hr class="my-1" />
+              <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mt-1 mb-0.5 px-0.5">Image</p>
+              {% for tag in image_tags %}
+              <label class="flex items-center gap-1.5 text-sm py-0.5 cursor-pointer hover:text-indigo-600">
+                <input type="checkbox" name="tag_ids" value="{{ tag.id }}" class="rounded accent-indigo-600 dt-filter-cb"
+                       {% if tag.id in filters.tag_ids %}checked{% endif %} />
+                {{ tag.description }}
+              </label>
+              {% endfor %}
+              {% endif %}
+              {% if unclassified_tags %}
+              <hr class="my-1" />
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-1 mb-0.5 px-0.5">Other</p>
+              {% for tag in unclassified_tags %}
+              <label class="flex items-center gap-1.5 text-sm py-0.5 cursor-pointer hover:text-indigo-600">
+                <input type="checkbox" name="tag_ids" value="{{ tag.id }}" class="rounded accent-indigo-600 dt-filter-cb"
+                       {% if tag.id in filters.tag_ids %}checked{% endif %} />
+                {{ tag.description }}
+              </label>
+              {% endfor %}
+              {% endif %}
+            </div>
+          </details>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Stitching tags</label>
+          <details class="relative tag-filter-dropdown z-30" id="stitchingTagDropdown">
+            <summary class="border rounded px-3 py-1.5 text-sm cursor-pointer list-none flex items-center justify-between gap-2 bg-white min-w-[10rem] hover:border-indigo-400">
+              <span class="tag-filter-summary truncate max-w-[12rem]">
+                {%- set sel_stitching = stitching_tags | selectattr('id', 'in', filters.tag_ids) | list -%}
+                {%- if not sel_stitching -%}
+                  Any
+                {%- else -%}
+                  {{ sel_stitching | map(attribute='description') | join(' · ') }}
+                {%- endif -%}
+              </span>
+              <span class="text-gray-400 text-xs flex-shrink-0">&#9660;</span>
+            </summary>
+            <div class="absolute left-0 top-full z-[80] bg-white border rounded shadow-lg mt-1 p-2 max-h-64 overflow-y-auto min-w-[16rem]">
+              {% if stitching_tags %}
+              {% for tag in stitching_tags %}
+              <label class="flex items-center gap-1.5 text-sm py-0.5 cursor-pointer hover:text-indigo-600">
+                <input type="checkbox" name="tag_ids" value="{{ tag.id }}" class="rounded accent-indigo-600 dt-filter-cb"
+                       {% if tag.id in filters.tag_ids %}checked{% endif %} />
+                {{ tag.description }}
+              </label>
+              {% endfor %}
+              {% else %}
+              <p class="text-sm text-gray-400 px-0.5 py-1">No stitching tags yet.</p>
+              {% endif %}
+            </div>
+          </details>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Hoop</label>
+          <select name="hoop_id" class="border rounded px-3 py-1.5 text-sm w-full">
+            <option value="">Any</option>
+            {% for h in hoops %}
+              <option value="{{ h.id }}" {% if filters.hoop_id == h.id %}selected{% endif %}>{{ h.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Source</label>
+          <select name="source_id" class="border rounded px-3 py-1.5 text-sm w-full">
+            <option value="">Any</option>
+            {% for s in sources %}
+              <option value="{{ s.id }}" {% if filters.source_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Min Rating</label>
+          <select name="rating" class="border rounded px-3 py-1.5 text-sm w-full">
+            <option value="">Any</option>
+            {% for r in [1,2,3,4,5] %}
+              <option value="{{ r }}" {% if filters.rating == r %}selected{% endif %}>{{ r }}★</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Stitched</label>
+          <select name="is_stitched" class="border rounded px-3 py-1.5 text-sm w-full">
+            <option value="">Any</option>
+            <option value="true" {% if filters.is_stitched == true %}selected{% endif %}>Yes</option>
+            <option value="false" {% if filters.is_stitched == false %}selected{% endif %}>No</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <div class="border rounded-lg bg-white p-4 flex flex-wrap gap-4 items-start text-gray-700">
+    <div>
+      <p class="text-sm font-medium text-gray-700 mb-1">Search in</p>
+      <div class="flex min-h-[38px] flex-wrap items-center gap-4">
+        <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none text-gray-700">
+          <input type="hidden" name="search_filename" value="false" />
+          <input type="checkbox" name="search_filename" value="true"
+                 {% if filters.search_filename %}checked{% endif %}
+                 class="rounded accent-indigo-600" />
+          File name
+        </label>
+        <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none text-gray-700">
+          <input type="hidden" name="search_tags" value="false" />
+          <input type="checkbox" name="search_tags" value="true"
+                 {% if filters.search_tags %}checked{% endif %}
+                 class="rounded accent-indigo-600" />
+          Tags
+        </label>
+        <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none text-gray-700">
+          <input type="hidden" name="search_folder" value="false" />
+          <input type="checkbox" name="search_folder" value="true"
+                 {% if filters.search_folder %}checked{% endif %}
+                 class="rounded accent-indigo-600" />
+          Folder name
+        </label>
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Sort by</label>
+      <select name="sort_by" class="border rounded px-3 py-1.5 text-sm bg-white text-gray-800">
+        <option value="name"       {% if filters.sort_by == 'name'       %}selected{% endif %}>Design name</option>
+        <option value="folder"     {% if filters.sort_by == 'folder'     %}selected{% endif %}>Folder</option>
+        <option value="date_added" {% if filters.sort_by == 'date_added' %}selected{% endif %}>Date added</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Order</label>
+      <select name="sort_dir" class="border rounded px-3 py-1.5 text-sm bg-white text-gray-800">
+        <option value="asc"  {% if filters.sort_dir == 'asc'  %}selected{% endif %}>&#9650; Ascending</option>
+        <option value="desc" {% if filters.sort_dir == 'desc' %}selected{% endif %}>&#9660; Descending</option>
+      </select>
+    </div>
+    <div class="ml-auto flex gap-3 items-center self-end">
+      <button type="submit" class="bg-indigo-600 text-white px-5 py-1.5 rounded text-sm hover:bg-indigo-700">Search</button>
+      <button type="button"
+              id="resetBrowseSearchBtn"
+              data-reset-url="/designs/"
+              class="bg-indigo-600 text-white px-5 py-1.5 rounded text-sm hover:bg-indigo-700 disabled:bg-indigo-300 disabled:hover:bg-indigo-300 disabled:cursor-not-allowed"
+              {% if not filters.has_active_filters %}disabled aria-disabled="true"{% endif %}>
+        Reset
+      </button>
+    </div>
+  </div>
+</form>
+
+<script>
+(function () {
+  const form = document.querySelector('form[action="/designs/"]');
+  const resetBtn = document.getElementById('resetBrowseSearchBtn');
+  if (!form || !resetBtn) return;
+
+  function hasActiveCriteria() {
+    const textNames = ['q', 'all_words', 'exact_phrase', 'any_words', 'none_words', 'filename'];
+    for (const name of textNames) {
+      const el = form.elements[name];
+      if (el && String(el.value || '').trim() !== '') return true;
+    }
+
+    const selectsWithDefaults = [
+      ['designer_id', ''],
+      ['hoop_id', ''],
+      ['source_id', ''],
+      ['rating', ''],
+      ['is_stitched', ''],
+      ['sort_by', 'name'],
+      ['sort_dir', 'asc'],
+    ];
+    for (const [name, defaultValue] of selectsWithDefaults) {
+      const el = form.elements[name];
+      if (el && el.value !== defaultValue) return true;
+    }
+
+    if (form.querySelector('input[name="tag_ids"]:checked')) return true;
+    const unverified = form.querySelector('input[type="checkbox"][name="unverified"]');
+    if (unverified && unverified.checked) return true;
+
+    const scopeDefaults = ['search_filename', 'search_tags', 'search_folder'];
+    for (const name of scopeDefaults) {
+      const el = form.querySelector(`input[type="checkbox"][name="${name}"]`);
+      if (el && !el.checked) return true;
+    }
+
+    return false;
+  }
+
+  function updateResetState() {
+    const enabled = hasActiveCriteria();
+    resetBtn.disabled = !enabled;
+    resetBtn.setAttribute('aria-disabled', String(!enabled));
+  }
+
+  resetBtn.addEventListener('click', function () {
+    if (!resetBtn.disabled) {
+      window.location.href = resetBtn.dataset.resetUrl;
+    }
+  });
+
+  form.addEventListener('input', updateResetState);
+  form.addEventListener('change', updateResetState);
+  updateResetState();
+})();
+</script>
+<!-- Results summary -->
+<div class="flex items-center justify-between mb-3 text-sm text-gray-600">
+  <span>{{ total }} design{{ 's' if total != 1 }} found &mdash; page {{ page }} of {{ total_pages }}</span>
+  {% if designs %}
+  <div class="flex items-center gap-3">
+    <label class="flex items-center gap-1 cursor-pointer select-none">
+      <input type="checkbox" id="selectAll" class="rounded" />
+      <span class="text-xs font-medium">Select all</span>
+    </label>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Design grid -->
+{% if designs %}
+<!-- Outer wrapper: left gutter holds row-select checkboxes injected by JS -->
+<div class="relative" id="gridWrapper" style="padding-left:1.75rem">
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" id="designGrid">
+  {% for design in designs %}
+  <div class="bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative design-card">
+    <!-- Selection checkbox overlay -->
+    <label class="absolute top-1 left-1 z-10 cursor-pointer card-checkbox-label">
+      <input type="checkbox" class="design-checkbox rounded w-4 h-4 accent-indigo-600"
+             data-id="{{ design.id }}"
+             data-tag-ids="{{ design.tags | map(attribute='id') | join(',') }}" />
+    </label>
+    <a href="/designs/{{ design.id }}" class="flex flex-col flex-1 card-link">
+    {% if design.image_data %}
+      <img src="/designs/{{ design.id }}/image" alt="{{ design.filename }}" class="w-full h-36 object-contain bg-gray-100 p-1" />
+    {% else %}
+      <div class="w-full h-36 bg-gray-200 flex items-center justify-center text-gray-400 text-xs">No image</div>
+    {% endif %}
+    <div class="p-2 flex-1">
+      <div class="flex items-start justify-between gap-1">
+        <p class="text-xs font-medium text-gray-800 truncate flex-1" title="{{ design.filename }}">{{ design.filename }}</p>
+        <span class="text-xs leading-none {% if design.tags_checked %}text-green-600{% else %}text-red-500{% endif %}"
+              title="{% if design.tags_checked %}Verified{% else %}Not verified{% endif %}"
+              aria-label="{% if design.tags_checked %}Verified{% else %}Not verified{% endif %}">{% if design.tags_checked %}✓{% else %}✗{% endif %}</span>
+      </div>
+      {% if design.hoop %}<p class="text-xs text-indigo-600">{{ design.hoop.name }}</p>{% endif %}
+      {% if design.projects %}
+        <p class="text-xs text-gray-500 truncate" title="{{ design.projects | map(attribute='name') | join(', ') }}">{{ design.projects | map(attribute='name') | join(', ') }}</p>
+      {% endif %}
+      {% if design.tags %}
+        <div class="flex flex-wrap gap-0.5 mt-1">
+          {% for tag in design.tags %}
+            <span class="bg-purple-100 text-purple-700 text-xs px-1 rounded leading-tight">{{ tag.description }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-xs text-gray-300 mt-1 italic">No tags</p>
+      {% endif %}
+      <div class="flex items-center justify-between mt-1">
+        {% if design.rating %}
+          <span class="text-yellow-500 text-xs">{{ "★" * design.rating }}{{ "☆" * (5 - design.rating) }}</span>
+        {% else %}
+          <span class="text-gray-300 text-xs">☆☆☆☆☆</span>
+        {% endif %}
+        {% if design.is_stitched %}
+          <span class="text-green-600 text-xs font-semibold">✓ Stitched</span>
+        {% endif %}
+      </div>
+    </div>
+    </a>
+    {% if all_projects %}
+    <details class="border-t px-2 py-1 no-print">
+      <summary class="text-xs text-gray-400 cursor-pointer hover:text-indigo-600 select-none">＋ Add to project</summary>
+      <form method="post" action="/designs/{{ design.id }}/add-to-project" class="flex gap-1 mt-1">
+        <input type="hidden" name="next" value="{{ request.url }}" />
+        <select name="project_id" class="border rounded px-1 py-0.5 text-xs flex-1 min-w-0">
+          {% for p in all_projects %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs hover:bg-indigo-700 whitespace-nowrap">Add</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+</div><!-- /designGrid -->
+</div><!-- /gridWrapper -->
+{% else %}
+<p class="text-gray-500">No designs found. Try adjusting your filters or <a href="/import/" class="text-indigo-600 hover:underline">import some files</a>.</p>
+{% endif %}
+
+{% if total_pages > 1 %}
+<nav class="flex items-center gap-2 mt-6 flex-wrap">
+  {% if page > 1 %}
+    <a href="/designs/?{{ filter_params }}{% if filter_params %}&{% endif %}page={{ page - 1 }}"
+       class="px-3 py-1 rounded border text-sm hover:bg-gray-100">&lsaquo; Prev</a>
+  {% endif %}
+  {% for p in range([1, page - 2]|max, [total_pages + 1, page + 3]|min) %}
+    <a href="/designs/?{{ filter_params }}{% if filter_params %}&{% endif %}page={{ p }}"
+       class="px-3 py-1 rounded border text-sm {% if p == page %}bg-indigo-600 text-white border-indigo-600{% else %}hover:bg-gray-100{% endif %}">{{ p }}</a>
+  {% endfor %}
+  {% if page < total_pages %}
+    <a href="/designs/?{{ filter_params }}{% if filter_params %}&{% endif %}page={{ page + 1 }}"
+       class="px-3 py-1 rounded border text-sm hover:bg-gray-100">Next &rsaquo;</a>
+  {% endif %}
+</nav>
+{% endif %}
+
+<!-- Hidden bulk-tag form (populated by JS before submit) -->
+<form id="bulkForm" method="post" action="/designs/bulk-set-tags" class="hidden">
+  <input type="hidden" name="next" value="{{ request.url }}" />
+  <div id="bulkDesignIds"></div>
+  <div id="bulkTypeIds"></div>
+  <button type="submit">Apply</button>
+</form>
+
+<!-- Hidden bulk-verify form (populated by JS before submit) -->
+<form id="verifyForm" method="post" action="/designs/bulk-verify" class="hidden">
+  <input type="hidden" name="next" value="{{ request.url }}" />
+  <div id="verifyDesignIds"></div>
+  <button type="submit">Verify</button>
+</form>
+
+<!-- Hidden bulk project form (populated by JS before submit) -->
+<form id="projectForm" method="post" action="/designs/bulk-add-to-project" class="hidden">
+  <input type="hidden" name="next" value="{{ request.url }}" />
+  <div id="projectDesignIds"></div>
+  <button type="submit">Add to project</button>
+</form>
+
+<!-- Sticky bulk action bar -->
+<div id="bulkBar"
+     class="hidden fixed bottom-0 left-0 right-0 bg-indigo-700 text-white shadow-lg z-50 px-4 py-3 flex flex-wrap items-center gap-3 no-print">
+  <span id="bulkCount" class="font-semibold text-sm whitespace-nowrap"></span>
+  <button type="button" id="bulkOpenModalBtn"
+          class="bg-white text-indigo-700 font-semibold px-4 py-1.5 rounded text-sm hover:bg-indigo-100">
+    Choose tags&hellip;
+  </button>
+  <button type="button" id="bulkVerifyBtn"
+          class="bg-green-500 text-white font-semibold px-4 py-1.5 rounded text-sm hover:bg-green-400">
+    &#10003; Verify selected
+  </button>
+  <div class="flex items-center gap-2 min-w-0">
+    <select id="bulkProjectId" name="project_id" form="projectForm"
+            class="bg-white rounded border border-indigo-200 px-2 py-1.5 text-sm text-gray-900 w-48"
+            {% if not all_projects %}disabled{% endif %}>
+      {% if all_projects %}
+        <option value="">Choose project…</option>
+        {% for p in all_projects %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">No projects available</option>
+      {% endif %}
+    </select>
+    <button type="button" id="bulkAddToProjectBtn"
+            class="bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded text-sm hover:bg-indigo-400 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+            {% if not all_projects %}disabled title="Create a project first"{% endif %}>
+      Add to project
+    </button>
+  </div>
+  <button type="button" id="bulkClearBtn"
+          class="bg-indigo-600 border border-indigo-400 px-3 py-1.5 rounded text-sm hover:bg-indigo-500">
+    Clear selection
+  </button>
+</div>
+
+<!-- Bulk tag modal -->
+<div id="bulkModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center no-print">
+  <!-- Backdrop -->
+  <div id="bulkModalBackdrop" class="absolute inset-0 bg-black/50"></div>
+  <!-- Panel -->
+  <div class="relative bg-white rounded-lg shadow-2xl w-full max-w-3xl mx-4 flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between px-5 py-4 border-b">
+      <h2 class="font-semibold text-gray-800">Set tags — <span id="modalCount" class="text-indigo-600"></span></h2>
+      <button type="button" id="bulkModalClose" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    </div>
+    <div class="overflow-y-auto px-5 py-4 flex-1">
+      <p class="text-xs text-gray-500 mb-3">Tick the tags to apply. These will replace the existing tags on all selected designs and mark them as verified.</p>
+      {%- set modal_image = tags | selectattr('tag_group', 'equalto', 'image') | list -%}
+      {%- set modal_stitching = tags | selectattr('tag_group', 'equalto', 'stitching') | list -%}
+      {%- set modal_unclassified = tags | rejectattr('tag_group') | list -%}
+      {% if modal_image %}
+      <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Image</p>
+      <div class="mb-3" style="display:grid; grid-auto-flow:column; grid-template-rows: repeat({{ ((modal_image|length + 3) // 4) }}, auto); column-gap:2.5rem; row-gap:0.4rem;">
+        {% for tag in modal_image %}
+        <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input type="checkbox" class="bulk-tag-cb rounded border-gray-300 text-indigo-600" value="{{ tag.id }}" />
+          {{ tag.description }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if modal_stitching %}
+      <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Stitching</p>
+      <div class="mb-3" style="display:grid; grid-auto-flow:column; grid-template-rows: repeat({{ ((modal_stitching|length + 3) // 4) }}, auto); column-gap:2.5rem; row-gap:0.4rem;">
+        {% for tag in modal_stitching %}
+        <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input type="checkbox" class="bulk-tag-cb rounded border-gray-300 text-indigo-600" value="{{ tag.id }}" />
+          {{ tag.description }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if modal_unclassified %}
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Unclassified</p>
+      <div style="display:grid; grid-auto-flow:column; grid-template-rows: repeat({{ ((modal_unclassified|length + 3) // 4) }}, auto); column-gap:2.5rem; row-gap:0.4rem;">
+        {% for tag in modal_unclassified %}
+        <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input type="checkbox" class="bulk-tag-cb rounded border-gray-300 text-indigo-600" value="{{ tag.id }}" />
+          {{ tag.description }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="px-5 py-3 border-t flex items-center gap-3">
+      <button type="button" id="bulkApplyBtn"
+              class="bg-indigo-600 text-white font-semibold px-5 py-1.5 rounded text-sm hover:bg-indigo-700">
+        Apply tags
+      </button>
+      <button type="button" id="bulkModalCancel"
+              class="text-sm text-gray-500 hover:text-gray-700">
+        Cancel
+      </button>
+      <span class="ml-auto text-xs text-gray-400">Saving marks all selected designs as verified</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  /* ---- filter persistence ---- */
+  var search = window.location.search;
+  var referrer = document.referrer;
+  var fromDetail = /\/designs\/\d+/.test(referrer);
+
+  if (search) {
+    sessionStorage.setItem('browse_filters', search);
+  } else if (fromDetail) {
+    var saved = sessionStorage.getItem('browse_filters');
+    if (saved) {
+      window.location.replace('/designs/' + saved);
+    }
+  } else {
+    sessionStorage.removeItem('browse_filters');
+  }
+
+  var ids = [{% for design in designs %}{{ design.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+  if (ids.length) {
+    sessionStorage.setItem('browse_ids', JSON.stringify(ids));
+  }
+
+  /* ---- tag filter dropdowns ---- */
+  (function() {
+    var dropdowns = Array.from(document.querySelectorAll('.tag-filter-dropdown'));
+    if (!dropdowns.length) return;
+
+    function updateSummary(dropdown) {
+      var summaryText = dropdown.querySelector('.tag-filter-summary');
+      if (!summaryText) return;
+      var checked = Array.from(dropdown.querySelectorAll('.dt-filter-cb:checked'));
+      if (!checked.length) {
+        summaryText.textContent = 'Any';
+      } else if (checked.some(function(cb) { return cb.value === '-1'; })) {
+        summaryText.textContent = '\u2014 Untagged';
+      } else {
+        summaryText.textContent = checked.map(function(cb) {
+          return cb.closest('label').textContent.trim();
+        }).join(' · ');
+      }
+    }
+
+    dropdowns.forEach(function(dropdown) {
+      updateSummary(dropdown);
+      dropdown.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('dt-filter-cb')) return;
+        var all = Array.from(document.querySelectorAll('.dt-filter-cb'));
+        var untaggedCb = document.querySelector('.dt-filter-cb[value="-1"]');
+        if (e.target === untaggedCb && untaggedCb.checked) {
+          all.forEach(function(cb) { if (cb !== untaggedCb) cb.checked = false; });
+        } else if (e.target !== untaggedCb && e.target.checked && untaggedCb) {
+          untaggedCb.checked = false;
+        }
+        dropdowns.forEach(updateSummary);
+      });
+    });
+
+    document.addEventListener('click', function(e) {
+      dropdowns.forEach(function(dropdown) {
+        if (!dropdown.contains(e.target)) dropdown.removeAttribute('open');
+      });
+    });
+  })();
+
+  /* ---- row selectors (injected after render) ---- */
+  function buildRowSelectors() {
+    var wrapper = document.getElementById('gridWrapper');
+    var cards = Array.from(document.querySelectorAll('.design-card'));
+    if (!cards.length) return;
+
+    // Remove any previously injected row selectors (e.g. after resize)
+    wrapper.querySelectorAll('.row-sel').forEach(function(el) { el.remove(); });
+
+    // Group cards by offsetTop (allow 4px tolerance for sub-pixel rendering)
+    var rows = [];
+    var currentRow = null;
+    var currentTop = -999;
+    cards.forEach(function(card) {
+      var top = card.offsetTop;
+      if (Math.abs(top - currentTop) > 4) {
+        currentRow = { top: top, cards: [] };
+        rows.push(currentRow);
+        currentTop = top;
+      }
+      currentRow.cards.push(card);
+    });
+
+    rows.forEach(function(row, rowIdx) {
+      var lbl = document.createElement('label');
+      lbl.className = 'row-sel absolute flex items-center justify-center cursor-pointer';
+      lbl.title = 'Select this row';
+      lbl.style.cssText = [
+        'left:0',
+        'top:' + row.top + 'px',
+        'width:1.5rem',
+        'height:' + row.cards[0].offsetHeight + 'px',
+      ].join(';');
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'row-checkbox rounded w-4 h-4 accent-indigo-400';
+      cb.dataset.row = rowIdx;
+      lbl.appendChild(cb);
+      wrapper.appendChild(lbl);
+
+      cb.addEventListener('change', function() {
+        row.cards.forEach(function(card) {
+          var dcb = card.querySelector('.design-checkbox');
+          if (dcb) dcb.checked = cb.checked;
+        });
+        updateBar();
+      });
+    });
+  }
+
+  function syncRowCheckboxes() {
+    document.querySelectorAll('.row-checkbox').forEach(function(rcb) {
+      var rowIdx = parseInt(rcb.dataset.row);
+      var wrapper = document.getElementById('gridWrapper');
+      var cards = Array.from(document.querySelectorAll('.design-card'));
+      // Rebuild row groupings (same logic as buildRowSelectors)
+      var rows = [];
+      var currentRow = null;
+      var currentTop = -999;
+      cards.forEach(function(card) {
+        var top = card.offsetTop;
+        if (Math.abs(top - currentTop) > 4) {
+          currentRow = [];
+          rows.push(currentRow);
+          currentTop = top;
+        }
+        currentRow.push(card);
+      });
+      var rowCards = rows[rowIdx] || [];
+      var checked = rowCards.filter(function(c) { return c.querySelector('.design-checkbox:checked'); });
+      rcb.checked = checked.length === rowCards.length && rowCards.length > 0;
+      rcb.indeterminate = checked.length > 0 && checked.length < rowCards.length;
+    });
+  }
+
+  // Build on load and rebuild on resize
+  window.addEventListener('load', buildRowSelectors);
+  window.addEventListener('resize', buildRowSelectors);
+
+  /* ---- bulk selection ---- */
+  var bulkBar    = document.getElementById('bulkBar');
+  var bulkCount  = document.getElementById('bulkCount');
+  var bulkForm   = document.getElementById('bulkForm');
+  var bulkDivIds = document.getElementById('bulkDesignIds');
+  var bulkDivType= document.getElementById('bulkTypeIds');
+  var verifyForm = document.getElementById('verifyForm');
+  var verifyDivIds = document.getElementById('verifyDesignIds');
+  var projectForm = document.getElementById('projectForm');
+  var projectDivIds = document.getElementById('projectDesignIds');
+  var bulkProjectId = document.getElementById('bulkProjectId');
+  var selectAll  = document.getElementById('selectAll');
+  var bulkModal  = document.getElementById('bulkModal');
+  var modalCount = document.getElementById('modalCount');
+
+  function getChecked() {
+    return Array.from(document.querySelectorAll('.design-checkbox:checked'));
+  }
+
+  function updateBar() {
+    var checked = getChecked();
+    if (checked.length > 0) {
+      bulkBar.classList.remove('hidden');
+      bulkCount.textContent = checked.length + ' selected';
+    } else {
+      bulkBar.classList.add('hidden');
+    }
+    if (selectAll) {
+      var all = document.querySelectorAll('.design-checkbox');
+      selectAll.checked = all.length > 0 && checked.length === all.length;
+      selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    }
+    syncRowCheckboxes();
+  }
+
+  function openModal() {
+    var checked = getChecked();
+    modalCount.textContent = checked.length + ' design' + (checked.length !== 1 ? 's' : '');
+
+    // Compute intersection of tags across all selected designs
+    var sets = checked.map(function(cb) {
+      var ids = cb.dataset.tagIds ? cb.dataset.tagIds.split(',').filter(Boolean) : [];
+      return ids;
+    });
+    var intersection = sets.length === 0 ? [] : sets[0].filter(function(id) {
+      return sets.every(function(s) { return s.indexOf(id) !== -1; });
+    });
+
+    // Pre-tick mutual tags, clear the rest
+    document.querySelectorAll('.bulk-tag-cb').forEach(function(cb) {
+      cb.checked = intersection.indexOf(cb.value) !== -1;
+    });
+    bulkModal.classList.remove('hidden');
+  }
+
+  function closeModal() {
+    bulkModal.classList.add('hidden');
+  }
+
+  // Use document-level delegation so it works regardless of whether designGrid exists
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('design-checkbox')) {
+      updateBar();
+      syncRowCheckboxes();
+    }
+  });
+
+  // Prevent card link navigation when clicking the checkbox label
+  var designGrid = document.getElementById('designGrid');
+  if (designGrid) {
+    designGrid.addEventListener('click', function(e) {
+      if (e.target.closest('.card-checkbox-label')) {
+        e.stopPropagation();
+      }
+    });
+  }
+
+  // Select all / deselect all
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      document.querySelectorAll('.design-checkbox').forEach(function(cb) {
+        cb.checked = selectAll.checked;
+      });
+      updateBar();
+    });
+  }
+
+  // Open modal
+  document.getElementById('bulkOpenModalBtn').addEventListener('click', openModal);
+
+  // Verify selected (mark tags_checked=True without changing tags)
+  document.getElementById('bulkVerifyBtn').addEventListener('click', function() {
+    var checked = getChecked();
+    if (!checked.length) return;
+    verifyDivIds.innerHTML = '';
+    checked.forEach(function(cb) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'design_ids'; inp.value = cb.dataset.id;
+      verifyDivIds.appendChild(inp);
+    });
+    verifyForm.submit();
+  });
+
+  // Add selected designs to a project
+  var bulkAddToProjectBtn = document.getElementById('bulkAddToProjectBtn');
+  if (bulkAddToProjectBtn) {
+    bulkAddToProjectBtn.addEventListener('click', function() {
+      var checked = getChecked();
+      if (!checked.length) return;
+      if (!bulkProjectId || !bulkProjectId.value) {
+        if (bulkProjectId) bulkProjectId.focus();
+        return;
+      }
+
+      projectDivIds.innerHTML = '';
+      checked.forEach(function(cb) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'design_ids'; inp.value = cb.dataset.id;
+        projectDivIds.appendChild(inp);
+      });
+
+      projectForm.submit();
+    });
+  }
+
+  // Close modal (X, Cancel, backdrop, Escape)
+  document.getElementById('bulkModalClose').addEventListener('click', closeModal);
+  document.getElementById('bulkModalCancel').addEventListener('click', closeModal);
+  document.getElementById('bulkModalBackdrop').addEventListener('click', closeModal);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+  // Apply button inside modal
+  document.getElementById('bulkApplyBtn').addEventListener('click', function() {
+    var checked = getChecked();
+    if (!checked.length) return;
+
+    // Populate design IDs
+    bulkDivIds.innerHTML = '';
+    checked.forEach(function(cb) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'design_ids'; inp.value = cb.dataset.id;
+      bulkDivIds.appendChild(inp);
+    });
+
+    // Populate selected tag IDs from modal checkboxes
+    bulkDivType.innerHTML = '';
+    document.querySelectorAll('.bulk-tag-cb:checked').forEach(function(cb) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'tag_ids'; inp.value = cb.value;
+      bulkDivType.appendChild(inp);
+    });
+
+    bulkForm.submit();
+  });
+
+  // Clear selection
+  document.getElementById('bulkClearBtn').addEventListener('click', function() {
+    document.querySelectorAll('.design-checkbox').forEach(function(cb) { cb.checked = false; });
+    if (selectAll) selectAll.checked = false;
+    updateBar();
+  });
+
+  // Add bottom padding so the bar doesn't cover the last row
+  document.body.style.paddingBottom = '80px';
+})();
+</script>
+{% endblock %}

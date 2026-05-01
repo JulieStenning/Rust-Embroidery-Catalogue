@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ project.name }} — Project Print Sheet</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 15mm; color: #000; }
+    h1 { font-size: 16pt; margin-bottom: 2mm; }
+    .description { font-size: 10pt; color: #555; margin-bottom: 8mm; }
+    .design-card { page-break-inside: avoid; display: flex; gap: 8mm; margin-bottom: 8mm; border: 1px solid #ddd; padding: 4mm; }
+    .design-card img { width: 50mm; height: 50mm; object-fit: contain; background: #f5f5f5; }
+    .design-info { flex: 1; font-size: 9pt; }
+    .design-info h2 { font-size: 11pt; margin-bottom: 1mm; }
+    .meta { margin-bottom: 0.5mm; }
+    .label { font-weight: bold; min-width: 20mm; display: inline-block; }
+    .stars { color: #d97706; }
+    @media print { body { margin: 10mm; } }
+  </style>
+</head>
+<body>
+  <h1>{{ project.name }}</h1>
+  {% if project.description %}
+    <p class="description">{{ project.description }}</p>
+  {% endif %}
+
+  {% for item in designs_with_images %}
+  {% set design = item.design %}
+  <div class="design-card">
+    {% if item.image_b64 %}
+      <img src="data:image/png;base64,{{ item.image_b64 }}" alt="{{ design.filename }}" />
+    {% else %}
+      <div style="width:50mm;height:50mm;background:#eee;display:flex;align-items:center;justify-content:center;font-size:8pt;color:#aaa;">No image</div>
+    {% endif %}
+    <div class="design-info">
+      <h2>{{ design.filename }}</h2>
+      {% if design.width_mm and design.height_mm %}
+        <p class="meta"><span class="label">Size:</span>{{ design.width_mm }} × {{ design.height_mm }} mm</p>
+      {% endif %}
+      {% if design.hoop %}
+        <p class="meta"><span class="label">Hoop:</span>{{ design.hoop.name }}</p>
+      {% endif %}
+      {% if design.stitch_count is not none %}
+        <p class="meta"><span class="label">Stitches:</span>{{ "{:,}".format(design.stitch_count) }}</p>
+      {% endif %}
+      {% if design.color_count is not none %}
+        <p class="meta"><span class="label">Colours:</span>{{ design.color_count }}</p>
+      {% endif %}
+      {% if design.color_change_count is not none %}
+        <p class="meta"><span class="label">Colour changes:</span>{{ design.color_change_count }}</p>
+      {% endif %}
+      {% if design.designer %}
+        <p class="meta"><span class="label">Designer:</span>{{ design.designer.name }}</p>
+      {% endif %}
+      {% if design.rating %}
+        <p class="meta"><span class="label">Rating:</span><span class="stars">{{ "★" * design.rating }}{{ "☆" * (5 - design.rating) }}</span></p>
+      {% endif %}
+      {% if design.is_stitched %}
+        <p class="meta"><span class="label">Stitched:</span>Yes ✓</p>
+      {% endif %}
+      {% if design.notes %}
+        <p class="meta" style="margin-top:2mm;font-style:italic;">{{ design.notes }}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ design.filename }} — Print</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20mm; color: #000; }
+    img { max-width: 120mm; max-height: 120mm; display: block; margin: 0 auto 6mm; }
+    h1 { font-size: 14pt; margin-bottom: 2mm; }
+    .meta { font-size: 10pt; margin-bottom: 1mm; }
+    .label { font-weight: bold; min-width: 30mm; display: inline-block; }
+    .notes { margin-top: 4mm; font-size: 10pt; white-space: pre-wrap; border: 1px solid #ccc; padding: 2mm; }
+    .stars { font-size: 14pt; color: #d97706; }
+  </style>
+</head>
+<body>
+  {% if image_b64 %}
+    <img src="data:image/png;base64,{{ image_b64 }}" alt="{{ design.filename }}" />
+  {% endif %}
+
+  <h1>{{ design.filename }}</h1>
+  <p class="meta"><span class="label">File:</span>{{ design.filepath }}</p>
+  {% if design.width_mm and design.height_mm %}
+    <p class="meta"><span class="label">Size:</span>{{ design.width_mm }} × {{ design.height_mm }} mm</p>
+  {% endif %}
+  {% if design.hoop %}
+    <p class="meta"><span class="label">Hoop:</span>{{ design.hoop.name }}</p>
+  {% endif %}
+  {% if design.stitch_count is not none %}
+    <p class="meta"><span class="label">Stitches:</span>{{ "{:,}".format(design.stitch_count) }}</p>
+  {% endif %}
+  {% if design.color_count is not none %}
+    <p class="meta"><span class="label">Colours:</span>{{ design.color_count }}</p>
+  {% endif %}
+  {% if design.color_change_count is not none %}
+    <p class="meta"><span class="label">Colour changes:</span>{{ design.color_change_count }}</p>
+  {% endif %}
+  {% if design.designer %}
+    <p class="meta"><span class="label">Designer:</span>{{ design.designer.name }}</p>
+  {% endif %}
+  {% if design.source %}
+    <p class="meta"><span class="label">Source:</span>{{ design.source.name }}</p>
+  {% endif %}
+  {% if design.date_added %}
+    <p class="meta"><span class="label">Added:</span>{{ design.date_added }}</p>
+  {% endif %}
+  {% if design.rating %}
+    <p class="meta"><span class="label">Rating:</span><span class="stars">{{ "★" * design.rating }}{{ "☆" * (5 - design.rating) }}</span></p>
+  {% endif %}
+  {% if design.is_stitched %}
+    <p class="meta"><span class="label">Stitched:</span>Yes</p>
+  {% endif %}
+  {% if design.tags %}
+    <p class="meta"><span class="label">Tags:</span>{{ design.tags | map(attribute="description") | join(", ") }}</p>
+  {% endif %}
+  {% if design.notes %}
+    <div class="notes">{{ design.notes }}</div>
+  {% endif %}
+</body>
+</html>

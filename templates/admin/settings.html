@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Settings — Embroidery Catalogue{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Application Settings</h1>
+
+{% if request.query_params.get('saved') %}
+<div class="mb-4 bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
+  Settings saved successfully.
+</div>
+{% elif request.query_params.get('error') %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+  The Google API key could not be saved to <code>.env</code>. Please try again.
+</div>
+{% endif %}
+
+<div class="max-w-3xl space-y-6">
+  <form method="post" class="bg-white rounded shadow p-6 space-y-5">
+
+    <!-- Image preference (2D vs 3D) -->
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700 mb-1">Image preview preference</h2>
+      <p class="text-sm text-gray-600 mb-3">
+        Choose whether new imports generate <strong>2D</strong> (fast flat preview) or
+        <strong>3D</strong> (detailed stitch-simulated preview) images by default.
+        You can override this per import session on the precheck page.
+        3D rendering is slower but produces more realistic previews.
+      </p>
+      <div class="space-y-2">
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="radio"
+            name="image_preference"
+            value="2d"
+            {% if image_preference == '2d' %}checked{% endif %}
+            class="text-indigo-600 focus:ring-indigo-500"
+          />
+          <strong>2D</strong> — Fast flat preview (default, recommended for bulk imports)
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="radio"
+            name="image_preference"
+            value="3d"
+            {% if image_preference == '3d' %}checked{% endif %}
+            class="text-indigo-600 focus:ring-indigo-500"
+          />
+          <strong>3D</strong> — Detailed stitch-simulated preview (slower, more realistic)
+        </label>
+      </div>
+      <p class="mt-2 text-xs text-gray-500">
+        Current setting: <strong>{{ "3D" if image_preference == '3d' else "2D" }}</strong>.
+        This affects the import pipeline only. Existing designs keep their current image type.
+      </p>
+    </div>
+
+    <!-- Google API key -->
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
+      <p class="text-sm text-gray-600">
+        The Google API key is only required if you want your designs to be tagged automatically by Google AI.
+        <a href="{{ ai_tagging_help_url }}" class="text-indigo-600 hover:underline">Press here for more information.</a>
+      </p>
+    </div>
+
+    <div>
+      <label for="google_api_key" class="block text-sm font-semibold text-gray-700 mb-1">API key</label>
+      <div class="flex items-center gap-2">
+        <input
+          id="google_api_key"
+          name="google_api_key"
+          type="password"
+          value="{{ google_api_key or '' }}"
+          placeholder="AIzaSy..."
+          autocomplete="off"
+          spellcheck="false"
+          class="flex-1 border rounded px-3 py-2 text-sm font-mono"
+        />
+        <button
+          type="button"
+          id="toggle-google-api-key"
+          class="border rounded px-3 py-2 text-sm hover:bg-gray-50"
+          aria-label="Show or hide API key"
+          aria-pressed="false"
+          title="Show API key"
+        >
+          <span id="toggle-google-api-key-icon" aria-hidden="true">👁</span>
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-gray-500">
+        {% if has_google_api_key %}
+          A key is currently saved in <code>.env</code>. You can leave it as-is or replace it here.
+        {% else %}
+          Leave this blank if you only want keyword-based tagging with no Google AI calls.
+        {% endif %}
+      </p>
+    </div>
+
+    <!-- AI tagging behaviour -->
+    <div class="border-t pt-4">
+      <h2 class="text-sm font-semibold text-gray-700 mb-1">AI tagging during import</h2>
+      <p class="text-sm text-gray-600 mb-3">
+        Control whether Gemini AI tagging runs automatically when you import designs.
+        Tier 1 (keyword matching) always runs and is free.
+        Tiers 2 and 3 call the Google Gemini API and require an API key.
+      </p>
+
+      {% if has_google_api_key %}
+      <div class="bg-amber-50 border border-amber-300 rounded p-3 mb-3 text-sm text-amber-900">
+        <strong>⚠ Cost notice:</strong> Gemini usage may incur charges on your Google account.
+        Free-tier limits are approximately <strong>15 requests per minute</strong> and
+        <strong>1,500 requests per day</strong>.
+        A historical estimate from February 2026 found that Tier 3 on 4,000 images cost about
+        <strong>$0.33 on the paid tier</strong>; actual pricing may have changed.
+        Check the latest rates at
+        <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener">ai.google.dev/pricing</a>.
+      </div>
+      {% else %}
+      <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-3 text-sm text-blue-900">
+        No API key is saved. AI tagging options below will have no effect until you add a key above.
+      </div>
+      {% endif %}
+
+      <div class="space-y-2">
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            name="ai_tier2_auto"
+            value="1"
+            {% if ai_tier2_auto %}checked{% endif %}
+            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Run <strong>Tier 2</strong> (Gemini text AI from filename) automatically during import
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            name="ai_tier3_auto"
+            value="1"
+            {% if ai_tier3_auto %}checked{% endif %}
+            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Run <strong>Tier 3</strong> (Gemini vision AI from preview image) automatically during import
+        </label>
+      </div>
+    </div>
+
+    <!-- Batch size -->
+    <div>
+      <label for="ai_batch_size" class="block text-sm font-semibold text-gray-700 mb-1">
+        AI tagging batch size <span class="font-normal text-gray-500">(optional)</span>
+      </label>
+      <input
+        id="ai_batch_size"
+        name="ai_batch_size"
+        type="number"
+        min="1"
+        value="{{ ai_batch_size or '' }}"
+        placeholder="e.g. 100 — leave blank to tag all"
+        class="border rounded px-3 py-2 text-sm w-48"
+      />
+      <p class="mt-1 text-xs text-gray-500">
+        Limit AI tagging to this many newly imported designs per import run.
+        Leave blank to tag all newly imported designs.
+        Useful for very large imports where you want to spread Gemini calls over several runs.
+      </p>
+    </div>
+
+    <!-- Delay between API calls -->
+    <div>
+      <label for="ai_delay" class="block text-sm font-semibold text-gray-700 mb-1">
+        Delay between Gemini calls (seconds) <span class="font-normal text-gray-500">(optional)</span>
+      </label>
+      <input
+        id="ai_delay"
+        name="ai_delay"
+        type="number"
+        min="0"
+        step="0.5"
+        value="{{ ai_delay or '' }}"
+        placeholder="e.g. 6.0 — leave blank for default (5.0 s)"
+        class="border rounded px-3 py-2 text-sm w-56"
+      />
+      <p class="mt-1 text-xs text-gray-500">
+        Seconds to wait between API calls. Increase this if you see
+        <em>429 Too Many Requests</em> errors. Default is 5.0 seconds.
+        Also applies to batch tagging actions on the
+        <a href="/admin/tagging-actions/" class="text-indigo-600 hover:underline">Tagging Actions</a> page.
+      </p>
+    </div>
+
+    <div>
+      <label for="import_commit_batch_size" class="block text-sm font-semibold text-gray-700 mb-1">
+        Import database commit batch size <span class="font-normal text-gray-500">(optional)</span>
+      </label>
+      <input
+        id="import_commit_batch_size"
+        name="import_commit_batch_size"
+        type="number"
+        min="1"
+        value="{{ import_commit_batch_size or '' }}"
+        placeholder="e.g. 1000 - leave blank for default"
+        class="border rounded px-3 py-2 text-sm w-56"
+      />
+      <p class="mt-1 text-xs text-gray-500">
+        Controls how many designs are written or tag-updated before each database commit during import.
+        Leave blank to use the default batch size of 1000.
+        Lower values reduce rollback size on failure; higher values reduce commit overhead.
+      </p>
+    </div>
+
+    <div class="border-t pt-4 space-y-3">
+      <h2 class="text-sm font-semibold text-gray-700 mb-1">Catalogue storage</h2>
+      <p class="text-sm text-gray-600">
+        Large catalogue data lives under a single home folder.
+        {% if can_configure_data_root %}
+          For desktop installs you can point this to a larger drive. Changes apply after restarting the app, and any missing managed files are copied into the new location automatically.
+        {% else %}
+          In {{ app_mode }} mode this location follows the application folder automatically.
+        {% endif %}
+      </p>
+
+      {% if can_configure_data_root %}
+      <div>
+        <label for="data_root" class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</label>
+        <div class="flex items-center gap-2">
+          <input
+            id="data_root"
+            name="data_root"
+            type="text"
+            value="{{ data_root or '' }}"
+            placeholder="D:\\EmbroideryCatalogueData"
+            spellcheck="false"
+            class="flex-1 border rounded px-3 py-2 text-sm font-mono"
+          />
+          <button
+            type="button"
+            id="browse-data-root"
+            class="border rounded px-3 py-2 text-sm hover:bg-gray-50"
+          >
+            Browse…
+          </button>
+        </div>
+        <p class="mt-1 text-xs text-gray-500">
+          This home folder contains both the catalogue database and the managed design library.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="flex items-center justify-between gap-3">
+      <p class="text-xs text-gray-500">These settings are stored in the catalogue database for this installation.</p>
+      <button type="submit" class="bg-indigo-600 text-white rounded px-4 py-2 text-sm hover:bg-indigo-700">Save settings</button>
+    </div>
+  </form>
+
+  <div class="bg-white rounded shadow p-6 space-y-5">
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700 mb-1">Storage locations</h2>
+      <p class="text-sm text-gray-600">
+        The catalogue database and imported embroidery files live under the catalogue data location shown below.
+        Logs are stored separately so they survive data moves.
+      </p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</label>
+      <code class="block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{{ data_root }}</code>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 mb-1">Log folder</label>
+      <code class="block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{{ log_folder }}</code>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const input = document.getElementById("google_api_key");
+  const button = document.getElementById("toggle-google-api-key");
+  const icon = document.getElementById("toggle-google-api-key-icon");
+  const dataRootInput = document.getElementById("data_root");
+  const browseDataRootButton = document.getElementById("browse-data-root");
+
+  if (input && button && icon) {
+    button.addEventListener("click", function () {
+      const reveal = input.type === "password";
+      input.type = reveal ? "text" : "password";
+      button.setAttribute("aria-pressed", reveal ? "true" : "false");
+      button.setAttribute("title", reveal ? "Hide API key" : "Show API key");
+      icon.textContent = reveal ? "🙈" : "👁";
+    });
+  }
+
+  if (dataRootInput && browseDataRootButton) {
+    browseDataRootButton.addEventListener("click", async function () {
+      browseDataRootButton.disabled = true;
+      try {
+        const params = new URLSearchParams({ start_dir: dataRootInput.value || "" });
+        const response = await fetch(`/admin/settings/browse-data-root?${params.toString()}`);
+        const payload = await response.json();
+        if (payload.path) {
+          dataRootInput.value = payload.path;
+        } else if (payload.error) {
+          window.alert(payload.error);
+        }
+      } catch (_error) {
+        window.alert("The folder picker could not be opened. Please enter the path manually.");
+      } finally {
+        browseDataRootButton.disabled = false;
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

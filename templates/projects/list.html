@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Projects — Embroidery Catalogue{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Projects</h1>
+  <a href="/projects/new" class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-700">+ New Project</a>
+</div>
+<p class="text-sm text-gray-500 mb-4">Group designs for a planned embroidery task — for example a seasonal set or a quilt block series.
+  <a href="/help#projects" class="text-indigo-500 hover:underline">Learn more</a>
+</p>
+
+{% if projects %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for project in projects %}
+  <a href="/projects/{{ project.id }}" class="bg-white rounded shadow hover:shadow-md p-4 block">
+    <h2 class="font-semibold text-gray-800">{{ project.name }}</h2>
+    {% if project.description %}
+      <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ project.description }}</p>
+    {% endif %}
+    {% if project.date_created %}
+      <p class="text-xs text-gray-400 mt-2">Created {{ project.date_created }}</p>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500">No projects yet. <a href="/projects/new" class="text-indigo-600 hover:underline">Create one</a>.</p>
+{% endif %}
+{% endblock %}

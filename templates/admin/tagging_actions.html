@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Backfill Descriptions -->
+<div class="bg-white rounded shadow p-6 space-y-4 mb-6">
+  <h2 class="text-lg font-semibold text-gray-800 mb-2">Design Tagging Actions</h2>
+  <ul class="list-disc list-inside space-y-2">
+    <li><strong>Tagging (AI/keyword):</strong> Assigns tags to designs using keyword, Gemini text AI, or Gemini vision AI.</li>
+    <li><strong>Stitch type analysis:</strong> Analyses embroidery files to detect stitch types and updates stitching tags for unverified designs.</li>
+    <li><strong>Images:</strong> Generates preview images and dimensions for designs.</li>
+    <li><strong>Threads and colours:</strong> Reads embroidery files to populate stitch, colour, and colour change counts.</li>
+  </ul>
+</div>
+
+
+
+<!-- 1. Tagging Action Form -->
+<form id="tagging-action-form" method="post" action="/admin/tagging-actions/run" class="bg-white rounded shadow p-6 space-y-6 relative">
+
+  <!-- Spinner overlay -->
+  <div id="tagging-spinner-overlay" class="hidden absolute inset-0 z-10 bg-white/70 rounded flex items-center justify-center">
+    <div class="flex items-center gap-3 text-indigo-700 font-semibold text-lg">
+      <svg class="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+      <span>Running&hellip;</span>
+    </div>
+  </div>
+
+  <h2 class="text-md font-semibold text-gray-700 mb-2">1. Choose tagging action</h2>
+
+  <div class="space-y-2">
+    <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+      <input type="radio" name="action" value="tag_untagged" checked
+             onchange="updateActionUI()"
+             class="text-indigo-600 focus:ring-indigo-500" />
+      <span><strong>Tag only untagged</strong> — designs with no image tags (may have stitching tags)</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+      <input type="radio" name="action" value="retag_all_unverified"
+             onchange="updateActionUI()"
+             class="text-indigo-600 focus:ring-indigo-500" />
+      <span><strong>Re-tag ALL unverified</strong> — overwrite tags on unverified designs only</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+      <input type="radio" name="action" value="retag_all"
+             onchange="updateActionUI()"
+             class="text-indigo-600 focus:ring-indigo-500" />
+      <span><strong>Re-tag ALL (including verified)</strong> — overwrite all tags, destructive</span>
+    </label>
+  </div>
+
+  <!-- 2. Tier selection -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-2">2. AI tiers to use</h2>
+    <p class="text-xs text-gray-500 mb-3">
+      Select which tagging methods to apply. Tier 1 is always included.
+      Tiers 2 and 3 require a valid Google AI (Gemini) API key configured in
+      <a href="{{ settings_url }}" class="text-indigo-600 hover:underline">Settings</a>.
+      If no API key is configured, only Tier 1 will run regardless of selection.
+    </p>
+    <!-- AI Tagging Info Banner from import/precheck.html -->
+    <div class="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-5 max-w-2xl text-sm text-amber-900">
+      <p class="font-semibold mb-1">⚠ Google AI tagging is enabled for this installation</p>
+      <p class="mb-2">
+        Depending on your saved settings, Tier 2 and/or Tier 3 may run during this import.
+        Gemini usage may incur cost. Free-tier limits are approximately
+        <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>.
+        A historical estimate from February 2026 found that Tier 3 on 4,000 images cost about
+        <strong>$0.33 on the paid tier</strong>; actual pricing may have changed — check
+        <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener">ai.google.dev/pricing</a>.
+      </p>
+      <p class="text-xs text-amber-800">
+        Tier 2 auto: <strong>{{ "on" if ai_tier2_auto else "off" }}</strong> ·
+        Tier 3 auto: <strong>{{ "on" if ai_tier3_auto else "off" }}</strong>
+        {% if ai_batch_size %}· AI batch limit: <strong>{{ ai_batch_size }} designs</strong>{% endif %}
+        {% if import_commit_batch_size %}· DB commit batch: <strong>{{ import_commit_batch_size }} designs</strong>{% endif %}
+        · <a href="/admin/settings/" class="underline hover:no-underline">Change in Settings</a>
+      </p>
+    </div>
+    <div class="space-y-2">
+      <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" name="tiers" value="1" checked disabled
+               class="rounded border-gray-300 text-indigo-600" />
+        <span><strong>Tier 1</strong> — Keyword matching from filename (always included, free)</span>
+      </label>
+      {# Hidden input ensures tier 1 is always submitted #}
+      <input type="hidden" name="tiers" value="1" />
+
+      <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer {% if not has_google_api_key %}opacity-50{% endif %}">
+
+        <input type="checkbox" name="tiers" value="2" id="tier2_check"
+                 {% if ai_tier2_auto %}checked{% endif %}
+                 {% if not has_google_api_key %}disabled{% endif %}
+                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+        <span><strong>Tier 2</strong> — Gemini text AI from filename stem</span>
+        {% if not has_google_api_key %}
+        <span class="text-xs text-gray-400">(API key required)</span>
+        {% endif %}
+      </label>
+
+      <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer {% if not has_google_api_key %}opacity-50{% endif %}">
+
+        <input type="checkbox" name="tiers" value="3" id="tier3_check"
+                 {% if ai_tier3_auto %}checked{% endif %}
+                 {% if not has_google_api_key %}disabled{% endif %}
+                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+        <span><strong>Tier 3</strong> — Gemini vision AI from preview image</span>
+        {% if not has_google_api_key %}
+        <span class="text-xs text-gray-400">(API key required)</span>
+        {% endif %}
+      </label>
+    </div>
+  </div>
+
+  <!-- 3. Batch and delay options -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-2">3. AI Batch and rate-limit options</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="batch_size" class="block text-xs font-medium text-gray-600 mb-1">
+          Batch size
+        </label>
+        <input
+          id="batch_size"
+          name="batch_size"
+          type="number"
+          min="1"
+          value="{{ ai_batch_size or '' }}"
+          placeholder="e.g. 100"
+          class="border rounded px-3 py-2 text-sm w-full"
+        />
+        <p class="mt-1 text-xs text-gray-400">
+          Leave blank to use the AI tagging batch size saved in
+          <a href="{{ settings_url }}" class="text-indigo-600 hover:underline">Settings</a>.
+        </p>
+      </div>
+
+      <div>
+        <label for="delay_field" class="block text-xs font-medium text-gray-600 mb-1">
+          Delay between API calls (seconds)
+          <span class="font-normal text-gray-400">(optional)</span>
+        </label>
+        <input
+          id="delay_field"
+          name="delay"
+          type="number"
+          min="0"
+          step="0.5"
+          value="{{ ai_delay or '' }}"
+          placeholder="e.g. 6.0 — default: {{ ai_delay_default }}"
+          class="border rounded px-3 py-2 text-sm w-full"
+        />
+        <p class="mt-1 text-xs text-gray-400">
+          Increase if you see <em>429 Too Many Requests</em> errors.
+          Leave blank to use the delay saved in
+          <a href="{{ settings_url }}" class="text-indigo-600 hover:underline">Settings</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="flex items-center justify-between gap-3 border-t pt-4">
+    <p class="text-xs text-gray-500">
+      Actions run synchronously — the page will reload when complete.
+      For very large libraries use the CLI scripts for overnight runs.
+    </p>
+    <!-- Removed legacy run action button -->
+  </div>
+
+</form>
+
+<!-- 4. Local stitching backfill -->
+<!-- 4. Stitch Type Analysis -->
+<form method="post" action="/admin/tagging-actions/run-stitching-backfill" class="bg-white rounded shadow p-6 space-y-4">
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-2"><strong>4. Stitch Type Analysis</strong> - Detect embroidery styles directly from your design files.</h2>
+    <p class="text-sm text-gray-600 mb-2"><strong>How it works:</strong> Analyses your embroidery files to identify specific stitch types.</p>
+    <p class="text-sm text-gray-600 mb-2"><strong>Targeting:</strong> Only processes unverified designs to ensure your catalogue stays accurate.</p>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-sm text-gray-700">
+      <strong>Clear existing stitch types for unverified designs</strong> - Removes existing stitch tags before updating to ensure accuracy. Your descriptive image tags will be kept.<br />
+    </span>
+  </div>
+</form>
+
+<!-- 5. Threads and colours -->
+<form method="post" action="/admin/maintenance/backfill-color-counts" class="bg-white rounded shadow p-6 space-y-4">
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-2"><strong>5. Threads and colours</strong> - Automatically retrieve technical details from your embroidery files.</h2>
+    <p class="text-sm text-gray-600 mb-2"><strong>How it works:</strong> Scans your files to identify the total stitch count, the number of individual colours, and the number of thread changes required.</p>
+    <p class="text-sm text-gray-600 mb-2"><strong>Targeting:</strong> Only updates designs where this information is currently missing.</p>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-sm text-gray-700">
+      <strong>Refresh all thread and colour data</strong> - Updates the stitch and colour counts for every design, overwriting any existing information.<br />
+    </span>
+  </div>
+</form>
+
+<!-- 6. Images -->
+<div class="bg-white rounded shadow p-6 space-y-4">
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-2"><strong>6. Images</strong> - Generate visual previews and sizing for your collection.</h2>
+    <p class="text-sm text-gray-600 mb-2"><strong>How it works:</strong> Reads each embroidery file to create a preview image, calculate the width and height, and set the hoop.</p>
+    <p class="text-sm text-gray-600 mb-2"><strong>Targeting:</strong> Only processes designs where these images or measurements are currently missing.</p>
+  </div>
+</div>
+
+<!-- Confirmation modal for Re-process all images -->
+<div id="clear-images-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 space-y-4">
+    <h3 class="text-lg font-bold text-gray-900">Delete all existing images?</h3>
+    <p class="text-sm text-gray-600">
+      You have chosen <strong>Re-process all images</strong>. This will first
+      <strong class="text-red-600">delete all existing preview images, dimensions, and hoop assignments</strong>
+      from every design in the catalogue.
+    </p>
+    <p class="text-sm text-gray-600">
+      After deletion, the image backfill will run and regenerate previews only for
+      designs where images are missing — making subsequent runs much faster if the
+      process is interrupted.
+    </p>
+    <p class="text-sm font-semibold text-red-700">
+     Are you sure you want to proceed?
+    </p>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="clear-images-cancel-btn" type="button"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
+        Cancel
+      </button>
+      <button id="clear-images-confirm-btn" type="button"
+              class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700">
+        Yes, delete all images
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Unified Backfill Section -->
+<form id="unified-backfill-form" class="bg-white rounded shadow p-6 space-y-6 mb-6">
+  <h2 class="text-md font-semibold text-gray-700 mb-2">Tagging Actions</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+    <label class="flex items-center gap-2"><input type="checkbox" name="actions" value="tagging" onchange="updateUnifiedOptions()" /> Tagging (AI/keyword)</label>
+    <label class="flex items-center gap-2"><input type="checkbox" name="actions" value="stitching" onchange="updateUnifiedOptions()" /> Stitch types</label>
+    <label class="flex items-center gap-2"><input type="checkbox" name="actions" value="images" onchange="updateUnifiedOptions()" /> Images</label>
+    <label class="flex items-center gap-2"><input type="checkbox" name="actions" value="color_counts" onchange="updateUnifiedOptions()" /> Threads and Colours</label>
+  </div>
+  <div id="tagging-options" class="ml-6 hidden space-y-1">
+    <label>Action:
+      <select name="tagging_action" class="border rounded px-2 py-1">
+        <option value="tag_untagged">Tag only untagged</option>
+        <option value="retag_all_unverified">Re-tag ALL unverified</option>
+        <option value="retag_all">Re-tag ALL (including verified, destructive)</option>
+      </select>
+    </label>
+    <label>Tiers:
+      <input type="checkbox" name="tagging_tiers" value="1" checked disabled /> 1
+      <input type="checkbox" name="tagging_tiers" value="2" /> 2
+      <input type="checkbox" name="tagging_tiers" value="3" /> 3
+    </label>
+  </div>
+  <div id="stitching-options" class="ml-6 hidden space-y-1">
+    <label><input type="checkbox" name="stitching_clear_existing" value="1" /> Clear existing stitching tags for unverified designs first</label>
+  </div>
+  <div id="images-options" class="ml-6 hidden space-y-1">
+    <label><input type="checkbox" name="images_redo" value="1" id="images_redo" onchange="updateImagesOptions()" /> Re-process all images</label>
+    <label class="block mt-1"><input type="checkbox" name="images_upgrade_2d_to_3d" value="1" id="images_upgrade_2d_to_3d" /> Upgrade existing 2D images to 3D</label>
+    <label class="block mt-1"><input type="checkbox" name="images_2d" value="1" id="images_2d" /> Use fast 2D preview (skip 3D rendering)</label>
+  </div>
+  <div id="color_counts-options" class="ml-6 hidden space-y-1">
+    <p class="text-xs text-gray-500">Thread and colour data will be added to designs where it is missing.</p>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+    <div>
+      <label>Batch size <input type="number" name="batch_size" min="1" class="border rounded px-2 py-1 w-24" placeholder="100" /></label>
+    </div>
+    <div>
+      <label>Commit every <input type="number" name="commit_every" min="1" class="border rounded px-2 py-1 w-24" placeholder="500" /></label>
+    </div>
+    <div>
+      <label>Workers <input type="number" name="workers" min="1" max="16" class="border rounded px-2 py-1 w-24" placeholder="4" /></label>
+      <p class="text-xs text-gray-400 mt-0.5">Parallel workers (1 = sequential, 4+ recommended)</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-3 border-t pt-4">
+    <button type="button" id="run-unified-backfill-btn" class="bg-indigo-700 text-white rounded px-4 py-2 text-sm hover:bg-indigo-800">Run selected actions</button>
+    <button type="button" id="stop-unified-backfill-btn" class="bg-red-600 text-white rounded px-4 py-2 text-sm hover:bg-red-700 hidden">Stop running</button>
+    <span id="unified-backfill-progress" class="text-xs text-gray-500"></span>
+    <a href="/admin/tagging-actions/download-backfill-log" class="ml-auto underline text-indigo-600 text-xs" target="_blank">Download error log</a>
+  </div>
+</form>
+
+<!-- CLI reference -->
+<div class="bg-white rounded shadow p-6 space-y-3 text-sm">
+  <h2 class="font-semibold text-gray-700">CLI tools (advanced / overnight runs)</h2>
+  <p class="text-gray-600">
+    For very large collections or scheduled runs, the command-line scripts remain available.
+    Activate the virtual environment and run from the project root:
+  </p>
+  <pre class="bg-gray-50 border rounded px-4 py-3 text-xs font-mono overflow-x-auto">
+REM Tag only designs with no tags yet (default)
+python auto_tag.py
+
+REM Re-tag ALL designs (overwrites existing tags)
+python auto_tag.py --redo
+
+REM Keyword matching only — no Gemini calls
+python auto_tag.py --tier1-only
+
+REM Run Tier 2 + vision AI (Tier 3) on still-untagged designs
+python auto_tag.py --tier3
+
+REM Tag only unverified designs (skip verified)
+python auto_tag.py --skip-verified
+
+REM Tag unverified designs only — also run Tier 3 on still-untagged
+python auto_tag.py --skip-verified --tier3
+
+REM Limit to first 50 designs (for testing)
+python auto_tag.py --limit 50
+
+REM Slow down to avoid 429 rate-limit errors
+python auto_tag.py --delay 6.0
+
+REM Preview without writing — dry run
+python auto_tag.py --dry-run
+  </pre>
+  <p class="text-xs text-gray-500">
+    See the <a href="{{ ai_tagging_help_url }}" class="text-indigo-600 hover:underline">AI Tagging Guide</a>
+    for full documentation.
+  </p>
+</div>
+
+<script>
+(function () {
+  function updateUnifiedOptions() {
+    const actions = Array.from(document.querySelectorAll('input[name="actions"]:checked')).map(i => i.value);
+    ["tagging", "stitching", "images", "color_counts"].forEach(act => {
+      const el = document.getElementById(act + "-options");
+      if (el) el.classList.toggle("hidden", !actions.includes(act));
+    });
+    // Also update images sub-options when visibility changes
+    updateImagesOptions();
+  }
+
+  function updateImagesOptions() {
+    const redoChecked = document.getElementById('images_redo').checked;
+    const upgradeCheckbox = document.getElementById('images_upgrade_2d_to_3d');
+    if (redoChecked) {
+      upgradeCheckbox.disabled = true;
+      upgradeCheckbox.checked = false;
+      upgradeCheckbox.parentElement.classList.add('opacity-40');
+    } else {
+      upgradeCheckbox.disabled = false;
+      upgradeCheckbox.parentElement.classList.remove('opacity-40');
+    }
+  }
+
+  const runBtn = document.getElementById('run-unified-backfill-btn');
+  const stopBtn = document.getElementById('stop-unified-backfill-btn');
+  const progress = document.getElementById('unified-backfill-progress');
+
+  // Track whether the unified form triggered the modal
+  let unifiedClearImagesCallback = null;
+  let pendingClearImages = false;
+
+  runBtn.onclick = async function() {
+    const form = document.getElementById('unified-backfill-form');
+    const imagesRedoChecked = document.getElementById('images_redo').checked;
+
+    // If "Re-process all images" is checked, show the modal for confirmation
+    if (imagesRedoChecked && !pendingClearImages) {
+      // Store a callback that will be invoked when the user confirms via the modal
+      unifiedClearImagesCallback = async function() {
+        // First, call the clear-images endpoint
+        progress.textContent = 'Clearing existing images...';
+        runBtn.disabled = true;
+        stopBtn.classList.remove('hidden');
+        try {
+          const clearResp = await fetch('/admin/maintenance/clear-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (!clearResp.ok) {
+            const clearData = await clearResp.json().catch(() => ({}));
+            progress.textContent = 'Error clearing images: ' + (clearData.error || clearResp.statusText);
+            runBtn.disabled = false;
+            stopBtn.classList.add('hidden');
+            return;
+          }
+        } catch (e) {
+          progress.textContent = 'Error clearing images: ' + e;
+          runBtn.disabled = false;
+          stopBtn.classList.add('hidden');
+          return;
+        }
+        // Mark that we've cleared images so the redo flag is no longer needed
+        pendingClearImages = true;
+        // Uncheck the redo checkbox so the backfill only processes missing images
+        document.getElementById('images_redo').checked = false;
+        // Now proceed with the actual backfill
+        runUnifiedBackfill();
+      };
+      // Show the modal
+      document.getElementById('clear-images-modal').classList.remove('hidden');
+      return;
+    }
+
+    runUnifiedBackfill();
+  };
+
+  async function runUnifiedBackfill() {
+    const form = document.getElementById('unified-backfill-form');
+    progress.textContent = 'Running...';
+    runBtn.disabled = true;
+    stopBtn.classList.remove('hidden');
+    // Gather selected actions and options
+    const actions = {};
+    const checkedActions = Array.from(form.querySelectorAll('input[name="actions"]:checked')).map(i => i.value);
+    checkedActions.forEach(action => {
+      if (action === 'tagging') {
+        actions.tagging = {
+          action: form.tagging_action.value,
+          tiers: Array.from(form.querySelectorAll('input[name="tagging_tiers"]:checked')).map(i => parseInt(i.value))
+        };
+      } else if (action === 'stitching') {
+        actions.stitching = {
+          clear_existing_stitching: form.stitching_clear_existing.checked
+        };
+      } else if (action === 'images') {
+        actions.images = {
+          redo: form.images_redo.checked,
+          upgrade_2d_to_3d: form.images_upgrade_2d_to_3d.checked
+        };
+        // preview_3d is sent as a top-level field, not in actions.images
+      } else if (action === 'color_counts') {
+        actions.color_counts = {};
+      }
+    });
+    const batch_size = form.batch_size.value ? parseInt(form.batch_size.value) : 100;
+    const commit_every = form.commit_every.value ? parseInt(form.commit_every.value) : 500;
+    const workers = form.workers.value ? parseInt(form.workers.value) : 1;
+    const preview_3d = !document.getElementById('images_2d').checked;
+    try {
+      const resp = await fetch('/admin/tagging-actions/run-unified-backfill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actions, batch_size, commit_every, workers, preview_3d })
+      });
+      const data = await resp.json();
+      if (data.error) {
+        progress.textContent = 'Error: ' + data.error;
+      } else {
+        let msg = `Processed: ${data.processed}, Errors: ${data.errors}`;
+        if (data.stopped) {
+          msg += ' — Stopped by user.';
+        }
+        progress.textContent = msg;
+      }
+    } catch (e) {
+      progress.textContent = 'Error: ' + e;
+    } finally {
+      runBtn.disabled = false;
+      stopBtn.classList.add('hidden');
+      pendingClearImages = false;
+    }
+  }
+
+  stopBtn.onclick = async function() {
+    stopBtn.disabled = true;
+    progress.textContent = 'Stopping...';
+    try {
+      await fetch('/admin/tagging-actions/stop-unified-backfill', { method: 'POST' });
+    } catch (e) {
+      // Ignore — the stop signal was likely still sent
+    }
+  };
+
+  function updateActionUI() {
+    // No-op: all action options are self-contained now
+  }
+  // Expose globally so onchange= works
+  window.updateActionUI = updateActionUI;
+  window.updateUnifiedOptions = updateUnifiedOptions;
+  window.updateImagesOptions = updateImagesOptions;
+  updateActionUI();
+
+  // Spinner and submit lock logic
+  const form = document.getElementById('tagging-action-form');
+  const spinner = document.getElementById('tagging-spinner-overlay');
+  const runButton = document.getElementById('run-action-btn');
+  if (form && spinner) {
+    form.addEventListener('submit', function () {
+      spinner.classList.remove('hidden');
+      form.classList.add('pointer-events-none');
+      if (runButton) {
+        runButton.disabled = true;
+        runButton.textContent = 'Running...';
+      }
+    });
+  }
+
+  // --- Confirmation modal for Re-process all images ---
+  const clearImagesModal = document.getElementById('clear-images-modal');
+  const clearImagesCancelBtn = document.getElementById('clear-images-cancel-btn');
+  const clearImagesConfirmBtn = document.getElementById('clear-images-confirm-btn');
+
+  if (clearImagesCancelBtn) {
+    clearImagesCancelBtn.addEventListener('click', function () {
+      clearImagesModal.classList.add('hidden');
+      unifiedClearImagesCallback = null;
+    });
+  }
+
+  if (clearImagesConfirmBtn) {
+    clearImagesConfirmBtn.addEventListener('click', async function () {
+      clearImagesConfirmBtn.disabled = true;
+      clearImagesConfirmBtn.textContent = 'Deleting...';
+      try {
+        const resp = await fetch('/admin/maintenance/clear-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          alert('Failed to clear images: ' + (data.error || resp.statusText));
+          clearImagesModal.classList.add('hidden');
+          clearImagesConfirmBtn.disabled = false;
+          clearImagesConfirmBtn.textContent = 'Yes, delete all images';
+          return;
+        }
+        clearImagesModal.classList.add('hidden');
+        clearImagesConfirmBtn.disabled = false;
+        clearImagesConfirmBtn.textContent = 'Yes, delete all images';
+
+        // Invoke the stored callback from the unified backfill
+        if (unifiedClearImagesCallback) {
+          const cb = unifiedClearImagesCallback;
+          unifiedClearImagesCallback = null;
+          await cb();
+        }
+      } catch (e) {
+        alert('Failed to clear images: ' + e);
+        clearImagesModal.classList.add('hidden');
+        clearImagesConfirmBtn.disabled = false;
+        clearImagesConfirmBtn.textContent = 'Yes, delete all images';
+      }
+    });
+  }
+})();
+</script>
+
+{% endblock %}

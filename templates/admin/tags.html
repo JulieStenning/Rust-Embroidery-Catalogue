@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Tags — Admin{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Manage Tags</h1>
+</div>
+
+{% if import_token %}
+{# ------------------------------------------------------------------ #}
+{# Import-mode banner                                                   #}
+{# ------------------------------------------------------------------ #}
+<div class="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-5 max-w-2xl">
+  <p class="text-sm text-blue-900">
+    <strong>Import mode:</strong> Review and adjust your tags below. When you are ready,
+    click <strong>Yes, continue with import</strong> at the bottom of this page.
+  </p>
+  <div class="mt-3 flex gap-2 items-center flex-wrap">
+    <span class="text-xs font-semibold text-blue-900">Also review:</span>
+    <a href="/admin/hoops/?import_token={{ import_token | urlencode }}"
+      class="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700">
+      Review Hoops
+    </a>
+    <a href="/admin/sources/?import_token={{ import_token | urlencode }}"
+      class="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700">
+      Review Sources
+    </a>
+    <a href="/admin/designers/?import_token={{ import_token | urlencode }}"
+      class="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700">
+      Review Designers
+    </a>
+  </div>
+  <div class="mt-4 flex gap-3 items-center flex-wrap">
+    <form class="import-confirm-form" method="post" action="/import/do-confirm">
+      <input type="hidden" name="import_token" value="{{ import_token }}" />
+      <button type="submit"
+        class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">
+        Yes, continue with import
+      </button>
+    </form>
+    <a href="/import/" class="text-sm text-gray-500 hover:underline">Cancel</a>
+  </div>
+</div>
+{% endif %}
+
+<p class="text-sm text-gray-500 mb-4">
+  Tags describe your designs. Use <strong>Image</strong> tags for the subject or category
+  (e.g. Animals, Flowers) and <strong>Stitching</strong> tags for the technique or style
+  (e.g. Cross Stitch, Appliqué).
+</p>
+
+<div class="bg-white rounded shadow p-4 mb-6 max-w-lg">
+  <h2 class="text-sm font-semibold text-gray-600 mb-3">Add new tag</h2>
+  <form method="post" action="/admin/tags/" class="flex gap-2 items-end flex-wrap">
+    {% if import_token %}
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    {% endif %}
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
+      <input type="text" name="description" required placeholder="e.g. Animals, Cross stitch…"
+        class="border rounded px-2 py-1 text-sm w-52 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Group</label>
+      <select name="tag_group" required
+        class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400">
+        <option value="" disabled selected>Choose…</option>
+        <option value="image">Image</option>
+        <option value="stitching">Stitching</option>
+      </select>
+    </div>
+    <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700">Add</button>
+  </form>
+</div>
+
+{%- set image_tags = tags | selectattr('tag_group', 'equalto', 'image') | list -%}
+{%- set stitching_tags = tags | selectattr('tag_group', 'equalto', 'stitching') | list -%}
+{%- set unclassified_tags = tags | rejectattr('tag_group') | list -%}
+
+{# ------------------------------------------------------------------ #}
+{# Image tags section                                                   #}
+{# ------------------------------------------------------------------ #}
+<div class="bg-white rounded shadow overflow-hidden max-w-2xl mb-6">
+  <div class="bg-green-50 border-b border-green-200 px-4 py-2">
+    <h2 class="text-sm font-semibold text-green-800 uppercase tracking-wide">Image Tags</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+      <tr>
+        <th class="px-4 py-2 text-left">Description</th>
+        <th class="px-4 py-2 text-left">Group</th>
+        <th class="px-4 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for tag in image_tags %}
+      <tr>
+        <td class="px-4 py-2">{{ tag.description }}</td>
+        <td class="px-4 py-2">
+          <form method="post" action="/admin/tags/{{ tag.id }}/set-group" class="flex gap-1 items-center">
+            {% if import_token %}
+            <input type="hidden" name="import_token" value="{{ import_token }}" />
+            {% endif %}
+            <select name="tag_group"
+              class="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400
+                     bg-green-50 border-green-300 text-green-700">
+              <option value="" disabled>— unclassified —</option>
+              <option value="image" selected>Image</option>
+              <option value="stitching">Stitching</option>
+            </select>
+            <button type="submit" class="text-gray-400 hover:text-indigo-600 text-xs" title="Save group">✓</button>
+          </form>
+        </td>
+        <td class="px-4 py-2 text-right">
+          <form method="post" action="/admin/tags/{{ tag.id }}/delete"
+            onsubmit="return confirm('Delete {{ tag.description }}?')">
+            {% if import_token %}
+            <input type="hidden" name="import_token" value="{{ import_token }}" />
+            {% endif %}
+            <button type="submit" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="px-4 py-3 text-gray-400">No image tags yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Stitching tags section                                               #}
+{# ------------------------------------------------------------------ #}
+<div class="bg-white rounded shadow overflow-hidden max-w-2xl mb-6">
+  <div class="bg-blue-50 border-b border-blue-200 px-4 py-2">
+    <h2 class="text-sm font-semibold text-blue-800 uppercase tracking-wide">Stitching Tags</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+      <tr>
+        <th class="px-4 py-2 text-left">Description</th>
+        <th class="px-4 py-2 text-left">Group</th>
+        <th class="px-4 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for tag in stitching_tags %}
+      <tr>
+        <td class="px-4 py-2">{{ tag.description }}</td>
+        <td class="px-4 py-2">
+          <form method="post" action="/admin/tags/{{ tag.id }}/set-group" class="flex gap-1 items-center">
+            {% if import_token %}
+            <input type="hidden" name="import_token" value="{{ import_token }}" />
+            {% endif %}
+            <select name="tag_group"
+              class="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400
+                     bg-blue-50 border-blue-300 text-blue-700">
+              <option value="" disabled>— unclassified —</option>
+              <option value="image">Image</option>
+              <option value="stitching" selected>Stitching</option>
+            </select>
+            <button type="submit" class="text-gray-400 hover:text-indigo-600 text-xs" title="Save group">✓</button>
+          </form>
+        </td>
+        <td class="px-4 py-2 text-right">
+          <form method="post" action="/admin/tags/{{ tag.id }}/delete"
+            onsubmit="return confirm('Delete {{ tag.description }}?')">
+            {% if import_token %}
+            <input type="hidden" name="import_token" value="{{ import_token }}" />
+            {% endif %}
+            <button type="submit" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="px-4 py-3 text-gray-400">No stitching tags yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Unclassified tags section (shown only if any exist)                  #}
+{# ------------------------------------------------------------------ #}
+{% if unclassified_tags %}
+<div class="bg-white rounded shadow overflow-hidden max-w-2xl mb-6">
+  <div class="bg-amber-50 border-b border-amber-200 px-4 py-2">
+    <h2 class="text-sm font-semibold text-amber-800 uppercase tracking-wide">Unclassified Tags</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+      <tr>
+        <th class="px-4 py-2 text-left">Description</th>
+        <th class="px-4 py-2 text-left">Group</th>
+        <th class="px-4 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for tag in unclassified_tags %}
+      <tr>
+        <td class="px-4 py-2">{{ tag.description }}</td>
+        <td class="px-4 py-2">
+          <form method="post" action="/admin/tags/{{ tag.id }}/set-group" class="flex gap-1 items-center">
+            {% if import_token %}
+            <input type="hidden" name="import_token" value="{{ import_token }}" />
+            {% endif %}
+            <select name="tag_group"
+              class="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400
+                     bg-amber-50 border-amber-300 text-amber-700">
+              <option value="" selected disabled>— unclassified —</option>
+              <option value="image">Image</option>
+              <option value="stitching">Stitching</option>
+            </select>
+            <button type="submit" class="text-gray-400 hover:text-indigo-600 text-xs" title="Save group">✓</button>
+          </form>
+        </td>
+        <td class="px-4 py-2 text-right">
+          <form method="post" action="/admin/tags/{{ tag.id }}/delete"
+            onsubmit="return confirm('Delete {{ tag.description }}?')">
+            {% if import_token %}
+            <input type="hidden" name="import_token" value="{{ import_token }}" />
+            {% endif %}
+            <button type="submit" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if import_token %}
+{# ------------------------------------------------------------------ #}
+{# Import-mode final action                                             #}
+{# ------------------------------------------------------------------ #}
+<div class="mt-8 p-5 bg-green-50 border border-green-300 rounded-lg max-w-2xl">
+  <p class="text-sm font-semibold text-green-900 mb-4">Are you ready to do the import?</p>
+  <div class="flex gap-3 items-center flex-wrap">
+    <form class="import-confirm-form" method="post" action="/import/do-confirm">
+      <input type="hidden" name="import_token" value="{{ import_token }}" />
+      <button type="submit"
+        class="bg-green-600 text-white px-5 py-2 rounded text-sm hover:bg-green-700">
+        Yes, continue with import
+      </button>
+    </form>
+    <a href="/import/"
+      class="text-sm text-gray-500 hover:underline self-center">
+      Cancel
+    </a>
+  </div>
+</div>
+
+<!-- Full-page loading overlay shown while import is running -->
+<div id="importOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl shadow-xl px-10 py-8 flex flex-col items-center gap-4 max-w-xs text-center">
+    <svg class="animate-spin h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <p class="font-semibold text-gray-800">Importing designs…</p>
+    <p class="text-sm text-gray-500">Please keep this page open until it finishes. Navigating away will cancel the import.</p>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+</style>
+
+<script>
+(function () {
+  const forms = document.querySelectorAll('.import-confirm-form');
+  const overlay = document.getElementById('importOverlay');
+  if (forms.length && overlay) {
+    forms.forEach(function (form) {
+      form.addEventListener('submit', function () {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        document.querySelectorAll('button[type="submit"]').forEach(function (btn) { btn.disabled = true; });
+      });
+    });
+  }
+})();
+</script>
+
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Import Designs — Skip Hoops?{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Import without setting up hoops?</h1>
+
+<div class="bg-amber-50 border border-amber-300 rounded-lg p-5 mb-6 max-w-2xl">
+  <p class="text-sm text-amber-900">
+    Hoops are not pre-delivered because they depend on your machine and the frames you actually own.
+    If you import now without setting them up, the catalogue will not be able to auto-match designs to hoops yet.
+  </p>
+  <p class="text-sm font-semibold text-amber-900 mt-3">
+    Are you really really sure you want to continue without reviewing your hoops first?
+  </p>
+</div>
+
+<div class="flex gap-3 items-center flex-wrap">
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_hoops" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Hoops
+    </button>
+  </form>
+
+  <form id="confirmImportNowForm" method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="import_now" />
+    <input type="hidden" name="confirm_skip_hoops" value="yes" />
+    <button type="submit"
+      class="bg-green-600 text-white px-5 py-2 rounded text-sm hover:bg-green-700">
+      Yes, I am really really sure — import now
+    </button>
+  </form>
+
+  <a href="/import/" class="text-sm text-gray-500 hover:underline">Cancel</a>
+</div>
+
+<div id="importOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl shadow-xl px-10 py-8 flex flex-col items-center gap-4 max-w-xs text-center">
+    <svg class="animate-spin h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <p class="font-semibold text-gray-800">Importing designs…</p>
+    <p class="text-sm text-gray-500">Please keep this page open until it finishes.</p>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+</style>
+
+<script>
+(function () {
+  const form = document.getElementById('confirmImportNowForm');
+  const overlay = document.getElementById('importOverlay');
+  if (form && overlay) {
+    form.addEventListener('submit', function () {
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      document.querySelectorAll('button[type="submit"]').forEach(function (btn) { btn.disabled = true; });
+    });
+  }
+})();
+</script>
+{% endblock %}

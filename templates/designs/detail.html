@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block title %}{{ design.filename }} — Embroidery Catalogue{% endblock %}
+
+{% block content %}
+<div class="mb-4 no-print flex items-center gap-3" id="browse-nav"
+     data-design-id="{{ design.id }}">
+  <a href="/designs/" class="text-indigo-600 text-sm hover:underline">← Back to Browse</a>
+</div>
+
+<script>
+(function () {
+  var navEl = document.getElementById('browse-nav');
+  var currentId = parseInt(navEl.getAttribute('data-design-id'), 10);
+  try {
+    var ids = JSON.parse(sessionStorage.getItem('browse_ids') || '[]');
+    var idx = ids.indexOf(currentId);
+    if (idx === -1 || ids.length < 2) return;
+    var nav = document.getElementById('browse-nav');
+    if (idx > 0) {
+      var prev = document.createElement('a');
+      prev.href = '/designs/' + ids[idx - 1];
+      prev.className = 'text-gray-600 hover:text-indigo-600 text-lg font-bold px-1';
+      prev.title = 'Previous design';
+      prev.textContent = '\u2039';
+      nav.appendChild(prev);
+    }
+    var pos = document.createElement('span');
+    pos.className = 'text-xs text-gray-400';
+    pos.textContent = (idx + 1) + ' / ' + ids.length;
+    nav.appendChild(pos);
+    if (idx < ids.length - 1) {
+      var next = document.createElement('a');
+      next.href = '/designs/' + ids[idx + 1];
+      next.className = 'text-gray-600 hover:text-indigo-600 text-lg font-bold px-1';
+      next.title = 'Next design';
+      next.textContent = '\u203a';
+      nav.appendChild(next);
+    }
+  } catch (e) {}
+})();
+</script>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+  <!-- Image panel -->
+  <div class="bg-white rounded shadow p-4 flex flex-col items-center justify-center min-h-64">
+    {% if image_b64 %}
+      <img src="data:image/png;base64,{{ image_b64 }}" alt="{{ design.filename }}" class="max-w-full max-h-96 object-contain" />
+      <div class="mt-2 flex gap-2 no-print">
+        <form method="post" action="/designs/{{ design.id }}/render-3d-preview">
+          <button type="submit" class="text-xs bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700"
+                  title="Re-render this preview in 3D (replaces current image)">
+            {% if design.image_type == '3d' %}✓ 3D Preview{% else %}Render 3D Preview{% endif %}
+          </button>
+        </form>
+      </div>
+    {% else %}
+      <div class="text-gray-400 text-sm">No preview available</div>
+      <form method="post" action="/designs/{{ design.id }}/render-3d-preview" class="mt-2 no-print">
+        <button type="submit" class="text-xs bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700">
+          Generate 3D Preview
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+  <!-- Metadata panel -->
+  <div class="bg-white rounded shadow p-4 space-y-4">
+    <h1 class="text-xl font-bold break-all">{{ design.filename }}</h1>
+    <p class="text-xs text-gray-400 break-all no-print">
+      <span class="mr-2" title="Stored location (relative to catalogue's managed folder)">{{ design.filepath }}</span>
+      <a href="/designs/{{ design.id }}/open-in-editor"
+         class="ml-2 text-indigo-400 hover:text-indigo-600 whitespace-nowrap inline-flex items-center gap-1"
+         title="Open file in your default editor">
+        <img src="/static/icons/app-icon.svg" alt="" aria-hidden="true" class="inline-block align-text-bottom" style="width: 1em; height: 1em;" />
+        Open in Editor
+      </a>
+      <a href="/designs/{{ design.id }}/open-in-explorer"
+         class="ml-2 text-indigo-400 hover:text-indigo-600 whitespace-nowrap"
+         title="Open folder in Explorer">&#128193; Show in Explorer</a>
+    </p>
+
+    <!-- Dimensions + hoop + counts -->
+    <div class="flex gap-4 text-sm flex-wrap">
+      {% if design.width_mm and design.height_mm %}
+        <span class="bg-gray-100 px-2 py-1 rounded">{{ design.width_mm }} × {{ design.height_mm }} mm</span>
+      {% endif %}
+      {% if design.hoop %}
+        <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded">{{ design.hoop.name }}</span>
+      {% endif %}
+      {% if design.stitch_count is not none %}
+        <span class="bg-amber-100 text-amber-700 px-2 py-1 rounded" title="Total stitch count">{{ "{:,}".format(design.stitch_count) }} stitches</span>
+      {% endif %}
+      {% if design.color_count is not none %}
+        <span class="bg-rose-100 text-rose-700 px-2 py-1 rounded" title="Number of unique thread colours">{{ design.color_count }} colour{{ 's' if design.color_count != 1 else '' }}</span>
+      {% endif %}
+      {% if design.color_change_count is not none %}
+        <span class="bg-teal-100 text-teal-700 px-2 py-1 rounded" title="Number of colour changes">{{ design.color_change_count }} colour change{{ 's' if design.color_change_count != 1 else '' }}</span>
+      {% endif %}
+    </div>
+
+    <!-- Designer / Source -->
+    <div class="text-sm text-gray-600 space-y-1">
+      {% if design.designer %}<div><span class="font-medium">Designer:</span> {{ design.designer.name }}</div>{% endif %}
+      {% if design.source %}<div><span class="font-medium">Source:</span> {{ design.source.name }}</div>{% endif %}
+      {% if design.date_added %}<div><span class="font-medium">Added:</span> {{ design.date_added }}</div>{% endif %}
+    </div>
+
+    <!-- Tags -->
+    {% if design.tags %}
+    <div class="flex flex-wrap gap-2 items-center">
+      {% for tag in design.tags %}
+        <span class="{% if tag.tag_group == 'stitching' %}bg-blue-100 text-blue-700{% elif tag.tag_group == 'image' %}bg-green-100 text-green-700{% else %}bg-purple-100 text-purple-700{% endif %} text-xs px-2 py-0.5 rounded-full">{{ tag.description }}</span>
+      {% endfor %}
+      <form method="post" action="/designs/{{ design.id }}/toggle-tags-checked" class="ml-1 no-print">
+        {% if design.tags_checked %}
+          <input type="hidden" name="tags_checked" value="" />
+          <button type="submit" class="text-xs text-green-600 hover:text-gray-400"
+                  title="Toggle whether this design's tags and metadata have been reviewed — click to mark as unverified">✓ Verified</button>
+        {% else %}
+          <input type="hidden" name="tags_checked" value="true" />
+          <button type="submit" class="text-xs text-orange-400 hover:text-green-600"
+                  title="Toggle whether this design's tags and metadata have been reviewed — click to mark as verified">⚠ Verify</button>
+        {% endif %}
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Star rating -->
+    <form method="post" action="/designs/{{ design.id }}/rate" class="flex items-center gap-2 no-print"
+          title="Rate this design for personal reference and sorting">
+      <span class="text-sm font-medium text-gray-600">Rating:</span>
+      {% for r in [1,2,3,4,5] %}
+        <button type="submit" name="rating" value="{{ r }}"
+          class="text-2xl {% if design.rating and design.rating >= r %}text-yellow-400{% else %}text-gray-300{% endif %} hover:text-yellow-400">★</button>
+      {% endfor %}
+      {% if design.rating %}
+        <button type="submit" name="rating" value="" class="text-xs text-gray-400 hover:text-red-400 ml-1">clear</button>
+      {% endif %}
+    </form>
+    {% if design.rating %}
+      <p class="text-sm text-yellow-500 print-only">Rating: {{ "★" * design.rating }}{{ "☆" * (5 - design.rating) }}</p>
+    {% endif %}
+
+    <!-- Stitched toggle -->
+    <form method="post" action="/designs/{{ design.id }}/toggle-stitched" class="flex items-center gap-3 no-print">
+      <input type="hidden" name="is_stitched" value="{{ 'false' if design.is_stitched else 'true' }}" />
+      <button type="submit"
+        title="Track whether you have already stitched this design"
+        class="px-3 py-1 rounded text-sm font-medium {% if design.is_stitched %}bg-green-100 text-green-700 hover:bg-green-200{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+        {% if design.is_stitched %}✓ Mark as Not Stitched{% else %}Mark as Stitched{% endif %}
+      </button>
+    </form>
+    {% if design.is_stitched %}
+      <p class="text-sm text-green-600 print-only font-semibold">✓ Stitched</p>
+    {% endif %}
+
+    <!-- Notes -->
+    <form method="post" action="/designs/{{ design.id }}/edit" class="space-y-2 no-print">
+      <input type="hidden" name="filename" value="{{ design.filename }}" />
+      <input type="hidden" name="filepath" value="{{ design.filepath }}" />
+      <input type="hidden" name="rating" value="{{ design.rating or '' }}" />
+      <input type="hidden" name="is_stitched" value="{{ 'true' if design.is_stitched else 'false' }}" />
+      <label class="block text-sm font-medium text-gray-600">Notes</label>
+      <textarea name="notes" rows="3"
+        class="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+        placeholder="Add notes…">{{ design.notes or '' }}</textarea>
+
+      <!-- Designer selector -->
+      <select name="designer_id" class="border rounded px-2 py-1 text-sm w-full"
+              title="The designer or brand who created this embroidery design">
+        <option value="">— No designer —</option>
+        {% for d in designers %}
+          <option value="{{ d.id }}" {% if design.designer_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Source selector -->
+      <select name="source_id" class="border rounded px-2 py-1 text-sm w-full"
+              title="Where this design was obtained from (e.g. a shop, website, or collection)">
+        <option value="">— No source —</option>
+        {% for s in sources %}
+          <option value="{{ s.id }}" {% if design.source_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Hoop selector -->
+      <select name="hoop_id" class="border rounded px-2 py-1 text-sm w-full"
+              title="The machine hoop size this design is sized for">
+        <option value="">— No hoop —</option>
+        {% for h in hoops %}
+          <option value="{{ h.id }}" {% if design.hoop_id == h.id %}selected{% endif %}>{{ h.name }}</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700">Save</button>
+    </form>
+
+    {% if design.notes %}
+      <div class="text-sm text-gray-700 print-only whitespace-pre-wrap">{{ design.notes }}</div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="flex gap-3 no-print border-t pt-3">
+      <a href="/designs/{{ design.id }}/print" target="_blank" class="text-sm text-gray-600 hover:underline">🖨 Print</a>
+      <form method="post" action="/designs/{{ design.id }}/delete" onsubmit="return confirm('Delete this design?')">
+        <button type="submit" class="text-sm text-red-500 hover:underline">Delete</button>
+      </form>
+    </div>
+
+    <!-- Projects membership -->
+    <div class="text-sm mt-2 border-t pt-3">
+      <span class="font-medium text-gray-600 block mb-2">Projects</span>
+      {% if design.projects %}
+        <ul class="space-y-1 mb-3">
+          {% for p in design.projects %}
+          <li class="flex items-center justify-between">
+            <a href="/projects/{{ p.id }}" class="text-indigo-600 hover:underline">{{ p.name }}</a>
+            <form method="post" action="/designs/{{ design.id }}/remove-from-project/{{ p.id }}" class="no-print">
+              <button type="submit" class="text-xs text-red-400 hover:text-red-600 ml-2">Remove</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-gray-400 text-xs mb-2">Not in any project.</p>
+      {% endif %}
+      {% if available_projects %}
+      <form method="post" action="/designs/{{ design.id }}/add-to-project" class="flex gap-2 no-print">
+        <select name="project_id" class="border rounded px-2 py-1 text-sm flex-1">
+          {% for p in available_projects %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 whitespace-nowrap">
+          Add to Project
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Tags (collapsible, full width) -->
+<details class="bg-white rounded shadow p-4 mt-6 no-print">
+  {% set image_tags = tags | selectattr('tag_group', 'equalto', 'image') | list %}
+  {% set stitching_tags = tags | selectattr('tag_group', 'equalto', 'stitching') | list %}
+  {% set unclassified_tags = tags | rejectattr('tag_group') | list %}
+  <style>
+    .tag-grid { display: grid; grid-auto-flow: column; column-gap: 2.5rem; row-gap: 0.4rem; }
+  </style>
+  <script>
+  (function() {
+    var grids = document.querySelectorAll('.tag-grid');
+    for (var i = 0; i < grids.length; i++) {
+      var g = grids[i];
+      var n = g.children.length;
+      var rows = Math.max(1, Math.ceil(n / 5));
+      g.style.gridTemplateRows = 'repeat(' + rows + ', auto)';
+    }
+  })();
+  </script>
+  <summary class="text-sm font-semibold cursor-pointer select-none">
+    Tags
+    {% if design.tags %}
+      <span class="ml-2 text-xs font-normal text-purple-700">({{ design.tags | length }} assigned: {{ design.tags | map(attribute='description') | join(', ') }})</span>
+    {% else %}
+      <span class="ml-2 text-xs font-normal text-gray-400">(none assigned — click to add)</span>
+    {% endif %}
+    {% if design.tags_checked %}
+      <span class="ml-3 text-xs font-normal text-green-600">✓ Tags checked</span>
+    {% else %}
+      <span class="ml-3 text-xs font-normal text-orange-400">⚠ Tags not verified</span>
+    {% endif %}
+  </summary>
+  <form method="post" action="/designs/{{ design.id }}/set-tags" class="mt-3">
+    {% if image_tags %}
+    <div class="mb-4">
+      <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Image</p>
+      <div class="tag-grid" data-tag-group="image">
+      {% for tag in image_tags %}
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+        <input type="checkbox" name="tag_ids" value="{{ tag.id }}"
+               {% if tag.id in assigned_tag_ids %}checked{% endif %}
+               class="rounded border-gray-300 text-indigo-600" />
+        {{ tag.description }}
+      </label>
+      {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if stitching_tags %}
+    <div class="mb-4">
+      <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Stitching</p>
+      <div class="tag-grid" data-tag-group="stitching">
+      {% for tag in stitching_tags %}
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+        <input type="checkbox" name="tag_ids" value="{{ tag.id }}"
+               {% if tag.id in assigned_tag_ids %}checked{% endif %}
+               class="rounded border-gray-300 text-indigo-600" />
+        {{ tag.description }}
+      </label>
+      {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if unclassified_tags %}
+    <div>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Unclassified</p>
+      <div class="tag-grid" data-tag-group="unclassified">
+      {% for tag in unclassified_tags %}
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+        <input type="checkbox" name="tag_ids" value="{{ tag.id }}"
+               {% if tag.id in assigned_tag_ids %}checked{% endif %}
+               class="rounded border-gray-300 text-indigo-600" />
+        {{ tag.description }}
+      </label>
+      {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    <div class="mt-4 pt-3 border-t">
+      <button type="submit" class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-700">Save Tags</button>
+      <span class="ml-3 text-xs text-gray-400">Saving automatically marks as verified</span>
+    </div>
+  </form>
+</details>
+
+<!-- Large fixed prev/next arrows (injected by JS) -->
+<script>
+(function () {
+  try {
+    var ids = JSON.parse(sessionStorage.getItem('browse_ids') || '[]');
+    var navEl = document.getElementById('browse-nav');
+    var currentId = parseInt(navEl.getAttribute('data-design-id'), 10);
+    var idx = ids.indexOf(currentId);
+    if (idx === -1 || ids.length < 2) return;
+
+    function makeArrow(href, label, html) {
+      var a = document.createElement('a');
+      a.href = href;
+      a.title = label;
+      a.innerHTML = html;
+      a.style.cssText = [
+        'position:fixed',
+        'top:50%',
+        'transform:translateY(-50%)',
+        'z-index:50',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'width:3rem',
+        'height:3rem',
+        'border-radius:9999px',
+        'background:#4f46e5',
+        'color:#fff',
+        'font-size:2rem',
+        'font-weight:700',
+        'text-decoration:none',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.25)',
+        'user-select:none',
+        'line-height:1',
+      ].join(';');
+      a.onmouseover = function(){ this.style.background='#4338ca'; };
+      a.onmouseout  = function(){ this.style.background='#4f46e5'; };
+      return a;
+    }
+
+    function positionArrows() {
+      var main = document.querySelector('main');
+      if (!main) return;
+      var rect = main.getBoundingClientRect();
+      var arrowW = 48; // 3rem at 16px
+      // Place arrows just inside the content edges
+      if (window._prevArrow) window._prevArrow.style.left = Math.max(4, rect.left - arrowW - 8) + 'px';
+      if (window._nextArrow) window._nextArrow.style.right = Math.max(4, window.innerWidth - rect.right - arrowW - 8) + 'px';
+    }
+
+    if (idx > 0) {
+      var prev = makeArrow('/designs/' + ids[idx - 1], 'Previous design', '&#8249;');
+      window._prevArrow = prev;
+      document.body.appendChild(prev);
+    }
+    if (idx < ids.length - 1) {
+      var next = makeArrow('/designs/' + ids[idx + 1], 'Next design', '&#8250;');
+      window._nextArrow = next;
+      document.body.appendChild(next);
+    }
+
+    positionArrows();
+    window.addEventListener('resize', positionArrows);
+  } catch (e) {}
+})();
+</script>
+{% endblock %}

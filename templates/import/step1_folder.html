@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Import Designs — Step 1{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-2">Bulk Import</h1>
+<p class="text-gray-500 text-sm mb-6">Select one or more folders containing embroidery files. Sub-folders are scanned automatically.
+  Selected files are <strong>copied into the catalogue</strong>, and each source folder name is preserved inside managed storage.
+  <a href="/help#importing" class="text-indigo-500 hover:underline ml-1">Import help</a>
+</p>
+
+<div class="bg-white rounded shadow p-6 max-w-2xl">
+  <form method="post" action="/import/scan" id="scanForm" class="space-y-4">
+
+    <div>
+      <label for="folder_path_0" class="block text-sm font-medium text-gray-700 mb-2">Source Folder(s) *</label>
+      <div id="folderRows" class="space-y-2">
+        <!-- Folder row template — cloned by JS for additional rows -->
+        <div class="folder-row flex gap-2 items-center" data-index="0">
+          <input type="text" name="folder_paths" id="folder_path_0" required
+            aria-label="Source folder path 1"
+            placeholder="Enter path to your embroidery designs folder…"
+            class="flex-1 border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+          <button type="button" class="browse-btn bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 whitespace-nowrap">
+            Browse…
+          </button>
+          <button type="button" class="remove-btn hidden text-gray-400 hover:text-red-500 px-2 py-2 rounded" title="Remove this folder">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button type="button" id="addFolderBtn"
+        class="mt-2 text-sm text-indigo-600 hover:underline flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add another folder
+      </button>
+      <p class="text-xs text-gray-400 mt-2">Choose the folder(s) where your embroidery files currently live. On Windows, the native picker can select several folders in one go; manual add/remove stays available as a fallback.</p>
+    </div>
+
+    <button type="submit" id="scanBtn" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
+      Scan Folder(s) →
+    </button>
+  </form>
+</div>
+
+<!-- Full-page loading overlay shown while folder is being scanned -->
+<div id="scanOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl shadow-xl px-10 py-8 flex flex-col items-center gap-4 max-w-xs text-center">
+    <svg class="animate-spin h-16 w-16 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <p class="font-semibold text-gray-800">Scanning &amp; generating previews…</p>
+    <p class="text-sm text-gray-500">Please keep this page open. This may take a moment for large folders.</p>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+</style>
+
+<script>
+function canonicalPathKey(value) {
+  return (value || '')
+    .trim()
+    .replace(/\//g, '\\')
+    .replace(/[\\/]+$/, '')
+    .toLowerCase();
+}
+
+function parentFolder(path) {
+  const cleaned = (path || '').trim().replace(/\//g, '\\').replace(/[\\/]+$/, '');
+  if (!cleaned) return '';
+  const idx = cleaned.lastIndexOf('\\');
+  return idx > 0 ? cleaned.slice(0, idx) : cleaned;
+}
+
+function updateRemoveButtons() {
+  const rows = document.querySelectorAll('.folder-row');
+  rows.forEach(row => {
+    const btn = row.querySelector('.remove-btn');
+    if (btn) btn.classList.toggle('hidden', rows.length <= 1);
+  });
+}
+
+function createFolderRow(initialValue = '') {
+  const container = document.getElementById('folderRows');
+  const template = container.querySelector('.folder-row');
+  const clone = template.cloneNode(true);
+  const rowCount = container.querySelectorAll('.folder-row').length + 1;
+  const input = clone.querySelector('input[name="folder_paths"]');
+  input.value = initialValue;
+  input.removeAttribute('required');
+  input.removeAttribute('id');
+  input.setAttribute('aria-label', `Source folder path ${rowCount}`);
+  addBrowseHandler(clone);
+  addRemoveHandler(clone);
+  container.appendChild(clone);
+  updateRemoveButtons();
+  return clone;
+}
+
+function appendSelectedFolders(paths, preferredInput) {
+  const existing = new Set(
+    Array.from(document.querySelectorAll('input[name="folder_paths"]'))
+      .map(input => canonicalPathKey(input.value))
+      .filter(Boolean)
+  );
+
+  const cleanPaths = [];
+  (paths || []).forEach(path => {
+    const value = (path || '').trim();
+    const key = canonicalPathKey(value);
+    if (value && !existing.has(key)) {
+      existing.add(key);
+      cleanPaths.push(value);
+    }
+  });
+
+  if (!cleanPaths.length) return;
+
+  if (preferredInput && !preferredInput.value.trim()) {
+    preferredInput.value = cleanPaths.shift() || '';
+  }
+
+  cleanPaths.forEach(path => createFolderRow(path));
+  updateRemoveButtons();
+}
+
+function addBrowseHandler(row) {
+  const btn = row.querySelector('.browse-btn');
+  const input = row.querySelector('input[name="folder_paths"]');
+  if (!btn || !input) return;
+  btn.addEventListener('click', async () => {
+    btn.textContent = 'Opening…';
+    btn.disabled = true;
+    try {
+      const rememberedDir = window.localStorage.getItem('lastImportFolder') || '';
+      const startHint = parentFolder(input.value.trim()) || parentFolder(rememberedDir) || rememberedDir;
+      const startDir = encodeURIComponent(startHint);
+      const res = await fetch('/import/browse-folder?start_dir=' + startDir);
+      const data = await res.json();
+      const pickedPaths = Array.isArray(data.paths)
+        ? data.paths
+        : (data.path ? [data.path] : []);
+
+      if (pickedPaths.length) {
+        window.localStorage.setItem('lastImportFolder', pickedPaths[0]);
+        appendSelectedFolders(pickedPaths, input);
+      } else if (data.error) {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert('Could not open folder picker: ' + e);
+    } finally {
+      btn.textContent = 'Browse…';
+      btn.disabled = false;
+    }
+  });
+}
+
+function addRemoveHandler(row) {
+  const btn = row.querySelector('.remove-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    row.remove();
+    updateRemoveButtons();
+  });
+}
+
+// Initialise the first row
+const firstRow = document.querySelector('.folder-row');
+addBrowseHandler(firstRow);
+addRemoveHandler(firstRow);
+updateRemoveButtons();
+
+document.getElementById('addFolderBtn').addEventListener('click', () => {
+  const clone = createFolderRow('');
+  clone.querySelector('input').focus();
+});
+
+document.getElementById('scanForm').addEventListener('submit', function(e) {
+  // Validate at least one non-empty folder path
+  const paths = Array.from(document.querySelectorAll('input[name="folder_paths"]')).map(i => i.value.trim()).filter(Boolean);
+  if (paths.length === 0) {
+    e.preventDefault();
+    alert('Please enter at least one folder path.');
+    return;
+  }
+  const overlay = document.getElementById('scanOverlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+  document.getElementById('scanBtn').disabled = true;
+  document.querySelectorAll('.browse-btn').forEach(btn => btn.disabled = true);
+});
+</script>
+{% endblock %}

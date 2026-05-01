@@ -1,0 +1,23 @@
+# --- Rust specific ---
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# --- Python specific ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+build/
+dist/
+*.spec
+
+# --- OS specific ---
+.DS_Store
+Thumbs.db
+
+# --- Data specific ---
+data/

@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% block title %}Backup — Admin{% endblock %}
+
+{% block content %}
+<style>
+  .backup-action-btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: saturate(60%);
+  }
+
+  @keyframes backup-spin { to { transform: rotate(360deg); } }
+  .backup-animate-spin { animation: backup-spin 1s linear infinite; }
+</style>
+
+<h1 class="text-2xl font-bold mb-2">Backup</h1>
+<p class="text-sm text-gray-500 mb-4">
+  Back up your catalogue database and embroidery design files to folders of your choice.
+  The database backup saves your catalogue data, settings, tags, and projects.
+  The designs backup saves the actual embroidery files.
+</p>
+
+<div class="mb-6 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1">
+  <p class="font-semibold">Important</p>
+  <p>
+    The database and embroidery designs are backed up <strong>separately</strong>.
+    To make a <strong>complete backup</strong> of your catalogue, make sure you run <strong>both</strong> backups.
+  </p>
+</div>
+
+{# ── Global notices ───────────────────────────────────────────────────── #}
+{% set saved = request.query_params.get('saved') %}
+{% set error = request.query_params.get('error') %}
+{% set db_ok = request.query_params.get('db_ok') %}
+{% set db_error = request.query_params.get('db_error') %}
+{% set designs_ok = request.query_params.get('designs_ok') %}
+{% set designs_error = request.query_params.get('designs_error') %}
+{% set has_db_destination = (db_destination or '')|trim %}
+{% set has_designs_destination = (designs_destination or '')|trim %}
+
+{% if saved %}
+<div class="mb-4 bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
+  Backup destinations saved.
+</div>
+{% endif %}
+
+{% if error == 'no_db_dest' %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+  No database backup destination is configured. Please set one below and try again.
+</div>
+{% elif error == 'no_designs_dest' %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+  No designs backup destination is configured. Please set one below and try again.
+</div>
+{% elif error == 'no_destinations' %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+  Both backup destinations must be configured before you can run both backups.
+</div>
+{% elif error == 'no_destinations_to_save' %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+  There are no destination changes to save.
+</div>
+{% endif %}
+
+{# ── Database backup result ───────────────────────────────────────────── #}
+{% if db_ok %}
+{% set db_path_result = request.query_params.get('db_path', '') %}
+{% set db_size = request.query_params.get('db_size', '0') | int %}
+{% set db_time = request.query_params.get('db_time', '') %}
+<div class="mb-4 bg-green-50 border border-green-300 text-green-800 rounded px-4 py-3 text-sm space-y-1">
+  <p class="font-semibold">✔ Database backup complete</p>
+  <p>File: <code class="font-mono text-xs">{{ db_path_result }}</code></p>
+  <p>Size: {{ "%.2f"|format(db_size / 1048576) }} MB &nbsp;·&nbsp; Completed: {{ db_time }}</p>
+</div>
+{% endif %}
+
+{% if db_error %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-3 text-sm">
+  <p class="font-semibold">✘ Database backup failed</p>
+  <p>{{ db_error }}</p>
+</div>
+{% endif %}
+
+{# ── Designs backup result ────────────────────────────────────────────── #}
+{% if designs_ok %}
+{% set d_scanned  = request.query_params.get('d_scanned',  '0') | int %}
+{% set d_copied   = request.query_params.get('d_copied',   '0') | int %}
+{% set d_updated  = request.query_params.get('d_updated',  '0') | int %}
+{% set d_unchanged= request.query_params.get('d_unchanged','0') | int %}
+{% set d_archived = request.query_params.get('d_archived', '0') | int %}
+{% set d_bytes    = request.query_params.get('d_bytes',    '0') | int %}
+{% set d_time     = request.query_params.get('d_time',     '') %}
+<div class="mb-4 bg-green-50 border border-green-300 text-green-800 rounded px-4 py-3 text-sm space-y-1">
+  <p class="font-semibold">✔ Designs backup complete</p>
+  <ul class="list-disc list-inside ml-2 space-y-0.5">
+    <li>Scanned: {{ d_scanned }} file(s)</li>
+    <li>Copied (new): {{ d_copied }}</li>
+    <li>Updated (changed): {{ d_updated }}</li>
+    <li>Unchanged (skipped): {{ d_unchanged }}</li>
+    <li>Archived (removed from source): {{ d_archived }}</li>
+    <li>Total copied: {{ "%.2f"|format(d_bytes / 1048576) }} MB</li>
+  </ul>
+  <p>Completed: {{ d_time }}</p>
+</div>
+{% endif %}
+
+{% if designs_error %}
+<div class="mb-4 bg-red-50 border border-red-300 text-red-800 rounded px-4 py-3 text-sm">
+  <p class="font-semibold">✘ Designs backup failed</p>
+  <p>{{ designs_error }}</p>
+</div>
+{% endif %}
+
+<div class="max-w-3xl space-y-6">
+
+  {# ── A. Backup destination settings ──────────────────────────────────── #}
+  <form method="post" action="/admin/maintenance/backup/save-settings"
+        class="bg-white rounded shadow p-6 space-y-5">
+    <h2 class="text-base font-semibold text-gray-800">Backup Destinations</h2>
+    <p class="text-sm text-gray-600">
+      Set separate destination folders for the database and designs backups.
+    </p>
+
+    <div>
+      <label for="db_destination" class="block text-sm font-semibold text-gray-700 mb-1">
+        Database backup folder
+      </label>
+      <div class="flex gap-2">
+        <input
+          id="db_destination"
+          name="db_destination"
+          type="text"
+          value="{{ db_destination_display or '' }}"
+          data-saved-value="{{ db_destination_display or '' }}"
+          placeholder="e.g. C:\Backups\EmbroideryDB"
+          class="flex-1 border rounded px-3 py-2 text-sm font-mono"
+          spellcheck="false"
+        />
+        <button
+          type="button"
+          id="browse_db_destination_btn"
+          class="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 whitespace-nowrap"
+        >
+          Browse…
+        </button>
+      </div>
+      <p class="mt-1 text-xs text-gray-500">
+        Choose where the database backup file should be saved.
+        This backup contains your catalogue data only — <strong>not</strong> the embroidery design files.
+        Timestamped <code>.db</code> files (e.g. <code>catalogue_2026-04-06_1430.db</code>)
+        will be written here.
+      </p>
+    </div>
+
+    <div>
+      <label for="designs_destination" class="block text-sm font-semibold text-gray-700 mb-1">
+        Designs backup folder
+      </label>
+      <div class="flex gap-2">
+        <input
+          id="designs_destination"
+          name="designs_destination"
+          type="text"
+          value="{{ designs_destination_display or '' }}"
+          data-saved-value="{{ designs_destination_display or '' }}"
+          placeholder="e.g. C:\Backups\EmbroideryDesigns"
+          class="flex-1 border rounded px-3 py-2 text-sm font-mono"
+          spellcheck="false"
+        />
+        <button
+          type="button"
+          id="browse_designs_destination_btn"
+          class="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 whitespace-nowrap"
+        >
+          Browse…
+        </button>
+      </div>
+      <p class="mt-1 text-xs text-gray-500">
+        Choose where the embroidery design files should be backed up.
+        This backup contains the files only — <strong>not</strong> the catalogue database.
+        New and changed files are mirrored here incrementally.
+        Files removed from the source are moved to a dated
+        <code>_deleted\YYYY-MM-DD\</code> archive folder inside the destination,
+        not permanently deleted.
+      </p>
+    </div>
+
+    <div class="flex justify-end">
+      <button type="submit"
+              id="save_destinations_btn"
+              class="backup-action-btn bg-indigo-600 text-white rounded px-4 py-2 text-sm hover:bg-indigo-700"
+              disabled title="No unsaved destination changes">
+        Save destinations
+      </button>
+    </div>
+  </form>
+
+  {# ── B. Database backup ───────────────────────────────────────────────── #}
+  <div class="bg-white rounded shadow p-6 space-y-4">
+    <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
+    <p class="text-sm text-gray-600">
+      Creates a full copy of the live database file with a timestamp in the filename.
+    </p>
+    <div class="text-xs text-gray-500 space-y-0.5">
+      <p>Source: <code class="font-mono">{{ db_path }}</code></p>
+      <p>Saved destination folder: <code class="font-mono">{{ db_destination_display or '(not set)' }}</code></p>
+    </div>
+    <form method="post" action="/admin/maintenance/backup/database">
+      <button type="submit"
+              id="backup_database_now_btn"
+              class="backup-action-btn bg-indigo-600 text-white rounded px-4 py-2 text-sm hover:bg-indigo-700"
+              {% if not has_db_destination %}disabled title="Set a database backup destination first"{% endif %}>
+        Backup database now
+      </button>
+    </form>
+  </div>
+
+  {# ── C. Designs backup ────────────────────────────────────────────────── #}
+  <div class="bg-white rounded shadow p-6 space-y-4">
+    <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
+    <p class="text-sm text-gray-600">
+      Runs an incremental mirror backup of the designs folder.
+      Only new or changed files are copied; unchanged files are skipped.
+      Files that are no longer in the source are moved to a dated archive folder.
+    </p>
+    <div class="text-xs text-gray-500 space-y-0.5">
+      <p>Source: <code class="font-mono">{{ designs_path }}</code></p>
+      <p>Saved destination folder: <code class="font-mono">{{ designs_destination_display or '(not set)' }}</code></p>
+    </div>
+    <form method="post" action="/admin/maintenance/backup/designs">
+      <button type="submit"
+              id="run_incremental_backup_btn"
+              class="backup-action-btn bg-indigo-600 text-white rounded px-4 py-2 text-sm hover:bg-indigo-700"
+              {% if not has_designs_destination %}disabled title="Set a designs backup destination first"{% endif %}>
+        Run incremental backup
+      </button>
+    </form>
+  </div>
+
+  {# ── D. Backup both ───────────────────────────────────────────────────── #}
+  <div class="bg-white rounded shadow p-6 space-y-4">
+    <h2 class="text-base font-semibold text-gray-800">Backup Both</h2>
+    <p class="text-sm text-gray-600">
+      Run the database backup and the incremental designs backup in one step.
+    </p>
+    <form method="post" action="/admin/maintenance/backup/both">
+      <button type="submit"
+              id="run_both_backups_btn"
+              class="backup-action-btn bg-indigo-600 text-white rounded px-4 py-2 text-sm hover:bg-indigo-700"
+              {% if not has_db_destination or not has_designs_destination %}disabled title="Set both backup destinations first"{% endif %}>
+        Run both backups
+      </button>
+    </form>
+  </div>
+
+</div>
+
+<div id="backupOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl shadow-xl px-10 py-8 flex flex-col items-center gap-4 max-w-sm text-center">
+    <svg class="backup-animate-spin h-16 w-16 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <p class="font-semibold text-gray-800">Backup in progress…</p>
+    <p class="text-sm text-gray-500">Please keep this page open while the selected backup runs. Large designs backups may take a while.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const dbInput = document.getElementById('db_destination');
+  const designsInput = document.getElementById('designs_destination');
+  const saveButton = document.getElementById('save_destinations_btn');
+  const overlay = document.getElementById('backupOverlay');
+
+  function syncSaveButtonState() {
+    if (!saveButton || !dbInput || !designsInput) {
+      return;
+    }
+
+    const dbSavedValue = (dbInput.dataset.savedValue || '').trim();
+    const designsSavedValue = (designsInput.dataset.savedValue || '').trim();
+    const dbCurrentValue = dbInput.value.trim();
+    const designsCurrentValue = designsInput.value.trim();
+
+    const hasUnsavedChanges = dbCurrentValue !== dbSavedValue || designsCurrentValue !== designsSavedValue;
+
+    saveButton.disabled = !hasUnsavedChanges;
+    if (hasUnsavedChanges) {
+      saveButton.removeAttribute('title');
+    } else {
+      saveButton.setAttribute('title', 'No unsaved destination changes');
+    }
+  }
+
+  async function attachBrowseButton(buttonId, inputId, kind) {
+    const button = document.getElementById(buttonId);
+    const input = document.getElementById(inputId);
+
+    if (!button || !input) {
+      return;
+    }
+
+    button.addEventListener('click', async function () {
+      const originalText = button.textContent;
+      button.textContent = 'Opening…';
+      button.disabled = true;
+
+      try {
+        const startDir = encodeURIComponent(input.value.trim());
+        const kindParam = encodeURIComponent(kind);
+        const res = await fetch('/admin/maintenance/backup/browse-folder?kind=' + kindParam + '&start_dir=' + startDir);
+        const data = await res.json();
+
+        if (data.path) {
+          input.value = data.path;
+          syncSaveButtonState();
+        } else if (data.error) {
+          alert(data.error);
+        }
+      } catch (err) {
+        alert('Could not open folder picker: ' + err);
+      } finally {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    });
+  }
+
+  [dbInput, designsInput].forEach(function (input) {
+    if (!input) {
+      return;
+    }
+    input.addEventListener('input', syncSaveButtonState);
+    input.addEventListener('change', syncSaveButtonState);
+  });
+
+  document.querySelectorAll('form[action="/admin/maintenance/backup/database"], form[action="/admin/maintenance/backup/designs"], form[action="/admin/maintenance/backup/both"]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+      if (!overlay) {
+        return;
+      }
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+    });
+  });
+
+  syncSaveButtonState();
+  attachBrowseButton('browse_db_destination_btn', 'db_destination', 'database');
+  attachBrowseButton('browse_designs_destination_btn', 'designs_destination', 'designs');
+})();
+</script>
+{% endblock %}

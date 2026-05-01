@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Import Designs — Before You Import{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Before You Import</h1>
+
+{# ------------------------------------------------------------------ #}
+{# AI tagging banner                                                    #}
+{# ------------------------------------------------------------------ #}
+{% if not has_api_key %}
+<div class="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-5 max-w-2xl text-sm text-blue-900">
+  <p class="font-semibold mb-1">ℹ Google AI tagging is not configured</p>
+  <p>
+    No Google API key is currently saved, so this import will use
+    <strong>Tier 1 keyword tagging only</strong> — no Gemini calls will be made.
+    If you want AI-assisted tagging, add an API key in Settings and enable the tiers you want.
+  </p>
+  <div class="mt-2 flex gap-3 flex-wrap">
+    <a href="/admin/settings/" class="text-indigo-700 underline hover:no-underline">Admin Settings</a>
+    <a href="/about/document/ai-tagging" class="text-indigo-700 underline hover:no-underline">AI Tagging Guide</a>
+  </div>
+</div>
+{% else %}
+<div class="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-5 max-w-2xl text-sm text-amber-900">
+  <p class="font-semibold mb-1">⚠ Google AI tagging is enabled for this installation</p>
+  <p class="mb-2">
+    Depending on your saved settings, Tier 2 and/or Tier 3 may run during this import.
+    Gemini usage may incur cost. Free-tier limits are approximately
+    <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>.
+    A historical estimate from February 2026 found that Tier 3 on 4,000 images cost about
+    <strong>$0.33 on the paid tier</strong>; actual pricing may have changed — check
+    <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener">ai.google.dev/pricing</a>.
+  </p>
+  <p class="text-xs text-amber-800">
+    Tier 2 auto: <strong>{{ "on" if ai_tier2_auto else "off" }}</strong> ·
+    Tier 3 auto: <strong>{{ "on" if ai_tier3_auto else "off" }}</strong>
+    {% if ai_batch_size %}· AI batch limit: <strong>{{ ai_batch_size }} designs</strong>{% endif %}
+    {% if import_commit_batch_size %}· DB commit batch: <strong>{{ import_commit_batch_size }} designs</strong>{% endif %}
+    · <a href="/admin/settings/" class="underline hover:no-underline">Change in Settings</a>
+  </p>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Image preference toggle (2D vs 3D)                                   #}
+{# ------------------------------------------------------------------ #}
+<div class="bg-white border border-gray-300 rounded-lg p-4 mb-5 max-w-2xl text-sm">
+  <p class="font-semibold text-gray-800 mb-2">🖼 Image Preview Preference</p>
+  <p class="text-gray-600 mb-3">
+    Choose how preview images are generated for this import.
+    <strong>2D</strong> is faster (flat render), <strong>3D</strong> is slower but shows stitch simulation.
+    Your saved setting is shown below; you can override it for this session.
+  </p>
+  <div class="flex gap-6 items-center">
+    <label class="inline-flex items-center gap-2 cursor-pointer">
+      <input type="radio" name="image_preference" value="2d"
+        {{ "checked" if image_preference == "2d" else "" }}
+        class="accent-indigo-600" />
+      <span class="font-medium">2D — Fast flat preview</span>
+    </label>
+    <label class="inline-flex items-center gap-2 cursor-pointer">
+      <input type="radio" name="image_preference" value="3d"
+        {{ "checked" if image_preference == "3d" else "" }}
+        class="accent-indigo-600" />
+      <span class="font-medium">3D — Detailed stitch simulation</span>
+    </label>
+    <span class="text-xs text-gray-400 ml-2">
+      (Saved setting: <strong>{{ "3D" if image_preference == "3d" else "2D" }}</strong>)
+    </span>
+  </div>
+</div>
+
+{% if is_first_import %}
+{# ------------------------------------------------------------------ #}
+{# FIRST IMPORT — delivered tags, user-defined hoops                    #}
+{# ------------------------------------------------------------------ #}
+<div class="bg-amber-50 border border-amber-300 rounded-lg p-5 mb-6 max-w-2xl">
+
+  <h2 class="text-base font-semibold text-amber-800 mb-2">⚠ Before your first import, please check your hoops</h2>
+  <p class="text-sm text-amber-900">
+    A starter set of <strong>tags is already included</strong> with the catalogue. <strong>Hoops are not</strong>,
+    because they depend on your machine and the frames you actually own.
+  </p>
+  <p class="text-sm text-amber-900 mt-2">
+    If you set up your hoops now, the import process can auto-assign a hoop where the design size is known.
+    You can also review tags, sources, and designers if you want to tailor the catalogue before importing.
+  </p>
+  {% if needs_hoop_setup %}
+  <p class="text-sm font-semibold text-amber-900 mt-2">No hoops are defined yet for this catalogue.</p>
+  {% endif %}
+</div>
+
+<p class="text-sm text-gray-600 mb-6 max-w-2xl">
+  Review your hoops first, or skip them for now and the app will ask if you are really really sure before importing.
+</p>
+
+<div class="flex gap-3 items-center flex-wrap">
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_hoops" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Hoops →
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_tags" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Tags →
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_sources" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Sources →
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_designers" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Designers →
+    </button>
+  </form>
+  <form id="importNowForm" method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="import_now" />
+    <button type="submit"
+      class="bg-green-600 text-white px-5 py-2 rounded text-sm hover:bg-green-700">
+      No, import now anyway
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="cancel" />
+    <button type="submit"
+      class="text-sm text-gray-500 hover:underline bg-transparent border-0 cursor-pointer px-2 py-2">
+      Cancel
+    </button>
+  </form>
+</div>
+
+{% else %}
+{# ------------------------------------------------------------------ #}
+{# SUBSEQUENT IMPORT — review is optional                               #}
+{# ------------------------------------------------------------------ #}
+<p class="text-sm text-gray-600 mb-6 max-w-2xl">
+  Would you like to review your hoops, tags, sources, or designers before importing?
+  Hoops usually only need special attention on the first import.
+</p>
+
+<div class="flex gap-3 items-center flex-wrap">
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_hoops" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Hoops
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_tags" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Tags
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_sources" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Sources
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="review_designers" />
+    <button type="submit"
+      class="bg-indigo-600 text-white px-5 py-2 rounded text-sm hover:bg-indigo-700">
+      Review Designers
+    </button>
+  </form>
+  <form id="importNowForm" method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="import_now" />
+    <button type="submit"
+      class="bg-green-600 text-white px-5 py-2 rounded text-sm hover:bg-green-700">
+      No, import now
+    </button>
+  </form>
+  <form method="post" action="/import/precheck-action">
+    <input type="hidden" name="import_token" value="{{ import_token }}" />
+    <input type="hidden" name="action" value="cancel" />
+    <button type="submit"
+      class="text-sm text-gray-500 hover:underline bg-transparent border-0 cursor-pointer px-2 py-2">
+      Cancel
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<!-- Full-page loading overlay shown while import is running -->
+<div id="importOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-black/60">
+  <div class="bg-white rounded-xl shadow-xl px-10 py-8 flex flex-col items-center gap-4 max-w-xs text-center">
+    <svg class="animate-spin h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <p class="font-semibold text-gray-800">Importing designs…</p>
+    <p class="text-sm text-gray-500">Please keep this page open until it finishes. Navigating away will cancel the import.</p>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+</style>
+
+<script>
+(function () {
+  const form = document.getElementById('importNowForm');
+  const overlay = document.getElementById('importOverlay');
+  if (form && overlay) {
+    form.addEventListener('submit', function () {
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      document.querySelectorAll('button[type="submit"]').forEach(function (btn) { btn.disabled = true; });
+    });
+  }
+})();
+</script>
+
+{% endblock %}

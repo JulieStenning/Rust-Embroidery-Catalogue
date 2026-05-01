@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}Help — Embroidery Catalogue{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-2">Help</h1>
+<p class="text-sm text-gray-500 mb-6">Quick guidance for using the Embroidery Catalogue.</p>
+
+<!-- Quick-jump nav -->
+<nav class="mb-8 flex flex-wrap gap-3 text-sm no-print">
+  <a href="#search"        class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔍 Search</a>
+  <a href="#importing"     class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a>
+  <a href="#ai-tagging"    class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a>
+  <a href="#tagging-actions" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🏷 Tagging Actions</a>
+  <a href="#projects"      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📁 Projects</a>
+  <a href="#maintenance"   class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🛠 Maintenance</a>
+  <a href="#troubleshooting" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔧 Troubleshooting</a>
+</nav>
+
+<div class="space-y-10 max-w-3xl">
+
+  <!-- ── Search ─────────────────────────────────────────────────────────── -->
+  <section id="search">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🔍 Search</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      Use the general search box on the <a href="/designs/" class="text-indigo-600 hover:underline">Browse</a> page
+      to find designs by keyword. The search checks the filename, notes, designer, source, and tags.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">Quoted phrases</p>
+        <p class="text-gray-500">Use double quotes to match an exact phrase:
+          <code class="bg-gray-100 px-1 rounded">"cross stitch"</code>
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Exclude terms</p>
+        <p class="text-gray-500">Prefix a word with <code class="bg-gray-100 px-1 rounded">-</code> to exclude it:
+          <code class="bg-gray-100 px-1 rounded">rose -applique</code>
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">OR searches</p>
+        <p class="text-gray-500">Use <code class="bg-gray-100 px-1 rounded">OR</code> between terms:
+          <code class="bg-gray-100 px-1 rounded">rose OR tulip</code>
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Filename wildcards</p>
+        <p class="text-gray-500">In the <em>Filename</em> filter, use
+          <code class="bg-gray-100 px-1 rounded">*</code> for any text and
+          <code class="bg-gray-100 px-1 rounded">?</code> for a single character:
+          <code class="bg-gray-100 px-1 rounded">rose*.jef</code>
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Unverified only</p>
+        <p class="text-gray-500">
+          Tick <em>Unverified only</em> to show designs that still need a tag or metadata review.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Quick search vs. filters</p>
+        <p class="text-gray-500">
+          Use the general search box for a fast keyword search. Expand <em>Additional filters</em>
+          for precise control over all-words, exact phrase, any-words, none-words, designer, hoop, and more.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Importing ──────────────────────────────────────────────────────── -->
+  <section id="importing">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">📥 Importing</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      Use <a href="/import/" class="text-indigo-600 hover:underline">Import</a> to scan one or more folders and their sub-folders to add
+      embroidery files to the catalogue.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">Choosing folders</p>
+        <p class="text-gray-500">
+          Enter folder paths directly, click <em>Browse…</em>, or use <em>Add another folder</em> to import from several locations in one run.
+          On Windows, the native picker can select multiple folders in one go. Sub-folders are scanned automatically.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Review and metadata step</p>
+        <p class="text-gray-500">
+          After scanning, the files found are grouped by folder. You can choose which files to import and set the
+          <strong>Designer</strong> and <strong>Source</strong> for each folder before continuing.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Designer and source choices</p>
+        <p class="text-gray-500">
+          For each folder, you can let the app keep the inferred value, choose an existing Designer or Source,
+          create a new one during import, or leave it blank. When importing multiple folders, you can also apply
+          the same choice to all folders first and then override individual folders if needed.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Tag check before import</p>
+        <p class="text-gray-500">
+          When you click <em>Continue</em>, the app pauses before importing. On the very first import it asks you to review your tags first;
+          on later imports you can choose whether to review tags or import straight away. New tags must be saved as <em>Image</em>
+          or <em>Stitching</em>, and the <strong>✓</strong> button next to the group selector saves any change.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">AI tagging notice</p>
+        <p class="text-gray-500">
+          The <em>Before You Import</em> step shows a notice about AI tagging status.
+          If no API key is configured, a blue notice confirms that only Tier 1 keyword tagging will run.
+          If a key is present, an amber notice shows the cost/quota warning and your current Tier 2/Tier 3 settings.
+          Click <em>Change in Settings</em> to adjust the AI tier options before continuing.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Error files and large scans</p>
+        <p class="text-gray-500">
+          Files shown with errors are unreadable or unsupported and will be skipped automatically. For very large imports,
+          the review step may show summary counts instead of every individual row for better speed.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── AI Tagging ─────────────────────────────────────────────────────── -->
+  <section id="ai-tagging">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🤖 AI Tagging</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      Optional Google AI tagging can suggest design-type tags for imported embroidery files.
+      It only needs a Google API key if you want to use the Gemini-powered tagging tiers.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">Getting an API key</p>
+        <p class="text-gray-500">
+          Create a key in <a href="https://aistudio.google.com/" class="text-indigo-600 hover:underline">Google AI Studio</a>,
+          then open <a href="/admin/settings/" class="text-indigo-600 hover:underline">Settings</a> to save it in the app.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Enabling AI tagging tiers</p>
+        <p class="text-gray-500">
+          In <a href="/admin/settings/" class="text-indigo-600 hover:underline">Settings</a>, tick
+          <strong>Run Tier 2 automatically during import</strong> to send filenames to Gemini for tag suggestions,
+          and/or <strong>Run Tier 3 automatically during import</strong> to send preview images to Gemini Vision.
+          Tier 1 keyword tagging always runs for free and does not require a key.
+          If neither tier is enabled, imports run Tier 1 only even when a key is present.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Batch size and delay for large collections</p>
+        <p class="text-gray-500">
+          Set an optional <strong>AI tagging batch size</strong> in Settings to limit how many designs are sent to
+          Gemini per import run. Set the optional <strong>delay</strong> (seconds between API calls) to avoid
+          rate-limit errors. Both can also be overridden per-action on the Tagging Actions page. Leave them blank to use the defaults.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">In-app Tagging Actions</p>
+        <p class="text-gray-500">
+          The <a href="/admin/tagging-actions/" class="text-indigo-600 hover:underline">Admin → Tagging Actions</a> page
+          lets you run AI tagging on existing designs without the command line.
+          Choose from three actions:
+          <strong>Tag only untagged</strong> (safe, never touches verified tags),
+          <strong>Tag untagged and unverified</strong> (skips manually verified designs),
+          and <strong>Re-tag ALL designs</strong> (overwrites everything — requires confirmation).
+          Each action lets you choose tiers, set a batch size, and adjust the delay per run.
+          The same page also includes a <strong>Local stitching backfill</strong> option for your offline example-image matcher.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Rate-limit errors (429 Too Many Requests)</p>
+        <p class="text-gray-500">
+          If you see 429 errors, increase the delay in Settings or in the Tagging Actions form.
+          You can also use a smaller batch size to spread calls across multiple runs.
+          For very large libraries, consider running the CLI scripts overnight:
+          <code class="font-mono text-xs">python auto_tag.py --delay 6.0 --limit 200</code>.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Potential costs</p>
+        <p class="text-gray-500">
+          Keyword-only tagging is free. Gemini also has a free tier for lighter use, while larger collections may incur charges.
+          A February 2026 estimate found Tier 3 on 4,000 images cost about $0.33 on the paid tier; this may have changed.
+          See the <a href="https://ai.google.dev/pricing" class="text-indigo-600 hover:underline">current pricing page</a> for the latest rates.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Import warnings</p>
+        <p class="text-gray-500">
+          The <em>Before You Import</em> step shows a blue notice if no key is configured (Tier 1 only),
+          or an amber cost notice if a key is present showing which tiers are enabled.
+          You can click <em>Change in Settings</em> from that page to adjust tiers before continuing.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Full guide</p>
+        <p class="text-gray-500">
+          Read the <a href="/about/document/ai-tagging" class="text-indigo-600 hover:underline">AI Tagging Guide</a>
+          for setup steps, security notes, free-tier limits, and example CLI usage.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tagging Actions ────────────────────────────────────────────────── -->
+  <section id="tagging-actions">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🏷 Tagging Actions</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      The <a href="/admin/tagging-actions/" class="text-indigo-600 hover:underline">Admin → Tagging Actions</a>
+      page lets you run AI tagging on your existing designs without the command line.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">Available actions</p>
+        <ul class="list-disc list-inside text-gray-500 space-y-1 mt-1">
+          <li><strong>Tag only untagged designs</strong> — safe to run at any time; never overwrites verified tags.</li>
+          <li><strong>Tag untagged and unverified designs</strong> — also processes designs with auto-suggested but unverified tags.</li>
+          <li><strong>Re-tag ALL designs</strong> — overwrites every design including verified ones; requires confirmation.</li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Choosing tiers</p>
+        <p class="text-gray-500">
+          Tier 1 (keyword matching) is always included.  Tiers 2 and 3 are available when a Google API key is configured.
+          Select the tiers you want for the current run.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Batch size and delay</p>
+        <p class="text-gray-500">
+          You can limit the run to a specific number of designs and override the delay between API calls.
+          Increase the delay if you see <em>429 Too Many Requests</em> errors.
+          Leave the fields blank to use the values saved in Settings.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Local stitching backfill</p>
+        <p class="text-gray-500">
+          The <strong>Local stitching backfill</strong> action analyses the actual embroidery pattern
+          geometry (via StitchIdentifier) to detect stitch types. It only updates the
+          <code>stitching</code> tag group and skips designs whose tags you have already verified.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">New user tip</p>
+        <p class="text-gray-500">
+          If you are new to AI tagging, use <strong>Tag only untagged designs</strong> with a small batch size first,
+          review the results, then run again for more designs.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Projects ───────────────────────────────────────────────────────── -->
+  <section id="projects">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">📁 Projects</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      <a href="/projects/" class="text-indigo-600 hover:underline">Projects</a> let you group designs
+      for a planned embroidery task.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">What projects are for</p>
+        <p class="text-gray-500">
+          A project is a named collection of designs you plan to stitch together — for example
+          a set of Christmas designs or a quilt block series. Use the description field for optional
+          notes, goals, or deadlines.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Adding designs</p>
+        <p class="text-gray-500">
+          You can add designs one at a time from a design's detail page using the
+          <em>Add to Project</em> selector at the bottom.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Adding several designs at once</p>
+        <p class="text-gray-500">
+          On the <a href="/designs/" class="text-indigo-600 hover:underline">Browse</a> page,
+          tick multiple designs and use the bottom bar's project selector between
+          <em>Verify selected</em> and <em>Clear selection</em>, then click <em>Add to project</em>.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Printing</p>
+        <p class="text-gray-500">
+          Each project has a print view so you can produce a reference sheet of all designs in
+          the project — useful for planning and taking to the machine.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Maintenance ────────────────────────────────────────────────────── -->
+  <section id="maintenance">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🛠 Maintenance</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      The <a href="/admin/maintenance/orphans" class="text-indigo-600 hover:underline"><em>Orphans</em></a> tool (accessible via the nav bar) finds design records in the database
+      whose files are no longer present on disk.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">What orphaned records are</p>
+        <p class="text-gray-500">
+          An orphaned record is a design that exists in the database but whose file cannot be found
+          in the catalogue's managed storage folder. This usually happens when files are removed from
+          `data\MachineEmbroideryDesigns`, renamed outside the app, or a backup was restored incompletely.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Deleting orphans</p>
+        <p class="text-gray-500">
+          Deleting an orphan removes the <strong>database record only</strong>. It does not delete
+          the actual design file from disk (if it still exists somewhere). Use this to clean up
+          stale records after reorganising your file library.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">When to use this carefully</p>
+        <p class="text-gray-500">
+          Before deleting, verify that the file really is gone or has moved.
+          Because the catalogue now uses managed portable storage, drive-letter changes should not normally
+          cause orphans on their own.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Troubleshooting ────────────────────────────────────────────────── -->
+  <section id="troubleshooting">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🔧 Troubleshooting</h2>
+    <div class="bg-white rounded shadow p-4 space-y-4 text-sm">
+      <div>
+        <p class="font-medium text-gray-700">Missing folder / changed drive letter</p>
+        <p class="text-gray-500">
+          If many designs show as orphaned after moving the app to a new drive, make sure the entire
+          `data\` folder moved with it. No separate path reconfiguration should be needed.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Import scan finds nothing</p>
+        <p class="text-gray-500">
+          Check that the folder path is correct and that it contains supported embroidery formats.
+          The app supports a broad range of pyembroidery-readable formats including .jef, .pes, .hus,
+          .vp3, .dst, .exp, .sew, .u01, and many more; .art support is limited. If using a network share,
+          ensure it is connected and accessible before scanning.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Files missing after import</p>
+        <p class="text-gray-500">
+          If files were imported and then moved or deleted, they will appear as orphans.
+          Use the orphan maintenance tool to clean up the stale records, then re-import
+          from the new location.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Managed storage location</p>
+        <p class="text-gray-500">
+          Imported files are stored inside the catalogue at `data\MachineEmbroideryDesigns`.
+          If a design cannot be opened, check that the file still exists there and that the `data\`
+          folder was copied or restored completely.
+        </p>
+      </div>
+      <div>
+        <p class="font-medium text-gray-700">Still stuck?</p>
+        <p class="text-gray-500">
+          Check that the application is running with sufficient permissions to read your design
+          folder. If the problem persists, review the application logs for more detail.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
