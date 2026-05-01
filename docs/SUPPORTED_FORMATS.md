@@ -18,12 +18,10 @@ preview are available for all of them where the file contains the necessary data
 | `.sew`    | Janome (older) |
 | `.dst`    | Tajima (industrial/interchange) |
 | `.exp`    | Melco (industrial/interchange) |
-| `.u01`    | Barudan |
 | `.tbf`    | ThredWorks |
 | `.xxx`    | Singer |
 | `.pec`    | Brother (stitch-only subset of .pes) |
 | `.10o`    | Toyota |
-| `.100`    | Toyota |
 | `.dat`    | Barudan |
 | `.dsb`    | Barudan |
 | `.dsz`    | ZSK |
@@ -47,7 +45,6 @@ preview are available for all of them where the file contains the necessary data
 | `.tap`    | Happy |
 | `.zhs`    | ZSK |
 | `.zxy`    | ZSK |
-| `.gcode`  | CNC G-code embroidery |
 
 ---
 
