@@ -7,3 +7,4 @@ edition = "2024"
 image = "0.24"      # Replaces pngwriter.py (much faster)
 binrw = "0.11"      # Replaces struct.unpack for reading embroidery files
 serde = { version = "1.0", features = ["derive"] } # Helps with saving/loading data
+imageproc = "0.23"

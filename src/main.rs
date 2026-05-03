@@ -1,5 +1,6 @@
 pub mod readers;
 pub mod models;
+mod png_writer;
 
 use std::fs::{self, File};
 use std::io::Write;
@@ -12,6 +13,7 @@ fn main() {
     let mut wtr = File::create(out_path).expect("Failed to create rust.csv");
     writeln!(wtr, "format,stitch_count,width_mm,height_mm,begin_x,begin_y,end_x,end_y,thread_changes,colour_changes").unwrap();
 
+    let mut preview_written = false;
     let entries = fs::read_dir(testdata_dir).expect("Failed to read testdata dir");
     for entry in entries {
         let entry = match entry { Ok(e) => e, Err(_) => continue };
@@ -35,7 +37,17 @@ fn main() {
                 continue;
             }};
             match reader.read(&data) {
-                Ok(pattern) => write_report_row(&mut wtr, &ext, &pattern),
+                Ok(pattern) => {
+                    write_report_row(&mut wtr, &ext, &pattern);
+                    if !preview_written {
+                        println!("Loaded pattern: {} stitches, {} threads", pattern.stitches.len(), pattern.threadlist.len());
+                        let settings = png_writer::RenderSettings::default();
+                        let png_bytes = png_writer::render_pattern_to_png(&pattern, &settings);
+                        let mut f = File::create("preview.png").expect("Failed to create preview.png");
+                        f.write_all(&png_bytes).expect("Failed to write PNG");
+                        preview_written = true;
+                    }
+                },
                 Err(e) => {
                     eprintln!("ERROR reading {}: {}", path.display(), e);
                     writeln!(wtr, "{},{},ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR", ext, fname).unwrap();
