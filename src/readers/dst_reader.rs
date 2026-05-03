@@ -1,3 +1,43 @@
+#[cfg(test)]
+mod tests_cake3_dst {
+    use super::*;
+
+    #[test]
+    fn test_read_real_dst_file() {
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Cake 3.dst";
+        let data = std::fs::read(path).expect("Failed to read test DST file");
+        let pattern = read_dst(&data).expect("Failed to parse DST file");
+        println!("Stitch count: {}", pattern.stitches.len());
+        println!("Number of colours: {}", pattern.threadlist.len());
+        let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
+        println!("Number of colour changes: {}", num_colour_changes);
+        for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
+        }
+        assert_eq!(pattern.stitches.len(), 15144, "Unexpected stitch count");
+        assert_eq!(pattern.threadlist.len(), 19, "Unexpected number of colours");
+        assert_eq!(num_colour_changes, 18, "Unexpected number of colour changes");
+        let expected_coords = [
+            (0.0, 0.0),
+            (-45.0, 105.0),
+            (-91.0, 210.0),
+            (-136.0, 315.0),
+            (-182.0, 420.0),
+        ];
+        for (i, &(x, y)) in expected_coords.iter().enumerate() {
+            assert_eq!(pattern.stitches[i].x, x, "Unexpected x at stitch {}", i);
+            assert_eq!(pattern.stitches[i].y, y, "Unexpected y at stitch {}", i);
+        }
+    }
+}
+use crate::readers::embroidery_reader::EmbroideryReader;
+
+pub struct DstReader;
+
+impl EmbroideryReader for DstReader {
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
+        Ok(read_dst(data)?)
+    }
+}
 use std::io::{Cursor, Seek, SeekFrom};
 
 use crate::models::{EmbPattern, EmbThread, StitchType};

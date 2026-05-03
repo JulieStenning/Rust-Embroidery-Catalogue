@@ -1,3 +1,12 @@
+use crate::readers::embroidery_reader::EmbroideryReader;
+
+pub struct JefReader;
+
+impl EmbroideryReader for JefReader {
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
+        Ok(read_jef(data)?)
+    }
+}
 use binrw::{BinRead, BinReaderExt};
 use std::io::{Cursor, Seek, SeekFrom};
 
@@ -318,7 +327,6 @@ mod tests {
         println!("Number of colour changes: {}", num_colour_changes);
         assert_eq!(num_colour_changes, 18, "Unexpected number of colour changes");
         for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
-            println!("Stitch {}: x = {}, y = {}", i, stitch.x, stitch.y);
         }
         assert!(pattern.stitches.len() > 0, "No stitches found");
         assert_eq!(pattern.stitches.len(), 15141, "Unexpected stitch count");

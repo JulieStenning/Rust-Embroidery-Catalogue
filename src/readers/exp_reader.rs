@@ -1,3 +1,43 @@
+#[cfg(test)]
+mod tests_cake3_exp {
+    use super::*;
+
+    #[test]
+    fn test_read_real_exp_file() {
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Cake 3.exp";
+        let data = std::fs::read(path).expect("Failed to read test EXP file");
+        let pattern = read_exp(&data).expect("Failed to parse EXP file");
+        println!("Stitch count: {}", pattern.stitches.len());
+        println!("Number of colours: {}", pattern.threadlist.len());
+        let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
+        println!("Number of colour changes: {}", num_colour_changes);
+        for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
+        }
+        assert_eq!(pattern.stitches.len(), 15091, "Unexpected stitch count");
+        assert_eq!(pattern.threadlist.len(), 19, "Unexpected number of colours");
+        assert_eq!(num_colour_changes, 18, "Unexpected number of colour changes");
+        let expected_coords = [
+            (0.0, 0.0),
+            (-128.0, 4.0),
+            (-172.0, -102.0),
+            (-300.0, -98.0),
+            (-344.0, -204.0),
+        ];
+        for (i, &(x, y)) in expected_coords.iter().enumerate() {
+            assert_eq!(pattern.stitches[i].x, x, "Unexpected x at stitch {}", i);
+            assert_eq!(pattern.stitches[i].y, y, "Unexpected y at stitch {}", i);
+        }
+    }
+}
+use crate::readers::embroidery_reader::EmbroideryReader;
+
+pub struct ExpReader;
+
+impl EmbroideryReader for ExpReader {
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
+        Ok(read_exp(data)?)
+    }
+}
 use std::io::Cursor;
 
 use crate::models::{EmbPattern, StitchType};
@@ -42,7 +82,7 @@ fn read_exact(cursor: &mut Cursor<&[u8]>, n: usize) -> Result<Vec<u8>, binrw::Er
 /// - If byte[0] != 0x80: regular stitch with signed 8-bit deltas.
 /// - If byte[0] == 0x80: control command; byte[1] is the control code,
 ///   followed by 2 extra bytes encoding a position/delta.
-fn read_exp_stitches(
+pub fn read_exp_stitches(
     cursor: &mut Cursor<&[u8]>,
     pattern: &mut EmbPattern,
 ) -> Result<(), binrw::Error> {
@@ -122,6 +162,14 @@ pub fn read_exp(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
     let mut pattern = EmbPattern::new();
 
     read_exp_stitches(&mut cursor, &mut pattern)?;
+
+    // If no threads, but color changes exist, add placeholder threads
+    let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
+    if pattern.threadlist.is_empty() && num_colour_changes > 0 {
+        for _ in 0..=num_colour_changes {
+            pattern.threadlist.push(crate::models::EmbThread::new(0x000000));
+        }
+    }
 
     Ok(pattern)
 }

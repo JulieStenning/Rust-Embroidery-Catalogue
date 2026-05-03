@@ -1,3 +1,12 @@
+pub mod embroidery_reader;
+pub use crate::readers::embroidery_reader::EmbroideryReader;
+pub use crate::readers::dst_reader::DstReader;
+pub use crate::readers::exp_reader::ExpReader;
+pub use crate::readers::jef_reader::JefReader;
+pub use crate::readers::pes_reader::PesReader;
+pub use crate::readers::vp3_reader::Vp3Reader;
 pub mod dst_reader;
 pub mod exp_reader;
 pub mod jef_reader;
+pub mod pes_reader;
+pub mod vp3_reader;
