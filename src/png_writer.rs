@@ -1,3 +1,4 @@
+use image::ImageEncoder;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,7 +63,7 @@ mod tests {
 }
 /// PNG rendering for embroidery previews (Rust replacement for Python PngWriter)
 
-use crate::models::{EmbPattern, EmbThread, StitchType};
+use crate::models::{EmbPattern, StitchType};
 use image::{Rgba, RgbaImage};
 use imageproc::drawing::draw_antialiased_line_segment_mut;
 use imageproc::pixelops::interpolate;
@@ -70,9 +71,6 @@ use imageproc::pixelops::interpolate;
 /// Settings for rendering the embroidery preview.
 #[derive(Debug, Clone)]
 pub struct RenderSettings {
-    pub render_3d: bool,
-    pub show_fabric: bool,
-    pub thread_width: u32,
     pub background: Rgba<u8>,
     // Add more settings as needed
 }
@@ -80,9 +78,6 @@ pub struct RenderSettings {
 impl Default for RenderSettings {
     fn default() -> Self {
         RenderSettings {
-            render_3d: true,
-            show_fabric: true,
-            thread_width: 5,
             background: Rgba([224, 224, 224, 255]), // pale grey
         }
     }
@@ -146,8 +141,9 @@ pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) ->
     }
 
     let mut buf = Vec::new();
-    image::codecs::png::PngEncoder::new(&mut buf)
-        .encode(
+    use image::codecs::png::PngEncoder;
+    PngEncoder::new(&mut buf)
+        .write_image(
             &img,
             img.width(),
             img.height(),
