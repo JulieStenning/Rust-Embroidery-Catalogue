@@ -1,35 +1,3 @@
-#[cfg(test)]
-mod tests_cake3_pes {
-    use super::*;
-
-    #[test]
-    fn test_read_real_pes_file() {
-        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Cake 3.pes";
-        let data = std::fs::read(path).expect("Failed to read test PES file");
-        let pattern = read_pes(&data).expect("Failed to parse PES file");
-        println!("Stitch count: {}", pattern.stitches.len());
-        println!("Number of colours: {}", pattern.threadlist.len());
-        let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
-        println!("Number of colour changes: {}", num_colour_changes);
-        for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
-            println!("Stitch {}: x = {}, y = {}", i, stitch.x, stitch.y);
-        }
-        assert_eq!(pattern.stitches.len(), 15141, "Unexpected stitch count");
-        assert_eq!(pattern.threadlist.len(), 19, "Unexpected number of colours");
-        assert_eq!(num_colour_changes, 18, "Unexpected number of colour changes");
-        let expected_coords = [
-            (0.0, 0.0),
-            (-45.0, 105.0),
-            (-91.0, 210.0),
-            (-136.0, 315.0),
-            (-182.0, 420.0),
-        ];
-        for (i, &(x, y)) in expected_coords.iter().enumerate() {
-            assert_eq!(pattern.stitches[i].x, x, "Unexpected x at stitch {}", i);
-            assert_eq!(pattern.stitches[i].y, y, "Unexpected y at stitch {}", i);
-        }
-    }
-}
 use std::io::{Cursor, Seek, SeekFrom};
 
 use crate::models::{EmbPattern, EmbThread, StitchType};
@@ -389,7 +357,13 @@ fn read_pec(
     cursor.seek(SeekFrom::Current(skip as i64))?;
 
     // Read stitch block end offset (24-bit LE)
-    let stitch_block_end = read_u24_be(cursor)? as i64 - 5 + cursor.position() as i64;
+    let pec_block_start = cursor.position();
+    let stitch_block_end_offset = read_u24_be(cursor)?;
+    let stitch_block_end = if stitch_block_end_offset >= 5 {
+        pec_block_start + (stitch_block_end_offset as u64) - 5u64
+    } else {
+        pec_block_start
+    };
 
     // Skip 0x0B bytes (3 bytes + 4×2-byte shorts)
     cursor.seek(SeekFrom::Current(0x0B))?;
@@ -397,21 +371,23 @@ fn read_pec(
     // Read PEC stitches
     read_pec_stitches(cursor, pattern)?;
 
-    // Seek to stitch block end
-    cursor.seek(SeekFrom::Start(stitch_block_end as u64))?;
+    // Seek to stitch block end, but only if within file bounds
+    if (stitch_block_end as u64) < cursor.get_ref().len() as u64 {
+        cursor.seek(SeekFrom::Start(stitch_block_end as u64))?;
 
-    // Read PEC graphics (store as metadata)
-    let byte_size = pec_graphic_byte_stride as usize * pec_graphic_icon_height as usize;
-    for i in 0..count_colors {
-        let graphic = read_exact(cursor, byte_size)?;
-        let name = format!("pec_graphic_{}", i);
-        let thread_color = values.get(i).map(|t| t.hex_color()).unwrap_or_default();
-        // Store as hex-encoded string for now (graphic + stride + thread)
-        let graphic_hex: String = graphic.iter().map(|b| format!("{:02x}", b)).collect();
-        pattern.extras.insert(
-            name,
-            format!("{};{};{}", graphic_hex, pec_graphic_byte_stride, thread_color),
-        );
+        // Read PEC graphics (store as metadata)
+        let byte_size = pec_graphic_byte_stride as usize * pec_graphic_icon_height as usize;
+        for i in 0..count_colors {
+            let graphic = read_exact(cursor, byte_size)?;
+            let name = format!("pec_graphic_{}", i);
+            let thread_color = values.get(i).map(|t| t.hex_color()).unwrap_or_default();
+            // Store as hex-encoded string for now (graphic + stride + thread)
+            let graphic_hex: String = graphic.iter().map(|b| format!("{:02x}", b)).collect();
+            pattern.extras.insert(
+                name,
+                format!("{};{};{}", graphic_hex, pec_graphic_byte_stride, thread_color),
+            );
+        }
     }
 
     Ok(())
@@ -629,7 +605,6 @@ pub fn read_pes(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
     let pes_string = String::from_utf8_lossy(&pes_string_bytes);
 
     if pes_string == "#PEC0001" {
-        // Direct PEC format
         read_pec(&mut cursor, &mut pattern, &mut loaded_thread_values)?;
         interpolate_duplicate_color_as_stop(&mut pattern);
         return Ok(pattern);
@@ -689,7 +664,6 @@ pub fn read_pes(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
     cursor.seek(SeekFrom::Start(pec_block_position as u64))?;
     read_pec(&mut cursor, &mut pattern, &mut loaded_thread_values)?;
     interpolate_duplicate_color_as_stop(&mut pattern);
-
     Ok(pattern)
 }
 

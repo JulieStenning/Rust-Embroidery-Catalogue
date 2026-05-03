@@ -116,3 +116,5 @@ tests/testdata/Not Mandatory/Bean.zhs
 tests/testdata/Not Mandatory/Bean.zxy
 tests/testdata/Old/02 Cozy Slippers .ART
 decode_exp_stitches.py
+rust.csv
+rust.csv

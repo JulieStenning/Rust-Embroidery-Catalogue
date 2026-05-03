@@ -14,14 +14,13 @@ fn main() {
 
     let entries = fs::read_dir(testdata_dir).expect("Failed to read testdata dir");
     for entry in entries {
-        let entry = entry.unwrap();
+        let entry = match entry { Ok(e) => e, Err(_) => continue };
         let path = entry.path();
         if !path.is_file() { continue; }
         let fname = path.file_name().unwrap().to_string_lossy();
         if !fname.starts_with("Bean.") { continue; }
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
 
-        // Dynamically map extension to XxxReader struct (e.g., pes -> PesReader)
         let reader: Option<Box<dyn EmbroideryReader>> = match ext.as_str() {
             "dst" => Some(Box::new(DstReader)),
             "exp" => Some(Box::new(ExpReader)),
@@ -31,7 +30,10 @@ fn main() {
             _ => None,
         };
         if let Some(reader) = reader {
-            let data = fs::read(&path).expect("Failed to read file");
+            let data = match fs::read(&path) { Ok(d) => d, Err(_) => { 
+                writeln!(wtr, "{},{},ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR", ext, fname).unwrap();
+                continue;
+            }};
             match reader.read(&data) {
                 Ok(pattern) => write_report_row(&mut wtr, &ext, &pattern),
                 Err(e) => {

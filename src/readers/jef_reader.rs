@@ -296,8 +296,12 @@ pub fn read_jef(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
         }
     }
 
-    // --- 5. Append END command -----------------------------------------------
-    pattern.add_stitch_absolute(StitchType::End, 0.0, 0.0);
+    // --- 5. Append END command at last position -----------------------------
+    if let Some(last) = pattern.stitches.last() {
+        pattern.add_stitch_absolute(StitchType::End, last.x, last.y);
+    } else {
+        pattern.add_stitch_absolute(StitchType::End, 0.0, 0.0);
+    }
 
     // TODO: The Python reader applies `interpolate_trims` here based on
     //       trim_distance / trim_at settings.  This can be added later as
@@ -315,21 +319,21 @@ mod tests {
     use crate::models::StitchType;
     
     #[test]
-    fn test_read_real_jef_file() {
-        // Path to the real JEF file for testing
-        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Cake 3.jef";
+    fn test_read_bean_jef_file() {
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Bean.jef";
         let data = std::fs::read(path).expect("Failed to read test JEF file");
         let pattern = read_jef(&data).expect("Failed to parse JEF file");
-        println!("Stitch count: {}", pattern.stitches.len());
-        println!("Number of colours: {}", pattern.threadlist.len());
-        assert_eq!(pattern.threadlist.len(), 19, "Unexpected number of colours");
-        let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
-        println!("Number of colour changes: {}", num_colour_changes);
-        assert_eq!(num_colour_changes, 18, "Unexpected number of colour changes");
-        for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
+        for (i, s) in pattern.stitches.iter().enumerate() {
+            println!("stitch {}: ({}, {}) type: {:?}", i, s.x as i32, s.y as i32, s.stitch_type);
         }
-        assert!(pattern.stitches.len() > 0, "No stitches found");
-        assert_eq!(pattern.stitches.len(), 15141, "Unexpected stitch count");
+        assert_eq!(pattern.stitches.len(), 324, "Unexpected stitch count");
+        let (min_x, min_y, max_x, max_y) = pattern.bounds();
+        assert_eq!((max_x - min_x).abs() as i32, 500, "Unexpected width");
+        assert_eq!((max_y - min_y).abs() as i32, 500, "Unexpected height");
+        assert_eq!(pattern.stitches.first().map(|s| (s.x as i32, s.y as i32)), Some((-125, -125)), "Unexpected begin coords");
+        assert_eq!(pattern.stitches.last().map(|s| (s.x as i32, s.y as i32)), Some((0, 0)), "Unexpected end coords");
+        assert_eq!(pattern.count_threads(), 1, "Unexpected thread changes");
+        assert_eq!(pattern.count_color_changes(), 0, "Unexpected colour changes");
     }
     #[test]
     fn test_read_jef_two_stitches() {
