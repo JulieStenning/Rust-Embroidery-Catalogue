@@ -4,10 +4,16 @@ mod png_writer;
 
 use std::fs::{self, File};
 use std::io::Write;
+use dotenvy::dotenv;
+use std::env;
 use crate::models::EmbPattern;
 use crate::readers::*;
 
 fn main() {
+    // Load environment variables from .env (if present)
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    println!("Using database: {}", database_url);
     let testdata_dir = "tests/testdata";
     let out_path = "rust.csv";
     let mut wtr = File::create(out_path).expect("Failed to create rust.csv");
