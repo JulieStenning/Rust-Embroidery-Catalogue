@@ -12,6 +12,8 @@ pub struct BrowseDesignSummary {
 	pub source: String,
 	pub hoop: Option<String>,
 	pub tags: Vec<String>,
+	pub image_tags: Vec<String>,
+	pub stitching_tags: Vec<String>,
 	pub is_stitched: bool,
 	pub tags_checked: bool,
 	pub rating: Option<i64>,
@@ -25,6 +27,8 @@ struct BrowseDesignSummaryRow {
 	pub source: String,
 	pub hoop: Option<String>,
 	pub tags_csv: Option<String>,
+	pub image_tags_csv: Option<String>,
+	pub stitching_tags_csv: Option<String>,
 	pub is_stitched: bool,
 	pub tags_checked: bool,
 	pub rating: Option<i64>,
@@ -98,6 +102,8 @@ pub async fn get_designs(state: State<'_, AppState>) -> Result<Vec<BrowseDesignS
 			COALESCE(sources.name, 'Unknown') AS source,
 			hoops.name AS hoop,
 			GROUP_CONCAT(tags.description, '|||') AS tags_csv,
+			GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') = 'stitching_type' THEN tags.description END, '|||') AS stitching_tags_csv,
+			GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') != 'stitching_type' THEN tags.description END, '|||') AS image_tags_csv,
 			d.is_stitched AS is_stitched,
 			d.tags_checked AS tags_checked,
 			d.rating AS rating
@@ -126,6 +132,22 @@ pub async fn get_designs(state: State<'_, AppState>) -> Result<Vec<BrowseDesignS
 			hoop: row.hoop,
 			tags: row
 				.tags_csv
+				.unwrap_or_default()
+				.split("|||")
+				.map(|value| value.trim())
+				.filter(|value| !value.is_empty())
+				.map(String::from)
+				.collect(),
+			image_tags: row
+				.image_tags_csv
+				.unwrap_or_default()
+				.split("|||")
+				.map(|value| value.trim())
+				.filter(|value| !value.is_empty())
+				.map(String::from)
+				.collect(),
+			stitching_tags: row
+				.stitching_tags_csv
 				.unwrap_or_default()
 				.split("|||")
 				.map(|value| value.trim())

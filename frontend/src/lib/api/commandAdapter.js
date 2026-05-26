@@ -47,7 +47,8 @@ const TAG_SEED = [
   "Butterflies and Insects",
 ];
 
-function normalizeBrowseItem(raw, index) {
+function normalizeBrowseItem(raw, index, options = {}) {
+  const { useSeedTags = false } = options;
   const id = Number(raw?.id ?? index + 1);
   const filename = String(raw?.filename || raw?.name || `design-${id}.pes`);
   const seed = Math.abs(id || index + 1);
@@ -58,7 +59,14 @@ function normalizeBrowseItem(raw, index) {
     filename,
     designer: String(raw?.designer || "Unknown"),
     source: String(raw?.source || "Unknown"),
-    tags: Array.isArray(raw?.tags) && raw.tags.length > 0 ? raw.tags : seededTags,
+    tags:
+      Array.isArray(raw?.tags) && raw.tags.length > 0
+        ? raw.tags.map(String)
+        : useSeedTags
+          ? seededTags
+          : [],
+    image_tags: Array.isArray(raw?.image_tags) ? raw.image_tags.map(String) : [],
+    stitching_tags: Array.isArray(raw?.stitching_tags) ? raw.stitching_tags.map(String) : [],
     hoop: raw?.hoop ?? (seed % 2 === 0 ? "Hoop A" : "Hoop B"),
     rating:
       raw?.rating == null || Number.isNaN(Number(raw.rating))
@@ -77,13 +85,16 @@ export async function getBrowseDesigns() {
   try {
     const designs = await invoke("get_designs");
     if (Array.isArray(designs)) {
-      return { items: designs.map(normalizeBrowseItem), source: "rust" };
+      return { items: designs.map((item, index) => normalizeBrowseItem(item, index)), source: "rust" };
     }
   } catch (error) {
     console.info("get_designs not available yet, using mock designs.", error);
   }
 
-  return { items: MOCK_DESIGNS.map(normalizeBrowseItem), source: "mock" };
+  return {
+    items: MOCK_DESIGNS.map((item, index) => normalizeBrowseItem(item, index, { useSeedTags: true })),
+    source: "mock",
+  };
 }
 
 /**

@@ -1503,12 +1503,22 @@
 
   function normalizeCardItem(item, index) {
     const id = Number(item?.id ?? index + 1);
+    const imageTags = Array.isArray(item?.image_tags) ? item.image_tags.map(String) : [];
+    const stitchingTags = Array.isArray(item?.stitching_tags) ? item.stitching_tags.map(String) : [];
+    const fallbackTags = Array.isArray(item?.tags) ? item.tags.map(String) : [];
+    const allTags =
+      imageTags.length > 0 || stitchingTags.length > 0
+        ? Array.from(new Set([...imageTags, ...stitchingTags]))
+        : fallbackTags;
+
     return {
       id,
       filename: String(item?.filename || item?.name || `design-${id}.pes`),
       designer: String(item?.designer || "Unknown"),
       source: String(item?.source || "Unknown"),
-      tags: Array.isArray(item?.tags) ? item.tags.map(String) : [],
+      tags: allTags,
+      imageTags,
+      stitchingTags,
       hoop: item?.hoop ? String(item.hoop) : "",
       rating:
         item?.rating == null || Number.isNaN(Number(item.rating))
@@ -2357,11 +2367,23 @@
                   {#if item.hoop}
                     <p class="text-xs text-indigo-600">{item.hoop}</p>
                   {/if}
-                  {#if item.tags.length > 0}
-                    <div class="flex flex-wrap gap-1 pt-0.5">
-                      {#each item.tags as tag}
-                        <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{tag}</span>
-                      {/each}
+                  {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
+                    <div class="pt-0.5 space-y-2">
+                      {#if item.imageTags.length > 0 || (item.imageTags.length === 0 && item.stitchingTags.length === 0 && item.tags.length > 0)}
+                        <div class="flex flex-wrap gap-1">
+                          {#each (item.imageTags.length > 0 ? item.imageTags : item.tags) as tag}
+                            <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{tag}</span>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if item.stitchingTags.length > 0}
+                        <div class="flex flex-wrap gap-1">
+                          {#each item.stitchingTags as tag}
+                            <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">{tag}</span>
+                          {/each}
+                        </div>
+                      {/if}
                     </div>
                   {/if}
                   <p class="text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
