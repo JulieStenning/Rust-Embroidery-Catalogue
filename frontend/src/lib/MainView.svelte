@@ -15,6 +15,7 @@
     bulkSetTagsForDesigns,
     getSettingsViewModel,
     saveSettings,
+    saveImportLastBrowseFolder,
     browseSettingsDataRoot,
     listDesigners,
     createDesigner,
@@ -266,6 +267,7 @@
   let settingsAiBatchSize = $state("");
   let settingsAiDelay = $state("");
   let settingsImportCommitBatchSize = $state("");
+  let settingsImportLastBrowseFolder = $state("");
   let settingsCanConfigureDataRoot = $state(false);
   let settingsDataRoot = $state("");
   let settingsLogFolder = $state("");
@@ -283,6 +285,7 @@
   let backupSavedDesignsDestination = $state("");
   let backupStatus = $state("idle");
   let backupMessage = $state("");
+  let importHasAppliedSavedRoot = $state(false);
 
   let adminNotice = $state("");
   let adminNoticeType = $state("info");
@@ -598,11 +601,27 @@
     settingsAiBatchSize = String(model?.ai_batch_size || "");
     settingsAiDelay = String(model?.ai_delay || "");
     settingsImportCommitBatchSize = String(model?.import_commit_batch_size || "");
+    settingsImportLastBrowseFolder = String(model?.import_last_browse_folder || "");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
     settingsLogFolder = String(model?.log_folder || "");
     settingsAppMode = String(model?.app_mode || "development");
     settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
+  }
+
+  async function persistImportLastBrowseFolder(path) {
+    const normalized = normalizeImportRootPath(path);
+    if (!normalized) {
+      return;
+    }
+
+    const result = await saveImportLastBrowseFolder(normalized);
+    if (result?.persisted) {
+      settingsImportLastBrowseFolder = normalized;
+      return;
+    }
+
+    console.info("Could not persist import.last_browse_folder", result?.error || "unknown error");
   }
 
   async function loadSettingsFromBackend(force = false) {
@@ -977,11 +996,13 @@
           addImportRootPath(path);
         }
         importRootPath = selectedPaths[0];
+        await persistImportLastBrowseFolder(selectedPaths[0]);
       } else {
         const selectedPath = String(result?.path || "").trim();
         if (selectedPath) {
           addImportRootPath(selectedPath);
           importRootPath = selectedPath;
+          await persistImportLastBrowseFolder(selectedPath);
         }
       }
 
@@ -1054,9 +1075,20 @@
     importRootPaths = [];
   }
 
+  async function addCurrentImportRootPath() {
+    const normalized = normalizeImportRootPath(importRootPath);
+    if (!normalized) {
+      return;
+    }
+
+    addImportRootPath(normalized);
+    await persistImportLastBrowseFolder(normalized);
+  }
+
   function resetImportWizard() {
     importBrowseLoading = false;
     importRootPaths = [];
+    importHasAppliedSavedRoot = false;
     importStep = 1;
     importPreview = null;
     importPreviewSource = "mock";
@@ -1743,7 +1775,31 @@
   $effect(() => {
     if (currentRoute === "#/import") {
       loadImportReferenceData();
+      if (!settingsLoaded && !settingsLoading) {
+        loadSettingsFromBackend();
+      }
     }
+  });
+
+  $effect(() => {
+    if (currentRoute !== "#/import") {
+      importHasAppliedSavedRoot = false;
+      return;
+    }
+
+    if (!settingsLoaded || importHasAppliedSavedRoot) {
+      return;
+    }
+
+    const savedRoot = normalizeImportRootPath(settingsImportLastBrowseFolder);
+    if (savedRoot) {
+      importRootPath = savedRoot;
+      if (importRootPaths.length === 0) {
+        addImportRootPath(savedRoot);
+      }
+    }
+
+    importHasAppliedSavedRoot = true;
   });
 
   $effect(() => {
@@ -2796,7 +2852,7 @@
               />
               <button
                 class="menu-button-secondary"
-                onclick={() => addImportRootPath(importRootPath)}
+                onclick={addCurrentImportRootPath}
                 disabled={importLoading || importActionLoading || importBrowseLoading || !String(importRootPath || "").trim()}
               >
                 Add Root

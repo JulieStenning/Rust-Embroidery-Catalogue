@@ -11,6 +11,7 @@ const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
 const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 const KEY_AI_DELAY: &str = "ai.delay";
 const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
+const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
 const KEY_IMAGE_PREFERENCE: &str = "image.preference";
 
 #[derive(Debug, Clone, Serialize)]
@@ -23,6 +24,7 @@ pub struct SettingsViewModel {
     pub ai_batch_size: String,
     pub ai_delay: String,
     pub import_commit_batch_size: String,
+    pub import_last_browse_folder: String,
     pub can_configure_data_root: bool,
     pub data_root: String,
     pub log_folder: String,
@@ -46,6 +48,12 @@ pub struct SaveSettingsRequest {
 pub struct SaveSettingsResult {
     pub saved: bool,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SaveImportBrowseFolderResult {
+    pub saved: bool,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -80,6 +88,9 @@ pub async fn get_settings_view_model(state: State<'_, AppState>) -> Result<Setti
     let import_commit_batch_size = get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
         .await
         .map_err(|e| e.to_string())?;
+    let import_last_browse_folder = get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let google_api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
     let has_google_api_key = !google_api_key.trim().is_empty();
@@ -96,11 +107,30 @@ pub async fn get_settings_view_model(state: State<'_, AppState>) -> Result<Setti
         ai_batch_size,
         ai_delay,
         import_commit_batch_size,
+        import_last_browse_folder,
         can_configure_data_root: false,
         data_root,
         log_folder,
         app_mode: "development".to_string(),
         ai_tagging_help_url: "#/help".to_string(),
+    })
+}
+
+#[tauri::command]
+pub async fn save_import_last_browse_folder(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<SaveImportBrowseFolderResult, String> {
+    let normalized = path.trim().to_string();
+    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+
+    upsert_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER, &normalized)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(SaveImportBrowseFolderResult {
+        saved: true,
+        path: normalized,
     })
 }
 
@@ -204,6 +234,7 @@ fn description_for_key(key: &str) -> &'static str {
         KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
         KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds).",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (1000).",
+        KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_IMAGE_PREFERENCE => "Preferred preview image type for import-created previews: 2d or 3d.",
         _ => "",
     }

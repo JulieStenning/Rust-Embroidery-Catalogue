@@ -553,6 +553,7 @@ export async function getSettingsViewModel() {
       ai_batch_size: "",
       ai_delay: "",
       import_commit_batch_size: "",
+      import_last_browse_folder: "",
       can_configure_data_root: false,
       data_root: "",
       log_folder: "",
@@ -581,6 +582,27 @@ export async function saveSettings(request) {
       saved: false,
       message: `Could not save settings: ${error}`,
       persisted: false,
+    };
+  }
+}
+
+export async function saveImportLastBrowseFolder(path) {
+  try {
+    const result = await invoke("save_import_last_browse_folder", { path: String(path || "") });
+    return {
+      source: "rust",
+      saved: Boolean(result?.saved),
+      path: String(result?.path || ""),
+      persisted: true,
+    };
+  } catch (error) {
+    console.info("save_import_last_browse_folder failed.", error);
+    return {
+      source: "mock",
+      saved: false,
+      path: String(path || ""),
+      persisted: false,
+      error: String(error),
     };
   }
 }

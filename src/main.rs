@@ -113,6 +113,7 @@ fn main() {
             routes::designs::get_design_previews_for_browse,
             routes::settings::get_settings_view_model,
             routes::settings::save_settings_view_model,
+            routes::settings::save_import_last_browse_folder,
             routes::settings::browse_settings_data_root,
             routes::admin::list_designers,
             routes::admin::create_designer,
