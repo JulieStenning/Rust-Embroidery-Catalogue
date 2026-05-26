@@ -223,6 +223,16 @@ records and preview images are created, and the user is redirected to the browse
 
 Files already in the database are skipped to prevent duplicates.
 
+For an end-to-end import architecture baseline, see:
+
+- [Specs/import-backend-spec.md](Specs/import-backend-spec.md)
+- [Specs/import-refactor-checklist.md](Specs/import-refactor-checklist.md)
+- [Specs/UI/import-ui-spec.md](Specs/UI/import-ui-spec.md)
+
+For end-user guidance across the full import journey, see:
+
+- [User-Facing-Guidance/IMPORT_WORKFLOW.md](User-Facing-Guidance/IMPORT_WORKFLOW.md)
+
 For agent-facing architectural and contract details for import format behavior, see:
 
 - [Specs/import-format-support-backend-spec.md](Specs/import-format-support-backend-spec.md)

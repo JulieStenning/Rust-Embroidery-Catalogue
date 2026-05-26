@@ -342,3 +342,126 @@ fn save_google_api_key_to_env(value: &str) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn normalize_image_preference_whitelists_to_2d_or_3d() {
+        assert_eq!(normalize_image_preference("3d"), "3d");
+        assert_eq!(normalize_image_preference(" 3D "), "3d");
+        assert_eq!(normalize_image_preference("2d"), "2d");
+        assert_eq!(normalize_image_preference("unexpected"), "2d");
+        assert_eq!(normalize_image_preference(""), "2d");
+    }
+
+    #[test]
+    fn normalize_optional_batch_size_clamps_and_rejects_invalid() {
+        assert_eq!(normalize_optional_batch_size(""), "");
+        assert_eq!(normalize_optional_batch_size("abc"), "");
+        assert_eq!(normalize_optional_batch_size("0"), "1");
+        assert_eq!(normalize_optional_batch_size("1"), "1");
+        assert_eq!(normalize_optional_batch_size("10001"), "10000");
+        assert_eq!(normalize_optional_batch_size("  42  "), "42");
+    }
+
+    #[test]
+    fn normalize_optional_delay_handles_blank_invalid_and_whole_numbers() {
+        assert_eq!(normalize_optional_delay(""), "");
+        assert_eq!(normalize_optional_delay("nope"), "");
+        assert_eq!(normalize_optional_delay("-1"), "");
+        assert_eq!(normalize_optional_delay("0"), "0.0");
+        assert_eq!(normalize_optional_delay("6"), "6.0");
+        assert_eq!(normalize_optional_delay("6.5"), "6.5");
+        assert_eq!(normalize_optional_delay(" 2.25 "), "2.25");
+    }
+
+    #[test]
+    fn truthy_parser_matches_expected_legacy_values() {
+        assert!(is_truthy("1"));
+        assert!(is_truthy("true"));
+        assert!(is_truthy("YES"));
+        assert!(is_truthy(" y "));
+        assert!(is_truthy("accepted"));
+
+        assert!(!is_truthy("0"));
+        assert!(!is_truthy("false"));
+        assert!(!is_truthy(""));
+        assert!(!is_truthy("maybe"));
+    }
+
+    #[test]
+    fn browse_data_root_returns_expected_fallback_shapes() {
+        let with_start = browse_settings_data_root(Some("D:/catalogue".to_string()));
+        assert!(with_start.path.is_none());
+        assert!(with_start
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("D:/catalogue"));
+
+        let without_start = browse_settings_data_root(None);
+        assert!(without_start.path.is_none());
+        assert!(without_start
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("(blank)"));
+    }
+
+    #[test]
+    fn sqlite_prefix_stripping_handles_supported_formats() {
+        assert_eq!(
+            strip_sqlite_prefix("sqlite:///tmp/catalogue.db"),
+            "tmp/catalogue.db"
+        );
+        assert_eq!(
+            strip_sqlite_prefix("sqlite://tmp/catalogue.db"),
+            "tmp/catalogue.db"
+        );
+        assert_eq!(
+            strip_sqlite_prefix("sqlite:tmp/catalogue.db"),
+            "tmp/catalogue.db"
+        );
+        assert_eq!(strip_sqlite_prefix("tmp/catalogue.db"), "tmp/catalogue.db");
+    }
+
+    #[test]
+    fn save_google_api_key_updates_and_clears_env_file() {
+        let _guard = env_lock().lock().unwrap();
+
+        let original_dir = std::env::current_dir().expect("current dir available");
+        let test_dir = std::env::temp_dir().join(format!(
+            "settings-route-tests-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time available")
+                .as_nanos()
+        ));
+
+        std::fs::create_dir_all(&test_dir).expect("test dir should be created");
+        std::env::set_current_dir(&test_dir).expect("should switch into test dir");
+
+        let write_result = save_google_api_key_to_env("test-key-123");
+        assert!(write_result.is_ok());
+        let written = std::fs::read_to_string(test_dir.join(".env")).expect(".env should exist");
+        assert!(written.contains("GOOGLE_API_KEY=test-key-123"));
+        assert_eq!(std::env::var("GOOGLE_API_KEY").unwrap_or_default(), "test-key-123");
+
+        let clear_result = save_google_api_key_to_env("");
+        assert!(clear_result.is_ok());
+        let cleared = std::fs::read_to_string(test_dir.join(".env")).expect(".env should still exist");
+        assert!(!cleared.contains("GOOGLE_API_KEY="));
+        assert!(std::env::var("GOOGLE_API_KEY").is_err());
+
+        std::env::set_current_dir(original_dir).expect("should restore original dir");
+        let _ = std::fs::remove_dir_all(test_dir);
+    }
+}

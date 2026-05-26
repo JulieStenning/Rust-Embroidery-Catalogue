@@ -5,6 +5,8 @@
 - Audience: Agents
 - Last validated: 2026-05-24
 - Companion checklist: [docs/Specs/import-folder-assignment-refactor-checklist.md](docs/Specs/import-folder-assignment-refactor-checklist.md)
+- Unified import spec: [docs/Specs/import-backend-spec.md](docs/Specs/import-backend-spec.md)
+- Unified import checklist: [docs/Specs/import-refactor-checklist.md](docs/Specs/import-refactor-checklist.md)
 - Related import format spec: [docs/Specs/import-format-support-backend-spec.md](docs/Specs/import-format-support-backend-spec.md)
 - User-facing quick guide: [docs/User-Facing-Guidance/IMPORT_FOLDER_ASSIGNMENT.md](docs/User-Facing-Guidance/IMPORT_FOLDER_ASSIGNMENT.md)
 

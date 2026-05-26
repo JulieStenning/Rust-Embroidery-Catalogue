@@ -5,6 +5,8 @@
 - Audience: Agents
 - Last validated: 2026-05-24
 - Companion checklist: [docs/Specs/import-format-support-refactor-checklist.md](docs/Specs/import-format-support-refactor-checklist.md)
+- Unified import spec: [docs/Specs/import-backend-spec.md](docs/Specs/import-backend-spec.md)
+- Unified import checklist: [docs/Specs/import-refactor-checklist.md](docs/Specs/import-refactor-checklist.md)
 - Related architecture spec: [docs/Specs/backfilling-backend-spec.md](docs/Specs/backfilling-backend-spec.md)
 - User-facing format list: [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md)
 

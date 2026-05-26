@@ -5,6 +5,8 @@
 - Audience: Agents
 - Last validated: 2026-05-24
 - Companion checklist: [docs/Specs/first-import-actions-refactor-checklist.md](docs/Specs/first-import-actions-refactor-checklist.md)
+- Unified import spec: [docs/Specs/import-backend-spec.md](docs/Specs/import-backend-spec.md)
+- Unified import checklist: [docs/Specs/import-refactor-checklist.md](docs/Specs/import-refactor-checklist.md)
 - User guidance: [docs/User-Facing-Guidance/FIRST_IMPORT_ACTIONS.md](docs/User-Facing-Guidance/FIRST_IMPORT_ACTIONS.md)
 - Source plan: [docs/Plans/first-tag-mgt.md](docs/Plans/first-tag-mgt.md)
 

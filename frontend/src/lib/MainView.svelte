@@ -13,6 +13,19 @@
     getSettingsViewModel,
     saveSettings,
     browseSettingsDataRoot,
+    listDesigners,
+    createDesigner,
+    deleteDesigner as removeDesigner,
+    listSources,
+    createSource,
+    deleteSource as removeSource,
+    listTags,
+    createTag,
+    setTagGroup as updateTagGroup,
+    deleteTag as removeTag,
+    listHoops,
+    createHoop,
+    deleteHoop as removeHoop,
   } from "./api/commandAdapter.js";
 
   const ROUTE_PAGES = {
@@ -241,6 +254,233 @@
   let settingsHelpUrl = $state("#/help");
   let settingsHasGoogleApiKey = $derived(settingsGoogleApiKey.trim().length > 0);
 
+  let backupDbDestination = $state("");
+  let backupDesignsDestination = $state("");
+  let backupSavedDbDestination = $state("");
+  let backupSavedDesignsDestination = $state("");
+  let backupStatus = $state("idle");
+  let backupMessage = $state("");
+
+  let adminNotice = $state("");
+  let adminNoticeType = $state("info");
+  let adminLoading = $state(false);
+  let adminDataSource = $state("rust");
+
+  let designers = $state([]);
+  let sources = $state([]);
+  let tags = $state([]);
+  let hoops = $state([]);
+
+  let newDesignerName = $state("");
+  let newSourceName = $state("");
+  let newTagDescription = $state("");
+  let newTagGroup = $state("image");
+  let newHoopName = $state("");
+  let newHoopWidth = $state("");
+  let newHoopHeight = $state("");
+
+  let imageTags = $derived(tags.filter((tag) => tag.tagGroup === "image"));
+  let stitchingTags = $derived(tags.filter((tag) => tag.tagGroup === "stitching"));
+  let unclassifiedTags = $derived(tags.filter((tag) => !tag.tagGroup));
+
+  function setAdminNotice(message, type = "info") {
+    adminNotice = message;
+    adminNoticeType = type;
+  }
+
+  async function loadAdminDataForCurrentRoute(force = false) {
+    if (adminLoading && !force) {
+      return;
+    }
+
+    adminLoading = true;
+    try {
+      if (adminIsDesignersRoute) {
+        const result = await listDesigners();
+        designers = Array.isArray(result?.items) ? result.items : [];
+        adminDataSource = result?.source || "mock";
+      } else if (adminIsSourcesRoute) {
+        const result = await listSources();
+        sources = Array.isArray(result?.items) ? result.items : [];
+        adminDataSource = result?.source || "mock";
+      } else if (adminIsTagsRoute) {
+        const result = await listTags();
+        tags = Array.isArray(result?.items)
+          ? result.items.map((tag) => ({
+              id: Number(tag.id),
+              description: String(tag.description || ""),
+              tagGroup: String(tag.tag_group || ""),
+            }))
+          : [];
+        adminDataSource = result?.source || "mock";
+      } else if (adminIsHoopsRoute) {
+        const result = await listHoops();
+        hoops = Array.isArray(result?.items)
+          ? result.items.map((hoop) => ({
+              id: Number(hoop.id),
+              name: String(hoop.name || ""),
+              maxWidthMm: Number(hoop.max_width_mm ?? 0),
+              maxHeightMm: Number(hoop.max_height_mm ?? 0),
+            }))
+          : [];
+        adminDataSource = result?.source || "mock";
+      }
+    } finally {
+      adminLoading = false;
+    }
+  }
+
+  async function addDesigner(event) {
+    event.preventDefault();
+    const name = newDesignerName.trim();
+    if (!name) {
+      return;
+    }
+
+    const result = await createDesigner(name);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not add designer: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    newDesignerName = "";
+    setAdminNotice("Designer added.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function deleteDesigner(id) {
+    const result = await removeDesigner(id);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not delete designer: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    setAdminNotice("Designer deleted.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function addSource(event) {
+    event.preventDefault();
+    const name = newSourceName.trim();
+    if (!name) {
+      return;
+    }
+
+    const result = await createSource(name);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not add source: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    newSourceName = "";
+    setAdminNotice("Source added.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function deleteSource(id) {
+    const result = await removeSource(id);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not delete source: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    setAdminNotice("Source deleted.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function addTag(event) {
+    event.preventDefault();
+    const description = newTagDescription.trim();
+    if (!description) {
+      return;
+    }
+
+    const result = await createTag(description, newTagGroup);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not add tag: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    newTagDescription = "";
+    newTagGroup = "image";
+    setAdminNotice("Tag added.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function setTagGroup(id, tagGroup) {
+    const result = await updateTagGroup(id, tagGroup);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not update tag group: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    setAdminNotice("Tag group updated.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function deleteTag(id) {
+    const result = await removeTag(id);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    setAdminNotice("Tag deleted.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function addHoop(event) {
+    event.preventDefault();
+    const name = newHoopName.trim();
+    const width = Number(newHoopWidth);
+    const height = Number(newHoopHeight);
+    if (!name || Number.isNaN(width) || Number.isNaN(height) || width <= 0 || height <= 0) {
+      setAdminNotice("Enter a name plus valid positive width and height.", "error");
+      return;
+    }
+
+    const result = await createHoop(name, width, height);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not add hoop: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    newHoopName = "";
+    newHoopWidth = "";
+    newHoopHeight = "";
+    setAdminNotice("Hoop added.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  async function deleteHoop(id) {
+    const result = await removeHoop(id);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not delete hoop: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    setAdminNotice("Hoop deleted.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  let backupHasUnsavedChanges = $derived(
+    backupDbDestination.trim() !== backupSavedDbDestination.trim()
+      || backupDesignsDestination.trim() !== backupSavedDesignsDestination.trim()
+  );
+  let backupHasDbDestination = $derived(backupSavedDbDestination.trim().length > 0);
+  let backupHasDesignsDestination = $derived(backupSavedDesignsDestination.trim().length > 0);
+  let backupDbSourcePath = $derived(
+    settingsDataRoot ? `${settingsDataRoot}\\database\\catalogue.db` : "(not available yet)"
+  );
+  let backupDesignsSourcePath = $derived(
+    settingsDataRoot ? `${settingsDataRoot}\\MachineEmbroideryDesigns` : "(not available yet)"
+  );
+
+  let adminIsDesignersRoute = $derived(currentRoute === "#/admin/designers");
+  let adminIsTagsRoute = $derived(currentRoute === "#/admin/tags");
+  let adminIsSourcesRoute = $derived(currentRoute === "#/admin/sources");
+  let adminIsHoopsRoute = $derived(currentRoute === "#/admin/hoops");
+
   let orphanModalOpen = $state(false);
   let orphanStatus = $state("loading");
   let orphanChecked = $state(0);
@@ -337,6 +577,49 @@
       settingsSaveState = "error";
       settingsSaveMessage = result.error;
     }
+  }
+
+  function browseBackupDestinationUiOnly(kind) {
+    backupStatus = "error";
+    backupMessage = `Folder picker for ${kind} destination is not wired yet. Please enter the destination path manually.`;
+  }
+
+  function saveBackupDestinationsUiOnly(event) {
+    event.preventDefault();
+
+    if (!backupHasUnsavedChanges) {
+      backupStatus = "error";
+      backupMessage = "There are no destination changes to save.";
+      return;
+    }
+
+    backupSavedDbDestination = backupDbDestination.trim();
+    backupSavedDesignsDestination = backupDesignsDestination.trim();
+    backupStatus = "saved";
+    backupMessage = "Backup destinations saved.";
+  }
+
+  function runBackupActionUiOnly(action) {
+    if (action === "database" && !backupHasDbDestination) {
+      backupStatus = "error";
+      backupMessage = "No database backup destination is configured. Please set one below and save destinations.";
+      return;
+    }
+
+    if (action === "designs" && !backupHasDesignsDestination) {
+      backupStatus = "error";
+      backupMessage = "No designs backup destination is configured. Please set one below and save destinations.";
+      return;
+    }
+
+    if (action === "both" && (!backupHasDbDestination || !backupHasDesignsDestination)) {
+      backupStatus = "error";
+      backupMessage = "Both backup destinations must be configured before you can run both backups.";
+      return;
+    }
+
+    backupStatus = "saved";
+    backupMessage = `Backup action "${action}" is queued in UI-only mode. Backend execution wiring is next.`;
   }
 
   function normalizeHash(hash) {
@@ -1002,6 +1285,25 @@
   });
 
   $effect(() => {
+    if (currentRoute === "#/admin/maintenance/backup" && !settingsLoaded && !settingsLoading) {
+      loadSettingsFromBackend();
+    }
+  });
+
+  $effect(() => {
+    if (currentUiKind === "admin-list") {
+      loadAdminDataForCurrentRoute();
+    }
+  });
+
+  $effect(() => {
+    if (currentUiKind !== "admin-list") {
+      adminNotice = "";
+      adminNoticeType = "info";
+    }
+  });
+
+  $effect(() => {
     if (browseCurrentPage > browseTotalPages) {
       browseCurrentPage = browseTotalPages;
     }
@@ -1534,27 +1836,27 @@
       <p class="text-xs text-gray-500">Data source: designs {browseSource}, previews {browsePreviewsSource}, projects {browseProjectsSource}, tags {browseTagsSource}</p>
     </section>
   {:else if currentUiKind === "settings"}
-    <section class="space-y-6">
-      <h1 class="text-2xl font-bold text-gray-800">Application Settings</h1>
+    <section class="settings-page space-y-6">
+      <h1 class="settings-title text-2xl font-bold text-gray-800 mb-6">Application Settings</h1>
 
       {#if settingsSaveState === "saved"}
-        <div class="bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
+        <div class="settings-alert settings-alert-success bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
           {settingsSaveMessage || "Settings saved successfully."}
         </div>
       {:else if settingsSaveState === "error"}
-        <div class="bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+        <div class="settings-alert settings-alert-error bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
           {settingsSaveMessage || "Settings could not be saved."}
         </div>
       {/if}
 
-      <div class="max-w-3xl space-y-6">
+      <div class="settings-layout max-w-3xl space-y-6">
         {#if settingsLoading && !settingsLoaded}
-          <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-2 text-sm">
+          <div class="settings-alert settings-alert-info bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-2 text-sm">
             Loading settings...
           </div>
         {/if}
 
-        <form class="bg-white rounded shadow p-6 space-y-5" onsubmit={saveSettingsFromBackend}>
+        <form class="settings-card settings-form bg-white rounded shadow p-6 space-y-5" onsubmit={saveSettingsFromBackend}>
           <div>
             <h2 class="text-sm font-semibold text-gray-700 mb-1">Image preview preference</h2>
             <p class="text-sm text-gray-600 mb-3">
@@ -1571,11 +1873,12 @@
                   name="settings-image-preference"
                   value="2d"
                   checked={settingsImagePreference === "2d"}
+                  class="text-indigo-600 focus:ring-indigo-500"
                   onchange={() => {
                     settingsImagePreference = "2d";
                   }}
                 />
-                <strong>2D</strong> - Fast flat preview (default, recommended for bulk imports)
+                <strong>2D</strong> — Fast flat preview (default, recommended for bulk imports)
               </label>
 
               <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -1584,11 +1887,12 @@
                   name="settings-image-preference"
                   value="3d"
                   checked={settingsImagePreference === "3d"}
+                  class="text-indigo-600 focus:ring-indigo-500"
                   onchange={() => {
                     settingsImagePreference = "3d";
                   }}
                 />
-                <strong>3D</strong> - Detailed stitch-simulated preview (slower, more realistic)
+                <strong>3D</strong> — Detailed stitch-simulated preview (slower, more realistic)
               </label>
             </div>
 
@@ -1616,17 +1920,17 @@
                 placeholder="AIzaSy..."
                 autocomplete="off"
                 spellcheck="false"
-                class="flex-1 border rounded px-3 py-2 text-sm font-mono"
+                class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
               />
               <button
                 type="button"
-                class="border rounded px-3 py-2 text-sm hover:bg-gray-50"
+                class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
                 aria-label="Show or hide API key"
                 aria-pressed={settingsApiKeyRevealed}
                 title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
                 onclick={toggleSettingsApiKeyVisibility}
               >
-                <span aria-hidden="true">{settingsApiKeyRevealed ? "🙈" : "👁"}</span>
+                <span aria-hidden="true" class="settings-eye-icon">{settingsApiKeyRevealed ? "🙈" : "👁"}</span>
               </button>
             </div>
             <p class="mt-2 text-xs text-gray-500">
@@ -1664,11 +1968,11 @@
 
             <div class="space-y-2">
               <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" bind:checked={settingsAiTier2Auto} />
+                <input type="checkbox" bind:checked={settingsAiTier2Auto} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 Run <strong>Tier 2</strong> (Gemini text AI from filename) automatically during import
               </label>
               <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" bind:checked={settingsAiTier3Auto} />
+                <input type="checkbox" bind:checked={settingsAiTier3Auto} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 Run <strong>Tier 3</strong> (Gemini vision AI from preview image) automatically during import
               </label>
             </div>
@@ -1683,8 +1987,8 @@
               type="number"
               min="1"
               bind:value={settingsAiBatchSize}
-              placeholder="e.g. 100 - leave blank to tag all"
-              class="border rounded px-3 py-2 text-sm w-48"
+              placeholder="e.g. 100 — leave blank to tag all"
+              class="settings-input border rounded px-3 py-2 text-sm w-48"
             />
             <p class="mt-1 text-xs text-gray-500">
               Limit AI tagging to this many newly imported designs per import run.
@@ -1703,8 +2007,8 @@
               min="0"
               step="0.5"
               bind:value={settingsAiDelay}
-              placeholder="e.g. 6.0 - leave blank for default (5.0 s)"
-              class="border rounded px-3 py-2 text-sm w-56"
+              placeholder="e.g. 6.0 — leave blank for default (5.0 s)"
+              class="settings-input border rounded px-3 py-2 text-sm w-56"
             />
             <p class="mt-1 text-xs text-gray-500">
               Seconds to wait between API calls. Increase this if you see <em>429 Too Many Requests</em> errors.
@@ -1722,8 +2026,8 @@
               type="number"
               min="1"
               bind:value={settingsImportCommitBatchSize}
-              placeholder="e.g. 1000 - leave blank for default"
-              class="border rounded px-3 py-2 text-sm w-56"
+              placeholder="e.g. 1000 — leave blank for default"
+              class="settings-input border rounded px-3 py-2 text-sm w-56"
             />
             <p class="mt-1 text-xs text-gray-500">
               Controls how many designs are written or tag-updated before each database commit during import.
@@ -1753,14 +2057,14 @@
                     bind:value={settingsDataRoot}
                     placeholder="D:\\EmbroideryCatalogueData"
                     spellcheck="false"
-                    class="flex-1 border rounded px-3 py-2 text-sm font-mono"
+                    class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
                   />
                   <button
                     type="button"
-                    class="border rounded px-3 py-2 text-sm hover:bg-gray-50"
+                    class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
                     onclick={browseDataRootFromBackend}
                   >
-                    Browse...
+                    Browse…
                   </button>
                 </div>
                 <p class="mt-1 text-xs text-gray-500">
@@ -1772,13 +2076,13 @@
 
           <div class="flex items-center justify-between gap-3">
             <p class="text-xs text-gray-500">These settings are stored in the catalogue database for this installation.</p>
-            <button type="submit" class="menu-button-primary" disabled={settingsSaveState === "saving"}>
+            <button type="submit" class="settings-primary-button menu-button-primary" disabled={settingsSaveState === "saving"}>
               {settingsSaveState === "saving" ? "Saving..." : "Save settings"}
             </button>
           </div>
         </form>
 
-        <div class="bg-white rounded shadow p-6 space-y-5">
+        <div class="settings-card settings-meta bg-white rounded shadow p-6 space-y-5">
           <div>
             <h2 class="text-sm font-semibold text-gray-700 mb-1">Storage locations</h2>
             <p class="text-sm text-gray-600">
@@ -1789,13 +2093,150 @@
 
           <div>
             <p class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</p>
-            <code class="block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsDataRoot}</code>
+            <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsDataRoot}</code>
           </div>
 
           <div>
             <p class="block text-sm font-semibold text-gray-700 mb-1">Log folder</p>
-            <code class="block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsLogFolder}</code>
+            <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsLogFolder}</code>
           </div>
+        </div>
+      </div>
+    </section>
+  {:else if currentUiKind === "backup"}
+    <section class="backup-page space-y-4">
+      <h1 class="backup-title text-2xl font-bold text-gray-800 mb-2">Backup</h1>
+      <p class="text-sm text-gray-500 mb-4">
+        Back up your catalogue database and embroidery design files to folders of your choice.
+        The database backup saves your catalogue data, settings, tags, and projects.
+        The designs backup saves the actual embroidery files.
+      </p>
+
+      <div class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1">
+        <p class="font-semibold">Important</p>
+        <p>
+          The database and embroidery designs are backed up <strong>separately</strong>.
+          To make a <strong>complete backup</strong> of your catalogue, make sure you run <strong>both</strong> backups.
+        </p>
+      </div>
+
+      {#if backupStatus === "saved"}
+        <div class="settings-alert bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
+          {backupMessage || "Backup destinations saved."}
+        </div>
+      {:else if backupStatus === "error"}
+        <div class="settings-alert bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+          {backupMessage || "Backup action could not be completed."}
+        </div>
+      {/if}
+
+      <div class="settings-layout max-w-3xl space-y-6">
+        <form class="settings-card backup-card bg-white rounded shadow p-6 space-y-5" onsubmit={saveBackupDestinationsUiOnly}>
+          <h2 class="text-base font-semibold text-gray-800">Backup Destinations</h2>
+          <p class="text-sm text-gray-600">Set separate destination folders for the database and designs backups.</p>
+
+          <div>
+            <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1">Database backup folder</label>
+            <div class="flex gap-2">
+              <input
+                id="backup-db-destination"
+                type="text"
+                bind:value={backupDbDestination}
+                placeholder="e.g. C:\\Backups\\EmbroideryDB"
+                spellcheck="false"
+                class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+              />
+              <button type="button" class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap" onclick={() => browseBackupDestinationUiOnly("database")}>
+                Browse…
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-gray-500">
+              This backup contains your catalogue data only - <strong>not</strong> the embroidery design files.
+            </p>
+          </div>
+
+          <div>
+            <label for="backup-designs-destination" class="block text-sm font-semibold text-gray-700 mb-1">Designs backup folder</label>
+            <div class="flex gap-2">
+              <input
+                id="backup-designs-destination"
+                type="text"
+                bind:value={backupDesignsDestination}
+                placeholder="e.g. C:\\Backups\\EmbroideryDesigns"
+                spellcheck="false"
+                class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+              />
+              <button type="button" class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap" onclick={() => browseBackupDestinationUiOnly("designs")}>
+                Browse…
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-gray-500">
+              This backup contains file copies only - <strong>not</strong> the catalogue database.
+            </p>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="settings-primary-button menu-button-primary"
+              disabled={!backupHasUnsavedChanges}
+              title={!backupHasUnsavedChanges ? "No unsaved destination changes" : undefined}
+            >
+              Save destinations
+            </button>
+          </div>
+        </form>
+
+        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+          <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
+          <p class="text-sm text-gray-600">Creates a full copy of the live database file with a timestamp in the filename.</p>
+          <div class="text-xs text-gray-500 space-y-0.5">
+            <p>Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupDbSourcePath}</code></p>
+            <p>Saved destination folder: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupSavedDbDestination || "(not set)"}</code></p>
+          </div>
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled={!backupHasDbDestination}
+            title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
+            onclick={() => runBackupActionUiOnly("database")}
+          >
+            Backup database now
+          </button>
+        </div>
+
+        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+          <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
+          <p class="text-sm text-gray-600">
+            Runs an incremental mirror backup of the designs folder. Only new or changed files are copied; unchanged files are skipped.
+          </p>
+          <div class="text-xs text-gray-500 space-y-0.5">
+            <p>Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupDesignsSourcePath}</code></p>
+            <p>Saved destination folder: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupSavedDesignsDestination || "(not set)"}</code></p>
+          </div>
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled={!backupHasDesignsDestination}
+            title={!backupHasDesignsDestination ? "Set a designs backup destination first" : undefined}
+            onclick={() => runBackupActionUiOnly("designs")}
+          >
+            Run incremental backup
+          </button>
+        </div>
+
+        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+          <h2 class="text-base font-semibold text-gray-800">Backup Both</h2>
+          <p class="text-sm text-gray-600">Run the database backup and the incremental designs backup in one step.</p>
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled={!backupHasDbDestination || !backupHasDesignsDestination}
+            title={!backupHasDbDestination || !backupHasDesignsDestination ? "Set both backup destinations first" : undefined}
+            onclick={() => runBackupActionUiOnly("both")}
+          >
+            Run both backups
+          </button>
         </div>
       </div>
     </section>
@@ -1896,26 +2337,356 @@
           <div class="route-card">Troubleshooting links placeholder</div>
         </div>
       {:else if currentUiKind === "admin-list"}
-        <div class="space-y-3">
-          <div class="grid sm:grid-cols-3 gap-3">
-            <div class="route-card">List/table placeholder</div>
-            <div class="route-card">Create form placeholder</div>
-            <div class="route-card">Edit/Delete action placeholder</div>
-          </div>
-          <div class="route-panel">
-            This admin screen intentionally includes shell-only controls in this stage.
-          </div>
-        </div>
-      {:else if currentUiKind === "backup"}
-        <div class="space-y-3">
-          <div class="grid md:grid-cols-2 gap-3">
-            <div class="route-card">Database backup destination placeholder</div>
-            <div class="route-card">Design backup destination placeholder</div>
-          </div>
-          <div class="route-panel">
-            Backup action row placeholder: database now, incremental, run both.
-          </div>
-        </div>
+        <section class="admin-page space-y-4">
+          {#if adminNotice}
+            <div
+              class="admin-alert rounded px-4 py-2 text-sm border"
+              class:bg-green-50={adminNoticeType === "success"}
+              class:border-green-300={adminNoticeType === "success"}
+              class:text-green-800={adminNoticeType === "success"}
+              class:bg-red-50={adminNoticeType === "error"}
+              class:border-red-300={adminNoticeType === "error"}
+              class:text-red-800={adminNoticeType === "error"}
+              class:bg-blue-50={adminNoticeType !== "success" && adminNoticeType !== "error"}
+              class:border-blue-200={adminNoticeType !== "success" && adminNoticeType !== "error"}
+              class:text-blue-800={adminNoticeType !== "success" && adminNoticeType !== "error"}
+            >
+              {adminNotice}
+            </div>
+          {/if}
+
+          {#if adminIsDesignersRoute}
+            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Designers</h1>
+            <p class="text-sm text-gray-500">
+              Designers are the creators or brands of embroidery designs. Use this list to keep designer names consistent.
+            </p>
+
+            <div class="admin-card bg-white rounded shadow p-4 max-w-xl">
+              <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new designer</h2>
+              <form class="flex gap-2" onsubmit={addDesigner}>
+                <input
+                  type="text"
+                  bind:value={newDesignerName}
+                  required
+                  placeholder="New designer name..."
+                  class="admin-input flex-1 border rounded px-3 py-2 text-sm"
+                />
+                <button type="submit" class="settings-primary-button text-sm">Add</button>
+              </form>
+            </div>
+
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-2xl">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Name</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {#if designers.length === 0}
+                    <tr>
+                      <td colspan="2" class="px-4 py-3 text-gray-400">No designers yet.</td>
+                    </tr>
+                  {:else}
+                    {#each designers as designer}
+                      <tr>
+                        <td class="px-4 py-2">{designer.name}</td>
+                        <td class="px-4 py-2 text-right">
+                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteDesigner(designer.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+          {:else if adminIsTagsRoute}
+            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Tags</h1>
+            <p class="text-sm text-gray-500">
+              Use Image tags for subject categories and Stitching tags for technique or style.
+            </p>
+
+            <div class="admin-card bg-white rounded shadow p-4 max-w-3xl">
+              <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new tag</h2>
+              <form class="flex flex-wrap gap-2 items-end" onsubmit={addTag}>
+                <div>
+                  <label for="admin-tag-description" class="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                  <input
+                    id="admin-tag-description"
+                    type="text"
+                    bind:value={newTagDescription}
+                    required
+                    placeholder="e.g. Animals, Cross stitch..."
+                    class="admin-input border rounded px-3 py-2 text-sm w-56"
+                  />
+                </div>
+                <div>
+                  <label for="admin-tag-group" class="block text-xs font-medium text-gray-600 mb-1">Group</label>
+                  <select id="admin-tag-group" bind:value={newTagGroup} class="admin-input border rounded px-3 py-2 text-sm">
+                    <option value="image">Image</option>
+                    <option value="stitching">Stitching</option>
+                  </select>
+                </div>
+                <button type="submit" class="settings-primary-button text-sm">Add</button>
+              </form>
+            </div>
+
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
+              <div class="bg-green-50 border-b border-green-200 px-4 py-2">
+                <h2 class="text-sm font-semibold text-green-800 uppercase tracking-wide">Image Tags</h2>
+              </div>
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Description</th>
+                    <th class="px-4 py-2 text-left">Group</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {#if imageTags.length === 0}
+                    <tr><td colspan="3" class="px-4 py-3 text-gray-400">No image tags yet.</td></tr>
+                  {:else}
+                    {#each imageTags as tag}
+                      <tr>
+                        <td class="px-4 py-2">{tag.description}</td>
+                        <td class="px-4 py-2">
+                          <select
+                            value={tag.tagGroup}
+                            class="admin-input border rounded px-2 py-1 text-xs"
+                            onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
+                          >
+                            <option value="">Unclassified</option>
+                            <option value="image">Image</option>
+                            <option value="stitching">Stitching</option>
+                          </select>
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteTag(tag.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    {/each}
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
+              <div class="bg-blue-50 border-b border-blue-200 px-4 py-2">
+                <h2 class="text-sm font-semibold text-blue-800 uppercase tracking-wide">Stitching Tags</h2>
+              </div>
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Description</th>
+                    <th class="px-4 py-2 text-left">Group</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {#if stitchingTags.length === 0}
+                    <tr><td colspan="3" class="px-4 py-3 text-gray-400">No stitching tags yet.</td></tr>
+                  {:else}
+                    {#each stitchingTags as tag}
+                      <tr>
+                        <td class="px-4 py-2">{tag.description}</td>
+                        <td class="px-4 py-2">
+                          <select
+                            value={tag.tagGroup}
+                            class="admin-input border rounded px-2 py-1 text-xs"
+                            onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
+                          >
+                            <option value="">Unclassified</option>
+                            <option value="image">Image</option>
+                            <option value="stitching">Stitching</option>
+                          </select>
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteTag(tag.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    {/each}
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+
+            {#if unclassifiedTags.length > 0}
+              <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
+                <div class="bg-amber-50 border-b border-amber-200 px-4 py-2">
+                  <h2 class="text-sm font-semibold text-amber-800 uppercase tracking-wide">Unclassified Tags</h2>
+                </div>
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                    <tr>
+                      <th class="px-4 py-2 text-left">Description</th>
+                      <th class="px-4 py-2 text-left">Group</th>
+                      <th class="px-4 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    {#each unclassifiedTags as tag}
+                      <tr>
+                        <td class="px-4 py-2">{tag.description}</td>
+                        <td class="px-4 py-2">
+                          <select
+                            value={tag.tagGroup}
+                            class="admin-input border rounded px-2 py-1 text-xs"
+                            onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
+                          >
+                            <option value="">Unclassified</option>
+                            <option value="image">Image</option>
+                            <option value="stitching">Stitching</option>
+                          </select>
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteTag(tag.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          {:else if adminIsSourcesRoute}
+            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Sources</h1>
+            <p class="text-sm text-gray-500">
+              Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
+            </p>
+
+            <div class="admin-card bg-white rounded shadow p-4 max-w-xl">
+              <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new source</h2>
+              <form class="flex gap-2" onsubmit={addSource}>
+                <input
+                  type="text"
+                  bind:value={newSourceName}
+                  required
+                  placeholder="e.g. Purchased, Downloaded..."
+                  class="admin-input flex-1 border rounded px-3 py-2 text-sm"
+                />
+                <button type="submit" class="settings-primary-button text-sm">Add</button>
+              </form>
+            </div>
+
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-2xl">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Name</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {#if sources.length === 0}
+                    <tr>
+                      <td colspan="2" class="px-4 py-3 text-gray-400">No sources yet.</td>
+                    </tr>
+                  {:else}
+                    {#each sources as source}
+                      <tr>
+                        <td class="px-4 py-2">{source.name}</td>
+                        <td class="px-4 py-2 text-right">
+                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteSource(source.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+          {:else if adminIsHoopsRoute}
+            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Hoops</h1>
+            <p class="text-sm text-gray-500 max-w-3xl">
+              Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
+            </p>
+
+            <div class="admin-card bg-white rounded shadow p-4 max-w-4xl">
+              <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new hoop</h2>
+              <form class="flex gap-2 items-end flex-wrap" onsubmit={addHoop}>
+                <div>
+                  <label for="admin-hoop-name" class="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                  <input
+                    id="admin-hoop-name"
+                    type="text"
+                    bind:value={newHoopName}
+                    required
+                    placeholder="e.g. 5x7 hoop"
+                    class="admin-input border rounded px-3 py-2 text-sm w-52"
+                  />
+                </div>
+                <div>
+                  <label for="admin-hoop-width" class="block text-xs font-medium text-gray-600 mb-1">Max Width (mm)</label>
+                  <input
+                    id="admin-hoop-width"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    bind:value={newHoopWidth}
+                    required
+                    class="admin-input border rounded px-3 py-2 text-sm w-36"
+                  />
+                </div>
+                <div>
+                  <label for="admin-hoop-height" class="block text-xs font-medium text-gray-600 mb-1">Max Height (mm)</label>
+                  <input
+                    id="admin-hoop-height"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    bind:value={newHoopHeight}
+                    required
+                    class="admin-input border rounded px-3 py-2 text-sm w-36"
+                  />
+                </div>
+                <button type="submit" class="settings-primary-button text-sm">Add</button>
+              </form>
+            </div>
+
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Name</th>
+                    <th class="px-4 py-2 text-right">Max Width (mm)</th>
+                    <th class="px-4 py-2 text-right">Max Height (mm)</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {#if hoops.length === 0}
+                    <tr>
+                      <td colspan="4" class="px-4 py-3 text-gray-400">No hoops defined yet. Add your own machine hoops above.</td>
+                    </tr>
+                  {:else}
+                    {#each hoops as hoop}
+                      <tr>
+                        <td class="px-4 py-2 font-medium">{hoop.name}</td>
+                        <td class="px-4 py-2 text-right">{hoop.maxWidthMm.toFixed(2)}</td>
+                        <td class="px-4 py-2 text-right">{hoop.maxHeightMm.toFixed(2)}</td>
+                        <td class="px-4 py-2 text-right">
+                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteHoop(hoop.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+          {:else}
+            <div class="route-panel">This admin screen is not yet mapped.</div>
+          {/if}
+
+          <p class="text-xs text-gray-500">
+            Data source: {adminDataSource === "rust" ? "Rust persistence" : "mock fallback"}.
+          </p>
+        </section>
       {:else if currentUiKind === "tagging-actions"}
         <div class="space-y-3">
           <div class="grid md:grid-cols-3 gap-3">

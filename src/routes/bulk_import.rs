@@ -82,6 +82,7 @@ pub struct BulkImportPreview {
     pub discovered_count: usize,
     pub selected_count: usize,
     pub folder_count: usize,
+    pub scanned_files: Vec<scanning::ScannedFile>,
     pub resolved_assignments: Vec<ResolvedFolderAssignmentWire>,
 }
 
@@ -129,9 +130,40 @@ pub struct BulkImportPrecheckResult {
     pub context_token: String,
     pub context_token_present: bool,
     pub ready_for_confirm: bool,
+    pub is_first_import: bool,
+    pub needs_hoop_setup: bool,
     pub root_path_count: usize,
     pub selected_file_count: usize,
     pub resolved_assignments: Vec<ResolvedFolderAssignmentWire>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BulkImportPrecheckActionWire {
+    ReviewHoops,
+    ReviewTags,
+    ReviewSources,
+    ReviewDesigners,
+    ImportNow,
+    Cancel,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BulkImportPrecheckActionRequest {
+    pub context_token: String,
+    pub action: BulkImportPrecheckActionWire,
+    #[serde(default)]
+    pub confirm_skip_hoops: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BulkImportPrecheckActionResult {
+    pub action: BulkImportPrecheckActionWire,
+    pub context_token_present: bool,
+    pub consumed_context: bool,
+    pub requires_skip_hoops_confirmation: bool,
+    pub next_route: Option<String>,
+    pub confirm_result: Option<BulkImportConfirmExecutionResult>,
 }
 
 impl From<BulkImportRequest> for BulkImportWire {
@@ -230,6 +262,31 @@ pub fn initialize_bulk_import_db_pool(pool: SqlitePool) {
 
 fn get_bulk_import_db_pool() -> Option<SqlitePool> {
     BULK_IMPORT_DB_POOL.get().cloned()
+}
+
+async fn load_catalog_counts(pool: &SqlitePool) -> Result<(i64, i64), String> {
+    let design_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM designs")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let hoop_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM hoops")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok((design_count, hoop_count))
+}
+
+fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
+    let Some(pool) = get_bulk_import_db_pool() else {
+        return Ok((false, false));
+    };
+
+    let (design_count, hoop_count) = tauri::async_runtime::block_on(load_catalog_counts(&pool))?;
+    let is_first_import = design_count == 0;
+    let needs_hoop_setup = is_first_import && hoop_count == 0;
+    Ok((is_first_import, needs_hoop_setup))
 }
 
 fn normalize_path_for_match(path: &str) -> String {
@@ -373,6 +430,12 @@ pub fn take_bulk_import_context(token: &str) -> Option<BulkImportConfirmWire> {
     store.remove(token).map(|context| context.confirm_wire)
 }
 
+pub fn get_bulk_import_context(token: &str) -> Option<BulkImportConfirmWire> {
+    let mut store = bulk_import_context_store().lock().unwrap();
+    prune_bulk_import_context_store(&mut store);
+    store.get(token).map(|context| context.confirm_wire.clone())
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct BulkImportContextStoreSummary {
     pub active_context_count: usize,
@@ -487,6 +550,7 @@ pub fn precheck_bulk_import_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportPrecheckResult, String> {
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
+    let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized()?;
     let context_token = store_bulk_import_context(confirm_wire.clone());
     println!("Precheck bulk import stored token: {context_token}");
     println!("Precheck bulk import resolved assignments: {:#?}", resolved_assignments);
@@ -495,10 +559,116 @@ pub fn precheck_bulk_import_wire(
         context_token,
         context_token_present: true,
         ready_for_confirm: true,
+        is_first_import,
+        needs_hoop_setup,
         root_path_count: confirm_wire.wire.root_paths.len(),
         selected_file_count: confirm_wire.wire.selected_files.len(),
         resolved_assignments,
     })
+}
+
+#[tauri::command]
+pub fn precheck_bulk_import_action_wire(
+    request: BulkImportPrecheckActionRequest,
+) -> Result<BulkImportPrecheckActionResult, String> {
+    let context_token = request.context_token.clone();
+
+    match request.action {
+        BulkImportPrecheckActionWire::ReviewHoops => {
+            get_bulk_import_context(&context_token)
+                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+
+            Ok(BulkImportPrecheckActionResult {
+                action: request.action,
+                context_token_present: true,
+                consumed_context: false,
+                requires_skip_hoops_confirmation: false,
+                next_route: Some(format!("/admin/hoops/?import_token={context_token}")),
+                confirm_result: None,
+            })
+        }
+        BulkImportPrecheckActionWire::ReviewTags => {
+            get_bulk_import_context(&context_token)
+                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+
+            Ok(BulkImportPrecheckActionResult {
+                action: request.action,
+                context_token_present: true,
+                consumed_context: false,
+                requires_skip_hoops_confirmation: false,
+                next_route: Some(format!("/admin/tags/?import_token={context_token}")),
+                confirm_result: None,
+            })
+        }
+        BulkImportPrecheckActionWire::ReviewSources => {
+            get_bulk_import_context(&context_token)
+                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+
+            Ok(BulkImportPrecheckActionResult {
+                action: request.action,
+                context_token_present: true,
+                consumed_context: false,
+                requires_skip_hoops_confirmation: false,
+                next_route: Some(format!("/admin/sources/?import_token={context_token}")),
+                confirm_result: None,
+            })
+        }
+        BulkImportPrecheckActionWire::ReviewDesigners => {
+            get_bulk_import_context(&context_token)
+                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+
+            Ok(BulkImportPrecheckActionResult {
+                action: request.action,
+                context_token_present: true,
+                consumed_context: false,
+                requires_skip_hoops_confirmation: false,
+                next_route: Some(format!("/admin/designers/?import_token={context_token}")),
+                confirm_result: None,
+            })
+        }
+        BulkImportPrecheckActionWire::Cancel => {
+            take_bulk_import_context(&context_token)
+                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+
+            Ok(BulkImportPrecheckActionResult {
+                action: request.action,
+                context_token_present: false,
+                consumed_context: true,
+                requires_skip_hoops_confirmation: false,
+                next_route: Some("/import/".to_string()),
+                confirm_result: None,
+            })
+        }
+        BulkImportPrecheckActionWire::ImportNow => {
+            get_bulk_import_context(&context_token)
+                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+
+            let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized()?;
+            let requires_skip_hoops_confirmation =
+                is_first_import && needs_hoop_setup && !request.confirm_skip_hoops;
+
+            if requires_skip_hoops_confirmation {
+                return Ok(BulkImportPrecheckActionResult {
+                    action: request.action,
+                    context_token_present: true,
+                    consumed_context: false,
+                    requires_skip_hoops_confirmation: true,
+                    next_route: Some("/import/confirm-skip-hoops/".to_string()),
+                    confirm_result: None,
+                });
+            }
+
+            let confirm_result = do_confirm_bulk_import_wire(context_token)?;
+            Ok(BulkImportPrecheckActionResult {
+                action: request.action,
+                context_token_present: false,
+                consumed_context: true,
+                requires_skip_hoops_confirmation: false,
+                next_route: Some("/designs/".to_string()),
+                confirm_result: Some(confirm_result),
+            })
+        }
+    }
 }
 
 #[tauri::command]
@@ -620,13 +790,22 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
     }
 
     let mut discovered_count = 0usize;
+    let mut scanned_files = Vec::new();
     for root_path in &wire.root_paths {
         let scan_input = scanning::ScanInput {
             root_path: root_path.clone(),
         };
         let scan_result = scanning::scan(&scan_input);
         discovered_count += scan_result.files.len();
+        scanned_files.extend(scan_result.files);
     }
+
+    scanned_files.sort_by(|left, right| {
+        left
+            .full_path
+            .to_ascii_lowercase()
+            .cmp(&right.full_path.to_ascii_lowercase())
+    });
 
     let resolved_assignments = wire
         .per_folder_assignments
@@ -652,6 +831,7 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
         discovered_count,
         selected_count: wire.selected_files.len(),
         folder_count: wire.root_paths.len(),
+        scanned_files,
         resolved_assignments,
     })
 }
@@ -908,6 +1088,94 @@ mod tests {
         assert!(confirm.canonical_confirm);
         assert!(confirm.ready_for_persistence);
         assert_eq!(confirm.resolved_assignments.len(), 1);
+    }
+
+    #[test]
+    fn precheck_action_review_tags_keeps_context() {
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        let action_result = precheck_bulk_import_action_wire(BulkImportPrecheckActionRequest {
+            context_token: precheck.context_token.clone(),
+            action: BulkImportPrecheckActionWire::ReviewTags,
+            confirm_skip_hoops: false,
+        })
+        .expect("review action should succeed");
+
+        assert!(!action_result.consumed_context);
+        assert!(action_result.context_token_present);
+        assert!(action_result.next_route.unwrap_or_default().contains("/admin/tags/"));
+        assert!(take_bulk_import_context(&precheck.context_token).is_some());
+    }
+
+    #[test]
+    fn precheck_action_cancel_consumes_context() {
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        let action_result = precheck_bulk_import_action_wire(BulkImportPrecheckActionRequest {
+            context_token: precheck.context_token.clone(),
+            action: BulkImportPrecheckActionWire::Cancel,
+            confirm_skip_hoops: false,
+        })
+        .expect("cancel action should succeed");
+
+        assert!(action_result.consumed_context);
+        assert!(!action_result.context_token_present);
+        assert_eq!(action_result.next_route.as_deref(), Some("/import/"));
+        assert!(take_bulk_import_context(&precheck.context_token).is_none());
+    }
+
+    #[test]
+    fn precheck_action_import_now_consumes_context() {
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: vec!["C:/imports/folder-a/design.pes".to_string()],
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        let action_result = precheck_bulk_import_action_wire(BulkImportPrecheckActionRequest {
+            context_token: precheck.context_token.clone(),
+            action: BulkImportPrecheckActionWire::ImportNow,
+            confirm_skip_hoops: false,
+        })
+        .expect("import-now action should succeed");
+
+        assert!(action_result.consumed_context);
+        assert!(!action_result.context_token_present);
+        assert_eq!(action_result.next_route.as_deref(), Some("/designs/"));
+        assert!(action_result.confirm_result.is_some());
+        assert!(take_bulk_import_context(&precheck.context_token).is_none());
     }
 
     #[test]

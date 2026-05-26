@@ -458,3 +458,232 @@ export async function browseSettingsDataRoot(startDir) {
     };
   }
 }
+
+export async function listDesigners() {
+  try {
+    const items = await invoke("list_designers");
+    if (Array.isArray(items)) {
+      return {
+        source: "rust",
+        items: items.map((item) => ({ id: Number(item?.id), name: String(item?.name || "") })),
+      };
+    }
+  } catch (error) {
+    console.info("list_designers unavailable, using mock designers.", error);
+  }
+
+  return {
+    source: "mock",
+    items: [
+      { id: 1, name: "Amazing Designs" },
+      { id: 2, name: "Urban Threads" },
+      { id: 3, name: "Mock Studio" },
+    ],
+  };
+}
+
+export async function createDesigner(name) {
+  try {
+    const item = await invoke("create_designer", { request: { name } });
+    return {
+      source: "rust",
+      persisted: true,
+      item: { id: Number(item?.id), name: String(item?.name || "") },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function deleteDesigner(designerId) {
+  try {
+    await invoke("delete_designer", { designerId: Number(designerId) });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function listSources() {
+  try {
+    const items = await invoke("list_sources");
+    if (Array.isArray(items)) {
+      return {
+        source: "rust",
+        items: items.map((item) => ({ id: Number(item?.id), name: String(item?.name || "") })),
+      };
+    }
+  } catch (error) {
+    console.info("list_sources unavailable, using mock sources.", error);
+  }
+
+  return {
+    source: "mock",
+    items: [
+      { id: 1, name: "Purchased" },
+      { id: 2, name: "Downloaded" },
+      { id: 3, name: "Gift" },
+    ],
+  };
+}
+
+export async function createSource(name) {
+  try {
+    const item = await invoke("create_source", { request: { name } });
+    return {
+      source: "rust",
+      persisted: true,
+      item: { id: Number(item?.id), name: String(item?.name || "") },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function deleteSource(sourceId) {
+  try {
+    await invoke("delete_source", { sourceId: Number(sourceId) });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function listTags() {
+  try {
+    const items = await invoke("list_tags");
+    if (Array.isArray(items)) {
+      return {
+        source: "rust",
+        items: items.map((item) => ({
+          id: Number(item?.id),
+          description: String(item?.description || ""),
+          tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+        })),
+      };
+    }
+  } catch (error) {
+    console.info("list_tags unavailable, using mock tags.", error);
+  }
+
+  return {
+    source: "mock",
+    items: [
+      { id: 1, description: "Animals", tag_group: "image" },
+      { id: 2, description: "Flowers", tag_group: "image" },
+      { id: 3, description: "Cross Stitch", tag_group: "stitching" },
+      { id: 4, description: "Holiday", tag_group: "" },
+    ],
+  };
+}
+
+export async function createTag(description, tagGroup) {
+  try {
+    const item = await invoke("create_tag", {
+      request: {
+        description,
+        tag_group: tagGroup,
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        description: String(item?.description || ""),
+        tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function setTagGroup(tagId, tagGroup) {
+  try {
+    const item = await invoke("set_tag_group", {
+      request: { tag_id: Number(tagId), tag_group: tagGroup },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        description: String(item?.description || ""),
+        tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function deleteTag(tagId) {
+  try {
+    await invoke("delete_tag", { tagId: Number(tagId) });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function listHoops() {
+  try {
+    const items = await invoke("list_hoops");
+    if (Array.isArray(items)) {
+      return {
+        source: "rust",
+        items: items.map((item) => ({
+          id: Number(item?.id),
+          name: String(item?.name || ""),
+          max_width_mm: Number(item?.max_width_mm ?? 0),
+          max_height_mm: Number(item?.max_height_mm ?? 0),
+        })),
+      };
+    }
+  } catch (error) {
+    console.info("list_hoops unavailable, using mock hoops.", error);
+  }
+
+  return {
+    source: "mock",
+    items: [
+      { id: 1, name: "4x4 hoop", max_width_mm: 100, max_height_mm: 100 },
+      { id: 2, name: "5x7 hoop", max_width_mm: 130, max_height_mm: 180 },
+      { id: 3, name: "6x10 hoop", max_width_mm: 160, max_height_mm: 260 },
+    ],
+  };
+}
+
+export async function createHoop(name, maxWidthMm, maxHeightMm) {
+  try {
+    const item = await invoke("create_hoop", {
+      request: {
+        name,
+        max_width_mm: Number(maxWidthMm),
+        max_height_mm: Number(maxHeightMm),
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        name: String(item?.name || ""),
+        max_width_mm: Number(item?.max_width_mm ?? 0),
+        max_height_mm: Number(item?.max_height_mm ?? 0),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function deleteHoop(hoopId) {
+  try {
+    await invoke("delete_hoop", { hoopId: Number(hoopId) });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
