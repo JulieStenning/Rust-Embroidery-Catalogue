@@ -5,7 +5,9 @@ use crate::readers::{DstReader, EmbroideryReader, ExpReader, JefReader, PesReade
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageGenerationRequest {
@@ -233,16 +235,22 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
 
     let python_executable = std::env::var("RUST_EMBROIDERY_PYTHON").unwrap_or_else(|_| "python".to_string());
     let preview_flag = if request.preview_3d { "true" } else { "false" };
+    let timeout_ms = std::env::var("IMPORT_IMAGE_PYTHON_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| value.clamp(1_000, 120_000))
+        .unwrap_or(15_000);
 
-    let output = Command::new(&python_executable)
+    let mut child = match Command::new(&python_executable)
         .arg(script_path)
         .arg("--file")
         .arg(&request.file_path)
         .arg("--preview-3d")
         .arg(preview_flag)
-        .output();
-
-    let output = match output {
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
         Ok(value) => value,
         Err(error) => {
             return ImageGenerationResult {
@@ -256,6 +264,65 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
                 backend: "python".to_string(),
                 error: Some(format!("Could not execute python adapter: {error}")),
             }
+        }
+    };
+
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if started.elapsed() >= Duration::from_millis(timeout_ms) {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return ImageGenerationResult {
+                        image_data: None,
+                        image_type: None,
+                        width_mm: None,
+                        height_mm: None,
+                        stitch_count: None,
+                        color_count: None,
+                        color_change_count: None,
+                        backend: "python".to_string(),
+                        error: Some(format!(
+                            "Python image adapter timed out after {}ms for file '{}'",
+                            timeout_ms, request.file_path
+                        )),
+                    };
+                }
+
+                thread::sleep(Duration::from_millis(25));
+            }
+            Err(error) => {
+                return ImageGenerationResult {
+                    image_data: None,
+                    image_type: None,
+                    width_mm: None,
+                    height_mm: None,
+                    stitch_count: None,
+                    color_count: None,
+                    color_change_count: None,
+                    backend: "python".to_string(),
+                    error: Some(format!("Could not monitor python adapter process: {error}")),
+                };
+            }
+        }
+    }
+
+    let output = match child.wait_with_output() {
+        Ok(value) => value,
+        Err(error) => {
+            return ImageGenerationResult {
+                image_data: None,
+                image_type: None,
+                width_mm: None,
+                height_mm: None,
+                stitch_count: None,
+                color_count: None,
+                color_change_count: None,
+                backend: "python".to_string(),
+                error: Some(format!("Could not collect python adapter output: {error}")),
+            };
         }
     };
 

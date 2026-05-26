@@ -1150,14 +1150,23 @@
           return;
         }
 
+        const stage = String(payload?.stage || "");
         const processed = Number(payload?.processed_count || 0);
         const total = Number(payload?.total_count || 0);
         const persisted = Number(payload?.persisted_count || 0);
+        const committed = Number(payload?.committed_count ?? persisted);
+        const currentFile = String(payload?.current_file || "").trim();
+        const currentFilename = currentFile.replace(/\\/g, "/").split("/").pop() || currentFile;
+
+        if (stage === "processing_file" && total > 0) {
+          importProgressStatus = `Processing ${Math.min(processed + 1, total)}/${total}: ${currentFilename}`;
+          return;
+        }
 
         if (total > 0) {
-          importProgressStatus = `${processed}/${total} processed (${persisted} imported)`;
+          importProgressStatus = `${processed}/${total} processed (${committed} imported)`;
         } else {
-          importProgressStatus = `${persisted} imported`;
+          importProgressStatus = `${committed} imported`;
         }
       });
     } catch (error) {
@@ -2370,7 +2379,7 @@
                   {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
                     <div class="pt-0.5 space-y-2">
                       {#if item.imageTags.length > 0 || (item.imageTags.length === 0 && item.stitchingTags.length === 0 && item.tags.length > 0)}
-                        <div class="flex flex-wrap gap-1">
+                        <div class="flex flex-wrap gap-2">
                           {#each (item.imageTags.length > 0 ? item.imageTags : item.tags) as tag}
                             <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{tag}</span>
                           {/each}
@@ -2378,7 +2387,7 @@
                       {/if}
 
                       {#if item.stitchingTags.length > 0}
-                        <div class="flex flex-wrap gap-1">
+                        <div class="flex flex-wrap gap-2">
                           {#each item.stitchingTags as tag}
                             <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">{tag}</span>
                           {/each}

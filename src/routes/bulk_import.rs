@@ -1,7 +1,7 @@
-use crate::services::{folder_picker, image_generation, scanning, validation};
+use crate::services::{folder_picker, image_generation, scanning, tagging, validation};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -30,6 +30,8 @@ struct BulkImportProgressEvent {
     processed_count: usize,
     total_count: usize,
     persisted_count: usize,
+    committed_count: usize,
+    current_file: Option<String>,
     commit_batch_size: usize,
 }
 
@@ -354,6 +356,15 @@ async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, Strin
     Ok(normalize_import_commit_batch_size(raw_batch_size.as_deref()))
 }
 
+async fn load_tag_catalog(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
+    sqlx::query_as::<_, (i64, String)>(
+        "SELECT id, description FROM tags ORDER BY id ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())
+}
+
 fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
     let Some(pool) = get_bulk_import_db_pool() else {
         return Ok((false, false));
@@ -409,15 +420,25 @@ async fn persist_bulk_import_confirm_wire(
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
     let preview_3d = load_import_preview_3d_if_initialized(pool).await?;
     let commit_batch_size = load_import_commit_batch_size(pool).await?;
+    let tag_catalog = load_tag_catalog(pool).await?;
+    let valid_descriptions: HashSet<String> =
+        tag_catalog.iter().map(|(_, description)| description.clone()).collect();
+    let description_to_tag_id: HashMap<String, i64> = tag_catalog
+        .into_iter()
+        .map(|(tag_id, description)| (description, tag_id))
+        .collect();
     let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut persisted_design_count = 0usize;
+    let mut committed_design_count = 0usize;
     let mut persisted_since_last_commit = 0usize;
     let mut processed_count = 0usize;
 
     let emit_progress = |stage: &str,
                          processed_count: usize,
-                         persisted_count: usize| {
+                         persisted_count: usize,
+                         committed_count: usize,
+                         current_file: Option<&str>| {
         if let Some(handle) = get_bulk_import_app_handle() {
             let event = BulkImportProgressEvent {
                 context_token: context_token.map(String::from),
@@ -425,6 +446,8 @@ async fn persist_bulk_import_confirm_wire(
                 processed_count,
                 total_count,
                 persisted_count,
+                committed_count,
+                current_file: current_file.map(String::from),
                 commit_batch_size,
             };
 
@@ -434,10 +457,23 @@ async fn persist_bulk_import_confirm_wire(
         }
     };
 
-    emit_progress("started", processed_count, persisted_design_count);
+    emit_progress(
+        "started",
+        processed_count,
+        persisted_design_count,
+        committed_design_count,
+        None,
+    );
 
     for file_path in &confirm_wire.wire.selected_files {
-        processed_count += 1;
+        emit_progress(
+            "processing_file",
+            processed_count,
+            persisted_design_count,
+            committed_design_count,
+            Some(file_path),
+        );
+
         let existing_design_id: Option<i64> = sqlx::query_scalar(
             "SELECT id FROM designs WHERE filepath = ? LIMIT 1",
         )
@@ -447,7 +483,14 @@ async fn persist_bulk_import_confirm_wire(
         .map_err(|e| e.to_string())?;
 
         if existing_design_id.is_some() {
-            emit_progress("processed", processed_count, persisted_design_count);
+            processed_count += 1;
+            emit_progress(
+                "processed",
+                processed_count,
+                persisted_design_count,
+                committed_design_count,
+                Some(file_path),
+            );
             continue;
         }
 
@@ -472,10 +515,10 @@ async fn persist_bulk_import_confirm_wire(
             );
         }
 
-        sqlx::query(
+        let insert_result = sqlx::query(
             "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
         )
-        .bind(filename)
+        .bind(&filename)
         .bind(file_path)
         .bind(designer_id)
         .bind(source_id)
@@ -490,26 +533,73 @@ async fn persist_bulk_import_confirm_wire(
         .await
         .map_err(|e| e.to_string())?;
 
+        let design_id = insert_result.last_insert_rowid();
+        let matched_descriptions = tagging::suggest_tier1_descriptions(
+            &filename,
+            file_path,
+            &valid_descriptions,
+        );
+
+        if !matched_descriptions.is_empty() {
+            for description in &matched_descriptions {
+                if let Some(tag_id) = description_to_tag_id.get(description) {
+                    sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                        .bind(design_id)
+                        .bind(*tag_id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+
+            sqlx::query("UPDATE designs SET tagging_tier = 1 WHERE id = ?")
+                .bind(design_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
         persisted_design_count += 1;
         persisted_since_last_commit += 1;
 
         if persisted_since_last_commit >= commit_batch_size {
             tx.commit().await.map_err(|e| e.to_string())?;
+            committed_design_count += persisted_since_last_commit;
             println!(
                 "Bulk import committed batch: {} design(s) in batch ({} total persisted).",
                 persisted_since_last_commit, persisted_design_count
             );
-            emit_progress("batch_committed", processed_count, persisted_design_count);
+            emit_progress(
+                "batch_committed",
+                processed_count,
+                persisted_design_count,
+                committed_design_count,
+                Some(file_path),
+            );
 
             tx = pool.begin().await.map_err(|e| e.to_string())?;
             persisted_since_last_commit = 0;
         }
 
-        emit_progress("processed", processed_count, persisted_design_count);
+        processed_count += 1;
+        emit_progress(
+            "processed",
+            processed_count,
+            persisted_design_count,
+            committed_design_count,
+            Some(file_path),
+        );
     }
 
     tx.commit().await.map_err(|e| e.to_string())?;
-    emit_progress("completed", processed_count, persisted_design_count);
+    committed_design_count += persisted_since_last_commit;
+    emit_progress(
+        "completed",
+        processed_count,
+        persisted_design_count,
+        committed_design_count,
+        None,
+    );
     Ok(persisted_design_count)
 }
 
@@ -1042,6 +1132,32 @@ mod tests {
 
         sqlx::query(
             r#"
+            CREATE TABLE tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT NOT NULL UNIQUE,
+                tag_group TEXT
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create tags table");
+
+        sqlx::query(
+            r#"
+            CREATE TABLE design_tags (
+                design_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                PRIMARY KEY (design_id, tag_id)
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create design_tags table");
+
+        sqlx::query(
+            r#"
             CREATE TABLE designs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 filename TEXT NOT NULL,
@@ -1057,7 +1173,8 @@ mod tests {
                 color_count INTEGER,
                 color_change_count INTEGER,
                 is_stitched INTEGER NOT NULL DEFAULT 0,
-                tags_checked INTEGER NOT NULL DEFAULT 0
+                tags_checked INTEGER NOT NULL DEFAULT 0,
+                tagging_tier INTEGER
             );
             "#,
         )
@@ -1069,6 +1186,11 @@ mod tests {
             .execute(&pool)
             .await
             .expect("failed to seed image preference");
+
+        sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Alphabets', 'image'), ('Flowers', 'image'), ('Monogram', 'image')")
+            .execute(&pool)
+            .await
+            .expect("failed to seed tags");
 
         pool
     }
@@ -1259,6 +1381,50 @@ mod tests {
         let configured_batch_size = tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
             .expect("configured batch size should load");
         assert_eq!(configured_batch_size, 25);
+    }
+
+    #[test]
+    fn persist_bulk_import_confirm_wire_assigns_tier1_keyword_tags() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports/Alphabets".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec!["C:/imports/Alphabets/17147.hus".to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            &confirm_wire,
+            None,
+        ))
+        .expect("persist should succeed");
+        assert_eq!(persisted, 1);
+
+        let assigned_tags = tauri::async_runtime::block_on(async {
+            sqlx::query_as::<_, (String,)>(
+                r#"
+                SELECT t.description
+                FROM design_tags dt
+                JOIN tags t ON t.id = dt.tag_id
+                JOIN designs d ON d.id = dt.design_id
+                WHERE d.filepath = ?
+                ORDER BY t.description ASC
+                "#,
+            )
+            .bind("C:/imports/Alphabets/17147.hus")
+            .fetch_all(&pool)
+            .await
+        })
+        .expect("failed to query assigned tags");
+
+        assert_eq!(assigned_tags, vec![("Alphabets".to_string(),)]);
     }
 
     #[test]
