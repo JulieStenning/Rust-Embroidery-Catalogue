@@ -108,12 +108,16 @@ Results are paginated consistently with the browse view.
 The design detail page (`/designs/{id}`) shows:
 
 - Full-size preview image
+- 3D preview controls:
+  - **Generate 3D Preview** when no preview exists
+  - **Render 3D Preview** to refresh an existing preview
 - Filename and filepath
 - Quick file actions:
   - **Open in Editor** — launches the file with the normal Windows default-app behaviour
-  - **Show in Explorer** — opens File Explorer with the design file selected
+  - **Show in Explorer** — opens File Explorer with the design file selected, or opens the nearest existing folder when the file is missing
 - Dimensions (width × height in mm)
 - Hoop size (auto-selected at import; can be changed)
+- Stitch metadata badges (stitches, colours, colour changes) when available
 - Designer and source metadata
 - Tags (zero or more; editable)
 - Rating (1–5 stars; clickable to update)
@@ -121,6 +125,7 @@ The design detail page (`/designs/{id}`) shows:
 - Notes (free-text; editable inline)
 - Date added
 - Project membership list
+- Print action (`/designs/{id}/print`) for a print-friendly single-design summary
 
 ### 2.1 Inline Editing
 
@@ -129,6 +134,14 @@ The design detail page (`/designs/{id}`) shows:
 - Notes / Designer / Source / Hoop: edit these together in the metadata form and save.
 - Tags: add or remove tags via the detail page form; saving marks the design as verified.
 - Verification state: mark the design's tags/metadata as verified or switch it back to unverified for later review.
+- Projects: add the design to a project or remove existing project memberships from the detail page.
+
+For architecture, UI contract, and user operation details, see:
+
+- [Specs/design-detail-backend-spec.md](Specs/design-detail-backend-spec.md)
+- [Specs/design-detail-refactor-checklist.md](Specs/design-detail-refactor-checklist.md)
+- [Specs/UI/design-detail-ui-spec.md](Specs/UI/design-detail-ui-spec.md)
+- [User-Facing-Guidance/DESIGN_DETAIL.md](User-Facing-Guidance/DESIGN_DETAIL.md)
 
 ---
 
