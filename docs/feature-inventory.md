@@ -223,6 +223,20 @@ records and preview images are created, and the user is redirected to the browse
 
 Files already in the database are skipped to prevent duplicates.
 
+For agent-facing architectural and contract details for import format behavior, see:
+
+- [Specs/import-format-support-backend-spec.md](Specs/import-format-support-backend-spec.md)
+- [Specs/import-format-support-refactor-checklist.md](Specs/import-format-support-refactor-checklist.md)
+
+For agent-facing architectural and contract details for per-folder Designer/Source assignment during import, see:
+
+- [Specs/import-folder-assignment-backend-spec.md](Specs/import-folder-assignment-backend-spec.md)
+- [Specs/import-folder-assignment-refactor-checklist.md](Specs/import-folder-assignment-refactor-checklist.md)
+
+For user quick steps specific to per-folder Designer/Source assignment, see:
+
+- [User-Facing-Guidance/IMPORT_FOLDER_ASSIGNMENT.md](User-Facing-Guidance/IMPORT_FOLDER_ASSIGNMENT.md)
+
 ---
 
 ## 5. Projects
@@ -351,6 +365,15 @@ were trying to open.
 - **About** links to the shipped project documents such as Disclaimer, Privacy,
   Security, AI Tagging Guide, Third-Party Notices, and Licence, all viewable in-app.
 
+For agent-facing architectural and contract details, see:
+
+- [Specs/help-backend-spec.md](Specs/help-backend-spec.md)
+- [Specs/help-refactor-checklist.md](Specs/help-refactor-checklist.md)
+
+For user-facing guidance, see:
+
+- [User-Facing-Guidance/HELP.md](User-Facing-Guidance/HELP.md)
+
 ### Backup (`/admin/maintenance/backup`)
 
 The backup page lets the user set separate destination folders for database and designs backups.
@@ -361,6 +384,14 @@ It supports:
   changed files and archiving removed files into `_deleted\YYYY-MM-DD\` inside the backup.
 - **Run both backups** — performs both actions in one step.
 - Native folder-picking shortcuts plus success/error summaries after each run.
+
+Current restore behavior is intentionally manual (no in-app restore endpoint yet).
+See [BACKUP_RESTORE.md](BACKUP_RESTORE.md) for the user restore workflow.
+
+For agent-facing architectural and contract details, see:
+
+- [Specs/backup-backend-spec.md](Specs/backup-backend-spec.md)
+- [Specs/backup-refactor-checklist.md](Specs/backup-refactor-checklist.md)
 
 ### Orphaned Designs (`/admin/maintenance/orphans`)
 
@@ -381,6 +412,15 @@ The settings page provides controls for:
 - **AI delay** — adjust the seconds between Gemini API calls.
 - **Managed storage location** — shows the path where imported files are stored (not editable).
 
+For agent-facing architectural and contract details, see:
+
+- [Specs/settings-backend-spec.md](Specs/settings-backend-spec.md)
+- [Specs/settings-refactor-checklist.md](Specs/settings-refactor-checklist.md)
+
+For user-facing operational guidance, see:
+
+- [User-Facing-Guidance/SETTINGS.md](User-Facing-Guidance/SETTINGS.md)
+
 ---
 
 ## 9. Portable Deployment / Launcher Flow
@@ -396,7 +436,7 @@ project root:
 | Item | Why it is needed |
 |------|------------------|
 | `prepare_portable_target.bat` | Performs the actual copy to the deployment target location |
-| `EmbroiderySdLauncher.exe` or `portable_launcher.py` | Lets the operator choose the target location and designs source visually |
+| `EmbroideryPortableDeploy.exe` or `portable_launcher.py` | Lets the operator choose the target location and designs source visually |
 | `python\` | Extracted Windows Embeddable Python 3.12 used by the portable build |
 | `wheels\` | Offline Python packages used by `setup.bat` on first launch |
 | `src\`, `templates\`, `static\`, `alembic\` | Core application code and UI assets |
@@ -408,12 +448,12 @@ project root:
 > **Important:** the bundled `python\python312._pth` must have `import site`
 > enabled so `setup.bat` can bootstrap `pip` and create the portable virtualenv.
 
-### 9.2 Operator workflow with `EmbroiderySdLauncher`
+### 9.2 Operator workflow with `EmbroideryPortableDeploy`
 
-`EmbroiderySdLauncher.exe` is the normal operator entry point. It is used to set the
+`EmbroideryPortableDeploy.exe` is the normal operator entry point. It is used to set the
 parameters that will be passed to `prepare_portable_target.bat`.
 
-1. Place `EmbroiderySdLauncher.exe` in the same folder as `prepare_portable_target.bat`.
+1. Place `EmbroideryPortableDeploy.exe` in the same folder as `prepare_portable_target.bat`.
 2. Double-click the launcher (or run `python portable_launcher.py` if using the script directly).
 3. In the **Deployment target location** field, choose the destination drive root such as `F:\`.
 4. In the **Designs source folder** field, choose the folder to copy from — usually `J:\MachineEmbroideryDesigns`, but a subfolder also works.

@@ -1,88 +1,158 @@
+// Embroidery Catalogue — Tauri v2 entry point
+
+pub mod database;
+pub mod config;
+pub mod settings;
+pub mod disclaimer;
 pub mod readers;
 pub mod models;
-mod png_writer;
+pub mod png_writer;
+pub mod templating;
+pub mod utils;
+pub mod routes;
+pub mod services;
 
-use std::fs::{self, File};
-use std::io::Write;
-use dotenvy::dotenv;
-use std::env;
-use crate::models::EmbPattern;
-use crate::readers::*;
+use sqlx::SqlitePool;
+use tauri::State;
 
-fn main() {
-    // Load environment variables from .env (if present)
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    println!("Using database: {}", database_url);
-    let testdata_dir = "tests/testdata";
-    let out_path = "rust.csv";
-    let mut wtr = File::create(out_path).expect("Failed to create rust.csv");
-    writeln!(wtr, "format,stitch_count,width_mm,height_mm,begin_x,begin_y,end_x,end_y,thread_changes,colour_changes").unwrap();
+/// Shared application state managed by Tauri.
+/// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
+pub struct AppState {
+    /// Connection pool for the SQLite database.
+    pub db: SqlitePool,
+    /// The disclaimer HTML text, embedded at compile time from DISCLAIMER.html.
+    pub disclaimer_text: String,
+}
 
-    let mut preview_written = false;
-    let entries = fs::read_dir(testdata_dir).expect("Failed to read testdata dir");
-    for entry in entries {
-        let entry = match entry { Ok(e) => e, Err(_) => continue };
-        let path = entry.path();
-        if !path.is_file() { continue; }
-        let fname = path.file_name().unwrap().to_string_lossy();
-        if !fname.starts_with("Bean.") { continue; }
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+// ─── Tauri Commands ───────────────────────────────────────────────────────────
 
-        let reader: Option<Box<dyn EmbroideryReader>> = match ext.as_str() {
-            "dst" => Some(Box::new(DstReader)),
-            "exp" => Some(Box::new(ExpReader)),
-            "jef" => Some(Box::new(JefReader)),
-            "pes" => Some(Box::new(PesReader)),
-            "vp3" => Some(Box::new(Vp3Reader)),
-            _ => None,
-        };
-        if let Some(reader) = reader {
-            let data = match fs::read(&path) { Ok(d) => d, Err(_) => { 
-                writeln!(wtr, "{},{},ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR", ext, fname).unwrap();
-                continue;
-            }};
-            match reader.read(&data) {
-                Ok(pattern) => {
-                    write_report_row(&mut wtr, &ext, &pattern);
-                    if !preview_written {
-                        println!("Loaded pattern: {} stitches, {} threads", pattern.stitches.len(), pattern.threadlist.len());
-                        let settings = png_writer::RenderSettings::default();
-                        let png_bytes = png_writer::render_pattern_to_png(&pattern, &settings);
-                        let mut f = File::create("preview.png").expect("Failed to create preview.png");
-                        f.write_all(&png_bytes).expect("Failed to write PNG");
-                        preview_written = true;
-                    }
-                },
-                Err(e) => {
-                    eprintln!("ERROR reading {}: {}", path.display(), e);
-                    writeln!(wtr, "{},{},ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR", ext, fname).unwrap();
-                }
-            }
-        }
-        // Files without readers are skipped (no row added to CSV)
+/// Check whether the disclaimer has already been accepted for this installation.
+#[tauri::command]
+async fn check_disclaimer(state: State<'_, AppState>) -> Result<bool, String> {
+    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    Ok(disclaimer::is_disclaimer_accepted(&mut conn).await)
+}
+
+/// Persist the user's disclaimer acceptance in the database.
+#[tauri::command]
+async fn accept_disclaimer(state: State<'_, AppState>) -> Result<(), String> {
+    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let ok = disclaimer::set_disclaimer_accepted(&mut conn, true).await;
+    if ok {
+        Ok(())
+    } else {
+        Err("Failed to save disclaimer acceptance to the database.".to_string())
     }
 }
 
-fn write_report_row(wtr: &mut File, ext: &str, pattern: &EmbPattern) {
-    let stitch_count = pattern.count_stitches();
-    let (min_x, min_y, max_x, max_y) = pattern.bounds();
-    let width = (max_x - min_x).abs();
-    let height = (max_y - min_y).abs();
-    let begin = pattern.stitches.first().map(|s| (s.x, s.y)).unwrap_or((0.0, 0.0));
-    let end = pattern.stitches.last().map(|s| (s.x, s.y)).unwrap_or((0.0, 0.0));
-    let thread_changes = pattern.count_threads();
-    let colour_changes = pattern.count_color_changes();
-    writeln!(wtr, "{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{},{}",
-        ext,
-        stitch_count,
-        width,
-        height,
-        begin.0,
-        begin.1,
-        end.0,
-        end.1,
-        thread_changes,
-        colour_changes
-    ).unwrap();
+/// Return the disclaimer HTML text to the frontend.
+#[tauri::command]
+fn get_disclaimer_text(state: State<'_, AppState>) -> Result<String, String> {
+    Ok(state.disclaimer_text.clone())
 }
+
+// ─── Application entry point ──────────────────────────────────────────────────
+
+fn main() {
+    // Load .env file if present (best-effort; not required in production)
+    load_dotenv();
+
+    // Resolve bootstrap configuration from process environment.
+    let bootstrap_config = config::BootstrapConfig::from_env();
+    println!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
+
+    // Ensure the database directory exists before trying to connect
+    config::ensure_database_dir(&bootstrap_config.database_url);
+
+    // Run async setup using Tauri's built-in Tokio runtime
+    // This avoids creating a conflicting second runtime alongside Tauri's own
+    let (pool, disclaimer_text) = tauri::async_runtime::block_on(async {
+        // Establish the SQLite connection pool
+        let pool = database::connection::establish_connection().await;
+
+        // Run any pending migrations so the schema is always up to date
+        database::migrations::run_migrations(&pool)
+            .await
+            .expect("Failed to run database migrations");
+
+        // Embed the disclaimer text at compile time from DISCLAIMER.html
+        let disclaimer_text = include_str!("../DISCLAIMER.html").to_string();
+
+        (pool, disclaimer_text)
+    });
+
+    let app_state = AppState {
+        db: pool,
+        disclaimer_text,
+    };
+
+    routes::bulk_import::initialize_bulk_import_db_pool(app_state.db.clone());
+    let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
+    println!(
+        "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
+        startup_reset.cleared_context_count,
+        startup_reset.active_context_count,
+        startup_reset.reset_count,
+        startup_reset.reset_at_millis
+    );
+
+    tauri::Builder::default()
+        .manage(app_state)
+        .invoke_handler(tauri::generate_handler![
+            config::debug_bootstrap_config,
+            check_disclaimer,
+            accept_disclaimer,
+            get_disclaimer_text,
+            routes::designs::get_designs,
+            routes::designs::get_design_detail,
+            routes::designs::bulk_verify_designs,
+            routes::designs::get_projects_for_browse,
+            routes::designs::bulk_add_designs_to_project,
+            routes::designs::get_tags_for_browse,
+            routes::designs::bulk_set_tags_for_designs,
+            routes::designs::get_design_previews_for_browse,
+            routes::settings::get_settings_view_model,
+            routes::settings::save_settings_view_model,
+            routes::settings::browse_settings_data_root,
+            routes::bulk_import::debug_bulk_import_wire,
+            routes::bulk_import::debug_bulk_import_confirm_wire,
+            routes::bulk_import::debug_bulk_import_assignment_resolution_wire,
+            routes::bulk_import::debug_bulk_import_context_store,
+            routes::bulk_import::reset_bulk_import_context_store,
+            routes::bulk_import::precheck_bulk_import_wire,
+            routes::bulk_import::do_confirm_bulk_import_wire,
+            routes::bulk_import::execute_bulk_import_confirm_wire,
+            routes::bulk_import::confirm_bulk_import_wire,
+            routes::bulk_import::confirm_bulk_import_legacy,
+            routes::bulk_import::preview_bulk_import,
+            routes::tagging_actions::preview_tagging_action,
+            routes::maintenance::maintenance_scaffold_enabled,
+        ])
+        // tauri::generate_context!() reads tauri.conf.json from the project root
+        .run(tauri::generate_context!())
+        .expect("Error while running the Embroidery Catalogue application");
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Load environment variables from a `.env` file if one exists.
+fn load_dotenv() {
+    let env_path = std::path::Path::new(".env");
+    if env_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(env_path) {
+            for line in content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if let Some((key, value)) = line.split_once('=') {
+                    // Only set if not already present in the environment
+                    if std::env::var(key.trim()).is_err() {
+                        std::env::set_var(key.trim(), value.trim());
+                    }
+                }
+            }
+        }
+    }
+}
+

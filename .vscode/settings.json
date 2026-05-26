@@ -1,5 +1,9 @@
 {
-    "chat.tools.terminal.autoApprove": {
-        "cargo test": true
-    }
+  "chat.tools.terminal.autoApprove": {
+    "cargo test": true
+  },
+  "terminal.integrated.env.windows": {
+    "VCPKG_ROOT": "D:\\My Software Development\\vcpkg",
+    "VCPKG_DEFAULT_TRIPLET": "x64-windows"
+  }
 }
