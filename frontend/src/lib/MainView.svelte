@@ -6,7 +6,10 @@
     getBrowseProjects,
     getBrowseTags,
     getDesignDetail,
-    previewImportFromRoot,
+    browseImportFolder,
+    previewImportFromRoots,
+    precheckImportWire,
+    runPrecheckAction,
     bulkVerifyDesigns,
     bulkAddDesignsToProject,
     bulkSetTagsForDesigns,
@@ -25,6 +28,7 @@
     deleteTag as removeTag,
     listHoops,
     createHoop,
+    updateHoop,
     deleteHoop as removeHoop,
   } from "./api/commandAdapter.js";
 
@@ -37,9 +41,10 @@
     },
     "#/import": {
       title: "Import",
-      subtitle: "Bulk import workflow placeholder",
-      description: "This stage reserves UI space for folder selection, assignment review, and confirmation.",
-      cta: "Next backend hookup: bulk import preview and confirm commands",
+      subtitle: "Bulk import wizard",
+      description:
+        "Select one or more folders, review discovered files and assignments, then run precheck and confirm import.",
+      cta: "Step 1 choose roots, Step 2 review and assign, Step 3 run precheck actions and import",
     },
     "#/projects": {
       title: "Projects",
@@ -73,9 +78,9 @@
     },
     "#/admin/hoops": {
       title: "Hoops",
-      subtitle: "Admin hoops placeholder",
-      description: "This page will provide hoop catalog management and sizing constraints.",
-      cta: "Next backend hookup: hoops CRUD commands",
+      subtitle: "Hoop catalog management",
+      description: "Add, review, and remove machine hoop sizes used during import and design validation.",
+      cta: "Maintain the hoop list your machine setup supports",
     },
     "#/admin/settings": {
       title: "Settings",
@@ -229,10 +234,28 @@
   let detailError = $state("");
 
   let importRootPath = $state("C:/imports");
+  let importRootPaths = $state([]);
+  let importStep = $state(1);
   let importPreview = $state(null);
   let importPreviewSource = $state("mock");
   let importPreviewMessage = $state("Import preview has not run yet.");
+  let importPrecheck = $state(null);
+  let importPrecheckSource = $state("mock");
+  let importPrecheckMessage = $state("Run precheck after selecting files.");
+  let importSelectedFiles = $state([]);
+  let importContextToken = $state("");
+  let importActionMessage = $state("");
+  let importActionSource = $state("mock");
+  let importActionNeedsSkipHoopsConfirm = $state(false);
+  let importActionLoading = $state(false);
+  let importGlobalDesignerId = $state("");
+  let importGlobalSourceId = $state("");
+  let importPerFolderAssignmentByPath = $state({});
+  let importDesigners = $state([]);
+  let importSources = $state([]);
+  let importReferenceLoading = $state(false);
   let importLoading = $state(false);
+  let importBrowseLoading = $state(false);
   let importError = $state("");
 
   let settingsImagePreference = $state("2d");
@@ -278,6 +301,11 @@
   let newHoopName = $state("");
   let newHoopWidth = $state("");
   let newHoopHeight = $state("");
+  let editingHoopId = $state(null);
+  let editingHoopName = $state("");
+  let editingHoopWidth = $state("");
+  let editingHoopHeight = $state("");
+  let pendingDeleteHoopId = $state(null);
 
   let imageTags = $derived(tags.filter((tag) => tag.tagGroup === "image"));
   let stitchingTags = $derived(tags.filter((tag) => tag.tagGroup === "stitching"));
@@ -321,6 +349,7 @@
               name: String(hoop.name || ""),
               maxWidthMm: Number(hoop.max_width_mm ?? 0),
               maxHeightMm: Number(hoop.max_height_mm ?? 0),
+              designCount: Number(hoop.design_count ?? 0),
             }))
           : [];
         adminDataSource = result?.source || "mock";
@@ -452,13 +481,76 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
+  function beginEditHoop(hoop) {
+    if (!hoop) {
+      return;
+    }
+
+    pendingDeleteHoopId = null;
+    editingHoopId = Number(hoop.id);
+    editingHoopName = String(hoop.name || "");
+    editingHoopWidth = String(hoop.maxWidthMm ?? "");
+    editingHoopHeight = String(hoop.maxHeightMm ?? "");
+  }
+
+  function cancelEditHoop() {
+    editingHoopId = null;
+    editingHoopName = "";
+    editingHoopWidth = "";
+    editingHoopHeight = "";
+  }
+
+  async function saveHoopEdit(id) {
+    const name = editingHoopName.trim();
+    const width = Number(editingHoopWidth);
+    const height = Number(editingHoopHeight);
+    if (!name || Number.isNaN(width) || Number.isNaN(height) || width <= 0 || height <= 0) {
+      setAdminNotice("Enter a name plus valid positive width and height.", "error");
+      return;
+    }
+
+    const result = await updateHoop(id, name, width, height);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not update hoop: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    cancelEditHoop();
+    setAdminNotice("Hoop updated.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  function requestDeleteHoop(hoop) {
+    if (!hoop) {
+      return;
+    }
+
+    cancelEditHoop();
+    pendingDeleteHoopId = Number(hoop.id);
+    if (Number(hoop.designCount) > 0) {
+      setAdminNotice(
+        `Deleting '${hoop.name}' will clear the hoop assignment from ${hoop.designCount} design(s).`,
+        "info"
+      );
+      return;
+    }
+
+    setAdminNotice(`Delete '${hoop.name}'? Click confirm delete to continue.`, "info");
+  }
+
+  function cancelDeleteHoop() {
+    pendingDeleteHoopId = null;
+  }
+
   async function deleteHoop(id) {
+    pendingDeleteHoopId = null;
     const result = await removeHoop(id);
     if (!result?.persisted) {
       setAdminNotice(`Could not delete hoop: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
+    cancelEditHoop();
     setAdminNotice("Hoop deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
@@ -834,18 +926,414 @@
   async function runImportPreview() {
     importLoading = true;
     importError = "";
+    importActionMessage = "";
+    importActionNeedsSkipHoopsConfirm = false;
 
     try {
-      const result = await previewImportFromRoot(importRootPath);
+      const result = await previewImportFromRoots(getActiveImportRoots());
       importPreview = result.preview || null;
       importPreviewSource = result.source || "mock";
       importPreviewMessage = result.message || "Preview complete.";
+      importSelectedFiles = Array.isArray(importPreview?.scanned_files)
+        ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
+        : [];
+      importPerFolderAssignmentByPath = {};
+      syncImportPerFolderAssignments();
+      importPrecheck = null;
+      importPrecheckSource = "mock";
+      importPrecheckMessage = "Run precheck after selecting files.";
+      importContextToken = "";
+      importStep = importPreview && importSelectedFiles.length >= 0 ? 2 : 1;
     } catch (error) {
       importError = `Import preview failed: ${error}`;
       importPreview = null;
       importPreviewSource = "mock";
+      importSelectedFiles = [];
+      importPerFolderAssignmentByPath = {};
+      importPrecheck = null;
+      importContextToken = "";
+      importStep = 1;
     } finally {
       importLoading = false;
+    }
+  }
+
+  async function browseImportRootPath() {
+    if (importBrowseLoading || importLoading || importActionLoading) {
+      return;
+    }
+
+    importBrowseLoading = true;
+    importError = "";
+
+    try {
+      const result = await browseImportFolder(importRootPath);
+      const selectedPaths = Array.isArray(result?.paths)
+        ? result.paths.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+
+      if (selectedPaths.length > 0) {
+        for (const path of selectedPaths) {
+          addImportRootPath(path);
+        }
+        importRootPath = selectedPaths[0];
+      } else {
+        const selectedPath = String(result?.path || "").trim();
+        if (selectedPath) {
+          addImportRootPath(selectedPath);
+          importRootPath = selectedPath;
+        }
+      }
+
+      importPreviewMessage = result?.message || "Folder selection complete.";
+    } catch (error) {
+      importError = `Folder browse failed: ${error}`;
+    } finally {
+      importBrowseLoading = false;
+    }
+  }
+
+  function normalizeImportRootPath(value) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    const slashNormalized = trimmed.replace(/\\/g, "/");
+    const isUncPath = slashNormalized.startsWith("//");
+    const compacted = isUncPath
+      ? `//${slashNormalized.slice(2).replace(/\/{2,}/g, "/")}`
+      : slashNormalized.replace(/\/{2,}/g, "/");
+
+    const withoutTrailingSlash = compacted.replace(/\/+$/g, "");
+    if (!withoutTrailingSlash) {
+      return compacted;
+    }
+
+    // Preserve drive root shape like C:/.
+    if (/^[a-zA-Z]:$/.test(withoutTrailingSlash)) {
+      return `${withoutTrailingSlash}/`;
+    }
+
+    return withoutTrailingSlash;
+  }
+
+  function getActiveImportRoots() {
+    const roots = importRootPaths
+      .map((value) => normalizeImportRootPath(value))
+      .filter(Boolean);
+
+    if (roots.length > 0) {
+      return roots;
+    }
+
+    const single = normalizeImportRootPath(importRootPath);
+    return single ? [single] : [];
+  }
+
+  function addImportRootPath(path = importRootPath) {
+    const next = normalizeImportRootPath(path);
+    if (!next) {
+      return;
+    }
+
+    const existingByLower = new Set(importRootPaths.map((item) => String(item || "").toLowerCase()));
+    if (!existingByLower.has(next.toLowerCase())) {
+      importRootPaths = [...importRootPaths, next];
+    }
+
+    importRootPath = next;
+  }
+
+  function removeImportRootPath(path) {
+    const target = normalizeImportRootPath(path).toLowerCase();
+    importRootPaths = importRootPaths.filter((value) => String(value || "").toLowerCase() !== target);
+  }
+
+  function clearImportRootPaths() {
+    importRootPaths = [];
+  }
+
+  function resetImportWizard() {
+    importBrowseLoading = false;
+    importRootPaths = [];
+    importStep = 1;
+    importPreview = null;
+    importPreviewSource = "mock";
+    importPreviewMessage = "Import preview has not run yet.";
+    importPrecheck = null;
+    importPrecheckSource = "mock";
+    importPrecheckMessage = "Run precheck after selecting files.";
+    importSelectedFiles = [];
+    importContextToken = "";
+    importActionMessage = "";
+    importActionSource = "mock";
+    importActionNeedsSkipHoopsConfirm = false;
+    importGlobalDesignerId = "";
+    importGlobalSourceId = "";
+    importPerFolderAssignmentByPath = {};
+    importError = "";
+  }
+
+  function getFolderPathFromFilePath(fullPath) {
+    const value = String(fullPath || "").trim();
+    if (!value) {
+      return "";
+    }
+
+    const normalized = value.replace(/\\/g, "/");
+    const splitIndex = normalized.lastIndexOf("/");
+    if (splitIndex <= 0) {
+      return "";
+    }
+
+    return normalized.slice(0, splitIndex);
+  }
+
+  function syncImportPerFolderAssignments() {
+    const folderPaths = new Set(
+      importSelectedFiles
+        .map((fullPath) => getFolderPathFromFilePath(fullPath))
+        .filter(Boolean)
+    );
+
+    const next = {};
+    for (const folderPath of folderPaths) {
+      const previous = importPerFolderAssignmentByPath?.[folderPath] || {};
+      next[folderPath] = {
+        designerId: String(previous.designerId || ""),
+        sourceId: String(previous.sourceId || ""),
+      };
+    }
+
+    importPerFolderAssignmentByPath = next;
+  }
+
+  function setImportFolderDesigner(folderPath, designerId) {
+    const key = String(folderPath || "").trim();
+    if (!key) {
+      return;
+    }
+
+    importPerFolderAssignmentByPath = {
+      ...importPerFolderAssignmentByPath,
+      [key]: {
+        ...(importPerFolderAssignmentByPath?.[key] || { designerId: "", sourceId: "" }),
+        designerId: String(designerId || ""),
+      },
+    };
+  }
+
+  function setImportFolderSource(folderPath, sourceId) {
+    const key = String(folderPath || "").trim();
+    if (!key) {
+      return;
+    }
+
+    importPerFolderAssignmentByPath = {
+      ...importPerFolderAssignmentByPath,
+      [key]: {
+        ...(importPerFolderAssignmentByPath?.[key] || { designerId: "", sourceId: "" }),
+        sourceId: String(sourceId || ""),
+      },
+    };
+  }
+
+  function getImportFolderDesigner(folderPath) {
+    return String(importPerFolderAssignmentByPath?.[folderPath]?.designerId || "");
+  }
+
+  function getImportFolderSource(folderPath) {
+    return String(importPerFolderAssignmentByPath?.[folderPath]?.sourceId || "");
+  }
+
+  function toggleImportFile(fullPath, checked) {
+    const value = String(fullPath || "").trim();
+    if (!value) {
+      return;
+    }
+
+    const existing = new Set(importSelectedFiles);
+    if (checked) {
+      existing.add(value);
+    } else {
+      existing.delete(value);
+    }
+    importSelectedFiles = Array.from(existing);
+    syncImportPerFolderAssignments();
+  }
+
+  function selectAllImportFiles() {
+    importSelectedFiles = Array.isArray(importPreview?.scanned_files)
+      ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
+      : [];
+    syncImportPerFolderAssignments();
+  }
+
+  function clearImportFileSelection() {
+    importSelectedFiles = [];
+    syncImportPerFolderAssignments();
+  }
+
+  let importSelectedFolderSummaries = $derived(
+    (() => {
+      const counts = new Map();
+      for (const fullPath of importSelectedFiles) {
+        const folderPath = getFolderPathFromFilePath(fullPath);
+        if (!folderPath) {
+          continue;
+        }
+        counts.set(folderPath, (counts.get(folderPath) || 0) + 1);
+      }
+
+      return Array.from(counts.entries())
+        .map(([folderPath, selectedCount]) => ({ folderPath, selectedCount }))
+        .sort((left, right) => left.folderPath.localeCompare(right.folderPath, undefined, { sensitivity: "base" }));
+    })()
+  );
+
+  async function loadImportReferenceData(force = false) {
+    if (importReferenceLoading && !force) {
+      return;
+    }
+
+    if (!force && importDesigners.length > 0 && importSources.length > 0) {
+      return;
+    }
+
+    importReferenceLoading = true;
+    try {
+      const [designerResult, sourceResult] = await Promise.all([listDesigners(), listSources()]);
+      importDesigners = Array.isArray(designerResult?.items) ? designerResult.items : [];
+      importSources = Array.isArray(sourceResult?.items) ? sourceResult.items : [];
+    } catch (error) {
+      console.info("Could not load import reference data", error);
+      importDesigners = [];
+      importSources = [];
+    } finally {
+      importReferenceLoading = false;
+    }
+  }
+
+  function buildImportConfirmWire() {
+    const perFolderAssignments = importSelectedFolderSummaries.map((folder) => ({
+      folder_path: folder.folderPath,
+      designer_id: getImportFolderDesigner(folder.folderPath)
+        ? Number(getImportFolderDesigner(folder.folderPath))
+        : null,
+      source_id: getImportFolderSource(folder.folderPath)
+        ? Number(getImportFolderSource(folder.folderPath))
+        : null,
+      inferred_designer_id: null,
+      inferred_source_id: null,
+    }));
+
+    return {
+      wire: {
+        root_paths: getActiveImportRoots(),
+        global_designer_id: importGlobalDesignerId ? Number(importGlobalDesignerId) : null,
+        global_source_id: importGlobalSourceId ? Number(importGlobalSourceId) : null,
+        per_folder_assignments: perFolderAssignments,
+        selected_files: [...importSelectedFiles],
+        create_on_import: true,
+      },
+      context_token: null,
+      canonical_confirm: false,
+    };
+  }
+
+  async function runImportPrecheck() {
+    if (importSelectedFiles.length === 0) {
+      importError = "Select at least one file before continuing.";
+      return;
+    }
+
+    importLoading = true;
+    importError = "";
+    importActionMessage = "";
+    importActionNeedsSkipHoopsConfirm = false;
+
+    try {
+      const result = await precheckImportWire(buildImportConfirmWire());
+      importPrecheck = result.precheck || null;
+      importPrecheckSource = result.source || "mock";
+      importPrecheckMessage = result.message || "Precheck complete.";
+      importContextToken = String(importPrecheck?.context_token || "");
+      importStep = importPrecheck ? 3 : 2;
+    } catch (error) {
+      importError = `Import precheck failed: ${error}`;
+      importPrecheck = null;
+      importContextToken = "";
+      importStep = 2;
+    } finally {
+      importLoading = false;
+    }
+  }
+
+  function mapServerImportRouteToHash(nextRoute) {
+    const route = String(nextRoute || "").toLowerCase();
+    if (route.startsWith("/designs")) {
+      return "#/designs";
+    }
+    if (route.startsWith("/import")) {
+      return "#/import";
+    }
+    if (route.startsWith("/admin/tags")) {
+      return "#/admin/tags";
+    }
+    if (route.startsWith("/admin/hoops")) {
+      return "#/admin/hoops";
+    }
+    if (route.startsWith("/admin/sources")) {
+      return "#/admin/sources";
+    }
+    if (route.startsWith("/admin/designers")) {
+      return "#/admin/designers";
+    }
+    return null;
+  }
+
+  async function executeImportPrecheckAction(action, confirmSkipHoops = false) {
+    if (!importContextToken) {
+      importError = "Missing import context token. Run precheck again.";
+      return;
+    }
+
+    importActionLoading = true;
+    importError = "";
+
+    try {
+      const result = await runPrecheckAction({
+        contextToken: importContextToken,
+        action,
+        confirmSkipHoops,
+      });
+
+      const actionResult = result.actionResult || null;
+      importActionSource = result.source || "mock";
+      importActionMessage = result.message || "Import precheck action complete.";
+      importActionNeedsSkipHoopsConfirm = Boolean(actionResult?.requires_skip_hoops_confirmation);
+
+      if (actionResult?.consumed_context) {
+        importContextToken = "";
+      }
+
+      if (action === "cancel") {
+        resetImportWizard();
+        return;
+      }
+
+      const hashRoute = mapServerImportRouteToHash(actionResult?.next_route);
+      if (hashRoute) {
+        if (hashRoute === "#/designs") {
+          resetImportWizard();
+        }
+        navigateTo(hashRoute);
+      }
+    } catch (error) {
+      importError = `Import action failed: ${error}`;
+    } finally {
+      importActionLoading = false;
     }
   }
 
@@ -1249,6 +1737,12 @@
   $effect(() => {
     if (currentRoute !== "#/designs") {
       browseHasLoaded = false;
+    }
+  });
+
+  $effect(() => {
+    if (currentRoute === "#/import") {
+      loadImportReferenceData();
     }
   });
 
@@ -2285,9 +2779,9 @@
       {:else if currentUiKind === "import"}
         <div class="space-y-3">
           <div class="grid md:grid-cols-3 gap-3">
-            <div class="route-card">Step 1: Select folders</div>
-            <div class="route-card">Step 2: Assignment review</div>
-            <div class="route-card">Step 3: Confirm import</div>
+            <div class="route-card" class:bg-indigo-50={importStep === 1}>Step 1: Select folders</div>
+            <div class="route-card" class:bg-indigo-50={importStep === 2}>Step 2: Review files</div>
+            <div class="route-card" class:bg-indigo-50={importStep === 3}>Step 3: Precheck actions</div>
           </div>
 
           <div class="route-panel space-y-3">
@@ -2298,11 +2792,58 @@
                 class="flex-1 rounded border border-gray-300 px-3 py-2"
                 bind:value={importRootPath}
                 placeholder="C:/imports"
+                disabled={importLoading || importActionLoading || importBrowseLoading}
               />
-              <button class="menu-button-primary" onclick={runImportPreview} disabled={importLoading}>
+              <button
+                class="menu-button-secondary"
+                onclick={() => addImportRootPath(importRootPath)}
+                disabled={importLoading || importActionLoading || importBrowseLoading || !String(importRootPath || "").trim()}
+              >
+                Add Root
+              </button>
+              <button
+                class="menu-button-secondary"
+                onclick={browseImportRootPath}
+                disabled={importLoading || importActionLoading || importBrowseLoading}
+              >
+                {importBrowseLoading ? "Browsing..." : "Browse"}
+              </button>
+              <button class="menu-button-primary" onclick={runImportPreview} disabled={importLoading || importBrowseLoading}>
                 {importLoading ? "Running..." : "Run Preview"}
               </button>
+              <button class="menu-button-secondary" onclick={resetImportWizard} disabled={importLoading || importActionLoading || importBrowseLoading}>
+                Reset
+              </button>
             </div>
+
+            {#if importRootPaths.length > 0}
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-semibold text-gray-700">Selected roots ({importRootPaths.length})</p>
+                  <button
+                    class="menu-button-secondary"
+                    onclick={clearImportRootPaths}
+                    disabled={importLoading || importActionLoading || importBrowseLoading}
+                  >
+                    Clear roots
+                  </button>
+                </div>
+                <div class="space-y-1 max-h-40 overflow-auto border border-gray-200 rounded p-2">
+                  {#each importRootPaths as rootPath}
+                    <div class="flex items-center justify-between gap-2 text-sm">
+                      <span class="text-gray-700 break-all">{rootPath}</span>
+                      <button
+                        class="menu-button-secondary"
+                        onclick={() => removeImportRootPath(rootPath)}
+                        disabled={importLoading || importActionLoading || importBrowseLoading}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
 
             {#if importError}
               <p class="text-sm text-red-600">{importError}</p>
@@ -2318,6 +2859,166 @@
               </div>
             {/if}
           </div>
+
+          {#if importPreview}
+            <div class="route-panel space-y-3">
+              <div class="flex flex-wrap items-center gap-2 justify-between">
+                <p class="text-sm font-semibold text-gray-700">
+                  Step 2: Select files ({importSelectedFiles.length} selected)
+                </p>
+                <div class="flex gap-2">
+                  <button class="menu-button-secondary" onclick={selectAllImportFiles} disabled={importLoading || importActionLoading}>
+                    Select all
+                  </button>
+                  <button class="menu-button-secondary" onclick={clearImportFileSelection} disabled={importLoading || importActionLoading}>
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid sm:grid-cols-2 gap-2 text-sm">
+                <label class="flex flex-col gap-1">
+                  <span class="text-gray-600">Global designer (optional)</span>
+                  <select class="rounded border border-gray-300 px-2 py-1" bind:value={importGlobalDesignerId} disabled={importReferenceLoading || importLoading || importActionLoading}>
+                    <option value="">Inferred / none</option>
+                    {#each importDesigners as designer}
+                      <option value={String(designer.id)}>{designer.name}</option>
+                    {/each}
+                  </select>
+                </label>
+                <label class="flex flex-col gap-1">
+                  <span class="text-gray-600">Global source (optional)</span>
+                  <select class="rounded border border-gray-300 px-2 py-1" bind:value={importGlobalSourceId} disabled={importReferenceLoading || importLoading || importActionLoading}>
+                    <option value="">Inferred / none</option>
+                    {#each importSources as source}
+                      <option value={String(source.id)}>{source.name}</option>
+                    {/each}
+                  </select>
+                </label>
+              </div>
+
+              {#if importSelectedFolderSummaries.length > 0}
+                <div class="space-y-2">
+                  <p class="text-sm font-semibold text-gray-700">Per-folder overrides</p>
+                  <div class="space-y-2">
+                    {#each importSelectedFolderSummaries as folder}
+                      <div class="route-card space-y-2">
+                        <div class="text-sm text-gray-700 break-all">
+                          <strong>{folder.folderPath}</strong>
+                          <span class="text-gray-500"> ({folder.selectedCount} selected)</span>
+                        </div>
+                        <div class="grid sm:grid-cols-2 gap-2 text-sm">
+                          <label class="flex flex-col gap-1">
+                            <span class="text-gray-600">Designer override</span>
+                            <select
+                              class="rounded border border-gray-300 px-2 py-1"
+                              value={getImportFolderDesigner(folder.folderPath)}
+                              onchange={(event) => setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
+                              disabled={importReferenceLoading || importLoading || importActionLoading}
+                            >
+                              <option value="">Use global / inferred</option>
+                              {#each importDesigners as designer}
+                                <option value={String(designer.id)}>{designer.name}</option>
+                              {/each}
+                            </select>
+                          </label>
+                          <label class="flex flex-col gap-1">
+                            <span class="text-gray-600">Source override</span>
+                            <select
+                              class="rounded border border-gray-300 px-2 py-1"
+                              value={getImportFolderSource(folder.folderPath)}
+                              onchange={(event) => setImportFolderSource(folder.folderPath, event.currentTarget.value)}
+                              disabled={importReferenceLoading || importLoading || importActionLoading}
+                            >
+                              <option value="">Use global / inferred</option>
+                              {#each importSources as source}
+                                <option value={String(source.id)}>{source.name}</option>
+                              {/each}
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              {#if Array.isArray(importPreview.scanned_files) && importPreview.scanned_files.length > 0}
+                <div class="max-h-64 overflow-auto border border-gray-200 rounded">
+                  <table class="w-full text-sm">
+                    <thead class="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th class="px-3 py-2 text-left">Import</th>
+                        <th class="px-3 py-2 text-left">File</th>
+                        <th class="px-3 py-2 text-left">Ext</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each importPreview.scanned_files as file}
+                        <tr class="border-t border-gray-100">
+                          <td class="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={importSelectedFiles.includes(String(file?.full_path || ""))}
+                              onchange={(event) => toggleImportFile(file?.full_path, event.currentTarget.checked)}
+                              disabled={importLoading || importActionLoading}
+                            />
+                          </td>
+                          <td class="px-3 py-2 break-all">{file?.full_path || "Unknown file"}</td>
+                          <td class="px-3 py-2">{file?.extension || "-"}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {:else}
+                <p class="text-sm text-gray-600">No supported files discovered in this preview.</p>
+              {/if}
+
+              <div class="flex justify-end">
+                <button class="menu-button-primary" onclick={runImportPrecheck} disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}>
+                  Continue to precheck
+                </button>
+              </div>
+            </div>
+          {/if}
+
+          {#if importPrecheck}
+            <div class="route-panel space-y-3">
+              <p class="text-sm font-semibold text-gray-700">Step 3: Precheck actions</p>
+              <p class="text-sm text-gray-700">{importPrecheckMessage}</p>
+              <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                <div class="route-card">Source: {importPrecheckSource}</div>
+                <div class="route-card">First import: {importPrecheck.is_first_import ? "Yes" : "No"}</div>
+                <div class="route-card">Needs hoop setup: {importPrecheck.needs_hoop_setup ? "Yes" : "No"}</div>
+                <div class="route-card">Token active: {importContextToken ? "Yes" : "No"}</div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_hoops")} disabled={importActionLoading || !importContextToken}>Review Hoops</button>
+                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_tags")} disabled={importActionLoading || !importContextToken}>Review Tags</button>
+                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_sources")} disabled={importActionLoading || !importContextToken}>Review Sources</button>
+                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_designers")} disabled={importActionLoading || !importContextToken}>Review Designers</button>
+                <button class="menu-button-primary" onclick={() => executeImportPrecheckAction("import_now")} disabled={importActionLoading || !importContextToken}>Import now</button>
+                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("cancel")} disabled={importActionLoading || !importContextToken}>Cancel</button>
+              </div>
+
+              {#if importActionNeedsSkipHoopsConfirm}
+                <div class="route-card space-y-2">
+                  <p class="text-sm text-amber-800">
+                    Hoops are not configured for a first import. Confirm to continue anyway.
+                  </p>
+                  <button class="menu-button-primary" onclick={() => executeImportPrecheckAction("import_now", true)} disabled={importActionLoading || !importContextToken}>
+                    Confirm import without hoop setup
+                  </button>
+                </div>
+              {/if}
+
+              {#if importActionMessage}
+                <p class="text-sm text-gray-700">{importActionMessage} ({importActionSource})</p>
+              {/if}
+            </div>
+          {/if}
         </div>
       {:else if currentUiKind === "projects"}
         <div class="space-y-3">
@@ -2654,26 +3355,94 @@
                     <th class="px-4 py-2 text-left">Name</th>
                     <th class="px-4 py-2 text-right">Max Width (mm)</th>
                     <th class="px-4 py-2 text-right">Max Height (mm)</th>
+                    <th class="px-4 py-2 text-right">Used By</th>
                     <th class="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                   {#if hoops.length === 0}
                     <tr>
-                      <td colspan="4" class="px-4 py-3 text-gray-400">No hoops defined yet. Add your own machine hoops above.</td>
+                      <td colspan="5" class="px-4 py-3 text-gray-400">No hoops defined yet. Add your own machine hoops above.</td>
                     </tr>
                   {:else}
                     {#each hoops as hoop}
                       <tr>
-                        <td class="px-4 py-2 font-medium">{hoop.name}</td>
-                        <td class="px-4 py-2 text-right">{hoop.maxWidthMm.toFixed(2)}</td>
-                        <td class="px-4 py-2 text-right">{hoop.maxHeightMm.toFixed(2)}</td>
+                        <td class="px-4 py-2 font-medium">
+                          {#if editingHoopId === hoop.id}
+                            <input
+                              type="text"
+                              bind:value={editingHoopName}
+                              class="admin-input border rounded px-2 py-1 text-sm w-full"
+                            />
+                          {:else}
+                            {hoop.name}
+                          {/if}
+                        </td>
                         <td class="px-4 py-2 text-right">
-                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteHoop(hoop.id)}>
-                            Delete
-                          </button>
+                          {#if editingHoopId === hoop.id}
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              bind:value={editingHoopWidth}
+                              class="admin-input border rounded px-2 py-1 text-sm w-28 text-right"
+                            />
+                          {:else}
+                            {hoop.maxWidthMm.toFixed(2)}
+                          {/if}
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                          {#if editingHoopId === hoop.id}
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              bind:value={editingHoopHeight}
+                              class="admin-input border rounded px-2 py-1 text-sm w-28 text-right"
+                            />
+                          {:else}
+                            {hoop.maxHeightMm.toFixed(2)}
+                          {/if}
+                        </td>
+                        <td class="px-4 py-2 text-right text-gray-600">{hoop.designCount}</td>
+                        <td class="px-4 py-2 text-right">
+                          <div class="flex justify-end gap-2 flex-wrap">
+                            {#if editingHoopId === hoop.id}
+                              <button type="button" class="text-indigo-600 hover:text-indigo-800 text-xs" onclick={() => saveHoopEdit(hoop.id)}>
+                                Save
+                              </button>
+                              <button type="button" class="text-gray-500 hover:text-gray-700 text-xs" onclick={cancelEditHoop}>
+                                Cancel
+                              </button>
+                            {:else if pendingDeleteHoopId === hoop.id}
+                              <button type="button" class="text-red-600 hover:text-red-800 text-xs" onclick={() => deleteHoop(hoop.id)}>
+                                Confirm delete
+                              </button>
+                              <button type="button" class="text-gray-500 hover:text-gray-700 text-xs" onclick={cancelDeleteHoop}>
+                                Cancel
+                              </button>
+                            {:else}
+                              <button type="button" class="text-indigo-600 hover:text-indigo-800 text-xs" onclick={() => beginEditHoop(hoop)}>
+                                Edit
+                              </button>
+                              <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => requestDeleteHoop(hoop)}>
+                                Delete
+                              </button>
+                            {/if}
+                          </div>
                         </td>
                       </tr>
+                      {#if pendingDeleteHoopId === hoop.id}
+                        <tr class="bg-amber-50">
+                          <td colspan="5" class="px-4 py-2 text-xs text-amber-800">
+                            {#if hoop.designCount > 0}
+                              This hoop is assigned to {hoop.designCount} design(s). Deleting it will set those design hoop assignments to blank.
+                            {:else}
+                              Confirm deletion for this hoop.
+                            {/if}
+                          </td>
+                        </tr>
+                      {/if}
                     {/each}
                   {/if}
                 </tbody>

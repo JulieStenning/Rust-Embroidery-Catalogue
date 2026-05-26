@@ -124,9 +124,12 @@ export async function getDesignDetail(designId) {
  * Try import preview using existing Rust bulk import command.
  * Falls back to a mock preview shape if command wiring is incomplete.
  */
-export async function previewImportFromRoot(rootPath) {
-  const normalizedRoot = (rootPath || "").trim();
-  if (!normalizedRoot) {
+export async function previewImportFromRoots(rootPaths) {
+  const normalizedRoots = Array.isArray(rootPaths)
+    ? rootPaths.map((rootPath) => String(rootPath || "").trim()).filter(Boolean)
+    : [];
+
+  if (normalizedRoots.length === 0) {
     return {
       source: "mock",
       preview: {
@@ -135,14 +138,15 @@ export async function previewImportFromRoot(rootPath) {
         folder_count: 0,
         resolved_assignments: [],
       },
-      message: "Enter a folder path to preview import.",
+      message: "Enter at least one folder path to preview import.",
     };
   }
 
   try {
     const preview = await invoke("preview_bulk_import", {
       request: {
-        root_path: normalizedRoot,
+        root_path: normalizedRoots[0],
+        root_paths: normalizedRoots,
         fallback_designer_id: null,
         fallback_source_id: null,
       },
@@ -164,6 +168,149 @@ export async function previewImportFromRoot(rootPath) {
         resolved_assignments: [],
       },
       message: "Rust preview command not fully wired yet, showing mock counts.",
+    };
+  }
+}
+
+export async function previewImportFromRoot(rootPath) {
+  const normalizedRoot = String(rootPath || "").trim();
+  return previewImportFromRoots(normalizedRoot ? [normalizedRoot] : []);
+}
+
+/**
+ * Open native folder picker for import root selection.
+ */
+export async function browseImportFolder(startDir = "") {
+  try {
+    const result = await invoke("browse_import_folder", {
+      request: {
+        start_dir: String(startDir || "").trim() || null,
+        allow_multi: true,
+      },
+    });
+
+    return {
+      source: "rust",
+      path: String(result?.path || ""),
+      paths: Array.isArray(result?.paths) ? result.paths.map((item) => String(item || "")).filter(Boolean) : [],
+      message: result?.path ? "Folder selected." : "Folder selection cancelled.",
+    };
+  } catch (error) {
+    console.info("browse_import_folder unavailable or failed, using mock folder browse.", error);
+    return {
+      source: "mock",
+      path: String(startDir || ""),
+      paths: [],
+      message: "Native folder picker not available in this mode.",
+    };
+  }
+}
+
+/**
+ * Run import precheck and persist tokenized import context in Rust backend.
+ */
+export async function precheckImportWire(confirmWire) {
+  const wire = confirmWire && typeof confirmWire === "object" ? confirmWire : null;
+  if (!wire) {
+    return {
+      source: "mock",
+      precheck: {
+        context_token: "",
+        context_token_present: false,
+        ready_for_confirm: false,
+        is_first_import: false,
+        needs_hoop_setup: false,
+        root_path_count: 0,
+        selected_file_count: 0,
+        resolved_assignments: [],
+      },
+      message: "Missing confirm wire payload.",
+    };
+  }
+
+  try {
+    const precheck = await invoke("precheck_bulk_import_wire", {
+      confirmWire: wire,
+    });
+
+    return {
+      source: "rust",
+      precheck,
+      message: "Precheck loaded from Rust command.",
+    };
+  } catch (error) {
+    console.info("precheck_bulk_import_wire unavailable or failed, using mock precheck.", error);
+    return {
+      source: "mock",
+      precheck: {
+        context_token: "mock-import-token",
+        context_token_present: true,
+        ready_for_confirm: true,
+        is_first_import: false,
+        needs_hoop_setup: false,
+        root_path_count: Number(wire?.wire?.root_paths?.length ?? 0),
+        selected_file_count: Number(wire?.wire?.selected_files?.length ?? 0),
+        resolved_assignments: Array.isArray(wire?.wire?.per_folder_assignments)
+          ? wire.wire.per_folder_assignments
+          : [],
+      },
+      message: "Rust precheck command not fully wired yet, using mock precheck.",
+    };
+  }
+}
+
+/**
+ * Execute Step 3 precheck action in Rust backend.
+ */
+export async function runPrecheckAction({ contextToken, action, confirmSkipHoops = false }) {
+  const normalizedToken = String(contextToken || "").trim();
+  const normalizedAction = String(action || "").trim();
+
+  if (!normalizedToken || !normalizedAction) {
+    return {
+      source: "mock",
+      actionResult: {
+        action: normalizedAction || "",
+        context_token_present: false,
+        consumed_context: false,
+        requires_skip_hoops_confirmation: false,
+        next_route: null,
+        confirm_result: null,
+      },
+      message: "Missing precheck action payload.",
+    };
+  }
+
+  try {
+    const actionResult = await invoke("precheck_bulk_import_action_wire", {
+      request: {
+        context_token: normalizedToken,
+        action: normalizedAction,
+        confirm_skip_hoops: Boolean(confirmSkipHoops),
+      },
+    });
+
+    return {
+      source: "rust",
+      actionResult,
+      message: "Precheck action loaded from Rust command.",
+    };
+  } catch (error) {
+    console.info("precheck_bulk_import_action_wire unavailable or failed, using mock action result.", error);
+    const isImportNow = normalizedAction === "import_now";
+    const isCancel = normalizedAction === "cancel";
+
+    return {
+      source: "mock",
+      actionResult: {
+        action: normalizedAction,
+        context_token_present: !isCancel,
+        consumed_context: isImportNow || isCancel,
+        requires_skip_hoops_confirmation: false,
+        next_route: isImportNow ? "/designs/" : isCancel ? "/import/" : null,
+        confirm_result: null,
+      },
+      message: "Rust precheck action command not fully wired yet, using mock result.",
     };
   }
 }
@@ -638,6 +785,7 @@ export async function listHoops() {
           name: String(item?.name || ""),
           max_width_mm: Number(item?.max_width_mm ?? 0),
           max_height_mm: Number(item?.max_height_mm ?? 0),
+          design_count: Number(item?.design_count ?? 0),
         })),
       };
     }
@@ -648,9 +796,9 @@ export async function listHoops() {
   return {
     source: "mock",
     items: [
-      { id: 1, name: "4x4 hoop", max_width_mm: 100, max_height_mm: 100 },
-      { id: 2, name: "5x7 hoop", max_width_mm: 130, max_height_mm: 180 },
-      { id: 3, name: "6x10 hoop", max_width_mm: 160, max_height_mm: 260 },
+      { id: 1, name: "4x4 hoop", max_width_mm: 100, max_height_mm: 100, design_count: 0 },
+      { id: 2, name: "5x7 hoop", max_width_mm: 130, max_height_mm: 180, design_count: 2 },
+      { id: 3, name: "6x10 hoop", max_width_mm: 160, max_height_mm: 260, design_count: 0 },
     ],
   };
 }
@@ -672,6 +820,33 @@ export async function createHoop(name, maxWidthMm, maxHeightMm) {
         name: String(item?.name || ""),
         max_width_mm: Number(item?.max_width_mm ?? 0),
         max_height_mm: Number(item?.max_height_mm ?? 0),
+        design_count: Number(item?.design_count ?? 0),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function updateHoop(hoopId, name, maxWidthMm, maxHeightMm) {
+  try {
+    const item = await invoke("update_hoop", {
+      request: {
+        hoop_id: Number(hoopId),
+        name,
+        max_width_mm: Number(maxWidthMm),
+        max_height_mm: Number(maxHeightMm),
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        name: String(item?.name || ""),
+        max_width_mm: Number(item?.max_width_mm ?? 0),
+        max_height_mm: Number(item?.max_height_mm ?? 0),
+        design_count: Number(item?.design_count ?? 0),
       },
     };
   } catch (error) {

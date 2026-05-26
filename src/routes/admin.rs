@@ -50,10 +50,19 @@ pub struct AdminHoop {
 	pub name: String,
 	pub max_width_mm: f64,
 	pub max_height_mm: f64,
+	pub design_count: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateHoopRequest {
+	pub name: String,
+	pub max_width_mm: f64,
+	pub max_height_mm: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateHoopRequest {
+	pub hoop_id: i64,
 	pub name: String,
 	pub max_width_mm: f64,
 	pub max_height_mm: f64,
@@ -87,6 +96,33 @@ async fn ensure_unique_name(pool: &SqlitePool, table: &str, name: &str, label: &
 	let sql = format!("SELECT 1 FROM {} WHERE lower(name) = lower(?) LIMIT 1", table);
 	let exists = sqlx::query_scalar::<_, i64>(&sql)
 		.bind(name)
+		.fetch_optional(pool)
+		.await
+		.map_err(|e| e.to_string())?
+		.is_some();
+
+	if exists {
+		Err(format!("{} '{}' already exists.", label, name))
+	} else {
+		Ok(())
+	}
+}
+
+async fn ensure_unique_name_except_id(
+	pool: &SqlitePool,
+	table: &str,
+	id_column: &str,
+	excluded_id: i64,
+	name: &str,
+	label: &str,
+) -> Result<(), String> {
+	let sql = format!(
+		"SELECT 1 FROM {} WHERE lower(name) = lower(?) AND {} <> ? LIMIT 1",
+		table, id_column
+	);
+	let exists = sqlx::query_scalar::<_, i64>(&sql)
+		.bind(name)
+		.bind(excluded_id)
 		.fetch_optional(pool)
 		.await
 		.map_err(|e| e.to_string())?
@@ -329,9 +365,16 @@ async fn delete_tag_with_pool(pool: &SqlitePool, tag_id: i64) -> Result<(), Stri
 pub async fn list_hoops(state: State<'_, AppState>) -> Result<Vec<AdminHoop>, String> {
 	sqlx::query_as::<_, AdminHoop>(
 		r#"
-		SELECT id, name, max_width_mm, max_height_mm
-		FROM hoops
-		ORDER BY name COLLATE NOCASE ASC
+		SELECT
+			h.id,
+			h.name,
+			CAST(h.max_width_mm AS REAL) AS max_width_mm,
+			CAST(h.max_height_mm AS REAL) AS max_height_mm,
+			COUNT(d.id) AS design_count
+		FROM hoops h
+		LEFT JOIN designs d ON d.hoop_id = h.id
+		GROUP BY h.id, h.name, h.max_width_mm, h.max_height_mm
+		ORDER BY h.max_width_mm ASC, h.max_height_mm ASC, h.name COLLATE NOCASE ASC
 		"#,
 	)
 	.fetch_all(&state.db)
@@ -368,7 +411,60 @@ async fn create_hoop_with_pool(pool: &SqlitePool, request: CreateHoopRequest) ->
 		name,
 		max_width_mm,
 		max_height_mm,
+		design_count: 0,
 	})
+}
+
+#[tauri::command]
+pub async fn update_hoop(
+	state: State<'_, AppState>,
+	request: UpdateHoopRequest,
+) -> Result<AdminHoop, String> {
+	update_hoop_with_pool(&state.db, request).await
+}
+
+async fn update_hoop_with_pool(pool: &SqlitePool, request: UpdateHoopRequest) -> Result<AdminHoop, String> {
+	let name = validate_non_empty(&request.name, "Hoop name")?;
+	let max_width_mm = validate_positive(request.max_width_mm, "Max Width (mm)")?;
+	let max_height_mm = validate_positive(request.max_height_mm, "Max Height (mm)")?;
+	ensure_unique_name_except_id(pool, "hoops", "id", request.hoop_id, &name, "Hoop").await?;
+
+	let result = sqlx::query(
+		"UPDATE hoops SET name = ?, max_width_mm = ?, max_height_mm = ? WHERE id = ?",
+	)
+	.bind(&name)
+	.bind(max_width_mm)
+	.bind(max_height_mm)
+	.bind(request.hoop_id)
+	.execute(pool)
+	.await
+	.map_err(|e| e.to_string())?;
+
+	if result.rows_affected() == 0 {
+		return Err(format!("Hoop with id={} not found.", request.hoop_id));
+	}
+
+	let row = sqlx::query_as::<_, AdminHoop>(
+		r#"
+		SELECT
+			h.id,
+			h.name,
+			CAST(h.max_width_mm AS REAL) AS max_width_mm,
+			CAST(h.max_height_mm AS REAL) AS max_height_mm,
+			COUNT(d.id) AS design_count
+		FROM hoops h
+		LEFT JOIN designs d ON d.hoop_id = h.id
+		WHERE h.id = ?
+		GROUP BY h.id, h.name, h.max_width_mm, h.max_height_mm
+		LIMIT 1
+		"#,
+	)
+	.bind(request.hoop_id)
+	.fetch_one(pool)
+	.await
+	.map_err(|e| e.to_string())?;
+
+	Ok(row)
 }
 
 #[tauri::command]
@@ -452,6 +548,20 @@ mod tests {
 		.execute(&pool)
 		.await
 		.expect("failed to create hoops table");
+
+		sqlx::query(
+			r#"
+			CREATE TABLE designs (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				filename VARCHAR(500) NOT NULL,
+				filepath VARCHAR(1000) NOT NULL,
+				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL
+			);
+			"#,
+		)
+		.execute(&pool)
+		.await
+		.expect("failed to create designs table");
 
 		sqlx::query("CREATE UNIQUE INDEX ux_designers_name_ci ON designers (lower(name));")
 			.execute(&pool)
@@ -861,6 +971,87 @@ mod tests {
 				.expect_err("expected invalid height error")
 				.contains("Max Height (mm) must be a positive number")
 		);
+	}
+
+	#[tokio::test]
+	async fn update_hoop_updates_existing_row() {
+		let pool = test_pool().await;
+
+		let created = create_hoop_with_pool(
+			&pool,
+			CreateHoopRequest {
+				name: "130x180".to_string(),
+				max_width_mm: 130.0,
+				max_height_mm: 180.0,
+			},
+		)
+		.await
+		.expect("expected hoop to be created");
+
+		let updated = update_hoop_with_pool(
+			&pool,
+			UpdateHoopRequest {
+				hoop_id: created.id,
+				name: "150x240".to_string(),
+				max_width_mm: 150.0,
+				max_height_mm: 240.0,
+			},
+		)
+		.await
+		.expect("expected hoop to update");
+
+		assert_eq!(updated.id, created.id);
+		assert_eq!(updated.name, "150x240");
+		assert_eq!(updated.max_width_mm, 150.0);
+		assert_eq!(updated.max_height_mm, 240.0);
+		assert_eq!(updated.design_count, 0);
+	}
+
+	#[tokio::test]
+	async fn update_hoop_rejects_duplicate_name_case_insensitive() {
+		let pool = test_pool().await;
+
+		let first = create_hoop_with_pool(
+			&pool,
+			CreateHoopRequest {
+				name: "130x180".to_string(),
+				max_width_mm: 130.0,
+				max_height_mm: 180.0,
+			},
+		)
+		.await
+		.expect("expected first hoop to be created");
+
+		let second = create_hoop_with_pool(
+			&pool,
+			CreateHoopRequest {
+				name: "150x240".to_string(),
+				max_width_mm: 150.0,
+				max_height_mm: 240.0,
+			},
+		)
+		.await
+		.expect("expected second hoop to be created");
+
+		let result = update_hoop_with_pool(
+			&pool,
+			UpdateHoopRequest {
+				hoop_id: second.id,
+				name: "130X180".to_string(),
+				max_width_mm: 155.0,
+				max_height_mm: 245.0,
+			},
+		)
+		.await;
+
+		assert!(result.is_err());
+		assert!(
+			result
+				.expect_err("expected duplicate hoop update error")
+				.contains("already exists")
+		);
+
+		assert_eq!(first.name, "130x180");
 	}
 
 	#[tokio::test]

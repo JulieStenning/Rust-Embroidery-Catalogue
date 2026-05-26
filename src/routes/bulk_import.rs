@@ -25,7 +25,10 @@ struct StoredBulkImportContext {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BulkImportRequest {
-    pub root_path: String,
+    #[serde(default)]
+    pub root_path: Option<String>,
+    #[serde(default)]
+    pub root_paths: Vec<String>,
     pub fallback_designer_id: Option<i64>,
     pub fallback_source_id: Option<i64>,
 }
@@ -84,6 +87,13 @@ pub struct BulkImportPreview {
     pub folder_count: usize,
     pub scanned_files: Vec<scanning::ScannedFile>,
     pub resolved_assignments: Vec<ResolvedFolderAssignmentWire>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulkImportBrowseFolderRequest {
+    pub start_dir: Option<String>,
+    #[serde(default)]
+    pub allow_multi: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -168,8 +178,26 @@ pub struct BulkImportPrecheckActionResult {
 
 impl From<BulkImportRequest> for BulkImportWire {
     fn from(request: BulkImportRequest) -> Self {
+        let mut root_paths = request
+            .root_paths
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>();
+
+        if root_paths.is_empty() {
+            if let Some(value) = request
+                .root_path
+                .as_ref()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+            {
+                root_paths.push(value);
+            }
+        }
+
         Self {
-            root_paths: vec![request.root_path],
+            root_paths,
             global_designer_id: request.fallback_designer_id,
             global_source_id: request.fallback_source_id,
             per_folder_assignments: Vec::new(),
@@ -486,6 +514,22 @@ pub fn preview_bulk_import(request: BulkImportRequest) -> Result<BulkImportPrevi
 }
 
 #[tauri::command]
+pub fn browse_import_folder(
+    request: Option<BulkImportBrowseFolderRequest>,
+) -> Result<BulkImportBrowseFolderResult, String> {
+    let (start_dir, allow_multi) = match request {
+        Some(value) => (value.start_dir, value.allow_multi),
+        None => (None, false),
+    };
+    let result = folder_picker::browse_folder(start_dir.as_deref(), allow_multi)?;
+
+    Ok(BulkImportBrowseFolderResult {
+        path: result.path,
+        paths: result.paths,
+    })
+}
+
+#[tauri::command]
 pub fn debug_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportWireSummary, String> {
     println!("Debug bulk import wire: {:#?}", wire);
     Ok(BulkImportWireSummary {
@@ -494,6 +538,12 @@ pub fn debug_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportWireSumm
         selected_file_count: wire.selected_files.len(),
         create_on_import: wire.create_on_import,
     })
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BulkImportBrowseFolderResult {
+    pub path: Option<String>,
+    pub paths: Vec<String>,
 }
 
 #[tauri::command]
@@ -1043,7 +1093,8 @@ mod tests {
     #[test]
     fn legacy_confirm_wire_shims_into_canonical_confirm() {
         let result = confirm_bulk_import_legacy(BulkImportRequest {
-            root_path: "C:/imports".to_string(),
+            root_path: Some("C:/imports".to_string()),
+            root_paths: Vec::new(),
             fallback_designer_id: Some(7),
             fallback_source_id: Some(8),
         })

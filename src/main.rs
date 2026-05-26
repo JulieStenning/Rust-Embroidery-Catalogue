@@ -126,6 +126,7 @@ fn main() {
             routes::admin::delete_tag,
             routes::admin::list_hoops,
             routes::admin::create_hoop,
+            routes::admin::update_hoop,
             routes::admin::delete_hoop,
             routes::bulk_import::debug_bulk_import_wire,
             routes::bulk_import::debug_bulk_import_confirm_wire,
@@ -139,6 +140,7 @@ fn main() {
             routes::bulk_import::confirm_bulk_import_wire,
             routes::bulk_import::confirm_bulk_import_legacy,
             routes::bulk_import::preview_bulk_import,
+            routes::bulk_import::browse_import_folder,
             routes::tagging_actions::preview_tagging_action,
             routes::maintenance::maintenance_scaffold_enabled,
         ])
