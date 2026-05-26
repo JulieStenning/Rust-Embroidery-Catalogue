@@ -233,7 +233,7 @@ fn description_for_key(key: &str) -> &'static str {
         KEY_AI_TIER3_AUTO => "Run Tier 3 (Gemini vision AI) automatically during import when a Google API key is present.",
         KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
         KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds).",
-        KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (1000).",
+        KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_IMAGE_PREFERENCE => "Preferred preview image type for import-created previews: 2d or 3d.",
         _ => "",

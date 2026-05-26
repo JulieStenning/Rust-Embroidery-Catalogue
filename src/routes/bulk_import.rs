@@ -1,4 +1,4 @@
-use crate::services::{folder_picker, scanning, validation};
+use crate::services::{folder_picker, image_generation, scanning, validation};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tauri::Emitter;
 
 const BULK_IMPORT_CONTEXT_TTL: Duration = Duration::from_secs(15 * 60);
 const BULK_IMPORT_CONTEXT_MAX_ENTRIES: usize = 128;
@@ -13,8 +14,24 @@ const BULK_IMPORT_CONTEXT_MAX_ENTRIES: usize = 128;
 static BULK_IMPORT_CONTEXT_STORE: OnceLock<Mutex<HashMap<String, StoredBulkImportContext>>> = OnceLock::new();
 static BULK_IMPORT_CONTEXT_COUNTER: AtomicU64 = AtomicU64::new(1);
 static BULK_IMPORT_DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
+static BULK_IMPORT_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 static BULK_IMPORT_CONTEXT_RESET_COUNTER: AtomicU64 = AtomicU64::new(0);
 static BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS: AtomicU64 = AtomicU64::new(0);
+
+const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
+const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 10;
+const MAX_IMPORT_COMMIT_BATCH_SIZE: usize = 10_000;
+const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
+
+#[derive(Debug, Clone, Serialize)]
+struct BulkImportProgressEvent {
+    context_token: Option<String>,
+    stage: String,
+    processed_count: usize,
+    total_count: usize,
+    persisted_count: usize,
+    commit_batch_size: usize,
+}
 
 #[derive(Debug, Clone)]
 struct StoredBulkImportContext {
@@ -288,8 +305,16 @@ pub fn initialize_bulk_import_db_pool(pool: SqlitePool) {
     let _ = BULK_IMPORT_DB_POOL.set(pool);
 }
 
+pub fn initialize_bulk_import_app_handle(app_handle: tauri::AppHandle) {
+    let _ = BULK_IMPORT_APP_HANDLE.set(app_handle);
+}
+
 fn get_bulk_import_db_pool() -> Option<SqlitePool> {
     BULK_IMPORT_DB_POOL.get().cloned()
+}
+
+fn get_bulk_import_app_handle() -> Option<&'static tauri::AppHandle> {
+    BULK_IMPORT_APP_HANDLE.get()
 }
 
 async fn load_catalog_counts(pool: &SqlitePool) -> Result<(i64, i64), String> {
@@ -304,6 +329,29 @@ async fn load_catalog_counts(pool: &SqlitePool) -> Result<(i64, i64), String> {
         .map_err(|e| e.to_string())?;
 
     Ok((design_count, hoop_count))
+}
+
+fn normalize_import_commit_batch_size(raw_value: Option<&str>) -> usize {
+    let Some(value) = raw_value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return DEFAULT_IMPORT_COMMIT_BATCH_SIZE;
+    };
+
+    match value.parse::<usize>() {
+        Ok(parsed) if parsed > 0 => parsed.min(MAX_IMPORT_COMMIT_BATCH_SIZE),
+        _ => DEFAULT_IMPORT_COMMIT_BATCH_SIZE,
+    }
+}
+
+async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, String> {
+    let raw_batch_size: Option<String> = sqlx::query_scalar(
+        "SELECT value FROM settings WHERE key = ? LIMIT 1",
+    )
+    .bind(KEY_IMPORT_COMMIT_BATCH_SIZE)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(normalize_import_commit_batch_size(raw_batch_size.as_deref()))
 }
 
 fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
@@ -352,16 +400,44 @@ fn resolve_assignment_for_file(
 async fn persist_bulk_import_confirm_wire(
     pool: &SqlitePool,
     confirm_wire: &BulkImportConfirmWire,
+    context_token: Option<&str>,
 ) -> Result<usize, String> {
     if !confirm_wire.wire.create_on_import {
         return Ok(0);
     }
 
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
+    let preview_3d = load_import_preview_3d_if_initialized(pool).await?;
+    let commit_batch_size = load_import_commit_batch_size(pool).await?;
+    let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut persisted_design_count = 0usize;
+    let mut persisted_since_last_commit = 0usize;
+    let mut processed_count = 0usize;
+
+    let emit_progress = |stage: &str,
+                         processed_count: usize,
+                         persisted_count: usize| {
+        if let Some(handle) = get_bulk_import_app_handle() {
+            let event = BulkImportProgressEvent {
+                context_token: context_token.map(String::from),
+                stage: stage.to_string(),
+                processed_count,
+                total_count,
+                persisted_count,
+                commit_batch_size,
+            };
+
+            if let Err(error) = handle.emit(BULK_IMPORT_PROGRESS_EVENT, event) {
+                println!("Failed to emit bulk import progress event: {error}");
+            }
+        }
+    };
+
+    emit_progress("started", processed_count, persisted_design_count);
 
     for file_path in &confirm_wire.wire.selected_files {
+        processed_count += 1;
         let existing_design_id: Option<i64> = sqlx::query_scalar(
             "SELECT id FROM designs WHERE filepath = ? LIMIT 1",
         )
@@ -371,6 +447,7 @@ async fn persist_bulk_import_confirm_wire(
         .map_err(|e| e.to_string())?;
 
         if existing_design_id.is_some() {
+            emit_progress("processed", processed_count, persisted_design_count);
             continue;
         }
 
@@ -383,29 +460,69 @@ async fn persist_bulk_import_confirm_wire(
             .unwrap_or(file_path)
             .to_string();
 
+        let image_result = image_generation::generate_preview(&image_generation::ImageGenerationRequest {
+            file_path: file_path.clone(),
+            preview_3d,
+        });
+        if let Some(error) = image_result.error.as_ref() {
+            println!(
+                "Image generation adapter error for '{}': {}",
+                file_path,
+                error
+            );
+        }
+
         sqlx::query(
-            "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, 0, 0)",
+            "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
         )
         .bind(filename)
         .bind(file_path)
         .bind(designer_id)
         .bind(source_id)
+        .bind(image_result.image_data)
+        .bind(image_result.image_type)
+        .bind(image_result.width_mm)
+        .bind(image_result.height_mm)
+        .bind(image_result.stitch_count)
+        .bind(image_result.color_count)
+        .bind(image_result.color_change_count)
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
 
         persisted_design_count += 1;
+        persisted_since_last_commit += 1;
+
+        if persisted_since_last_commit >= commit_batch_size {
+            tx.commit().await.map_err(|e| e.to_string())?;
+            println!(
+                "Bulk import committed batch: {} design(s) in batch ({} total persisted).",
+                persisted_since_last_commit, persisted_design_count
+            );
+            emit_progress("batch_committed", processed_count, persisted_design_count);
+
+            tx = pool.begin().await.map_err(|e| e.to_string())?;
+            persisted_since_last_commit = 0;
+        }
+
+        emit_progress("processed", processed_count, persisted_design_count);
     }
 
     tx.commit().await.map_err(|e| e.to_string())?;
+    emit_progress("completed", processed_count, persisted_design_count);
     Ok(persisted_design_count)
 }
 
 fn persist_bulk_import_confirm_if_initialized(
     confirm_wire: &BulkImportConfirmWire,
+    context_token: Option<&str>,
 ) -> Result<usize, String> {
     match get_bulk_import_db_pool() {
-        Some(pool) => tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(&pool, confirm_wire)),
+        Some(pool) => tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            confirm_wire,
+            context_token,
+        )),
         None => {
             println!("Bulk import DB pool not initialized; skipping persistence step.");
             Ok(0)
@@ -708,7 +825,7 @@ pub fn precheck_bulk_import_action_wire(
                 });
             }
 
-            let confirm_result = do_confirm_bulk_import_wire(context_token)?;
+            let confirm_result = do_confirm_bulk_import_wire_internal(context_token)?;
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
                 context_token_present: false,
@@ -725,11 +842,20 @@ pub fn precheck_bulk_import_action_wire(
 pub fn do_confirm_bulk_import_wire(
     context_token: String,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
+    do_confirm_bulk_import_wire_internal(context_token)
+}
+
+fn do_confirm_bulk_import_wire_internal(
+    context_token: String,
+) -> Result<BulkImportConfirmExecutionResult, String> {
     let confirm_wire = take_bulk_import_context(&context_token)
         .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
 
     println!("Do-confirm bulk import using token: {context_token}");
-    let persisted_design_count = persist_bulk_import_confirm_if_initialized(&confirm_wire)?;
+    let persisted_design_count = persist_bulk_import_confirm_if_initialized(
+        &confirm_wire,
+        Some(&context_token),
+    )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
     Ok(result)
@@ -739,7 +865,10 @@ pub fn do_confirm_bulk_import_wire(
 pub fn execute_bulk_import_confirm_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
-    let persisted_design_count = persist_bulk_import_confirm_if_initialized(&confirm_wire)?;
+    let persisted_design_count = persist_bulk_import_confirm_if_initialized(
+        &confirm_wire,
+        confirm_wire.context_token.as_deref(),
+    )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
     Ok(result)
@@ -889,6 +1018,60 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    async fn import_test_pool() -> SqlitePool {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("failed to create test sqlite pool");
+
+        sqlx::query(
+            r#"
+            CREATE TABLE settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                description TEXT
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create settings table");
+
+        sqlx::query(
+            r#"
+            CREATE TABLE designs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL,
+                filepath TEXT NOT NULL,
+                date_added TEXT,
+                designer_id INTEGER,
+                source_id INTEGER,
+                image_data BLOB,
+                image_type TEXT,
+                width_mm REAL,
+                height_mm REAL,
+                stitch_count INTEGER,
+                color_count INTEGER,
+                color_change_count INTEGER,
+                is_stitched INTEGER NOT NULL DEFAULT 0,
+                tags_checked INTEGER NOT NULL DEFAULT 0
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create designs table");
+
+        sqlx::query("INSERT INTO settings (key, value, description) VALUES ('image.preference', '2d', 'test preference')")
+            .execute(&pool)
+            .await
+            .expect("failed to seed image preference");
+
+        pool
+    }
 
     #[test]
     fn bulk_import_wire_round_trips_through_json() {
@@ -914,6 +1097,168 @@ mod tests {
         assert_eq!(decoded.per_folder_assignments.len(), 1);
         assert_eq!(decoded.selected_files.len(), 1);
         assert!(decoded.create_on_import);
+    }
+
+    #[test]
+    fn persist_bulk_import_confirm_wire_writes_image_fields_in_native_mode() {
+        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        assert!(fixture.exists(), "expected Bean.pes fixture to exist");
+
+        let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
+        std::env::set_var("IMPORT_IMAGE_BACKEND", "native");
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["tests/testdata".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec![fixture.to_string_lossy().to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            &confirm_wire,
+            None,
+        ))
+            .expect("persist should succeed");
+        assert_eq!(persisted, 1);
+
+        let row = tauri::async_runtime::block_on(async {
+            sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>, Option<f64>, Option<f64>, Option<i64>, Option<i64>, Option<i64>)>(
+                "SELECT image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count FROM designs WHERE filepath = ? LIMIT 1"
+            )
+            .bind(fixture.to_string_lossy().to_string())
+            .fetch_one(&pool)
+            .await
+        })
+        .expect("expected persisted design row");
+
+        assert!(row.0.map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert_eq!(row.1.as_deref(), Some("2d"));
+        assert!(row.2.unwrap_or_default() > 0.0);
+        assert!(row.3.unwrap_or_default() > 0.0);
+        assert!(row.4.unwrap_or_default() > 0);
+        assert!(row.5.unwrap_or_default() > 0);
+        assert!(row.6.unwrap_or_default() >= 0);
+
+        if let Some(value) = previous_backend {
+            std::env::set_var("IMPORT_IMAGE_BACKEND", value);
+        } else {
+            std::env::remove_var("IMPORT_IMAGE_BACKEND");
+        }
+    }
+
+    #[test]
+    fn persist_bulk_import_confirm_wire_auto_backend_3d_pref_falls_back_safely_without_python() {
+        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        assert!(fixture.exists(), "expected Bean.pes fixture to exist");
+
+        let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
+        let previous_python = std::env::var("RUST_EMBROIDERY_PYTHON").ok();
+
+        std::env::set_var("IMPORT_IMAGE_BACKEND", "auto");
+        // Intentionally point to a missing executable so python path fails and auto must use native fallback.
+        std::env::set_var("RUST_EMBROIDERY_PYTHON", "__missing_python_for_auto_fallback_test__");
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        tauri::async_runtime::block_on(async {
+            sqlx::query("UPDATE settings SET value = '3d' WHERE key = 'image.preference'")
+                .execute(&pool)
+                .await
+        })
+        .expect("failed to update image preference to 3d");
+
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["tests/testdata".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec![fixture.to_string_lossy().to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            &confirm_wire,
+            None,
+        ))
+            .expect("persist should succeed even when python path is unavailable");
+        assert_eq!(persisted, 1);
+
+        let row = tauri::async_runtime::block_on(async {
+            sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>, Option<f64>, Option<f64>)>(
+                "SELECT image_data, image_type, width_mm, height_mm FROM designs WHERE filepath = ? LIMIT 1"
+            )
+            .bind(fixture.to_string_lossy().to_string())
+            .fetch_one(&pool)
+            .await
+        })
+        .expect("expected persisted design row");
+
+        assert!(row.0.map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert_eq!(row.1.as_deref(), Some("2d"));
+        assert!(row.2.unwrap_or_default() > 0.0);
+        assert!(row.3.unwrap_or_default() > 0.0);
+
+        if let Some(value) = previous_backend {
+            std::env::set_var("IMPORT_IMAGE_BACKEND", value);
+        } else {
+            std::env::remove_var("IMPORT_IMAGE_BACKEND");
+        }
+
+        if let Some(value) = previous_python {
+            std::env::set_var("RUST_EMBROIDERY_PYTHON", value);
+        } else {
+            std::env::remove_var("RUST_EMBROIDERY_PYTHON");
+        }
+    }
+
+    #[test]
+    fn normalize_import_commit_batch_size_defaults_to_10_and_clamps_high_values() {
+        assert_eq!(normalize_import_commit_batch_size(None), 10);
+        assert_eq!(normalize_import_commit_batch_size(Some("")), 10);
+        assert_eq!(normalize_import_commit_batch_size(Some("abc")), 10);
+        assert_eq!(normalize_import_commit_batch_size(Some("0")), 10);
+        assert_eq!(normalize_import_commit_batch_size(Some("10")), 10);
+        assert_eq!(
+            normalize_import_commit_batch_size(Some("1000000")),
+            MAX_IMPORT_COMMIT_BATCH_SIZE
+        );
+    }
+
+    #[test]
+    fn load_import_commit_batch_size_reads_setting_override() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+
+        let default_batch_size = tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
+            .expect("default batch size should load");
+        assert_eq!(default_batch_size, 10);
+
+        tauri::async_runtime::block_on(async {
+            sqlx::query(
+                "INSERT INTO settings (key, value, description) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            )
+            .bind(KEY_IMPORT_COMMIT_BATCH_SIZE)
+            .bind("25")
+            .bind("test commit batch size")
+            .execute(&pool)
+            .await
+        })
+        .expect("failed to set import commit batch size");
+
+        let configured_batch_size = tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
+            .expect("configured batch size should load");
+        assert_eq!(configured_batch_size, 25);
     }
 
     #[test]
@@ -1344,4 +1689,22 @@ mod tests {
 
         assert!(take_bulk_import_context(&expired_token).is_none());
     }
+}
+
+async fn load_import_preview_3d_if_initialized(pool: &SqlitePool) -> Result<bool, String> {
+    let image_preference: Option<String> = sqlx::query_scalar(
+        "SELECT value FROM settings WHERE key = 'image.preference' LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(!matches!(
+        image_preference
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some("2d")
+    ))
 }

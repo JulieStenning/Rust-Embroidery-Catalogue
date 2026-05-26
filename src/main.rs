@@ -98,6 +98,10 @@ fn main() {
 
     tauri::Builder::default()
         .manage(app_state)
+        .setup(|app| {
+            routes::bulk_import::initialize_bulk_import_app_handle(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             config::debug_bootstrap_config,
             check_disclaimer,

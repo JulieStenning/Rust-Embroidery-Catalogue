@@ -1,5 +1,5 @@
 <script>
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import {
     getBrowseDesigns,
     getBrowseDesignPreviews,
@@ -202,8 +202,12 @@
   let browseBulkTagSelection = $state([]);
   let browseBulkProject = $state("");
   let browseActionNotice = $state("");
+  let browseGridContainer = $state(null);
+  let browseGridColumns = $state(1);
 
-  const BROWSE_PAGE_SIZE = 10;
+  const BROWSE_PAGE_ROWS = 10;
+  const BROWSE_CARD_MIN_WIDTH = 170;
+  const BROWSE_CARD_GAP = 16;
   const BROWSE_TAG_UNTAGGED = "__untagged__";
 
   const defaultBrowseFilters = () => ({
@@ -249,6 +253,10 @@
   let importActionSource = $state("mock");
   let importActionNeedsSkipHoopsConfirm = $state(false);
   let importActionLoading = $state(false);
+  let importActionInProgress = $state("");
+  let importProgressStatus = $state("");
+  let importProgressToken = $state("");
+  let importProgressUnlisten = null;
   let importGlobalDesignerId = $state("");
   let importGlobalSourceId = $state("");
   let importPerFolderAssignmentByPath = $state({});
@@ -1086,6 +1094,13 @@
   }
 
   function resetImportWizard() {
+    if (importProgressUnlisten) {
+      importProgressUnlisten();
+      importProgressUnlisten = null;
+    }
+
+    importProgressStatus = "";
+    importProgressToken = "";
     importBrowseLoading = false;
     importRootPaths = [];
     importHasAppliedSavedRoot = false;
@@ -1106,6 +1121,56 @@
     importPerFolderAssignmentByPath = {};
     importError = "";
   }
+
+  async function stopImportProgressUpdates() {
+    if (importProgressUnlisten) {
+      importProgressUnlisten();
+      importProgressUnlisten = null;
+    }
+
+    importProgressStatus = "";
+    importProgressToken = "";
+  }
+
+  async function startImportProgressUpdates(contextToken) {
+    const normalizedToken = String(contextToken || "").trim();
+    if (!normalizedToken) {
+      return;
+    }
+
+    await stopImportProgressUpdates();
+    importProgressToken = normalizedToken;
+
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      importProgressUnlisten = await listen("bulk-import-progress", (event) => {
+        const payload = event?.payload || {};
+        const payloadToken = String(payload?.context_token || "").trim();
+        if (payloadToken && payloadToken !== importProgressToken) {
+          return;
+        }
+
+        const processed = Number(payload?.processed_count || 0);
+        const total = Number(payload?.total_count || 0);
+        const persisted = Number(payload?.persisted_count || 0);
+
+        if (total > 0) {
+          importProgressStatus = `${processed}/${total} processed (${persisted} imported)`;
+        } else {
+          importProgressStatus = `${persisted} imported`;
+        }
+      });
+    } catch (error) {
+      console.info("Bulk import progress events unavailable.", error);
+    }
+  }
+
+  onDestroy(() => {
+    if (importProgressUnlisten) {
+      importProgressUnlisten();
+      importProgressUnlisten = null;
+    }
+  });
 
   function getFolderPathFromFilePath(fullPath) {
     const value = String(fullPath || "").trim();
@@ -1332,7 +1397,14 @@
     }
 
     importActionLoading = true;
+    importActionInProgress = String(action || "");
     importError = "";
+
+    const importNowAction = action === "import_now";
+    if (importNowAction) {
+      importProgressStatus = "";
+      await startImportProgressUpdates(importContextToken);
+    }
 
     try {
       const result = await runPrecheckAction({
@@ -1365,6 +1437,10 @@
     } catch (error) {
       importError = `Import action failed: ${error}`;
     } finally {
+      if (importNowAction) {
+        await stopImportProgressUpdates();
+      }
+      importActionInProgress = "";
       importActionLoading = false;
     }
   }
@@ -1500,6 +1576,33 @@
     }
     browseFilters = { ...browseFilters, tagFilters: Array.from(active) };
     browseCurrentPage = 1;
+  }
+
+  function estimateBrowseColumnsFromWidth(width) {
+    const normalizedWidth = Number(width) || 0;
+    if (normalizedWidth <= 0) {
+      return 1;
+    }
+
+    return Math.max(
+      1,
+      Math.floor((normalizedWidth + BROWSE_CARD_GAP) / (BROWSE_CARD_MIN_WIDTH + BROWSE_CARD_GAP))
+    );
+  }
+
+  function refreshBrowseGridColumns() {
+    const containerWidth = browseGridContainer?.clientWidth;
+    if (containerWidth && containerWidth > 0) {
+      browseGridColumns = estimateBrowseColumnsFromWidth(containerWidth);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      browseGridColumns = estimateBrowseColumnsFromWidth(window.innerWidth || 0);
+      return;
+    }
+
+    browseGridColumns = 1;
   }
 
   function clearBrowseSelection() {
@@ -1732,13 +1835,14 @@
       .sort(compareBrowseItems)
   );
 
+  let browsePageSize = $derived(Math.max(1, browseGridColumns * BROWSE_PAGE_ROWS));
   let browseTotal = $derived(browseFilteredItems.length);
-  let browseTotalPages = $derived(Math.max(1, Math.ceil(browseTotal / BROWSE_PAGE_SIZE)));
+  let browseTotalPages = $derived(Math.max(1, Math.ceil(browseTotal / browsePageSize)));
 
   let browsePageItems = $derived(
     browseFilteredItems.slice(
-      (browseCurrentPage - 1) * BROWSE_PAGE_SIZE,
-      browseCurrentPage * BROWSE_PAGE_SIZE
+      (browseCurrentPage - 1) * browsePageSize,
+      browseCurrentPage * browsePageSize
     )
   );
 
@@ -1800,6 +1904,17 @@
     }
 
     importHasAppliedSavedRoot = true;
+  });
+
+  $effect(() => {
+    if (currentRoute !== "#/designs") {
+      return;
+    }
+
+    browseTotal;
+    tick().then(() => {
+      refreshBrowseGridColumns();
+    });
   });
 
   $effect(() => {
@@ -1873,7 +1988,7 @@
   syncRouteFromHash();
 </script>
 
-<svelte:window onhashchange={syncRouteFromHash} />
+<svelte:window onhashchange={syncRouteFromHash} onresize={refreshBrowseGridColumns} />
 
 <nav class="menu-shell text-white shadow">
   <div class="menu-shell-inner max-w-7xl mx-auto px-3 py-2 flex items-center gap-x-4 overflow-x-auto">
@@ -2207,7 +2322,7 @@
           <a href="#/import" class="text-indigo-600 hover:underline">import some files</a>.
         </p>
       {:else}
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div class="browse-card-grid gap-4" bind:this={browseGridContainer}>
           {#each browsePageItems as item}
             <article class="bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative border border-gray-100">
               <label class="absolute top-1 left-1 z-10 cursor-pointer bg-white/90 rounded px-1">
@@ -2233,13 +2348,12 @@
                   </div>
                 {/if}
                 <div class="p-2 flex-1 space-y-1">
-                  <div class="flex items-center justify-between gap-2 text-xs text-gray-600">
-                    <span>{item.isStitched ? "Stitched" : "Not stitched"}</span>
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-medium leading-tight break-words">{item.filename}</p>
                     {#if !item.tagsChecked}
-                      <span class="text-red-500 font-semibold" aria-label="Unverified">x</span>
+                      <span class="font-bold text-xl leading-none self-center" style="color: #dc2626;" aria-label="Unverified">×</span>
                     {/if}
                   </div>
-                  <p class="text-sm font-medium leading-tight break-words">{item.filename}</p>
                   {#if item.hoop}
                     <p class="text-xs text-indigo-600">{item.hoop}</p>
                   {/if}
@@ -2576,12 +2690,12 @@
               type="number"
               min="1"
               bind:value={settingsImportCommitBatchSize}
-              placeholder="e.g. 1000 — leave blank for default"
+              placeholder="e.g. 10 — leave blank for default"
               class="settings-input border rounded px-3 py-2 text-sm w-56"
             />
             <p class="mt-1 text-xs text-gray-500">
               Controls how many designs are written or tag-updated before each database commit during import.
-              Leave blank to use the default batch size of 1000.
+              Leave blank to use the default batch size of 10.
               Lower values reduce rollback size on failure; higher values reduce commit overhead.
             </p>
           </div>
@@ -3055,7 +3169,17 @@
                 <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_tags")} disabled={importActionLoading || !importContextToken}>Review Tags</button>
                 <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_sources")} disabled={importActionLoading || !importContextToken}>Review Sources</button>
                 <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_designers")} disabled={importActionLoading || !importContextToken}>Review Designers</button>
-                <button class="menu-button-primary" onclick={() => executeImportPrecheckAction("import_now")} disabled={importActionLoading || !importContextToken}>Import now</button>
+                <button class="menu-button-primary" onclick={() => executeImportPrecheckAction("import_now")} disabled={importActionLoading || !importContextToken}>
+                  {#if importActionLoading && importActionInProgress === "import_now"}
+                    {#if importProgressStatus}
+                      Running Import... {importProgressStatus}
+                    {:else}
+                      Running Import...
+                    {/if}
+                  {:else}
+                    Import now
+                  {/if}
+                </button>
                 <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("cancel")} disabled={importActionLoading || !importContextToken}>Cancel</button>
               </div>
 

@@ -9,3 +9,4 @@ pub mod auto_tagging;
 pub mod scanning;
 pub mod validation;
 pub mod folder_picker;
+pub mod image_generation;

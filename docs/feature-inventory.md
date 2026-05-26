@@ -1,6 +1,6 @@
 # Feature Inventory: Embroidery Catalogue App
 
-> **Status:** Current — reflects the application as of April 2026.
+> **Status:** Current — reflects the application as of May 2026.
 > This document describes every major user-facing and admin feature available in the
 > running app.  Keep it updated whenever a feature is added, changed, or removed.
 
@@ -238,6 +238,15 @@ For agent-facing architectural and contract details for import format behavior, 
 - [Specs/import-format-support-backend-spec.md](Specs/import-format-support-backend-spec.md)
 - [Specs/import-format-support-refactor-checklist.md](Specs/import-format-support-refactor-checklist.md)
 
+For agent-facing architectural and contract details for image-generation behavior, see:
+
+- [Specs/image-generation-backend-spec.md](Specs/image-generation-backend-spec.md)
+- [Specs/image-generation-refactor-checklist.md](Specs/image-generation-refactor-checklist.md)
+
+For user-facing image-generation operations guidance, see:
+
+- [User-Facing-Guidance/IMAGE_GENERATION.md](User-Facing-Guidance/IMAGE_GENERATION.md)
+
 For agent-facing architectural and contract details for per-folder Designer/Source assignment during import, see:
 
 - [Specs/import-folder-assignment-backend-spec.md](Specs/import-folder-assignment-backend-spec.md)
@@ -323,6 +332,20 @@ browser UI, without requiring command-line access:
 Each action allows choosing which tiers to run, an optional batch size override, and a
 delay override.  Actions run synchronously and show a result summary after completion.
 
+The same **Admin -> Tagging Actions** page also provides unified backfill actions for:
+
+- stitch detection,
+- image generation or refresh (including 2D/3D controls),
+- thread/colour-count backfill,
+- combined multi-action runs with shared batch/commit/worker controls.
+
+For detailed architecture and operational guidance for those non-tagging actions, see:
+
+- [Specs/backfilling-backend-spec.md](Specs/backfilling-backend-spec.md)
+- [Specs/image-generation-backend-spec.md](Specs/image-generation-backend-spec.md)
+- [User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md](User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md)
+- [User-Facing-Guidance/IMAGE_GENERATION.md](User-Facing-Guidance/IMAGE_GENERATION.md)
+
 ### Standalone Scripts
 
 | Script | Purpose |
@@ -342,7 +365,7 @@ All admin pages require no authentication (single-user local app).
 | `/admin/hoops/` | List, create, rename, delete hoops; seeded defaults shown |
 | `/admin/tags/` | Browse tags by section, create new tags, change a tag's group with the dropdown + `✓`, and delete tags |
 | `/admin/settings/` | Manage API key, AI tagging tier preferences, AI batch size, Import database commit batch size, delay, and storage information |
-| `/admin/tagging-actions/` | Run in-app batch tagging actions (tag untagged, tag unverified, re-tag all) with tier/batch/delay controls |
+| `/admin/tagging-actions/` | Run unified backfill actions in-app: tagging (all modes/tiers), stitch detection, image generation/upgrade (2D/3D options), and thread/colour-count updates with batch/commit/worker controls |
 | `/admin/maintenance/orphans` | Orphaned design finder and optional bulk cleanup |
 | `/admin/maintenance/backup` | Configure backup destinations and run database/designs backups |
 
