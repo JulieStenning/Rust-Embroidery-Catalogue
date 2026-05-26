@@ -9,6 +9,11 @@ mod tests {
         img.pixels().filter(|p| **p != bg).count()
     }
 
+    fn image_dimensions(png_bytes: &[u8]) -> (u32, u32) {
+        let img = image::load_from_memory(png_bytes).expect("decode png").to_rgba8();
+        (img.width(), img.height())
+    }
+
     #[test]
     fn renders_simple_pattern() {
         let mut pattern = EmbPattern::new();
@@ -60,6 +65,22 @@ mod tests {
         let settings = RenderSettings::default();
         let _ = render_pattern_to_png(&pattern, &settings);
     }
+
+    #[test]
+    fn ignores_jump_only_outliers_when_framing_preview() {
+        let mut pattern = EmbPattern::new();
+        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch { x: 10.0, y: 0.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch { x: 10000.0, y: 10000.0, stitch_type: StitchType::Jump });
+        pattern.stitches.push(Stitch { x: 12.0, y: 1.0, stitch_type: StitchType::Stitch });
+        pattern.threadlist.push(EmbThread::new(0x00AA00));
+
+        let settings = RenderSettings::default();
+        let png = render_pattern_to_png(&pattern, &settings);
+        let (width, height) = image_dimensions(&png);
+
+        assert!(width < 200 && height < 200, "jump-only outlier should not inflate preview size");
+    }
 }
 /// PNG rendering for embroidery previews (Rust replacement for Python PngWriter)
 
@@ -67,6 +88,40 @@ use crate::models::{EmbPattern, StitchType};
 use image::{Rgba, RgbaImage};
 use imageproc::drawing::draw_antialiased_line_segment_mut;
 use imageproc::pixelops::interpolate;
+
+fn drawable_bounds(pattern: &EmbPattern) -> Option<(f32, f32, f32, f32)> {
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+    let mut found = false;
+
+    for stitch in &pattern.stitches {
+        if stitch.stitch_type != StitchType::Stitch {
+            continue;
+        }
+
+        found = true;
+        if stitch.x < min_x {
+            min_x = stitch.x;
+        }
+        if stitch.x > max_x {
+            max_x = stitch.x;
+        }
+        if stitch.y < min_y {
+            min_y = stitch.y;
+        }
+        if stitch.y > max_y {
+            max_y = stitch.y;
+        }
+    }
+
+    if found {
+        Some((min_x, min_y, max_x, max_y))
+    } else {
+        None
+    }
+}
 
 /// Settings for rendering the embroidery preview.
 #[derive(Debug, Clone)]
@@ -85,7 +140,7 @@ impl Default for RenderSettings {
 
 /// Render an embroidery pattern to PNG bytes.
 pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) -> Vec<u8> {
-    let (min_x, min_y, max_x, max_y) = pattern.bounds();
+    let (min_x, min_y, max_x, max_y) = drawable_bounds(pattern).unwrap_or((0.0, 0.0, 1.0, 1.0));
     let width = (max_x - min_x).ceil() as u32 + 4;
     let height = (max_y - min_y).ceil() as u32 + 4;
     let mut img = RgbaImage::from_pixel(width, height, settings.background);

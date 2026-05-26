@@ -102,16 +102,45 @@ export async function getBrowseDesigns() {
  * Falls back to mock data while detail command migration is in progress.
  */
 export async function getDesignDetail(designId) {
+  const normalizedId = Number(designId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return { item: null, source: "mock", error: `Invalid design id: ${designId}` };
+  }
+
   try {
-    const detail = await invoke("get_design_detail", { designId });
+    // Send both key styles so the call works across mixed command bindings.
+    const detail = await invoke("get_design_detail", {
+      designId: normalizedId,
+      design_id: normalizedId,
+    });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
     }
   } catch (error) {
     console.info("get_design_detail not available yet, using mock detail.", error);
+
+    const fallback = MOCK_DESIGNS.find((item) => item.id === normalizedId) || null;
+    if (!fallback) {
+      return { item: null, source: "mock", error: String(error) };
+    }
+
+    return {
+      item: {
+        id: fallback.id,
+        filename: fallback.filename,
+        filepath: `C:/mock/${fallback.filename}`,
+        designer: fallback.designer,
+        source: fallback.source,
+        notes: "Mock detail while Rust route migration continues.",
+        rating: null,
+        date_added: null,
+      },
+      source: "mock",
+      error: String(error),
+    };
   }
 
-  const fallback = MOCK_DESIGNS.find((item) => item.id === designId) || null;
+  const fallback = MOCK_DESIGNS.find((item) => item.id === normalizedId) || null;
   if (!fallback) {
     return { item: null, source: "mock" };
   }
@@ -129,6 +158,300 @@ export async function getDesignDetail(designId) {
     },
     source: "mock",
   };
+}
+
+export async function getDesignImageDataUrl(designId) {
+  const normalizedId = Number(designId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return { item: null, source: "mock" };
+  }
+
+  try {
+    const image = await invoke("get_design_image_data_url", { designId: normalizedId });
+    if (image && typeof image === "object") {
+      return { item: image, source: "rust" };
+    }
+  } catch (error) {
+    console.info("get_design_image_data_url not available yet, using mock image.", error);
+  }
+
+  return { item: null, source: "mock" };
+}
+
+export async function updateDesignMetadata(designId, request) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("update_design_metadata", {
+      designId: normalizedId,
+      request,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design metadata updated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not update design metadata: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function setDesignRating(designId, rating) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("set_design_rating", {
+      designId: normalizedId,
+      request: { rating: rating == null ? null : Number(rating) },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design rating updated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not update rating: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function setDesignStitched(designId, isStitched) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("set_design_stitched", {
+      designId: normalizedId,
+      request: { is_stitched: Boolean(isStitched) },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design stitched state updated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not update stitched state: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function setDesignTagsChecked(designId, tagsChecked) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("set_design_tags_checked", {
+      designId: normalizedId,
+      request: { tags_checked: Boolean(tagsChecked) },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design verification state updated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not update verification state: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function setDesignTags(designId, tagIds) {
+  const normalizedId = Number(designId);
+  const normalizedTagIds = Array.isArray(tagIds)
+    ? Array.from(new Set(tagIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+    : [];
+
+  try {
+    const result = await invoke("set_design_tags", {
+      designId: normalizedId,
+      request: { tag_ids: normalizedTagIds },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design tags updated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not update tags: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function addDesignToProject(designId, projectId) {
+  const normalizedId = Number(designId);
+  const normalizedProjectId = Number(projectId);
+
+  try {
+    const result = await invoke("add_design_to_project", {
+      designId: normalizedId,
+      request: { project_id: normalizedProjectId },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design added to project."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not add design to project: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function removeDesignFromProject(designId, projectId) {
+  const normalizedId = Number(designId);
+  const normalizedProjectId = Number(projectId);
+
+  try {
+    const result = await invoke("remove_design_from_project", {
+      designId: normalizedId,
+      projectId: normalizedProjectId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design removed from project."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not remove design from project: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function deleteDesign(designId) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("delete_design", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Design deleted."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not delete design: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function openDesignInEditor(designId) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("open_design_in_editor", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result,
+      message: String(result?.message || "Open in editor action completed."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not open in editor: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function openDesignInExplorer(designId) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("open_design_in_explorer", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result,
+      message: String(result?.message || "Show in explorer action completed."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not open in explorer: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function renderDesign3dPreview(designId) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invoke("render_design_3d_preview", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result,
+      message: String(result?.message || "3D preview rendered."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not render 3D preview: ${error}`,
+      error: String(error),
+    };
+  }
 }
 
 /**

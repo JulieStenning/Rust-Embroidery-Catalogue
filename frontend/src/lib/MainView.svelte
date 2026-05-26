@@ -6,6 +6,18 @@
     getBrowseProjects,
     getBrowseTags,
     getDesignDetail,
+    getDesignImageDataUrl,
+    updateDesignMetadata,
+    setDesignRating,
+    setDesignStitched,
+    setDesignTagsChecked,
+    setDesignTags,
+    addDesignToProject,
+    removeDesignFromProject,
+    deleteDesign,
+    openDesignInEditor,
+    openDesignInExplorer,
+    renderDesign3dPreview,
     browseImportFolder,
     previewImportFromRoots,
     precheckImportWire,
@@ -158,19 +170,37 @@
     return match ? Number(match[1]) : null;
   }
 
+  function parseDesignPrintId(route) {
+    const match = route.match(/^#\/designs\/(\d+)\/print$/);
+    return match ? Number(match[1]) : null;
+  }
+
   function resolveCurrentPage(route) {
+    if (parseDesignPrintId(route) !== null) {
+      return {
+        title: "Design Print",
+        subtitle: "Printable design summary",
+        description: "Print-friendly detail view for a single design.",
+        cta: "Use browser print from this screen",
+      };
+    }
+
     if (parseDesignDetailId(route) !== null) {
       return {
         title: "Design Detail",
-        subtitle: "Design detail placeholder",
-        description: "This staged page shows a single design summary while deeper metadata wiring is migrated.",
-        cta: "Next backend hookup: richer detail and related actions",
+        subtitle: "Design metadata and actions",
+        description: "Review one design, edit metadata and tags, manage project membership, and run file and print actions.",
+        cta: "Use the detail controls to update this design",
       };
     }
     return ROUTE_PAGES[route] || null;
   }
 
   function resolveCurrentUiKind(route) {
+    if (parseDesignPrintId(route) !== null) {
+      return "design-print";
+    }
+
     if (parseDesignDetailId(route) !== null) {
       return "design-detail";
     }
@@ -181,6 +211,7 @@
   let currentPage = $derived(resolveCurrentPage(currentRoute));
   let currentUiKind = $derived(resolveCurrentUiKind(currentRoute));
   let detailDesignId = $derived(parseDesignDetailId(currentRoute));
+  let printDesignId = $derived(parseDesignPrintId(currentRoute));
 
   let browseItems = $state([]);
   let browseSource = $state("mock");
@@ -237,6 +268,17 @@
   let detailSource = $state("mock");
   let detailLoading = $state(false);
   let detailError = $state("");
+  let detailActionMessage = $state("");
+  let detailActionIsError = $state(false);
+  let detailSaving = $state(false);
+  let detailNotes = $state("");
+  let detailDesignerId = $state("");
+  let detailSourceId = $state("");
+  let detailHoopId = $state("");
+  let detailTagSelection = $state([]);
+  let detailProjectToAdd = $state("");
+  let detailBrowseIds = $state([]);
+  let detailBrowseIndex = $state(-1);
 
   let importRootPath = $state("C:/imports");
   let importRootPaths = $state([]);
@@ -1461,6 +1503,62 @@
     navigateTo(`#/designs/${item.id}`);
   }
 
+  function loadDetailBrowseContext(designId) {
+    try {
+      const raw = window.sessionStorage.getItem("browse_ids");
+      const parsed = JSON.parse(raw || "[]");
+      const ids = Array.isArray(parsed)
+        ? parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+        : [];
+      detailBrowseIds = ids;
+      detailBrowseIndex = ids.indexOf(Number(designId));
+    } catch (error) {
+      detailBrowseIds = [];
+      detailBrowseIndex = -1;
+    }
+  }
+
+  function goToPreviousDetail() {
+    if (detailBrowseIndex <= 0) {
+      return;
+    }
+    const prevId = detailBrowseIds[detailBrowseIndex - 1];
+    if (Number.isFinite(prevId)) {
+      navigateTo(`#/designs/${prevId}`);
+    }
+  }
+
+  function goToNextDetail() {
+    if (detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1) {
+      return;
+    }
+    const nextId = detailBrowseIds[detailBrowseIndex + 1];
+    if (Number.isFinite(nextId)) {
+      navigateTo(`#/designs/${nextId}`);
+    }
+  }
+
+  function splitDetailTagsByGroup(tags) {
+    const allTags = Array.isArray(tags) ? tags : [];
+    return {
+      image: allTags.filter((tag) => String(tag?.tag_group || "") === "image"),
+      stitching: allTags.filter((tag) => String(tag?.tag_group || "") === "stitching"),
+      unclassified: allTags.filter((tag) => {
+        const group = String(tag?.tag_group || "");
+        return group !== "image" && group !== "stitching";
+      }),
+    };
+  }
+
+  function ratingToStars(rating) {
+    const numeric = Number(rating);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return "";
+    }
+    const clamped = Math.min(5, Math.max(0, numeric));
+    return `${"★".repeat(clamped)}${"☆".repeat(5 - clamped)}`;
+  }
+
   async function loadDesignDetail(designId) {
     if (designId == null) {
       return;
@@ -1473,13 +1571,222 @@
       const result = await getDesignDetail(designId);
       detailItem = result.item || null;
       detailSource = result.source || "mock";
+      if (!detailItem && result?.error) {
+        detailError = `Could not load design detail from Rust backend: ${result.error}`;
+      }
+      detailNotes = String(detailItem?.notes || "");
+      detailDesignerId = detailItem?.designer_id == null ? "" : String(detailItem.designer_id);
+      detailSourceId = detailItem?.source_id == null ? "" : String(detailItem.source_id);
+      detailHoopId = detailItem?.hoop_id == null ? "" : String(detailItem.hoop_id);
+      detailTagSelection = Array.isArray(detailItem?.tags)
+        ? detailItem.tags.map((tag) => Number(tag?.id)).filter((id) => Number.isFinite(id))
+        : [];
+      detailProjectToAdd = Array.isArray(detailItem?.available_projects) && detailItem.available_projects.length > 0
+        ? String(detailItem.available_projects[0].id)
+        : "";
+      loadDetailBrowseContext(designId);
     } catch (error) {
       detailError = `Could not load design detail: ${error}`;
       detailItem = null;
       detailSource = "mock";
+      detailProjectToAdd = "";
+      detailBrowseIds = [];
+      detailBrowseIndex = -1;
     } finally {
       detailLoading = false;
     }
+  }
+
+  async function refreshDetailAfterAction() {
+    if (detailDesignId == null && printDesignId == null) {
+      return;
+    }
+    const id = detailDesignId ?? printDesignId;
+    await loadDesignDetail(id);
+  }
+
+  function setDetailActionNotice(message, isError = false) {
+    detailActionMessage = message;
+    detailActionIsError = isError;
+  }
+
+  async function saveDetailMetadata() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+
+    detailSaving = true;
+    const result = await updateDesignMetadata(detailItem.id, {
+      notes: detailNotes,
+      designer_id: detailDesignerId ? Number(detailDesignerId) : null,
+      source_id: detailSourceId ? Number(detailSourceId) : null,
+      hoop_id: detailHoopId ? Number(detailHoopId) : null,
+    });
+    detailSaving = false;
+
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function submitDetailRating(rating) {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await setDesignRating(detailItem.id, rating);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function toggleDetailStitched() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await setDesignStitched(detailItem.id, !Boolean(detailItem?.is_stitched));
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function toggleDetailTagsChecked() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await setDesignTagsChecked(detailItem.id, !Boolean(detailItem?.tags_checked));
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function saveDetailTags() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await setDesignTags(detailItem.id, detailTagSelection);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function addDetailToProject(projectId) {
+    if (!detailItem?.id || !projectId || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await addDesignToProject(detailItem.id, projectId);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function addSelectedDetailProject() {
+    if (!detailProjectToAdd) {
+      return;
+    }
+    await addDetailToProject(Number(detailProjectToAdd));
+  }
+
+  async function removeDetailFromProject(projectId) {
+    if (!detailItem?.id || !projectId || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await removeDesignFromProject(detailItem.id, projectId);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function launchDetailInEditor() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await openDesignInEditor(detailItem.id);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted || !result?.result?.success);
+  }
+
+  async function launchDetailInExplorer() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await openDesignInExplorer(detailItem.id);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted || !result?.result?.success);
+  }
+
+  async function renderDetail3dPreview() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+    detailSaving = true;
+    const result = await renderDesign3dPreview(detailItem.id);
+    detailSaving = false;
+    setDetailActionNotice(result.message, !result.persisted);
+    if (result.persisted) {
+      const refreshedImage = await getDesignImageDataUrl(detailItem.id);
+      if (refreshedImage?.item?.data_url) {
+        detailItem = {
+          ...detailItem,
+          image_data_url: refreshedImage.item.data_url,
+          image_type: refreshedImage.item.image_type || detailItem.image_type,
+        };
+      }
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function deleteDetailDesign() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this design from the catalogue?");
+    if (!confirmed) {
+      return;
+    }
+
+    detailSaving = true;
+    const result = await deleteDesign(detailItem.id);
+    detailSaving = false;
+
+    if (result.persisted) {
+      navigateTo("#/designs");
+      return;
+    }
+
+    setDetailActionNotice(result.message, true);
+  }
+
+  function openDetailPrintView() {
+    if (!detailItem?.id) {
+      return;
+    }
+    navigateTo(`#/designs/${detailItem.id}/print`);
+  }
+
+  function printCurrentView() {
+    window.print();
   }
 
   function tokenize(value) {
@@ -1957,9 +2264,17 @@
   });
 
   $effect(() => {
-    if (detailDesignId !== null) {
-      loadDesignDetail(detailDesignId);
+    const id = detailDesignId ?? printDesignId;
+    if (id !== null) {
+      loadDesignDetail(id);
+      return;
     }
+
+    detailActionMessage = "";
+    detailActionIsError = false;
+    detailProjectToAdd = "";
+    detailBrowseIds = [];
+    detailBrowseIndex = -1;
   });
 
   $effect(() => {
@@ -2941,17 +3256,31 @@
       <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
       <p class="text-gray-600">{currentPage.description}</p>
 
-      <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-sm text-indigo-800 space-y-2">
-        <p class="font-semibold">Current Stage: Route-backed placeholders</p>
-        <p>{currentPage.cta}</p>
-        <p>Active route: <span class="font-semibold">{currentRoute}</span></p>
-      </div>
+      {#if currentUiKind !== "design-detail" && currentUiKind !== "design-print"}
+        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-sm text-indigo-800 space-y-2">
+          <p class="font-semibold">Current Stage: Route-backed placeholders</p>
+          <p>{currentPage.cta}</p>
+          <p>Active route: <span class="font-semibold">{currentRoute}</span></p>
+        </div>
+      {/if}
 
       {#if currentUiKind === "design-detail"}
-        <div class="space-y-3">
+        <div class="space-y-4">
           <div class="flex flex-wrap gap-2">
             <button class="menu-button-secondary" onclick={() => navigateTo("#/designs")}>Back to Browse</button>
+            <button class="menu-button-secondary" onclick={openDetailPrintView} disabled={!detailItem}>Print View</button>
+            <button class="menu-button-secondary" onclick={goToPreviousDetail} disabled={detailBrowseIndex <= 0}>‹ Prev</button>
+            <button class="menu-button-secondary" onclick={goToNextDetail} disabled={detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1}>Next ›</button>
+            {#if detailBrowseIndex >= 0 && detailBrowseIds.length > 0}
+              <span class="text-sm text-gray-500 self-center">{detailBrowseIndex + 1} / {detailBrowseIds.length}</span>
+            {/if}
           </div>
+
+          {#if detailActionMessage}
+            <div class={`rounded border px-3 py-2 text-sm ${detailActionIsError ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
+              {detailActionMessage}
+            </div>
+          {/if}
 
           <div class="route-panel">
             <p class="font-semibold">Data source: {detailSource}</p>
@@ -2962,17 +3291,305 @@
             {:else if !detailItem}
               <p>No design found for id {detailDesignId}.</p>
             {:else}
-              <div class="grid sm:grid-cols-2 gap-3 mt-3">
-                <div class="route-card"><strong>Filename:</strong> {detailItem.filename || "Unknown"}</div>
-                <div class="route-card"><strong>Designer:</strong> {detailItem.designer || "Unknown"}</div>
-                <div class="route-card"><strong>Source:</strong> {detailItem.source || "Unknown"}</div>
-                <div class="route-card"><strong>Path:</strong> {detailItem.filepath || "Unknown"}</div>
-                <div class="route-card"><strong>Rating:</strong> {detailItem.rating ?? "None"}</div>
-                <div class="route-card"><strong>Date added:</strong> {detailItem.date_added || "Unknown"}</div>
+              <div class="grid lg:grid-cols-2 gap-4 mt-3">
+                <div class="space-y-3">
+                  <div class="route-card">
+                    <strong>Filename:</strong> {detailItem.filename || "Unknown"}
+                  </div>
+                  <div class="route-card break-all">
+                    <strong>Path:</strong> {detailItem.filepath || "Unknown"}
+                  </div>
+                  {#if detailItem.image_data_url}
+                    <img
+                      src={detailItem.image_data_url}
+                      alt={detailItem.filename || "Design preview"}
+                      class="w-full rounded border border-gray-200 bg-white p-2 max-h-[24rem] object-contain"
+                    />
+                  {:else}
+                    <div class="route-card text-gray-500">No preview image saved yet.</div>
+                  {/if}
+
+                  <div class="flex flex-wrap gap-2">
+                    <button class="menu-button-secondary" onclick={launchDetailInEditor} disabled={detailSaving}>Open in Editor</button>
+                    <button class="menu-button-secondary" onclick={launchDetailInExplorer} disabled={detailSaving}>Show in Explorer</button>
+                    <button class="menu-button-primary" onclick={renderDetail3dPreview} disabled={detailSaving}>
+                      {detailItem.image_data_url ? (detailItem.image_type === "3d" ? "✓ 3D Preview" : "Render 3D Preview") : "Generate 3D Preview"}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  <div class="grid sm:grid-cols-2 gap-3">
+                    <div class="route-card"><strong>Designer:</strong> {detailItem.designer || "Unknown"}</div>
+                    <div class="route-card"><strong>Source:</strong> {detailItem.source || "Unknown"}</div>
+                    <div class="route-card"><strong>Hoop:</strong> {detailItem.hoop || "Unknown"}</div>
+                    <div class="route-card"><strong>Date added:</strong> {detailItem.date_added || "Unknown"}</div>
+                    <div class="route-card"><strong>Dimensions:</strong> {detailItem.width_mm ?? "?"} x {detailItem.height_mm ?? "?"} mm</div>
+                    <div class="route-card"><strong>Stitches:</strong> {detailItem.stitch_count ?? "?"}</div>
+                      <div class="route-card"><strong>Colours:</strong> {detailItem.color_count ?? "?"}</div>
+                      <div class="route-card"><strong>Colour changes:</strong> {detailItem.color_change_count ?? "?"}</div>
+                  </div>
+
+                    {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
+                      <div class="flex flex-wrap gap-2 items-center">
+                        {#each detailItem.tags as tag}
+                          <span class={`text-xs px-2 py-0.5 rounded-full ${tag.tag_group === "stitching" ? "bg-blue-100 text-blue-700" : tag.tag_group === "image" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                            {tag.description}
+                          </span>
+                        {/each}
+                      </div>
+                    {/if}
+
+                  <div class="route-panel space-y-2">
+                    <p class="font-semibold">Rating and stitched status</p>
+                    <div class="flex flex-wrap gap-2 items-center">
+                      <span class="text-sm text-gray-600">Current rating: {detailItem.rating ?? "None"}</span>
+                      {#each [1, 2, 3, 4, 5] as score}
+                        <button
+                          class="menu-button-secondary"
+                          onclick={() => submitDetailRating(score)}
+                          disabled={detailSaving}
+                        >
+                          {score}★
+                        </button>
+                      {/each}
+                      {#if detailItem.rating}
+                        <button class="menu-button-secondary" onclick={() => submitDetailRating(null)} disabled={detailSaving}>Clear rating</button>
+                      {/if}
+                    </div>
+                    <div class="flex flex-wrap gap-2 items-center">
+                      <button class="menu-button-secondary" onclick={toggleDetailStitched} disabled={detailSaving}>
+                        {detailItem.is_stitched ? "✓ Mark as Not Stitched" : "Mark as Stitched"}
+                      </button>
+                      {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
+                        <button class="menu-button-secondary" onclick={toggleDetailTagsChecked} disabled={detailSaving}>
+                          {detailItem.tags_checked ? "✓ Verified" : "⚠ Verify"}
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+
+                  <form
+                    class="route-panel space-y-2"
+                    onsubmit={(event) => {
+                      event.preventDefault();
+                      saveDetailMetadata();
+                    }}
+                  >
+                    <p class="font-semibold">Metadata</p>
+                    <label class="block text-sm text-gray-700">
+                      <span class="block mb-1">Notes</span>
+                      <textarea class="w-full border rounded px-2 py-1" rows="4" bind:value={detailNotes}></textarea>
+                    </label>
+                    <div class="grid sm:grid-cols-3 gap-2">
+                      <label class="text-sm text-gray-700">
+                        <span class="block mb-1">Designer</span>
+                        <select class="w-full border rounded px-2 py-1" bind:value={detailDesignerId}>
+                          <option value="">None</option>
+                          {#each detailItem.designers || [] as designer}
+                            <option value={String(designer.id)}>{designer.name}</option>
+                          {/each}
+                        </select>
+                      </label>
+                      <label class="text-sm text-gray-700">
+                        <span class="block mb-1">Source</span>
+                        <select class="w-full border rounded px-2 py-1" bind:value={detailSourceId}>
+                          <option value="">None</option>
+                          {#each detailItem.sources || [] as source}
+                            <option value={String(source.id)}>{source.name}</option>
+                          {/each}
+                        </select>
+                      </label>
+                      <label class="text-sm text-gray-700">
+                        <span class="block mb-1">Hoop</span>
+                        <select class="w-full border rounded px-2 py-1" bind:value={detailHoopId}>
+                          <option value="">None</option>
+                          {#each detailItem.hoops || [] as hoop}
+                            <option value={String(hoop.id)}>{hoop.name}</option>
+                          {/each}
+                        </select>
+                      </label>
+                    </div>
+                    <button type="submit" class="menu-button-primary" disabled={detailSaving}>Save metadata</button>
+                  </form>
+
+                  <div class="route-panel space-y-2">
+                    <p class="font-semibold">Projects</p>
+                    {#if Array.isArray(detailItem.projects) && detailItem.projects.length > 0}
+                      <div class="space-y-1">
+                        {#each detailItem.projects as project}
+                          <div class="flex items-center justify-between border rounded px-2 py-1">
+                            <span>{project.name}</span>
+                            <button class="menu-button-secondary" onclick={() => removeDetailFromProject(project.id)} disabled={detailSaving}>Remove</button>
+                          </div>
+                        {/each}
+                      </div>
+                    {:else}
+                      <p class="text-sm text-gray-500">Not assigned to any project.</p>
+                    {/if}
+
+                    {#if Array.isArray(detailItem.available_projects) && detailItem.available_projects.length > 0}
+                      <div class="flex flex-col sm:flex-row gap-2">
+                        <select class="w-full sm:flex-1 border rounded px-2 py-1" bind:value={detailProjectToAdd} disabled={detailSaving}>
+                          {#each detailItem.available_projects as project}
+                            <option value={String(project.id)}>{project.name}</option>
+                          {/each}
+                        </select>
+                        <button class="menu-button-primary" onclick={addSelectedDetailProject} disabled={detailSaving || !detailProjectToAdd}>
+                          Add to Project
+                        </button>
+                      </div>
+                    {/if}
+                  </div>
+                  <details class="route-panel space-y-2" open>
+                    <summary class="font-semibold cursor-pointer">
+                      Tags
+                      {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
+                        <span class="ml-2 text-xs text-gray-500">({detailItem.tags.length} assigned: {detailItem.tags.map((tag) => tag.description).join(", ")})</span>
+                      {:else}
+                        <span class="ml-2 text-xs text-gray-400">(none assigned)</span>
+                      {/if}
+                      <span class={`ml-2 text-xs ${detailItem.tags_checked ? "text-green-600" : "text-orange-500"}`}>
+                        {detailItem.tags_checked ? "✓ Tags checked" : "⚠ Tags not verified"}
+                      </span>
+                    </summary>
+                    <div class="space-y-3 pt-2">
+                      {#if splitDetailTagsByGroup(detailItem.all_tags).image.length > 0}
+                        <div>
+                          <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Image</p>
+                          <div class="max-h-32 overflow-auto border rounded p-2 grid sm:grid-cols-2 gap-2">
+                            {#each splitDetailTagsByGroup(detailItem.all_tags).image as tag}
+                              <label class="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={detailTagSelection.includes(Number(tag.id))}
+                                  onchange={(event) => {
+                                    const id = Number(tag.id);
+                                    if (event.currentTarget.checked) {
+                                      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
+                                    } else {
+                                      detailTagSelection = detailTagSelection.filter((value) => value !== id);
+                                    }
+                                  }}
+                                />
+                                <span>{tag.description}</span>
+                              </label>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                      {#if splitDetailTagsByGroup(detailItem.all_tags).stitching.length > 0}
+                        <div>
+                          <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Stitching</p>
+                          <div class="max-h-32 overflow-auto border rounded p-2 grid sm:grid-cols-2 gap-2">
+                            {#each splitDetailTagsByGroup(detailItem.all_tags).stitching as tag}
+                              <label class="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={detailTagSelection.includes(Number(tag.id))}
+                                  onchange={(event) => {
+                                    const id = Number(tag.id);
+                                    if (event.currentTarget.checked) {
+                                      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
+                                    } else {
+                                      detailTagSelection = detailTagSelection.filter((value) => value !== id);
+                                    }
+                                  }}
+                                />
+                                <span>{tag.description}</span>
+                              </label>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                      {#if splitDetailTagsByGroup(detailItem.all_tags).unclassified.length > 0}
+                        <div>
+                          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Unclassified</p>
+                          <div class="max-h-32 overflow-auto border rounded p-2 grid sm:grid-cols-2 gap-2">
+                            {#each splitDetailTagsByGroup(detailItem.all_tags).unclassified as tag}
+                              <label class="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={detailTagSelection.includes(Number(tag.id))}
+                                  onchange={(event) => {
+                                    const id = Number(tag.id);
+                                    if (event.currentTarget.checked) {
+                                      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
+                                    } else {
+                                      detailTagSelection = detailTagSelection.filter((value) => value !== id);
+                                    }
+                                  }}
+                                />
+                                <span>{tag.description}</span>
+                              </label>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                      <div class="flex items-center gap-2">
+                        <button class="menu-button-primary" onclick={saveDetailTags} disabled={detailSaving}>Save tags</button>
+                        <span class="text-xs text-gray-500">Saving tags marks this design as verified.</span>
+                      </div>
+                    </div>
+                  </details>
+
+                  <div class="flex justify-end">
+                    <button class="menu-button-secondary" onclick={deleteDetailDesign} disabled={detailSaving}>Delete design</button>
+                  </div>
+                </div>
               </div>
-              <div class="route-panel mt-3">
-                <p class="font-semibold mb-1">Notes</p>
-                <p class="text-sm text-gray-700">{detailItem.notes || "No notes yet."}</p>
+            {/if}
+          </div>
+        </div>
+      {:else if currentUiKind === "design-print"}
+        <div class="space-y-3">
+          <div class="flex flex-wrap gap-2 no-print">
+            <button class="menu-button-secondary" onclick={() => navigateTo(`#/designs/${printDesignId}`)}>Back to Detail</button>
+            <button class="menu-button-primary" onclick={printCurrentView}>Print</button>
+          </div>
+
+          <div class="route-panel print:p-0 print:shadow-none print:border-none">
+            {#if detailLoading}
+              <p>Loading printable design detail...</p>
+            {:else if detailError}
+              <p class="text-red-600">{detailError}</p>
+            {:else if !detailItem}
+              <p>No design found for id {printDesignId}.</p>
+            {:else}
+              <div class="space-y-3">
+                <h2 class="text-xl font-semibold">{detailItem.filename}</h2>
+                {#if detailItem.image_data_url}
+                  <img src={detailItem.image_data_url} alt={detailItem.filename} class="w-full max-h-[32rem] object-contain border rounded p-2" />
+                {/if}
+                <div class="grid sm:grid-cols-2 gap-2 text-sm">
+                  <div><strong>File:</strong> {detailItem.filepath || "Unknown"}</div>
+                  <div><strong>Designer:</strong> {detailItem.designer || "Unknown"}</div>
+                  <div><strong>Source:</strong> {detailItem.source || "Unknown"}</div>
+                  <div><strong>Hoop:</strong> {detailItem.hoop || "Unknown"}</div>
+                  <div><strong>Dimensions:</strong> {detailItem.width_mm ?? "?"} x {detailItem.height_mm ?? "?"} mm</div>
+                  <div><strong>Stitches:</strong> {detailItem.stitch_count ?? "?"}</div>
+                  <div><strong>Colours:</strong> {detailItem.color_count ?? "?"}</div>
+                  <div><strong>Colour changes:</strong> {detailItem.color_change_count ?? "?"}</div>
+                  <div><strong>Added:</strong> {detailItem.date_added || "Unknown"}</div>
+                </div>
+                {#if detailItem.rating}
+                  <div><strong>Rating:</strong> <span class="text-yellow-500">{ratingToStars(detailItem.rating)}</span></div>
+                {/if}
+                {#if detailItem.is_stitched}
+                  <div><strong>Stitched:</strong> Yes</div>
+                {/if}
+                {#if detailItem.notes}
+                  <div>
+                    <p class="font-semibold">Notes</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{detailItem.notes}</p>
+                  </div>
+                {/if}
+                {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
+                  <div>
+                    <p class="font-semibold">Tags</p>
+                    <p class="text-sm text-gray-700">{detailItem.tags.map((tag) => tag.description).join(", ")}</p>
+                  </div>
+                {/if}
               </div>
             {/if}
           </div>

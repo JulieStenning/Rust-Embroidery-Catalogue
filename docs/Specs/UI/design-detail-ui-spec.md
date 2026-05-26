@@ -33,6 +33,10 @@ Out of scope:
 - Primary page: `GET /designs/{design_id}`
 - Print page: `GET /designs/{design_id}/print`
 
+Current Rust/Svelte implementation note:
+- The same user-facing actions are now wired through the Svelte route shell and Rust/Tauri commands.
+- The printable summary is exposed as the hash route `#/designs/{design_id}/print` in the desktop app.
+
 Interactive action endpoints bound from detail UI:
 - `POST /designs/{design_id}/render-3d-preview`
 - `GET /designs/{design_id}/open-in-editor`
@@ -65,6 +69,7 @@ Evidence:
 - Back-to-browse link shown at top.
 - Session-based previous/next micro-navigation uses `sessionStorage.browse_ids` and current design id.
 - Large fixed previous/next arrows are injected when browse context exists.
+- In the Rust/Svelte build, the same browse context is exposed as inline Prev/Next buttons with an index indicator when browse history exists.
 
 Evidence:
 - [templates/designs/detail.html#L5](templates/designs/detail.html#L5)
@@ -83,6 +88,7 @@ Evidence:
 - If image exists, display embedded image and 3D re-render button.
 - If no image exists, show placeholder text and generate button.
 - 3D button text changes based on current image type (`✓ 3D Preview` vs `Render 3D Preview`).
+- The current desktop view keeps the preview action in the left panel and reuses the same button for first-time generation and refresh.
 
 Evidence:
 - [templates/designs/detail.html#L50](templates/designs/detail.html#L50)
@@ -95,6 +101,7 @@ Contains:
 - Filename heading.
 - Filepath display with launch actions.
 - Dimension/hoop/stitch/colour badges.
+- Assigned tag chips and tag-group colouring.
 - Designer/source/date-added text rows.
 - Assigned tags chip row (when tags exist) with verify/unverify button.
 - Rating control row.
@@ -102,6 +109,7 @@ Contains:
 - Metadata edit form (notes, designer, source, hoop) with save.
 - Actions row (print + delete).
 - Projects membership list and add/remove controls.
+- In the current Rust/Svelte UI, add-to-project uses a select + button pair rather than an inline form list.
 
 Evidence:
 - [templates/designs/detail.html#L67](templates/designs/detail.html#L67)
@@ -121,6 +129,7 @@ Evidence:
 - Tag options grouped by `image`, `stitching`, and unclassified tags.
 - Save button posts selected `tag_ids`.
 - Inline hint states that save marks design verified.
+- The details block remains open by default in the desktop UI so the current tag set is immediately visible.
 
 Evidence:
 - [templates/designs/detail.html#L244](templates/designs/detail.html#L244)
@@ -155,6 +164,7 @@ Evidence:
   - `true` to mark verified.
   - empty value to mark unverified.
 - Rendered only when `design.tags` exists.
+- In the current desktop UI, the verify control is only shown when at least one tag is assigned.
 
 Evidence:
 - [templates/designs/detail.html#L110](templates/designs/detail.html#L110)
@@ -178,6 +188,7 @@ Evidence:
 - Action: `/designs/{id}/set-tags`
 - Checkbox field: `tag_ids` (multi-value)
 - Groups are visual-only categories; payload is flat `tag_ids` list.
+- Saving tags keeps the design verified.
 
 Evidence:
 - [templates/designs/detail.html#L276](templates/designs/detail.html#L276)
@@ -185,6 +196,7 @@ Evidence:
 ### Project Membership Forms
 - Add action: `/designs/{id}/add-to-project` with `project_id` select.
 - Remove action: `/designs/{id}/remove-from-project/{project_id}` per listed project.
+- The current desktop UI keeps the add action as a dropdown of available projects plus a submit button.
 
 Evidence:
 - [templates/designs/detail.html#L229](templates/designs/detail.html#L229)

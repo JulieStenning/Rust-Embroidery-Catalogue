@@ -26,14 +26,17 @@ The page has three main areas:
 1. Top navigation strip:
 - Back to Browse link.
 - Previous/Next navigation when you came from a browse list.
+- The current desktop view also shows Prev/Next buttons and a position counter when browse history is available.
 
 2. Main detail area:
 - Left: preview image and 3D preview generation button.
 - Right: filename, file actions, metadata badges, rating, stitched toggle, notes/metadata form, projects.
+- The 3D button changes text based on the current preview state.
 
 3. Collapsible Tags editor:
 - Grouped tag checkboxes.
 - Save button to apply selected tags.
+- Saving tags marks the design as verified.
 
 ---
 
@@ -72,13 +75,23 @@ Result:
 
 ### Add to or remove from project
 
-1. Use the **Add to Project** selector to add the design.
+1. Choose a project from the **Add to Project** selector and click **Add to Project**.
 2. Use **Remove** next to any listed project membership to detach it.
+
+### Review tags and verify
+
+1. Expand the **Tags** section.
+2. Review the grouped tag lists.
+3. Tick or clear the checkboxes.
+4. Click **Save tags**.
+
+Result:
+- Saving tags also marks the design as verified.
 
 ### Print a design summary
 
-1. Click **Print** in the actions row.
-2. A printable page opens in a new tab.
+1. Click **Print View** from the detail page, or use **Print** from the printable page.
+2. A print-friendly summary opens.
 3. Print from your browser.
 
 ---
@@ -91,6 +104,7 @@ Result:
 - **Verified / Verify**: review status for tags/metadata.
 - **Rating stars**: personal priority/reference rating.
 - **Stitched**: whether you have sewn the design.
+- **Verified / Verify**: whether the tag set has been reviewed.
 
 ---
 

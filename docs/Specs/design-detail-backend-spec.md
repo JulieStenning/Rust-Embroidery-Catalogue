@@ -11,12 +11,9 @@
 
 ## Purpose
 Define backend architecture and runtime behavior for the Design Detail feature, including:
-- detail and print route contracts,
-- inline metadata/tag update behavior,
-- image serving and per-design 3D re-render behavior,
-- file-launch helpers (Editor/Explorer) and launch-suppression safeguards,
-- project-membership actions from detail view,
-- error/redirect semantics and current known constraints.
+
+Current branch note:
+- The same contract is now implemented through Rust/Tauri commands in the desktop app, with the Svelte UI consuming those commands through the route shell.
 
 ## Scope
 In scope:
@@ -52,6 +49,8 @@ flowchart LR
   PS --> DB
   PREV --> DB
 ```
+
+The legacy Python route table below remains the parity reference, but the active desktop implementation now exposes the same user-facing actions through Rust commands and hash-based navigation.
 
 Key modules:
 - [src/routes/designs.py](src/routes/designs.py)
@@ -129,7 +128,7 @@ Evidence:
 - Template includes image, metadata, tags, rating stars, stitched indicator, notes when present: [templates/designs/print.html#L17](templates/designs/print.html#L17), [templates/designs/print.html#L21](templates/designs/print.html#L21), [templates/designs/print.html#L48](templates/designs/print.html#L48), [templates/designs/print.html#L51](templates/designs/print.html#L51), [templates/designs/print.html#L54](templates/designs/print.html#L54), [templates/designs/print.html#L57](templates/designs/print.html#L57)
 
 ## Current Known Gaps and Constraints
-- `POST /designs/{design_id}/edit` requires hidden `filename` and `filepath` fields in the form contract, even when user intent is metadata-only update.
+- Metadata-only saves no longer depend on hidden filename/filepath pass-through in the Rust UI path.
 - Verification toggle control is rendered only when tags exist on the design.
 - Error semantics are not fully normalized across detail endpoints (`400` vs `404` for missing design depending on route).
 - Launch routes are intentionally best-effort (exceptions logged and redirected), which favors UX continuity over explicit in-page error messaging.

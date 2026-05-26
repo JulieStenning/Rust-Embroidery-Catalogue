@@ -176,6 +176,43 @@ fn round_two(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
 
+fn drawable_bounds_mm(pattern: &EmbPattern) -> Option<(f64, f64)> {
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+    let mut found = false;
+
+    for stitch in &pattern.stitches {
+        if stitch.stitch_type != crate::models::StitchType::Stitch {
+            continue;
+        }
+
+        found = true;
+        if stitch.x < min_x {
+            min_x = stitch.x;
+        }
+        if stitch.x > max_x {
+            max_x = stitch.x;
+        }
+        if stitch.y < min_y {
+            min_y = stitch.y;
+        }
+        if stitch.y > max_y {
+            max_y = stitch.y;
+        }
+    }
+
+    if found {
+        Some((
+            round_two(f64::from((max_x - min_x) / 10.0)),
+            round_two(f64::from((max_y - min_y) / 10.0)),
+        ))
+    } else {
+        None
+    }
+}
+
 fn analyze_pattern_with_native_renderer(pattern: &EmbPattern, preview_3d: bool) -> ImageGenerationResult {
     let stitch_count = i64::try_from(pattern.count_stitches()).unwrap_or(i64::MAX);
     let color_count = i64::try_from(pattern.count_threads()).unwrap_or(i64::MAX);
@@ -197,9 +234,9 @@ fn analyze_pattern_with_native_renderer(pattern: &EmbPattern, preview_3d: bool) 
 
     let settings = RenderSettings::default();
     let image_data = render_pattern_to_png(pattern, &settings);
-    let (min_x, min_y, max_x, max_y) = pattern.bounds();
-    let width_mm = Some(round_two(f64::from((max_x - min_x) / 10.0)));
-    let height_mm = Some(round_two(f64::from((max_y - min_y) / 10.0)));
+    let (width_mm, height_mm) = drawable_bounds_mm(pattern)
+        .map(|(w, h)| (Some(w), Some(h)))
+        .unwrap_or((None, None));
 
     ImageGenerationResult {
         image_data: Some(image_data),

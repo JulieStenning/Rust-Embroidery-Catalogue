@@ -107,6 +107,7 @@ Results are paginated consistently with the browse view.
 
 The design detail page (`/designs/{id}`) shows:
 
+- Back-to-browse navigation plus browse-context previous/next controls when available.
 - Full-size preview image
 - 3D preview controls:
   - **Generate 3D Preview** when no preview exists
@@ -127,6 +128,8 @@ The design detail page (`/designs/{id}`) shows:
 - Project membership list
 - Print action (`/designs/{id}/print`) for a print-friendly single-design summary
 
+The current desktop UI also exposes a print-only route and a grouped tag editor that keeps verified-state coupling explicit.
+
 ### 2.1 Inline Editing
 
 - Rating: click a star to set or clear the personal rating.
@@ -135,6 +138,10 @@ The design detail page (`/designs/{id}`) shows:
 - Tags: add or remove tags via the detail page form; saving marks the design as verified.
 - Verification state: mark the design's tags/metadata as verified or switch it back to unverified for later review.
 - Projects: add the design to a project or remove existing project memberships from the detail page.
+
+The current UI groups tags by image, stitching, and unclassified sections, and the add-to-project control is a dropdown plus button instead of a freeform entry field.
+
+The print view shows the same core summary data plus notes and assigned tags in a compact, browser-print-friendly layout.
 
 For architecture, UI contract, and user operation details, see:
 
