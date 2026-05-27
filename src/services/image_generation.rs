@@ -2,11 +2,12 @@ use base64::Engine;
 use crate::models::EmbPattern;
 use crate::png_writer::{render_pattern_to_png, RenderSettings};
 use crate::readers::{
-    A10oReader, DatReader, DsbReader, DstReader, DszReader, EmdReader, EmbroideryReader,
-    ExyReader, ExpReader, FxyReader, GtReader, HusReader, InbReader, JefReader, JpxReader,
-    MaxReader, MitReader, NewReader, PcmReader, PcqReader, PcsReader, PecReader, PesReader,
-    PhbReader, PhcReader, SewReader, ShvReader, StcReader, StxReader, TapReader, TbfReader,
-    Vp3Reader, XxxReader,
+    A10oReader, A100Reader, ArtReader, DatReader, DsbReader, DstReader, DszReader,
+    EmdReader, EmbroideryReader, ExyReader, ExpReader, FxyReader, GcodeReader, GtReader,
+    HusReader, InbReader, JefReader, JpxReader, MaxReader, MitReader, NewReader, PcmReader,
+    PcqReader, PcsReader, PecReader, PesReader, PhbReader, PhcReader, PmvReader, SewReader,
+    ShvReader, StcReader, StxReader, TapReader, TbfReader, U01Reader, Vp3Reader, XxxReader,
+    ZhsReader, ZxyReader,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,12 +20,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const NATIVE_PREVIEW_EXTENSIONS: &[&str] = &[
-    "pes", "dst", "exp", "jef", "vp3", "hus", "10o", "pec", "dat", "dsb", "dsz", "emd",
-    "exy", "fxy", "gt", "inb", "jpx", "max", "mit", "new", "pcm", "pcq", "pcs", "phb",
-    "phc", "sew", "shv", "stc", "stx", "tap", "tbf", "xxx",
+    "pes", "dst", "exp", "jef", "vp3", "hus", "10o", "100", "pec", "dat", "dsb", "dsz",
+    "emd", "exy", "fxy", "gcode", "gt", "inb", "jpx", "max", "mit", "new", "pcm", "pcq",
+    "pcs", "phb", "phc", "pmv", "sew", "shv", "stc", "stx", "tap", "tbf", "u01", "xxx",
+    "art", "zhs", "zxy",
 ];
 const PYTHON_PREVIEW_EXTENSIONS: &[&str] = &[
-    "jef", "pes", "dst", "exp", "vp3", "u01", "100", "zhs", "zxy", "gcode", "art", "pmv",
+    "jef", "pes", "dst", "exp", "vp3",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -362,43 +364,22 @@ fn generate_preview_auto(request: &ImageGenerationRequest) -> ImageGenerationRes
             return generate_preview_via_native(request);
         }
         BackendSupport::PythonOnly => {
-            return generate_preview_via_python(request);
+            return ImageGenerationResult {
+                image_data: None,
+                image_type: None,
+                width_mm: None,
+                height_mm: None,
+                stitch_count: None,
+                color_count: None,
+                color_change_count: None,
+                backend: "auto".to_string(),
+                error: Some(
+                    "Auto image backend no longer falls back to Python for this extension."
+                        .to_string(),
+                ),
+            };
         }
         BackendSupport::Both => {}
-    }
-
-    // Prefer native for fast 2D generation; prefer Python for 3D parity.
-    if !request.preview_3d {
-        let native = generate_preview_via_native(request);
-        if native.error.is_none() {
-            return native;
-        }
-
-        let python = generate_preview_via_python(request);
-        if python.error.is_none() {
-            return python;
-        }
-
-        return ImageGenerationResult {
-            image_data: None,
-            image_type: None,
-            width_mm: None,
-            height_mm: None,
-            stitch_count: None,
-            color_count: None,
-            color_change_count: None,
-            backend: "auto".to_string(),
-            error: Some(format!(
-                "Auto backend failed: native='{}'; python='{}'",
-                native.error.unwrap_or_else(|| "unknown native error".to_string()),
-                python.error.unwrap_or_else(|| "unknown python error".to_string())
-            )),
-        };
-    }
-
-    let python = generate_preview_via_python(request);
-    if python.error.is_none() {
-        return python;
     }
 
     let native = generate_preview_via_native(request);
@@ -416,8 +397,7 @@ fn generate_preview_auto(request: &ImageGenerationRequest) -> ImageGenerationRes
         color_change_count: None,
         backend: "auto".to_string(),
         error: Some(format!(
-            "Auto backend failed: python='{}'; native='{}'",
-            python.error.unwrap_or_else(|| "unknown python error".to_string()),
+            "Auto backend failed with native renderer: '{}'",
             native.error.unwrap_or_else(|| "unknown native error".to_string())
         )),
     }
@@ -453,12 +433,15 @@ fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
 
     let parsed = match extension.as_str() {
         "10o" => A10oReader.read(&data),
+        "100" => A100Reader.read(&data),
         "pec" => PecReader.read(&data),
         "pes" => PesReader.read(&data),
         "dst" => DstReader.read(&data),
         "exp" => ExpReader.read(&data),
+        "gcode" => GcodeReader.read(&data),
         "jef" => JefReader.read(&data),
         "hus" => HusReader.read(&data),
+        "art" => ArtReader.read(&data),
         "dat" => DatReader.read(&data),
         "dsb" => DsbReader.read(&data),
         "dsz" => DszReader.read(&data),
@@ -476,14 +459,18 @@ fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
         "pcs" => PcsReader.read(&data),
         "phb" => PhbReader.read(&data),
         "phc" => PhcReader.read(&data),
+        "pmv" => PmvReader.read(&data),
         "sew" => SewReader.read(&data),
         "shv" => ShvReader.read(&data),
         "stc" => StcReader.read(&data),
         "stx" => StxReader.read(&data),
         "tap" => TapReader.read(&data),
         "tbf" => TbfReader.read(&data),
+        "u01" => U01Reader.read(&data),
         "vp3" => Vp3Reader.read(&data),
         "xxx" => XxxReader.read(&data),
+        "zhs" => ZhsReader.read(&data),
+        "zxy" => ZxyReader.read(&data),
         _ => {
             return Err(format!(
                 "Native image backend does not support extension '.{}'.",
@@ -870,6 +857,8 @@ mod tests {
     #[test]
     fn extension_support_marks_promoted_optional_formats_as_native_only() {
         assert_eq!(extension_support("C:/imports/sample.10o"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.100"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.gcode"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.dat"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.dsb"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.dsz"), BackendSupport::NativeOnly);
@@ -888,13 +877,18 @@ mod tests {
         assert_eq!(extension_support("C:/imports/sample.phb"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.phc"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.pec"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.pmv"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.sew"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.shv"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.stc"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.stx"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.tap"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.tbf"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.u01"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.xxx"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.art"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.zhs"), BackendSupport::NativeOnly);
+        assert_eq!(extension_support("C:/imports/sample.zxy"), BackendSupport::NativeOnly);
     }
 
     #[test]
