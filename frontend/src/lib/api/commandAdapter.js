@@ -650,6 +650,27 @@ export async function runPrecheckAction({ contextToken, action, confirmSkipHoops
 }
 
 /**
+ * Request stop for the currently running bulk import.
+ */
+export async function requestStopBulkImport() {
+  try {
+    const result = await invoke("request_stop_bulk_import");
+    return {
+      source: "rust",
+      stopRequested: Boolean(result?.stop_requested),
+      message: "Stop requested for the running import.",
+    };
+  } catch (error) {
+    console.info("request_stop_bulk_import unavailable or failed, using mock stop result.", error);
+    return {
+      source: "mock",
+      stopRequested: true,
+      message: "Stop requested (mock).",
+    };
+  }
+}
+
+/**
  * Mark selected designs as verified in Rust backend.
  * Falls back to local-only behavior while route wiring is in progress.
  */

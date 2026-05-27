@@ -150,6 +150,7 @@ fn main() {
             routes::bulk_import::debug_bulk_import_assignment_resolution_wire,
             routes::bulk_import::debug_bulk_import_context_store,
             routes::bulk_import::reset_bulk_import_context_store,
+            routes::bulk_import::request_stop_bulk_import,
             routes::bulk_import::precheck_bulk_import_wire,
             routes::bulk_import::precheck_bulk_import_action_wire,
             routes::bulk_import::do_confirm_bulk_import_wire,

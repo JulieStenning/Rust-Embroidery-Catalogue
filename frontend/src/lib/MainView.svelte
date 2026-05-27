@@ -22,6 +22,7 @@
     previewImportFromRoots,
     precheckImportWire,
     runPrecheckAction,
+    requestStopBulkImport,
     bulkVerifyDesigns,
     bulkAddDesignsToProject,
     bulkSetTagsForDesigns,
@@ -296,6 +297,7 @@
   let importActionNeedsSkipHoopsConfirm = $state(false);
   let importActionLoading = $state(false);
   let importActionInProgress = $state("");
+  let importStopRequestPending = $state(false);
   let importProgressStatus = $state("");
   let importProgressToken = $state("");
   let importProgressUnlisten = null;
@@ -308,6 +310,7 @@
   let importLoading = $state(false);
   let importBrowseLoading = $state(false);
   let importError = $state("");
+  let importNowInProgress = $derived(importActionLoading && importActionInProgress === "import_now");
 
   let settingsImagePreference = $state("2d");
   let settingsGoogleApiKey = $state("");
@@ -1158,6 +1161,7 @@
     importActionMessage = "";
     importActionSource = "mock";
     importActionNeedsSkipHoopsConfirm = false;
+    importStopRequestPending = false;
     importGlobalDesignerId = "";
     importGlobalSourceId = "";
     importPerFolderAssignmentByPath = {};
@@ -1453,6 +1457,7 @@
 
     const importNowAction = action === "import_now";
     if (importNowAction) {
+      importStopRequestPending = false;
       importProgressStatus = "";
       await startImportProgressUpdates(importContextToken);
     }
@@ -1491,8 +1496,27 @@
       if (importNowAction) {
         await stopImportProgressUpdates();
       }
+      importStopRequestPending = false;
       importActionInProgress = "";
       importActionLoading = false;
+    }
+  }
+
+  async function requestImportStop() {
+    if (!importNowInProgress || importStopRequestPending) {
+      return;
+    }
+
+    importStopRequestPending = true;
+    importError = "";
+
+    try {
+      const result = await requestStopBulkImport();
+      importActionSource = result.source || "mock";
+      importActionMessage = result.message || "Stop requested.";
+    } catch (error) {
+      importError = `Stop request failed: ${error}`;
+      importStopRequestPending = false;
     }
   }
 
@@ -3828,7 +3852,17 @@
                     Import now
                   {/if}
                 </button>
-                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("cancel")} disabled={importActionLoading || !importContextToken}>Cancel</button>
+                <button
+                  class="menu-button-secondary"
+                  onclick={importNowInProgress ? requestImportStop : () => executeImportPrecheckAction("cancel")}
+                  disabled={importNowInProgress ? importStopRequestPending : importActionLoading || !importContextToken}
+                >
+                  {#if importNowInProgress}
+                    {importStopRequestPending ? "Stopping..." : "Stop"}
+                  {:else}
+                    Cancel
+                  {/if}
+                </button>
               </div>
 
               {#if importActionNeedsSkipHoopsConfirm}

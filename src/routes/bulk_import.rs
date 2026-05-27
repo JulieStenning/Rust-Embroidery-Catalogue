@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
 const BULK_IMPORT_CONTEXT_TTL: Duration = Duration::from_secs(15 * 60);
@@ -17,6 +17,7 @@ static BULK_IMPORT_DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 static BULK_IMPORT_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 static BULK_IMPORT_CONTEXT_RESET_COUNTER: AtomicU64 = AtomicU64::new(0);
 static BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS: AtomicU64 = AtomicU64::new(0);
+static BULK_IMPORT_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 10;
@@ -429,10 +430,25 @@ async fn persist_bulk_import_confirm_wire(
         .collect();
     let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    BULK_IMPORT_STOP_REQUESTED.store(false, Ordering::SeqCst);
     let mut persisted_design_count = 0usize;
     let mut committed_design_count = 0usize;
     let mut persisted_since_last_commit = 0usize;
     let mut processed_count = 0usize;
+    let mut stopped = false;
+
+    // Timing accumulators
+    let import_start = Instant::now();
+    let mut total_dedup_check_ms = 0u128;
+    let mut total_image_gen_ms = 0u128;
+    let mut total_db_insert_ms = 0u128;
+    let mut total_tagging_ms = 0u128;
+    let mut total_commit_ms = 0u128;
+
+    println!(
+        "[TIMING] Bulk import starting: {} file(s), commit_batch_size={}",
+        total_count, commit_batch_size
+    );
 
     let emit_progress = |stage: &str,
                          processed_count: usize,
@@ -465,25 +481,181 @@ async fn persist_bulk_import_confirm_wire(
         None,
     );
 
-    for file_path in &confirm_wire.wire.selected_files {
-        emit_progress(
-            "processing_file",
-            processed_count,
-            persisted_design_count,
-            committed_design_count,
-            Some(file_path),
-        );
+    // Process files in chunks aligned to commit_batch_size.
+    // For each chunk: one Python batch call (pyembroidery imported once per chunk),
+    // then DB inserts, then commit. Cancellation takes effect between chunks.
+    let all_files = confirm_wire.wire.selected_files.clone();
+    let mut chunk_start = 0usize;
 
-        let existing_design_id: Option<i64> = sqlx::query_scalar(
-            "SELECT id FROM designs WHERE filepath = ? LIMIT 1",
-        )
-        .bind(file_path)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| e.to_string())?;
+    while chunk_start < total_count {
+        if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
+            stopped = true;
+            break;
+        }
 
-        if existing_design_id.is_some() {
+        let chunk_end = (chunk_start + commit_batch_size).min(total_count);
+        let chunk = &all_files[chunk_start..chunk_end];
+
+        // Pre-generate images for Python-only files in this chunk using a single subprocess.
+        let python_requests: Vec<image_generation::ImageGenerationRequest> = chunk
+            .iter()
+            .filter(|fp| image_generation::needs_python_backend(fp))
+            .map(|fp| image_generation::ImageGenerationRequest {
+                file_path: fp.clone(),
+                preview_3d,
+            })
+            .collect();
+
+        let mut chunk_image_cache: HashMap<String, image_generation::ImageGenerationResult> =
+            if !python_requests.is_empty() {
+                emit_progress(
+                    "generating_images",
+                    processed_count,
+                    persisted_design_count,
+                    committed_design_count,
+                    None,
+                );
+                let t_batch = Instant::now();
+                println!(
+                    "[TIMING] Python batch starting: {} file(s) in chunk [{}-{}]",
+                    python_requests.len(),
+                    chunk_start,
+                    chunk_end - 1
+                );
+                let cache = image_generation::generate_previews_via_python_batch(&python_requests);
+                println!(
+                    "[TIMING] Python batch done: {}ms for {} file(s)",
+                    t_batch.elapsed().as_millis(),
+                    python_requests.len()
+                );
+                cache
+            } else {
+                HashMap::new()
+            };
+
+        for file_path in chunk {
+            if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
+                stopped = true;
+                break;
+            }
+
+            emit_progress(
+                "processing_file",
+                processed_count,
+                persisted_design_count,
+                committed_design_count,
+                Some(file_path),
+            );
+
+            let t_dedup = Instant::now();
+            let existing_design_id: Option<i64> = sqlx::query_scalar(
+                "SELECT id FROM designs WHERE filepath = ? LIMIT 1",
+            )
+            .bind(file_path)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+            total_dedup_check_ms += t_dedup.elapsed().as_millis();
+
+            if existing_design_id.is_some() {
+                processed_count += 1;
+                emit_progress(
+                    "processed",
+                    processed_count,
+                    persisted_design_count,
+                    committed_design_count,
+                    Some(file_path),
+                );
+                continue;
+            }
+
+            let (designer_id, source_id) =
+                resolve_assignment_for_file(file_path, confirm_wire, &resolved_assignments);
+
+            let filename = Path::new(file_path)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(file_path)
+                .to_string();
+
+            let t_image = Instant::now();
+            let image_result = chunk_image_cache.remove(file_path).unwrap_or_else(|| {
+                image_generation::generate_preview(&image_generation::ImageGenerationRequest {
+                    file_path: file_path.clone(),
+                    preview_3d,
+                })
+            });
+            let image_gen_ms = t_image.elapsed().as_millis();
+            total_image_gen_ms += image_gen_ms;
+            println!(
+                "[TIMING] file={} backend={} image_gen={}ms{}",
+                filename,
+                image_result.backend,
+                image_gen_ms,
+                image_result.error.as_deref().map(|e| format!(" error={e}")).unwrap_or_default(),
+            );
+            if let Some(error) = image_result.error.as_ref() {
+                println!(
+                    "Image generation adapter error for '{}': {}",
+                    file_path,
+                    error
+                );
+            }
+
+            let t_insert = Instant::now();
+            let insert_result = sqlx::query(
+                "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
+            )
+            .bind(&filename)
+            .bind(file_path)
+            .bind(designer_id)
+            .bind(source_id)
+            .bind(image_result.image_data)
+            .bind(image_result.image_type)
+            .bind(image_result.width_mm)
+            .bind(image_result.height_mm)
+            .bind(image_result.stitch_count)
+            .bind(image_result.color_count)
+            .bind(image_result.color_change_count)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+            total_db_insert_ms += t_insert.elapsed().as_millis();
+
+            let design_id = insert_result.last_insert_rowid();
+            let t_tag = Instant::now();
+            let matched_descriptions = tagging::suggest_tier1_descriptions(
+                &filename,
+                file_path,
+                &valid_descriptions,
+            );
+
+            if !matched_descriptions.is_empty() {
+                for description in &matched_descriptions {
+                    if let Some(tag_id) = description_to_tag_id.get(description) {
+                        sqlx::query(
+                            "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
+                        )
+                        .bind(design_id)
+                        .bind(*tag_id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    }
+                }
+
+                sqlx::query("UPDATE designs SET tagging_tier = 1 WHERE id = ?")
+                    .bind(design_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            total_tagging_ms += t_tag.elapsed().as_millis();
+
+            persisted_design_count += 1;
+            persisted_since_last_commit += 1;
             processed_count += 1;
+
             emit_progress(
                 "processed",
                 processed_count,
@@ -491,108 +663,70 @@ async fn persist_bulk_import_confirm_wire(
                 committed_design_count,
                 Some(file_path),
             );
-            continue;
         }
 
-        let (designer_id, source_id) =
-            resolve_assignment_for_file(file_path, confirm_wire, &resolved_assignments);
-
-        let filename = Path::new(file_path)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or(file_path)
-            .to_string();
-
-        let image_result = image_generation::generate_preview(&image_generation::ImageGenerationRequest {
-            file_path: file_path.clone(),
-            preview_3d,
-        });
-        if let Some(error) = image_result.error.as_ref() {
+        // Commit after each chunk (covers both normal progress and mid-chunk stop).
+        let t_commit = Instant::now();
+        tx.commit().await.map_err(|e| e.to_string())?;
+        let commit_ms = t_commit.elapsed().as_millis();
+        total_commit_ms += commit_ms;
+        committed_design_count += persisted_since_last_commit;
+        if persisted_since_last_commit > 0 {
             println!(
-                "Image generation adapter error for '{}': {}",
-                file_path,
-                error
-            );
-        }
-
-        let insert_result = sqlx::query(
-            "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
-        )
-        .bind(&filename)
-        .bind(file_path)
-        .bind(designer_id)
-        .bind(source_id)
-        .bind(image_result.image_data)
-        .bind(image_result.image_type)
-        .bind(image_result.width_mm)
-        .bind(image_result.height_mm)
-        .bind(image_result.stitch_count)
-        .bind(image_result.color_count)
-        .bind(image_result.color_change_count)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| e.to_string())?;
-
-        let design_id = insert_result.last_insert_rowid();
-        let matched_descriptions = tagging::suggest_tier1_descriptions(
-            &filename,
-            file_path,
-            &valid_descriptions,
-        );
-
-        if !matched_descriptions.is_empty() {
-            for description in &matched_descriptions {
-                if let Some(tag_id) = description_to_tag_id.get(description) {
-                    sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
-                        .bind(design_id)
-                        .bind(*tag_id)
-                        .execute(&mut *tx)
-                        .await
-                        .map_err(|e| e.to_string())?;
-                }
-            }
-
-            sqlx::query("UPDATE designs SET tagging_tier = 1 WHERE id = ?")
-                .bind(design_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
-        }
-
-        persisted_design_count += 1;
-        persisted_since_last_commit += 1;
-
-        if persisted_since_last_commit >= commit_batch_size {
-            tx.commit().await.map_err(|e| e.to_string())?;
-            committed_design_count += persisted_since_last_commit;
-            println!(
-                "Bulk import committed batch: {} design(s) in batch ({} total persisted).",
-                persisted_since_last_commit, persisted_design_count
+                "Bulk import committed chunk [{}-{}]: {} design(s), commit={}ms.",
+                chunk_start,
+                chunk_end - 1,
+                persisted_since_last_commit,
+                commit_ms
             );
             emit_progress(
                 "batch_committed",
                 processed_count,
                 persisted_design_count,
                 committed_design_count,
-                Some(file_path),
+                None,
             );
-
-            tx = pool.begin().await.map_err(|e| e.to_string())?;
-            persisted_since_last_commit = 0;
         }
+        tx = pool.begin().await.map_err(|e| e.to_string())?;
+        persisted_since_last_commit = 0;
 
-        processed_count += 1;
+        if stopped {
+            break;
+        }
+        chunk_start = chunk_end;
+    }
+
+    // Commit the empty transaction left open after the last chunk (or any partial
+    // state from an abrupt stop before the chunk-level commit ran).
+    let t_final_commit = Instant::now();
+    tx.commit().await.map_err(|e| e.to_string())?;
+    total_commit_ms += t_final_commit.elapsed().as_millis();
+    committed_design_count += persisted_since_last_commit;
+
+    let total_elapsed_ms = import_start.elapsed().as_millis();
+    println!(
+        "[TIMING] Bulk import complete: total={}ms | dedup_check={}ms | image_gen={}ms | db_insert={}ms | tagging={}ms | commits={}ms | persisted={} skipped={}",
+        total_elapsed_ms,
+        total_dedup_check_ms,
+        total_image_gen_ms,
+        total_db_insert_ms,
+        total_tagging_ms,
+        total_commit_ms,
+        persisted_design_count,
+        processed_count.saturating_sub(persisted_design_count),
+    );
+
+    if stopped {
         emit_progress(
-            "processed",
+            "stopped",
             processed_count,
             persisted_design_count,
             committed_design_count,
-            Some(file_path),
+            None,
         );
+        return Ok(persisted_design_count);
     }
 
-    tx.commit().await.map_err(|e| e.to_string())?;
-    committed_design_count += persisted_since_last_commit;
     emit_progress(
         "completed",
         processed_count,
@@ -689,6 +823,11 @@ pub struct BulkImportContextStoreResetResult {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct BulkImportStopResult {
+    pub stop_requested: bool,
+}
+
 #[tauri::command]
 pub fn debug_bulk_import_context_store() -> Result<BulkImportContextStoreSummary, String> {
     let mut store = bulk_import_context_store().lock().unwrap();
@@ -711,6 +850,14 @@ pub fn debug_bulk_import_context_store() -> Result<BulkImportContextStoreSummary
 #[tauri::command]
 pub fn reset_bulk_import_context_store() -> Result<BulkImportContextStoreResetResult, String> {
     Ok(clear_bulk_import_context_store_internal("manual"))
+}
+
+#[tauri::command]
+pub fn request_stop_bulk_import() -> Result<BulkImportStopResult, String> {
+    BULK_IMPORT_STOP_REQUESTED.store(true, Ordering::SeqCst);
+    Ok(BulkImportStopResult {
+        stop_requested: true,
+    })
 }
 
 #[tauri::command]
@@ -1053,19 +1200,47 @@ pub fn resolve_bulk_import_assignments(
         .collect()
 }
 
-pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPreview, String> {
+async fn filter_existing_scanned_files(
+    pool: &SqlitePool,
+    scanned_files: Vec<scanning::ScannedFile>,
+) -> Result<Vec<scanning::ScannedFile>, String> {
+    if scanned_files.is_empty() {
+        return Ok(scanned_files);
+    }
+
+    let existing_paths = sqlx::query_scalar::<_, String>("SELECT filepath FROM designs")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let existing_set: HashSet<String> = existing_paths
+        .into_iter()
+        .map(|path| normalize_path_for_match(&path))
+        .collect();
+
+    Ok(scanned_files
+        .into_iter()
+        .filter(|file| {
+            let normalized = normalize_path_for_match(&file.full_path);
+            !existing_set.contains(&normalized)
+        })
+        .collect())
+}
+
+fn preview_bulk_import_wire_with_pool(
+    wire: BulkImportWire,
+    pool: Option<&SqlitePool>,
+) -> Result<BulkImportPreview, String> {
     for root_path in &wire.root_paths {
         validation::validate_path(root_path).map_err(|e| format!("{:?}", e))?;
     }
 
-    let mut discovered_count = 0usize;
     let mut scanned_files = Vec::new();
     for root_path in &wire.root_paths {
         let scan_input = scanning::ScanInput {
             root_path: root_path.clone(),
         };
         let scan_result = scanning::scan(&scan_input);
-        discovered_count += scan_result.files.len();
         scanned_files.extend(scan_result.files);
     }
 
@@ -1075,6 +1250,15 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
             .to_ascii_lowercase()
             .cmp(&right.full_path.to_ascii_lowercase())
     });
+
+    if let Some(active_pool) = pool {
+        scanned_files = tauri::async_runtime::block_on(filter_existing_scanned_files(
+            active_pool,
+            scanned_files,
+        ))?;
+    }
+
+    let discovered_count = scanned_files.len();
 
     let resolved_assignments = wire
         .per_folder_assignments
@@ -1105,9 +1289,15 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
     })
 }
 
+pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPreview, String> {
+    let pool = get_bulk_import_db_pool();
+    preview_bulk_import_wire_with_pool(wire, pool.as_ref())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use sqlx::sqlite::SqlitePoolOptions;
 
     async fn import_test_pool() -> SqlitePool {
@@ -1346,6 +1536,72 @@ mod tests {
     }
 
     #[test]
+    fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
+        let fixture = Path::new("tests")
+            .join("testdata")
+            .join("Not Mandatory")
+            .join("Bean.hus");
+        assert!(fixture.exists(), "expected Bean.hus fixture to exist");
+
+        let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
+        std::env::set_var("IMPORT_IMAGE_BACKEND", "auto");
+
+        let generation_result = image_generation::generate_preview(&image_generation::ImageGenerationRequest {
+            file_path: fixture.to_string_lossy().to_string(),
+            preview_3d: true,
+        });
+
+        assert_eq!(generation_result.backend, "native");
+        let error_text = generation_result
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        assert!(
+            error_text.is_empty(),
+            "auto mode should generate native HUS previews without adapter errors"
+        );
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["tests/testdata/Not Mandatory".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec![fixture.to_string_lossy().to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            &confirm_wire,
+            None,
+        ))
+            .expect("persist should succeed for .hus even when preview generation fails");
+        assert_eq!(persisted, 1);
+
+        let persisted_row_id = tauri::async_runtime::block_on(async {
+            sqlx::query_scalar::<_, i64>("SELECT id FROM designs WHERE filepath = ? LIMIT 1")
+                .bind(fixture.to_string_lossy().to_string())
+                .fetch_optional(&pool)
+                .await
+        })
+        .expect("expected design lookup to succeed");
+        assert!(persisted_row_id.is_some(), "expected .hus design row to be inserted");
+
+        if let Some(value) = previous_backend {
+            std::env::set_var("IMPORT_IMAGE_BACKEND", value);
+        } else {
+            std::env::remove_var("IMPORT_IMAGE_BACKEND");
+        }
+
+    }
+
+    #[test]
     fn normalize_import_commit_batch_size_defaults_to_10_and_clamps_high_values() {
         assert_eq!(normalize_import_commit_batch_size(None), 10);
         assert_eq!(normalize_import_commit_batch_size(Some("")), 10);
@@ -1540,6 +1796,51 @@ mod tests {
         assert_eq!(preview.resolved_assignments.len(), 1);
         assert_eq!(preview.resolved_assignments[0].designer_id.value, Some(7));
         assert_eq!(preview.resolved_assignments[0].source_id.value, Some(9));
+    }
+
+    #[test]
+    fn preview_bulk_import_wire_excludes_already_catalogued_files() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("rec-import-preview-existing-{stamp}"));
+        fs::create_dir_all(&root).expect("temp root should be created");
+
+        let file_path = root.join("existing-design.pes");
+        fs::write(&file_path, b"dummy").expect("temp pes should be written");
+        let file_path_text = file_path.to_string_lossy().to_string();
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        tauri::async_runtime::block_on(async {
+            sqlx::query(
+                "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
+            )
+            .bind("existing-design.pes")
+            .bind(&file_path_text)
+            .execute(&pool)
+            .await
+        })
+        .expect("seeded existing design should insert");
+
+        let preview = preview_bulk_import_wire_with_pool(
+            BulkImportWire {
+                root_paths: vec![root.to_string_lossy().to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: true,
+            },
+            Some(&pool),
+        )
+        .expect("preview should succeed");
+
+        assert_eq!(preview.discovered_count, 0);
+        assert!(preview.scanned_files.is_empty());
+
+        let _ = fs::remove_file(&file_path);
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

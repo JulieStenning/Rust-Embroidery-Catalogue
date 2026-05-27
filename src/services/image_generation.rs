@@ -1,13 +1,32 @@
 use base64::Engine;
 use crate::models::EmbPattern;
 use crate::png_writer::{render_pattern_to_png, RenderSettings};
-use crate::readers::{DstReader, EmbroideryReader, ExpReader, JefReader, PesReader, Vp3Reader};
+use crate::readers::{DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
+
+const NATIVE_PREVIEW_EXTENSIONS: &[&str] = &["pes", "dst", "exp", "jef", "vp3", "hus"];
+const PYTHON_PREVIEW_EXTENSIONS: &[&str] = &[
+    "jef", "pes", "dst", "exp", "vp3", "u01", "pec", "xxx", "tbf", "10o", "100",
+    "dat", "dsb", "dsz", "emd", "exy", "fxy", "gt", "inb", "jpx", "max", "mit", "new",
+    "pcm", "pcq", "pcs", "phb", "phc", "sew", "shv", "stc", "stx", "tap", "zhs", "zxy",
+    "gcode", "art", "pmv",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BackendSupport {
+    NativeOnly,
+    PythonOnly,
+    Both,
+    Unsupported,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageGenerationRequest {
@@ -29,6 +48,19 @@ pub struct ImageGenerationResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct PythonBatchResult {
+    file_path: String,
+    image_base64: Option<String>,
+    image_type: Option<String>,
+    width_mm: Option<f64>,
+    height_mm: Option<f64>,
+    stitch_count: Option<i64>,
+    color_count: Option<i64>,
+    color_change_count: Option<i64>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct PythonImageGenerationResult {
     image_base64: Option<String>,
     image_type: Option<String>,
@@ -46,12 +78,259 @@ fn adapter_script_path() -> PathBuf {
         .join("python_image_adapter.py")
 }
 
+fn request_extension(file_path: &str) -> Option<String> {
+    Path::new(file_path)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+}
+
+fn extension_support(file_path: &str) -> BackendSupport {
+    let Some(extension) = request_extension(file_path) else {
+        return BackendSupport::Unsupported;
+    };
+
+    let native = NATIVE_PREVIEW_EXTENSIONS
+        .iter()
+        .any(|candidate| *candidate == extension);
+    let python = PYTHON_PREVIEW_EXTENSIONS
+        .iter()
+        .any(|candidate| *candidate == extension);
+
+    match (native, python) {
+        (true, true) => BackendSupport::Both,
+        (true, false) => BackendSupport::NativeOnly,
+        (false, true) => BackendSupport::PythonOnly,
+        (false, false) => BackendSupport::Unsupported,
+    }
+}
+
+fn unsupported_extension_result(file_path: &str, backend: &str) -> ImageGenerationResult {
+    let extension = request_extension(file_path).unwrap_or_else(|| "unknown".to_string());
+    ImageGenerationResult {
+        image_data: None,
+        image_type: None,
+        width_mm: None,
+        height_mm: None,
+        stitch_count: None,
+        color_count: None,
+        color_change_count: None,
+        backend: backend.to_string(),
+        error: Some(format!(
+            "Image preview generation skipped because extension '.{}' is not supported.",
+            extension
+        )),
+    }
+}
+
+/// Returns true when the file requires the Python backend (no native reader available).
+pub fn needs_python_backend(file_path: &str) -> bool {
+    matches!(extension_support(file_path), BackendSupport::PythonOnly)
+}
+
+/// Run one Python process for a slice of files, importing pyembroidery once.
+/// Results are keyed by the original file_path string.
+/// Files that produce no result (e.g. due to overall timeout) get an error entry.
+pub fn generate_previews_via_python_batch(
+    requests: &[ImageGenerationRequest],
+) -> HashMap<String, ImageGenerationResult> {
+    let mut results: HashMap<String, ImageGenerationResult> = HashMap::new();
+
+    if requests.is_empty() {
+        return results;
+    }
+
+    let script_path = adapter_script_path();
+    let error_result = |msg: String| ImageGenerationResult {
+        image_data: None,
+        image_type: None,
+        width_mm: None,
+        height_mm: None,
+        stitch_count: None,
+        color_count: None,
+        color_change_count: None,
+        backend: "python-batch".to_string(),
+        error: Some(msg),
+    };
+
+    if !script_path.exists() {
+        let msg = format!("Python image adapter script not found: {}", script_path.to_string_lossy());
+        for req in requests {
+            results.insert(req.file_path.clone(), error_result(msg.clone()));
+        }
+        return results;
+    }
+
+    let python_executable =
+        std::env::var("RUST_EMBROIDERY_PYTHON").unwrap_or_else(|_| "python".to_string());
+    let preview_flag = if requests.first().map(|r| r.preview_3d).unwrap_or(false) {
+        "true"
+    } else {
+        "false"
+    };
+    let per_file_timeout_ms = std::env::var("IMPORT_IMAGE_PYTHON_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .map(|v| v.clamp(1_000, 120_000))
+        .unwrap_or(15_000);
+    // Allow at least 60 s and scale with chunk size.
+    let batch_timeout_ms = (requests.len() as u64 * per_file_timeout_ms).max(60_000);
+
+    let mut child = match Command::new(&python_executable)
+        .arg(&script_path)
+        .arg("--batch")
+        .arg("--preview-3d")
+        .arg(preview_flag)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let msg = format!("Could not execute python adapter: {e}");
+            for req in requests {
+                results.insert(req.file_path.clone(), error_result(msg.clone()));
+            }
+            return results;
+        }
+    };
+
+    let mut stdin = child.stdin.take().expect("stdin is piped");
+    let file_paths: Vec<String> = requests.iter().map(|r| r.file_path.clone()).collect();
+
+    // Write all file paths to stdin in a separate thread, then close the pipe.
+    let stdin_thread = thread::spawn(move || {
+        for path in &file_paths {
+            if writeln!(stdin, "{}", path).is_err() {
+                break;
+            }
+        }
+        // stdin dropped here → EOF signal to Python
+    });
+
+    // Read NDJSON results from stdout via a channel so we can apply a timeout.
+    let stdout = child.stdout.take().expect("stdout is piped");
+    let (line_tx, line_rx) = mpsc::channel::<String>();
+    let reader_thread = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(l) if !l.trim().is_empty() => {
+                    if line_tx.send(l).is_err() {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+
+    let started = Instant::now();
+    loop {
+        match line_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(line) => {
+                if let Ok(parsed) = serde_json::from_str::<PythonBatchResult>(line.trim()) {
+                    let image_data = parsed
+                        .image_base64
+                        .as_deref()
+                        .and_then(|enc| base64::engine::general_purpose::STANDARD.decode(enc).ok());
+                    results.insert(
+                        parsed.file_path.clone(),
+                        ImageGenerationResult {
+                            image_data,
+                            image_type: parsed.image_type,
+                            width_mm: parsed.width_mm,
+                            height_mm: parsed.height_mm,
+                            stitch_count: parsed.stitch_count,
+                            color_count: parsed.color_count,
+                            color_change_count: parsed.color_change_count,
+                            backend: "python-batch".to_string(),
+                            error: parsed.error,
+                        },
+                    );
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if started.elapsed().as_millis() > batch_timeout_ms as u128 {
+                    println!(
+                        "[TIMING] Python batch timed out after {}ms with {}/{} results",
+                        batch_timeout_ms,
+                        results.len(),
+                        requests.len()
+                    );
+                    let _ = child.kill();
+                    break;
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                // Reader thread finished (Python exited normally)
+                break;
+            }
+        }
+    }
+
+    let _ = stdin_thread.join();
+    let _ = reader_thread.join();
+    let _ = child.wait();
+
+    // Fill errors for any files that produced no result.
+    for req in requests {
+        if !results.contains_key(&req.file_path) {
+            results.insert(
+                req.file_path.clone(),
+                error_result(format!(
+                    "No result received from Python batch for '{}'",
+                    req.file_path
+                )),
+            );
+        }
+    }
+
+    results
+}
+
 pub fn generate_preview(request: &ImageGenerationRequest) -> ImageGenerationResult {
     let backend = std::env::var("IMPORT_IMAGE_BACKEND").unwrap_or_else(|_| "auto".to_string());
+    let support = extension_support(&request.file_path);
+
+    if support == BackendSupport::Unsupported {
+        return unsupported_extension_result(&request.file_path, backend.as_str());
+    }
 
     match backend.to_ascii_lowercase().as_str() {
-        "python" => generate_preview_via_python(request),
-        "native" => generate_preview_via_native(request),
+        "python" => {
+            if support == BackendSupport::NativeOnly {
+                return ImageGenerationResult {
+                    image_data: None,
+                    image_type: None,
+                    width_mm: None,
+                    height_mm: None,
+                    stitch_count: None,
+                    color_count: None,
+                    color_change_count: None,
+                    backend: "python".to_string(),
+                    error: Some("Python image backend does not support this extension.".to_string()),
+                };
+            }
+            generate_preview_via_python(request)
+        }
+        "native" => {
+            if support == BackendSupport::PythonOnly {
+                return ImageGenerationResult {
+                    image_data: None,
+                    image_type: None,
+                    width_mm: None,
+                    height_mm: None,
+                    stitch_count: None,
+                    color_count: None,
+                    color_change_count: None,
+                    backend: "native".to_string(),
+                    error: Some("Native image backend does not support this extension.".to_string()),
+                };
+            }
+            generate_preview_via_native(request)
+        }
         "auto" => generate_preview_auto(request),
         other => ImageGenerationResult {
             image_data: None,
@@ -68,6 +347,19 @@ pub fn generate_preview(request: &ImageGenerationRequest) -> ImageGenerationResu
 }
 
 fn generate_preview_auto(request: &ImageGenerationRequest) -> ImageGenerationResult {
+    match extension_support(&request.file_path) {
+        BackendSupport::Unsupported => {
+            return unsupported_extension_result(&request.file_path, "auto");
+        }
+        BackendSupport::NativeOnly => {
+            return generate_preview_via_native(request);
+        }
+        BackendSupport::PythonOnly => {
+            return generate_preview_via_python(request);
+        }
+        BackendSupport::Both => {}
+    }
+
     // Prefer native for fast 2D generation; prefer Python for 3D parity.
     if !request.preview_3d {
         let native = generate_preview_via_native(request);
@@ -149,10 +441,7 @@ fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
     let data = fs::read(file_path)
         .map_err(|error| format!("Could not read embroidery file '{}': {error}", file_path))?;
 
-    let extension = Path::new(file_path)
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(|value| value.to_ascii_lowercase())
+    let extension = request_extension(file_path)
         .ok_or_else(|| format!("Missing file extension for '{}'.", file_path))?;
 
     let parsed = match extension.as_str() {
@@ -160,6 +449,7 @@ fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
         "dst" => DstReader.read(&data),
         "exp" => ExpReader.read(&data),
         "jef" => JefReader.read(&data),
+        "hus" => HusReader.read(&data),
         "vp3" => Vp3Reader.read(&data),
         _ => {
             return Err(format!(
@@ -312,6 +602,33 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
                 if started.elapsed() >= Duration::from_millis(timeout_ms) {
                     let _ = child.kill();
                     let _ = child.wait();
+                    if request.preview_3d {
+                        let fallback_result = generate_preview_via_python(&ImageGenerationRequest {
+                            file_path: request.file_path.clone(),
+                            preview_3d: false,
+                        });
+                        if fallback_result.error.is_none() {
+                            return fallback_result;
+                        }
+
+                        return ImageGenerationResult {
+                            image_data: None,
+                            image_type: None,
+                            width_mm: None,
+                            height_mm: None,
+                            stitch_count: None,
+                            color_count: None,
+                            color_change_count: None,
+                            backend: "python".to_string(),
+                            error: Some(format!(
+                                "Python image adapter timed out after {}ms for file '{}'; 2D fallback failed: {}",
+                                timeout_ms,
+                                request.file_path,
+                                fallback_result.error.unwrap_or_else(|| "unknown fallback error".to_string())
+                            )),
+                        };
+                    }
+
                     return ImageGenerationResult {
                         image_data: None,
                         image_type: None,
@@ -404,6 +721,16 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
         .image_base64
         .as_ref()
         .and_then(|encoded| base64::engine::general_purpose::STANDARD.decode(encoded).ok());
+
+    if parsed.error.is_some() && request.preview_3d {
+        let fallback_result = generate_preview_via_python(&ImageGenerationRequest {
+            file_path: request.file_path.clone(),
+            preview_3d: false,
+        });
+        if fallback_result.error.is_none() {
+            return fallback_result;
+        }
+    }
 
     ImageGenerationResult {
         image_data,
@@ -501,4 +828,32 @@ mod tests {
         assert_eq!(native.width_mm.is_some(), python.width_mm.is_some());
         assert_eq!(native.height_mm.is_some(), python.height_mm.is_some());
     }
+
+    #[test]
+    fn extension_support_marks_hus_as_native_only() {
+        assert_eq!(extension_support("C:/imports/sample.hus"), BackendSupport::NativeOnly);
+    }
+
+    #[test]
+    fn extension_support_marks_unknown_as_unsupported() {
+        assert_eq!(extension_support("C:/imports/sample.txt"), BackendSupport::Unsupported);
+    }
+
+    #[test]
+    fn generate_preview_skips_unsupported_extension_without_invoking_backends() {
+        let result = generate_preview(&ImageGenerationRequest {
+            file_path: "C:/imports/sample.txt".to_string(),
+            preview_3d: false,
+        });
+
+        assert_eq!(result.backend, "auto");
+        assert!(result.image_data.is_none());
+        assert!(result.error.is_some());
+        assert!(result
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("skipped"));
+    }
+
 }
