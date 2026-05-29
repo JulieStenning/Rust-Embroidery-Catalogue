@@ -48,12 +48,7 @@ pause
 exit /b 1
 
 :ensure_dev_server
-echo [Rust App] Checking frontend dev server on 127.0.0.1:5173...
-netstat -ano | findstr /R /C:":5173 .*LISTENING" >nul
-if not errorlevel 1 (
-    echo [Rust App] Dev server already listening on port 5173.
-    exit /b 0
-)
+echo [Rust App] Starting frontend dev server in a separate window...
 
 where npm >nul 2>&1
 if errorlevel 1 (
@@ -62,10 +57,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [Rust App] Starting frontend dev server in background...
-start "Rust Frontend Dev Server" /min cmd /c "cd /d \"%~dp0\" && npm --prefix frontend run dev"
+start "Rust Frontend Dev Server" cmd /k "cd /d ""%~dp0"" && npm --prefix frontend run dev"
 
-echo [Rust App] Waiting for dev server startup...
+echo [Rust App] Waiting for dev server on 127.0.0.1:5173...
 set "TRIES=0"
 :wait_for_server
 set /a TRIES+=1
@@ -74,9 +68,9 @@ if not errorlevel 1 (
     echo [Rust App] Dev server is ready.
     exit /b 0
 )
-if %TRIES% GEQ 15 (
+if %TRIES% GEQ 20 (
     echo ERROR: Dev server did not start on port 5173.
-    echo You can run npm --prefix frontend run dev manually and retry.
+    echo Check the "Rust Frontend Dev Server" window for npm errors.
     exit /b 1
 )
 timeout /t 1 /nobreak >nul
