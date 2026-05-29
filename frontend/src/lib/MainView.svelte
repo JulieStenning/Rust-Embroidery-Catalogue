@@ -230,6 +230,7 @@
   let browseCurrentPage = $state(1);
   let browseAdditionalFiltersOpen = $state(false);
   let browseSelectedIds = $state([]);
+  let browseBulkBarNode = $state(null);
   let browseBulkModalOpen = $state(false);
   let browseBulkTagSelection = $state([]);
   let browseBulkProject = $state("");
@@ -240,6 +241,7 @@
   const BROWSE_PAGE_ROWS = 10;
   const BROWSE_CARD_MIN_WIDTH = 170;
   const BROWSE_CARD_GAP = 16;
+  const BROWSE_ROW_SELECTOR_WIDTH = 28;
   const BROWSE_TAG_UNTAGGED = "__untagged__";
 
   const defaultBrowseFilters = () => ({
@@ -1943,12 +1945,16 @@
   function refreshBrowseGridColumns() {
     const containerWidth = browseGridContainer?.clientWidth;
     if (containerWidth && containerWidth > 0) {
-      browseGridColumns = estimateBrowseColumnsFromWidth(containerWidth);
+      browseGridColumns = estimateBrowseColumnsFromWidth(
+        Math.max(0, containerWidth - BROWSE_ROW_SELECTOR_WIDTH)
+      );
       return;
     }
 
     if (typeof window !== "undefined") {
-      browseGridColumns = estimateBrowseColumnsFromWidth(window.innerWidth || 0);
+      browseGridColumns = estimateBrowseColumnsFromWidth(
+        Math.max(0, (window.innerWidth || 0) - BROWSE_ROW_SELECTOR_WIDTH)
+      );
       return;
     }
 
@@ -1974,6 +1980,76 @@
       return;
     }
     browseSelectedIds = browseSelectedIds.filter((current) => current !== id);
+  }
+
+  function syncBrowseSelectionFromDom() {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const ids = Array.from(document.querySelectorAll(".browse-design-checkbox:checked"))
+      .map((node) => Number(node.getAttribute("data-design-id")))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    browseSelectedIds = Array.from(new Set(ids));
+  }
+
+  function browseRowSelectionState(rowItems) {
+    const rowIds = rowItems.map((item) => item.id);
+    const selectedCount = rowIds.filter((id) => browseSelectedIds.includes(id)).length;
+    return {
+      all: rowIds.length > 0 && selectedCount === rowIds.length,
+      partial: selectedCount > 0 && selectedCount < rowIds.length,
+    };
+  }
+
+  function toggleBrowseRowSelection(rowItems, checked) {
+    const rowIds = rowItems.map((item) => item.id);
+    if (checked) {
+      browseSelectedIds = Array.from(new Set([...browseSelectedIds, ...rowIds]));
+      return;
+    }
+
+    browseSelectedIds = browseSelectedIds.filter((id) => !rowIds.includes(id));
+  }
+
+  function setIndeterminate(node, value) {
+    node.indeterminate = Boolean(value);
+    return {
+      update(nextValue) {
+        node.indeterminate = Boolean(nextValue);
+      },
+    };
+  }
+
+  function portalToBody(node) {
+    if (typeof document === "undefined") {
+      return {};
+    }
+
+    const host = document.body;
+    const parent = node.parentNode;
+    const marker = document.createComment("browse-bulk-bar-portal");
+
+    if (parent) {
+      parent.insertBefore(marker, node);
+    }
+
+    host.appendChild(node);
+
+    return {
+      destroy() {
+        if (marker.parentNode) {
+          marker.parentNode.insertBefore(node, marker);
+          marker.parentNode.removeChild(marker);
+          return;
+        }
+
+        if (node.parentNode === host) {
+          host.removeChild(node);
+        }
+      },
+    };
   }
 
   function openBulkTagModal() {
@@ -2196,11 +2272,23 @@
     )
   );
 
+  let browsePageRows = $derived(
+    (() => {
+      const columns = Math.max(1, browseGridColumns || 1);
+      const rows = [];
+      for (let index = 0; index < browsePageItems.length; index += columns) {
+        rows.push(browsePageItems.slice(index, index + columns));
+      }
+      return rows;
+    })()
+  );
+
   let browseAllVisibleSelected = $derived(
     browsePageItems.length > 0 && browsePageItems.every((item) => browseSelectedIds.includes(item.id))
   );
 
   let browseSelectedCount = $derived(browseSelectedIds.length);
+  let showBrowseBulkBar = $derived(currentUiKind === "browse" && browseSelectedCount > 0);
 
   let browsePageNumbers = $derived(
     (() => {
@@ -2341,6 +2429,34 @@
     if (next.length !== browseSelectedIds.length || next.some((id, index) => id !== browseSelectedIds[index])) {
       browseSelectedIds = next;
     }
+  });
+
+  $effect(() => {
+    if (currentRoute !== "#/designs" || typeof document === "undefined") {
+      return;
+    }
+
+    const onChange = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (
+        target.classList.contains("browse-design-checkbox") ||
+        target.classList.contains("browse-row-checkbox") ||
+        target.id === "browse-select-all-visible"
+      ) {
+        setTimeout(syncBrowseSelectionFromDom, 0);
+      }
+    };
+
+    document.addEventListener("change", onChange);
+    setTimeout(syncBrowseSelectionFromDom, 0);
+
+    return () => {
+      document.removeEventListener("change", onChange);
+    };
   });
 
   syncRouteFromHash();
@@ -2662,8 +2778,9 @@
           <label class="flex items-center gap-1 cursor-pointer select-none">
             <input
               type="checkbox"
+              id="browse-select-all-visible"
               checked={browseAllVisibleSelected}
-              onchange={(event) => toggleBrowseSelectAllVisible(event.currentTarget.checked)}
+              oninput={() => toggleBrowseSelectAllVisible(!browseAllVisibleSelected)}
             />
             Select all
           </label>
@@ -2680,66 +2797,86 @@
           <a href="#/import" class="text-indigo-600 hover:underline">import some files</a>.
         </p>
       {:else}
-        <div class="browse-card-grid gap-4" bind:this={browseGridContainer}>
-          {#each browsePageItems as item}
-            <article class="bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative border border-gray-100">
-              <label class="absolute top-1 left-1 z-10 cursor-pointer bg-white/90 rounded px-1">
-                <span class="sr-only">Select {item.filename}</span>
+        <div class="browse-grid-rows" bind:this={browseGridContainer}>
+          {#each browsePageRows as rowItems, rowIndex}
+            {@const rowSelection = browseRowSelectionState(rowItems)}
+            <div class="browse-grid-row">
+              <label class="browse-row-selector no-print" title={`Select row ${rowIndex + 1}`}>
+                <span class="sr-only">Select row {rowIndex + 1}</span>
                 <input
                   type="checkbox"
-                  checked={browseSelectedIds.includes(item.id)}
-                  onchange={(event) => toggleBrowseCardSelection(item.id, event.currentTarget.checked)}
+                  class="browse-row-checkbox rounded accent-indigo-500"
+                  checked={rowSelection.all}
+                  use:setIndeterminate={rowSelection.partial}
+                  oninput={() => toggleBrowseRowSelection(rowItems, !rowSelection.all)}
                 />
               </label>
 
-              <button class="w-full text-left" onclick={() => openDesignDetail(item)}>
-                {#if browsePreviewById[item.id]}
-                  <img
-                    src={browsePreviewById[item.id]}
-                    alt={item.filename}
-                    class="w-full h-36 object-contain bg-gray-100 p-1"
-                    loading="lazy"
-                  />
-                {:else}
-                  <div class="w-full h-36 bg-gray-100 p-1 flex items-center justify-center text-xs text-gray-400">
-                    {browsePreviewsLoading ? "Loading image..." : "No image"}
-                  </div>
-                {/if}
-                <div class="p-2 flex-1 space-y-1">
-                  <div class="flex items-center justify-between gap-2">
-                    <p class="text-sm font-medium leading-tight break-words">{item.filename}</p>
-                    {#if !item.tagsChecked}
-                      <span class="font-bold text-xl leading-none self-center" style="color: #dc2626;" aria-label="Unverified">×</span>
-                    {/if}
-                  </div>
-                  {#if item.hoop}
-                    <p class="text-xs text-indigo-600">{item.hoop}</p>
-                  {/if}
-                  {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
-                    <div class="pt-0.5 space-y-2">
-                      {#if item.imageTags.length > 0 || (item.imageTags.length === 0 && item.stitchingTags.length === 0 && item.tags.length > 0)}
-                        <div class="flex flex-wrap gap-2">
-                          {#each (item.imageTags.length > 0 ? item.imageTags : item.tags) as tag}
-                            <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{tag}</span>
-                          {/each}
-                        </div>
-                      {/if}
+              <div class="browse-card-grid gap-4">
+                {#each rowItems as item}
+                  <article class="bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative border border-gray-100">
+                    <label class="absolute top-1 left-1 z-10 cursor-pointer bg-white/90 rounded px-1">
+                      <span class="sr-only">Select {item.filename}</span>
+                      <input
+                        type="checkbox"
+                        class="browse-design-checkbox"
+                        data-design-id={item.id}
+                        checked={browseSelectedIds.includes(item.id)}
+                        oninput={() => toggleBrowseCardSelection(item.id, !browseSelectedIds.includes(item.id))}
+                      />
+                    </label>
 
-                      {#if item.stitchingTags.length > 0}
-                        <div class="flex flex-wrap gap-2">
-                          {#each item.stitchingTags as tag}
-                            <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">{tag}</span>
-                          {/each}
+                    <button class="w-full text-left" onclick={() => openDesignDetail(item)}>
+                      {#if browsePreviewById[item.id]}
+                        <img
+                          src={browsePreviewById[item.id]}
+                          alt={item.filename}
+                          class="w-full h-36 object-contain bg-gray-100 p-1"
+                          loading="lazy"
+                        />
+                      {:else}
+                        <div class="w-full h-36 bg-gray-100 p-1 flex items-center justify-center text-xs text-gray-400">
+                          {browsePreviewsLoading ? "Loading image..." : "No image"}
                         </div>
                       {/if}
-                    </div>
-                  {/if}
-                  <p class="text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
-                    {browseStars(item.rating ?? 0)}
-                  </p>
-                </div>
-              </button>
-            </article>
+                      <div class="p-2 flex-1 space-y-1">
+                        <div class="flex items-center justify-between gap-2">
+                          <p class="text-sm font-medium leading-tight break-words">{item.filename}</p>
+                          {#if !item.tagsChecked}
+                            <span class="font-bold text-xl leading-none self-center" style="color: #dc2626;" aria-label="Unverified">×</span>
+                          {/if}
+                        </div>
+                        {#if item.hoop}
+                          <p class="text-xs text-indigo-600">{item.hoop}</p>
+                        {/if}
+                        {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
+                          <div class="pt-0.5 space-y-2">
+                            {#if item.imageTags.length > 0 || (item.imageTags.length === 0 && item.stitchingTags.length === 0 && item.tags.length > 0)}
+                              <div class="flex flex-wrap gap-2">
+                                {#each (item.imageTags.length > 0 ? item.imageTags : item.tags) as tag}
+                                  <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{tag}</span>
+                                {/each}
+                              </div>
+                            {/if}
+
+                            {#if item.stitchingTags.length > 0}
+                              <div class="flex flex-wrap gap-2">
+                                {#each item.stitchingTags as tag}
+                                  <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">{tag}</span>
+                                {/each}
+                              </div>
+                            {/if}
+                          </div>
+                        {/if}
+                        <p class="text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
+                          {browseStars(item.rating ?? 0)}
+                        </p>
+                      </div>
+                    </button>
+                  </article>
+                {/each}
+              </div>
+            </div>
           {/each}
         </div>
       {/if}
@@ -2784,36 +2921,6 @@
 
       {#if browseActionNotice}
         <p class="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-2">{browseActionNotice}</p>
-      {/if}
-
-      {#if browseSelectedCount > 0}
-        <div class="fixed bottom-0 left-0 right-0 bg-indigo-700 text-white shadow-lg z-50 px-4 py-3 flex flex-wrap items-center gap-3 no-print">
-          <span class="font-semibold text-sm whitespace-nowrap">{browseSelectedCount} selected</span>
-
-          <button type="button" class="bg-white text-indigo-700 font-semibold px-4 py-1.5 rounded text-sm hover:bg-indigo-100" onclick={openBulkTagModal}>
-            Choose tags...
-          </button>
-
-          <button type="button" class="bg-green-500 text-white font-semibold px-4 py-1.5 rounded text-sm hover:bg-green-400" onclick={verifySelectedBrowseItems}>
-            Verify selected
-          </button>
-
-          <div class="flex items-center gap-2 min-w-0">
-            <select class="border border-white/40 bg-indigo-600 rounded px-2 py-1 text-sm" bind:value={browseBulkProject}>
-              <option value="">Select project</option>
-              {#each browseProjects as project}
-                <option value={String(project.id)}>{project.name}</option>
-              {/each}
-            </select>
-            <button type="button" class="bg-white text-indigo-700 font-semibold px-3 py-1.5 rounded text-sm hover:bg-indigo-100" onclick={addSelectedToProject}>
-              Add to project
-            </button>
-          </div>
-
-          <button type="button" class="bg-indigo-600 border border-indigo-400 px-3 py-1.5 rounded text-sm hover:bg-indigo-500" onclick={clearBrowseSelection}>
-            Clear selection
-          </button>
-        </div>
       {/if}
 
       {#if browseBulkModalOpen}
@@ -4377,6 +4484,41 @@
     </div>
   {/if}
 </main>
+
+<div
+  bind:this={browseBulkBarNode}
+  use:portalToBody
+  class={`browse-bulk-bar bg-indigo-700 text-white shadow-lg px-4 py-3 flex flex-wrap items-center gap-3 no-print ${showBrowseBulkBar ? "" : "hidden"}`}
+  style={showBrowseBulkBar
+    ? "position:fixed;left:0;right:0;bottom:0;top:auto;display:flex;z-index:2147483647;"
+    : "position:fixed;left:0;right:0;bottom:0;top:auto;display:none;z-index:2147483647;"}
+>
+    <span class="font-semibold text-sm whitespace-nowrap">{browseSelectedCount} selected</span>
+
+    <button type="button" class="bg-white text-indigo-700 font-semibold px-4 py-1.5 rounded text-sm hover:bg-indigo-100" onclick={openBulkTagModal}>
+      Choose tags...
+    </button>
+
+    <button type="button" class="bg-green-500 text-white font-semibold px-4 py-1.5 rounded text-sm hover:bg-green-400" onclick={verifySelectedBrowseItems}>
+      Verify selected
+    </button>
+
+    <div class="flex items-center gap-2 min-w-0">
+      <select class="border border-white/40 bg-indigo-600 rounded px-2 py-1 text-sm" bind:value={browseBulkProject}>
+        <option value="">Select project</option>
+        {#each browseProjects as project}
+          <option value={String(project.id)}>{project.name}</option>
+        {/each}
+      </select>
+      <button type="button" class="bg-white text-indigo-700 font-semibold px-3 py-1.5 rounded text-sm hover:bg-indigo-100" onclick={addSelectedToProject}>
+        Add to project
+      </button>
+    </div>
+
+    <button type="button" class="bg-indigo-600 border border-indigo-400 px-3 py-1.5 rounded text-sm hover:bg-indigo-500" onclick={clearBrowseSelection}>
+      Clear selection
+    </button>
+</div>
 
 <footer class="max-w-7xl mx-auto px-4 pb-6 text-xs text-gray-500">
   <div class="border-t border-gray-300 pt-4 flex flex-wrap items-center gap-x-3 gap-y-1">

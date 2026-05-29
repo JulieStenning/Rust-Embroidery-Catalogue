@@ -50,10 +50,22 @@ This summary is the current source of truth for the app's live data model.
   and a stitched badge when applicable.
 - Each card can be selected for bulk actions; the page also supports **Select all** and
   row-level selection checkboxes.
-- When one or more designs are selected, a sticky action bar appears with options to
-  choose tags, **Verify selected**, **Add to project**, or clear the selection.
+- When one or more designs are selected, a sticky bottom action bar appears showing the
+  selected count, **Choose tags...**, **Verify selected**, a project selector,
+  **Add to project**, and **Clear selection**.
+- The bulk tag action opens an in-page modal and applies a replacement tag set to the
+  current page selection.
+- Selection is page-scoped: **Select all** applies to visible results on the current
+  page, and selection is cleared when navigating to another page.
 - Default sort is by design name (A→Z). Users can switch to folder or date-added
   sorting and reverse the order.
+
+For architecture, UI, and user-operation details for this surface, see:
+
+- [Specs/browse-bulk-actions-backend-spec.md](Specs/browse-bulk-actions-backend-spec.md)
+- [Specs/browse-bulk-actions-refactor-checklist.md](Specs/browse-bulk-actions-refactor-checklist.md)
+- [Specs/UI/browse-bulk-actions-ui-spec.md](Specs/UI/browse-bulk-actions-ui-spec.md)
+- [User-Facing-Guidance/BROWSE_BULK_ACTIONS.md](User-Facing-Guidance/BROWSE_BULK_ACTIONS.md)
 
 ### 1.2 Quick Filters (sidebar / filter bar)
 
@@ -107,7 +119,6 @@ Results are paginated consistently with the browse view.
 
 The design detail page (`/designs/{id}`) shows:
 
-- Back-to-browse navigation plus browse-context previous/next controls when available.
 - Full-size preview image
 - 3D preview controls:
   - **Generate 3D Preview** when no preview exists
@@ -128,8 +139,6 @@ The design detail page (`/designs/{id}`) shows:
 - Project membership list
 - Print action (`/designs/{id}/print`) for a print-friendly single-design summary
 
-The current desktop UI also exposes a print-only route and a grouped tag editor that keeps verified-state coupling explicit.
-
 ### 2.1 Inline Editing
 
 - Rating: click a star to set or clear the personal rating.
@@ -138,10 +147,6 @@ The current desktop UI also exposes a print-only route and a grouped tag editor 
 - Tags: add or remove tags via the detail page form; saving marks the design as verified.
 - Verification state: mark the design's tags/metadata as verified or switch it back to unverified for later review.
 - Projects: add the design to a project or remove existing project memberships from the detail page.
-
-The current UI groups tags by image, stitching, and unclassified sections, and the add-to-project control is a dropdown plus button instead of a freeform entry field.
-
-The print view shows the same core summary data plus notes and assigned tags in a compact, browser-print-friendly layout.
 
 For architecture, UI contract, and user operation details, see:
 

@@ -482,6 +482,13 @@
   </button>
 </div>
 
+<style>
+  /* Fallback: reveal bulk bar whenever at least one design checkbox is checked. */
+  body:has(.design-checkbox:checked) #bulkBar {
+    display: flex !important;
+  }
+</style>
+
 <!-- Bulk tag modal -->
 <div id="bulkModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center no-print">
   <!-- Backdrop -->
@@ -614,7 +621,7 @@
   function buildRowSelectors() {
     var wrapper = document.getElementById('gridWrapper');
     var cards = Array.from(document.querySelectorAll('.design-card'));
-    if (!cards.length) return;
+    if (!wrapper || !cards.length) return;
 
     // Remove any previously injected row selectors (e.g. after resize)
     wrapper.querySelectorAll('.row-sel').forEach(function(el) { el.remove(); });
@@ -659,6 +666,9 @@
         updateBar();
       });
     });
+
+    // Keep row selector check states in sync with any pre-selected cards.
+    syncRowCheckboxes();
   }
 
   function syncRowCheckboxes() {
@@ -687,8 +697,14 @@
   }
 
   // Build on load and rebuild on resize
-  window.addEventListener('load', buildRowSelectors);
-  window.addEventListener('resize', buildRowSelectors);
+  window.addEventListener('load', function() {
+    buildRowSelectors();
+    updateBar();
+  });
+  window.addEventListener('resize', function() {
+    buildRowSelectors();
+    updateBar();
+  });
 
   /* ---- bulk selection ---- */
   var bulkBar    = document.getElementById('bulkBar');
@@ -710,12 +726,15 @@
   }
 
   function updateBar() {
+    if (!bulkBar || !bulkCount) return;
     var checked = getChecked();
     if (checked.length > 0) {
       bulkBar.classList.remove('hidden');
+      bulkBar.style.display = 'flex';
       bulkCount.textContent = checked.length + ' selected';
     } else {
       bulkBar.classList.add('hidden');
+      bulkBar.style.display = 'none';
     }
     if (selectAll) {
       var all = document.querySelectorAll('.design-checkbox');
@@ -757,6 +776,11 @@
     }
   });
 
+  // Direct listeners make selection-state updates resilient in older WebViews.
+  document.querySelectorAll('.design-checkbox').forEach(function(cb) {
+    cb.addEventListener('change', updateBar);
+  });
+
   // Prevent card link navigation when clicking the checkbox label
   var designGrid = document.getElementById('designGrid');
   if (designGrid) {
@@ -778,10 +802,14 @@
   }
 
   // Open modal
-  document.getElementById('bulkOpenModalBtn').addEventListener('click', openModal);
+  var bulkOpenModalBtn = document.getElementById('bulkOpenModalBtn');
+  if (bulkOpenModalBtn) {
+    bulkOpenModalBtn.addEventListener('click', openModal);
+  }
 
   // Verify selected (mark tags_checked=True without changing tags)
-  document.getElementById('bulkVerifyBtn').addEventListener('click', function() {
+  var bulkVerifyBtn = document.getElementById('bulkVerifyBtn');
+  if (bulkVerifyBtn) bulkVerifyBtn.addEventListener('click', function() {
     var checked = getChecked();
     if (!checked.length) return;
     verifyDivIds.innerHTML = '';
@@ -816,13 +844,17 @@
   }
 
   // Close modal (X, Cancel, backdrop, Escape)
-  document.getElementById('bulkModalClose').addEventListener('click', closeModal);
-  document.getElementById('bulkModalCancel').addEventListener('click', closeModal);
-  document.getElementById('bulkModalBackdrop').addEventListener('click', closeModal);
+  var bulkModalClose = document.getElementById('bulkModalClose');
+  var bulkModalCancel = document.getElementById('bulkModalCancel');
+  var bulkModalBackdrop = document.getElementById('bulkModalBackdrop');
+  if (bulkModalClose) bulkModalClose.addEventListener('click', closeModal);
+  if (bulkModalCancel) bulkModalCancel.addEventListener('click', closeModal);
+  if (bulkModalBackdrop) bulkModalBackdrop.addEventListener('click', closeModal);
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
 
   // Apply button inside modal
-  document.getElementById('bulkApplyBtn').addEventListener('click', function() {
+  var bulkApplyBtn = document.getElementById('bulkApplyBtn');
+  if (bulkApplyBtn) bulkApplyBtn.addEventListener('click', function() {
     var checked = getChecked();
     if (!checked.length) return;
 
@@ -846,7 +878,8 @@
   });
 
   // Clear selection
-  document.getElementById('bulkClearBtn').addEventListener('click', function() {
+  var bulkClearBtn = document.getElementById('bulkClearBtn');
+  if (bulkClearBtn) bulkClearBtn.addEventListener('click', function() {
     document.querySelectorAll('.design-checkbox').forEach(function(cb) { cb.checked = false; });
     if (selectAll) selectAll.checked = false;
     updateBar();
@@ -854,6 +887,46 @@
 
   // Add bottom padding so the bar doesn't cover the last row
   document.body.style.paddingBottom = '80px';
+  if (bulkBar) bulkBar.style.display = 'none';
+
+  // Ensure initial state reflects current selection.
+  updateBar();
+})();
+</script>
+
+<script>
+(function () {
+  function fallbackUpdateBulkBar() {
+    var bulkBar = document.getElementById('bulkBar');
+    var bulkCount = document.getElementById('bulkCount');
+    if (!bulkBar) return;
+
+    var checked = document.querySelectorAll('.design-checkbox:checked').length;
+    if (checked > 0) {
+      bulkBar.classList.remove('hidden');
+      bulkBar.style.display = 'flex';
+      if (bulkCount) bulkCount.textContent = checked + ' selected';
+    } else {
+      bulkBar.classList.add('hidden');
+      bulkBar.style.display = 'none';
+      if (bulkCount) bulkCount.textContent = '';
+    }
+  }
+
+  // Run after any checkbox state changes, including row/select-all scripts that set checked programmatically.
+  document.addEventListener('change', function (e) {
+    if (
+      e.target &&
+      (e.target.classList.contains('design-checkbox') ||
+        e.target.classList.contains('row-checkbox') ||
+        e.target.id === 'selectAll')
+    ) {
+      setTimeout(fallbackUpdateBulkBar, 0);
+    }
+  });
+
+  window.addEventListener('load', fallbackUpdateBulkBar);
+  setTimeout(fallbackUpdateBulkBar, 0);
 })();
 </script>
 {% endblock %}

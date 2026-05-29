@@ -11,6 +11,7 @@ cd /d "%~dp0"
 
 echo.
 echo [Rust App] Starting from: %CD%
+echo [Rust App] Mode: TAURI DEV (^"cargo tauri dev^"^). Use start-rust-debug-exe.bat for built EXE tests.
 
 where cargo >nul 2>&1
 if errorlevel 1 (
