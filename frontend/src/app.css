@@ -400,13 +400,100 @@ body:has(.browse-design-checkbox:checked) .browse-bulk-bar {
 	display: flex !important;
 }
 
-@media (max-width: 640px) {
-	.settings-layout {
-		max-width: 100%;
-	}
+.tag-chooser-overlay {
+	padding: 1rem;
+	box-sizing: border-box;
+}
 
-	.settings-secondary-button {
-		min-width: 4rem;
+.tag-chooser-dialog {
+	width: min(980px, calc(100vw - 2rem));
+	background: #ffffff !important;
+	opacity: 1 !important;
+	border: 1px solid #d1d5db;
+	border-radius: 0.6rem;
+	box-shadow: 0 24px 56px rgba(15, 23, 42, 0.35);
+	color: #1f2937;
+}
+
+.tag-chooser-header {
+	padding: 0.95rem 1.1rem;
+	background: #ffffff !important;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.tag-chooser-body {
+	padding: 0.95rem 1.1rem;
+	background: #f8fafc !important;
+}
+
+.tag-chooser-sections {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.tag-chooser-section {
+	background: #ffffff !important;
+	border: 1px solid #d1d5db;
+	border-radius: 0.45rem;
+	padding: 0.7rem;
+}
+
+.tag-chooser-section-title {
+	margin: 0 0 0.5rem 0;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.tag-chooser-section-title-image {
+	color: #166534;
+}
+
+.tag-chooser-section-title-stitching {
+	color: #1d4ed8;
+}
+
+.tag-chooser-section-title-unclassified {
+	color: #4b5563;
+}
+
+.tag-chooser-grid {
+	display: block;
+	column-count: 3;
+	column-gap: 0.75rem;
+}
+
+.tag-chooser-option {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	font-size: 0.9rem;
+	line-height: 1.3;
+	color: #111827;
+	min-width: 0;
+	width: 100%;
+	margin: 0 0 0.5rem 0;
+	break-inside: avoid;
+	page-break-inside: avoid;
+}
+
+.tag-chooser-footer {
+	padding: 0.8rem 1.1rem;
+	background: #ffffff !important;
+	border-top: 1px solid #e5e7eb;
+}
+
+@media (max-width: 980px) {
+	.tag-chooser-grid {
+		column-count: 2;
+	}
+}
+
+@media (max-width: 640px) {
+	.tag-chooser-grid {
+		column-count: 1;
 	}
 }
 
@@ -468,5 +555,34 @@ body:has(.browse-design-checkbox:checked) .browse-bulk-bar {
 		background: #0f172a;
 		border-color: #334155;
 		color: #e5e7eb;
+	}
+
+	.tag-chooser-dialog,
+	.tag-chooser-header,
+	.tag-chooser-footer,
+	.tag-chooser-section {
+		background: #1f2937 !important;
+		border-color: #374151;
+		color: #f1f5f9;
+	}
+
+	.tag-chooser-body {
+		background: #111827 !important;
+	}
+
+	.tag-chooser-option {
+		color: #e5e7eb;
+	}
+
+	.tag-chooser-section-title-image {
+		color: #86efac;
+	}
+
+	.tag-chooser-section-title-stitching {
+		color: #93c5fd;
+	}
+
+	.tag-chooser-section-title-unclassified {
+		color: #cbd5e1;
 	}
 }

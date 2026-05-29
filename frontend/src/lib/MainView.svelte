@@ -231,7 +231,10 @@
   let browseAdditionalFiltersOpen = $state(false);
   let browseSelectedIds = $state([]);
   let browseBulkBarNode = $state(null);
+  let browseBulkModalOverlayNode = $state(null);
+  let browseBulkModalDialogNode = $state(null);
   let browseBulkModalOpen = $state(false);
+  let browseBulkModalMode = $state("browse");
   let browseBulkTagSelection = $state([]);
   let browseBulkProject = $state("");
   let browseActionNotice = $state("");
@@ -1576,6 +1579,18 @@
     };
   }
 
+  function splitTagsByGroup(tags) {
+    const allTags = Array.isArray(tags) ? tags : [];
+    return {
+      image: allTags.filter((tag) => String(tag?.tag_group || "") === "image"),
+      stitching: allTags.filter((tag) => String(tag?.tag_group || "") === "stitching"),
+      unclassified: allTags.filter((tag) => {
+        const group = String(tag?.tag_group || "");
+        return group !== "image" && group !== "stitching";
+      }),
+    };
+  }
+
   function ratingToStars(rating) {
     const numeric = Number(rating);
     if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -1697,7 +1712,7 @@
 
   async function saveDetailTags() {
     if (!detailItem?.id || detailSaving) {
-      return;
+      return false;
     }
     detailSaving = true;
     const result = await setDesignTags(detailItem.id, detailTagSelection);
@@ -1705,7 +1720,10 @@
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
       await refreshDetailAfterAction();
+      return true;
     }
+
+    return false;
   }
 
   async function addDetailToProject(projectId) {
@@ -1845,13 +1863,13 @@
 
   function normalizeCardItem(item, index) {
     const id = Number(item?.id ?? index + 1);
-    const imageTags = Array.isArray(item?.image_tags) ? item.image_tags.map(String) : [];
-    const stitchingTags = Array.isArray(item?.stitching_tags) ? item.stitching_tags.map(String) : [];
+    const imageTags = Array.isArray(item?.image_tags) ? item.image_tags.map(String).sort((left, right) => left.localeCompare(right)) : [];
+    const stitchingTags = Array.isArray(item?.stitching_tags) ? item.stitching_tags.map(String).sort((left, right) => left.localeCompare(right)) : [];
     const fallbackTags = Array.isArray(item?.tags) ? item.tags.map(String) : [];
     const allTags =
       imageTags.length > 0 || stitchingTags.length > 0
         ? Array.from(new Set([...imageTags, ...stitchingTags]))
-        : fallbackTags;
+        : fallbackTags.sort((left, right) => left.localeCompare(right));
 
     return {
       id,
@@ -2039,14 +2057,12 @@
 
     return {
       destroy() {
-        if (marker.parentNode) {
-          marker.parentNode.insertBefore(node, marker);
-          marker.parentNode.removeChild(marker);
-          return;
-        }
-
         if (node.parentNode === host) {
           host.removeChild(node);
+        }
+
+        if (marker.parentNode) {
+          marker.parentNode.removeChild(marker);
         }
       },
     };
@@ -2056,18 +2072,81 @@
     if (browseSelectedIds.length === 0) {
       return;
     }
-    browseBulkTagSelection = [];
+    browseBulkModalMode = "browse";
+    browseBulkTagSelection = computeBrowseTagChooserInitialSelection();
+    browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== BROWSE_TAG_UNTAGGED);
     browseBulkModalOpen = true;
   }
 
-  function closeBulkTagModal() {
+  function computeBrowseTagChooserInitialSelection() {
+    const selectedIds = new Set(
+      browseSelectedIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+    );
+    if (selectedIds.size === 0) {
+      return [];
+    }
+
+    const tagNameToId = new Map(
+      (Array.isArray(browseTagOptions) ? browseTagOptions : [])
+        .map((option) => [String(option?.description || "").trim().toLowerCase(), Number(option?.id)])
+        .filter(([name, id]) => name && Number.isFinite(id) && id > 0)
+    );
+
+    const names = new Set();
+    const selectedItems = browseCardItems.filter((item) => selectedIds.has(Number(item.id)));
+    for (const item of selectedItems) {
+      for (const tagName of [...(item.imageTags || []), ...(item.stitchingTags || []), ...(item.tags || [])]) {
+        const normalized = String(tagName || "").trim().toLowerCase();
+        if (normalized) {
+          names.add(normalized);
+        }
+      }
+    }
+
+    const tagIds = [];
+    for (const name of names) {
+      const id = tagNameToId.get(name);
+      if (Number.isFinite(id)) {
+        tagIds.push(id);
+      }
+    }
+
+    return Array.from(new Set(tagIds));
+  }
+
+  function openDetailTagModal() {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+
+    browseBulkModalMode = "detail";
+    browseBulkModalOpen = true;
+  }
+
+  function dismissBulkTagModal(reason = "dismissed") {
     browseBulkModalOpen = false;
   }
+
+  function closeBulkTagModal(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+    const currentTarget = event?.currentTarget;
+    const target = event?.target;
+    const reason = event?.type
+      ? `${event.type}${currentTarget?.tagName ? ` from ${String(currentTarget.tagName).toLowerCase()}` : ""}${target?.tagName ? ` targeting ${String(target.tagName).toLowerCase()}` : ""}`
+      : "dismissed";
+    dismissBulkTagModal(reason);
+  }
+
+  $effect(() => {
+    return undefined;
+  });
 
   async function applyBulkTags() {
     if (browseSelectedIds.length === 0) {
       closeBulkTagModal();
-      return;
+      return false;
     }
 
     const wantsUntagged = browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED);
@@ -2099,11 +2178,59 @@
       browseActionNotice = `Applied tags to ${result.updated_count} design(s) (saved in Rust backend).`;
       closeBulkTagModal();
       await loadBrowseItems();
+      return true;
+    }
+
+    browseActionNotice = "Could not save tags in Rust backend. No database changes were committed.";
+    closeBulkTagModal();
+    return false;
+  }
+
+  async function applySharedTagChooser() {
+    if (browseBulkModalMode === "detail") {
+      const saved = await saveDetailTags();
+      if (saved) {
+        closeBulkTagModal();
+      }
       return;
     }
 
-    browseActionNotice = `Applied tags to ${result.updated_count} design(s) (UI fallback only).`;
-    closeBulkTagModal();
+    await applyBulkTags();
+  }
+
+  function tagChooserSelectionIncludes(tagId) {
+    const id = Number(tagId);
+    if (!Number.isFinite(id)) {
+      return false;
+    }
+
+    if (browseBulkModalMode === "detail") {
+      return detailTagSelection.includes(id);
+    }
+
+    return browseBulkTagSelection.includes(id);
+  }
+
+  function toggleTagChooserSelection(tagId, checked) {
+    const id = Number(tagId);
+    if (!Number.isFinite(id)) {
+      return;
+    }
+
+    if (browseBulkModalMode === "detail") {
+      if (checked) {
+        detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
+      } else {
+        detailTagSelection = detailTagSelection.filter((value) => value !== id);
+      }
+      return;
+    }
+
+    if (checked) {
+      browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, id]));
+    } else {
+      browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== id);
+    }
   }
 
   async function verifySelectedBrowseItems() {
@@ -2457,6 +2584,10 @@
     return () => {
       document.removeEventListener("change", onChange);
     };
+  });
+
+  $effect(() => {
+    return undefined;
   });
 
   syncRouteFromHash();
@@ -2850,23 +2981,9 @@
                           <p class="text-xs text-indigo-600">{item.hoop}</p>
                         {/if}
                         {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
-                          <div class="pt-0.5 space-y-2">
-                            {#if item.imageTags.length > 0 || (item.imageTags.length === 0 && item.stitchingTags.length === 0 && item.tags.length > 0)}
-                              <div class="flex flex-wrap gap-2">
-                                {#each (item.imageTags.length > 0 ? item.imageTags : item.tags) as tag}
-                                  <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{tag}</span>
-                                {/each}
-                              </div>
-                            {/if}
-
-                            {#if item.stitchingTags.length > 0}
-                              <div class="flex flex-wrap gap-2">
-                                {#each item.stitchingTags as tag}
-                                  <span class="text-[11px] leading-4 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">{tag}</span>
-                                {/each}
-                              </div>
-                            {/if}
-                          </div>
+                          <p class="pt-0.5 text-[11px] leading-4 text-gray-700 break-words">
+                            {item.tags.join(", ")}
+                          </p>
                         {/if}
                         <p class="text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
                           {browseStars(item.rating ?? 0)}
@@ -2921,57 +3038,6 @@
 
       {#if browseActionNotice}
         <p class="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-2">{browseActionNotice}</p>
-      {/if}
-
-      {#if browseBulkModalOpen}
-        <div class="fixed inset-0 z-[60] flex items-center justify-center no-print" role="dialog" aria-modal="true" aria-labelledby="bulk-tag-title">
-          <button type="button" class="absolute inset-0 bg-black/50" aria-label="Close tag chooser" onclick={closeBulkTagModal}></button>
-          <div class="relative bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[85vh]">
-            <div class="flex items-center justify-between px-5 py-4 border-b">
-              <h2 id="bulk-tag-title" class="text-lg font-semibold text-gray-800">Choose tags for selected designs</h2>
-              <button type="button" class="menu-button-secondary" onclick={closeBulkTagModal}>Close</button>
-            </div>
-            <div class="overflow-y-auto px-5 py-4 flex-1">
-              <p class="text-sm text-gray-600 mb-3">{browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.</p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label class="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
-                    onchange={(event) => {
-                      if (event.currentTarget.checked) {
-                        browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, BROWSE_TAG_UNTAGGED]));
-                      } else {
-                        browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== BROWSE_TAG_UNTAGGED);
-                      }
-                    }}
-                  />
-                  Untagged
-                </label>
-                {#each browseTagOptions as tagOption}
-                  <label class="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={browseBulkTagSelection.includes(tagOption.id)}
-                      onchange={(event) => {
-                        if (event.currentTarget.checked) {
-                          browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, tagOption.id]));
-                        } else {
-                          browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== tagOption.id);
-                        }
-                      }}
-                    />
-                    {tagOption.description}
-                  </label>
-                {/each}
-              </div>
-            </div>
-            <div class="px-5 py-3 border-t flex items-center gap-3 justify-end">
-              <button type="button" class="menu-button-secondary" onclick={closeBulkTagModal}>Cancel</button>
-              <button type="button" class="menu-button-primary" onclick={applyBulkTags}>Apply tags</button>
-            </div>
-          </div>
-        </div>
       {/if}
 
       <p class="text-xs text-gray-500">Data source: designs {browseSource}, previews {browsePreviewsSource}, projects {browseProjectsSource}, tags {browseTagsSource}</p>
@@ -3585,81 +3651,10 @@
                       </span>
                     </summary>
                     <div class="space-y-3 pt-2">
-                      {#if splitDetailTagsByGroup(detailItem.all_tags).image.length > 0}
-                        <div>
-                          <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Image</p>
-                          <div class="max-h-32 overflow-auto border rounded p-2 grid sm:grid-cols-2 gap-2">
-                            {#each splitDetailTagsByGroup(detailItem.all_tags).image as tag}
-                              <label class="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={detailTagSelection.includes(Number(tag.id))}
-                                  onchange={(event) => {
-                                    const id = Number(tag.id);
-                                    if (event.currentTarget.checked) {
-                                      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
-                                    } else {
-                                      detailTagSelection = detailTagSelection.filter((value) => value !== id);
-                                    }
-                                  }}
-                                />
-                                <span>{tag.description}</span>
-                              </label>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-                      {#if splitDetailTagsByGroup(detailItem.all_tags).stitching.length > 0}
-                        <div>
-                          <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Stitching</p>
-                          <div class="max-h-32 overflow-auto border rounded p-2 grid sm:grid-cols-2 gap-2">
-                            {#each splitDetailTagsByGroup(detailItem.all_tags).stitching as tag}
-                              <label class="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={detailTagSelection.includes(Number(tag.id))}
-                                  onchange={(event) => {
-                                    const id = Number(tag.id);
-                                    if (event.currentTarget.checked) {
-                                      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
-                                    } else {
-                                      detailTagSelection = detailTagSelection.filter((value) => value !== id);
-                                    }
-                                  }}
-                                />
-                                <span>{tag.description}</span>
-                              </label>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-                      {#if splitDetailTagsByGroup(detailItem.all_tags).unclassified.length > 0}
-                        <div>
-                          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Unclassified</p>
-                          <div class="max-h-32 overflow-auto border rounded p-2 grid sm:grid-cols-2 gap-2">
-                            {#each splitDetailTagsByGroup(detailItem.all_tags).unclassified as tag}
-                              <label class="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={detailTagSelection.includes(Number(tag.id))}
-                                  onchange={(event) => {
-                                    const id = Number(tag.id);
-                                    if (event.currentTarget.checked) {
-                                      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
-                                    } else {
-                                      detailTagSelection = detailTagSelection.filter((value) => value !== id);
-                                    }
-                                  }}
-                                />
-                                <span>{tag.description}</span>
-                              </label>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
                       <div class="flex items-center gap-2">
-                        <button class="menu-button-primary" onclick={saveDetailTags} disabled={detailSaving}>Save tags</button>
-                        <span class="text-xs text-gray-500">Saving tags marks this design as verified.</span>
+                        <button class="menu-button-primary" onclick={openDetailTagModal} disabled={detailSaving}>Choose tags...</button>
+                        <button class="menu-button-secondary" onclick={saveDetailTags} disabled={detailSaving}>Save tags</button>
+                        <span class="text-xs text-gray-500">Saving tags marks this design as verified. Choose tags opens the same tag chooser used in Browse.</span>
                       </div>
                     </div>
                   </details>
@@ -4485,13 +4480,136 @@
   {/if}
 </main>
 
+{#if browseBulkModalOpen}
+  {@const tagOptionsForChooser = browseBulkModalMode === "detail" ? (Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : []) : browseTagOptions}
+  {@const groupedTagOptions = splitTagsByGroup(tagOptionsForChooser)}
+  <div
+    bind:this={browseBulkModalOverlayNode}
+    use:portalToBody
+    class="tag-chooser-overlay no-print"
+    style="position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="bulk-tag-title"
+  >
+    <button
+      type="button"
+      style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"
+      aria-label="Close tag chooser"
+      onmousedown={closeBulkTagModal}
+      onclick={closeBulkTagModal}
+    ></button>
+    <div
+      bind:this={browseBulkModalDialogNode}
+      class="tag-chooser-dialog"
+      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;"
+    >
+      <div class="tag-chooser-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+        <h2 id="bulk-tag-title" class="text-lg font-semibold" style="margin:0;">
+          {browseBulkModalMode === "detail" ? "Choose tags for this design" : "Choose tags for selected designs"}
+        </h2>
+      </div>
+      <div class="tag-chooser-body" style="overflow-y:auto;flex:1;">
+        <p class="text-sm" style="margin:0 0 0.75rem 0;">
+          {#if browseBulkModalMode === "detail"}
+            {detailItem?.filename || "Current design"}
+          {:else}
+            {browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.
+          {/if}
+        </p>
+
+        {#if browseBulkModalMode !== "detail"}
+          <div class="tag-chooser-section" style="margin-bottom:0.75rem;">
+            <label class="tag-chooser-option" style="font-weight:600;">
+              <input
+                type="checkbox"
+                checked={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
+                onchange={(event) => {
+                  if (event.currentTarget.checked) {
+                    browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, BROWSE_TAG_UNTAGGED]));
+                  } else {
+                    browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== BROWSE_TAG_UNTAGGED);
+                  }
+                }}
+              />
+              <span>Untagged (clear all tags)</span>
+            </label>
+          </div>
+        {/if}
+
+        <div class="tag-chooser-sections">
+          {#if groupedTagOptions.image.length > 0}
+            <section class="tag-chooser-section">
+              <p class="tag-chooser-section-title tag-chooser-section-title-image">Image tags</p>
+              <div class="tag-chooser-grid">
+                {#each groupedTagOptions.image as tagOption}
+                  <label class="tag-chooser-option">
+                    <input
+                      type="checkbox"
+                      checked={tagChooserSelectionIncludes(tagOption.id)}
+                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
+                    />
+                    <span>{tagOption.description}</span>
+                  </label>
+                {/each}
+              </div>
+            </section>
+          {/if}
+
+          {#if groupedTagOptions.stitching.length > 0}
+            <section class="tag-chooser-section">
+              <p class="tag-chooser-section-title tag-chooser-section-title-stitching">Stitching tags</p>
+              <div class="tag-chooser-grid">
+                {#each groupedTagOptions.stitching as tagOption}
+                  <label class="tag-chooser-option">
+                    <input
+                      type="checkbox"
+                      checked={tagChooserSelectionIncludes(tagOption.id)}
+                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
+                    />
+                    <span>{tagOption.description}</span>
+                  </label>
+                {/each}
+              </div>
+            </section>
+          {/if}
+
+          {#if groupedTagOptions.unclassified.length > 0}
+            <section class="tag-chooser-section">
+              <p class="tag-chooser-section-title tag-chooser-section-title-unclassified">Unclassified tags</p>
+              <div class="tag-chooser-grid">
+                {#each groupedTagOptions.unclassified as tagOption}
+                  <label class="tag-chooser-option">
+                    <input
+                      type="checkbox"
+                      checked={tagChooserSelectionIncludes(tagOption.id)}
+                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
+                    />
+                    <span>{tagOption.description}</span>
+                  </label>
+                {/each}
+              </div>
+            </section>
+          {/if}
+        </div>
+      </div>
+      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;">
+        <button type="button" class="menu-button-secondary" onmousedown={closeBulkTagModal} onclick={closeBulkTagModal}>Cancel</button>
+        <button type="button" class="menu-button-primary" onclick={applySharedTagChooser} disabled={browseBulkModalMode === "detail" && detailSaving}>
+          {browseBulkModalMode === "detail" ? "Save tags" : "Apply tags"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <div
   bind:this={browseBulkBarNode}
   use:portalToBody
   class={`browse-bulk-bar bg-indigo-700 text-white shadow-lg px-4 py-3 flex flex-wrap items-center gap-3 no-print ${showBrowseBulkBar ? "" : "hidden"}`}
   style={showBrowseBulkBar
-    ? "position:fixed;left:0;right:0;bottom:0;top:auto;display:flex;z-index:2147483647;"
-    : "position:fixed;left:0;right:0;bottom:0;top:auto;display:none;z-index:2147483647;"}
+    ? "position:fixed;left:0;right:0;bottom:0;top:auto;display:flex;z-index:2147483000;"
+    : "position:fixed;left:0;right:0;bottom:0;top:auto;display:none;z-index:2147483000;"}
 >
     <span class="font-semibold text-sm whitespace-nowrap">{browseSelectedCount} selected</span>
 
