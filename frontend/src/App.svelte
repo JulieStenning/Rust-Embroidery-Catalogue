@@ -10,8 +10,23 @@
   /** Error message if the check fails */
   let checkError = $state("");
 
+  function hasTauriInvoke() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return typeof window.__TAURI_INTERNALS__?.invoke === "function";
+  }
+
   /** Called once on mount to determine which view to show */
   async function checkDisclaimer() {
+    // In plain browser dev mode there is no Tauri bridge. Skip disclaimer gate
+    // so route-level frontend smoke tests can run.
+    if (!hasTauriInvoke()) {
+      disclaimerAccepted = true;
+      loading = false;
+      return;
+    }
+
     try {
       disclaimerAccepted = await invoke("check_disclaimer");
     } catch (e) {

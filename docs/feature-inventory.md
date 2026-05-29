@@ -290,21 +290,35 @@ Projects group designs for a sewing session.
 ### Project List (`/projects/`)
 
 - Card/grid view of all projects with name, description, and created date.
+- Projects are ordered by name.
 - Create new project (name + optional description).
+- Project names are unique across the catalogue.
 
 ### Project Detail (`/projects/{id}`)
 
-- Full list of member designs with thumbnails.
-- Add designs from the design detail page or in bulk from the main browse page.
-- Remove a design from the project.
-- Edit project name and description.
-- Delete project (designs are not deleted).
+- Full list of member designs with thumbnails and designer labels.
+- Edit project name and description inline.
+- Remove a design from the project from within the project detail page.
+- Add designs from:
+  - design detail page (single-design add/remove), and
+  - browse bottom-banner bulk actions (multi-design add).
+- Delete project (design records are not deleted).
 
 ### Print Sheet (`/projects/{id}/print`)
 
 Printer-friendly HTML sheet showing each design's preview image and key metadata
 (size, hoop, designer, rating, stitched status, and notes where present).
 Uses a CSS print stylesheet; no extra software needed.
+
+For architecture, route-contract, and integration details for Projects, see:
+
+- [Specs/projects-backend-spec.md](Specs/projects-backend-spec.md)
+- [Specs/projects-refactor-checklist.md](Specs/projects-refactor-checklist.md)
+- [Specs/UI/projects-ui-spec.md](Specs/UI/projects-ui-spec.md)
+
+For user-facing operation guidance, see:
+
+- [User-Facing-Guidance/PROJECTS.md](User-Facing-Guidance/PROJECTS.md)
 
 ---
 

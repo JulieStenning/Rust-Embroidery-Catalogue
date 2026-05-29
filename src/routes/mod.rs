@@ -7,3 +7,4 @@ pub mod bulk_import;
 pub mod tagging_actions;
 pub mod maintenance;
 pub mod settings;
+pub mod projects;

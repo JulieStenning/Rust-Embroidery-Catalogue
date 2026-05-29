@@ -731,6 +731,180 @@ export async function getBrowseProjects() {
   };
 }
 
+export async function getProjectsList() {
+  const REQUEST_TIMEOUT_MS = 15000;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Timed out loading projects after ${REQUEST_TIMEOUT_MS / 1000}s.`));
+    }, REQUEST_TIMEOUT_MS);
+  });
+
+  try {
+    const projects = await Promise.race([invoke("get_projects_list"), timeoutPromise]);
+    if (Array.isArray(projects)) {
+      return { items: projects, source: "rust" };
+    }
+  } catch (error) {
+    console.info("get_projects_list unavailable or timed out, using empty fallback.", error);
+    return {
+      items: [],
+      source: "mock",
+      error: `Could not load projects: ${String(error)}`,
+    };
+  }
+
+  return { items: [], source: "mock" };
+}
+
+export async function createProject(name, description) {
+  const payload = {
+    name: String(name || "").trim(),
+    description: String(description || "").trim() || null,
+  };
+
+  try {
+    const result = await invoke("create_project", { request: payload });
+    return {
+      source: "rust",
+      persisted: true,
+      project_id: Number(result?.project_id || 0),
+      message: String(result?.message || "Project created."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      project_id: 0,
+      message: `Could not create project: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function getProjectDetail(projectId) {
+  const normalizedProjectId = Number(projectId);
+  if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+    return { item: null, source: "mock", error: `Invalid project id: ${projectId}` };
+  }
+
+  try {
+    const detail = await invoke("get_project_detail", { projectId: normalizedProjectId });
+    if (detail && typeof detail === "object") {
+      return { item: detail, source: "rust" };
+    }
+  } catch (error) {
+    return {
+      item: null,
+      source: "mock",
+      error: `Could not load project detail: ${error}`,
+    };
+  }
+
+  return { item: null, source: "mock", error: "Project detail was empty." };
+}
+
+export async function updateProject(projectId, name, description) {
+  const normalizedProjectId = Number(projectId);
+  const payload = {
+    name: String(name || "").trim(),
+    description: String(description || "").trim() || null,
+  };
+
+  try {
+    const result = await invoke("update_project", {
+      projectId: normalizedProjectId,
+      request: payload,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      project_id: Number(result?.project_id || normalizedProjectId),
+      message: String(result?.message || "Project updated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      project_id: normalizedProjectId,
+      message: `Could not update project: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function deleteProject(projectId) {
+  const normalizedProjectId = Number(projectId);
+
+  try {
+    const result = await invoke("delete_project", { projectId: normalizedProjectId });
+    return {
+      source: "rust",
+      persisted: true,
+      project_id: Number(result?.project_id || normalizedProjectId),
+      message: String(result?.message || "Project deleted."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      project_id: normalizedProjectId,
+      message: `Could not delete project: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function removeDesignFromProjectDetail(projectId, designId) {
+  const normalizedProjectId = Number(projectId);
+  const normalizedDesignId = Number(designId);
+
+  try {
+    const result = await invoke("remove_design_from_project_detail", {
+      projectId: normalizedProjectId,
+      designId: normalizedDesignId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      project_id: Number(result?.project_id || normalizedProjectId),
+      design_id: Number(result?.design_id || normalizedDesignId),
+      message: String(result?.message || "Design removed from project."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      project_id: normalizedProjectId,
+      design_id: normalizedDesignId,
+      message: `Could not remove design from project: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function getProjectPrintView(projectId) {
+  const normalizedProjectId = Number(projectId);
+  if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+    return { item: null, source: "mock", error: `Invalid project id: ${projectId}` };
+  }
+
+  try {
+    const view = await invoke("get_project_print_view", { projectId: normalizedProjectId });
+    if (view && typeof view === "object") {
+      return { item: view, source: "rust" };
+    }
+  } catch (error) {
+    return {
+      item: null,
+      source: "mock",
+      error: `Could not load project print view: ${error}`,
+    };
+  }
+
+  return { item: null, source: "mock", error: "Project print view was empty." };
+}
+
 /**
  * Add selected designs to a project in Rust backend.
  * Falls back to local-only behavior while route wiring is in progress.
@@ -752,9 +926,12 @@ export async function bulkAddDesignsToProject(projectId, designIds) {
   }
 
   try {
+    // Send both key styles so this works across mixed command bindings.
     const result = await invoke("bulk_add_designs_to_project", {
       projectId: normalizedProjectId,
       designIds: normalizedIds,
+      project_id: normalizedProjectId,
+      design_ids: normalizedIds,
     });
     return {
       source: "rust",
@@ -769,8 +946,9 @@ export async function bulkAddDesignsToProject(projectId, designIds) {
       source: "mock",
       project_id: normalizedProjectId,
       requested_count: normalizedIds.length,
-      added_count: normalizedIds.length,
+      added_count: 0,
       persisted: false,
+      error: String(error),
     };
   }
 }

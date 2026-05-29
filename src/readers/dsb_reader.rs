@@ -72,7 +72,9 @@ fn read_dsb(data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
     let mut pattern = EmbPattern::new();
     let mut cursor = Cursor::new(data);
     dsb_read_header(&mut cursor, &mut pattern);
-    let mut stitch_count = 0;
+    // TODO: Reinstate stitch_count tracking when the decoded stitch total is
+    // consumed for validation, diagnostics, or metadata output.
+    // let mut stitch_count = 0;
     loop {
         let mut byte = [0u8; 3];
         if cursor.read_exact(&mut byte).is_err() {
@@ -84,13 +86,13 @@ fn read_dsb(data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
         if ctrl & 0x40 != 0 { y = -y; }
         if ctrl & 0x20 != 0 { x = -x; }
         match ctrl & 0b11111 {
-            0 => { pattern.add_stitch_relative(StitchType::Stitch, x, y); stitch_count += 1; },
-            1 => { pattern.add_stitch_relative(StitchType::Jump, x, y); stitch_count += 1; },
+            0 => { pattern.add_stitch_relative(StitchType::Stitch, x, y); /* stitch_count += 1; */ },
+            1 => { pattern.add_stitch_relative(StitchType::Jump, x, y); /* stitch_count += 1; */ },
             _ => match ctrl {
                 0xF8 => break,
-                0xE7 => { pattern.add_stitch_relative(StitchType::Trim, x, y); stitch_count += 1; },
-                0xE8 => { pattern.add_stitch_relative(StitchType::Stop, x, y); stitch_count += 1; },
-                c if (0xE9..0xF8).contains(&c) => { pattern.add_stitch_relative(StitchType::ColorChange, x, y); stitch_count += 1; },
+                0xE7 => { pattern.add_stitch_relative(StitchType::Trim, x, y); /* stitch_count += 1; */ },
+                0xE8 => { pattern.add_stitch_relative(StitchType::Stop, x, y); /* stitch_count += 1; */ },
+                c if (0xE9..0xF8).contains(&c) => { pattern.add_stitch_relative(StitchType::ColorChange, x, y); /* stitch_count += 1; */ },
                 _ => break,
             },
         }
