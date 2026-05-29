@@ -57,7 +57,9 @@ if /I not "%RUST_APP_SKIP_NPM_INSTALL%"=="1" (
 )
 
 echo [Rust App] Launching Tauri dev app...
-cargo tauri dev
+REM Tauri's file watcher can retrigger on Vite temp files under frontend\node_modules\
+REM and make the app appear to start twice. Keep dev server + frontend, but skip watch.
+cargo tauri dev --no-watch
 set "APP_EXIT=%ERRORLEVEL%"
 if not "%APP_EXIT%"=="0" goto :fail_with_code
 exit /b 0
