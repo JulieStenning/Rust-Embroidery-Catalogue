@@ -210,6 +210,17 @@
 	background-color: rgb(229 231 235);
 }
 
+.ui-action-button[disabled],
+.ui-action-button[aria-disabled="true"] {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.browse-search-submit-button,
+.browse-search-reset-button {
+	/* Intentional semantic hooks for Browse Search actions. */
+}
+
 .route-card,
 .route-panel {
 	border: 1px solid rgb(229 231 235);

@@ -69,12 +69,17 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - .ui-control-caret
 - .ui-checkbox
 - .ui-radio
+- .ui-action-button
+- .ui-action-button-primary
 
 ## Controls
 - Primary button height target: 2rem to 2.25rem.
 - Input/select height target: 2rem to 2.25rem.
 - Control border radius baseline: 0.25rem.
 - Checkbox hit area should remain easily clickable and keyboard focus-visible.
+- Disabled buttons must use explicit disabled styling via shared button classes, not utility-only styling.
+- Browse search action buttons use dedicated semantic classes (.browse-search-submit-button and .browse-search-reset-button).
+- In Browse, Search is the authoritative refresh action; do not add a separate Refresh button beside Search/Reset.
 
 ## Card Contract
 Applies to dense browse/project card grids unless overridden by page spec.

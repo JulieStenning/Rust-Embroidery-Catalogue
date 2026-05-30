@@ -4404,17 +4404,16 @@
           </div>
 
           <div class="ml-auto flex gap-3 items-center self-end">
-            <button type="submit" class="menu-button-primary">Search</button>
+            <button type="submit" class="menu-button-primary ui-action-button ui-action-button-primary browse-search-submit-button">Search</button>
             <button
               type="button"
-              class="menu-button-primary disabled:opacity-50"
+              class="menu-button-primary ui-action-button ui-action-button-primary browse-search-reset-button"
               disabled={!hasActiveBrowseFilters()}
               aria-disabled={!hasActiveBrowseFilters()}
               onclick={resetBrowseFilters}
             >
               Reset
             </button>
-            <button type="button" class="menu-button-secondary" onclick={loadBrowseItems}>Refresh</button>
           </div>
         </div>
       </form>
@@ -4422,7 +4421,7 @@
       <div class="flex items-center justify-between text-sm text-gray-600">
         <span>{browseTotal} design{browseTotal === 1 ? "" : "s"} found — page {browseCurrentPage} of {browseTotalPages}</span>
         {#if browsePageItems.length > 0}
-          <label class="flex items-center gap-1 cursor-pointer select-none">
+          <label class="ui-field-label flex items-center gap-1 cursor-pointer select-none">
             <input
               type="checkbox"
               id="browse-select-all-visible"
