@@ -3,8 +3,16 @@
 ## Status
 - Type: Current behavior + target architecture
 - Audience: Agents
-- Last validated: 2026-05-24
+- Last validated: 2026-05-30
 - Companion checklist: [docs/Specs/backup-refactor-checklist.md](docs/Specs/backup-refactor-checklist.md)
+
+Desktop status note (2026-05-30):
+- Top-menu backup page in the Tauri frontend is now wired to real backend commands for destination loading/saving, browse-folder selection, database backup, designs backup, and combined backup execution.
+- Evidence:
+  - [src/routes/maintenance.rs](src/routes/maintenance.rs)
+  - [src/main.rs](src/main.rs)
+  - [frontend/src/lib/api/commandAdapter.js](frontend/src/lib/api/commandAdapter.js)
+  - [frontend/src/lib/MainView.svelte](frontend/src/lib/MainView.svelte)
 
 ## Purpose
 Define backend architecture and functionality for:

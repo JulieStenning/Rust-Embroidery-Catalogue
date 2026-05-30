@@ -39,6 +39,12 @@
     saveSettings,
     saveImportLastBrowseFolder,
     browseSettingsDataRoot,
+    getBackupViewModel,
+    saveBackupSettings,
+    browseBackupFolder,
+    runDatabaseBackup,
+    runDesignsBackup,
+    runBothBackups,
     listDesigners,
     createDesigner,
     deleteDesigner as removeDesigner,
@@ -475,6 +481,12 @@
   let backupDesignsDestination = $state("");
   let backupSavedDbDestination = $state("");
   let backupSavedDesignsDestination = $state("");
+  let backupDbSourcePath = $state("(not available yet)");
+  let backupDesignsSourcePath = $state("(not available yet)");
+  let backupLoaded = $state(false);
+  let backupLoading = $state(false);
+  let backupDatabaseRunning = $state(false);
+  let backupDesignsRunning = $state(false);
   let backupStatus = $state("idle");
   let backupMessage = $state("");
   let importHasAppliedSavedRoot = $state(false);
@@ -755,12 +767,7 @@
   );
   let backupHasDbDestination = $derived(backupSavedDbDestination.trim().length > 0);
   let backupHasDesignsDestination = $derived(backupSavedDesignsDestination.trim().length > 0);
-  let backupDbSourcePath = $derived(
-    settingsDataRoot ? `${settingsDataRoot}\\database\\catalogue.db` : "(not available yet)"
-  );
-  let backupDesignsSourcePath = $derived(
-    settingsDataRoot ? `${settingsDataRoot}\\MachineEmbroideryDesigns` : "(not available yet)"
-  );
+  let backupAnyRunning = $derived(backupDatabaseRunning || backupDesignsRunning);
 
   let adminIsDesignersRoute = $derived(currentRoute === "#/admin/designers");
   let adminIsTagsRoute = $derived(currentRoute === "#/admin/tags");
@@ -881,12 +888,60 @@
     }
   }
 
-  function browseBackupDestinationUiOnly(kind) {
-    backupStatus = "error";
-    backupMessage = `Folder picker for ${kind} destination is not wired yet. Please enter the destination path manually.`;
+  async function loadBackupFromBackend(force = false) {
+    if (backupLoading) {
+      return;
+    }
+    if (backupLoaded && !force) {
+      return;
+    }
+
+    backupLoading = true;
+    try {
+      const result = await getBackupViewModel();
+      const model = result?.model || {};
+      backupDbDestination = String(model?.db_destination || "");
+      backupDesignsDestination = String(model?.designs_destination || "");
+      backupSavedDbDestination = backupDbDestination;
+      backupSavedDesignsDestination = backupDesignsDestination;
+
+      const fallbackDataRoot = settingsDataRoot ? String(settingsDataRoot) : "";
+      backupDbSourcePath = String(model?.db_source_path || (fallbackDataRoot ? `${fallbackDataRoot}\\database\\catalogue.db` : "(not available yet)"));
+      backupDesignsSourcePath = String(
+        model?.designs_source_path || (fallbackDataRoot ? `${fallbackDataRoot}\\MachineEmbroideryDesigns` : "(not available yet)")
+      );
+
+      backupLoaded = true;
+    } catch (error) {
+      backupStatus = "error";
+      backupMessage = `Could not load backup settings: ${error}`;
+    } finally {
+      backupLoading = false;
+    }
   }
 
-  function saveBackupDestinationsUiOnly(event) {
+  async function browseBackupDestinationUiOnly(kind) {
+    const startDir = kind === "database" ? backupDbDestination : backupDesignsDestination;
+    const result = await browseBackupFolder(startDir);
+
+    if (result.path) {
+      if (kind === "database") {
+        backupDbDestination = result.path;
+      } else {
+        backupDesignsDestination = result.path;
+      }
+      backupStatus = "idle";
+      backupMessage = "";
+      return;
+    }
+
+    if (result.error) {
+      backupStatus = "error";
+      backupMessage = result.error;
+    }
+  }
+
+  async function saveBackupDestinationsUiOnly(event) {
     event.preventDefault();
 
     if (!backupHasUnsavedChanges) {
@@ -895,13 +950,30 @@
       return;
     }
 
-    backupSavedDbDestination = backupDbDestination.trim();
-    backupSavedDesignsDestination = backupDesignsDestination.trim();
-    backupStatus = "saved";
-    backupMessage = "Backup destinations saved.";
+    const result = await saveBackupSettings({
+      dbDestination: backupDbDestination,
+      designsDestination: backupDesignsDestination,
+    });
+
+    if (result.saved) {
+      backupSavedDbDestination = String(result.db_destination || backupDbDestination).trim();
+      backupSavedDesignsDestination = String(result.designs_destination || backupDesignsDestination).trim();
+      backupDbDestination = backupSavedDbDestination;
+      backupDesignsDestination = backupSavedDesignsDestination;
+      backupStatus = "saved";
+      backupMessage = result.message || "Backup destinations saved.";
+      return;
+    }
+
+    backupStatus = "error";
+    backupMessage = result.message || "Could not save backup destinations.";
   }
 
-  function runBackupActionUiOnly(action) {
+  async function runBackupActionUiOnly(action) {
+    if (backupAnyRunning) {
+      return;
+    }
+
     if (action === "database" && !backupHasDbDestination) {
       backupStatus = "error";
       backupMessage = "No database backup destination is configured. Please set one below and save destinations.";
@@ -920,8 +992,65 @@
       return;
     }
 
-    backupStatus = "saved";
-    backupMessage = `Backup action "${action}" is queued in UI-only mode. Backend execution wiring is next.`;
+    const runsDatabase = action === "database" || action === "both";
+    const runsDesigns = action === "designs" || action === "both";
+    if (runsDatabase) {
+      backupDatabaseRunning = true;
+    }
+    if (runsDesigns) {
+      backupDesignsRunning = true;
+    }
+
+    try {
+      if (action === "database") {
+        const result = await runDatabaseBackup();
+        if (!result.success) {
+          backupStatus = "error";
+          backupMessage = result.error || "Database backup failed.";
+          return;
+        }
+
+        const mb = (Number(result.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+        backupStatus = "saved";
+        backupMessage = `Database backup created: ${result.backup_path || "(path unavailable)"} (${mb} MB).`;
+        return;
+      }
+
+      if (action === "designs") {
+        const result = await runDesignsBackup();
+        if (!result.success) {
+          backupStatus = "error";
+          backupMessage = result.error || "Designs backup failed.";
+          return;
+        }
+
+        backupStatus = "saved";
+        backupMessage = `Designs backup complete: scanned ${result.scanned}, copied ${result.copied}, updated ${result.updated}, unchanged ${result.unchanged}, archived ${result.archived}.`;
+        return;
+      }
+
+      const result = await runBothBackups();
+      const dbOk = Boolean(result?.database?.success);
+      const designsOk = Boolean(result?.designs?.success);
+
+      if (dbOk && designsOk) {
+        backupStatus = "saved";
+        backupMessage = "Both backups completed successfully.";
+        return;
+      }
+
+      const dbError = String(result?.database?.error || "").trim();
+      const designsError = String(result?.designs?.error || "").trim();
+      backupStatus = "error";
+      backupMessage = `Backup results: database ${dbOk ? "ok" : "failed"}${dbError ? ` (${dbError})` : ""}; designs ${designsOk ? "ok" : "failed"}${designsError ? ` (${designsError})` : ""}.`;
+    } finally {
+      if (runsDatabase) {
+        backupDatabaseRunning = false;
+      }
+      if (runsDesigns) {
+        backupDesignsRunning = false;
+      }
+    }
   }
 
   function normalizeHash(hash) {
@@ -3023,6 +3152,12 @@
   });
 
   $effect(() => {
+    if (currentRoute === "#/admin/maintenance/backup" && !backupLoaded && !backupLoading) {
+      loadBackupFromBackend();
+    }
+  });
+
+  $effect(() => {
     if (currentUiKind === "about") {
       loadAboutDocuments();
     }
@@ -3916,11 +4051,11 @@
           <button
             type="button"
             class="settings-primary-button menu-button-primary"
-            disabled={!backupHasDbDestination}
+            disabled={!backupHasDbDestination || backupAnyRunning}
             title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
             onclick={() => runBackupActionUiOnly("database")}
           >
-            Backup database now
+            {backupDatabaseRunning ? "Backing up database..." : "Backup database now"}
           </button>
         </div>
 
@@ -3936,11 +4071,11 @@
           <button
             type="button"
             class="settings-primary-button menu-button-primary"
-            disabled={!backupHasDesignsDestination}
+            disabled={!backupHasDesignsDestination || backupAnyRunning}
             title={!backupHasDesignsDestination ? "Set a designs backup destination first" : undefined}
             onclick={() => runBackupActionUiOnly("designs")}
           >
-            Run incremental backup
+            {backupDesignsRunning ? "Running incremental backup..." : "Run incremental backup"}
           </button>
         </div>
 
@@ -3950,11 +4085,11 @@
           <button
             type="button"
             class="settings-primary-button menu-button-primary"
-            disabled={!backupHasDbDestination || !backupHasDesignsDestination}
+            disabled={!backupHasDbDestination || !backupHasDesignsDestination || backupAnyRunning}
             title={!backupHasDbDestination || !backupHasDesignsDestination ? "Set both backup destinations first" : undefined}
             onclick={() => runBackupActionUiOnly("both")}
           >
-            Run both backups
+            {backupAnyRunning ? "Backup in progress..." : "Run both backups"}
           </button>
         </div>
       </div>

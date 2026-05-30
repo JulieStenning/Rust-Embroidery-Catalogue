@@ -1264,6 +1264,153 @@ export async function browseSettingsDataRoot(startDir) {
   }
 }
 
+export async function getBackupViewModel() {
+  try {
+    const model = await invoke("get_backup_view_model");
+    return {
+      source: "rust",
+      model: {
+        db_destination: String(model?.db_destination || ""),
+        designs_destination: String(model?.designs_destination || ""),
+        db_source_path: String(model?.db_source_path || ""),
+        designs_source_path: String(model?.designs_source_path || ""),
+      },
+    };
+  } catch (error) {
+    console.info("get_backup_view_model unavailable, using local fallback.", error);
+    return {
+      source: "mock",
+      model: {
+        db_destination: "",
+        designs_destination: "",
+        db_source_path: "",
+        designs_source_path: "",
+      },
+      error: String(error),
+    };
+  }
+}
+
+export async function saveBackupSettings({ dbDestination, designsDestination }) {
+  try {
+    const result = await invoke("save_backup_settings", {
+      request: {
+        db_destination: String(dbDestination || ""),
+        designs_destination: String(designsDestination || ""),
+      },
+    });
+
+    return {
+      source: "rust",
+      persisted: Boolean(result?.saved),
+      saved: Boolean(result?.saved),
+      message: String(result?.message || "Backup destinations saved."),
+      db_destination: String(result?.db_destination || ""),
+      designs_destination: String(result?.designs_destination || ""),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      saved: false,
+      message: `Could not save backup destinations: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+export async function browseBackupFolder(startDir = "") {
+  try {
+    const result = await invoke("browse_backup_folder", {
+      startDir: String(startDir || "") || null,
+    });
+
+    return {
+      source: "rust",
+      path: result?.path ? String(result.path) : null,
+      error: result?.error ? String(result.error) : null,
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      path: null,
+      error: `Folder picker unavailable: ${error}`,
+    };
+  }
+}
+
+export async function runDatabaseBackup() {
+  try {
+    const result = await invoke("run_database_backup");
+    return {
+      source: "rust",
+      success: Boolean(result?.success),
+      backup_path: result?.backup_path ? String(result.backup_path) : "",
+      size_bytes: Number(result?.size_bytes ?? 0),
+      completed_at: String(result?.completed_at || ""),
+      error: result?.error ? String(result.error) : "",
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      success: false,
+      backup_path: "",
+      size_bytes: 0,
+      completed_at: "",
+      error: String(error),
+    };
+  }
+}
+
+export async function runDesignsBackup() {
+  try {
+    const result = await invoke("run_designs_backup");
+    return {
+      source: "rust",
+      success: Boolean(result?.success),
+      scanned: Number(result?.scanned ?? 0),
+      copied: Number(result?.copied ?? 0),
+      updated: Number(result?.updated ?? 0),
+      unchanged: Number(result?.unchanged ?? 0),
+      archived: Number(result?.archived ?? 0),
+      total_bytes_copied: Number(result?.total_bytes_copied ?? 0),
+      completed_at: String(result?.completed_at || ""),
+      error: result?.error ? String(result.error) : "",
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      success: false,
+      scanned: 0,
+      copied: 0,
+      updated: 0,
+      unchanged: 0,
+      archived: 0,
+      total_bytes_copied: 0,
+      completed_at: "",
+      error: String(error),
+    };
+  }
+}
+
+export async function runBothBackups() {
+  try {
+    const result = await invoke("run_both_backups");
+    return {
+      source: "rust",
+      database: result?.database || null,
+      designs: result?.designs || null,
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      database: null,
+      designs: null,
+      error: String(error),
+    };
+  }
+}
+
 export async function listDesigners() {
   try {
     const items = await invoke("list_designers");

@@ -170,6 +170,12 @@ fn main() {
             routes::bulk_import::browse_import_folder,
             routes::tagging_actions::preview_tagging_action,
             routes::maintenance::maintenance_scaffold_enabled,
+            routes::maintenance::get_backup_view_model,
+            routes::maintenance::save_backup_settings,
+            routes::maintenance::browse_backup_folder,
+            routes::maintenance::run_database_backup,
+            routes::maintenance::run_designs_backup,
+            routes::maintenance::run_both_backups,
         ])
         // tauri::generate_context!() reads tauri.conf.json from the project root
         .run(tauri::generate_context!())
