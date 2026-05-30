@@ -57,6 +57,34 @@ For broader application issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.m
 - The Help page does not currently include a dedicated About section.
 - About content is limited to bundled project documents mapped by slug.
 
+## Migration Parity Notes (Rust/Svelte)
+When validating a rebuilt Help system, keep these behaviors unchanged:
+- The same routes must exist: `/help`, `/about`, and `/about/document/{slug}`.
+- The Help quick-jump and section labels should remain exactly:
+	- `🔍 Search`
+	- `📥 Importing`
+	- `🤖 AI Tagging`
+	- `🏷 Tagging Actions`
+	- `📁 Projects`
+	- `🛠 Maintenance`
+	- `🔧 Troubleshooting`
+- Hash links should land on the same section IDs:
+	- `#search`
+	- `#importing`
+	- `#ai-tagging`
+	- `#tagging-actions`
+	- `#projects`
+	- `#maintenance`
+	- `#troubleshooting`
+- About should still list and open the same document slugs:
+	- `disclaimer`
+	- `privacy`
+	- `security`
+	- `ai-tagging`
+	- `third-party-notices`
+	- `licence`
+- Invalid About document slugs, or missing mapped files, should still show a not-found response.
+
 ## Related Guides
 - [GETTING_STARTED.md](GETTING_STARTED.md)
 - [SETTINGS.md](SETTINGS.md)

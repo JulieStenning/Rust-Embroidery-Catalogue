@@ -1,5 +1,6 @@
 // Root of the routes module
 pub mod api;
+pub mod about;
 pub mod admin;
 pub mod import;
 pub mod designs;

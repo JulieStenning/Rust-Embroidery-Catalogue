@@ -441,6 +441,7 @@ For agent-facing architectural and contract details, see:
 
 - [Specs/help-backend-spec.md](Specs/help-backend-spec.md)
 - [Specs/help-refactor-checklist.md](Specs/help-refactor-checklist.md)
+- [Specs/UI/help-ui-spec.md](Specs/UI/help-ui-spec.md)
 
 For user-facing guidance, see:
 

@@ -3,8 +3,9 @@
 ## Status
 - Type: Current behavior + target architecture
 - Audience: Agents
-- Last validated: 2026-05-24
+- Last validated: 2026-05-29
 - Companion checklist: [docs/Specs/help-refactor-checklist.md](docs/Specs/help-refactor-checklist.md)
+- UI companion: [docs/Specs/UI/help-ui-spec.md](docs/Specs/UI/help-ui-spec.md)
 - User guidance companion: [docs/User-Facing-Guidance/HELP.md](docs/User-Facing-Guidance/HELP.md)
 
 ## Purpose
@@ -169,6 +170,44 @@ flowchart TD
 - Keep /help, /about, and /about/document/{slug} endpoints stable.
 - Keep top-nav Help discoverability in global layout.
 - Preserve in-app about-document rendering behavior for bundled docs.
+
+## Rust/Svelte Migration Addendum
+
+This section captures implementation-neutral invariants for rebuilding Help/About in Rust + Svelte while preserving user-visible behavior.
+
+### Migration Contract Invariants
+- Route and method invariants:
+  - `GET /help`
+  - `GET /about`
+  - `GET /about/document/{slug}`
+- Help section invariants:
+  - Keep anchor IDs unchanged: `search`, `importing`, `ai-tagging`, `tagging-actions`, `projects`, `maintenance`, `troubleshooting`.
+  - Keep quick-jump and section heading labels unchanged (including emoji and wording).
+  - Keep section order unchanged.
+- About slug invariants:
+  - Preserve current slugs and semantic mapping:
+    - `disclaimer`
+    - `privacy`
+    - `security`
+    - `ai-tagging`
+    - `third-party-notices`
+    - `licence`
+- Error behavior invariants:
+  - Unknown slug returns HTTP 404.
+  - Known slug with missing source file returns HTTP 404.
+- Discoverability invariants:
+  - Global Help entry remains in top navigation.
+  - About remains discoverable and routed as a separate hub.
+  - Contextual workflow links continue targeting Help anchors from Browse, Import, Projects, and Orphans flows.
+
+### Rust Translation Notes (Implementation-Neutral)
+- The Python implementation uses template rendering, but the migration target only needs to preserve observable contracts and content structure.
+- For About documents, preserve the current behavior boundary:
+  - route-level slug validation,
+  - file-backed content retrieval,
+  - safe not-found handling.
+- Preserve copy-level guidance intent for Help sections; this is relied upon by existing tests and user workflows.
+- Keep route compatibility first; styling framework differences are acceptable if interaction and content contracts remain equivalent.
 
 ## Companion Refactor Checklist
 Use [docs/Specs/help-refactor-checklist.md](docs/Specs/help-refactor-checklist.md) for change-gated implementation and review.

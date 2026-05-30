@@ -47,5 +47,15 @@ Use this checklist when changing Help routes, About routes, help template conten
 ## 8. Documentation Gate
 - [ ] [docs/Specs/help-backend-spec.md](docs/Specs/help-backend-spec.md) reflects current behavior.
 - [ ] [docs/User-Facing-Guidance/HELP.md](docs/User-Facing-Guidance/HELP.md) remains aligned with in-app help navigation.
+- [ ] [docs/Specs/UI/help-ui-spec.md](docs/Specs/UI/help-ui-spec.md) reflects current Help/About UI behavior.
 - [ ] [docs/feature-inventory.md](docs/feature-inventory.md) links to current help spec/checklist/user guidance.
 - [ ] Changelog entry is added when user-visible help behavior changes.
+
+## 9. Rust/Svelte Migration Parity Gate
+- [ ] `/help`, `/about`, and `/about/document/{slug}` route semantics are preserved exactly.
+- [ ] Help quick-jump labels and section headings match the canonical copy exactly (including emoji).
+- [ ] Help section anchor IDs and ordering are unchanged.
+- [ ] About slug set and destinations remain unchanged (`disclaimer`, `privacy`, `security`, `ai-tagging`, `third-party-notices`, `licence`).
+- [ ] Invalid slug and missing-file states continue to produce HTTP 404 behavior.
+- [ ] Contextual inbound links to Help anchors from Browse, Import, Projects, and Orphans remain valid.
+- [ ] At least one parity verification run checks rendered Help text/anchors against this repository's baseline docs.

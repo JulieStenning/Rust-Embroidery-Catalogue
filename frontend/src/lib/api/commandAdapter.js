@@ -1062,6 +1062,109 @@ export async function getBrowseDesignPreviews(designIds) {
   };
 }
 
+export async function getAboutDocuments() {
+  try {
+    const docs = await invoke("get_about_documents");
+    if (Array.isArray(docs)) {
+      return {
+        source: "rust",
+        items: docs.map((doc) => ({
+          slug: String(doc?.slug || ""),
+          title: String(doc?.title || ""),
+          description: String(doc?.description || ""),
+          filename: String(doc?.filename || ""),
+          available: Boolean(doc?.available),
+        })),
+      };
+    }
+  } catch (error) {
+    console.info("get_about_documents unavailable, using mock fallback.", error);
+  }
+
+  return {
+    source: "mock",
+    items: [
+      {
+        slug: "disclaimer",
+        title: "Disclaimer",
+        description: "Important use-at-your-own-risk and limitation-of-liability information.",
+        filename: "DISCLAIMER.html",
+        available: false,
+      },
+      {
+        slug: "privacy",
+        title: "Privacy",
+        description: "Explains what data is stored locally and what optional AI features may send externally.",
+        filename: "PRIVACY.md",
+        available: false,
+      },
+      {
+        slug: "security",
+        title: "Security",
+        description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
+        filename: "SECURITY.md",
+        available: false,
+      },
+      {
+        slug: "ai-tagging",
+        title: "AI Tagging Guide",
+        description: "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
+        filename: "docs/User-Facing-Guidance/AI_TAGGING.md",
+        available: false,
+      },
+      {
+        slug: "third-party-notices",
+        title: "Third-Party Notices",
+        description: "Licensing and attribution information for bundled and dependency software.",
+        filename: "THIRD_PARTY_NOTICES.md",
+        available: false,
+      },
+      {
+        slug: "licence",
+        title: "Licence",
+        description: "The licence terms for the Embroidery Catalogue project itself.",
+        filename: "LICENCE",
+        available: false,
+      },
+    ],
+  };
+}
+
+export async function getAboutDocument(slug) {
+  const normalizedSlug = String(slug || "").trim().toLowerCase();
+  if (!normalizedSlug) {
+    return { item: null, source: "mock", error: "Document not found." };
+  }
+
+  try {
+    const item = await invoke("get_about_document", { slug: normalizedSlug });
+    if (item && typeof item === "object") {
+      return {
+        source: "rust",
+        item: {
+          slug: String(item?.slug || normalizedSlug),
+          title: String(item?.title || ""),
+          description: String(item?.description || ""),
+          filename: String(item?.filename || ""),
+          document_text: String(item?.document_text || ""),
+        },
+      };
+    }
+  } catch (error) {
+    return {
+      source: "mock",
+      item: null,
+      error: String(error),
+    };
+  }
+
+  return {
+    source: "mock",
+    item: null,
+    error: "Document not found.",
+  };
+}
+
 /**
  * Load settings from Rust backend.
  */

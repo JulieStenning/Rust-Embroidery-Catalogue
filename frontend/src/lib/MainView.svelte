@@ -33,6 +33,8 @@
     bulkVerifyDesigns,
     bulkAddDesignsToProject,
     bulkSetTagsForDesigns,
+    getAboutDocuments,
+    getAboutDocument,
     getSettingsViewModel,
     saveSettings,
     saveImportLastBrowseFolder,
@@ -52,6 +54,9 @@
     updateHoop,
     deleteHoop as removeHoop,
   } from "./api/commandAdapter.js";
+  import HelpView from "./views/HelpView.svelte";
+  import AboutView from "./views/AboutView.svelte";
+  import AboutDocumentView from "./views/AboutDocumentView.svelte";
 
   const ROUTE_PAGES = {
     "#/designs": {
@@ -75,9 +80,9 @@
     },
     "#/help": {
       title: "Help",
-      subtitle: "Help and guidance placeholder",
-      description: "This page will surface in-app guides and troubleshooting content.",
-      cta: "Next backend hookup: help document query commands",
+      subtitle: "Help and guidance",
+      description: "In-app quick guidance for Search, Importing, AI Tagging, Projects, and troubleshooting.",
+      cta: "Use quick-jump links to move between sections",
     },
     "#/admin/designers": {
       title: "Designers",
@@ -129,15 +134,9 @@
     },
     "#/about": {
       title: "About",
-      subtitle: "About page placeholder",
-      description: "This page will present app information, disclaimers, and references.",
-      cta: "Next backend hookup: about document commands",
-    },
-    "#/about/licence": {
-      title: "Licence",
-      subtitle: "Licence page placeholder",
-      description: "This page will present licensing and third-party notice details.",
-      cta: "Next backend hookup: license document commands",
+      subtitle: "App information and bundled documents",
+      description: "Open project documents such as privacy, security, AI tagging, and licence.",
+      cta: "Choose a document to open",
     },
   };
 
@@ -154,6 +153,8 @@
     "#/admin/maintenance/backup",
     "#/admin/tagging-actions",
     "#/admin/orphans",
+    "#/about",
+    "#/about/document/licence",
   ];
 
   const ROUTE_UI_KIND = {
@@ -170,8 +171,17 @@
     "#/admin/tagging-actions": "tagging-actions",
     "#/admin/orphans": "orphans",
     "#/about": "about",
-    "#/about/licence": "licence",
   };
+
+  const HELP_SECTION_IDS = new Set([
+    "search",
+    "importing",
+    "ai-tagging",
+    "tagging-actions",
+    "projects",
+    "maintenance",
+    "troubleshooting",
+  ]);
 
   function parseDesignDetailId(route) {
     const match = route.match(/^#\/designs\/(\d+)$/);
@@ -191,6 +201,15 @@
   function parseProjectPrintId(route) {
     const match = route.match(/^#\/projects\/(\d+)\/print$/);
     return match ? Number(match[1]) : null;
+  }
+
+  function parseAboutDocumentSlug(route) {
+    if (route === "#/about/licence") {
+      return "licence";
+    }
+
+    const match = route.match(/^#\/about\/document\/([a-z0-9-]+)$/);
+    return match ? String(match[1]).toLowerCase() : null;
   }
 
   function resolveCurrentPage(route) {
@@ -238,6 +257,17 @@
         cta: "Use the detail controls to update this design",
       };
     }
+
+    const aboutSlug = parseAboutDocumentSlug(route);
+    if (aboutSlug !== null) {
+      return {
+        title: "About Document",
+        subtitle: "Bundled document viewer",
+        description: "Read bundled project, policy, and reference documents.",
+        cta: "Use Back to About to open another document",
+      };
+    }
+
     return ROUTE_PAGES[route] || null;
   }
 
@@ -261,6 +291,11 @@
     if (parseDesignDetailId(route) !== null) {
       return "design-detail";
     }
+
+    if (parseAboutDocumentSlug(route) !== null) {
+      return "about-document";
+    }
+
     return ROUTE_UI_KIND[route] || null;
   }
 
@@ -271,6 +306,7 @@
   let printDesignId = $derived(parseDesignPrintId(currentRoute));
   let projectDetailId = $derived(parseProjectDetailId(currentRoute));
   let projectPrintId = $derived(parseProjectPrintId(currentRoute));
+  let aboutDocumentSlug = $derived(parseAboutDocumentSlug(currentRoute));
 
   let browseItems = $state([]);
   let browseSource = $state("mock");
@@ -371,6 +407,18 @@
   let projectPrintSource = $state("mock");
   let projectPrintLoading = $state(false);
   let projectPrintError = $state("");
+
+  let aboutDocuments = $state([]);
+  let aboutDocumentsSource = $state("mock");
+  let aboutDocumentsLoading = $state(false);
+  let aboutDocumentsLoaded = $state(false);
+  let aboutDocumentsError = $state("");
+
+  let aboutDocumentItem = $state(null);
+  let aboutDocumentSource = $state("mock");
+  let aboutDocumentLoading = $state(false);
+  let aboutDocumentError = $state("");
+  let aboutDocumentLoadedSlug = $state("");
 
   let importRootPath = $state("C:/imports");
   let importRootPaths = $state([]);
@@ -881,13 +929,32 @@
     if (!hash || hash === "#" || hash === "#/") {
       return "#/designs";
     }
+
+    const sectionId = hash.startsWith("#") ? hash.slice(1) : "";
+    if (HELP_SECTION_IDS.has(sectionId)) {
+      return "#/help";
+    }
+
+    if (hash === "#/about/licence") {
+      return "#/about/document/licence";
+    }
+
     return hash;
   }
 
   function syncRouteFromHash() {
-    const nextRoute = normalizeHash(window.location.hash);
+    const rawHash = window.location.hash || "";
+    const nextRoute = normalizeHash(rawHash);
+    const sectionId = rawHash.startsWith("#") ? rawHash.slice(1) : "";
+    const scrollToHelpSection = HELP_SECTION_IDS.has(sectionId);
     const enteringProjects = currentRoute !== "#/projects" && nextRoute === "#/projects";
     currentRoute = nextRoute;
+
+    if (scrollToHelpSection) {
+      setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
 
     if (enteringProjects) {
       // Force a single refresh when landing on projects without creating a reactive reload loop.
@@ -1238,6 +1305,70 @@
       projectPrintError = `Could not load project print view: ${error}`;
     } finally {
       projectPrintLoading = false;
+    }
+  }
+
+  async function loadAboutDocuments(force = false) {
+    if (aboutDocumentsLoading && !force) {
+      return;
+    }
+    if (aboutDocumentsLoaded && !force) {
+      return;
+    }
+
+    aboutDocumentsLoading = true;
+    aboutDocumentsError = "";
+
+    try {
+      const result = await getAboutDocuments();
+      aboutDocuments = Array.isArray(result?.items) ? result.items : [];
+      aboutDocumentsSource = result?.source || "mock";
+      aboutDocumentsLoaded = true;
+    } catch (error) {
+      aboutDocuments = [];
+      aboutDocumentsSource = "mock";
+      aboutDocumentsLoaded = true;
+      aboutDocumentsError = `Could not load about documents: ${error}`;
+    } finally {
+      aboutDocumentsLoading = false;
+    }
+  }
+
+  async function loadAboutDocumentView(slug, force = false) {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    if (!normalizedSlug) {
+      aboutDocumentItem = null;
+      aboutDocumentError = "Document not found.";
+      aboutDocumentLoadedSlug = "";
+      return;
+    }
+
+    if (aboutDocumentLoading && !force) {
+      return;
+    }
+
+    if (aboutDocumentLoadedSlug === normalizedSlug && !force) {
+      return;
+    }
+
+    aboutDocumentLoading = true;
+    aboutDocumentError = "";
+
+    try {
+      const result = await getAboutDocument(normalizedSlug);
+      aboutDocumentItem = result?.item || null;
+      aboutDocumentSource = result?.source || "mock";
+      aboutDocumentLoadedSlug = normalizedSlug;
+      if (!aboutDocumentItem) {
+        aboutDocumentError = String(result?.error || "Document not found.");
+      }
+    } catch (error) {
+      aboutDocumentItem = null;
+      aboutDocumentSource = "mock";
+      aboutDocumentLoadedSlug = normalizedSlug;
+      aboutDocumentError = `Could not load document: ${error}`;
+    } finally {
+      aboutDocumentLoading = false;
     }
   }
 
@@ -2893,6 +3024,24 @@
   });
 
   $effect(() => {
+    if (currentUiKind === "about") {
+      loadAboutDocuments();
+    }
+  });
+
+  $effect(() => {
+    const slug = aboutDocumentSlug;
+    if (slug !== null) {
+      loadAboutDocumentView(slug);
+      return;
+    }
+
+    aboutDocumentItem = null;
+    aboutDocumentError = "";
+    aboutDocumentLoadedSlug = "";
+  });
+
+  $effect(() => {
     if (currentUiKind === "admin-list") {
       loadAdminDataForCurrentRoute();
     }
@@ -3033,7 +3182,7 @@
             ·
             <code class="bg-gray-100 px-1 rounded">*.hus</code>
             ·
-            <a href="#/help" class="text-indigo-500 hover:underline">Search help</a>
+            <a href="#search" class="text-indigo-500 hover:underline">Search help</a>
           </p>
         </div>
 
@@ -4359,7 +4508,7 @@
 
           <p class="projects-intro text-sm text-gray-500">
             Group designs for a planned embroidery task - for example a seasonal set or a quilt block series.
-            <a href="#/help" class="text-indigo-600 hover:underline">Learn more</a>
+            <a href="#importing" class="text-indigo-600 hover:underline">Learn more</a>
           </p>
 
           {#if projectsActionMessage}
@@ -4412,7 +4561,7 @@
             <h2 class="projects-subtitle text-2xl font-bold text-gray-800">New Project</h2>
             <p class="projects-intro text-sm text-gray-500">
               Projects let you group designs for a planned embroidery task.
-              <a href="#/help" class="text-indigo-600 hover:underline">Help</a>
+              <a href="#importing" class="text-indigo-600 hover:underline">Help</a>
             </p>
 
             {#if projectsActionMessage}
@@ -4610,11 +4759,7 @@
           </div>
         </section>
       {:else if currentUiKind === "help"}
-        <div class="space-y-2">
-          <div class="route-card">Getting started guide placeholder</div>
-          <div class="route-card">Import workflow help placeholder</div>
-          <div class="route-card">Troubleshooting links placeholder</div>
-        </div>
+        <HelpView />
       {:else if currentUiKind === "admin-list"}
         <section class="admin-page space-y-4">
           {#if adminNotice}
@@ -5054,15 +5199,17 @@
           </div>
         </div>
       {:else if currentUiKind === "about"}
-        <div class="space-y-2">
-          <div class="route-card">Application overview placeholder</div>
-          <div class="route-card">Document links placeholder</div>
-        </div>
-      {:else if currentUiKind === "licence"}
-        <div class="space-y-2">
-          <div class="route-card">License text placeholder</div>
-          <div class="route-card">Third-party notices placeholder</div>
-        </div>
+        <AboutView
+          documents={aboutDocuments}
+          loading={aboutDocumentsLoading}
+          error={aboutDocumentsError}
+        />
+      {:else if currentUiKind === "about-document"}
+        <AboutDocumentView
+          documentItem={aboutDocumentItem}
+          loading={aboutDocumentLoading}
+          error={aboutDocumentError}
+        />
       {:else}
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
           <div class="route-card">UI Shell</div>
@@ -5258,7 +5405,7 @@
     <span aria-hidden="true">•</span>
     <a href="#/about" class="hover:underline text-indigo-600">About</a>
     <span aria-hidden="true">•</span>
-    <a href="#/about/licence" class="hover:underline text-indigo-600">Licence</a>
+    <a href="#/about/document/licence" class="hover:underline text-indigo-600">Licence</a>
   </div>
 </footer>
 

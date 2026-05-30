@@ -107,6 +107,8 @@ fn main() {
             check_disclaimer,
             accept_disclaimer,
             get_disclaimer_text,
+            routes::about::get_about_documents,
+            routes::about::get_about_document,
             routes::designs::get_designs,
             routes::designs::get_design_detail,
             routes::designs::bulk_verify_designs,
