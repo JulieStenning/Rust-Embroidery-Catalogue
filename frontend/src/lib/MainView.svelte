@@ -4492,11 +4492,11 @@
                         <div class="browse-card-title-row flex items-start justify-between gap-1">
                           <p class="browse-card-title ui-field-label text-xs font-medium truncate flex-1" title={item.filename}>{item.filename}</p>
                           <span
-                            class={`browse-card-verified text-xs leading-none ${item.tagsChecked ? "text-green-600" : "text-red-500"}`}
+                            class={`browse-card-verified text-xs leading-none ${item.tagsChecked ? "browse-card-verified-ok" : "browse-card-verified-missing"}`}
                             title={item.tagsChecked ? "Verified" : "Not verified"}
                             aria-label={item.tagsChecked ? "Verified" : "Not verified"}
                           >
-                            {item.tagsChecked ? "✓" : "✗"}
+                            {item.tagsChecked ? "✓" : "x"}
                           </span>
                         </div>
                         {#if item.hoop}

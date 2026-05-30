@@ -935,8 +935,20 @@
 }
 
 .browse-card-verified {
-	font-weight: 600;
+	font-weight: 400;
 	margin-top: 1px;
+}
+
+.browse-card-verified-ok {
+	color: #16a34a;
+	font-weight: 600;
+}
+
+.browse-card-verified-missing {
+	color: #dc2626;
+	font-family: Georgia, "Times New Roman", serif;
+	font-style: italic;
+	font-weight: 400;
 }
 
 .browse-card-hoop {
