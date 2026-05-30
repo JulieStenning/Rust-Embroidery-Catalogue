@@ -281,6 +281,9 @@ pub async fn run_unified_backfill(
 		if images_action.enabled.unwrap_or(true) {
 			actions_run.push("images".to_string());
 			let preview_3d = images_action.preview_3d.or(request.preview_3d).unwrap_or(true);
+			let preview_3d_profile = get_string_setting(pool, "image.preview_3d_profile")
+				.await?
+				.unwrap_or_else(|| "balanced".to_string());
 			let image_candidates = select_image_candidates(
 				pool,
 				images_action.redo.unwrap_or(false),
@@ -300,7 +303,7 @@ pub async fn run_unified_backfill(
 					let _ = clear_image_fields(pool, design_id).await;
 				}
 
-				if let Err(error) = generate_and_store_preview(pool, design_id, preview_3d).await {
+				if let Err(error) = generate_and_store_preview(pool, design_id, preview_3d, &preview_3d_profile).await {
 					errors += 1;
 					log_error(format!("Image action failed design_id={} error={}", design_id, error));
 				}
@@ -760,7 +763,12 @@ async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), Str
 	Ok(())
 }
 
-async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64, preview_3d: bool) -> Result<(), String> {
+async fn generate_and_store_preview(
+	pool: &SqlitePool,
+	design_id: i64,
+	preview_3d: bool,
+	preview_3d_profile: &str,
+) -> Result<(), String> {
 	let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
 		.bind(design_id)
 		.fetch_optional(pool)
@@ -775,6 +783,7 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64, preview_3
 	let result = generate_preview(&ImageGenerationRequest {
 		file_path: filepath,
 		preview_3d,
+		preview_3d_profile: Some(preview_3d_profile.to_string()),
 	});
 
 	if let Some(error) = result.error {
@@ -842,6 +851,7 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
 	let result = generate_preview(&ImageGenerationRequest {
 		file_path: filepath,
 		preview_3d: false,
+		preview_3d_profile: None,
 	});
 
 	if let Some(error) = result.error {
@@ -886,6 +896,18 @@ async fn get_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, St
 		.and_then(|row| row.try_get::<String, _>("value").ok());
 
 	Ok(value.and_then(|raw| raw.trim().parse::<f64>().ok()))
+}
+
+async fn get_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<String>, String> {
+	let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")
+		.bind(key)
+		.fetch_optional(pool)
+		.await
+		.map_err(|e| e.to_string())?
+		.and_then(|row| row.try_get::<String, _>("value").ok())
+		.map(|raw| raw.trim().to_ascii_lowercase());
+
+	Ok(value)
 }
 
 fn resolve_i64_option(request: Option<i64>, setting: Option<i64>, default: i64, min: i64, max: i64) -> i64 {

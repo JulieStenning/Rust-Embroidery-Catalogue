@@ -1,6 +1,6 @@
 use base64::Engine;
 use crate::models::EmbPattern;
-use crate::png_writer::{render_pattern_to_png, RenderSettings};
+use crate::png_writer::{render_pattern_to_png, RenderSettings, ThreeDStyle};
 use crate::readers::{
     A10oReader, A100Reader, ArtReader, DatReader, DsbReader, DstReader, DszReader,
     EmdReader, EmbroideryReader, ExyReader, ExpReader, FxyReader, GcodeReader, GtReader,
@@ -41,6 +41,7 @@ enum BackendSupport {
 pub struct ImageGenerationRequest {
     pub file_path: String,
     pub preview_3d: bool,
+    pub preview_3d_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -421,7 +422,11 @@ fn generate_preview_via_native(request: &ImageGenerationRequest) -> ImageGenerat
         }
     };
 
-    analyze_pattern_with_native_renderer(&pattern, request.preview_3d)
+    analyze_pattern_with_native_renderer(
+        &pattern,
+        request.preview_3d,
+        request.preview_3d_profile.as_deref(),
+    )
 }
 
 fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
@@ -486,6 +491,31 @@ fn round_two(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
 
+fn three_d_style_from_profile_name(profile_name: Option<&str>) -> ThreeDStyle {
+    let normalized = profile_name
+        .unwrap_or("balanced")
+        .trim()
+        .to_ascii_lowercase();
+
+    match normalized.as_str() {
+        "soft" => ThreeDStyle {
+            shadow_strength: 28,
+            highlight_strength: 20,
+            core_half_width: 1,
+            shadow_offset: 1,
+            highlight_offset: 1,
+        },
+        "high-contrast" | "high_contrast" | "highcontrast" => ThreeDStyle {
+            shadow_strength: 64,
+            highlight_strength: 52,
+            core_half_width: 2,
+            shadow_offset: 2,
+            highlight_offset: 2,
+        },
+        _ => ThreeDStyle::default(),
+    }
+}
+
 fn drawable_bounds_mm(pattern: &EmbPattern) -> Option<(f64, f64)> {
     let mut min_x = f32::INFINITY;
     let mut min_y = f32::INFINITY;
@@ -523,7 +553,11 @@ fn drawable_bounds_mm(pattern: &EmbPattern) -> Option<(f64, f64)> {
     }
 }
 
-fn analyze_pattern_with_native_renderer(pattern: &EmbPattern, preview_3d: bool) -> ImageGenerationResult {
+fn analyze_pattern_with_native_renderer(
+    pattern: &EmbPattern,
+    preview_3d: bool,
+    preview_3d_profile: Option<&str>,
+) -> ImageGenerationResult {
     let stitch_count = i64::try_from(pattern.count_stitches()).unwrap_or(i64::MAX);
     let color_count = i64::try_from(pattern.count_threads()).unwrap_or(i64::MAX);
     let color_change_count = i64::try_from(pattern.count_color_changes()).unwrap_or(i64::MAX);
@@ -542,7 +576,10 @@ fn analyze_pattern_with_native_renderer(pattern: &EmbPattern, preview_3d: bool) 
         };
     }
 
-    let settings = RenderSettings::default();
+    let mut settings = RenderSettings::default().with_preview_3d(preview_3d);
+    if preview_3d {
+        settings = settings.with_three_d_style(three_d_style_from_profile_name(preview_3d_profile));
+    }
     let image_data = render_pattern_to_png(pattern, &settings);
     let (width_mm, height_mm) = drawable_bounds_mm(pattern)
         .map(|(w, h)| (Some(w), Some(h)))
@@ -550,7 +587,7 @@ fn analyze_pattern_with_native_renderer(pattern: &EmbPattern, preview_3d: bool) 
 
     ImageGenerationResult {
         image_data: Some(image_data),
-        image_type: Some(if preview_3d { "2d" } else { "2d" }.to_string()),
+        image_type: Some(if preview_3d { "3d" } else { "2d" }.to_string()),
         width_mm,
         height_mm,
         stitch_count: Some(stitch_count),
@@ -626,6 +663,7 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
                         let fallback_result = generate_preview_via_python(&ImageGenerationRequest {
                             file_path: request.file_path.clone(),
                             preview_3d: false,
+                            preview_3d_profile: request.preview_3d_profile.clone(),
                         });
                         if fallback_result.error.is_none() {
                             return fallback_result;
@@ -746,6 +784,7 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
         let fallback_result = generate_preview_via_python(&ImageGenerationRequest {
             file_path: request.file_path.clone(),
             preview_3d: false,
+            preview_3d_profile: request.preview_3d_profile.clone(),
         });
         if fallback_result.error.is_none() {
             return fallback_result;
@@ -786,7 +825,7 @@ mod tests {
             stitch_type: StitchType::Stitch,
         });
 
-        let result = analyze_pattern_with_native_renderer(&pattern, false);
+        let result = analyze_pattern_with_native_renderer(&pattern, false, None);
 
         assert_eq!(result.backend, "native");
         assert!(result.error.is_none());
@@ -800,9 +839,32 @@ mod tests {
     }
 
     #[test]
+    fn native_analysis_marks_3d_when_requested() {
+        let mut pattern = EmbPattern::new();
+        pattern.add_thread(EmbThread::new(0x00FF00));
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10.0,
+            y: 10.0,
+            stitch_type: StitchType::Stitch,
+        });
+
+        let result = analyze_pattern_with_native_renderer(&pattern, true, Some("balanced"));
+
+        assert_eq!(result.backend, "native");
+        assert!(result.error.is_none());
+        assert_eq!(result.image_type.as_deref(), Some("3d"));
+        assert!(result.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+    }
+
+    #[test]
     fn native_analysis_handles_empty_patterns_without_rendering() {
         let pattern = EmbPattern::new();
-        let result = analyze_pattern_with_native_renderer(&pattern, false);
+        let result = analyze_pattern_with_native_renderer(&pattern, false, None);
 
         assert_eq!(result.backend, "native");
         assert!(result.error.is_none());
@@ -823,6 +885,7 @@ mod tests {
         let request = ImageGenerationRequest {
             file_path: file_path.to_string_lossy().to_string(),
             preview_3d: false,
+            preview_3d_profile: None,
         };
 
         let native = generate_preview_via_native(&request);
@@ -901,6 +964,7 @@ mod tests {
         let result = generate_preview(&ImageGenerationRequest {
             file_path: "C:/imports/sample.txt".to_string(),
             preview_3d: false,
+            preview_3d_profile: None,
         });
 
         assert_eq!(result.backend, "auto");

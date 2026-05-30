@@ -117,6 +117,29 @@ pub struct BrowseOrphanPathResult {
     pub opened: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct OrphanDebugRequest {
+    pub contains: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrphanPathDebugItem {
+    pub id: i64,
+    pub filename: String,
+    pub filepath: String,
+    pub resolved_path: String,
+    pub exists: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrphanDebugResult {
+    pub base_path: String,
+    pub checked: usize,
+    pub found: usize,
+    pub samples: Vec<OrphanPathDebugItem>,
+}
+
 #[derive(Debug, Clone)]
 struct FileSnapshot {
     full_path: PathBuf,
@@ -598,16 +621,29 @@ fn derive_designs_source_path() -> PathBuf {
 }
 
 fn resolve_design_full_path(base_path: &Path, stored_filepath: &str) -> PathBuf {
-    let cleaned = stored_filepath
-        .replace('\\', "/")
-        .trim_start_matches('/')
-        .to_string();
-
-    if cleaned.is_empty() {
-        base_path.to_path_buf()
-    } else {
-        base_path.join(cleaned)
+    // Match legacy Python behavior from services/designs.py::_full_path:
+    // normpath(base_path.rstrip("/\\") + filepath.replace("\\", os.sep)).
+    // This deliberately treats stored values as catalogue-relative text, even if they
+    // look absolute, so orphan detection remains parity-correct with existing data.
+    let mut base = normalize_path_string(base_path);
+    while base.ends_with('/') || base.ends_with('\\') {
+        base.pop();
     }
+
+    let candidate = stored_filepath.replace('\\', std::path::MAIN_SEPARATOR_STR);
+    let candidate_path = PathBuf::from(&candidate);
+    if candidate_path.is_absolute() {
+        return candidate_path;
+    }
+
+    let starts_with_sep = candidate.starts_with('/') || candidate.starts_with('\\');
+    let combined = if starts_with_sep {
+        format!("{}{}", base, candidate)
+    } else {
+        format!("{}{}{}", base, std::path::MAIN_SEPARATOR, candidate)
+    };
+
+    PathBuf::from(combined)
 }
 
 fn nearest_existing_folder(path: &Path, fallback: &Path) -> PathBuf {
@@ -821,6 +857,78 @@ async fn delete_design_ids_with_pool(pool: &SqlitePool, design_ids: &[i64]) -> R
     }
 
     Ok(deleted)
+}
+
+async fn collect_orphan_debug_with_pool(
+    pool: &SqlitePool,
+    base_path: &Path,
+    request: Option<OrphanDebugRequest>,
+) -> Result<OrphanDebugResult, String> {
+    let contains_filter = request
+        .as_ref()
+        .and_then(|item| item.contains.as_ref())
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty());
+    let limit = request
+        .as_ref()
+        .and_then(|item| item.limit)
+        .unwrap_or(200)
+        .clamp(1, 1000) as usize;
+
+    let rows = sqlx::query_as::<_, (i64, String, String)>(
+        "SELECT id, filename, filepath FROM designs ORDER BY filepath",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|error| error.to_string())?;
+
+    let mut checked = 0usize;
+    let mut found = 0usize;
+    let mut samples = Vec::new();
+
+    for (id, filename, filepath) in rows {
+        if filepath.trim().is_empty() {
+            continue;
+        }
+
+        if let Some(filter) = &contains_filter {
+            if !filepath.to_ascii_lowercase().contains(filter) {
+                continue;
+            }
+        }
+
+        checked = checked.saturating_add(1);
+        let resolved = resolve_design_full_path(base_path, &filepath);
+        let exists = resolved.is_file();
+        if !exists {
+            found = found.saturating_add(1);
+        }
+
+        if samples.len() < limit {
+            samples.push(OrphanPathDebugItem {
+                id,
+                filename,
+                filepath,
+                resolved_path: normalize_path_string(&resolved),
+                exists,
+            });
+        }
+    }
+
+    eprintln!(
+        "[orphans-debug] base={} checked={} found={} filter={:?}",
+        normalize_path_string(base_path),
+        checked,
+        found,
+        contains_filter
+    );
+
+    Ok(OrphanDebugResult {
+        base_path: normalize_path_string(base_path),
+        checked,
+        found,
+        samples,
+    })
 }
 
 fn strip_sqlite_prefix(database_url: &str) -> &str {
@@ -1185,6 +1293,92 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn scan_orphans_handles_relative_filepath_without_leading_separator() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-relative-path-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+        fs::write(root.join("present.jef"), b"ok").expect("present file should be created");
+
+        sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+            .bind(1_i64)
+            .bind("present.jef")
+            .bind("present.jef")
+            .execute(&pool)
+            .await
+            .expect("design insert should succeed");
+
+        let result = scan_orphans_with_pool(&pool, &root)
+            .await
+            .expect("scan should succeed");
+
+        assert_eq!(result.checked, 1);
+        assert_eq!(result.found, 0);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn scan_orphans_allows_absolute_filepath_when_file_exists() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-absolute-path-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+
+        let external_root = unique_temp_path("orphans-absolute-external");
+        fs::create_dir_all(&external_root).expect("external root should be created");
+        let external_file = external_root.join("exists.jef");
+        fs::write(&external_file, b"ok").expect("external file should be created");
+
+        let stored = external_file.to_string_lossy().to_string();
+        sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+            .bind(1_i64)
+            .bind("exists.jef")
+            .bind(stored)
+            .execute(&pool)
+            .await
+            .expect("design insert should succeed");
+
+        let result = scan_orphans_with_pool(&pool, &root)
+            .await
+            .expect("scan should succeed");
+
+        assert_eq!(result.checked, 1);
+        assert_eq!(result.found, 0);
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&external_root);
+    }
+
+    #[tokio::test]
+    async fn scan_orphans_counts_missing_absolute_filepath_as_orphan() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-absolute-missing-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+
+        let missing_absolute = format!(
+            "{}{}",
+            unique_temp_path("orphans-absolute-missing").to_string_lossy(),
+            format!("{}missing.jef", std::path::MAIN_SEPARATOR)
+        );
+
+        sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+            .bind(1_i64)
+            .bind("missing.jef")
+            .bind(missing_absolute)
+            .execute(&pool)
+            .await
+            .expect("design insert should succeed");
+
+        let result = scan_orphans_with_pool(&pool, &root)
+            .await
+            .expect("scan should succeed");
+
+        assert_eq!(result.checked, 1);
+        assert_eq!(result.found, 1);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
     async fn get_orphans_page_returns_sorted_slice() {
         let pool = setup_orphans_test_pool().await;
         let root = unique_temp_path("orphans-page-test");
@@ -1247,4 +1441,14 @@ mod tests {
             .expect("remaining count should load");
         assert_eq!(remaining, 1);
     }
+}
+
+#[tauri::command]
+pub async fn debug_orphans_scan(
+    state: State<'_, AppState>,
+    request: Option<OrphanDebugRequest>,
+) -> Result<OrphanDebugResult, String> {
+    let pool = &state.db;
+    let base_path = derive_designs_source_path();
+    collect_orphan_debug_with_pool(pool, &base_path, request).await
 }

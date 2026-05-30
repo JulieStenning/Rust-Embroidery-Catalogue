@@ -1663,6 +1663,42 @@ export async function browseOrphanPath(filepath) {
   }
 }
 
+export async function debugOrphansScan({ contains = "", limit = 200 } = {}) {
+  try {
+    const result = await invoke("debug_orphans_scan", {
+      request: {
+        contains: String(contains || ""),
+        limit: Number(limit),
+      },
+    });
+
+    return {
+      source: "rust",
+      base_path: String(result?.base_path || ""),
+      checked: Number(result?.checked ?? 0),
+      found: Number(result?.found ?? 0),
+      samples: Array.isArray(result?.samples)
+        ? result.samples.map((item) => ({
+            id: Number(item?.id),
+            filename: String(item?.filename || ""),
+            filepath: String(item?.filepath || ""),
+            resolved_path: String(item?.resolved_path || ""),
+            exists: Boolean(item?.exists),
+          }))
+        : [],
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      base_path: "",
+      checked: 0,
+      found: 0,
+      samples: [],
+      error: String(error),
+    };
+  }
+}
+
 export async function listDesigners() {
   try {
     const items = await invoke("list_designers");

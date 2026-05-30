@@ -559,9 +559,28 @@ async fn render_design_3d_preview_with_pool(
 		return Err("Design file not found on disk for 3D rendering.".to_string());
 	}
 
+	let preview_3d_profile: Option<String> = sqlx::query_scalar(
+		"SELECT value FROM settings WHERE key = 'image.preview_3d_profile' LIMIT 1",
+	)
+	.fetch_optional(pool)
+	.await
+	.map_err(|e| e.to_string())?;
+
+	let preview_3d_profile = preview_3d_profile
+		.as_deref()
+		.map(str::trim)
+		.map(str::to_ascii_lowercase)
+		.map(|value| match value.as_str() {
+			"soft" => "soft".to_string(),
+			"high-contrast" | "high_contrast" | "highcontrast" => "high-contrast".to_string(),
+			_ => "balanced".to_string(),
+		})
+		.unwrap_or_else(|| "balanced".to_string());
+
 	let generation_result = generate_preview(&ImageGenerationRequest {
 		file_path: full_path.to_string_lossy().to_string(),
 		preview_3d: true,
+		preview_3d_profile: Some(preview_3d_profile),
 	});
 
 	if let Some(error) = generation_result.error {

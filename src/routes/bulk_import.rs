@@ -1,4 +1,4 @@
-use crate::services::{folder_picker, image_generation, scanning, tagging, validation};
+use crate::services::{folder_picker, image_generation, scanning, stitch_identifier, tagging, validation};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
@@ -366,6 +366,29 @@ async fn load_tag_catalog(pool: &SqlitePool) -> Result<Vec<(i64, String)>, Strin
     .map_err(|e| e.to_string())
 }
 
+async fn load_stitching_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, String> {
+    let rows: Vec<(i64, String)> = sqlx::query_as(
+        "SELECT id, description FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching'",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(id, description)| (description, id))
+        .collect())
+}
+
+async fn load_default_stitching_tag_id(pool: &SqlitePool) -> Result<Option<i64>, String> {
+    sqlx::query_scalar(
+        "SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching' ORDER BY description ASC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())
+}
+
 fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
     let Some(pool) = get_bulk_import_db_pool() else {
         return Ok((false, false));
@@ -420,6 +443,7 @@ async fn persist_bulk_import_confirm_wire(
 
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
     let preview_3d = load_import_preview_3d_if_initialized(pool).await?;
+    let preview_3d_profile = load_import_preview_3d_profile_if_initialized(pool).await?;
     let commit_batch_size = load_import_commit_batch_size(pool).await?;
     let tag_catalog = load_tag_catalog(pool).await?;
     let valid_descriptions: HashSet<String> =
@@ -428,6 +452,10 @@ async fn persist_bulk_import_confirm_wire(
         .into_iter()
         .map(|(tag_id, description)| (description, tag_id))
         .collect();
+    let stitching_tag_lookup = load_stitching_tag_lookup(pool).await?;
+    let valid_stitching_descriptions: HashSet<String> =
+        stitching_tag_lookup.keys().cloned().collect();
+    let default_stitching_tag_id = load_default_stitching_tag_id(pool).await?;
     let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     BULK_IMPORT_STOP_REQUESTED.store(false, Ordering::SeqCst);
@@ -503,6 +531,7 @@ async fn persist_bulk_import_confirm_wire(
             .map(|fp| image_generation::ImageGenerationRequest {
                 file_path: fp.clone(),
                 preview_3d,
+                preview_3d_profile: Some(preview_3d_profile.clone()),
             })
             .collect();
 
@@ -583,6 +612,7 @@ async fn persist_bulk_import_confirm_wire(
                 image_generation::generate_preview(&image_generation::ImageGenerationRequest {
                     file_path: file_path.clone(),
                     preview_3d,
+                    preview_3d_profile: Some(preview_3d_profile.clone()),
                 })
             });
             let image_gen_ms = t_image.elapsed().as_millis();
@@ -630,6 +660,32 @@ async fn persist_bulk_import_confirm_wire(
                 &valid_descriptions,
             );
 
+            let mut stitching_tag_ids: Vec<i64> = Vec::new();
+            if Path::new(file_path).exists() {
+                let detected_stitching_descriptions =
+                    stitch_identifier::suggest_stitching_from_pattern_file(
+                        file_path,
+                        &filename,
+                        file_path,
+                        &valid_stitching_descriptions,
+                        Some(0.70),
+                    );
+
+                stitching_tag_ids = detected_stitching_descriptions
+                    .iter()
+                    .filter_map(|description| stitching_tag_lookup.get(description).copied())
+                    .collect();
+
+                if stitching_tag_ids.is_empty() {
+                    if let Some(default_tag_id) = default_stitching_tag_id {
+                        stitching_tag_ids.push(default_tag_id);
+                    }
+                }
+            }
+
+            stitching_tag_ids.sort_unstable();
+            stitching_tag_ids.dedup();
+
             if !matched_descriptions.is_empty() {
                 for description in &matched_descriptions {
                     if let Some(tag_id) = description_to_tag_id.get(description) {
@@ -643,7 +699,20 @@ async fn persist_bulk_import_confirm_wire(
                         .map_err(|e| e.to_string())?;
                     }
                 }
+            }
 
+            for tag_id in &stitching_tag_ids {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
+                )
+                .bind(design_id)
+                .bind(*tag_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+            }
+
+            if !matched_descriptions.is_empty() || !stitching_tag_ids.is_empty() {
                 sqlx::query("UPDATE designs SET tagging_tier = 1 WHERE id = ?")
                     .bind(design_id)
                     .execute(&mut *tx)
@@ -1377,7 +1446,7 @@ mod tests {
             .await
             .expect("failed to seed image preference");
 
-        sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Alphabets', 'image'), ('Flowers', 'image'), ('Monogram', 'image')")
+        sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Alphabets', 'image'), ('Flowers', 'image'), ('Monogram', 'image'), ('Line Outline', 'stitching')")
             .execute(&pool)
             .await
             .expect("failed to seed tags");
@@ -1518,7 +1587,7 @@ mod tests {
         .expect("expected persisted design row");
 
         assert!(row.0.map(|bytes| !bytes.is_empty()).unwrap_or(false));
-        assert_eq!(row.1.as_deref(), Some("2d"));
+        assert_eq!(row.1.as_deref(), Some("3d"));
         assert!(row.2.unwrap_or_default() > 0.0);
         assert!(row.3.unwrap_or_default() > 0.0);
 
@@ -1549,6 +1618,7 @@ mod tests {
         let generation_result = image_generation::generate_preview(&image_generation::ImageGenerationRequest {
             file_path: fixture.to_string_lossy().to_string(),
             preview_3d: true,
+            preview_3d_profile: Some("balanced".to_string()),
         });
 
         assert_eq!(generation_result.backend, "native");
@@ -1681,6 +1751,57 @@ mod tests {
         .expect("failed to query assigned tags");
 
         assert_eq!(assigned_tags, vec![("Alphabets".to_string(),)]);
+    }
+
+    #[test]
+    fn persist_bulk_import_confirm_wire_assigns_stitching_tags() {
+        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        assert!(fixture.exists(), "expected Bean.pes fixture to exist");
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["tests/testdata".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec![fixture.to_string_lossy().to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            &confirm_wire,
+            None,
+        ))
+        .expect("persist should succeed");
+        assert_eq!(persisted, 1);
+
+        let stitching_tags = tauri::async_runtime::block_on(async {
+            sqlx::query_as::<_, (String,)>(
+                r#"
+                SELECT t.description
+                FROM design_tags dt
+                JOIN tags t ON t.id = dt.tag_id
+                JOIN designs d ON d.id = dt.design_id
+                WHERE d.filepath = ?
+                  AND lower(COALESCE(t.tag_group, '')) = 'stitching'
+                ORDER BY t.description ASC
+                "#,
+            )
+            .bind(fixture.to_string_lossy().to_string())
+            .fetch_all(&pool)
+            .await
+        })
+        .expect("failed to query stitching tags");
+
+        assert!(
+            !stitching_tags.is_empty(),
+            "expected at least one stitching tag assignment"
+        );
     }
 
     #[test]
@@ -2174,4 +2295,25 @@ async fn load_import_preview_3d_if_initialized(pool: &SqlitePool) -> Result<bool
             .as_deref(),
         Some("2d")
     ))
+}
+
+async fn load_import_preview_3d_profile_if_initialized(pool: &SqlitePool) -> Result<String, String> {
+    let profile: Option<String> = sqlx::query_scalar(
+        "SELECT value FROM settings WHERE key = 'image.preview_3d_profile' LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let normalized = profile
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_else(|| "balanced".to_string());
+
+    Ok(match normalized.as_str() {
+        "soft" => "soft".to_string(),
+        "high-contrast" | "high_contrast" | "highcontrast" => "high-contrast".to_string(),
+        _ => "balanced".to_string(),
+    })
 }
