@@ -59,7 +59,7 @@
 
   <!-- Main card -->
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
-    <h1 class="text-2xl font-bold text-gray-800">Disclaimer</h1>
+    <h1 class="ui-page-title">Disclaimer</h1>
 
     <p class="text-sm text-gray-600">
       Acceptance is remembered locally after you confirm.

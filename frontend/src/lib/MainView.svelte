@@ -336,6 +336,10 @@
   let browseProjectsLoaded = $state(false);
   let browseTagOptions = $state([]);
   let browseTagsSource = $state("mock");
+  let browseDesignerFilterOptions = $state([]);
+  let browseSourceFilterOptions = $state([]);
+  let browseHoopFilterOptions = $state([]);
+  let browseFilterReferenceLoaded = $state(false);
   let browsePreviewById = $state({});
   let browsePreviewsSource = $state("mock");
   let browsePreviewsLoading = $state(false);
@@ -352,11 +356,12 @@
   let browseBulkProject = $state("");
   let browseActionNotice = $state("");
   let browseGridContainer = $state(null);
-  let browseGridColumns = $state(1);
+  let browseGridColumns = $state(2);
 
   const BROWSE_PAGE_ROWS = 10;
-  const BROWSE_CARD_MIN_WIDTH = 170;
-  const BROWSE_CARD_GAP = 16;
+  const BROWSE_BREAKPOINT_SM = 640;
+  const BROWSE_BREAKPOINT_MD = 768;
+  const BROWSE_BREAKPOINT_LG = 1024;
   const BROWSE_ROW_SELECTOR_WIDTH = 28;
   const BROWSE_TAG_UNTAGGED = "__untagged__";
 
@@ -367,10 +372,10 @@
     anyWords: "",
     noneWords: "",
     filename: "",
-    designer: "",
+    designerFilters: [],
     tagFilters: [],
     hoop: "",
-    source: "",
+    sourceFilters: [],
     rating: "",
     stitched: "",
     unverifiedOnly: false,
@@ -1570,6 +1575,47 @@
       browseTagOptions = [];
       browseTagsSource = "mock";
       console.info("Could not load browse tags", error);
+    }
+  }
+
+  async function loadBrowseFilterReferenceData() {
+    try {
+      const [designerResult, sourceResult, hoopResult] = await Promise.all([
+        listDesigners(),
+        listSources(),
+        listHoops(),
+      ]);
+
+      browseDesignerFilterOptions = Array.from(
+        new Set(
+          (Array.isArray(designerResult?.items) ? designerResult.items : [])
+            .map((item) => String(item?.name || "").trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
+      browseSourceFilterOptions = Array.from(
+        new Set(
+          (Array.isArray(sourceResult?.items) ? sourceResult.items : [])
+            .map((item) => String(item?.name || "").trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
+      browseHoopFilterOptions = Array.from(
+        new Set(
+          (Array.isArray(hoopResult?.items) ? hoopResult.items : [])
+            .map((item) => String(item?.name || "").trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b));
+    } catch (error) {
+      browseDesignerFilterOptions = [];
+      browseSourceFilterOptions = [];
+      browseHoopFilterOptions = [];
+      console.info("Could not load browse filter reference data", error);
+    } finally {
+      browseFilterReferenceLoaded = true;
     }
   }
 
@@ -2847,35 +2893,111 @@
     browseCurrentPage = 1;
   }
 
-  function estimateBrowseColumnsFromWidth(width) {
-    const normalizedWidth = Number(width) || 0;
-    if (normalizedWidth <= 0) {
-      return 1;
+  function updateBrowseDesignerFilter(designer, enabled) {
+    const active = new Set(browseFilters.designerFilters || []);
+    if (enabled) {
+      active.add(designer);
+    } else {
+      active.delete(designer);
+    }
+    browseFilters = { ...browseFilters, designerFilters: Array.from(active) };
+    browseCurrentPage = 1;
+  }
+
+  function updateBrowseSourceFilter(source, enabled) {
+    const active = new Set(browseFilters.sourceFilters || []);
+    if (enabled) {
+      active.add(source);
+    } else {
+      active.delete(source);
+    }
+    browseFilters = { ...browseFilters, sourceFilters: Array.from(active) };
+    browseCurrentPage = 1;
+  }
+
+  function getBrowseTagDropdowns() {
+    if (typeof document === "undefined") {
+      return [];
     }
 
-    return Math.max(
-      1,
-      Math.floor((normalizedWidth + BROWSE_CARD_GAP) / (BROWSE_CARD_MIN_WIDTH + BROWSE_CARD_GAP))
-    );
+    return [
+      document.getElementById("browseDesignerDropdown"),
+      document.getElementById("browseSourceDropdown"),
+      document.getElementById("browseImageTagsDropdown"),
+      document.getElementById("browseStitchingTagsDropdown"),
+    ].filter(Boolean);
+  }
+
+  function closeBrowseTagDropdowns(exceptNode = null) {
+    for (const dropdown of getBrowseTagDropdowns()) {
+      if (exceptNode && dropdown === exceptNode) {
+        continue;
+      }
+
+      if (dropdown.hasAttribute("open")) {
+        dropdown.removeAttribute("open");
+      }
+    }
+  }
+
+  function summarizeBrowseTagFilters(options, includeUntagged = false) {
+    const selected = browseFilters.tagFilters || [];
+    const explicit = options.filter((tag) => selected.includes(tag));
+    const wantsUntagged = includeUntagged && selected.includes(BROWSE_TAG_UNTAGGED);
+    if (!wantsUntagged && explicit.length === 0) {
+      return "Any";
+    }
+    const parts = [];
+    if (wantsUntagged) {
+      parts.push("Untagged");
+    }
+    parts.push(...explicit);
+    return parts.join(" · ");
+  }
+
+  function summarizeBrowseMultiFilters(options, selected) {
+    const explicit = options.filter((value) => (selected || []).includes(value));
+    if (explicit.length === 0) {
+      return "Any";
+    }
+    return explicit.join(" · ");
+  }
+
+  function normalizeBrowseTagGroup(tag) {
+    return String(tag?.tag_group ?? tag?.tagGroup ?? "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function estimateBrowseColumnsFromWidth(width) {
+    const normalizedWidth = Number(width) || 0;
+    if (normalizedWidth >= BROWSE_BREAKPOINT_LG) {
+      return 5;
+    }
+    if (normalizedWidth >= BROWSE_BREAKPOINT_MD) {
+      return 4;
+    }
+    if (normalizedWidth >= BROWSE_BREAKPOINT_SM) {
+      return 3;
+    }
+    return 2;
   }
 
   function refreshBrowseGridColumns() {
+    if (typeof window !== "undefined") {
+      browseGridColumns = estimateBrowseColumnsFromWidth(window.innerWidth || 0);
+      return;
+    }
+
     const containerWidth = browseGridContainer?.clientWidth;
     if (containerWidth && containerWidth > 0) {
       browseGridColumns = estimateBrowseColumnsFromWidth(
-        Math.max(0, containerWidth - BROWSE_ROW_SELECTOR_WIDTH)
+        Math.max(0, containerWidth + BROWSE_ROW_SELECTOR_WIDTH)
       );
       return;
     }
 
-    if (typeof window !== "undefined") {
-      browseGridColumns = estimateBrowseColumnsFromWidth(
-        Math.max(0, (window.innerWidth || 0) - BROWSE_ROW_SELECTOR_WIDTH)
-      );
-      return;
-    }
-
-    browseGridColumns = 1;
+    browseGridColumns = 2;
   }
 
   function clearBrowseSelection() {
@@ -3042,6 +3164,52 @@
     return undefined;
   });
 
+  $effect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    const onDocumentClick = (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      const dropdowns = getBrowseTagDropdowns();
+      const clickedInside = dropdowns.some((dropdown) => dropdown.contains(target));
+      if (!clickedInside) {
+        closeBrowseTagDropdowns();
+      }
+    };
+
+    const onDetailsToggle = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (
+        (
+          target.id === "browseDesignerDropdown" ||
+          target.id === "browseSourceDropdown" ||
+          target.id === "browseImageTagsDropdown" ||
+          target.id === "browseStitchingTagsDropdown"
+        ) &&
+        target.hasAttribute("open")
+      ) {
+        closeBrowseTagDropdowns(target);
+      }
+    };
+
+    document.addEventListener("click", onDocumentClick);
+    document.addEventListener("toggle", onDetailsToggle, true);
+
+    return () => {
+      document.removeEventListener("click", onDocumentClick);
+      document.removeEventListener("toggle", onDetailsToggle, true);
+    };
+  });
+
   async function applyBulkTags() {
     if (browseSelectedIds.length === 0) {
       closeBulkTagModal();
@@ -3178,18 +3346,29 @@
   }
 
   let browseCardItems = $derived(browseItems.map((item, index) => normalizeCardItem(item, index)));
-  let browseAvailableTags = $derived(
-    Array.from(new Set(browseCardItems.flatMap((item) => item.tags))).sort((a, b) => a.localeCompare(b))
+  let browseAvailableImageTags = $derived(
+    Array.from(
+      new Set(
+        (Array.isArray(browseTagOptions) ? browseTagOptions : [])
+          .filter((tag) => normalizeBrowseTagGroup(tag) === "image")
+          .map((tag) => String(tag?.description || "").trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b))
   );
-  let browseAvailableDesigners = $derived(
-    Array.from(new Set(browseCardItems.map((item) => item.designer))).sort((a, b) => a.localeCompare(b))
+  let browseAvailableStitchingTags = $derived(
+    Array.from(
+      new Set(
+        (Array.isArray(browseTagOptions) ? browseTagOptions : [])
+          .filter((tag) => normalizeBrowseTagGroup(tag) === "stitching")
+          .map((tag) => String(tag?.description || "").trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b))
   );
-  let browseAvailableSources = $derived(
-    Array.from(new Set(browseCardItems.map((item) => item.source))).sort((a, b) => a.localeCompare(b))
-  );
-  let browseAvailableHoops = $derived(
-    Array.from(new Set(browseCardItems.map((item) => item.hoop).filter(Boolean))).sort((a, b) => a.localeCompare(b))
-  );
+  let browseDesignerSelectOptions = $derived(browseDesignerFilterOptions);
+  let browseSourceSelectOptions = $derived(browseSourceFilterOptions);
+  let browseAvailableHoops = $derived(browseHoopFilterOptions);
 
   let browseFilteredItems = $derived(
     browseCardItems
@@ -3246,7 +3425,10 @@
           return false;
         }
 
-        if (browseFilters.designer && item.designer !== browseFilters.designer) {
+        if (
+          (browseFilters.designerFilters || []).length > 0 &&
+          !(browseFilters.designerFilters || []).includes(item.designer)
+        ) {
           return false;
         }
 
@@ -3254,7 +3436,10 @@
           return false;
         }
 
-        if (browseFilters.source && item.source !== browseFilters.source) {
+        if (
+          (browseFilters.sourceFilters || []).length > 0 &&
+          !(browseFilters.sourceFilters || []).includes(item.source)
+        ) {
           return false;
         }
 
@@ -3454,6 +3639,12 @@
   });
 
   $effect(() => {
+    if (currentRoute === "#/designs" && !browseFilterReferenceLoaded) {
+      loadBrowseFilterReferenceData();
+    }
+  });
+
+  $effect(() => {
     if (currentRoute !== "#/designs") {
       return;
     }
@@ -3626,52 +3817,45 @@
 
 <main class="max-w-7xl mx-auto px-4 py-6">
   {#if currentUiKind === "browse"}
-    <section class="space-y-4">
-      <h1 class="text-3xl font-bold text-gray-800">Browse Designs</h1>
+    <section class="browse-section space-y-3">
+      <h1 class="ui-page-title browse-title">Browse Designs</h1>
 
       <form
-        class="bg-white rounded-lg shadow p-4 space-y-4 no-print"
+        class="browse-search-shell space-y-3 no-print"
         onsubmit={(event) => {
           event.preventDefault();
           applyBrowseFilters();
         }}
       >
-        <div class="border rounded-lg bg-white p-4 space-y-2">
-          <label class="block text-sm font-medium text-gray-700" for="browse-q">General search</label>
-          <div class="flex flex-wrap items-center gap-3">
+        <div class="ui-section-shell browse-general-search space-y-1.5">
+          <label class="ui-section-label browse-general-search-label block" for="browse-q">General search</label>
+          <div class="browse-general-search-row flex items-center gap-2">
             <input
               id="browse-q"
-              class="border rounded px-3 py-1.5 text-sm flex-1 min-w-[20rem] font-mono"
+              class="ui-text-input ui-control-text-inset browse-general-input text-sm flex-1 min-w-[20rem] font-mono"
               placeholder='e.g. rose "cross stitch" -applique or *.hus'
               value={browseFilters.q}
               oninput={(event) => updateBrowseFilter("q", event.currentTarget.value)}
             />
-            <label class="flex items-center gap-1.5 cursor-pointer text-sm text-gray-700 select-none whitespace-nowrap">
+            <label class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap">
               <input
                 type="checkbox"
+                class="ui-checkbox browse-unverified-checkbox"
                 checked={browseFilters.unverifiedOnly}
                 onchange={(event) => updateBrowseFilter("unverifiedOnly", event.currentTarget.checked)}
               />
               Unverified only
             </label>
           </div>
-          <p class="text-xs text-gray-400 mt-0.5">
-            Supports Google-like syntax:
-            <code class="bg-gray-100 px-1 rounded">"exact phrase"</code>
-            ·
-            <code class="bg-gray-100 px-1 rounded">-exclude</code>
-            ·
-            <code class="bg-gray-100 px-1 rounded">word1 OR word2</code>
-            ·
-            <code class="bg-gray-100 px-1 rounded">*.hus</code>
-            ·
-            <a href="#search" class="text-indigo-500 hover:underline">Search help</a>
+          <p class="ui-help-note browse-general-help mt-0.5">
+            Supports Google-like syntax: "exact phrase" · -exclude · word1 OR word2 · *.hus ·
+            <a href="#search" class="ui-app-link">Search help</a>
           </p>
         </div>
 
-        <details class="border rounded-lg bg-white overflow-visible relative" open={browseAdditionalFiltersOpen}>
+        <details class="ui-section-shell browse-additional-filters overflow-visible relative" open={browseAdditionalFiltersOpen}>
           <summary
-            class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 font-semibold text-gray-800"
+            class="ui-section-label browse-additional-summary cursor-pointer"
             onclick={(event) => {
               event.preventDefault();
               toggleAdditionalFilters();
@@ -3682,70 +3866,82 @@
 
           {#if browseAdditionalFiltersOpen}
             <div class="p-4 space-y-4">
-              <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">
-                <label class="text-sm text-gray-700">
-                  <span class="block font-medium mb-1">All words</span>
+              <div class="browse-two-col-grid max-w-3xl">
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">All of these words</span>
                   <input
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-text-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.allWords}
                     oninput={(event) => updateBrowseFilter("allWords", event.currentTarget.value)}
                   />
                 </label>
-                <label class="text-sm text-gray-700">
-                  <span class="block font-medium mb-1">Exact phrase</span>
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">This exact phrase</span>
                   <input
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-text-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.exactPhrase}
                     oninput={(event) => updateBrowseFilter("exactPhrase", event.currentTarget.value)}
                   />
                 </label>
-                <label class="text-sm text-gray-700">
-                  <span class="block font-medium mb-1">Any words</span>
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">Any of these words</span>
                   <input
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-text-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.anyWords}
                     oninput={(event) => updateBrowseFilter("anyWords", event.currentTarget.value)}
                   />
                 </label>
-                <label class="text-sm text-gray-700">
-                  <span class="block font-medium mb-1">None words</span>
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">None of these words</span>
                   <input
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-text-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.noneWords}
                     oninput={(event) => updateBrowseFilter("noneWords", event.currentTarget.value)}
                   />
                 </label>
-              </div>
-
-              <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 items-end">
-                <label class="text-sm text-gray-700">
+                <label class="ui-field-label text-sm">
                   <span class="block font-medium mb-1">Filename</span>
                   <input
-                    class="border rounded px-3 py-1.5 text-sm w-full font-mono"
+                    class="ui-text-input ui-control-text-inset text-sm w-full font-mono"
                     placeholder="e.g. rose* or *.jef"
                     value={browseFilters.filename}
                     oninput={(event) => updateBrowseFilter("filename", event.currentTarget.value)}
                   />
                 </label>
 
-                <label class="text-sm text-gray-700">
+                <label class="ui-field-label text-sm">
                   <span class="block font-medium mb-1">Designer</span>
-                  <select
-                    class="border rounded px-3 py-1.5 text-sm w-full"
-                    value={browseFilters.designer}
-                    onchange={(event) => updateBrowseFilter("designer", event.currentTarget.value)}
-                  >
-                    <option value="">Any</option>
-                    {#each browseAvailableDesigners as designer}
-                      <option value={designer}>{designer}</option>
-                    {/each}
-                  </select>
+                  <details class="ui-multi-dropdown text-sm" id="browseDesignerDropdown">
+                    <summary class="ui-text-input ui-control-text-inset ui-multi-dropdown-summary list-none cursor-pointer">
+                      <span class="ui-multi-dropdown-summary-text">
+                        {summarizeBrowseMultiFilters(browseDesignerSelectOptions, browseFilters.designerFilters)}
+                      </span>
+                      <span class="ui-control-caret" aria-hidden="true"></span>
+                    </summary>
+                    <div class="ui-checkbox-list-shell ui-multi-dropdown-panel px-3 py-2 space-y-1 max-h-56 overflow-auto">
+                      {#if browseDesignerSelectOptions.length === 0}
+                        <p class="ui-help-note">No designers yet.</p>
+                      {:else}
+                        {#each browseDesignerSelectOptions as designer}
+                          <label class="ui-field-label flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              class="ui-checkbox"
+                              checked={browseFilters.designerFilters.includes(designer)}
+                              onchange={(event) => updateBrowseDesignerFilter(designer, event.currentTarget.checked)}
+                            />
+                            <span>{designer}</span>
+                          </label>
+                        {/each}
+                      {/if}
+                    </div>
+                  </details>
                 </label>
 
-                <label class="text-sm text-gray-700">
+                <label class="ui-field-label text-sm">
                   <span class="block font-medium mb-1">Hoop</span>
                   <select
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-select-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.hoop}
                     onchange={(event) => updateBrowseFilter("hoop", event.currentTarget.value)}
                   >
@@ -3756,48 +3952,102 @@
                   </select>
                 </label>
 
-                <label class="text-sm text-gray-700">
+                <label class="ui-field-label text-sm">
                   <span class="block font-medium mb-1">Source</span>
-                  <select
-                    class="border rounded px-3 py-1.5 text-sm w-full"
-                    value={browseFilters.source}
-                    onchange={(event) => updateBrowseFilter("source", event.currentTarget.value)}
-                  >
-                    <option value="">Any</option>
-                    {#each browseAvailableSources as source}
-                      <option value={source}>{source}</option>
-                    {/each}
-                  </select>
+                  <details class="ui-multi-dropdown text-sm" id="browseSourceDropdown">
+                    <summary class="ui-text-input ui-control-text-inset ui-multi-dropdown-summary list-none cursor-pointer">
+                      <span class="ui-multi-dropdown-summary-text">
+                        {summarizeBrowseMultiFilters(browseSourceSelectOptions, browseFilters.sourceFilters)}
+                      </span>
+                      <span class="ui-control-caret" aria-hidden="true"></span>
+                    </summary>
+                    <div class="ui-checkbox-list-shell ui-multi-dropdown-panel px-3 py-2 space-y-1 max-h-56 overflow-auto">
+                      {#if browseSourceSelectOptions.length === 0}
+                        <p class="ui-help-note">No sources yet.</p>
+                      {:else}
+                        {#each browseSourceSelectOptions as source}
+                          <label class="ui-field-label flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              class="ui-checkbox"
+                              checked={browseFilters.sourceFilters.includes(source)}
+                              onchange={(event) => updateBrowseSourceFilter(source, event.currentTarget.checked)}
+                            />
+                            <span>{source}</span>
+                          </label>
+                        {/each}
+                      {/if}
+                    </div>
+                  </details>
                 </label>
 
-                <label class="text-sm text-gray-700">
-                  <span class="block font-medium mb-1">Tags</span>
-                  <div class="border rounded px-3 py-2 text-sm space-y-1 max-h-28 overflow-auto">
-                    <label class="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={browseFilters.tagFilters.includes(BROWSE_TAG_UNTAGGED)}
-                        onchange={(event) => updateBrowseTagFilter(BROWSE_TAG_UNTAGGED, event.currentTarget.checked)}
-                      />
-                      Untagged
-                    </label>
-                    {#each browseAvailableTags as tag}
-                      <label class="flex items-center gap-1.5">
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">Image tags</span>
+                  <details class="ui-multi-dropdown text-sm" id="browseImageTagsDropdown">
+                    <summary class="ui-text-input ui-control-text-inset ui-multi-dropdown-summary list-none cursor-pointer">
+                      <span class="ui-multi-dropdown-summary-text">
+                        {summarizeBrowseTagFilters(browseAvailableImageTags, true)}
+                      </span>
+                      <span class="ui-control-caret" aria-hidden="true"></span>
+                    </summary>
+                    <div class="ui-checkbox-list-shell ui-multi-dropdown-panel px-3 py-2 space-y-1 max-h-56 overflow-auto">
+                      <label class="ui-field-label flex items-center gap-1.5">
                         <input
                           type="checkbox"
-                          checked={browseFilters.tagFilters.includes(tag)}
-                          onchange={(event) => updateBrowseTagFilter(tag, event.currentTarget.checked)}
+                          class="ui-checkbox"
+                          checked={browseFilters.tagFilters.includes(BROWSE_TAG_UNTAGGED)}
+                          onchange={(event) => updateBrowseTagFilter(BROWSE_TAG_UNTAGGED, event.currentTarget.checked)}
                         />
-                        <span>{tag}</span>
+                        Untagged
                       </label>
-                    {/each}
-                  </div>
+                      {#each browseAvailableImageTags as tag}
+                        <label class="ui-field-label flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            class="ui-checkbox"
+                            checked={browseFilters.tagFilters.includes(tag)}
+                            onchange={(event) => updateBrowseTagFilter(tag, event.currentTarget.checked)}
+                          />
+                          <span>{tag}</span>
+                        </label>
+                      {/each}
+                    </div>
+                  </details>
                 </label>
 
-                <label class="text-sm text-gray-700">
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">Stitching tags</span>
+                  <details class="ui-multi-dropdown text-sm" id="browseStitchingTagsDropdown">
+                    <summary class="ui-text-input ui-control-text-inset ui-multi-dropdown-summary list-none cursor-pointer">
+                      <span class="ui-multi-dropdown-summary-text">
+                        {summarizeBrowseTagFilters(browseAvailableStitchingTags, false)}
+                      </span>
+                      <span class="ui-control-caret" aria-hidden="true"></span>
+                    </summary>
+                    <div class="ui-checkbox-list-shell ui-multi-dropdown-panel px-3 py-2 space-y-1 max-h-56 overflow-auto">
+                      {#if browseAvailableStitchingTags.length === 0}
+                        <p class="ui-help-note">No stitching tags yet.</p>
+                      {:else}
+                        {#each browseAvailableStitchingTags as tag}
+                          <label class="ui-field-label flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              class="ui-checkbox"
+                              checked={browseFilters.tagFilters.includes(tag)}
+                              onchange={(event) => updateBrowseTagFilter(tag, event.currentTarget.checked)}
+                            />
+                            <span>{tag}</span>
+                          </label>
+                        {/each}
+                      {/if}
+                    </div>
+                  </details>
+                </label>
+
+                <label class="ui-field-label text-sm">
                   <span class="block font-medium mb-1">Min Rating</span>
                   <select
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-select-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.rating}
                     onchange={(event) => updateBrowseFilter("rating", event.currentTarget.value)}
                   >
@@ -3810,10 +4060,10 @@
                   </select>
                 </label>
 
-                <label class="text-sm text-gray-700">
+                <label class="ui-field-label text-sm">
                   <span class="block font-medium mb-1">Stitched</span>
                   <select
-                    class="border rounded px-3 py-1.5 text-sm w-full"
+                    class="ui-select-input ui-control-text-inset text-sm w-full"
                     value={browseFilters.stitched}
                     onchange={(event) => updateBrowseFilter("stitched", event.currentTarget.value)}
                   >
@@ -3861,7 +4111,7 @@
           <label class="text-sm text-gray-700">
             <span class="block font-medium mb-1">Sort by</span>
             <select
-              class="border rounded px-3 py-1.5 text-sm bg-white text-gray-800"
+              class="ui-select-input ui-control-text-inset text-sm bg-white text-gray-800"
               value={browseFilters.sortBy}
               onchange={(event) => updateBrowseFilter("sortBy", event.currentTarget.value)}
             >
@@ -3874,7 +4124,7 @@
           <label class="text-sm text-gray-700">
             <span class="block font-medium mb-1">Order</span>
             <select
-              class="border rounded px-3 py-1.5 text-sm bg-white text-gray-800"
+              class="ui-select-input ui-control-text-inset text-sm bg-white text-gray-800"
               value={browseFilters.sortDir}
               onchange={(event) => updateBrowseFilter("sortDir", event.currentTarget.value)}
             >
@@ -3939,9 +4189,9 @@
                 />
               </label>
 
-              <div class="browse-card-grid gap-4">
+              <div class="browse-card-grid gap-4" style={`--browse-grid-columns: ${Math.max(2, browseGridColumns || 2)};`}>
                 {#each rowItems as item}
-                  <article class="bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative border border-gray-100">
+                  <article class="browse-design-card bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative border border-gray-100">
                     <label class="absolute top-1 left-1 z-10 cursor-pointer bg-white/90 rounded px-1">
                       <span class="sr-only">Select {item.filename}</span>
                       <input
@@ -3953,35 +4203,43 @@
                       />
                     </label>
 
-                    <button class="w-full text-left" onclick={() => openDesignDetail(item)}>
+                    <button class="browse-card-link w-full text-left" onclick={() => openDesignDetail(item)}>
                       {#if browsePreviewById[item.id]}
-                        <img
-                          src={browsePreviewById[item.id]}
-                          alt={item.filename}
-                          class="w-full h-36 object-contain bg-gray-100 p-1"
-                          loading="lazy"
-                        />
+                        <div class="browse-card-image-frame bg-gray-100 p-1">
+                          <img
+                            src={browsePreviewById[item.id]}
+                            alt={item.filename}
+                            class="browse-card-image"
+                            loading="lazy"
+                          />
+                        </div>
                       {:else}
-                        <div class="w-full h-36 bg-gray-100 p-1 flex items-center justify-center text-xs text-gray-400">
+                        <div class="browse-card-image-frame bg-gray-100 p-1 flex items-center justify-center text-xs text-gray-400">
                           {browsePreviewsLoading ? "Loading image..." : "No image"}
                         </div>
                       {/if}
-                      <div class="p-2 flex-1 space-y-1">
-                        <div class="flex items-center justify-between gap-2">
-                          <p class="text-sm font-medium leading-tight break-words">{item.filename}</p>
-                          {#if !item.tagsChecked}
-                            <span class="font-bold text-xl leading-none self-center" style="color: #dc2626;" aria-label="Unverified">×</span>
-                          {/if}
+                      <div class="browse-card-meta p-2 flex-1 space-y-1">
+                        <div class="browse-card-title-row flex items-start justify-between gap-1">
+                          <p class="browse-card-title text-xs font-medium text-gray-800 truncate flex-1" title={item.filename}>{item.filename}</p>
+                          <span
+                            class={`browse-card-verified text-xs leading-none ${item.tagsChecked ? "text-green-600" : "text-red-500"}`}
+                            title={item.tagsChecked ? "Verified" : "Not verified"}
+                            aria-label={item.tagsChecked ? "Verified" : "Not verified"}
+                          >
+                            {item.tagsChecked ? "✓" : "✗"}
+                          </span>
                         </div>
                         {#if item.hoop}
-                          <p class="text-xs text-indigo-600">{item.hoop}</p>
+                          <p class="browse-card-hoop text-xs text-indigo-600">{item.hoop}</p>
                         {/if}
                         {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
-                          <p class="pt-0.5 text-[11px] leading-4 text-gray-700 break-words">
+                          <p class="browse-card-tags pt-0.5 text-[11px] leading-4 text-gray-700" title={item.tags.join(", ")}>
                             {item.tags.join(", ")}
                           </p>
+                        {:else}
+                          <p class="browse-card-tags pt-0.5 text-[11px] leading-4 text-gray-300 italic">No tags</p>
                         {/if}
-                        <p class="text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
+                        <p class="browse-card-rating text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
                           {browseStars(item.rating ?? 0)}
                         </p>
                       </div>
@@ -4040,7 +4298,7 @@
     </section>
   {:else if currentUiKind === "settings"}
     <section class="settings-page space-y-6">
-      <h1 class="settings-title text-2xl font-bold text-gray-800 mb-6">Application Settings</h1>
+      <h1 class="ui-page-title settings-title mb-6">Application Settings</h1>
 
       {#if settingsSaveState === "saved"}
         <div class="settings-alert settings-alert-success bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
@@ -4308,7 +4566,7 @@
     </section>
   {:else if currentUiKind === "backup"}
     <section class="backup-page space-y-4">
-      <h1 class="backup-title text-2xl font-bold text-gray-800 mb-2">Backup</h1>
+      <h1 class="ui-page-title backup-title mb-2">Backup</h1>
       <p class="text-sm text-gray-500 mb-4">
         Back up your catalogue database and embroidery design files to folders of your choice.
         The database backup saves your catalogue data, settings, tags, and projects.
@@ -4446,7 +4704,7 @@
   {:else if currentPage}
     <div class={`bg-white rounded-xl shadow p-6 space-y-4 ${currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print" ? "bg-transparent rounded-none shadow-none p-0" : ""}`}>
       {#if currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
-        <h1 class="text-2xl font-bold text-gray-800">{currentPage.title}</h1>
+        <h1 class="ui-page-title">{currentPage.title}</h1>
         {#if currentPage.subtitle}
           <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
         {/if}
@@ -4981,7 +5239,7 @@
       {:else if currentUiKind === "projects-list"}
         <section class="projects-page space-y-4">
           <div class="projects-header flex items-center justify-between gap-3">
-            <h1 class="projects-title text-3xl font-bold text-gray-800">Projects</h1>
+            <h1 class="ui-page-title projects-title">Projects</h1>
             <button class="menu-button-primary" onclick={() => navigateTo("#/projects/new")}>+ New Project</button>
           </div>
 
@@ -5259,7 +5517,7 @@
           {/if}
 
           {#if adminIsDesignersRoute}
-            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Designers</h1>
+            <h1 class="ui-page-title admin-title">Manage Designers</h1>
             <p class="text-sm text-gray-500">
               Designers are the creators or brands of embroidery designs. Use this list to keep designer names consistent.
             </p>
@@ -5307,7 +5565,7 @@
               </table>
             </div>
           {:else if adminIsTagsRoute}
-            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Tags</h1>
+            <h1 class="ui-page-title admin-title">Manage Tags</h1>
             <p class="text-sm text-gray-500">
               Use Image tags for subject categories and Stitching tags for technique or style.
             </p>
@@ -5455,7 +5713,7 @@
               </div>
             {/if}
           {:else if adminIsSourcesRoute}
-            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Sources</h1>
+            <h1 class="ui-page-title admin-title">Manage Sources</h1>
             <p class="text-sm text-gray-500">
               Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
             </p>
@@ -5503,7 +5761,7 @@
               </table>
             </div>
           {:else if adminIsHoopsRoute}
-            <h1 class="admin-title text-2xl font-bold text-gray-800">Manage Hoops</h1>
+            <h1 class="ui-page-title admin-title">Manage Hoops</h1>
             <p class="text-sm text-gray-500 max-w-3xl">
               Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
             </p>
@@ -6014,7 +6272,7 @@
     </div>
   {:else}
     <div class="bg-white rounded-xl shadow p-6 space-y-4">
-      <h1 class="text-2xl font-bold text-gray-800">Route Not Found</h1>
+      <h1 class="ui-page-title">Route Not Found</h1>
       <p class="text-gray-600">
         The requested route does not exist in this stage. Use one of the known placeholders below.
       </p>

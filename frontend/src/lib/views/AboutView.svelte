@@ -4,7 +4,7 @@
 
 <div class="max-w-4xl mx-auto space-y-6">
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
-    <h1 class="text-2xl font-bold text-gray-800">About Embroidery Catalogue</h1>
+    <h1 class="ui-page-title">About Embroidery Catalogue</h1>
 
     <div class="space-y-3 text-sm text-gray-600">
       <p>

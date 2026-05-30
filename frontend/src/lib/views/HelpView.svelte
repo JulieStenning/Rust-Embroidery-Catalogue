@@ -1,6 +1,6 @@
 <div class="space-y-10 max-w-3xl">
   <header>
-    <h1 class="text-2xl font-bold mb-2">Help</h1>
+    <h1 class="ui-page-title mb-2">Help</h1>
     <p class="text-sm text-gray-500">Quick guidance for using the Embroidery Catalogue.</p>
   </header>
 

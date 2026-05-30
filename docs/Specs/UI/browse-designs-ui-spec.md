@@ -22,6 +22,7 @@ Out of scope:
 - Data-model or storage semantics.
 
 ## Source of Truth
+- [docs/Specs/UI/ui-global-standards.md](docs/Specs/UI/ui-global-standards.md)
 - [templates/designs/browse.html](templates/designs/browse.html)
 - [src/routes/designs.py](src/routes/designs.py)
 - [src/services/designs.py](src/services/designs.py)
@@ -98,6 +99,13 @@ Each card presents:
 - Card content prioritizes quick scan: image first, identity second, metadata third.
 - Control labels are concise and maintain legibility at common viewport sizes.
 
+### Browse Card Sizing and Image Fit Contract
+- Card outer size is uniform across the visible grid row.
+- Browse card height target is fixed for scan consistency; metadata must truncate rather than expand card height.
+- Media viewport is bounded, but design preview must render fully using aspect-ratio-preserving contain behavior.
+- Different design ratios may produce different visible image footprints inside the media viewport.
+- Filename must use single-line truncation; tag metadata must use deterministic line clamping.
+
 ## State Model (UI)
 
 ### Default State
@@ -147,10 +155,22 @@ Each card presents:
 - Current page is visually highlighted.
 
 ## Responsive Behavior
-- Grid column count scales by viewport width.
+- Grid column targets:
+  - base: 2 columns
+  - >= 640px: 3 columns
+  - >= 768px: 4 columns
+  - >= 1024px: 5 columns
 - Controls remain accessible without overlap at smaller widths.
 - Sticky bulk action bar remains usable on both desktop and mobile layouts.
 - Modal content remains reachable without requiring horizontal scrolling.
+
+## Acceptance Criteria
+1. All cards on a visible browse row have equal outer dimensions.
+2. Preview images are fully visible and not distorted.
+3. Filename truncates to one line with ellipsis behavior.
+4. Tag metadata truncates to a fixed maximum number of lines.
+5. Responsive column counts follow documented base/SM/MD/LG targets.
+6. Row selection, select-all, and bulk action behavior remain correct after resize.
 
 ## Accessibility Requirements
 - All form controls have programmatically associated labels.
