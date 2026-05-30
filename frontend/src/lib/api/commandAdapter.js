@@ -1538,6 +1538,131 @@ export async function runBothBackups() {
   }
 }
 
+export async function scanOrphans() {
+  try {
+    const result = await invoke("scan_orphans");
+    return {
+      source: "rust",
+      checked: Number(result?.checked ?? 0),
+      found: Number(result?.found ?? 0),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      checked: 0,
+      found: 0,
+      error: String(error),
+    };
+  }
+}
+
+export async function getOrphansPage({ page = 1, pageSize = 100 } = {}) {
+  const normalizedPage = Math.max(1, Number(page) || 1);
+  const normalizedPageSize = Math.max(1, Number(pageSize) || 100);
+
+  try {
+    const result = await invoke("get_orphans_page", {
+      request: {
+        page: normalizedPage,
+        page_size: normalizedPageSize,
+      },
+    });
+
+    return {
+      source: "rust",
+      page: Number(result?.page ?? normalizedPage),
+      page_size: Number(result?.page_size ?? normalizedPageSize),
+      total: Number(result?.total ?? 0),
+      total_pages: Number(result?.total_pages ?? 1),
+      items: Array.isArray(result?.items)
+        ? result.items.map((item) => ({
+            id: Number(item?.id),
+            filename: String(item?.filename || ""),
+            filepath: String(item?.filepath || ""),
+            designer: String(item?.designer || ""),
+            date_added: item?.date_added == null ? null : String(item.date_added),
+          }))
+        : [],
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      page: normalizedPage,
+      page_size: normalizedPageSize,
+      total: 0,
+      total_pages: 1,
+      items: [],
+      error: String(error),
+    };
+  }
+}
+
+export async function deleteOrphans(designIds) {
+  const ids = Array.isArray(designIds)
+    ? designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+    : [];
+
+  try {
+    const result = await invoke("delete_orphans", {
+      request: {
+        design_ids: ids,
+      },
+    });
+
+    return {
+      source: "rust",
+      persisted: true,
+      deleted: Number(result?.deleted ?? 0),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      deleted: 0,
+      error: String(error),
+    };
+  }
+}
+
+export async function deleteAllOrphans() {
+  try {
+    const result = await invoke("delete_all_orphans");
+    return {
+      source: "rust",
+      persisted: true,
+      deleted: Number(result?.deleted ?? 0),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      deleted: 0,
+      error: String(error),
+    };
+  }
+}
+
+export async function browseOrphanPath(filepath) {
+  try {
+    const result = await invoke("browse_orphan_path", {
+      filepath: String(filepath || ""),
+    });
+
+    return {
+      source: "rust",
+      ok: Boolean(result?.ok),
+      opened: String(result?.opened || ""),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      ok: false,
+      opened: "",
+      error: String(error),
+    };
+  }
+}
+
 export async function listDesigners() {
   try {
     const items = await invoke("list_designers");

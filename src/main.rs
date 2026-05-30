@@ -181,6 +181,11 @@ fn main() {
             routes::maintenance::run_database_backup,
             routes::maintenance::run_designs_backup,
             routes::maintenance::run_both_backups,
+            routes::maintenance::scan_orphans,
+            routes::maintenance::get_orphans_page,
+            routes::maintenance::delete_orphans,
+            routes::maintenance::delete_all_orphans,
+            routes::maintenance::browse_orphan_path,
         ])
         // tauri::generate_context!() reads tauri.conf.json from the project root
         .run(tauri::generate_context!())

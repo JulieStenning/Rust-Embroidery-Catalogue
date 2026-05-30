@@ -45,6 +45,11 @@
     runDatabaseBackup,
     runDesignsBackup,
     runBothBackups,
+    scanOrphans,
+    getOrphansPage,
+    deleteOrphans as removeOrphans,
+    deleteAllOrphans as removeAllOrphans,
+    browseOrphanPath,
     getTaggingActionsViewModel,
     runUnifiedBackfill,
     stopUnifiedBackfill,
@@ -139,9 +144,9 @@
     },
     "#/admin/orphans": {
       title: "Orphans",
-      subtitle: "Orphan scan results placeholder",
-      description: "This page is the destination after the Orphans menu action confirms results.",
-      cta: "Next backend hookup: orphan scan and cleanup commands",
+      subtitle: "Orphaned design records",
+      description: "Find and remove database records whose files no longer exist on disk.",
+      cta: "Scan first, then review and delete selected or all orphaned records",
     },
     "#/about": {
       title: "About",
@@ -806,18 +811,17 @@
   let adminIsSourcesRoute = $derived(currentRoute === "#/admin/sources");
   let adminIsHoopsRoute = $derived(currentRoute === "#/admin/hoops");
 
-  let orphanModalOpen = $state(false);
-  let orphanStatus = $state("loading");
-  let orphanChecked = $state(0);
-  let orphanFound = $state(0);
-  let orphanError = $state("");
-  let orphanCanDismiss = $derived(orphanStatus !== "loading");
-
-  let orphanInvoker = $state(null);
-  let orphanModalContainer = $state(null);
-  let orphanModalTitle = $state(null);
-  let orphanCloseButton = $state(null);
-  let orphanPrimaryButton = $state(null);
+  let orphansLoading = $state(false);
+  let orphansLoaded = $state(false);
+  let orphansError = $state("");
+  let orphanItems = $state([]);
+  let orphanPage = $state(1);
+  let orphanPageSize = $state(100);
+  let orphanTotal = $state(0);
+  let orphanTotalPages = $state(1);
+  let orphanSelectedIds = $state([]);
+  let orphanActionMessage = $state("");
+  let orphanActionType = $state("info");
 
   function toggleSettingsApiKeyVisibility() {
     settingsApiKeyRevealed = !settingsApiKeyRevealed;
@@ -1281,85 +1285,212 @@
 
   async function openOrphansModal(event) {
     event.preventDefault();
-    orphanInvoker = event.currentTarget ?? document.activeElement;
 
-    orphanStatus = "loading";
-    orphanChecked = 0;
-    orphanFound = 0;
-    orphanError = "";
-    orphanModalOpen = true;
-
-    await tick();
-    orphanModalContainer?.focus();
-
-    // Stage 1 UI-only status simulation; backend wiring comes later.
-    setTimeout(async () => {
-      try {
-        orphanChecked = 42;
-        orphanFound = 3;
-        orphanStatus = "done";
-      } catch (error) {
-        orphanStatus = "error";
-        orphanError = String(error);
+    try {
+      const result = await scanOrphans();
+      if (result?.source !== "rust" && result?.error) {
+        throw new Error(result.error);
       }
-      await tick();
-      orphanPrimaryButton?.focus() || orphanCloseButton?.focus();
-    }, 800);
+      const orphanChecked = Number(result?.checked ?? 0);
+      const orphanFound = Number(result?.found ?? 0);
+      orphanActionType = "info";
+      orphanActionMessage = `Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} ${orphanFound === 1 ? "orphan" : "orphans"}.`;
+    } catch (error) {
+      orphanActionType = "error";
+      orphanActionMessage = `Could not complete scan: ${String(error) || "Unknown error"}`;
+    }
+
+    navigateTo("#/admin/orphans");
   }
 
-  function closeOrphansModal() {
-    if (!orphanCanDismiss) {
+  async function loadOrphansPage(page = 1, force = false) {
+    if (orphansLoading) {
       return;
     }
-    orphanModalOpen = false;
-    orphanInvoker?.focus();
+    if (!force && orphansLoaded && page === orphanPage) {
+      return;
+    }
+
+    orphansLoading = true;
+    orphansError = "";
+
+    try {
+      const result = await getOrphansPage({ page, pageSize: orphanPageSize });
+      if (result?.source !== "rust" && result?.error) {
+        throw new Error(result.error);
+      }
+
+      orphanItems = Array.isArray(result?.items) ? result.items : [];
+      orphanPage = Math.max(1, Number(result?.page ?? page));
+      orphanPageSize = Math.max(1, Number(result?.page_size ?? 100));
+      orphanTotal = Math.max(0, Number(result?.total ?? 0));
+      orphanTotalPages = Math.max(1, Number(result?.total_pages ?? 1));
+      orphanSelectedIds = orphanItems.map((item) => Number(item.id));
+      orphansLoaded = true;
+    } catch (error) {
+      orphansError = `Could not load orphans: ${error}`;
+      orphanItems = [];
+      orphanSelectedIds = [];
+      orphanTotal = 0;
+      orphanTotalPages = 1;
+      orphansLoaded = false;
+    } finally {
+      orphansLoading = false;
+    }
   }
 
-  function viewOrphans() {
-    navigateTo("#/admin/orphans");
-    closeOrphansModal();
+  function orphanIsSelected(id) {
+    return orphanSelectedIds.includes(Number(id));
+  }
+
+  function toggleOrphanSelection(id, checked) {
+    const normalizedId = Number(id);
+    if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+      return;
+    }
+
+    if (checked) {
+      orphanSelectedIds = Array.from(new Set([...orphanSelectedIds, normalizedId]));
+      return;
+    }
+
+    orphanSelectedIds = orphanSelectedIds.filter((value) => Number(value) !== normalizedId);
+  }
+
+  function selectAllOrphansOnPage() {
+    orphanSelectedIds = orphanItems.map((item) => Number(item.id));
+  }
+
+  function deselectAllOrphansOnPage() {
+    orphanSelectedIds = [];
+  }
+
+  async function openOrphanPath(filepath) {
+    const result = await browseOrphanPath(filepath);
+    if (result?.ok) {
+      orphanActionType = "info";
+      orphanActionMessage = `Opened: ${result.opened}`;
+      return;
+    }
+
+    orphanActionType = "error";
+    orphanActionMessage = `Could not open folder: ${result?.error || "Unknown error"}`;
+  }
+
+  async function deleteSelectedOrphans() {
+    if (orphanSelectedIds.length === 0) {
+      orphanActionType = "error";
+      orphanActionMessage = "Select at least one orphan record first.";
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${orphanSelectedIds.length} selected record(s)? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const result = await removeOrphans(orphanSelectedIds);
+    if (!result?.persisted) {
+      orphanActionType = "error";
+      orphanActionMessage = `Could not delete selected orphans: ${result?.error || "Unknown error"}`;
+      return;
+    }
+
+    orphanActionType = "success";
+    orphanActionMessage = `${result.deleted} record(s) deleted.`;
+    await loadOrphansPage(orphanPage, true);
+    if (orphanPage > orphanTotalPages) {
+      await loadOrphansPage(orphanTotalPages, true);
+    }
+  }
+
+  async function deleteEveryOrphan() {
+    if (orphanTotal <= 0) {
+      orphanActionType = "info";
+      orphanActionMessage = "There are no orphan records to delete.";
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ALL ${orphanTotal} orphaned records? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const result = await removeAllOrphans();
+    if (!result?.persisted) {
+      orphanActionType = "error";
+      orphanActionMessage = `Could not delete all orphans: ${result?.error || "Unknown error"}`;
+      return;
+    }
+
+    orphanActionType = "success";
+    orphanActionMessage = `${result.deleted} record(s) deleted.`;
+    await loadOrphansPage(1, true);
+  }
+
+  function goToOrphanPage(page) {
+    const nextPage = Math.max(1, Math.min(orphanTotalPages, Number(page) || 1));
+    if (nextPage === orphanPage) {
+      return;
+    }
+    loadOrphansPage(nextPage, true);
+  }
+
+  function orphanPaginationPages() {
+    if (orphanTotalPages <= 1) {
+      return [1];
+    }
+
+    const pages = [];
+    const windowStart = Math.max(1, orphanPage - 3);
+    const windowEnd = Math.min(orphanTotalPages, orphanPage + 3);
+
+    if (windowStart > 1) {
+      pages.push(1);
+      if (windowStart > 2) {
+        pages.push("...");
+      }
+    }
+
+    for (let page = windowStart; page <= windowEnd; page += 1) {
+      pages.push(page);
+    }
+
+    if (windowEnd < orphanTotalPages) {
+      if (windowEnd < orphanTotalPages - 1) {
+        pages.push("...");
+      }
+      pages.push(orphanTotalPages);
+    }
+
+    return pages;
+  }
+
+  function openOrphanDesign(designId) {
+    const id = Number(designId);
+    if (!Number.isFinite(id) || id <= 0) {
+      return;
+    }
+
+    const route = `#/designs/${id}`;
+    const targetUrl = `${window.location.pathname}${window.location.search}${route}`;
+    const tab = window.open(targetUrl, "_blank");
+    if (tab) {
+      tab.focus();
+      return;
+    }
+
+    // Fall back to in-app navigation if popup blocking prevents opening a tab.
+    navigateTo(route);
   }
 
   function navigateTo(route) {
     window.location.hash = route;
     syncRouteFromHash();
-  }
-
-  function handleModalKeydown(event) {
-    if (event.key === "Tab") {
-      const focusable = Array.from(
-        orphanModalContainer?.querySelectorAll(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        ) || []
-      ).filter((element) => !element.hasAttribute("hidden") && element.offsetParent !== null);
-
-      if (focusable.length === 0) {
-        event.preventDefault();
-        orphanModalContainer?.focus();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-      return;
-    }
-
-    if (event.key === "Escape") {
-      if (orphanCanDismiss) {
-        closeOrphansModal();
-      } else {
-        event.preventDefault();
-      }
-    }
   }
 
   async function loadBrowseItems() {
@@ -3337,6 +3468,12 @@
     if (currentRoute === "#/admin/tagging-actions" && !taggingActionsLoaded && !taggingActionsLoading) {
       loadTaggingActionsViewModel();
       refreshBackfillLogEntries();
+    }
+  });
+
+  $effect(() => {
+    if (currentRoute === "#/admin/orphans" && !orphansLoaded && !orphansLoading) {
+      loadOrphansPage(1);
     }
   });
 
@@ -5631,12 +5768,143 @@
           {/if}
         </div>
       {:else if currentUiKind === "orphans"}
-        <div class="space-y-3">
-          <div class="route-card">Orphan records result list placeholder</div>
-          <div class="grid sm:grid-cols-2 gap-3">
-            <div class="route-card">Delete selected placeholder</div>
-            <div class="route-card">Delete all placeholder</div>
+        <div class="space-y-4">
+          <p class="text-sm text-gray-500 max-w-3xl">
+            These designs exist in the database but their files were not found on disk.
+            Deleting a record removes it from the database only.
+          </p>
+
+          {#if orphanActionMessage}
+            <div
+              class="border rounded px-3 py-2 text-sm"
+              class:bg-green-50={orphanActionType === "success"}
+              class:border-green-300={orphanActionType === "success"}
+              class:text-green-800={orphanActionType === "success"}
+              class:bg-red-50={orphanActionType === "error"}
+              class:border-red-300={orphanActionType === "error"}
+              class:text-red-800={orphanActionType === "error"}
+              class:bg-blue-50={orphanActionType === "info"}
+              class:border-blue-200={orphanActionType === "info"}
+              class:text-blue-800={orphanActionType === "info"}
+            >
+              {orphanActionMessage}
+            </div>
+          {/if}
+
+          {#if orphansError}
+            <div class="border border-red-300 bg-red-50 text-red-700 rounded px-3 py-2 text-sm">{orphansError}</div>
+          {/if}
+
+          <div class="flex flex-wrap items-center gap-3 text-sm">
+            <span class="text-gray-700 font-medium">
+              {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
+            </span>
+            <div class="ml-auto flex gap-2">
+              <button type="button" class="menu-button-secondary" onclick={selectAllOrphansOnPage} disabled={orphansLoading || orphanItems.length === 0}>
+                Select all on page
+              </button>
+              <button type="button" class="menu-button-secondary" onclick={deselectAllOrphansOnPage} disabled={orphansLoading || orphanItems.length === 0}>
+                Deselect all
+              </button>
+              <button type="button" class="menu-button-secondary" onclick={() => loadOrphansPage(orphanPage, true)} disabled={orphansLoading}>
+                Refresh
+              </button>
+              <button type="button" class="menu-button-primary" onclick={deleteSelectedOrphans} disabled={orphansLoading || orphanSelectedIds.length === 0}>
+                Delete selected
+              </button>
+              <button type="button" class="menu-button-primary" onclick={deleteEveryOrphan} disabled={orphansLoading || orphanTotal === 0}>
+                Delete all
+              </button>
+            </div>
           </div>
+
+          <div class="bg-white rounded shadow overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <tr>
+                  <th class="px-3 py-2 w-8"></th>
+                  <th class="px-4 py-2 text-left">Filename</th>
+                  <th class="px-4 py-2 text-left">Path (relative) - open nearest existing folder</th>
+                  <th class="px-4 py-2 text-left">Designer</th>
+                  <th class="px-4 py-2 text-left">Date Added</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                {#if orphansLoading}
+                  <tr>
+                    <td colspan="5" class="px-4 py-4 text-gray-500">Loading orphan records...</td>
+                  </tr>
+                {:else if orphanItems.length === 0}
+                  <tr>
+                    <td colspan="5" class="px-4 py-4 text-gray-500">No orphaned records found.</td>
+                  </tr>
+                {:else}
+                  {#each orphanItems as item}
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={orphanIsSelected(item.id)}
+                          onchange={(event) => toggleOrphanSelection(item.id, event.currentTarget.checked)}
+                        />
+                      </td>
+                      <td class="px-4 py-2 font-mono text-xs">
+                        <button type="button" class="text-indigo-600 hover:underline" onclick={() => openOrphanDesign(item.id)}>
+                          {item.filename}
+                        </button>
+                      </td>
+                      <td class="px-4 py-2 font-mono text-xs">
+                        <button
+                          type="button"
+                          class="text-indigo-600 hover:underline"
+                          onclick={() => openOrphanPath(item.filepath)}
+                        >
+                          {item.filepath}
+                        </button>
+                      </td>
+                      <td class="px-4 py-2">{item.designer || "-"}</td>
+                      <td class="px-4 py-2 text-gray-500">{item.date_added || "-"}</td>
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            </table>
+          </div>
+
+          {#if orphanTotalPages > 1}
+            <div class="flex flex-wrap items-center justify-center gap-2 text-sm">
+              <button type="button" class="menu-button-secondary" onclick={() => goToOrphanPage(1)} disabled={orphansLoading || orphanPage <= 1}>
+                &lt;&lt; First
+              </button>
+              <button type="button" class="menu-button-secondary" onclick={() => goToOrphanPage(orphanPage - 1)} disabled={orphansLoading || orphanPage <= 1}>
+                &lt; Prev
+              </button>
+
+              {#each orphanPaginationPages() as pageToken}
+                {#if pageToken === "..."}
+                  <span class="px-1 text-gray-400">...</span>
+                {:else if pageToken === orphanPage}
+                  <span class="px-3 py-1 border rounded bg-indigo-600 text-white">{pageToken}</span>
+                {:else}
+                  <button
+                    type="button"
+                    class="menu-button-secondary"
+                    onclick={() => goToOrphanPage(pageToken)}
+                    disabled={orphansLoading}
+                  >
+                    {pageToken}
+                  </button>
+                {/if}
+              {/each}
+
+              <button type="button" class="menu-button-secondary" onclick={() => goToOrphanPage(orphanPage + 1)} disabled={orphansLoading || orphanPage >= orphanTotalPages}>
+                Next &gt;
+              </button>
+              <button type="button" class="menu-button-secondary" onclick={() => goToOrphanPage(orphanTotalPages)} disabled={orphansLoading || orphanPage >= orphanTotalPages}>
+                Last &gt;&gt;
+              </button>
+            </div>
+          {/if}
         </div>
       {:else if currentUiKind === "about"}
         <AboutView
@@ -5849,52 +6117,3 @@
   </div>
 </footer>
 
-{#if orphanModalOpen}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="orphan-modal-title"
-    aria-describedby="orphan-modal-body"
-    tabindex="-1"
-    bind:this={orphanModalContainer}
-    onclick={(event) => {
-      if (event.target === event.currentTarget && orphanCanDismiss) {
-        closeOrphansModal();
-      }
-    }}
-    onkeydown={handleModalKeydown}
-  >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
-      <h2
-        id="orphan-modal-title"
-        class="text-lg font-semibold text-gray-800"
-        tabindex="-1"
-        bind:this={orphanModalTitle}
-      >
-        {orphanStatus === "loading" ? "Checking files..." : orphanStatus === "error" ? "Scan failed" : "Scan complete"}
-      </h2>
-
-      {#if orphanStatus === "loading"}
-        <p id="orphan-modal-body" class="text-sm text-gray-600" aria-live="polite">⏳ Scanning database against disk, please wait...</p>
-      {:else if orphanStatus === "error"}
-        <p id="orphan-modal-body" class="text-sm text-red-600" aria-live="polite">Could not complete scan: {orphanError || "Unknown error"}</p>
-      {:else}
-        <p id="orphan-modal-body" class="text-sm text-gray-600" aria-live="polite">
-          Checked {orphanChecked} file record(s). Found {orphanFound} {orphanFound === 1 ? "orphan" : "orphans"}.
-        </p>
-      {/if}
-
-      <div class="flex justify-end gap-3">
-        {#if orphanCanDismiss}
-          <button class="menu-button-secondary" onclick={closeOrphansModal} bind:this={orphanCloseButton}>Close</button>
-        {/if}
-        {#if orphanStatus === "done" && orphanFound > 0}
-          <button class="menu-button-primary" onclick={viewOrphans} bind:this={orphanPrimaryButton}>
-            View Orphans
-          </button>
-        {/if}
-      </div>
-    </div>
-  </div>
-{/if}
