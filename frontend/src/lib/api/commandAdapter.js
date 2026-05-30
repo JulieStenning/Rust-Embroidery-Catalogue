@@ -1264,6 +1264,133 @@ export async function browseSettingsDataRoot(startDir) {
   }
 }
 
+export async function getTaggingActionsViewModel() {
+  try {
+    const model = await invoke("get_tagging_actions_view_model");
+    return {
+      source: "rust",
+      model: {
+        has_google_api_key: Boolean(model?.has_google_api_key),
+        ai_tier2_auto: Boolean(model?.ai_tier2_auto),
+        ai_tier3_auto: Boolean(model?.ai_tier3_auto),
+        ai_batch_size: String(model?.ai_batch_size || ""),
+        ai_delay: String(model?.ai_delay || ""),
+        import_commit_batch_size: String(model?.import_commit_batch_size || ""),
+        default_batch_size: Number(model?.default_batch_size ?? 100),
+        default_commit_every: Number(model?.default_commit_every ?? 100),
+        default_workers: Number(model?.default_workers ?? 4),
+      },
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      model: {
+        has_google_api_key: false,
+        ai_tier2_auto: false,
+        ai_tier3_auto: false,
+        ai_batch_size: "",
+        ai_delay: "",
+        import_commit_batch_size: "",
+        default_batch_size: 100,
+        default_commit_every: 100,
+        default_workers: 4,
+      },
+      error: String(error),
+    };
+  }
+}
+
+export async function runUnifiedBackfill(request) {
+  try {
+    const result = await invoke("run_unified_backfill", { request });
+    return {
+      source: "rust",
+      processed: Number(result?.processed ?? 0),
+      errors: Number(result?.errors ?? 0),
+      stopped: Boolean(result?.stopped),
+      actions: Array.isArray(result?.actions) ? result.actions.map(String) : [],
+      commit_every: Number(result?.commit_every ?? 100),
+      batch_size: Number(result?.batch_size ?? 100),
+      workers: Number(result?.workers ?? 4),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      processed: 0,
+      errors: 1,
+      stopped: false,
+      actions: [],
+      error: String(error),
+    };
+  }
+}
+
+export async function stopUnifiedBackfill() {
+  try {
+    const result = await invoke("stop_unified_backfill");
+    return {
+      source: "rust",
+      status: String(result?.status || "stopping"),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      status: "stopping",
+      error: String(error),
+    };
+  }
+}
+
+export async function getBackfillLogEntries(limit = 20) {
+  try {
+    const entries = await invoke("get_backfill_log_entries", { limit: Number(limit) });
+    if (Array.isArray(entries)) {
+      return {
+        source: "rust",
+        entries: entries.map((entry) => ({
+          level: String(entry?.level || "info"),
+          message: String(entry?.message || ""),
+        })),
+      };
+    }
+  } catch (error) {
+    return {
+      source: "mock",
+      entries: [{ level: "error", message: String(error) }],
+    };
+  }
+
+  return {
+    source: "mock",
+    entries: [],
+  };
+}
+
+export async function runStitchingBackfill({ clearExistingStitching = false, batchSize = 100 } = {}) {
+  try {
+    const result = await invoke("run_stitching_backfill", {
+      clearExistingStitching: Boolean(clearExistingStitching),
+      batchSize: Number(batchSize),
+    });
+    return {
+      source: "rust",
+      processed: Number(result?.processed ?? 0),
+      errors: Number(result?.errors ?? 0),
+      stopped: Boolean(result?.stopped),
+      actions: Array.isArray(result?.actions) ? result.actions.map(String) : [],
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      processed: 0,
+      errors: 1,
+      stopped: false,
+      actions: ["stitching"],
+      error: String(error),
+    };
+  }
+}
+
 export async function getBackupViewModel() {
   try {
     const model = await invoke("get_backup_view_model");

@@ -1,0 +1,3 @@
+1780146254	Run started batch_size=100 commit_every=100 workers=4 tier2_delay=5 tier3_delay=2 api_key=true
+1780146254	Tagging action=retag_all_unverified candidates=100 tiers={2, 1, 3}
+1780146451	Run complete processed=100 errors=0 stopped=false actions=["tagging", "images"]
