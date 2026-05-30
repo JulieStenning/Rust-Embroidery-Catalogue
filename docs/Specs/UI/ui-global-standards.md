@@ -51,6 +51,8 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - In dense filter grids, controls must share the same rendered height and full-width sizing within each column.
 - Multi-column filter layouts must define explicit column and row gaps (not implicit utility defaults) for consistent spacing.
 - Checkboxes use a visible gray border and white background.
+- Selected checkboxes use a blue background with a white checkmark (for parity with Search in controls).
+- Radio controls in grouped filters use a shared class and selected blue indicator styling.
 - Help notes use shared help-note typography and muted gray text.
 - In-app links in control/help text remain blue, non-underlined, and must not switch to visited purple.
 
@@ -66,6 +68,7 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - .ui-multi-dropdown-summary
 - .ui-control-caret
 - .ui-checkbox
+- .ui-radio
 
 ## Controls
 - Primary button height target: 2rem to 2.25rem.

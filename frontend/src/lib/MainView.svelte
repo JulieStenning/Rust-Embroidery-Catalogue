@@ -4077,61 +4077,103 @@
           {/if}
         </details>
 
-        <div class="border rounded-lg bg-white p-4 flex flex-wrap gap-4 items-start text-gray-700">
-          <div>
-            <p class="text-sm font-medium text-gray-700 mb-1">Search in</p>
-            <div class="flex min-h-[38px] flex-wrap items-center gap-4">
-              <label class="flex items-center gap-1.5 text-sm">
+        <div class="ui-section-shell p-3 flex flex-wrap gap-4 items-end">
+          <fieldset class="ui-field-label text-sm mr-8">
+            <legend class="block font-medium px-1">Search in</legend>
+            <div class="flex min-h-[2rem] flex-wrap items-center gap-3">
+              <label class="ui-field-label flex items-center gap-1.5 text-sm">
                 <input
                   type="checkbox"
+                  class="ui-checkbox"
                   checked={browseFilters.searchFilename}
                   onchange={(event) => updateBrowseFilter("searchFilename", event.currentTarget.checked)}
                 />
                 File name
               </label>
-              <label class="flex items-center gap-1.5 text-sm">
+              <label class="ui-field-label flex items-center gap-1.5 text-sm">
                 <input
                   type="checkbox"
+                  class="ui-checkbox"
                   checked={browseFilters.searchTags}
                   onchange={(event) => updateBrowseFilter("searchTags", event.currentTarget.checked)}
                 />
                 Tags
               </label>
-              <label class="flex items-center gap-1.5 text-sm">
+              <label class="ui-field-label flex items-center gap-1.5 text-sm">
                 <input
                   type="checkbox"
+                  class="ui-checkbox"
                   checked={browseFilters.searchFolder}
                   onchange={(event) => updateBrowseFilter("searchFolder", event.currentTarget.checked)}
                 />
                 Folder name
               </label>
             </div>
+          </fieldset>
+
+          <div class="flex items-end gap-6 pl-10">
+            <fieldset class="ui-field-label text-sm">
+              <legend class="block font-medium mb-1">Sort by</legend>
+              <div class="flex min-h-[2rem] flex-wrap items-center gap-3">
+                <label class="ui-field-label flex items-center gap-1.5 text-sm">
+                  <input
+                    type="radio"
+                    class="ui-radio"
+                    name="browse-sort-by"
+                    checked={browseFilters.sortBy === "name"}
+                    onchange={() => updateBrowseFilter("sortBy", "name")}
+                  />
+                  Design name
+                </label>
+                <label class="ui-field-label flex items-center gap-1.5 text-sm">
+                  <input
+                    type="radio"
+                    class="ui-radio"
+                    name="browse-sort-by"
+                    checked={browseFilters.sortBy === "folder"}
+                    onchange={() => updateBrowseFilter("sortBy", "folder")}
+                  />
+                  Folder
+                </label>
+                <label class="ui-field-label flex items-center gap-1.5 text-sm">
+                  <input
+                    type="radio"
+                    class="ui-radio"
+                    name="browse-sort-by"
+                    checked={browseFilters.sortBy === "date_added"}
+                    onchange={() => updateBrowseFilter("sortBy", "date_added")}
+                  />
+                  Date added
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="ui-field-label text-sm">
+              <legend class="block font-medium mb-1">Order</legend>
+              <div class="flex min-h-[2rem] flex-wrap items-center gap-3">
+                <label class="ui-field-label flex items-center gap-1.5 text-sm">
+                  <input
+                    type="radio"
+                    class="ui-radio"
+                    name="browse-sort-dir"
+                    checked={browseFilters.sortDir === "asc"}
+                    onchange={() => updateBrowseFilter("sortDir", "asc")}
+                  />
+                  Ascending
+                </label>
+                <label class="ui-field-label flex items-center gap-1.5 text-sm">
+                  <input
+                    type="radio"
+                    class="ui-radio"
+                    name="browse-sort-dir"
+                    checked={browseFilters.sortDir === "desc"}
+                    onchange={() => updateBrowseFilter("sortDir", "desc")}
+                  />
+                  Descending
+                </label>
+              </div>
+            </fieldset>
           </div>
-
-          <label class="text-sm text-gray-700">
-            <span class="block font-medium mb-1">Sort by</span>
-            <select
-              class="ui-select-input ui-control-text-inset text-sm bg-white text-gray-800"
-              value={browseFilters.sortBy}
-              onchange={(event) => updateBrowseFilter("sortBy", event.currentTarget.value)}
-            >
-              <option value="name">Design name</option>
-              <option value="folder">Folder</option>
-              <option value="date_added">Date added</option>
-            </select>
-          </label>
-
-          <label class="text-sm text-gray-700">
-            <span class="block font-medium mb-1">Order</span>
-            <select
-              class="ui-select-input ui-control-text-inset text-sm bg-white text-gray-800"
-              value={browseFilters.sortDir}
-              onchange={(event) => updateBrowseFilter("sortDir", event.currentTarget.value)}
-            >
-              <option value="asc">▲ Ascending</option>
-              <option value="desc">▼ Descending</option>
-            </select>
-          </label>
 
           <div class="ml-auto flex gap-3 items-center self-end">
             <button type="submit" class="menu-button-primary">Search</button>
