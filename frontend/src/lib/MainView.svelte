@@ -3783,10 +3783,10 @@
 <svelte:window onhashchange={syncRouteFromHash} onresize={refreshBrowseGridColumns} />
 
 <nav class="menu-shell text-white shadow">
-  <div class="menu-shell-inner max-w-7xl mx-auto px-3 py-2 flex items-center gap-x-4 overflow-x-auto">
-    <div class="flex items-center gap-x-4 min-w-max">
+  <div class="menu-shell-inner max-w-7xl mx-auto">
+    <div class="menu-primary-group">
       <a href="#/designs" class="menu-brand">
-        <span class="menu-brand-mark" aria-hidden="true"></span>
+        <span aria-hidden="true">🧵</span>
         <span>Embroidery Catalogue</span>
       </a>
       <a href="#/designs" class={linkClass("#/designs")}>Browse</a>
@@ -3795,7 +3795,7 @@
       <a href="#/help" class={linkClass("#/help")}>Help</a>
     </div>
 
-    <div class="flex items-center gap-x-3 ml-auto min-w-max">
+    <div class="menu-admin-group">
       <span class="menu-admin-label" aria-hidden="true">Admin:</span>
       <a href="#/admin/designers" class={adminLinkClass("#/admin/designers")}>Designers</a>
       <a href="#/admin/tags" class={adminLinkClass("#/admin/tags")}>Tags</a>
