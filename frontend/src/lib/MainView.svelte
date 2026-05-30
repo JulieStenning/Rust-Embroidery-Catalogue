@@ -354,6 +354,7 @@
   let browseBulkModalMode = $state("browse");
   let browseBulkTagSelection = $state([]);
   let browseBulkProject = $state("");
+  let browseCardProjectPendingById = $state({});
   let browseActionNotice = $state("");
   let browseGridContainer = $state(null);
   let browseGridColumns = $state(2);
@@ -2815,6 +2816,24 @@
       imageTags.length > 0 || stitchingTags.length > 0
         ? Array.from(new Set([...imageTags, ...stitchingTags]))
         : fallbackTags.sort((left, right) => left.localeCompare(right));
+    const projectsRaw = Array.isArray(item?.projects)
+      ? item.projects
+      : Array.isArray(item?.project_names)
+        ? item.project_names
+        : typeof item?.projects === "string"
+          ? item.projects.split(",")
+          : typeof item?.project_names === "string"
+            ? item.project_names.split(",")
+            : [];
+
+    const projects = projectsRaw
+      .map((project) => {
+        if (typeof project === "string") {
+          return project.trim();
+        }
+        return String(project?.name || "").trim();
+      })
+      .filter(Boolean);
 
     return {
       id,
@@ -2824,6 +2843,7 @@
       tags: allTags,
       imageTags,
       stitchingTags,
+      projects,
       hoop: item?.hoop ? String(item.hoop) : "",
       rating:
         item?.rating == null || Number.isNaN(Number(item.rating))
@@ -2928,8 +2948,28 @@
     ].filter(Boolean);
   }
 
+  function getBrowseCardProjectDropdowns() {
+    if (typeof document === "undefined") {
+      return [];
+    }
+
+    return Array.from(document.querySelectorAll(".browse-card-project-details"));
+  }
+
   function closeBrowseTagDropdowns(exceptNode = null) {
     for (const dropdown of getBrowseTagDropdowns()) {
+      if (exceptNode && dropdown === exceptNode) {
+        continue;
+      }
+
+      if (dropdown.hasAttribute("open")) {
+        dropdown.removeAttribute("open");
+      }
+    }
+  }
+
+  function closeBrowseCardProjectDropdowns(exceptNode = null) {
+    for (const dropdown of getBrowseCardProjectDropdowns()) {
       if (exceptNode && dropdown === exceptNode) {
         continue;
       }
@@ -3180,6 +3220,12 @@
       if (!clickedInside) {
         closeBrowseTagDropdowns();
       }
+
+      const projectDropdowns = getBrowseCardProjectDropdowns();
+      const clickedInsideProjectDropdown = projectDropdowns.some((dropdown) => dropdown.contains(target));
+      if (!clickedInsideProjectDropdown) {
+        closeBrowseCardProjectDropdowns();
+      }
     };
 
     const onDetailsToggle = (event) => {
@@ -3198,6 +3244,10 @@
         target.hasAttribute("open")
       ) {
         closeBrowseTagDropdowns(target);
+      }
+
+      if (target.classList.contains("browse-card-project-details") && target.hasAttribute("open")) {
+        closeBrowseCardProjectDropdowns(target);
       }
     };
 
@@ -3338,6 +3388,184 @@
 
     const reason = result?.error ? ` Reason: ${result.error}` : "";
     browseActionNotice = `Could not add selected designs to ${projectName}.${reason}`;
+  }
+
+  function getBrowseProjectIdsForCard(item) {
+    const currentNames = new Set((Array.isArray(item?.projects) ? item.projects : []).map((value) => String(value || "").trim().toLowerCase()));
+    return browseProjects
+      .filter((project) => currentNames.has(String(project?.name || "").trim().toLowerCase()))
+      .map((project) => Number(project.id))
+      .filter((projectId) => Number.isFinite(projectId) && projectId > 0);
+  }
+
+  function findBrowseCardItemById(designId) {
+    const normalizedDesignId = Number(designId);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0) {
+      return null;
+    }
+
+    return browseCardItems.find((item) => Number(item?.id) === normalizedDesignId) || null;
+  }
+
+  function getBrowseCardPendingProjectIds(designId, fallbackItem = null) {
+    const key = String(designId);
+    if (Array.isArray(browseCardProjectPendingById?.[key])) {
+      return browseCardProjectPendingById[key].map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0);
+    }
+
+    const item = fallbackItem || findBrowseCardItemById(designId);
+    return item ? getBrowseProjectIdsForCard(item) : [];
+  }
+
+  function setBrowseCardPendingProjectIds(designId, projectIds) {
+    const normalizedDesignId = Number(designId);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0) {
+      return;
+    }
+
+    const key = String(normalizedDesignId);
+    const normalizedIds = Array.from(
+      new Set((Array.isArray(projectIds) ? projectIds : [])
+        .map((projectId) => Number(projectId))
+        .filter((projectId) => Number.isFinite(projectId) && projectId > 0))
+    );
+
+    browseCardProjectPendingById = {
+      ...browseCardProjectPendingById,
+      [key]: normalizedIds,
+    };
+  }
+
+  function primeBrowseCardProjectPendingFromItem(item) {
+    const normalizedDesignId = Number(item?.id);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0) {
+      return;
+    }
+
+    const key = String(normalizedDesignId);
+    if (Array.isArray(browseCardProjectPendingById?.[key])) {
+      return;
+    }
+
+    setBrowseCardPendingProjectIds(normalizedDesignId, getBrowseProjectIdsForCard(item));
+  }
+
+  function isBrowseCardProjectChecked(item, projectId) {
+    return getBrowseCardPendingProjectIds(item?.id, item).includes(Number(projectId));
+  }
+
+  function updateBrowseCardProjectPending(designId, projectId, enabled) {
+    const normalizedDesignId = Number(designId);
+    const normalizedProjectId = Number(projectId);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0 || !Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+      return;
+    }
+
+    const active = new Set(getBrowseCardPendingProjectIds(normalizedDesignId));
+    if (enabled) {
+      active.add(normalizedProjectId);
+    } else {
+      active.delete(normalizedProjectId);
+    }
+
+    setBrowseCardPendingProjectIds(normalizedDesignId, Array.from(active));
+  }
+
+  async function applyBrowseCardProjectPending(designId) {
+    const normalizedDesignId = Number(designId);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0) {
+      return;
+    }
+
+    const item = findBrowseCardItemById(normalizedDesignId);
+    if (!item) {
+      return;
+    }
+
+    const existingProjectIds = new Set(getBrowseProjectIdsForCard(item));
+    const desiredProjectIds = new Set(getBrowseCardPendingProjectIds(normalizedDesignId, item));
+
+    const projectIdsToAdd = Array.from(desiredProjectIds).filter((projectId) => !existingProjectIds.has(projectId));
+    const projectIdsToRemove = Array.from(existingProjectIds).filter((projectId) => !desiredProjectIds.has(projectId));
+
+    if (projectIdsToAdd.length === 0 && projectIdsToRemove.length === 0) {
+      return;
+    }
+
+    const key = String(normalizedDesignId);
+    let addedCount = 0;
+    let removedCount = 0;
+    let firstFailure = "";
+
+    for (const projectId of projectIdsToAdd) {
+      const result = await addDesignToProject(normalizedDesignId, projectId);
+      if (result?.persisted) {
+        addedCount += 1;
+      } else if (!firstFailure) {
+        firstFailure = String(result?.error || result?.message || "Unknown error");
+      }
+    }
+
+    for (const projectId of projectIdsToRemove) {
+      const result = await removeDesignFromProject(normalizedDesignId, projectId);
+      if (result?.persisted) {
+        removedCount += 1;
+      } else if (!firstFailure) {
+        firstFailure = String(result?.error || result?.message || "Unknown error");
+      }
+    }
+
+    browseCardProjectPendingById = {
+      ...browseCardProjectPendingById,
+      [key]: [],
+    };
+
+    if (addedCount > 0 || removedCount > 0) {
+      const actions = [];
+      if (addedCount > 0) {
+        actions.push(`added to ${addedCount} ${addedCount === 1 ? "project" : "projects"}`);
+      }
+      if (removedCount > 0) {
+        actions.push(`removed from ${removedCount} ${removedCount === 1 ? "project" : "projects"}`);
+      }
+      browseActionNotice = `Design ${actions.join(" and ")} (saved in Rust backend).`;
+      await loadBrowseItems();
+      return;
+    }
+
+    const reason = firstFailure ? ` Reason: ${firstFailure}` : "";
+    browseActionNotice = `Could not add design to selected projects.${reason}`;
+  }
+
+  function handleBrowseCardProjectDetailsToggle(item, node) {
+    if (!node) {
+      return;
+    }
+
+    const normalizedDesignId = Number(item?.id);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0) {
+      return;
+    }
+
+    if (node.hasAttribute("open")) {
+      primeBrowseCardProjectPendingFromItem(item);
+      closeBrowseCardProjectDropdowns(node);
+      return;
+    }
+
+    void applyBrowseCardProjectPending(normalizedDesignId);
+  }
+
+  function handleBrowseCardOpenDetail(event, item) {
+    const anyProjectDropdownOpen = getBrowseCardProjectDropdowns().some((dropdown) => dropdown.hasAttribute("open"));
+    if (anyProjectDropdownOpen) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      closeBrowseCardProjectDropdowns();
+      return;
+    }
+
+    openDesignDetail(item);
   }
 
   function browseStars(value) {
@@ -4245,7 +4473,7 @@
                       />
                     </label>
 
-                    <button class="browse-card-link w-full text-left" onclick={() => openDesignDetail(item)}>
+                    <button class="browse-card-link w-full text-left" onclick={(event) => handleBrowseCardOpenDetail(event, item)}>
                       {#if browsePreviewById[item.id]}
                         <div class="browse-card-image-frame bg-gray-100 p-1">
                           <img
@@ -4260,9 +4488,9 @@
                           {browsePreviewsLoading ? "Loading image..." : "No image"}
                         </div>
                       {/if}
-                      <div class="browse-card-meta p-2 flex-1 space-y-1">
+                      <div class="browse-card-meta p-2">
                         <div class="browse-card-title-row flex items-start justify-between gap-1">
-                          <p class="browse-card-title text-xs font-medium text-gray-800 truncate flex-1" title={item.filename}>{item.filename}</p>
+                          <p class="browse-card-title ui-field-label text-xs font-medium truncate flex-1" title={item.filename}>{item.filename}</p>
                           <span
                             class={`browse-card-verified text-xs leading-none ${item.tagsChecked ? "text-green-600" : "text-red-500"}`}
                             title={item.tagsChecked ? "Verified" : "Not verified"}
@@ -4272,20 +4500,49 @@
                           </span>
                         </div>
                         {#if item.hoop}
-                          <p class="browse-card-hoop text-xs text-indigo-600">{item.hoop}</p>
+                          <p class="browse-card-hoop ui-field-label text-xs text-indigo-600">{item.hoop}</p>
+                        {/if}
+                        {#if item.projects.length > 0}
+                          <p class="browse-card-projects ui-field-label text-xs text-gray-500" title={item.projects.join(", ")}>
+                            {item.projects.join(", ")}
+                          </p>
                         {/if}
                         {#if item.imageTags.length > 0 || item.stitchingTags.length > 0 || item.tags.length > 0}
-                          <p class="browse-card-tags pt-0.5 text-[11px] leading-4 text-gray-700" title={item.tags.join(", ")}>
+                          <p class="browse-card-tags ui-field-label text-xs" title={item.tags.join(", ")}>
                             {item.tags.join(", ")}
                           </p>
                         {:else}
-                          <p class="browse-card-tags pt-0.5 text-[11px] leading-4 text-gray-300 italic">No tags</p>
+                          <p class="browse-card-tags ui-field-label text-xs text-gray-300 italic">No tags</p>
                         {/if}
                         <p class="browse-card-rating text-xs text-gray-400" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
                           {browseStars(item.rating ?? 0)}
                         </p>
                       </div>
                     </button>
+
+                    {#if browseProjects.length > 0}
+                      <details
+                        class="browse-card-project-details border-t px-2 py-1 no-print"
+                        ontoggle={(event) => handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
+                      >
+                        <summary class="browse-card-project-summary ui-field-label text-xs text-gray-400 cursor-pointer hover:text-indigo-600 select-none">
+                          + Add to project
+                        </summary>
+                        <div class="ui-checkbox-list-shell mt-1 max-h-40 overflow-auto px-2 py-1 space-y-1">
+                          {#each browseProjects as project}
+                            <label class="ui-field-label flex items-center gap-1.5 text-xs">
+                              <input
+                                type="checkbox"
+                                class="ui-checkbox"
+                                checked={isBrowseCardProjectChecked(item, project.id)}
+                                onchange={(event) => updateBrowseCardProjectPending(item.id, project.id, event.currentTarget.checked)}
+                              />
+                              <span>{project.name}</span>
+                            </label>
+                          {/each}
+                        </div>
+                      </details>
+                    {/if}
                   </article>
                 {/each}
               </div>

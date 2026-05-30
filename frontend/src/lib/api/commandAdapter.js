@@ -59,6 +59,15 @@ function normalizeBrowseItem(raw, index, options = {}) {
     filename,
     designer: String(raw?.designer || "Unknown"),
     source: String(raw?.source || "Unknown"),
+    projects: Array.isArray(raw?.projects)
+      ? raw.projects
+      : Array.isArray(raw?.project_names)
+        ? raw.project_names
+        : typeof raw?.projects === "string"
+          ? raw.projects.split(",").map((value) => value.trim()).filter(Boolean)
+          : typeof raw?.project_names === "string"
+            ? raw.project_names.split(",").map((value) => value.trim()).filter(Boolean)
+            : [],
     tags:
       Array.isArray(raw?.tags) && raw.tags.length > 0
         ? raw.tags.map(String)

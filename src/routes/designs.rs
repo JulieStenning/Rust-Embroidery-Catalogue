@@ -16,6 +16,7 @@ pub struct BrowseDesignSummary {
 	pub designer: String,
 	pub source: String,
 	pub hoop: Option<String>,
+	pub projects: Vec<String>,
 	pub tags: Vec<String>,
 	pub image_tags: Vec<String>,
 	pub stitching_tags: Vec<String>,
@@ -31,6 +32,7 @@ struct BrowseDesignSummaryRow {
 	pub designer: String,
 	pub source: String,
 	pub hoop: Option<String>,
+	pub projects_csv: Option<String>,
 	pub tags_csv: Option<String>,
 	pub image_tags_csv: Option<String>,
 	pub stitching_tags_csv: Option<String>,
@@ -1039,6 +1041,12 @@ pub async fn get_designs(state: State<'_, AppState>) -> Result<Vec<BrowseDesignS
 			COALESCE(designers.name, 'Unknown') AS designer,
 			COALESCE(sources.name, 'Unknown') AS source,
 			hoops.name AS hoop,
+			(
+				SELECT GROUP_CONCAT(projects.name, '|||')
+				FROM project_designs
+				JOIN projects ON projects.id = project_designs.project_id
+				WHERE project_designs.design_id = d.id
+			) AS projects_csv,
 			GROUP_CONCAT(tags.description, '|||') AS tags_csv,
 			GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') = 'stitching_type' THEN tags.description END, '|||') AS stitching_tags_csv,
 			GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') != 'stitching_type' THEN tags.description END, '|||') AS image_tags_csv,
@@ -1068,6 +1076,14 @@ pub async fn get_designs(state: State<'_, AppState>) -> Result<Vec<BrowseDesignS
 			designer: row.designer,
 			source: row.source,
 			hoop: row.hoop,
+			projects: row
+				.projects_csv
+				.unwrap_or_default()
+				.split("|||")
+				.map(|value| value.trim())
+				.filter(|value| !value.is_empty())
+				.map(String::from)
+				.collect(),
 			tags: row
 				.tags_csv
 				.unwrap_or_default()
