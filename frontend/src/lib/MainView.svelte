@@ -92,14 +92,14 @@
     },
     "#/admin/tags": {
       title: "Tags",
-      subtitle: "Admin tags placeholder",
-      description: "This page will provide grouped tag management and tag metadata editing.",
+      subtitle: "",
+      description: "",
       cta: "Next backend hookup: tags CRUD commands",
     },
     "#/admin/sources": {
       title: "Sources",
-      subtitle: "Admin sources placeholder",
-      description: "This page will provide source reference management controls.",
+      subtitle: "",
+      description: "",
       cta: "Next backend hookup: sources CRUD commands",
     },
     "#/admin/hoops": {
@@ -597,7 +597,6 @@
     }
 
     newSourceName = "";
-    setAdminNotice("Source added.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -3962,18 +3961,14 @@
     </section>
   {:else if currentPage}
     <div class={`bg-white rounded-xl shadow p-6 space-y-4 ${currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print" ? "bg-transparent rounded-none shadow-none p-0" : ""}`}>
-      {#if currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print"}
+      {#if currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
         <h1 class="text-2xl font-bold text-gray-800">{currentPage.title}</h1>
-        <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
-        <p class="text-gray-600">{currentPage.description}</p>
-      {/if}
-
-      {#if currentUiKind !== "design-detail" && currentUiKind !== "design-print" && currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print"}
-        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-sm text-indigo-800 space-y-2">
-          <p class="font-semibold">Current Stage: Route-backed placeholders</p>
-          <p>{currentPage.cta}</p>
-          <p>Active route: <span class="font-semibold">{currentRoute}</span></p>
-        </div>
+        {#if currentPage.subtitle}
+          <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
+        {/if}
+        {#if currentPage.description}
+          <p class="text-gray-600">{currentPage.description}</p>
+        {/if}
       {/if}
 
       {#if currentUiKind === "design-detail"}
@@ -5048,8 +5043,8 @@
                   <input
                     id="admin-hoop-width"
                     type="number"
-                    min="0.01"
-                    step="0.01"
+                    min="1"
+                    step="1"
                     bind:value={newHoopWidth}
                     required
                     class="admin-input border rounded px-3 py-2 text-sm w-36"
@@ -5060,8 +5055,8 @@
                   <input
                     id="admin-hoop-height"
                     type="number"
-                    min="0.01"
-                    step="0.01"
+                    min="1"
+                    step="1"
                     bind:value={newHoopHeight}
                     required
                     class="admin-input border rounded px-3 py-2 text-sm w-36"
@@ -5105,26 +5100,26 @@
                           {#if editingHoopId === hoop.id}
                             <input
                               type="number"
-                              min="0.01"
-                              step="0.01"
+                              min="1"
+                              step="1"
                               bind:value={editingHoopWidth}
                               class="admin-input border rounded px-2 py-1 text-sm w-28 text-right"
                             />
                           {:else}
-                            {hoop.maxWidthMm.toFixed(2)}
+                            {hoop.maxWidthMm.toFixed(0)}
                           {/if}
                         </td>
                         <td class="px-4 py-2 text-right">
                           {#if editingHoopId === hoop.id}
                             <input
                               type="number"
-                              min="0.01"
-                              step="0.01"
+                              min="1"
+                              step="1"
                               bind:value={editingHoopHeight}
                               class="admin-input border rounded px-2 py-1 text-sm w-28 text-right"
                             />
                           {:else}
-                            {hoop.maxHeightMm.toFixed(2)}
+                            {hoop.maxHeightMm.toFixed(0)}
                           {/if}
                         </td>
                         <td class="px-4 py-2 text-right text-gray-600">{hoop.designCount}</td>
