@@ -46,6 +46,7 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - Text entry controls use white background, dark text, and gray placeholders.
 - Text entry controls use compact vertical padding with equal top/bottom breathing room.
 - Dropdown/select controls use a dedicated class with slightly larger vertical padding for readability.
+- Stacked field labels should use a block label with a small bottom gap before the control (for example, `mb-1`), matching the Browse page spacing.
 - Dropdown/select controls and multi-select summary controls must use the same left text inset so displayed values (for example, "Any") align consistently across fields.
 - Text-entry controls must use the same shared left text inset class as dropdown/select controls to keep value alignment consistent across field types.
 - In dense filter grids, controls must share the same rendered height and full-width sizing within each column.
@@ -76,6 +77,10 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - Primary button height target: 2rem to 2.25rem.
 - Input/select height target: 2rem to 2.25rem.
 - Control border radius baseline: 0.25rem.
+- Button labels use sentence case, including action buttons and secondary controls.
+- Keep button copy concise and task-focused; use title case only for proper nouns or product-specific names.
+- Shared button classes (`ui-action-button`, `ui-action-button-primary`, and existing page aliases) should resolve to the same filled button treatment, size, and shape across the app.
+- Import folder rows use a small horizontal gap between the text box, browse button, and remove button, plus a small vertical gap between stacked rows.
 - Checkbox hit area should remain easily clickable and keyboard focus-visible.
 - Disabled buttons must use explicit disabled styling via shared button classes, not utility-only styling.
 - Browse search action buttons use dedicated semantic classes (.browse-search-submit-button and .browse-search-reset-button).

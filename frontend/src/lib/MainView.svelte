@@ -229,6 +229,15 @@
     return match ? String(match[1]).toLowerCase() : null;
   }
 
+  function parseImportWizardStep(route) {
+    if (route === "#/import") {
+      return 1;
+    }
+
+    const match = route.match(/^#\/import\/step([123])$/);
+    return match ? Number(match[1]) : null;
+  }
+
   function resolveCurrentPage(route) {
     if (parseProjectPrintId(route) !== null) {
       return {
@@ -285,6 +294,11 @@
       };
     }
 
+    const importStep = parseImportWizardStep(route);
+    if (importStep !== null) {
+      return ROUTE_PAGES["#/import"];
+    }
+
     return ROUTE_PAGES[route] || null;
   }
 
@@ -313,6 +327,10 @@
       return "about-document";
     }
 
+    if (parseImportWizardStep(route) !== null) {
+      return "import";
+    }
+
     return ROUTE_UI_KIND[route] || null;
   }
 
@@ -324,6 +342,7 @@
   let projectDetailId = $derived(parseProjectDetailId(currentRoute));
   let projectPrintId = $derived(parseProjectPrintId(currentRoute));
   let aboutDocumentSlug = $derived(parseAboutDocumentSlug(currentRoute));
+  let importRouteStep = $derived(parseImportWizardStep(currentRoute));
 
   let browseItems = $state([]);
   let browseSource = $state("mock");
@@ -446,7 +465,6 @@
 
   let importRootPath = $state("C:/imports");
   let importRootPaths = $state([]);
-  let importStep = $state(1);
   let importPreview = $state(null);
   let importPreviewSource = $state("mock");
   let importPreviewMessage = $state("Import preview has not run yet.");
@@ -1250,22 +1268,34 @@
       return "#/designs";
     }
 
-    const sectionId = hash.startsWith("#") ? hash.slice(1) : "";
-    if (HELP_SECTION_IDS.has(sectionId)) {
+    const hashParts = String(hash).split("#");
+    const routePart = hashParts.length > 1 ? `#${hashParts[1]}` : String(hash);
+    const fragmentId = hashParts.length > 2 ? hashParts.slice(2).join("#") : "";
+
+    if (HELP_SECTION_IDS.has(routePart.startsWith("#") ? routePart.slice(1) : routePart)) {
       return "#/help";
     }
 
-    if (hash === "#/about/licence") {
+    if (routePart === "#/help" && HELP_SECTION_IDS.has(fragmentId)) {
+      return "#/help";
+    }
+
+    if (routePart === "#/about/licence") {
       return "#/about/document/licence";
     }
 
-    return hash;
+    return routePart;
+  }
+
+  function isImportRoute(route) {
+    return parseImportWizardStep(route) !== null;
   }
 
   function syncRouteFromHash() {
     const rawHash = window.location.hash || "";
     const nextRoute = normalizeHash(rawHash);
-    const sectionId = rawHash.startsWith("#") ? rawHash.slice(1) : "";
+    const hashParts = rawHash.split("#");
+    const sectionId = hashParts.length > 2 ? hashParts.slice(2).join("#") : rawHash.startsWith("#") ? rawHash.slice(1) : "";
     const scrollToHelpSection = HELP_SECTION_IDS.has(sectionId);
     const enteringProjects = currentRoute !== "#/projects" && nextRoute === "#/projects";
     currentRoute = nextRoute;
@@ -1286,7 +1316,8 @@
     const isActive =
       currentRoute === target ||
       (target === "#/designs" && currentRoute.startsWith("#/designs/")) ||
-      (target === "#/projects" && currentRoute.startsWith("#/projects/"));
+      (target === "#/projects" && currentRoute.startsWith("#/projects/")) ||
+      (target === "#/import" && isImportRoute(currentRoute));
     return `menu-link menu-link-primary ${isActive ? "menu-link-active" : ""}`;
   }
 
@@ -1967,7 +1998,7 @@
       importPrecheckSource = "mock";
       importPrecheckMessage = "Run precheck after selecting files.";
       importContextToken = "";
-      importStep = importPreview && importSelectedFiles.length >= 0 ? 2 : 1;
+      navigateTo("#/import/step2");
     } catch (error) {
       importError = `Import preview failed: ${error}`;
       importPreview = null;
@@ -1976,13 +2007,27 @@
       importPerFolderAssignmentByPath = {};
       importPrecheck = null;
       importContextToken = "";
-      importStep = 1;
+      navigateTo("#/import/step1");
     } finally {
       importLoading = false;
     }
   }
 
-  async function browseImportRootPath() {
+  function setImportRootPathAt(index, path) {
+    const next = normalizeImportRootPath(path);
+    if (!next) {
+      return;
+    }
+
+    if (index === null || index === undefined || index < 0) {
+      importRootPath = next;
+      return;
+    }
+
+    importRootPaths = importRootPaths.map((value, rowIndex) => (rowIndex === index ? next : value));
+  }
+
+  async function browseImportRootPath(targetIndex = -1) {
     if (importBrowseLoading || importLoading || importActionLoading) {
       return;
     }
@@ -1991,22 +2036,25 @@
     importError = "";
 
     try {
-      const result = await browseImportFolder(importRootPath);
+      const currentValue = targetIndex === null || targetIndex === undefined || targetIndex < 0
+        ? importRootPath
+        : importRootPaths[targetIndex] || "";
+      const result = await browseImportFolder(currentValue);
       const selectedPaths = Array.isArray(result?.paths)
         ? result.paths.map((value) => String(value || "").trim()).filter(Boolean)
         : [];
 
       if (selectedPaths.length > 0) {
-        for (const path of selectedPaths) {
+        const [firstSelectedPath, ...additionalSelectedPaths] = selectedPaths;
+        setImportRootPathAt(targetIndex, firstSelectedPath);
+        for (const path of additionalSelectedPaths) {
           addImportRootPath(path);
         }
-        importRootPath = selectedPaths[0];
-        await persistImportLastBrowseFolder(selectedPaths[0]);
+        await persistImportLastBrowseFolder(firstSelectedPath);
       } else {
         const selectedPath = String(result?.path || "").trim();
         if (selectedPath) {
-          addImportRootPath(selectedPath);
-          importRootPath = selectedPath;
+          setImportRootPathAt(targetIndex, selectedPath);
           await persistImportLastBrowseFolder(selectedPath);
         }
       }
@@ -2045,16 +2093,22 @@
   }
 
   function getActiveImportRoots() {
-    const roots = importRootPaths
+    const candidateRoots = [importRootPath, ...importRootPaths]
       .map((value) => normalizeImportRootPath(value))
       .filter(Boolean);
 
-    if (roots.length > 0) {
-      return roots;
+    const uniqueRoots = [];
+    const seenRoots = new Set();
+    for (const root of candidateRoots) {
+      const key = root.toLowerCase();
+      if (seenRoots.has(key)) {
+        continue;
+      }
+      seenRoots.add(key);
+      uniqueRoots.push(root);
     }
 
-    const single = normalizeImportRootPath(importRootPath);
-    return single ? [single] : [];
+    return uniqueRoots;
   }
 
   function addImportRootPath(path = importRootPath) {
@@ -2081,13 +2135,7 @@
   }
 
   async function addCurrentImportRootPath() {
-    const normalized = normalizeImportRootPath(importRootPath);
-    if (!normalized) {
-      return;
-    }
-
-    addImportRootPath(normalized);
-    await persistImportLastBrowseFolder(normalized);
+    importRootPaths = [...importRootPaths, ""];
   }
 
   function resetImportWizard() {
@@ -2101,7 +2149,6 @@
     importBrowseLoading = false;
     importRootPaths = [];
     importHasAppliedSavedRoot = false;
-    importStep = 1;
     importPreview = null;
     importPreviewSource = "mock";
     importPreviewMessage = "Import preview has not run yet.";
@@ -2118,6 +2165,10 @@
     importGlobalSourceId = "";
     importPerFolderAssignmentByPath = {};
     importError = "";
+
+    if (isImportRoute(currentRoute)) {
+      navigateTo("#/import/step1");
+    }
   }
 
   async function stopImportProgressUpdates() {
@@ -2363,12 +2414,12 @@
       importPrecheckSource = result.source || "mock";
       importPrecheckMessage = result.message || "Precheck complete.";
       importContextToken = String(importPrecheck?.context_token || "");
-      importStep = importPrecheck ? 3 : 2;
+      navigateTo(importPrecheck ? "#/import/step3" : "#/import/step2");
     } catch (error) {
       importError = `Import precheck failed: ${error}`;
       importPrecheck = null;
       importContextToken = "";
-      importStep = 2;
+      navigateTo("#/import/step2");
     } finally {
       importLoading = false;
     }
@@ -2380,7 +2431,22 @@
       return "#/designs";
     }
     if (route.startsWith("/import")) {
-      return "#/import";
+      if (route.includes("step3") || route.includes("precheck") || route.includes("confirm")) {
+        return "#/import/step3";
+      }
+      if (route.includes("step2") || route.includes("review") || route.includes("scan")) {
+        return "#/import/step2";
+      }
+      if (route.includes("step1") || route.includes("folder")) {
+        return "#/import/step1";
+      }
+      if (route.includes("precheck") || route.includes("confirm")) {
+        return "#/import/step3";
+      }
+      if (route.includes("review") || route.includes("scan")) {
+        return "#/import/step2";
+      }
+      return "#/import/step1";
     }
     if (route.startsWith("/admin/tags")) {
       return "#/admin/tags";
@@ -3827,7 +3893,7 @@
   });
 
   $effect(() => {
-    if (currentRoute === "#/import") {
+    if (isImportRoute(currentRoute)) {
       loadImportReferenceData();
       if (!settingsLoaded && !settingsLoading) {
         loadSettingsFromBackend();
@@ -3836,7 +3902,7 @@
   });
 
   $effect(() => {
-    if (currentRoute !== "#/import") {
+    if (!isImportRoute(currentRoute)) {
       importHasAppliedSavedRoot = false;
       return;
     }
@@ -5073,7 +5139,7 @@
     </section>
   {:else if currentPage}
     <div class={`bg-white rounded-xl shadow p-6 space-y-4 ${currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print" ? "bg-transparent rounded-none shadow-none p-0" : ""}`}>
-      {#if currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
+      {#if currentUiKind !== "import" && currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
         <h1 class="ui-page-title">{currentPage.title}</h1>
         {#if currentPage.subtitle}
           <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
@@ -5343,73 +5409,109 @@
           </div>
         </div>
       {:else if currentUiKind === "import"}
-        <div class="space-y-3">
-          <div class="grid md:grid-cols-3 gap-3">
-            <div class="route-card" class:bg-indigo-50={importStep === 1}>Step 1: Select folders</div>
-            <div class="route-card" class:bg-indigo-50={importStep === 2}>Step 2: Review files</div>
-            <div class="route-card" class:bg-indigo-50={importStep === 3}>Step 3: Precheck actions</div>
-          </div>
+        <section class="import-page space-y-4">
+          <h1 class="ui-page-title import-title">Bulk Import</h1>
+          {#if importRouteStep === 1}
+            <p class="ui-help-note import-step1-intro">
+              Select one or more folders containing embroidery files. Sub-folders are scanned automatically.
+              Selected files are <strong>copied into the catalogue</strong>, and each source folder name is preserved inside managed storage.
+              <a href="#/help#importing" class="ui-app-link ml-1">Import help</a>
+            </p>
+          {/if}
 
-          <div class="route-panel space-y-3">
-            <label for="import-root-path" class="text-sm font-semibold text-gray-700">Folder path</label>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input
-                id="import-root-path"
-                class="flex-1 rounded border border-gray-300 px-3 py-2"
-                bind:value={importRootPath}
-                placeholder="C:/imports"
-                disabled={importLoading || importActionLoading || importBrowseLoading}
-              />
+          {#if importRouteStep === 1}
+          <div class="import-step1-card bg-white rounded shadow p-6 max-w-2xl space-y-4">
+            <form
+              id="importScanForm"
+              class="space-y-4"
+              onsubmit={(event) => {
+                event.preventDefault();
+                runImportPreview();
+              }}
+            >
+            <div>
+              <label for="import-root-path" class="ui-field-label import-field-label block mb-2">Source Folder(s) *</label>
+              <div class="space-y-2.5">
+                <div class="folder-row import-folder-row flex items-center" data-index="0">
+                  <input
+                    id="import-root-path"
+                    class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono"
+                    bind:value={importRootPath}
+                    placeholder="Enter path to your embroidery designs folder…"
+                    disabled={importLoading || importActionLoading || importBrowseLoading}
+                    aria-label="Source folder path 1"
+                  />
+                  <button
+                    type="button"
+                    class="ui-action-button"
+                    onclick={() => browseImportRootPath(-1)}
+                    disabled={importLoading || importActionLoading || importBrowseLoading}
+                  >
+                    {importBrowseLoading ? "Browsing…" : "Browse…"}
+                  </button>
+                  <button
+                    type="button"
+                    class="ui-action-button"
+                    onclick={() => clearImportRootPaths()}
+                    disabled={importLoading || importActionLoading || importBrowseLoading || (!String(importRootPath || "").trim() && importRootPaths.length === 0)}
+                    title="Remove this folder"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                {#each importRootPaths as rootPath, rowIndex}
+                  <div class="folder-row import-folder-row flex items-center" data-index={rowIndex + 1}>
+                    <input
+                      type="text"
+                      class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono"
+                      value={rootPath}
+                      readonly
+                      aria-label={`Source folder path ${rowIndex + 2}`}
+                    />
+                    <button
+                      type="button"
+                      class="ui-action-button"
+                      onclick={() => browseImportRootPath(rowIndex)}
+                      disabled={importLoading || importActionLoading || importBrowseLoading}
+                    >
+                      Browse…
+                    </button>
+                    <button
+                      type="button"
+                      class="ui-action-button"
+                      onclick={() => removeImportRootPath(rootPath)}
+                      disabled={importLoading || importActionLoading || importBrowseLoading}
+                      title="Remove this folder"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                {/each}
+              </div>
+
               <button
-                class="menu-button-secondary"
+                type="button"
+                class="menu-button-primary ui-action-button ui-action-button-primary import-add-folder-link mt-2"
                 onclick={addCurrentImportRootPath}
                 disabled={importLoading || importActionLoading || importBrowseLoading || !String(importRootPath || "").trim()}
               >
-                Add Root
+                Add another folder
               </button>
-              <button
-                class="menu-button-secondary"
-                onclick={browseImportRootPath}
-                disabled={importLoading || importActionLoading || importBrowseLoading}
-              >
-                {importBrowseLoading ? "Browsing..." : "Browse"}
+
+              <p class="ui-help-note import-helper mt-2">
+                Choose the folder(s) where your embroidery files currently live.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 items-center">
+              <button class="menu-button-primary ui-action-button ui-action-button-primary" type="submit" disabled={importLoading || importBrowseLoading}>
+                {importLoading ? "Running…" : "Scan folder(s) →"}
               </button>
-              <button class="menu-button-primary" onclick={runImportPreview} disabled={importLoading || importBrowseLoading}>
-                {importLoading ? "Running..." : "Run Preview"}
-              </button>
-              <button class="menu-button-secondary" onclick={resetImportWizard} disabled={importLoading || importActionLoading || importBrowseLoading}>
+              <button type="button" class="menu-button-secondary ui-action-button" onclick={resetImportWizard} disabled={importLoading || importActionLoading || importBrowseLoading}>
                 Reset
               </button>
             </div>
-
-            {#if importRootPaths.length > 0}
-              <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                  <p class="text-sm font-semibold text-gray-700">Selected roots ({importRootPaths.length})</p>
-                  <button
-                    class="menu-button-secondary"
-                    onclick={clearImportRootPaths}
-                    disabled={importLoading || importActionLoading || importBrowseLoading}
-                  >
-                    Clear roots
-                  </button>
-                </div>
-                <div class="space-y-1 max-h-40 overflow-auto border border-gray-200 rounded p-2">
-                  {#each importRootPaths as rootPath}
-                    <div class="flex items-center justify-between gap-2 text-sm">
-                      <span class="text-gray-700 break-all">{rootPath}</span>
-                      <button
-                        class="menu-button-secondary"
-                        onclick={() => removeImportRootPath(rootPath)}
-                        disabled={importLoading || importActionLoading || importBrowseLoading}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            {/if}
 
             {#if importError}
               <p class="text-sm text-red-600">{importError}</p>
@@ -5419,42 +5521,45 @@
 
             {#if importPreview}
               <div class="grid sm:grid-cols-3 gap-3 text-sm">
-                <div class="route-card">Source: {importPreviewSource}</div>
-                <div class="route-card">Discovered: {importPreview.discovered_count ?? 0}</div>
-                <div class="route-card">Folders: {importPreview.folder_count ?? 0}</div>
+                <div class="ui-section-shell import-metric-card">Source: {importPreviewSource}</div>
+                <div class="ui-section-shell import-metric-card">Discovered: {importPreview.discovered_count ?? 0}</div>
+                <div class="ui-section-shell import-metric-card">Folders: {importPreview.folder_count ?? 0}</div>
               </div>
             {/if}
+            </form>
           </div>
+          {/if}
 
-          {#if importPreview}
-            <div class="route-panel space-y-3">
+          {#if importRouteStep === 2}
+            {#if importPreview}
+            <div class="ui-section-shell import-panel space-y-3">
               <div class="flex flex-wrap items-center gap-2 justify-between">
-                <p class="text-sm font-semibold text-gray-700">
+                <p class="ui-field-label import-field-label">
                   Step 2: Select files ({importSelectedFiles.length} selected)
                 </p>
                 <div class="flex gap-2">
-                  <button class="menu-button-secondary" onclick={selectAllImportFiles} disabled={importLoading || importActionLoading}>
+                  <button class="menu-button-secondary ui-action-button" onclick={selectAllImportFiles} disabled={importLoading || importActionLoading}>
                     Select all
                   </button>
-                  <button class="menu-button-secondary" onclick={clearImportFileSelection} disabled={importLoading || importActionLoading}>
+                  <button class="menu-button-secondary ui-action-button" onclick={clearImportFileSelection} disabled={importLoading || importActionLoading}>
                     Clear
                   </button>
                 </div>
               </div>
 
               <div class="grid sm:grid-cols-2 gap-2 text-sm">
-                <label class="flex flex-col gap-1">
-                  <span class="text-gray-600">Global designer (optional)</span>
-                  <select class="rounded border border-gray-300 px-2 py-1" bind:value={importGlobalDesignerId} disabled={importReferenceLoading || importLoading || importActionLoading}>
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">Global designer (optional)</span>
+                  <select class="ui-select-input ui-control-text-inset" bind:value={importGlobalDesignerId} disabled={importReferenceLoading || importLoading || importActionLoading}>
                     <option value="">Inferred / none</option>
                     {#each importDesigners as designer}
                       <option value={String(designer.id)}>{designer.name}</option>
                     {/each}
                   </select>
                 </label>
-                <label class="flex flex-col gap-1">
-                  <span class="text-gray-600">Global source (optional)</span>
-                  <select class="rounded border border-gray-300 px-2 py-1" bind:value={importGlobalSourceId} disabled={importReferenceLoading || importLoading || importActionLoading}>
+                <label class="ui-field-label text-sm">
+                  <span class="block font-medium mb-1">Global source (optional)</span>
+                  <select class="ui-select-input ui-control-text-inset" bind:value={importGlobalSourceId} disabled={importReferenceLoading || importLoading || importActionLoading}>
                     <option value="">Inferred / none</option>
                     {#each importSources as source}
                       <option value={String(source.id)}>{source.name}</option>
@@ -5465,19 +5570,19 @@
 
               {#if importSelectedFolderSummaries.length > 0}
                 <div class="space-y-2">
-                  <p class="text-sm font-semibold text-gray-700">Per-folder overrides</p>
+                  <p class="ui-field-label import-field-label">Per-folder overrides</p>
                   <div class="space-y-2">
                     {#each importSelectedFolderSummaries as folder}
-                      <div class="route-card space-y-2">
+                      <div class="ui-section-shell import-folder-card space-y-2">
                         <div class="text-sm text-gray-700 break-all">
                           <strong>{folder.folderPath}</strong>
                           <span class="text-gray-500"> ({folder.selectedCount} selected)</span>
                         </div>
                         <div class="grid sm:grid-cols-2 gap-2 text-sm">
-                          <label class="flex flex-col gap-1">
-                            <span class="text-gray-600">Designer override</span>
+                          <label class="ui-field-label text-sm">
+                            <span class="block font-medium mb-1">Designer override</span>
                             <select
-                              class="rounded border border-gray-300 px-2 py-1"
+                              class="ui-select-input ui-control-text-inset"
                               value={getImportFolderDesigner(folder.folderPath)}
                               onchange={(event) => setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
                               disabled={importReferenceLoading || importLoading || importActionLoading}
@@ -5488,10 +5593,10 @@
                               {/each}
                             </select>
                           </label>
-                          <label class="flex flex-col gap-1">
-                            <span class="text-gray-600">Source override</span>
+                          <label class="ui-field-label text-sm">
+                            <span class="block font-medium mb-1">Source override</span>
                             <select
-                              class="rounded border border-gray-300 px-2 py-1"
+                              class="ui-select-input ui-control-text-inset"
                               value={getImportFolderSource(folder.folderPath)}
                               onchange={(event) => setImportFolderSource(folder.folderPath, event.currentTarget.value)}
                               disabled={importReferenceLoading || importLoading || importActionLoading}
@@ -5510,7 +5615,7 @@
               {/if}
 
               {#if Array.isArray(importPreview.scanned_files) && importPreview.scanned_files.length > 0}
-                <div class="max-h-64 overflow-auto border border-gray-200 rounded">
+                <div class="ui-checkbox-list-shell max-h-64 overflow-auto">
                   <table class="w-full text-sm">
                     <thead class="bg-gray-50 sticky top-0">
                       <tr>
@@ -5525,6 +5630,7 @@
                           <td class="px-3 py-2">
                             <input
                               type="checkbox"
+                              class="ui-checkbox"
                               checked={importSelectedFiles.includes(String(file?.full_path || ""))}
                               onchange={(event) => toggleImportFile(file?.full_path, event.currentTarget.checked)}
                               disabled={importLoading || importActionLoading}
@@ -5542,30 +5648,39 @@
               {/if}
 
               <div class="flex justify-end">
-                <button class="menu-button-primary" onclick={runImportPrecheck} disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}>
+                <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={runImportPrecheck} disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}>
                   Continue to precheck
                 </button>
               </div>
             </div>
+            {:else}
+            <div class="ui-section-shell import-panel space-y-2">
+              <p class="ui-help-note">Step 2 needs a completed preview first.</p>
+              <div>
+                <button type="button" class="menu-button-secondary ui-action-button" onclick={() => navigateTo("#/import/step1")}>Back to Step 1</button>
+              </div>
+            </div>
+            {/if}
           {/if}
 
-          {#if importPrecheck}
-            <div class="route-panel space-y-3">
-              <p class="text-sm font-semibold text-gray-700">Step 3: Precheck actions</p>
-              <p class="text-sm text-gray-700">{importPrecheckMessage}</p>
+          {#if importRouteStep === 3}
+            {#if importPrecheck}
+            <div class="ui-section-shell import-panel space-y-3">
+              <p class="ui-field-label import-field-label">Step 3: Precheck actions</p>
+              <p class="ui-help-note">{importPrecheckMessage}</p>
               <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
-                <div class="route-card">Source: {importPrecheckSource}</div>
-                <div class="route-card">First import: {importPrecheck.is_first_import ? "Yes" : "No"}</div>
-                <div class="route-card">Needs hoop setup: {importPrecheck.needs_hoop_setup ? "Yes" : "No"}</div>
-                <div class="route-card">Token active: {importContextToken ? "Yes" : "No"}</div>
+                <div class="ui-section-shell import-metric-card">Source: {importPrecheckSource}</div>
+                <div class="ui-section-shell import-metric-card">First import: {importPrecheck.is_first_import ? "Yes" : "No"}</div>
+                <div class="ui-section-shell import-metric-card">Needs hoop setup: {importPrecheck.needs_hoop_setup ? "Yes" : "No"}</div>
+                <div class="ui-section-shell import-metric-card">Token active: {importContextToken ? "Yes" : "No"}</div>
               </div>
 
               <div class="flex flex-wrap gap-2">
-                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_hoops")} disabled={importActionLoading || !importContextToken}>Review Hoops</button>
-                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_tags")} disabled={importActionLoading || !importContextToken}>Review Tags</button>
-                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_sources")} disabled={importActionLoading || !importContextToken}>Review Sources</button>
-                <button class="menu-button-secondary" onclick={() => executeImportPrecheckAction("review_designers")} disabled={importActionLoading || !importContextToken}>Review Designers</button>
-                <button class="menu-button-primary" onclick={() => executeImportPrecheckAction("import_now")} disabled={importActionLoading || !importContextToken}>
+                <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_hoops")} disabled={importActionLoading || !importContextToken}>Review Hoops</button>
+                <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_tags")} disabled={importActionLoading || !importContextToken}>Review Tags</button>
+                <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_sources")} disabled={importActionLoading || !importContextToken}>Review Sources</button>
+                <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_designers")} disabled={importActionLoading || !importContextToken}>Review Designers</button>
+                <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={() => executeImportPrecheckAction("import_now")} disabled={importActionLoading || !importContextToken}>
                   {#if importActionLoading && importActionInProgress === "import_now"}
                     {#if importProgressStatus}
                       Running Import... {importProgressStatus}
@@ -5577,7 +5692,7 @@
                   {/if}
                 </button>
                 <button
-                  class="menu-button-secondary"
+                  class="menu-button-secondary ui-action-button"
                   onclick={importNowInProgress ? requestImportStop : () => executeImportPrecheckAction("cancel")}
                   disabled={importNowInProgress ? importStopRequestPending : importActionLoading || !importContextToken}
                 >
@@ -5590,22 +5705,30 @@
               </div>
 
               {#if importActionNeedsSkipHoopsConfirm}
-                <div class="route-card space-y-2">
-                  <p class="text-sm text-amber-800">
+                <div class="ui-section-shell import-folder-card space-y-2">
+                  <p class="ui-help-note text-amber-800">
                     Hoops are not configured for a first import. Confirm to continue anyway.
                   </p>
-                  <button class="menu-button-primary" onclick={() => executeImportPrecheckAction("import_now", true)} disabled={importActionLoading || !importContextToken}>
+                  <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={() => executeImportPrecheckAction("import_now", true)} disabled={importActionLoading || !importContextToken}>
                     Confirm import without hoop setup
                   </button>
                 </div>
               {/if}
 
               {#if importActionMessage}
-                <p class="text-sm text-gray-700">{importActionMessage} ({importActionSource})</p>
+                <p class="ui-help-note">{importActionMessage} ({importActionSource})</p>
               {/if}
             </div>
+            {:else}
+            <div class="ui-section-shell import-panel space-y-2">
+              <p class="ui-help-note">Step 3 needs precheck to be completed first.</p>
+              <div>
+                <button type="button" class="menu-button-secondary ui-action-button" onclick={() => navigateTo(importPreview ? "#/import/step2" : "#/import/step1")}>Go to previous step</button>
+              </div>
+            </div>
+            {/if}
           {/if}
-        </div>
+        </section>
       {:else if currentUiKind === "projects-list"}
         <section class="projects-page space-y-4">
           <div class="projects-header flex items-center justify-between gap-3">

@@ -174,40 +174,38 @@
 	text-underline-offset: 1px;
 }
 
+
 .menu-button-primary,
-.menu-button-secondary {
+.menu-button-secondary,
+.ui-action-button,
+.ui-action-button-primary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.375rem;
 	border-radius: 0.25rem;
 	padding: 0.5rem 1rem;
 	font-size: 0.875rem;
-	border: 1px solid transparent;
+	border: 1px solid rgb(79 70 229);
+	background-color: rgb(79 70 229);
+	color: white;
 	transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
-.menu-button-primary {
-	background-color: rgb(79 70 229);
-	color: white;
-}
-
-.menu-button-primary:hover {
+.menu-button-primary:hover,
+.menu-button-secondary:hover,
+.ui-action-button:hover,
+.ui-action-button-primary:hover {
 	background-color: rgb(67 56 202);
+	border-color: rgb(67 56 202);
 }
 
-.menu-button-primary:active {
+.menu-button-primary:active,
+.menu-button-secondary:active,
+.ui-action-button:active,
+.ui-action-button-primary:active {
 	background-color: rgb(55 48 163);
-}
-
-.menu-button-secondary {
-	border-color: rgb(209 213 219);
-	color: rgb(55 65 81);
-	background-color: white;
-}
-
-.menu-button-secondary:hover {
-	background-color: rgb(243 244 246);
-}
-
-.menu-button-secondary:active {
-	background-color: rgb(229 231 235);
+	border-color: rgb(55 48 163);
 }
 
 .ui-action-button[disabled],
@@ -238,10 +236,24 @@
 	padding: 1rem;
 }
 
+.import-folder-row {
+	gap: 0.75rem;
+}
+
+.import-folder-row > .ui-action-button {
+	white-space: nowrap;
+}
+
+.import-folder-row + .import-folder-row {
+	margin-top: 0.5rem;
+}
+
 .menu-brand:focus-visible,
 .menu-link:focus-visible,
 .menu-button-primary:focus-visible,
-.menu-button-secondary:focus-visible {
+.menu-button-secondary:focus-visible,
+.ui-action-button:focus-visible,
+.ui-action-button-primary:focus-visible {
 	outline: 2px solid #ffffff;
 	outline-offset: 2px;
 	box-shadow: 0 0 0 4px rgba(76, 69, 202, 0.75);
@@ -801,6 +813,32 @@
 
 .browse-section {
 	gap: 0.7rem;
+}
+
+.import-page {
+	max-width: 80rem;
+}
+
+.import-title {
+	margin: 0;
+}
+
+.import-panel {
+	padding: 0.9rem 1rem;
+}
+
+.import-field-label {
+	font-weight: 600;
+}
+
+.import-metric-card {
+	padding: 0.55rem 0.75rem;
+	background: #ffffff;
+}
+
+.import-folder-card {
+	padding: 0.7rem 0.8rem;
+	background: #ffffff;
 }
 
 .browse-title {
