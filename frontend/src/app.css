@@ -214,6 +214,13 @@
 	cursor: not-allowed;
 }
 
+.ui-action-button-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+}
+
 .browse-search-submit-button,
 .browse-search-reset-button {
 	/* Intentional semantic hooks for Browse Search actions. */

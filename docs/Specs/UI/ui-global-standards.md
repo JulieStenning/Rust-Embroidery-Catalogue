@@ -83,6 +83,7 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - Import folder rows use a small horizontal gap between the text box, browse button, and remove button, plus a small vertical gap between stacked rows.
 - Checkbox hit area should remain easily clickable and keyboard focus-visible.
 - Disabled buttons must use explicit disabled styling via shared button classes, not utility-only styling.
+- Action button groups (primary + secondary buttons side by side) must use the `.ui-action-button-group` container class, which provides `flex`, `flex-wrap`, `gap: 0.75rem`, and `align-items: center`.
 - Browse search action buttons use dedicated semantic classes (.browse-search-submit-button and .browse-search-reset-button).
 - In Browse, Search is the authoritative refresh action; do not add a separate Refresh button beside Search/Reset.
 

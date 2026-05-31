@@ -463,7 +463,7 @@
   let aboutDocumentError = $state("");
   let aboutDocumentLoadedSlug = $state("");
 
-  let importRootPath = $state("C:/imports");
+  let importRootPath = $state("");
   let importRootPaths = $state([]);
   let importPreview = $state(null);
   let importPreviewSource = $state("mock");
@@ -2039,7 +2039,10 @@
       const currentValue = targetIndex === null || targetIndex === undefined || targetIndex < 0
         ? importRootPath
         : importRootPaths[targetIndex] || "";
-      const result = await browseImportFolder(currentValue);
+      const startHint = parentFolder(currentValue)
+        || parentFolder(settingsImportLastBrowseFolder)
+        || "";
+      const result = await browseImportFolder(startHint);
       const selectedPaths = Array.isArray(result?.paths)
         ? result.paths.map((value) => String(value || "").trim()).filter(Boolean)
         : [];
@@ -2065,6 +2068,14 @@
     } finally {
       importBrowseLoading = false;
     }
+  }
+
+  function parentFolder(path) {
+    const p = String(path || "").trim().replace(/[\/\\]+$/, "");
+    if (!p) return "";
+    const lastSep = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+    if (lastSep <= 0) return p;
+    return p.slice(0, lastSep);
   }
 
   function normalizeImportRootPath(value) {
@@ -3911,14 +3922,6 @@
       return;
     }
 
-    const savedRoot = normalizeImportRootPath(settingsImportLastBrowseFolder);
-    if (savedRoot) {
-      importRootPath = savedRoot;
-      if (importRootPaths.length === 0) {
-        addImportRootPath(savedRoot);
-      }
-    }
-
     importHasAppliedSavedRoot = true;
   });
 
@@ -5504,7 +5507,7 @@
               </p>
             </div>
 
-            <div class="flex flex-wrap gap-2 items-center">
+            <div class="ui-action-button-group">
               <button class="menu-button-primary ui-action-button ui-action-button-primary" type="submit" disabled={importLoading || importBrowseLoading}>
                 {importLoading ? "Running…" : "Scan folder(s) →"}
               </button>

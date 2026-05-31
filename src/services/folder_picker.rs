@@ -40,7 +40,11 @@ pub fn browse_folder(start_dir: Option<&str>, allow_multi: bool) -> Result<Brows
     if let Some(candidate) = start_dir.map(str::trim).filter(|value| !value.is_empty()) {
         let path = Path::new(candidate);
         if path.exists() {
-            dialog = dialog.set_directory(path);
+            // Canonicalize converts forward slashes to backslashes on Windows.
+            // SHCreateItemFromParsingName inside rfd requires a native path to
+            // reliably set the initial folder via IFileDialog::SetFolder.
+            let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+            dialog = dialog.set_directory(&canonical);
         }
     }
 
