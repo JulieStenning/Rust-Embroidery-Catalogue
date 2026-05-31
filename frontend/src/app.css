@@ -1021,6 +1021,58 @@ body:has(.browse-design-checkbox:checked) .browse-bulk-bar {
 	display: flex !important;
 }
 
+.browse-bulk-bar {
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+	padding: 0.55rem 0.85rem;
+	background: #f3f4f6;
+	border-top: 1px solid #d1d5db;
+	border-radius: 0;
+	box-shadow: 0 -3px 10px rgba(15, 23, 42, 0.12);
+	color: #374151;
+}
+
+.browse-bulk-count {
+	font-size: 0.9rem;
+	font-weight: 600;
+	white-space: nowrap;
+	margin-right: 0.2rem;
+}
+
+.browse-bulk-project-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.browse-bulk-project-dropdown {
+	min-width: 12rem;
+}
+
+.browse-bulk-project-select {
+	min-width: 12rem;
+	height: 2rem;
+}
+
+.browse-bulk-project-panel {
+	width: 100%;
+	min-width: 12rem;
+	max-width: 18rem;
+	top: auto;
+	bottom: calc(100% + 0.2rem);
+	left: 0;
+	max-height: min(18rem, 55vh);
+}
+
+.browse-bulk-button {
+	height: 2rem;
+	padding: 0.35rem 0.8rem;
+	font-size: 0.85rem;
+	line-height: 1.2;
+}
+
 .tag-chooser-overlay {
 	padding: 1rem;
 	box-sizing: border-box;

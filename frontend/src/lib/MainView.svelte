@@ -353,7 +353,8 @@
   let browseBulkModalOpen = $state(false);
   let browseBulkModalMode = $state("browse");
   let browseBulkTagSelection = $state([]);
-  let browseBulkProject = $state("");
+  let browseBulkProjectSelection = $state([]);
+  let browseBulkProjectDropdownOpen = $state(false);
   let browseCardProjectPendingById = $state({});
   let browseActionNotice = $state("");
   let browseGridContainer = $state(null);
@@ -3226,6 +3227,11 @@
       if (!clickedInsideProjectDropdown) {
         closeBrowseCardProjectDropdowns();
       }
+
+      const bulkProjectDropdown = document.querySelector(".browse-bulk-project-dropdown");
+      if (bulkProjectDropdown instanceof Node && !bulkProjectDropdown.contains(target)) {
+        browseBulkProjectDropdownOpen = false;
+      }
     };
 
     const onDetailsToggle = (event) => {
@@ -3371,23 +3377,89 @@
   }
 
   async function addSelectedToProject() {
-    const projectId = Number(browseBulkProject);
-    if (browseSelectedIds.length === 0 || !Number.isFinite(projectId) || projectId <= 0) {
+    const projectIds = (Array.isArray(browseBulkProjectSelection) ? browseBulkProjectSelection : [])
+      .map((projectId) => Number(projectId))
+      .filter((projectId) => Number.isFinite(projectId) && projectId > 0);
+
+    if (browseSelectedIds.length === 0 || projectIds.length === 0) {
       return;
     }
 
-    const projectName =
-      browseProjects.find((project) => Number(project.id) === projectId)?.name ||
-      `project ${projectId}`;
+    let addedCount = 0;
+    let firstFailure = "";
 
-    const result = await bulkAddDesignsToProject(projectId, browseSelectedIds);
-    if (result.persisted) {
-      browseActionNotice = `Added ${result.added_count} design(s) to ${projectName} (saved in Rust backend).`;
+    for (const projectId of projectIds) {
+      const result = await bulkAddDesignsToProject(projectId, browseSelectedIds);
+      if (result?.persisted) {
+        addedCount += Number(result?.added_count || 0);
+      } else if (!firstFailure) {
+        firstFailure = String(result?.error || result?.message || "Unknown error");
+      }
+    }
+
+    if (addedCount > 0) {
+      browseActionNotice = `Added ${addedCount} design(s) across ${projectIds.length} project(s) (saved in Rust backend).`;
+      browseBulkProjectDropdownOpen = false;
+      await loadBrowseItems();
       return;
     }
 
-    const reason = result?.error ? ` Reason: ${result.error}` : "";
-    browseActionNotice = `Could not add selected designs to ${projectName}.${reason}`;
+    const reason = firstFailure ? ` Reason: ${firstFailure}` : "";
+    browseActionNotice = `Could not add selected designs to selected projects.${reason}`;
+  }
+
+  function toggleBrowseBulkProjectSelection(projectId, enabled) {
+    const normalizedProjectId = Number(projectId);
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
+      return;
+    }
+
+    const active = new Set(
+      (Array.isArray(browseBulkProjectSelection) ? browseBulkProjectSelection : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    );
+
+    if (enabled) {
+      active.add(normalizedProjectId);
+    } else {
+      active.delete(normalizedProjectId);
+    }
+
+    browseBulkProjectSelection = Array.from(active);
+  }
+
+  function summarizeBrowseBulkProjectSelection() {
+    const selected = new Set(
+      (Array.isArray(browseBulkProjectSelection) ? browseBulkProjectSelection : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    );
+
+    if (selected.size === 0) {
+      return "Select project";
+    }
+
+    const names = browseProjects
+      .filter((project) => selected.has(Number(project.id)))
+      .map((project) => String(project.name || "").trim())
+      .filter(Boolean);
+
+    if (names.length === 0) {
+      return `${selected.size} selected`;
+    }
+
+    if (names.length <= 2) {
+      return names.join(", ");
+    }
+
+    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+  }
+
+  function toggleBrowseBulkProjectDropdown(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    browseBulkProjectDropdownOpen = !browseBulkProjectDropdownOpen;
   }
 
   function getBrowseProjectIdsForCard(item) {
@@ -6717,34 +6789,54 @@
 <div
   bind:this={browseBulkBarNode}
   use:portalToBody
-  class={`browse-bulk-bar bg-indigo-700 text-white shadow-lg px-4 py-3 flex flex-wrap items-center gap-3 no-print ${showBrowseBulkBar ? "" : "hidden"}`}
+  class={`browse-bulk-bar ui-section-shell no-print ${showBrowseBulkBar ? "" : "hidden"}`}
   style={showBrowseBulkBar
     ? "position:fixed;left:0;right:0;bottom:0;top:auto;display:flex;z-index:2147483000;"
     : "position:fixed;left:0;right:0;bottom:0;top:auto;display:none;z-index:2147483000;"}
 >
-    <span class="font-semibold text-sm whitespace-nowrap">{browseSelectedCount} selected</span>
+    <span class="ui-field-label browse-bulk-count">{browseSelectedCount} selected</span>
 
-    <button type="button" class="bg-white text-indigo-700 font-semibold px-4 py-1.5 rounded text-sm hover:bg-indigo-100" onclick={openBulkTagModal}>
+    <button type="button" class="menu-button-primary ui-action-button ui-action-button-primary browse-bulk-button" onclick={openBulkTagModal}>
       Choose tags...
     </button>
 
-    <button type="button" class="bg-green-500 text-white font-semibold px-4 py-1.5 rounded text-sm hover:bg-green-400" onclick={verifySelectedBrowseItems}>
+    <button type="button" class="menu-button-primary ui-action-button browse-bulk-button" onclick={verifySelectedBrowseItems}>
       Verify selected
     </button>
 
-    <div class="flex items-center gap-2 min-w-0">
-      <select class="border border-white/40 bg-indigo-600 rounded px-2 py-1 text-sm" bind:value={browseBulkProject}>
-        <option value="">Select project</option>
-        {#each browseProjects as project}
-          <option value={String(project.id)}>{project.name}</option>
-        {/each}
-      </select>
-      <button type="button" class="bg-white text-indigo-700 font-semibold px-3 py-1.5 rounded text-sm hover:bg-indigo-100" onclick={addSelectedToProject}>
+    <div class="browse-bulk-project-group">
+      <details class="ui-multi-dropdown browse-bulk-project-dropdown" open={browseBulkProjectDropdownOpen}>
+        <summary
+          class="ui-select-input ui-control-text-inset ui-multi-dropdown-summary list-none cursor-pointer browse-bulk-project-select"
+          onclick={toggleBrowseBulkProjectDropdown}
+        >
+          <span class="ui-multi-dropdown-summary-text">{summarizeBrowseBulkProjectSelection()}</span>
+          <span class="ui-control-caret" aria-hidden="true"></span>
+        </summary>
+        <div class="ui-checkbox-list-shell ui-multi-dropdown-panel browse-bulk-project-panel px-3 py-2 space-y-1 max-h-56 overflow-auto">
+          {#if browseProjects.length === 0}
+            <p class="ui-help-note">No projects yet.</p>
+          {:else}
+            {#each browseProjects as project}
+              <label class="ui-field-label flex items-center gap-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  class="ui-checkbox"
+                  checked={browseBulkProjectSelection.includes(Number(project.id))}
+                  onchange={(event) => toggleBrowseBulkProjectSelection(project.id, event.currentTarget.checked)}
+                />
+                <span>{project.name}</span>
+              </label>
+            {/each}
+          {/if}
+        </div>
+      </details>
+      <button type="button" class="menu-button-primary ui-action-button ui-action-button-primary browse-bulk-button" onclick={addSelectedToProject}>
         Add to project
       </button>
     </div>
 
-    <button type="button" class="bg-indigo-600 border border-indigo-400 px-3 py-1.5 rounded text-sm hover:bg-indigo-500" onclick={clearBrowseSelection}>
+    <button type="button" class="menu-button-primary ui-action-button ui-action-button-primary browse-bulk-button" onclick={clearBrowseSelection}>
       Clear selection
     </button>
 </div>
