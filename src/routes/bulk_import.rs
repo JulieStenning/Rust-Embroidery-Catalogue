@@ -81,6 +81,8 @@ pub struct ResolvedFolderAssignmentWire {
     pub folder_path: String,
     pub designer_id: ResolvedAssignmentFieldWire,
     pub source_id: ResolvedAssignmentFieldWire,
+    pub inferred_designer_id: Option<i64>,
+    pub inferred_source_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,6 +404,152 @@ fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
 
 fn normalize_path_for_match(path: &str) -> String {
     path.replace('\\', "/").to_ascii_lowercase()
+}
+
+fn normalize_name_for_import_matching(value: &str) -> String {
+    value
+        .to_ascii_lowercase()
+        .replace(['_', '-', '/', '\\'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn compact_name_for_import_matching(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .flat_map(|character| character.to_lowercase())
+        .collect()
+}
+
+fn strip_web_affixes_for_import_matching(value: &str) -> String {
+    let mut compact = compact_name_for_import_matching(value);
+
+    if let Some(stripped) = compact.strip_prefix("www") {
+        compact = stripped.to_string();
+    }
+
+    for suffix in ["comau", "couk", "com", "net", "org", "co", "uk"] {
+        if compact.len() > suffix.len() + 2 && compact.ends_with(suffix) {
+            compact.truncate(compact.len() - suffix.len());
+            break;
+        }
+    }
+
+    compact
+}
+
+fn suggest_reference_id_from_path(path_value: &str, items: &[(i64, String)]) -> Option<i64> {
+    let normalized_path = normalize_name_for_import_matching(path_value);
+    let compact_path = compact_name_for_import_matching(path_value);
+    if normalized_path.is_empty() && compact_path.is_empty() {
+        return None;
+    }
+
+    for (item_id, item_name) in items {
+        let raw_name = item_name.trim();
+        if raw_name.is_empty() {
+            continue;
+        }
+
+        let lowered = raw_name.to_ascii_lowercase();
+        if lowered == "don't know" || lowered == "me" {
+            continue;
+        }
+
+        let normalized_name = normalize_name_for_import_matching(raw_name);
+        let compact_name = compact_name_for_import_matching(raw_name);
+        let stripped_compact_name = strip_web_affixes_for_import_matching(raw_name);
+        if (!normalized_name.is_empty() && normalized_path.contains(&normalized_name))
+            || (!compact_name.is_empty() && compact_path.contains(&compact_name))
+            || (!stripped_compact_name.is_empty() && compact_path.contains(&stripped_compact_name))
+        {
+            return Some(*item_id);
+        }
+    }
+
+    None
+}
+
+fn infer_assignment_ids_from_folder_path(
+    folder_path: &str,
+    designers: &[(i64, String)],
+    sources: &[(i64, String)],
+) -> (Option<i64>, Option<i64>) {
+    (
+        suggest_reference_id_from_path(folder_path, designers),
+        suggest_reference_id_from_path(folder_path, sources),
+    )
+}
+
+fn folder_path_from_file_path(file_path: &str) -> Option<String> {
+    let path_text = file_path.trim();
+    if path_text.is_empty() {
+        return None;
+    }
+
+    Path::new(path_text)
+        .parent()
+        .map(|parent| parent.to_string_lossy().trim().to_string())
+        .filter(|parent| !parent.is_empty())
+}
+
+fn build_preview_folder_assignments(
+    wire: &BulkImportWire,
+    scanned_files: &[scanning::ScannedFile],
+) -> Vec<FolderAssignmentWire> {
+    let mut assignments_by_path = HashMap::<String, FolderAssignmentWire>::new();
+
+    for assignment in &wire.per_folder_assignments {
+        assignments_by_path.insert(
+            normalize_path_for_match(&assignment.folder_path),
+            assignment.clone(),
+        );
+    }
+
+    for scanned_file in scanned_files {
+        if let Some(folder_path) = folder_path_from_file_path(&scanned_file.full_path) {
+            let normalized_folder = normalize_path_for_match(&folder_path);
+            assignments_by_path
+                .entry(normalized_folder)
+                .or_insert_with(|| FolderAssignmentWire {
+                    folder_path,
+                    designer_id: None,
+                    source_id: None,
+                    inferred_designer_id: None,
+                    inferred_source_id: None,
+                });
+        }
+    }
+
+    let mut assignments = assignments_by_path
+        .into_values()
+        .collect::<Vec<FolderAssignmentWire>>();
+    assignments.sort_by(|left, right| {
+        left.folder_path
+            .to_ascii_lowercase()
+            .cmp(&right.folder_path.to_ascii_lowercase())
+    });
+    assignments
+}
+
+async fn load_designers_for_import_inference(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
+    sqlx::query_as::<_, (i64, String)>(
+        "SELECT id, name FROM designers ORDER BY LENGTH(name) DESC, name ASC, id ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|error| error.to_string())
+}
+
+async fn load_sources_for_import_inference(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
+    sqlx::query_as::<_, (i64, String)>(
+        "SELECT id, name FROM sources ORDER BY LENGTH(name) DESC, name ASC, id ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|error| error.to_string())
 }
 
 fn resolve_assignment_for_file(
@@ -1255,6 +1403,8 @@ pub fn resolve_folder_assignment_wire(
             wire.global_source_id,
             assignment.inferred_source_id,
         ),
+        inferred_designer_id: assignment.inferred_designer_id,
+        inferred_source_id: assignment.inferred_source_id,
     }
 }
 
@@ -1329,8 +1479,24 @@ fn preview_bulk_import_wire_with_pool(
 
     let discovered_count = scanned_files.len();
 
-    let resolved_assignments = wire
-        .per_folder_assignments
+    let mut preview_assignments = build_preview_folder_assignments(&wire, &scanned_files);
+
+    if let Some(active_pool) = pool {
+        let designers = tauri::async_runtime::block_on(load_designers_for_import_inference(active_pool))?;
+        let sources = tauri::async_runtime::block_on(load_sources_for_import_inference(active_pool))?;
+
+        for assignment in &mut preview_assignments {
+            let (inferred_designer_id, inferred_source_id) = infer_assignment_ids_from_folder_path(
+                &assignment.folder_path,
+                &designers,
+                &sources,
+            );
+            assignment.inferred_designer_id = inferred_designer_id;
+            assignment.inferred_source_id = inferred_source_id;
+        }
+    }
+
+    let resolved_assignments = preview_assignments
         .iter()
         .map(|assignment| {
             let _legacy_resolved = folder_picker::resolve_assignment(
@@ -1440,6 +1606,30 @@ mod tests {
         .execute(&pool)
         .await
         .expect("failed to create designs table");
+
+        sqlx::query(
+            r#"
+            CREATE TABLE designers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create designers table");
+
+        sqlx::query(
+            r#"
+            CREATE TABLE sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create sources table");
 
         sqlx::query("INSERT INTO settings (key, value, description) VALUES ('image.preference', '2d', 'test preference')")
             .execute(&pool)
@@ -1854,6 +2044,21 @@ mod tests {
     }
 
     #[test]
+    fn suggest_reference_id_from_path_matches_compact_names() {
+        let items = vec![
+            (1, "www.UrbanThreads.com".to_string()),
+            (2, "Another Source".to_string()),
+        ];
+
+        let matched = suggest_reference_id_from_path(
+            "D:/My Software Development/Rust-Embroidery-Catalogue/data/MachineEmbroideryDesigns/Urban Threads",
+            &items,
+        );
+
+        assert_eq!(matched, Some(1));
+    }
+
+    #[test]
     fn folder_assignment_resolution_uses_wire_defaults_and_inferred_values() {
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
@@ -1959,6 +2164,61 @@ mod tests {
 
         assert_eq!(preview.discovered_count, 0);
         assert!(preview.scanned_files.is_empty());
+
+        let _ = fs::remove_file(&file_path);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn preview_bulk_import_wire_infers_assignments_from_folder_path_with_pool() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("rec-import-preview-infer-{stamp}"));
+        let inferred_folder = root.join("Acme Designs").join("Magazine Source");
+        fs::create_dir_all(&inferred_folder).expect("temp inferred folder should be created");
+
+        let file_path = inferred_folder.join("sample-design.pes");
+        fs::write(&file_path, b"dummy").expect("temp pes should be written");
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        tauri::async_runtime::block_on(async {
+            sqlx::query("INSERT INTO designers (id, name) VALUES (1, 'Acme')")
+                .execute(&pool)
+                .await?;
+            sqlx::query("INSERT INTO sources (id, name) VALUES (1, 'Magazine Source')")
+                .execute(&pool)
+                .await?;
+            Ok::<(), sqlx::Error>(())
+        })
+        .expect("seeded designer/source should insert");
+
+        let preview = preview_bulk_import_wire_with_pool(
+            BulkImportWire {
+                root_paths: vec![root.to_string_lossy().to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: true,
+            },
+            Some(&pool),
+        )
+        .expect("preview should succeed");
+
+        assert_eq!(preview.discovered_count, 1);
+        assert_eq!(preview.resolved_assignments.len(), 1);
+        assert_eq!(preview.resolved_assignments[0].designer_id.value, Some(1));
+        assert_eq!(
+            preview.resolved_assignments[0].designer_id.source,
+            AssignmentFieldSourceWire::Inferred
+        );
+        assert_eq!(preview.resolved_assignments[0].source_id.value, Some(1));
+        assert_eq!(
+            preview.resolved_assignments[0].source_id.source,
+            AssignmentFieldSourceWire::Inferred
+        );
 
         let _ = fs::remove_file(&file_path);
         let _ = fs::remove_dir_all(&root);

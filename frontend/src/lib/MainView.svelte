@@ -2139,6 +2139,7 @@
   }
 
   function clearImportRootPaths() {
+    importRootPath = "";
     importRootPaths = [];
   }
 
@@ -2155,6 +2156,7 @@
     importProgressStatus = "";
     importProgressToken = "";
     importBrowseLoading = false;
+    importRootPath = "";
     importRootPaths = [];
     importHasAppliedSavedRoot = false;
     importPreview = null;
@@ -2252,6 +2254,32 @@
     return normalized.slice(0, splitIndex);
   }
 
+  function getFolderLabelFromFolderPath(folderPath) {
+    const value = String(folderPath || "").trim();
+    if (!value) {
+      return "Unknown folder";
+    }
+
+    const normalized = value.replace(/\\/g, "/").replace(/\/+$/g, "");
+    if (!normalized) {
+      return "Unknown folder";
+    }
+
+    const segments = normalized.split("/").filter(Boolean);
+    return segments.length > 0 ? segments[segments.length - 1] : normalized;
+  }
+
+  function getImportFilenameFromPath(fullPath) {
+    const value = String(fullPath || "").trim();
+    if (!value) {
+      return "Unknown file";
+    }
+
+    const normalized = value.replace(/\\/g, "/");
+    const segments = normalized.split("/").filter(Boolean);
+    return segments.length > 0 ? segments[segments.length - 1] : normalized;
+  }
+
   function syncImportPerFolderAssignments() {
     const folderPaths = new Set(
       importSelectedFiles
@@ -2309,6 +2337,132 @@
     return String(importPerFolderAssignmentByPath?.[folderPath]?.sourceId || "");
   }
 
+  function normalizeNameForImportMatching(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[_\-/\\]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function compactNameForImportMatching(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function stripWebAffixesForImportMatching(value) {
+    let compact = compactNameForImportMatching(value);
+
+    if (compact.startsWith("www")) {
+      compact = compact.slice(3);
+    }
+
+    for (const suffix of ["comau", "couk", "com", "net", "org", "co", "uk"]) {
+      if (compact.length > suffix.length + 2 && compact.endsWith(suffix)) {
+        compact = compact.slice(0, -suffix.length);
+        break;
+      }
+    }
+
+    return compact;
+  }
+
+  function normalizeImportPathKey(pathValue) {
+    return String(pathValue || "").trim().replace(/\\/g, "/").toLowerCase();
+  }
+
+  let importPreviewResolvedAssignmentByPath = $derived(
+    (() => {
+      const assignments = Array.isArray(importPreview?.resolved_assignments)
+        ? importPreview.resolved_assignments
+        : [];
+
+      const byPath = new Map();
+      for (const assignment of assignments) {
+        const folderPath = normalizeImportPathKey(assignment?.folder_path);
+        if (!folderPath) {
+          continue;
+        }
+        byPath.set(folderPath, assignment);
+      }
+      return byPath;
+    })()
+  );
+
+  function suggestImportMatchFromPath(pathValue, items) {
+    const normalizedPath = normalizeNameForImportMatching(pathValue);
+    const compactPath = compactNameForImportMatching(pathValue);
+    if ((!normalizedPath && !compactPath) || !Array.isArray(items) || items.length === 0) {
+      return null;
+    }
+
+    const ignoredNames = new Set(["don't know", "me"]);
+    const sorted = [...items]
+      .filter((item) => item && typeof item === "object")
+      .sort((left, right) => String(right?.name || "").length - String(left?.name || "").length);
+
+    for (const item of sorted) {
+      const rawName = String(item?.name || "").trim();
+      if (!rawName) {
+        continue;
+      }
+
+      if (ignoredNames.has(rawName.toLowerCase())) {
+        continue;
+      }
+
+      const normalizedName = normalizeNameForImportMatching(rawName);
+      const compactName = compactNameForImportMatching(rawName);
+      const strippedCompactName = stripWebAffixesForImportMatching(rawName);
+      if (
+        (normalizedName && normalizedPath.includes(normalizedName)) ||
+        (compactName && compactPath.includes(compactName)) ||
+        (strippedCompactName && compactPath.includes(strippedCompactName))
+      ) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  function getInferredImportDesigner(folderPath) {
+    const resolved = importPreviewResolvedAssignmentByPath.get(normalizeImportPathKey(folderPath));
+    const resolvedId = Number(resolved?.inferred_designer_id);
+    if (Number.isFinite(resolvedId) && resolvedId > 0) {
+      const matched = importDesigners.find((designer) => Number(designer?.id) === resolvedId);
+      if (matched) {
+        return matched;
+      }
+    }
+
+    return suggestImportMatchFromPath(folderPath, importDesigners);
+  }
+
+  function getInferredImportSource(folderPath) {
+    const resolved = importPreviewResolvedAssignmentByPath.get(normalizeImportPathKey(folderPath));
+    const resolvedId = Number(resolved?.inferred_source_id);
+    if (Number.isFinite(resolvedId) && resolvedId > 0) {
+      const matched = importSources.find((source) => Number(source?.id) === resolvedId);
+      if (matched) {
+        return matched;
+      }
+    }
+
+    return suggestImportMatchFromPath(folderPath, importSources);
+  }
+
+  function getImportFolderDesignerInferredLabel(folderPath) {
+    const inferred = getInferredImportDesigner(folderPath);
+    return inferred?.name ? `Keep inferred (${inferred.name})` : "Keep inferred";
+  }
+
+  function getImportFolderSourceInferredLabel(folderPath) {
+    const inferred = getInferredImportSource(folderPath);
+    return inferred?.name ? `Keep inferred (${inferred.name})` : "Keep inferred";
+  }
+
   function toggleImportFile(fullPath, checked) {
     const value = String(fullPath || "").trim();
     if (!value) {
@@ -2327,7 +2481,8 @@
 
   function selectAllImportFiles() {
     importSelectedFiles = Array.isArray(importPreview?.scanned_files)
-      ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
+      ? importPreview.scanned_files
+        .map((file) => String(file?.full_path || "")).filter(Boolean)
       : [];
     syncImportPerFolderAssignments();
   }
@@ -2354,6 +2509,63 @@
     })()
   );
 
+  let importStep2FolderGroups = $derived(
+    (() => {
+      const scannedFiles = Array.isArray(importPreview?.scanned_files) ? importPreview.scanned_files : [];
+      const selectedByPath = new Set(importSelectedFiles.map((value) => String(value || "").trim()).filter(Boolean));
+      const grouped = new Map();
+
+      for (const rawFile of scannedFiles) {
+        const fullPath = String(rawFile?.full_path || "").trim();
+        if (!fullPath) {
+          continue;
+        }
+
+        const folderPath = getFolderPathFromFilePath(fullPath) || "Unknown folder";
+        const file = {
+          fullPath,
+          filename: getImportFilenameFromPath(fullPath),
+          isSelected: selectedByPath.has(fullPath),
+        };
+
+        if (!grouped.has(folderPath)) {
+          grouped.set(folderPath, {
+            folderPath,
+            folderLabel: getFolderLabelFromFolderPath(folderPath),
+            files: [],
+          });
+        }
+
+        grouped.get(folderPath).files.push(file);
+      }
+
+      return Array.from(grouped.values())
+        .map((group) => {
+          const sortedFiles = group.files.sort((left, right) =>
+            left.filename.localeCompare(right.filename, undefined, { sensitivity: "base" })
+          );
+          const selectedCount = sortedFiles.filter((file) => file.isSelected).length;
+          return {
+            ...group,
+            files: sortedFiles,
+            selectedCount,
+          };
+        })
+        .sort((left, right) => left.folderPath.localeCompare(right.folderPath, undefined, { sensitivity: "base" }));
+    })()
+  );
+
+  let importStep2TotalFileCount = $derived(
+    importStep2FolderGroups.reduce((total, folder) => total + folder.files.length, 0)
+  );
+
+  let importStep2SelectedFileCount = $derived(
+    importStep2FolderGroups.reduce((total, folder) => total + folder.selectedCount, 0)
+  );
+
+  let importStep2CanSelectAll = $derived(importStep2SelectedFileCount < importStep2TotalFileCount);
+  let importStep2CanDeselectAll = $derived(importStep2SelectedFileCount > 0);
+
   async function loadImportReferenceData(force = false) {
     if (importReferenceLoading && !force) {
       return;
@@ -2378,17 +2590,21 @@
   }
 
   function buildImportConfirmWire() {
-    const perFolderAssignments = importSelectedFolderSummaries.map((folder) => ({
-      folder_path: folder.folderPath,
-      designer_id: getImportFolderDesigner(folder.folderPath)
-        ? Number(getImportFolderDesigner(folder.folderPath))
-        : null,
-      source_id: getImportFolderSource(folder.folderPath)
-        ? Number(getImportFolderSource(folder.folderPath))
-        : null,
-      inferred_designer_id: null,
-      inferred_source_id: null,
-    }));
+    const perFolderAssignments = importSelectedFolderSummaries.map((folder) => {
+      const folderPath = folder.folderPath;
+      const explicitDesignerId = getImportFolderDesigner(folderPath);
+      const explicitSourceId = getImportFolderSource(folderPath);
+      const inferredDesigner = getInferredImportDesigner(folderPath);
+      const inferredSource = getInferredImportSource(folderPath);
+
+      return {
+        folder_path: folderPath,
+        designer_id: explicitDesignerId ? Number(explicitDesignerId) : null,
+        source_id: explicitSourceId ? Number(explicitSourceId) : null,
+        inferred_designer_id: inferredDesigner?.id ? Number(inferredDesigner.id) : null,
+        inferred_source_id: inferredSource?.id ? Number(inferredSource.id) : null,
+      };
+    });
 
     return {
       wire: {
@@ -5491,7 +5707,7 @@
                 {/each}
               </div>
 
-              <div style="margin-top: 1rem; margin-bottom: 1rem;">
+              <div class="import-step1-add-folder-shell">
                 <button
                   type="button"
                   class="menu-button-primary ui-action-button ui-action-button-primary import-add-folder-link"
@@ -5504,7 +5720,7 @@
 
             </div>
 
-            <div class="ui-action-button-group" style="margin-bottom: 1rem;">
+            <div class="ui-action-button-group import-step1-primary-actions">
               <button class="menu-button-primary ui-action-button ui-action-button-primary" type="submit" disabled={importLoading || importBrowseLoading}>
                 {importLoading ? "Running…" : "Scan folder(s)"}
               </button>
@@ -5530,76 +5746,108 @@
 
           {#if importRouteStep === 2}
             {#if importPreview}
-            <div class="ui-section-shell import-panel space-y-3">
-              <div class="flex flex-wrap items-center gap-2 justify-between">
-                <p class="ui-field-label import-field-label">
-                  Step 2: Select files ({importSelectedFiles.length} selected)
+            <div class="ui-section-shell import-panel space-y-4">
+              <div class="space-y-1">
+                <p class="ui-field-label import-field-label">Review scanned files</p>
+                <p class="ui-help-note">
+                  {importStep2FolderGroups.length || importPreview.folder_count || 0} folder(s) scanned - {Array.isArray(importPreview.scanned_files) ? importPreview.scanned_files.length : 0} file(s) found.
+                  Selected files will be <strong>copied into the catalogue</strong>.
+                  <a href="#/help#importing" class="ui-app-link ml-1">Import help</a>
                 </p>
-                <div class="flex gap-2">
-                  <button class="menu-button-secondary ui-action-button" onclick={selectAllImportFiles} disabled={importLoading || importActionLoading}>
+              </div>
+
+              <div class="ui-section-shell p-3 space-y-3 import-step2-global-shell">
+                <p class="ui-field-label import-field-label">Apply to all folders (optional override)</p>
+                <div class="grid grid-cols-2 gap-2 text-sm import-step2-global-grid">
+                  <label class="ui-field-label text-sm">
+                    <span class="block font-medium mb-1">Designer</span>
+                    <select class="ui-select-input ui-control-text-inset" bind:value={importGlobalDesignerId} disabled={importReferenceLoading || importLoading || importActionLoading}>
+                      <option value="">Keep inferred (per folder)</option>
+                      {#each importDesigners as designer}
+                        <option value={String(designer.id)}>{designer.name}</option>
+                      {/each}
+                    </select>
+                  </label>
+                  <label class="ui-field-label text-sm">
+                    <span class="block font-medium mb-1">Source</span>
+                    <select class="ui-select-input ui-control-text-inset" bind:value={importGlobalSourceId} disabled={importReferenceLoading || importLoading || importActionLoading}>
+                      <option value="">Keep inferred (per folder)</option>
+                      {#each importSources as source}
+                        <option value={String(source.id)}>{source.name}</option>
+                      {/each}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="space-y-2 import-step2-actions-shell">
+                <div class="ui-action-button-group import-step1-primary-actions import-step2-primary-actions import-step2-inline-actions">
+                  <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={runImportPrecheck} disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}>
+                    {#if importSelectedFiles.length > 0}
+                      Continue with {importSelectedFiles.length} design{importSelectedFiles.length === 1 ? "" : "s"}
+                    {:else}
+                      Continue
+                    {/if}
+                  </button>
+                  <button type="button" class="menu-button-secondary ui-action-button" onclick={() => navigateTo("#/import/step1")} disabled={importLoading || importActionLoading}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class={`import-step2-link-button import-step2-link-button-first ${importStep2CanSelectAll ? "import-step2-link-button-active" : "import-step2-link-button-inactive"}`}
+                    onclick={selectAllImportFiles}
+                    disabled={importLoading || importActionLoading || !importStep2CanSelectAll}
+                  >
                     Select all
                   </button>
-                  <button class="menu-button-secondary ui-action-button" onclick={clearImportFileSelection} disabled={importLoading || importActionLoading}>
-                    Clear
+                  <button
+                    type="button"
+                    class={`import-step2-link-button ${importStep2CanDeselectAll ? "import-step2-link-button-active" : "import-step2-link-button-inactive"}`}
+                    onclick={clearImportFileSelection}
+                    disabled={importLoading || importActionLoading || !importStep2CanDeselectAll}
+                  >
+                    Deselect all
                   </button>
                 </div>
               </div>
 
-              <div class="grid sm:grid-cols-2 gap-2 text-sm">
-                <label class="ui-field-label text-sm">
-                  <span class="block font-medium mb-1">Global designer (optional)</span>
-                  <select class="ui-select-input ui-control-text-inset" bind:value={importGlobalDesignerId} disabled={importReferenceLoading || importLoading || importActionLoading}>
-                    <option value="">Inferred / none</option>
-                    {#each importDesigners as designer}
-                      <option value={String(designer.id)}>{designer.name}</option>
-                    {/each}
-                  </select>
-                </label>
-                <label class="ui-field-label text-sm">
-                  <span class="block font-medium mb-1">Global source (optional)</span>
-                  <select class="ui-select-input ui-control-text-inset" bind:value={importGlobalSourceId} disabled={importReferenceLoading || importLoading || importActionLoading}>
-                    <option value="">Inferred / none</option>
-                    {#each importSources as source}
-                      <option value={String(source.id)}>{source.name}</option>
-                    {/each}
-                  </select>
-                </label>
-              </div>
-
-              {#if importSelectedFolderSummaries.length > 0}
-                <div class="space-y-2">
-                  <p class="ui-field-label import-field-label">Per-folder overrides</p>
-                  <div class="space-y-2">
-                    {#each importSelectedFolderSummaries as folder}
-                      <div class="ui-section-shell import-folder-card space-y-2">
-                        <div class="text-sm text-gray-700 break-all">
-                          <strong>{folder.folderPath}</strong>
-                          <span class="text-gray-500"> ({folder.selectedCount} selected)</span>
+              {#if importStep2FolderGroups.length > 0}
+                <div class="space-y-3">
+                  {#each importStep2FolderGroups as folder}
+                    <div class="ui-section-shell overflow-hidden import-step2-folder-shell">
+                      <div class="bg-gray-50 border-b px-4 py-3 flex flex-wrap items-center gap-3 import-step2-folder-header">
+                        <div class="flex-1 min-w-0">
+                          <code class="text-xs text-black font-bold import-step2-folder-label">{folder.folderLabel}</code>
+                          <span class="mx-2 text-xs text-gray-400" aria-hidden="true">-</span>
+                          <code class="text-xs text-gray-500 break-all">{folder.folderPath}</code>
                         </div>
-                        <div class="grid sm:grid-cols-2 gap-2 text-sm">
+                      </div>
+
+                      <div class="px-4 py-3 border-b bg-gray-50/50 import-step2-folder-overrides">
+                        <div class="grid grid-cols-2 gap-2 text-sm">
                           <label class="ui-field-label text-sm">
-                            <span class="block font-medium mb-1">Designer override</span>
+                            <span class="block font-medium mb-1">Designer for this folder</span>
                             <select
                               class="ui-select-input ui-control-text-inset"
                               value={getImportFolderDesigner(folder.folderPath)}
                               onchange={(event) => setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
                               disabled={importReferenceLoading || importLoading || importActionLoading}
                             >
-                              <option value="">Use global / inferred</option>
+                              <option value="">{getImportFolderDesignerInferredLabel(folder.folderPath)}</option>
                               {#each importDesigners as designer}
                                 <option value={String(designer.id)}>{designer.name}</option>
                               {/each}
                             </select>
                           </label>
                           <label class="ui-field-label text-sm">
-                            <span class="block font-medium mb-1">Source override</span>
+                            <span class="block font-medium mb-1">Source for this folder</span>
                             <select
                               class="ui-select-input ui-control-text-inset"
                               value={getImportFolderSource(folder.folderPath)}
                               onchange={(event) => setImportFolderSource(folder.folderPath, event.currentTarget.value)}
                               disabled={importReferenceLoading || importLoading || importActionLoading}
                             >
-                              <option value="">Use global / inferred</option>
+                              <option value="">{getImportFolderSourceInferredLabel(folder.folderPath)}</option>
                               {#each importSources as source}
                                 <option value={String(source.id)}>{source.name}</option>
                               {/each}
@@ -5607,49 +5855,29 @@
                           </label>
                         </div>
                       </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
 
-              {#if Array.isArray(importPreview.scanned_files) && importPreview.scanned_files.length > 0}
-                <div class="ui-checkbox-list-shell max-h-64 overflow-auto">
-                  <table class="w-full text-sm">
-                    <thead class="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th class="px-3 py-2 text-left">Import</th>
-                        <th class="px-3 py-2 text-left">File</th>
-                        <th class="px-3 py-2 text-left">Ext</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each importPreview.scanned_files as file}
-                        <tr class="border-t border-gray-100">
-                          <td class="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              class="ui-checkbox"
-                              checked={importSelectedFiles.includes(String(file?.full_path || ""))}
-                              onchange={(event) => toggleImportFile(file?.full_path, event.currentTarget.checked)}
-                              disabled={importLoading || importActionLoading}
-                            />
-                          </td>
-                          <td class="px-3 py-2 break-all">{file?.full_path || "Unknown file"}</td>
-                          <td class="px-3 py-2">{file?.extension || "-"}</td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
+                      <div class="import-step2-file-list-shell">
+                        <div class="import-step2-file-columns">
+                          {#each folder.files as file}
+                            <label class="import-step2-file-item">
+                              <input
+                                type="checkbox"
+                                class="ui-checkbox"
+                                checked={file.isSelected}
+                                onchange={(event) => toggleImportFile(file.fullPath, event.currentTarget.checked)}
+                                disabled={importLoading || importActionLoading}
+                              />
+                              <span class="ui-field-label text-sm import-step2-filename" title={file.fullPath}>{file.filename}</span>
+                            </label>
+                          {/each}
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
                 </div>
               {:else}
                 <p class="text-sm text-gray-600">No supported files discovered in this preview.</p>
               {/if}
-
-              <div class="flex justify-end">
-                <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={runImportPrecheck} disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}>
-                  Continue to precheck
-                </button>
-              </div>
             </div>
             {:else}
             <div class="ui-section-shell import-panel space-y-2">
