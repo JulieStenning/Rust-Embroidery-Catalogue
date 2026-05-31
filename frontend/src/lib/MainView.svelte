@@ -4458,9 +4458,9 @@
                 />
               </label>
 
-              <div class="browse-card-grid gap-4" style={`--browse-grid-columns: ${Math.max(2, browseGridColumns || 2)};`}>
+              <div class="browse-card-grid" style={`--browse-grid-columns: ${Math.max(2, browseGridColumns || 2)};`}>
                 {#each rowItems as item}
-                  <article class="browse-design-card bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative border border-gray-100">
+                  <article class="browse-design-card bg-white rounded shadow hover:shadow-md overflow-hidden flex flex-col relative">
                     <label class="absolute top-1 left-1 z-10 cursor-pointer bg-white/90 rounded px-1">
                       <span class="sr-only">Select {item.filename}</span>
                       <input
@@ -4487,7 +4487,7 @@
                           {browsePreviewsLoading ? "Loading image..." : "No image"}
                         </div>
                       {/if}
-                      <div class="browse-card-meta p-2">
+                      <div class="browse-card-meta p-4">
                         <div class="browse-card-title-row flex items-start justify-between gap-1">
                           <p class="browse-card-title ui-field-label text-xs font-medium truncate flex-1" title={item.filename}>{item.filename}</p>
                           <span
@@ -4521,7 +4521,7 @@
 
                     {#if browseProjects.length > 0}
                       <details
-                        class="browse-card-project-details border-t px-2 py-1 no-print"
+                        class="browse-card-project-details px-4 py-2 no-print"
                         ontoggle={(event) => handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
                       >
                         <summary class="browse-card-project-summary ui-field-label text-xs text-gray-400 cursor-pointer hover:text-indigo-600 select-none">
