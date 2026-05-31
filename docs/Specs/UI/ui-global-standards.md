@@ -3,7 +3,7 @@
 ## Status
 - Type: Canonical cross-page UI contract
 - Audience: Agents and maintainers
-- Last validated: 2026-05-30
+- Last validated: 2026-05-31
 
 ## Purpose
 Define shared UI standards across pages so Rust implementation follows measurable rules. Page-level UI specs may add local behavior, but must not conflict with this document.
@@ -43,6 +43,7 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - Use a rounded gray section shell for grouped controls (background #f3f4f6, 1px gray border, rounded corners).
 - Section labels (for example, General search) use sentence case with shared section-label typography and muted dark gray text.
 - Field labels (for example, Unverified only) use shared field-label typography and muted dark gray text.
+- Top-aligned text-entry field labels must use the shared Browse pattern: outer label class `ui-field-label text-sm` with inner label text in `span.block.font-medium.mb-1`.
 - Text entry controls use white background, dark text, and gray placeholders.
 - Text entry controls use compact vertical padding with equal top/bottom breathing room.
 - Dropdown/select controls use a dedicated class with slightly larger vertical padding for readability.
@@ -84,6 +85,7 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - Checkbox hit area should remain easily clickable and keyboard focus-visible.
 - Disabled buttons must use explicit disabled styling via shared button classes, not utility-only styling.
 - Action button groups (primary + secondary buttons side by side) must use the `.ui-action-button-group` container class, which provides `flex`, `flex-wrap`, `gap: 0.75rem`, and `align-items: center`.
+- Horizontal spacing between adjacent action buttons in the same row is a global standard of `0.75rem`; do not use page-specific left/right margin overrides to change that spacing.
 - Browse search action buttons use dedicated semantic classes (.browse-search-submit-button and .browse-search-reset-button).
 - In Browse, Search is the authoritative refresh action; do not add a separate Refresh button beside Search/Reset.
 

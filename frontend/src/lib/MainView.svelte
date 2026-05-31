@@ -467,7 +467,6 @@
   let importRootPaths = $state([]);
   let importPreview = $state(null);
   let importPreviewSource = $state("mock");
-  let importPreviewMessage = $state("Import preview has not run yet.");
   let importPrecheck = $state(null);
   let importPrecheckSource = $state("mock");
   let importPrecheckMessage = $state("Run precheck after selecting files.");
@@ -1988,7 +1987,6 @@
       const result = await previewImportFromRoots(getActiveImportRoots());
       importPreview = result.preview || null;
       importPreviewSource = result.source || "mock";
-      importPreviewMessage = result.message || "Preview complete.";
       importSelectedFiles = Array.isArray(importPreview?.scanned_files)
         ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
         : [];
@@ -2062,7 +2060,6 @@
         }
       }
 
-      importPreviewMessage = result?.message || "Folder selection complete.";
     } catch (error) {
       importError = `Folder browse failed: ${error}`;
     } finally {
@@ -2162,7 +2159,6 @@
     importHasAppliedSavedRoot = false;
     importPreview = null;
     importPreviewSource = "mock";
-    importPreviewMessage = "Import preview has not run yet.";
     importPrecheck = null;
     importPrecheckSource = "mock";
     importPrecheckMessage = "Run precheck after selecting files.";
@@ -5433,7 +5429,9 @@
               }}
             >
             <div>
-              <label for="import-root-path" class="ui-field-label import-field-label block mb-2">Source Folder(s) *</label>
+              <label for="import-root-path" class="ui-field-label text-sm">
+                <span class="block font-medium mb-1">Source Folder(s) *</span>
+              </label>
               <div class="space-y-2.5">
                 <div class="folder-row import-folder-row flex items-center" data-index="0">
                   <input
@@ -5493,23 +5491,22 @@
                 {/each}
               </div>
 
-              <button
-                type="button"
-                class="menu-button-primary ui-action-button ui-action-button-primary import-add-folder-link mt-2"
-                onclick={addCurrentImportRootPath}
-                disabled={importLoading || importActionLoading || importBrowseLoading || !String(importRootPath || "").trim()}
-              >
-                Add another folder
-              </button>
+              <div style="margin-top: 1rem; margin-bottom: 1rem;">
+                <button
+                  type="button"
+                  class="menu-button-primary ui-action-button ui-action-button-primary import-add-folder-link"
+                  onclick={addCurrentImportRootPath}
+                  disabled={importLoading || importActionLoading || importBrowseLoading || !String(importRootPath || "").trim()}
+                >
+                  Add another folder
+                </button>
+              </div>
 
-              <p class="ui-help-note import-helper mt-2">
-                Choose the folder(s) where your embroidery files currently live.
-              </p>
             </div>
 
-            <div class="ui-action-button-group">
+            <div class="ui-action-button-group" style="margin-bottom: 1rem;">
               <button class="menu-button-primary ui-action-button ui-action-button-primary" type="submit" disabled={importLoading || importBrowseLoading}>
-                {importLoading ? "Running…" : "Scan folder(s) →"}
+                {importLoading ? "Running…" : "Scan folder(s)"}
               </button>
               <button type="button" class="menu-button-secondary ui-action-button" onclick={resetImportWizard} disabled={importLoading || importActionLoading || importBrowseLoading}>
                 Reset
@@ -5518,8 +5515,6 @@
 
             {#if importError}
               <p class="text-sm text-red-600">{importError}</p>
-            {:else}
-              <p class="text-sm text-gray-700">{importPreviewMessage}</p>
             {/if}
 
             {#if importPreview}
