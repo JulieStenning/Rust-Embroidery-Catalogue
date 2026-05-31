@@ -388,6 +388,11 @@ fn generate_preview_auto(request: &ImageGenerationRequest) -> ImageGenerationRes
         return native;
     }
 
+    let python = generate_preview_via_python(request);
+    if python.error.is_none() {
+        return python;
+    }
+
     ImageGenerationResult {
         image_data: None,
         image_type: None,
@@ -398,8 +403,9 @@ fn generate_preview_auto(request: &ImageGenerationRequest) -> ImageGenerationRes
         color_change_count: None,
         backend: "auto".to_string(),
         error: Some(format!(
-            "Auto backend failed with native renderer: '{}'",
-            native.error.unwrap_or_else(|| "unknown native error".to_string())
+            "Auto backend failed with native renderer: '{}'; python fallback also failed: '{}'",
+            native.error.unwrap_or_else(|| "unknown native error".to_string()),
+            python.error.unwrap_or_else(|| "unknown python error".to_string())
         )),
     }
 }
@@ -910,6 +916,26 @@ mod tests {
         assert_eq!(native.color_change_count.is_some(), python.color_change_count.is_some());
         assert_eq!(native.width_mm.is_some(), python.width_mm.is_some());
         assert_eq!(native.height_mm.is_some(), python.height_mm.is_some());
+    }
+
+    #[test]
+    fn native_backend_parses_vp3_fixture() {
+        let file_path = PathBuf::from("tests").join("testdata").join("Bean.vp3");
+        assert!(file_path.exists(), "expected VP3 fixture file to exist");
+
+        let request = ImageGenerationRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            preview_3d: false,
+            preview_3d_profile: None,
+        };
+
+        let native = generate_preview_via_native(&request);
+
+        assert_eq!(native.backend, "native");
+        assert!(native.error.is_none(), "native backend should succeed for VP3 fixture");
+        assert_eq!(native.image_type.as_deref(), Some("2d"));
+        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(native.stitch_count.unwrap_or_default() > 0);
     }
 
     #[test]

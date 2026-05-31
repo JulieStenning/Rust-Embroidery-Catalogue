@@ -19,6 +19,8 @@ pub const EXTENSION_PRIORITY: &[&str] = &[
     "gcode", "art", "pmv",
 ];
 
+const EXCLUDED_DIRECTORY_NAMES: &[&str] = &["system volume information"];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScanInput {
     pub root_path: String,
@@ -66,7 +68,18 @@ fn should_replace_candidate(current_extension: &str, new_extension: &str) -> boo
     false
 }
 
+fn should_skip_directory(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .map(|value| EXCLUDED_DIRECTORY_NAMES.iter().any(|candidate| candidate.eq_ignore_ascii_case(value)))
+        .unwrap_or(false)
+}
+
 fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
+    if should_skip_directory(dir) {
+        return;
+    }
+
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(_) => return,
@@ -225,5 +238,27 @@ mod tests {
         });
 
         assert!(result.files.is_empty());
+    }
+
+    #[test]
+    fn scan_excludes_system_volume_information_directories() {
+        let root = unique_temp_dir("scan-excludes-system-volume-information");
+        fs::create_dir_all(&root).expect("root should be created");
+
+        create_file(&root.join("visible-design.pes"));
+        create_file(
+            &root
+                .join("System Volume Information")
+                .join("hidden-design.pes"),
+        );
+
+        let result = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+        });
+
+        assert_eq!(result.files.len(), 1);
+        assert!(result.files[0].full_path.ends_with("visible-design.pes"));
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

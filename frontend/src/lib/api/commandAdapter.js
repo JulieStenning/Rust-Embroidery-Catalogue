@@ -605,7 +605,12 @@ export async function precheckImportWire(confirmWire) {
 /**
  * Execute Step 3 precheck action in Rust backend.
  */
-export async function runPrecheckAction({ contextToken, action, confirmSkipHoops = false }) {
+export async function runPrecheckAction({
+  contextToken,
+  action,
+  confirmSkipHoops = false,
+  imagePreferenceOverride = null,
+}) {
   const normalizedToken = String(contextToken || "").trim();
   const normalizedAction = String(action || "").trim();
 
@@ -630,6 +635,10 @@ export async function runPrecheckAction({ contextToken, action, confirmSkipHoops
         context_token: normalizedToken,
         action: normalizedAction,
         confirm_skip_hoops: Boolean(confirmSkipHoops),
+        image_preference_override:
+          typeof imagePreferenceOverride === "string" && imagePreferenceOverride.trim()
+            ? imagePreferenceOverride.trim().toLowerCase()
+            : null,
       },
     });
 

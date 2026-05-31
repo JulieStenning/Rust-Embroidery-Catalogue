@@ -470,6 +470,7 @@
   let importPrecheck = $state(null);
   let importPrecheckSource = $state("mock");
   let importPrecheckMessage = $state("Run precheck after selecting files.");
+  let importStep3ImagePreference = $state("2d");
   let importSelectedFiles = $state([]);
   let importContextToken = $state("");
   let importActionMessage = $state("");
@@ -2164,6 +2165,7 @@
     importPrecheck = null;
     importPrecheckSource = "mock";
     importPrecheckMessage = "Run precheck after selecting files.";
+    importStep3ImagePreference = settingsImagePreference === "3d" ? "3d" : "2d";
     importSelectedFiles = [];
     importContextToken = "";
     importActionMessage = "";
@@ -2203,21 +2205,54 @@
       const { listen } = await import("@tauri-apps/api/event");
       importProgressUnlisten = await listen("bulk-import-progress", (event) => {
         const payload = event?.payload || {};
-        const payloadToken = String(payload?.context_token || "").trim();
+        const payloadToken = String(payload?.context_token ?? payload?.contextToken ?? "").trim();
         if (payloadToken && payloadToken !== importProgressToken) {
           return;
         }
 
         const stage = String(payload?.stage || "");
-        const processed = Number(payload?.processed_count || 0);
-        const total = Number(payload?.total_count || 0);
-        const persisted = Number(payload?.persisted_count || 0);
-        const committed = Number(payload?.committed_count ?? persisted);
-        const currentFile = String(payload?.current_file || "").trim();
+        const processed = Number(payload?.processed_count ?? payload?.processedCount ?? 0);
+        const total = Number(payload?.total_count ?? payload?.totalCount ?? 0);
+        const persisted = Number(payload?.persisted_count ?? payload?.persistedCount ?? 0);
+        const committed = Number(payload?.committed_count ?? payload?.committedCount ?? persisted);
+        const currentFile = String(payload?.current_file ?? payload?.currentFile ?? "").trim();
         const currentFilename = currentFile.replace(/\\/g, "/").split("/").pop() || currentFile;
 
-        if (stage === "processing_file" && total > 0) {
+        if (stage === "started") {
+          importProgressStatus = total > 0 ? `Starting import for ${total} file${total === 1 ? "" : "s"}...` : "Starting import...";
+          return;
+        }
+
+        if (stage === "generating_images") {
+          importProgressStatus = total > 0
+            ? `${processed}/${total} processed (${committed} imported) - generating preview images...`
+            : "Generating preview images...";
+          return;
+        }
+
+        if ((stage === "processing_file" || stage === "processingFile") && total > 0) {
           importProgressStatus = `Processing ${Math.min(processed + 1, total)}/${total}: ${currentFilename}`;
+          return;
+        }
+
+        if (stage === "batch_committed") {
+          importProgressStatus = total > 0
+            ? `${processed}/${total} processed (${committed} imported) - saving batch...`
+            : `${committed} imported - saving batch...`;
+          return;
+        }
+
+        if (stage === "stopped") {
+          importProgressStatus = total > 0
+            ? `Stopped after ${processed}/${total} processed (${committed} imported)`
+            : `Stopped after ${committed} imported`;
+          return;
+        }
+
+        if (stage === "completed") {
+          importProgressStatus = total > 0
+            ? `Completed ${processed}/${total} processed (${committed} imported)`
+            : `Completed ${committed} imported`;
           return;
         }
 
@@ -2636,6 +2671,7 @@
       importPrecheck = result.precheck || null;
       importPrecheckSource = result.source || "mock";
       importPrecheckMessage = result.message || "Precheck complete.";
+      importStep3ImagePreference = settingsImagePreference === "3d" ? "3d" : "2d";
       importContextToken = String(importPrecheck?.context_token || "");
       navigateTo(importPrecheck ? "#/import/step3" : "#/import/step2");
     } catch (error) {
@@ -2708,6 +2744,7 @@
         contextToken: importContextToken,
         action,
         confirmSkipHoops,
+        imagePreferenceOverride: importStep3ImagePreference,
       });
 
       const actionResult = result.actionResult || null;
@@ -5891,17 +5928,83 @@
 
           {#if importRouteStep === 3}
             {#if importPrecheck}
-            <div class="ui-section-shell import-panel space-y-3">
-              <p class="ui-field-label import-field-label">Step 3: Precheck actions</p>
-              <p class="ui-help-note">{importPrecheckMessage}</p>
-              <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
-                <div class="ui-section-shell import-metric-card">Source: {importPrecheckSource}</div>
-                <div class="ui-section-shell import-metric-card">First import: {importPrecheck.is_first_import ? "Yes" : "No"}</div>
-                <div class="ui-section-shell import-metric-card">Needs hoop setup: {importPrecheck.needs_hoop_setup ? "Yes" : "No"}</div>
-                <div class="ui-section-shell import-metric-card">Token active: {importContextToken ? "Yes" : "No"}</div>
+            <div class="ui-section-shell import-panel space-y-4">
+              <p class="ui-field-label import-field-label">Before You Import</p>
+
+              {#if settingsHasGoogleApiKey}
+                <div class="ui-section-shell border-amber-300 bg-amber-50 text-amber-950 space-y-2">
+                  <p class="font-medium text-amber-900">Google AI tagging is enabled for this installation</p>
+                  <p class="ui-help-note text-amber-900">
+                    Depending on your saved settings, Tier 2 and/or Tier 3 may run during this import. Gemini usage may incur cost. Free-tier limits are approximately
+                    <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>.
+                    A historical estimate from February 2026 found that Tier 3 on 4,000 images cost about <strong>$0.33 on the paid tier</strong>; actual pricing may have changed -
+                    check <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener" class="underline">ai.google.dev/pricing</a>.
+                  </p>
+                  <p class="text-xs text-amber-900">
+                    Tier 2 auto: <strong>{settingsAiTier2Auto ? "on" : "off"}</strong>
+                    · Tier 3 auto: <strong>{settingsAiTier3Auto ? "on" : "off"}</strong>
+                    · AI batch limit: <strong>{settingsAiBatchSize || "10"} designs</strong>
+                    · DB commit batch: <strong>{settingsImportCommitBatchSize || "10"} designs</strong>
+                    · <a href="#/admin/settings" class="underline">Change in Settings</a>
+                  </p>
+                </div>
+              {:else}
+                <div class="ui-section-shell border-blue-300 bg-blue-50 text-blue-950 space-y-2">
+                  <p class="font-medium text-blue-900">Google AI tagging is not configured</p>
+                  <p class="ui-help-note text-blue-900">
+                    No Google API key is currently saved, so this import will use <strong>Tier 1 keyword tagging only</strong> and no Gemini calls will be made.
+                    If you want AI-assisted tagging, add an API key in Settings and enable the tiers you want.
+                  </p>
+                  <p class="text-xs text-blue-900">
+                    <a href="#/admin/settings" class="underline">Admin Settings</a>
+                    · <a href={settingsHelpUrl} class="underline">AI Tagging Guide</a>
+                  </p>
+                </div>
+              {/if}
+
+              <div class="ui-section-shell space-y-2">
+                <p class="font-medium text-gray-900">Image Preview Preference</p>
+                <p class="ui-help-note">
+                  Choose how preview images are generated for this import. 2D is faster (flat render), 3D is slower but shows stitch simulation.
+                  Your saved setting is shown below; you can override it for this session.
+                </p>
+                <div class="flex flex-wrap items-center gap-4 text-sm">
+                  <label class="inline-flex items-center gap-2">
+                    <input type="radio" class="ui-radio" name="import-step3-image-preference" value="2d" bind:group={importStep3ImagePreference} disabled={importActionLoading || !importContextToken} />
+                    <span class="font-medium">2D - Fast flat preview</span>
+                  </label>
+                  <label class="inline-flex items-center gap-2">
+                    <input type="radio" class="ui-radio" name="import-step3-image-preference" value="3d" bind:group={importStep3ImagePreference} disabled={importActionLoading || !importContextToken} />
+                    <span class="font-medium">3D - Detailed stitch simulation</span>
+                  </label>
+                  <span class="text-xs text-gray-500">(Saved setting: {settingsImagePreference === "3d" ? "3D" : "2D"})</span>
+                </div>
               </div>
 
-              <div class="flex flex-wrap gap-2">
+              {#if importPrecheck.is_first_import}
+                <div class="ui-section-shell import-folder-card space-y-2 border-amber-300 bg-amber-50 text-amber-950">
+                  <p class="font-medium text-amber-900">Before your first import, please check your hoops</p>
+                  <p class="ui-help-note text-amber-900">
+                    A starter set of tags is already included with the catalogue. Hoops are not, because they depend on your machine and the frames you actually own.
+                  </p>
+                  <p class="ui-help-note text-amber-900">
+                    If you set up your hoops now, the import process can auto-assign a hoop where the design size is known. You can also review tags, sources, and designers before importing.
+                  </p>
+                  {#if importPrecheck.needs_hoop_setup}
+                    <p class="ui-help-note font-medium text-amber-900">No hoops are defined yet for this catalogue.</p>
+                  {/if}
+                </div>
+
+                <p class="ui-help-note">
+                  Review your hoops first, or skip them for now and the app will ask if you are really really sure before importing.
+                </p>
+              {:else}
+                <p class="ui-help-note">
+                  Would you like to review your hoops, tags, sources, or designers before importing? Hoops usually only need special attention on the first import.
+                </p>
+              {/if}
+
+              <div class="ui-action-button-group">
                 <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_hoops")} disabled={importActionLoading || !importContextToken}>Review Hoops</button>
                 <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_tags")} disabled={importActionLoading || !importContextToken}>Review Tags</button>
                 <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_sources")} disabled={importActionLoading || !importContextToken}>Review Sources</button>
@@ -5914,7 +6017,7 @@
                       Running Import...
                     {/if}
                   {:else}
-                    Import now
+                    {importPrecheck.is_first_import ? "No, import now anyway" : "No, import now"}
                   {/if}
                 </button>
                 <button
@@ -5942,7 +6045,7 @@
               {/if}
 
               {#if importActionMessage}
-                <p class="ui-help-note">{importActionMessage} ({importActionSource})</p>
+                <p class="ui-help-note">{importActionMessage}</p>
               {/if}
             </div>
             {:else}

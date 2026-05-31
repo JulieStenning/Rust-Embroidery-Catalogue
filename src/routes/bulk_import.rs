@@ -186,6 +186,8 @@ pub struct BulkImportPrecheckActionRequest {
     pub action: BulkImportPrecheckActionWire,
     #[serde(default)]
     pub confirm_skip_hoops: bool,
+    #[serde(default)]
+    pub image_preference_override: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -347,6 +349,18 @@ fn normalize_import_commit_batch_size(raw_value: Option<&str>) -> usize {
     }
 }
 
+fn normalize_import_image_preference_override(raw_value: Option<&str>) -> Option<bool> {
+    match raw_value
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("2d") => Some(false),
+        Some("3d") => Some(true),
+        _ => None,
+    }
+}
+
 async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, String> {
     let raw_batch_size: Option<String> = sqlx::query_scalar(
         "SELECT value FROM settings WHERE key = ? LIMIT 1",
@@ -397,6 +411,17 @@ fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
     };
 
     let (design_count, hoop_count) = tauri::async_runtime::block_on(load_catalog_counts(&pool))?;
+    let is_first_import = design_count == 0;
+    let needs_hoop_setup = is_first_import && hoop_count == 0;
+    Ok((is_first_import, needs_hoop_setup))
+}
+
+async fn load_import_precheck_state_if_initialized_async() -> Result<(bool, bool), String> {
+    let Some(pool) = get_bulk_import_db_pool() else {
+        return Ok((false, false));
+    };
+
+    let (design_count, hoop_count) = load_catalog_counts(&pool).await?;
     let is_first_import = design_count == 0;
     let needs_hoop_setup = is_first_import && hoop_count == 0;
     Ok((is_first_import, needs_hoop_setup))
@@ -584,13 +609,17 @@ async fn persist_bulk_import_confirm_wire(
     pool: &SqlitePool,
     confirm_wire: &BulkImportConfirmWire,
     context_token: Option<&str>,
+    image_preference_override: Option<&str>,
 ) -> Result<usize, String> {
     if !confirm_wire.wire.create_on_import {
         return Ok(0);
     }
 
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
-    let preview_3d = load_import_preview_3d_if_initialized(pool).await?;
+    let preview_3d = match normalize_import_image_preference_override(image_preference_override) {
+        Some(value) => value,
+        None => load_import_preview_3d_if_initialized(pool).await?,
+    };
     let preview_3d_profile = load_import_preview_3d_profile_if_initialized(pool).await?;
     let commit_batch_size = load_import_commit_batch_size(pool).await?;
     let tag_catalog = load_tag_catalog(pool).await?;
@@ -957,12 +986,14 @@ async fn persist_bulk_import_confirm_wire(
 fn persist_bulk_import_confirm_if_initialized(
     confirm_wire: &BulkImportConfirmWire,
     context_token: Option<&str>,
+    image_preference_override: Option<&str>,
 ) -> Result<usize, String> {
     match get_bulk_import_db_pool() {
         Some(pool) => tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
             confirm_wire,
             context_token,
+            image_preference_override,
         )),
         None => {
             println!("Bulk import DB pool not initialized; skipping persistence step.");
@@ -1189,7 +1220,7 @@ pub fn precheck_bulk_import_wire(
 }
 
 #[tauri::command]
-pub fn precheck_bulk_import_action_wire(
+pub async fn precheck_bulk_import_action_wire(
     request: BulkImportPrecheckActionRequest,
 ) -> Result<BulkImportPrecheckActionResult, String> {
     let context_token = request.context_token.clone();
@@ -1264,7 +1295,7 @@ pub fn precheck_bulk_import_action_wire(
             get_bulk_import_context(&context_token)
                 .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
 
-            let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized()?;
+            let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized_async().await?;
             let requires_skip_hoops_confirmation =
                 is_first_import && needs_hoop_setup && !request.confirm_skip_hoops;
 
@@ -1279,7 +1310,15 @@ pub fn precheck_bulk_import_action_wire(
                 });
             }
 
-            let confirm_result = do_confirm_bulk_import_wire_internal(context_token)?;
+            let image_preference_override = request.image_preference_override.clone();
+            let confirm_result = tauri::async_runtime::spawn_blocking(move || {
+                do_confirm_bulk_import_wire_internal(
+                    context_token,
+                    image_preference_override.as_deref(),
+                )
+            })
+            .await
+            .map_err(|error| format!("Import task failed to join: {error}"))??;
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
                 context_token_present: false,
@@ -1296,11 +1335,12 @@ pub fn precheck_bulk_import_action_wire(
 pub fn do_confirm_bulk_import_wire(
     context_token: String,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
-    do_confirm_bulk_import_wire_internal(context_token)
+    do_confirm_bulk_import_wire_internal(context_token, None)
 }
 
 fn do_confirm_bulk_import_wire_internal(
     context_token: String,
+    image_preference_override: Option<&str>,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
     let confirm_wire = take_bulk_import_context(&context_token)
         .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
@@ -1309,6 +1349,7 @@ fn do_confirm_bulk_import_wire_internal(
     let persisted_design_count = persist_bulk_import_confirm_if_initialized(
         &confirm_wire,
         Some(&context_token),
+        image_preference_override,
     )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
@@ -1322,6 +1363,7 @@ pub fn execute_bulk_import_confirm_wire(
     let persisted_design_count = persist_bulk_import_confirm_if_initialized(
         &confirm_wire,
         confirm_wire.context_token.as_deref(),
+        None,
     )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
@@ -1696,6 +1738,7 @@ mod tests {
             &pool,
             &confirm_wire,
             None,
+            None,
         ))
             .expect("persist should succeed");
         assert_eq!(persisted, 1);
@@ -1761,6 +1804,7 @@ mod tests {
         let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
             &confirm_wire,
+            None,
             None,
         ))
             .expect("persist should succeed even when python path is unavailable");
@@ -1840,6 +1884,7 @@ mod tests {
             &pool,
             &confirm_wire,
             None,
+            None,
         ))
             .expect("persist should succeed for .hus even when preview generation fails");
         assert_eq!(persisted, 1);
@@ -1872,6 +1917,15 @@ mod tests {
             normalize_import_commit_batch_size(Some("1000000")),
             MAX_IMPORT_COMMIT_BATCH_SIZE
         );
+    }
+
+    #[test]
+    fn normalize_import_image_preference_override_accepts_only_2d_or_3d() {
+        assert_eq!(normalize_import_image_preference_override(None), None);
+        assert_eq!(normalize_import_image_preference_override(Some("")), None);
+        assert_eq!(normalize_import_image_preference_override(Some("2d")), Some(false));
+        assert_eq!(normalize_import_image_preference_override(Some(" 3D ")), Some(true));
+        assert_eq!(normalize_import_image_preference_override(Some("unexpected")), None);
     }
 
     #[test]
@@ -1918,6 +1972,7 @@ mod tests {
         let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
             &confirm_wire,
+            None,
             None,
         ))
         .expect("persist should succeed");
@@ -1966,6 +2021,7 @@ mod tests {
             &pool,
             &confirm_wire,
             None,
+            None,
         ))
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
@@ -1992,6 +2048,56 @@ mod tests {
             !stitching_tags.is_empty(),
             "expected at least one stitching tag assignment"
         );
+    }
+
+    #[test]
+    fn persist_bulk_import_confirm_wire_honors_image_preference_override_for_session() {
+        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        assert!(fixture.exists(), "expected Bean.pes fixture to exist");
+
+        let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
+        std::env::set_var("IMPORT_IMAGE_BACKEND", "native");
+
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["tests/testdata".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec![fixture.to_string_lossy().to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
+            &pool,
+            &confirm_wire,
+            None,
+            Some("3d"),
+        ))
+        .expect("persist should succeed with explicit session override");
+        assert_eq!(persisted, 1);
+
+        let image_type = tauri::async_runtime::block_on(async {
+            sqlx::query_scalar::<_, Option<String>>(
+                "SELECT image_type FROM designs WHERE filepath = ? LIMIT 1"
+            )
+            .bind(fixture.to_string_lossy().to_string())
+            .fetch_one(&pool)
+            .await
+        })
+        .expect("expected persisted design row");
+
+        assert_eq!(image_type.as_deref(), Some("3d"));
+
+        if let Some(value) = previous_backend {
+            std::env::set_var("IMPORT_IMAGE_BACKEND", value);
+        } else {
+            std::env::remove_var("IMPORT_IMAGE_BACKEND");
+        }
     }
 
     #[test]
@@ -2350,11 +2456,14 @@ mod tests {
         })
         .expect("precheck should succeed");
 
-        let action_result = precheck_bulk_import_action_wire(BulkImportPrecheckActionRequest {
-            context_token: precheck.context_token.clone(),
-            action: BulkImportPrecheckActionWire::ReviewTags,
-            confirm_skip_hoops: false,
-        })
+        let action_result = tauri::async_runtime::block_on(precheck_bulk_import_action_wire(
+            BulkImportPrecheckActionRequest {
+                context_token: precheck.context_token.clone(),
+                action: BulkImportPrecheckActionWire::ReviewTags,
+                confirm_skip_hoops: false,
+                image_preference_override: None,
+            },
+        ))
         .expect("review action should succeed");
 
         assert!(!action_result.consumed_context);
@@ -2379,11 +2488,14 @@ mod tests {
         })
         .expect("precheck should succeed");
 
-        let action_result = precheck_bulk_import_action_wire(BulkImportPrecheckActionRequest {
-            context_token: precheck.context_token.clone(),
-            action: BulkImportPrecheckActionWire::Cancel,
-            confirm_skip_hoops: false,
-        })
+        let action_result = tauri::async_runtime::block_on(precheck_bulk_import_action_wire(
+            BulkImportPrecheckActionRequest {
+                context_token: precheck.context_token.clone(),
+                action: BulkImportPrecheckActionWire::Cancel,
+                confirm_skip_hoops: false,
+                image_preference_override: None,
+            },
+        ))
         .expect("cancel action should succeed");
 
         assert!(action_result.consumed_context);
@@ -2408,11 +2520,14 @@ mod tests {
         })
         .expect("precheck should succeed");
 
-        let action_result = precheck_bulk_import_action_wire(BulkImportPrecheckActionRequest {
-            context_token: precheck.context_token.clone(),
-            action: BulkImportPrecheckActionWire::ImportNow,
-            confirm_skip_hoops: false,
-        })
+        let action_result = tauri::async_runtime::block_on(precheck_bulk_import_action_wire(
+            BulkImportPrecheckActionRequest {
+                context_token: precheck.context_token.clone(),
+                action: BulkImportPrecheckActionWire::ImportNow,
+                confirm_skip_hoops: false,
+                image_preference_override: None,
+            },
+        ))
         .expect("import-now action should succeed");
 
         assert!(action_result.consumed_context);

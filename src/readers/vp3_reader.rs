@@ -63,7 +63,7 @@ fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, cen
     let start_position_y = -signed32(read_i32_be(cursor)?) as f32 / 100.0;
     let abs_x = start_position_x + center_x;
     let abs_y = start_position_y + center_y;
-    if abs_x != 0.0 || abs_y != 0.0 {
+    if abs_x != 0.0 && abs_y != 0.0 {
         pattern.add_stitch_absolute(StitchType::Jump, abs_x, abs_y);
     }
     let thread = vp3_read_thread(cursor)?;
@@ -122,6 +122,12 @@ fn read_u16_be(cursor: &mut Cursor<&[u8]>) -> Result<u16, Box<dyn std::error::Er
     Ok(u16::from_be_bytes(buf))
 }
 
+fn read_u24_be(cursor: &mut Cursor<&[u8]>) -> Result<u32, Box<dyn std::error::Error>> {
+    let mut buf = [0u8; 3];
+    cursor.read_exact(&mut buf)?;
+    Ok(((buf[0] as u32) << 16) | ((buf[1] as u32) << 8) | buf[2] as u32)
+}
+
 fn read_i32_be(cursor: &mut Cursor<&[u8]>) -> Result<i32, Box<dyn std::error::Error>> {
     let mut buf = [0u8; 4];
     cursor.read_exact(&mut buf)?;
@@ -136,12 +142,13 @@ fn signed32(val: i32) -> i32 {
 
 fn vp3_read_thread(cursor: &mut Cursor<&[u8]>) -> Result<EmbThread, Box<dyn std::error::Error>> {
     let mut thread = EmbThread::new(0);
-    let _colors = read_u8(cursor)?;
+    let colors = read_u8(cursor)?;
     let _transition = read_u8(cursor)?;
-    // skip color transitions (not used)
-    // Only one color is used in most files
-    let _parts = read_u8(cursor)?;
-    let _color_length = read_u16_be(cursor)?;
+    for _ in 0..colors {
+        thread.color = read_u24_be(cursor)?;
+        let _parts = read_u8(cursor)?;
+        let _color_length = read_u16_be(cursor)?;
+    }
     let _thread_type = read_u8(cursor)?;
     let _weight = read_u8(cursor)?;
     // Catalog number, description, brand (all as vp3 strings)
@@ -156,5 +163,33 @@ fn read_vp3_string_8(cursor: &mut Cursor<&[u8]>) -> Result<String, Box<dyn std::
     let mut buf = vec![0u8; len];
     cursor.read_exact(&mut buf)?;
     Ok(String::from_utf8_lossy(&buf).to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vp3_thread_parser_consumes_all_color_entries() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&[
+            0x02, 0x00, // two colors, no transition
+            0x11, 0x22, 0x33, 0x00, 0x00, 0x00, // first color + parts + length
+            0x44, 0x55, 0x66, 0x00, 0x00, 0x00, // second color + parts + length
+            0x05, 0x28, // thread type, weight
+            0x00, 0x03, b'a', b'b', b'c',
+            0x00, 0x04, b'd', b'e', b's', b'c',
+            0x00, 0x05, b'b', b'r', b'a', b'n', b'd',
+        ]);
+
+        let mut cursor = Cursor::new(bytes.as_slice());
+        let thread = vp3_read_thread(&mut cursor).expect("VP3 thread should parse");
+
+        assert_eq!(thread.color, 0x445566);
+        assert_eq!(thread.catalog_number.as_deref(), Some("abc"));
+        assert_eq!(thread.description.as_deref(), Some("desc"));
+        assert_eq!(thread.brand.as_deref(), Some("brand"));
+        assert_eq!(cursor.position() as usize, bytes.len());
+    }
 }
 
