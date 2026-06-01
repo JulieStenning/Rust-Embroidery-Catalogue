@@ -5,7 +5,7 @@
 <div class="max-w-5xl mx-auto space-y-4">
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h1 class="ui-page-title">{documentItem?.title || "About Document"}</h1>
+      <h1 class="text-2xl font-bold text-gray-800">{documentItem?.title || "About Document"}</h1>
       {#if documentItem?.filename}
         <p class="text-sm text-gray-600">Source file: <code>{documentItem.filename}</code></p>
       {/if}

@@ -4,26 +4,59 @@
 
 <div class="max-w-4xl mx-auto space-y-6">
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
-    <h1 class="ui-page-title">About Embroidery Catalogue</h1>
+    <h1 class="text-2xl font-bold text-gray-800">About Embroidery Catalogue</h1>
 
-    <div class="space-y-3 text-sm text-gray-600">
-      <p>
-        Embroidery Catalogue is a local, offline tool for cataloguing and browsing an embroidery design collection.
-      </p>
-      <p>
-        Optional AI features use Google Gemini and require an API key configured in
-        <a href="#/admin/settings" class="text-indigo-600 hover:underline">Settings</a>.
-      </p>
-      <p>
-        Generated tags are suggestions and should be verified.
-      </p>
+    <div class="space-y-3 text-sm">
+      <div>
+        <p class="ui-section-label">What this app is</p>
+        <p class="text-gray-600">
+          Embroidery Catalogue is a local, offline tool for cataloguing and browsing an embroidery
+          design collection. It supports a broad range of pyembroidery-readable embroidery formats,
+          including <code>.jef</code>, <code>.pes</code>, <code>.hus</code>, <code>.vp3</code>,
+          <code>.dst</code>, <code>.exp</code>, <code>.sew</code>, <code>.u01</code>, and many more,
+          with limited support for <code>.art</code>. It stores all data in a local database file — no
+          internet connection is required for normal use.
+        </p>
+      </div>
+      <div>
+        <p class="ui-section-label">Where data is stored</p>
+        <p class="text-gray-600">
+          The catalogue database and any generated preview images are stored locally on your machine.
+          Your embroidery files are not moved or modified — the catalogue only reads them to extract
+          metadata and generate thumbnail previews.
+        </p>
+      </div>
+      <div>
+        <p class="ui-section-label">AI / Gemini features</p>
+        <p class="text-gray-600">
+          Some optional features use the Google Gemini API for automatic tagging and description
+          generation. These features require an internet connection and a valid API key configured
+          in <a href="#/admin/settings" class="text-indigo-600 hover:underline">Settings</a>.
+          Tier 2 (text AI) and Tier 3 (vision AI) tagging during import can be enabled or
+          disabled independently in Settings. They are entirely optional and the catalogue works
+          fully without them using Tier 1 keyword tagging.
+        </p>
+      </div>
+      <div>
+        <p class="ui-section-label">A note on accuracy</p>
+        <p class="text-gray-600">
+          Automatically generated tags and metadata should be treated as suggestions. Always verify
+          results before relying on them, especially for important cataloguing decisions.
+        </p>
+      </div>
     </div>
 
+    <p class="text-sm text-gray-600">
+      This page also provides quick access to the app's legal, privacy, security, and licensing documents.
+    </p>
+
     <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
-      <p class="font-medium">Licence</p>
-      <p class="mt-1">Open the project licence document for full terms.</p>
+      <p class="ui-section-label">Licence</p>
+      <p class="mt-1">
+        This repository is licensed under <strong>AGPL-3.0-or-later</strong>.
+      </p>
       <p class="mt-2">
-        <a href="#/about/document/licence" class="underline hover:no-underline">Open licence text</a>
+        <a href="#/about/document/licence" class="underline hover:no-underline">Open licence text (source file: LICENCE)</a>
       </p>
     </div>
   </div>

@@ -5390,8 +5390,8 @@
       </div>
     </section>
   {:else if currentPage}
-    <div class={`bg-white rounded-xl shadow p-6 space-y-4 ${currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print" ? "bg-transparent rounded-none shadow-none p-0" : ""}`}>
-      {#if currentUiKind !== "import" && currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
+    <div class={`bg-white rounded-xl shadow p-6 space-y-4 ${currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print" || currentUiKind === "about" || currentUiKind === "about-document" ? "bg-transparent rounded-none shadow-none p-0" : ""}`}>
+      {#if currentUiKind !== "import" && currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && currentUiKind !== "about" && currentUiKind !== "about-document" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
         <h1 class="ui-page-title">{currentPage.title}</h1>
         {#if currentPage.subtitle}
           <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
