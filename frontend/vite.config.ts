@@ -1,8 +1,13 @@
-import { defineConfig } from "vite";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { defineConfig, type PluginOption } from 'vite'; // <-- Added PluginOption type
+import { svelte } from '@sveltejs/vite-plugin-svelte';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [
+    tailwindcss(),
+    svelte()
+  ] as PluginOption[], // <-- Explicitly cast the whole array here
+
 
   // Vite dev server settings — Tauri listens on this port
   server: {

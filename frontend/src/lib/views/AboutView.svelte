@@ -56,7 +56,7 @@
         This repository is licensed under <strong>AGPL-3.0-or-later</strong>.
       </p>
       <p class="mt-2">
-        <a href="#/about/document/licence" class="underline hover:no-underline">Open licence text (source file: LICENCE)</a>
+        <a href="#/about/document/licence" class="underline hover:no-underline">Open licence text </a>
       </p>
     </div>
   </div>
