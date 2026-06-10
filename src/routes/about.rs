@@ -38,7 +38,7 @@ const DOCUMENTS: [AboutDocumentSpec; 6] = [
     AboutDocumentSpec {
         slug: "privacy",
         title: "Privacy",
-        filename: "PRIVACY.md",
+        filename: "PRIVACY.html",
         description: "Explains what data is stored locally and what optional AI features may send externally.",
     },
     AboutDocumentSpec {

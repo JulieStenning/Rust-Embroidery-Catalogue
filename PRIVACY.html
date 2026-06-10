@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Embroidery Catalogue</title>
+    <style>
+        :root {
+            --primary-color: #4a5d6e;
+            --accent-color: #8fa89b;
+            --text-color: #2d3748;
+            --bg-color: #fcfbfa;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 24pt;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 16pt;
+            color: var(--primary-color);
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 12px;
+        }
+
+        p, ul, ol {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 11pt;
+        }
+
+        strong {
+            color: #1a202c;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 10.5pt;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f7fafc;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #b91c1c;
+        }
+
+        .warning-box {
+            background-color: #fffaf0;
+            border-left: 4px solid #dd6b20;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .warning-box strong {
+            color: #dd6b20;
+        }
+
+        a {
+            color: #3182ce;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Privacy</h1>
+
+    <h2>Local-First Design</h2>
+    <p>Embroidery Catalogue is designed as a <strong>local-first</strong> application. By default, all data is stored on your own machine (or the portable drive on which the app is deployed) and no information is transmitted to external servers.</p>
+
+    <h2>Data Stored Locally</h2>
+    <p>The following data is stored locally by the application:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Storage location</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Embroidery design metadata (filename, dimensions, hoop size, category, designer, rating, tags, notes)</td>
+                <td>Database (SQLite)</td>
+            </tr>
+            <tr>
+                <td>Imported file paths and filenames</td>
+                <td>Database</td>
+            </tr>
+            <tr>
+                <td>Generated preview images (JPEG thumbnails)</td>
+                <td><code>previews/</code> folder on disk</td>
+            </tr>
+            <tr>
+                <td>Project and project-item metadata</td>
+                <td>Database</td>
+            </tr>
+            <tr>
+                <td>Application settings</td>
+                <td>Database / environment variables</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>No usage analytics, telemetry, or crash reports are collected or transmitted.</p>
+
+    <h2>Optional Gemini / Google AI Integration</h2>
+    <p>Automated tag generation powered by Google Gemini is an <strong>optional, opt-in feature</strong>. It is <strong>off by default</strong> and requires you to:</p>
+
+    <ol>
+        <li>Obtain a Google Gemini API key from <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer">https://ai.google.dev/</a>.</li>
+        <li>Set the <code>GOOGLE_API_KEY</code> environment variable in your <code>.env</code> file.</li>
+    </ol>
+
+    <p><strong>When Gemini features are enabled</strong>, the following information may be sent to Google's servers:</p>
+
+    <ul>
+        <li>The <strong>filename</strong> of the embroidery design being tagged.</li>
+        <li>A <strong>preview image</strong> (JPEG thumbnail) of the design.</li>
+        <li>A <strong>text prompt</strong> describing what tagging information is requested.</li>
+    </ul>
+
+    <p>This data is processed by Google in accordance with <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google's Privacy Policy</a> and the <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>.</p>
+
+    <p><strong>You are responsible for reviewing and accepting Google's privacy policy and terms of service before enabling this feature.</strong> Do not enable AI tagging for files that contain sensitive or personal information.</p>
+
+    <h2>API Key Handling</h2>
+    <p>Your <code>GOOGLE_API_KEY</code> is stored in your local <code>.env</code> file and loaded at runtime. It is <strong>never</strong> logged, displayed in the UI, or transmitted anywhere other than to Google's API endpoints.</p>
+
+    <div class="warning-box">
+        <strong>Warning:</strong> Do not commit your <code>.env</code> file to source control, and do not share copies of the application (including portable deployments) that contain a live API key. See <a href="SECURITY.md">SECURITY.md</a> for guidance on safe secret handling.
+    </div>
+
+    <h2>Portable Deployments</h2>
+    <p>When the application is copied to a deployment target using <code>prepare_portable_target.bat</code>, any <code>.env</code> file present in the source folder <strong>is not</strong> automatically excluded from the copy. If your <code>.env</code> file contains a live <code>GOOGLE_API_KEY</code>, that key will be present on the portable copy. Ensure you understand the implications before distributing the drive to others.</p>
+
+    <h2>Contact</h2>
+    <p>If you have privacy-related questions or concerns, please open a GitHub issue in this repository.</p>
+</div>
+
+</body>
+</html>

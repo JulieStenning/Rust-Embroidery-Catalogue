@@ -1113,7 +1113,7 @@ export async function getAboutDocuments() {
         slug: "privacy",
         title: "Privacy",
         description: "Explains what data is stored locally and what optional AI features may send externally.",
-        filename: "PRIVACY.md",
+        filename: "PRIVACY.html",
         available: false,
       },
       {
