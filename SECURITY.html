@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Policy</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-top: 5px solid #0f172a;
+        }
+        h1 {
+            font-size: 2.25rem;
+            color: #0f172a;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        h2 {
+            font-size: 1.5rem;
+            color: #1e293b;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            padding-left: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        h3 {
+            font-size: 1.2rem;
+            color: #334155;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        p {
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+        a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9em;
+            background-color: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            color: #0f172a;
+        }
+        blockquote {
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: #f8fafc;
+            border-left: 4px solid #64748b;
+            color: #475569;
+            font-style: italic;
+        }
+        blockquote p:last-child {
+            margin-bottom: 0;
+        }
+        ul {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+        li {
+            margin-bottom: 0.5rem;
+        }
+        strong {
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Security</h1>
+        
+        <h2>Reporting Security Issues</h2>
+        <p>If you discover a security vulnerability in this project, please <strong>open a GitHub issue</strong> in this repository.</p>
+        
+        <blockquote>
+            <p>At this stage of the project, GitHub issues are the preferred reporting channel. Please describe the vulnerability clearly, including steps to reproduce where possible. Avoid including any sensitive details (such as live API keys or credentials) in the public issue.</p>
+        </blockquote>
+
+        <h2>Sensitive Files and Secrets</h2>
+        
+        <h3><code>.env</code> Files</h3>
+        <p>Application secrets are stored in <code>.env</code> files and loaded at runtime. The <code>.env</code> file is listed in <code>.gitignore</code> and must <strong>never</strong> be committed to source control.</p>
+        
+        <p><strong>Do:</strong></p>
+        <ul>
+            <li>Use <code>.env.example</code> as a template — it contains placeholder values only.</li>
+            <li>Keep your real <code>.env</code> file local and untracked.</li>
+            <li>Rotate any key that you accidentally commit immediately.</li>
+        </ul>
+        
+        <p><strong>Do not:</strong></p>
+        <ul>
+            <li>Commit <code>.env</code> or any file containing live secrets.</li>
+            <li>Share your <code>.env</code> file with others.</li>
+            <li>Hard-code secrets in source files.</li>
+        </ul>
+
+        <h3><code>GOOGLE_API_KEY</code></h3>
+        <p>The <code>GOOGLE_API_KEY</code> environment variable enables optional Gemini AI tagging features. It is <strong>optional</strong>; leave it unset or empty to disable all AI features.</p>
+        
+        <p>Safe handling guidance:</p>
+        <ul>
+            <li>Store the key only in your local <code>.env</code> file.</li>
+            <li>Grant the key the minimum required permissions in the Google Cloud / AI Studio console.</li>
+            <li>Rotate the key if you suspect it has been exposed.</li>
+            <li>Do not set this key in shared or multi-user environments unless you fully understand the access implications.</li>
+        </ul>
+
+        <h3>Portable Deployments (<code>prepare_portable_target.bat</code>)</h3>
+        <p><code>prepare_portable_target.bat</code> creates a safe, clean <code>.env</code> on the deployment target by copying from <code>.env.example</code>. Your development <code>.env</code> (including any live <code>GOOGLE_API_KEY</code>) is <strong>never</strong> copied to the target drive.</p>
+        <p>The <code>.env</code> placed on the portable target contains only placeholder comments — the same content as <code>.env.example</code>. Users of the portable copy can add their own API key after deployment if they want AI auto-tagging features.</p>
+
+        <h2>Dependency Security</h2>
+        <ul>
+            <li>Keep dependencies up to date. Run <code>pip install --upgrade -r requirements.txt</code> periodically or when a vulnerability is announced.</li>
+            <li>Review the output of <code>pip audit</code> (or a comparable tool) to identify known vulnerabilities in installed packages.</li>
+            <li>The bundled Python runtime on portable deployments should also be updated when security patches are released for Python 3.12.</li>
+        </ul>
+
+        <h2>Least-Privilege Principles</h2>
+        <ul>
+            <li>Run the application with the minimum operating-system permissions needed.</li>
+            <li>The SQLite database file and its parent folder should be writable only by trusted local users or processes that need to run the application.</li>
+            <li>Do not expose the application's HTTP port to public networks; it is designed to run on <code>localhost</code> or a trusted local network only.</li>
+        </ul>
+    </div>
+</body>
+</html>
+SECURITY.html
+Displaying SECURITY.html.

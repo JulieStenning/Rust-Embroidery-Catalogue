@@ -1120,7 +1120,7 @@ export async function getAboutDocuments() {
         slug: "security",
         title: "Security",
         description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
-        filename: "SECURITY.md",
+        filename: "SECURITY.html",
         available: false,
       },
       {

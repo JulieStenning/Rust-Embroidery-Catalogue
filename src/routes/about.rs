@@ -44,7 +44,7 @@ const DOCUMENTS: [AboutDocumentSpec; 6] = [
     AboutDocumentSpec {
         slug: "security",
         title: "Security",
-        filename: "SECURITY.md",
+        filename: "SECURITY.html",
         description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
     },
     AboutDocumentSpec {

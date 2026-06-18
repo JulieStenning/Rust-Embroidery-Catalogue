@@ -54,7 +54,7 @@ Add public-facing licensing, acknowledgements, and no-liability information
 ## Body
 Before the repository is made public, we should clearly document third-party licensing, acknowledgements, and “use at your own risk” information.
 
-Audit dependencies referenced by `pyproject.toml`, `requirements.txt`, `wheels/`, and the bundled `python/` runtime. Add public docs such as `LICENSE`, `THIRD_PARTY_NOTICES.md`, `DISCLAIMER.html`, `PRIVACY.md`, and `SECURITY.md`, including guidance for handling `.env` secrets and optional Gemini API usage.
+Audit dependencies referenced by `pyproject.toml`, `requirements.txt`, `wheels/`, and the bundled `python/` runtime. Add public docs such as `LICENSE`, `THIRD_PARTY_NOTICES.md`, `DISCLAIMER.html`, `PRIVACY.html`, and `SECURITY.html`, including guidance for handling `.env` secrets and optional Gemini API usage.
 
 ---
 
