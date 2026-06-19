@@ -75,8 +75,6 @@ mod tests {
         println!("Number of colours: {}", pattern.threadlist.len());
         let num_colour_changes = pattern.count_color_changes();
         println!("Number of colour changes: {}", num_colour_changes);
-        for (i, stitch) in pattern.stitches.iter().take(5).enumerate() {
-        }
         assert_eq!(pattern.stitches.len(), 15087, "Unexpected stitch count");
         assert_eq!(pattern.threadlist.len(), 11, "Unexpected number of colours");
         assert_eq!(num_colour_changes, 19, "Unexpected number of colour changes");
