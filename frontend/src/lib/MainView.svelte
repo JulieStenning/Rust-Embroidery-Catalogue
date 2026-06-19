@@ -5020,7 +5020,6 @@
         <p class="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-2">{browseActionNotice}</p>
       {/if}
 
-      <p class="text-xs text-gray-500">Data source: designs {browseSource}, previews {browsePreviewsSource}, projects {browseProjectsSource}, tags {browseTagsSource}</p>
     </section>
   {:else if currentUiKind === "settings"}
     <section class="settings-page space-y-6">
