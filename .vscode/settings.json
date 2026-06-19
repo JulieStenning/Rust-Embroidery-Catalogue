@@ -8,6 +8,9 @@
   },
   "tailwindCSS.includeLanguages": {
     "rust": "html"
-}
-  
+  },
+  "testing.autoRun.mode": "off",
+  "vitest.ignoreWorkspace": true,
+  "vitest.configSearchPatternInclude": "**/*vitest*.config*.{ts,js,mjs,cjs,cts,mts,json}",
+  "vitest.configSearchPatternExclude": "{**/node_modules/**,**/vendor/**,**/.*/**,**/*.d.ts,**/*vite*.config*.{ts,js,mjs,cjs,cts,mts}}"
 }
