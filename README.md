@@ -1,5 +1,8 @@
 # Rust-Embroidery-Catalogue
 
+## License
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENSE file for full details.
+
 ## Reader Requirements
 
 All embroidery file readers (DST, PES, JEF, VP3, EXP, etc.) **must** provide enough data for the PNG renderer to generate a preview image. This means:

@@ -38,25 +38,25 @@ const DOCUMENTS: [AboutDocumentSpec; 6] = [
     AboutDocumentSpec {
         slug: "privacy",
         title: "Privacy",
-        filename: "PRIVACY.html",
+        filename: "templates/info/PRIVACY.html",
         description: "Explains what data is stored locally and what optional AI features may send externally.",
     },
     AboutDocumentSpec {
         slug: "security",
         title: "Security",
-        filename: "SECURITY.html",
+        filename: "templates/info/SECURITY.html",
         description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
     },
     AboutDocumentSpec {
         slug: "ai-tagging",
         title: "AI Tagging Guide",
-        filename: "docs/User-Facing-Guidance/AI_TAGGING.md",
+        filename: "templates/info/AI_TAGGING.html",
         description: "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
     },
     AboutDocumentSpec {
         slug: "third-party-notices",
         title: "Third-Party Notices",
-        filename: "THIRD_PARTY_NOTICES.md",
+        filename: "THIRD_PARTY_NOTICES.html",
         description: "Licensing and attribution information for bundled and dependency software.",
     },
     AboutDocumentSpec {

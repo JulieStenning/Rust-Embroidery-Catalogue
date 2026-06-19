@@ -97,14 +97,14 @@
     },
     "#/help": {
       title: "Help",
-      subtitle: "Help and guidance",
-      description: "In-app quick guidance for Search, Importing, AI Tagging, Projects, and troubleshooting.",
+      subtitle: "",
+      description: "Quick guidance for using the Embroidery Catalogue.",
       cta: "Use quick-jump links to move between sections",
     },
     "#/admin/designers": {
-      title: "Designers",
-      subtitle: "Admin designer placeholder",
-      description: "This page will provide create, edit, and remove controls for designer reference data.",
+      title: "Manage Designers",
+      subtitle: "",
+      description: "Designers are the creators or brands of embroidery designs. Use this list to keep designer names consistent.",
       cta: "Next backend hookup: designers CRUD commands",
     },
     "#/admin/tags": {
@@ -573,6 +573,9 @@
   let editingHoopWidth = $state("");
   let editingHoopHeight = $state("");
   let pendingDeleteHoopId = $state(null);
+  let adminImageTagsOpen = $state(true);
+  let adminStitchingTagsOpen = $state(true);
+  let adminTagsPanelStateLoaded = $state(false);
 
   let imageTags = $derived(tags.filter((tag) => tag.tagGroup === "image"));
   let stitchingTags = $derived(tags.filter((tag) => tag.tagGroup === "stitching"));
@@ -581,6 +584,24 @@
   function setAdminNotice(message, type = "info") {
     adminNotice = message;
     adminNoticeType = type;
+  }
+
+  function handleAdminTagPanelToggle(panel, event) {
+    const isOpen = Boolean(event?.currentTarget?.open);
+    if (panel === "image") {
+      adminImageTagsOpen = isOpen;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("admin.tags.collapsible.image", isOpen ? "open" : "closed");
+      }
+      return;
+    }
+
+    if (panel === "stitching") {
+      adminStitchingTagsOpen = isOpen;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("admin.tags.collapsible.stitching", isOpen ? "open" : "closed");
+      }
+    }
   }
 
   async function loadAdminDataForCurrentRoute(force = false) {
@@ -4340,6 +4361,23 @@
   });
 
   $effect(() => {
+    if (currentRoute !== "#/admin/tags" || adminTagsPanelStateLoaded || typeof window === "undefined") {
+      return;
+    }
+
+    const imageSavedState = window.localStorage.getItem("admin.tags.collapsible.image");
+    const stitchingSavedState = window.localStorage.getItem("admin.tags.collapsible.stitching");
+    if (imageSavedState === "open" || imageSavedState === "closed") {
+      adminImageTagsOpen = imageSavedState === "open";
+    }
+    if (stitchingSavedState === "open" || stitchingSavedState === "closed") {
+      adminStitchingTagsOpen = stitchingSavedState === "open";
+    }
+
+    adminTagsPanelStateLoaded = true;
+  });
+
+  $effect(() => {
     if (currentUiKind !== "admin-list") {
       adminNotice = "";
       adminNoticeType = "info";
@@ -6339,11 +6377,6 @@
           {/if}
 
           {#if adminIsDesignersRoute}
-            <h1 class="ui-page-title admin-title">Manage Designers</h1>
-            <p class="text-sm text-gray-500">
-              Designers are the creators or brands of embroidery designs. Use this list to keep designer names consistent.
-            </p>
-
             <div class="admin-card bg-white rounded shadow p-4 max-w-xl">
               <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new designer</h2>
               <form class="flex gap-2" onsubmit={addDesigner}>
@@ -6417,10 +6450,13 @@
               </form>
             </div>
 
-            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
-              <div class="bg-green-50 border-b border-green-200 px-4 py-2">
+            <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl" open={adminImageTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("image", event)}>
+              <summary class="bg-green-50 border-b border-green-200 px-4 py-2 flex items-center gap-2 cursor-pointer">
+                <svg class={`h-4 w-4 text-green-700 transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
+                </svg>
                 <h2 class="text-sm font-semibold text-green-800 uppercase tracking-wide">Image Tags</h2>
-              </div>
+              </summary>
               <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
                   <tr>
@@ -6455,12 +6491,15 @@
                   {/if}
                 </tbody>
               </table>
-            </div>
+            </details>
 
-            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
-              <div class="bg-blue-50 border-b border-blue-200 px-4 py-2">
+            <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl" open={adminStitchingTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}>
+              <summary class="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center gap-2 cursor-pointer">
+                <svg class={`h-4 w-4 text-blue-700 transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
+                </svg>
                 <h2 class="text-sm font-semibold text-blue-800 uppercase tracking-wide">Stitching Tags</h2>
-              </div>
+              </summary>
               <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
                   <tr>
@@ -6495,7 +6534,7 @@
                   {/if}
                 </tbody>
               </table>
-            </div>
+            </details>
 
             {#if unclassifiedTags.length > 0}
               <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
@@ -6734,9 +6773,6 @@
             <div class="route-panel">This admin screen is not yet mapped.</div>
           {/if}
 
-          <p class="text-xs text-gray-500">
-            Data source: {adminDataSource === "rust" ? "Rust persistence" : "mock fallback"}.
-          </p>
         </section>
       {:else if currentUiKind === "tagging-actions"}
         <div class="space-y-4">

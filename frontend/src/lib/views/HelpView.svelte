@@ -1,10 +1,5 @@
 <div class="space-y-10 max-w-3xl">
-  <header>
-    <h1 class="ui-page-title mb-2">Help</h1>
-    <p class="text-sm text-gray-500">Quick guidance for using the Embroidery Catalogue.</p>
-  </header>
-
-  <nav class="flex flex-wrap gap-3 text-sm no-print">
+   <nav class="flex flex-wrap gap-3 text-sm no-print">
     <a href="#search" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔍 Search</a>
     <a href="#importing" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a>
     <a href="#ai-tagging" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a>

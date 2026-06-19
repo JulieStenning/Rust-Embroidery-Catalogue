@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Third-Party Notices - Embroidery Catalogue</title>
+    <style>
+        :root {
+            --primary-color: #4a5d6e;
+            --accent-color: #8fa89b;
+            --text-color: #2d3748;
+            --bg-color: #fcfbfa;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 24pt;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 16pt;
+            color: var(--primary-color);
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 12px;
+        }
+
+        h3 {
+            font-size: 13pt;
+            color: var(--primary-color);
+            margin-top: 22px;
+            margin-bottom: 12px;
+        }
+
+        p, ul, ol {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 11pt;
+        }
+
+        strong {
+            color: #1a202c;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 10.5pt;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f7fafc;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #b91c1c;
+        }
+
+        pre {
+            background-color: #f1f5f9;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 16px;
+            overflow-x: auto;
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 10pt;
+            line-height: 1.5;
+            color: #1a202c;
+            margin: 20px 0;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
+        .note-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .warning-box {
+            background-color: #fffaf0;
+            border-left: 4px solid #dd6b20;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        a {
+            color: #3182ce;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 30px 0;
+        }
+
+        .small-print {
+            font-size: 10pt;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Third-Party Notices</h1>
+
+        <p>Embroidery Catalogue includes or depends on the following third-party components. Each component is subject to its own licence terms, which are reproduced or summarised below. Where a full licence text is not included in this file, the canonical source is linked for reference.</p>
+
+        <hr class="section-divider">
+
+        <h2>Runtime Dependencies</h2>
+
+        <h3>FastAPI</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Web framework used to serve the application's HTTP API and HTML pages.</td></tr>
+                <tr><th>Licence</th><td>MIT</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/tiangolo/fastapi" target="_blank" rel="noopener noreferrer">https://github.com/tiangolo/fastapi</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Starlette</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>ASGI toolkit that FastAPI is built on; handles routing, middleware, and request/response primitives.</td></tr>
+                <tr><th>Licence</th><td>BSD 3-Clause</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/encode/starlette" target="_blank" rel="noopener noreferrer">https://github.com/encode/starlette</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Uvicorn</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>ASGI server used to run the application process.</td></tr>
+                <tr><th>Licence</th><td>BSD 3-Clause</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/encode/uvicorn" target="_blank" rel="noopener noreferrer">https://github.com/encode/uvicorn</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>SQLAlchemy</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>ORM (Object-Relational Mapper) used to interact with the application's SQLite database.</td></tr>
+                <tr><th>Licence</th><td>MIT</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/sqlalchemy/sqlalchemy" target="_blank" rel="noopener noreferrer">https://github.com/sqlalchemy/sqlalchemy</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>SQLite</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Embedded database engine used for local catalogue storage via Python's built-in <code>sqlite3</code> module.</td></tr>
+                <tr><th>Licence</th><td>Public Domain</td></tr>
+                <tr><th>Source</th><td><a href="https://www.sqlite.org/copyright.html" target="_blank" rel="noopener noreferrer">https://www.sqlite.org/copyright.html</a></td></tr>
+                <tr><th>Note</th><td>SQLite is not installed as a separate Python package in this project; it is provided by the bundled or system CPython runtime.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Alembic</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Database migration tool used alongside SQLAlchemy to manage schema changes.</td></tr>
+                <tr><th>Licence</th><td>MIT</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/sqlalchemy/alembic" target="_blank" rel="noopener noreferrer">https://github.com/sqlalchemy/alembic</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Jinja2</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Server-side templating engine used to render HTML pages.</td></tr>
+                <tr><th>Licence</th><td>BSD 3-Clause</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/pallets/jinja" target="_blank" rel="noopener noreferrer">https://github.com/pallets/jinja</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>MarkupSafe</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Dependency of Jinja2; provides safe HTML string escaping.</td></tr>
+                <tr><th>Licence</th><td>BSD 3-Clause</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/pallets/markupsafe" target="_blank" rel="noopener noreferrer">https://github.com/pallets/markupsafe</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Pillow</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Image processing library used to generate and manipulate design preview images.</td></tr>
+                <tr><th>Licence</th><td>Historical Permission Notice and Disclaimer (HPND) — open-source, permissive.</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/python-pillow/Pillow" target="_blank" rel="noopener noreferrer">https://github.com/python-pillow/Pillow</a></td></tr>
+                <tr><th>Note</th><td>Pillow itself is HPND-licensed; it bundles several third-party libraries (zlib, libjpeg, libwebp, etc.) under their own permissive licences. See <a href="https://pillow.readthedocs.io/en/stable/about.html#license" target="_blank" rel="noopener noreferrer">Pillow documentation</a> for details.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>pyembroidery</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Reads JEF, PES, and other embroidery file formats; extracts stitch data and dimensions.</td></tr>
+                <tr><th>Licence</th><td>MIT</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/EmbroidePy/pyembroidery" target="_blank" rel="noopener noreferrer">https://github.com/EmbroidePy/pyembroidery</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>compoundfiles</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Reads Microsoft Compound Document File Format (OLE/CFB) containers, used when parsing certain embroidery file types.</td></tr>
+                <tr><th>Licence</th><td>MIT</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/waveform80/compoundfiles" target="_blank" rel="noopener noreferrer">https://github.com/waveform80/compoundfiles</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>python-multipart</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Parses multipart/form-data request bodies (file uploads).</td></tr>
+                <tr><th>Licence</th><td>Apache 2.0</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/Kludex/python-multipart" target="_blank" rel="noopener noreferrer">https://github.com/Kludex/python-multipart</a></td></tr>
+            </tbody>
+        </table>
+
+        <h3>anyio / h11 / httptools / uvloop / websockets</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Async I/O primitives and HTTP/WebSocket protocol implementations used transitively by Uvicorn and FastAPI.</td></tr>
+                <tr><th>Licences</th><td>MIT (anyio, h11), MIT (httptools), MIT (uvloop), BSD (websockets).</td></tr>
+                <tr><th>Sources</th><td>Available via PyPI; see individual package pages for details.</td></tr>
+            </tbody>
+        </table>
+
+        <hr class="section-divider">
+
+        <h2>Optional AI / Cloud Integration</h2>
+
+        <p>The following packages are used <strong>only</strong> when Gemini-based AI tagging is enabled by setting <code>GOOGLE_API_KEY</code> in the application environment. They are <strong>not</strong> required for normal operation and are <strong>not</strong> installed by default from <code>pyproject.toml</code>.</p>
+
+        <h3>google-genai</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Google Generative AI Python SDK; used to send embroidery images to the Gemini API for automated tag suggestions.</td></tr>
+                <tr><th>Licence</th><td>Apache 2.0</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/googleapis/python-genai" target="_blank" rel="noopener noreferrer">https://github.com/googleapis/python-genai</a></td></tr>
+                <tr><th>Terms of Service</th><td>Use of this package requires acceptance of Google's <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Generative AI Terms of Service</a>.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>google-auth and related Google authentication libraries</h3>
+        <table>
+            <tbody>
+                <tr><th>Purpose</th><td>Authentication support used by <code>google-genai</code> and its dependency stack when Gemini-based AI features are enabled.</td></tr>
+                <tr><th>Licence</th><td>Apache 2.0</td></tr>
+                <tr><th>Source</th><td><a href="https://github.com/googleapis/google-auth-library-python" target="_blank" rel="noopener noreferrer">https://github.com/googleapis/google-auth-library-python</a></td></tr>
+                <tr><th>Note</th><td>Exact transitive Google auth packages may vary by installed version and platform.</td></tr>
+            </tbody>
+        </table>
+
+        <hr class="section-divider">
+
+        <h2>Development / Build-time Dependencies</h2>
+
+        <p>These packages are used only for development, testing, and building the launcher executable. They are <strong>not</strong> distributed with the application.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Package</th>
+                    <th>Purpose</th>
+                    <th>Licence</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>pytest</td><td>Test runner</td><td>MIT</td></tr>
+                <tr><td>pytest-asyncio</td><td>Async test support for pytest</td><td>Apache 2.0</td></tr>
+                <tr><td>httpx</td><td>HTTP client used in tests</td><td>BSD 3-Clause</td></tr>
+                <tr><td>PyInstaller</td><td>Packages the launcher script into a Windows exe</td><td>GPL 2.0 + bootloader exception</td></tr>
+                <tr><td>hatchling</td><td>Build backend for the Python package</td><td>MIT</td></tr>
+            </tbody>
+        </table>
+
+        <div class="note-box">
+            <strong>PyInstaller note:</strong> The GPL-licensed PyInstaller toolchain is used only during the build process and is <strong>not</strong> distributed with the application binary. The compiled <code>EmbroiderySdLauncher.exe</code> is subject to the PyInstaller bootloader exception, which permits distribution of executables produced by PyInstaller without imposing GPL requirements on the application code. See <a href="https://pyinstaller.org/en/stable/license.html" target="_blank" rel="noopener noreferrer">PyInstaller license documentation</a> for the full details.
+        </div>
+
+        <hr class="section-divider">
+
+        <h2>Bundled Python Runtime</h2>
+
+        <p>When the application is deployed to portable media via <code>prepare_portable_target.bat</code>, a standalone Python 3.12 runtime is included in the <code>python/</code> folder.</p>
+
+        <table>
+            <tbody>
+                <tr><th>Component</th><td>CPython 3.12</td></tr>
+                <tr><th>Licence</th><td>Python Software Foundation Licence Version 2 (PSF-2.0)</td></tr>
+                <tr><th>Source</th><td><a href="https://www.python.org/" target="_blank" rel="noopener noreferrer">https://www.python.org/</a></td></tr>
+                <tr><th>Licence text</th><td>The full PSF licence is included as <code>python/LICENSE.txt</code> inside the portable deployment package, and is also available at <a href="https://docs.python.org/3/license.html" target="_blank" rel="noopener noreferrer">Python documentation</a>.</td></tr>
+            </tbody>
+        </table>
+
+        <p>The bundled runtime may itself include third-party components (OpenSSL, zlib, expat, etc.) under their own permissive licences. See <code>python/LICENSE.txt</code> and <a href="https://docs.python.org/3/license.html#licenses-and-acknowledgements-for-incorporated-software" target="_blank" rel="noopener noreferrer">the Python acknowledgements page</a> for the full list.</p>
+
+        <h2>Wheels</h2>
+
+        <p>Pre-built wheel files (<code>.whl</code>) may be included in the <code>wheels/</code> directory to support offline installation on the portable deployment. Each wheel file contains the compiled package for the corresponding dependency listed above. The licence for each wheel is the same as the licence for the source package.</p>
+
+        <h2>Notes</h2>
+
+        <ul>
+            <li>Licence identifiers use <a href="https://spdx.org/licenses/" target="_blank" rel="noopener noreferrer">SPDX</a> short-form names where available.</li>
+            <li>If you discover a licence inaccuracy or a missing attribution, please open a GitHub issue.</li>
+        </ul>
+
+        <p class="small-print">This page is intended as a convenience summary. If there is any conflict between this notice and an upstream package licence, the upstream licence governs.</p>
+    </div>
+</body>
+</html>
