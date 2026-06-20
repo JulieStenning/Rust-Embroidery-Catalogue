@@ -271,7 +271,7 @@ impl EmbCompress {
         let mut out = Vec::new();
 
         while bits_total > self.bit_position
-            && (uncompressed_size.is_none() || out.len() <= uncompressed_size.unwrap_or(0))
+            && (uncompressed_size.is_none() || out.len() < uncompressed_size.unwrap_or(0))
         {
             let character = self.get_token()?;
             if character <= 255 {
@@ -329,10 +329,6 @@ fn read_u32_le(cursor: &mut Cursor<&[u8]>) -> Result<u32, String> {
         .read_exact(&mut buf)
         .map_err(|e| format!("unexpected EOF while reading u32: {e}"))?;
     Ok(u32::from_le_bytes(buf))
-}
-
-fn signed8(v: u8) -> i8 {
-    v as i8
 }
 
 fn parse_color(hex: &str) -> u32 {
@@ -427,10 +423,12 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
     if !(command_offset <= x_offset && x_offset <= y_offset && y_offset <= data.len()) {
         return Err("invalid HUS compressed section offsets".to_string());
     }
+    let cmd_len = x_offset - command_offset;
+    let x_len = y_offset - x_offset;
 
-    let command_compressed = &data[command_offset..x_offset];
-    let x_compressed = &data[x_offset..y_offset];
-    let y_compressed = &data[y_offset..];
+    let command_compressed = &data[command_offset..(command_offset + cmd_len)];
+    let x_compressed = &data[x_offset..(x_offset + x_len)];
+    let y_compressed = &data[y_offset..data.len()]; 
 
     let command_decompressed = expand(command_compressed, Some(number_of_stitches))?;
     let x_decompressed = expand(x_compressed, Some(number_of_stitches))?;
@@ -446,8 +444,8 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
 
     for i in 0..stitch_count {
         let cmd = command_decompressed[i];
-        let x = signed8(x_decompressed[i]) as f32;
-        let y = -(signed8(y_decompressed[i]) as f32);
+        let x = (x_decompressed[i] as i8) as f32;
+        let y = -((y_decompressed[i] as i8) as f32);
 
         match cmd {
             0x80 => pattern.add_stitch_relative(StitchType::Stitch, x, y),
@@ -460,7 +458,10 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
                 pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
             }
             0x90 => break,
-            _ => break,
+            _ => {
+                // Ignore unknown commands or flag bytes instead of dropping the loop early
+                eprintln!("Warning: Encountered unknown stitch command byte: {cmd:#X} at index {i}");
+            }
         }
     }
 
@@ -497,7 +498,7 @@ mod tests {
 
     #[test]
     fn read_hus_old_cake_fixture_is_not_stubbed_zeroes() {
-        let path = "tests/testdata/Old/Cake 3.hus";
+        let path = "tests/testdata/Cake 3.hus";
         let data = fs::read(path).expect("expected old HUS fixture file");
         let pattern = read_hus(&data).expect("expected HUS parser to decode fixture");
 
