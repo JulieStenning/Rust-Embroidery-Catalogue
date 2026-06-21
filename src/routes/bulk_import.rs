@@ -650,11 +650,6 @@ async fn persist_bulk_import_confirm_wire(
     let mut total_tagging_ms = 0u128;
     let mut total_commit_ms = 0u128;
 
-    println!(
-        "[TIMING] Bulk import starting: {} file(s), commit_batch_size={}",
-        total_count, commit_batch_size
-    );
-
     let emit_progress = |stage: &str,
                          processed_count: usize,
                          persisted_count: usize,
@@ -722,12 +717,7 @@ async fn persist_bulk_import_confirm_wire(
                     None,
                 );
                 let t_batch = Instant::now();
-                println!(
-                    "[TIMING] Python batch starting: {} file(s) in chunk [{}-{}]",
-                    python_requests.len(),
-                    chunk_start,
-                    chunk_end - 1
-                );
+                
                 let cache = image_generation::generate_previews_via_python_batch(&python_requests);
                 println!(
                     "[TIMING] Python batch done: {}ms for {} file(s)",
@@ -1133,7 +1123,6 @@ pub fn browse_import_folder(
 
 #[tauri::command]
 pub fn debug_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportWireSummary, String> {
-    println!("Debug bulk import wire: {:#?}", wire);
     Ok(BulkImportWireSummary {
         root_path_count: wire.root_paths.len(),
         folder_assignment_count: wire.per_folder_assignments.len(),
@@ -1152,7 +1141,6 @@ pub struct BulkImportBrowseFolderResult {
 pub fn debug_bulk_import_confirm_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportConfirmSummary, String> {
-    println!("Debug bulk import confirm wire: {:#?}", confirm_wire);
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
     Ok(BulkImportConfirmSummary {
         context_token_present: confirm_wire.context_token.is_some(),
@@ -1170,8 +1158,7 @@ pub fn debug_bulk_import_assignment_resolution_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportAssignmentResolutionSummary, String> {
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
-    println!("Debug bulk import assignment resolution: {:#?}", resolved_assignments);
-
+    
     let mut explicit_field_count = 0usize;
     let mut global_field_count = 0usize;
     let mut inferred_field_count = 0usize;
@@ -1204,9 +1191,7 @@ pub fn precheck_bulk_import_wire(
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
     let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized()?;
     let context_token = store_bulk_import_context(confirm_wire.clone());
-    println!("Precheck bulk import stored token: {context_token}");
-    println!("Precheck bulk import resolved assignments: {:#?}", resolved_assignments);
-
+    
     Ok(BulkImportPrecheckResult {
         context_token,
         context_token_present: true,
@@ -1345,7 +1330,6 @@ fn do_confirm_bulk_import_wire_internal(
     let confirm_wire = take_bulk_import_context(&context_token)
         .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
 
-    println!("Do-confirm bulk import using token: {context_token}");
     let persisted_design_count = persist_bulk_import_confirm_if_initialized(
         &confirm_wire,
         Some(&context_token),
@@ -1375,9 +1359,7 @@ pub fn confirm_bulk_import_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
-    println!("Canonical bulk import confirm wire: {:#?}", confirm_wire);
-    println!("Canonical bulk import resolved assignments: {:#?}", resolved_assignments);
-
+    
     Ok(BulkImportConfirmExecutionResult {
         context_token_present: confirm_wire.context_token.is_some(),
         canonical_confirm: true,
