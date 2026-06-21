@@ -74,7 +74,7 @@ fn read_pec_stitches(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Re
 
         if val1 == 0xFE && val2 == 0xB0 {
             cursor.seek(SeekFrom::Current(1))?;
-            pattern.add_stitch_absolute(StitchType::ColorChange, 0.0, 0.0);
+            pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
             continue;
         }
 
@@ -92,7 +92,6 @@ fn read_pec_stitches(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Re
             }
             let code = ((val1 as u16) << 8) | (val2 as u16);
             x = signed12(code);
-            let _ = read_u8(cursor)?;
         } else {
             x = signed7(val1);
         }
@@ -115,7 +114,7 @@ fn read_pec_stitches(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Re
         if jump {
             pattern.add_stitch_relative(StitchType::Jump, x as f32, y as f32);
         } else if trim {
-            pattern.add_stitch_absolute(StitchType::Trim, 0.0, 0.0);
+            pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
             pattern.add_stitch_relative(StitchType::Jump, x as f32, y as f32);
         } else {
             pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);

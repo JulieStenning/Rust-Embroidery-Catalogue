@@ -133,6 +133,12 @@ fn read_u24_be(cursor: &mut Cursor<&[u8]>) -> Result<u32, binrw::Error> {
     Ok(((b[0] as u32) << 16) | ((b[1] as u32) << 8) | (b[2] as u32))
 }
 
+/// Read a 24-bit little-endian unsigned integer.
+fn read_u24_le(cursor: &mut Cursor<&[u8]>) -> Result<u32, binrw::Error> {
+    let b = read_exact(cursor, 3)?;
+    Ok((b[0] as u32) | ((b[1] as u32) << 8) | ((b[2] as u32) << 16))
+}
+
 /// Read a PES-style length-prefixed string.
 fn read_pes_string(cursor: &mut Cursor<&[u8]>) -> Result<Option<String>, binrw::Error> {
     let length = read_u8(cursor)? as usize;
@@ -191,7 +197,7 @@ fn read_pec_stitches(
         // Color change marker: 0xFE 0xB0
         if val1 == 0xFE && val2 == 0xB0 {
             cursor.seek(SeekFrom::Current(1))?; // skip 1 byte
-            pattern.add_stitch_absolute(StitchType::ColorChange, 0.0, 0.0);
+            pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
             continue;
         }
 
@@ -210,18 +216,12 @@ fn read_pec_stitches(
             }
             let code = ((val1 as u16) << 8) | (val2 as u16);
             x = signed12(code);
-            let _val3 = read_u8(cursor)?; // consume the 3rd byte for X
         } else {
             x = signed7(val1);
         }
 
-        // Decode Y — need to read the next byte (or val2 if X wasn't long)
-        let y_byte1 = if val1 & FLAG_LONG != 0 {
-            // We already consumed an extra byte above, read the next
-            read_u8(cursor)?
-        } else {
-            val2
-        };
+        // Decode Y — in the long-X case, the next unread byte becomes Y.
+        let y_byte1 = if val1 & FLAG_LONG != 0 { read_u8(cursor)? } else { val2 };
 
         if y_byte1 & FLAG_LONG != 0 {
             if y_byte1 & TRIM_CODE != 0 {
@@ -240,14 +240,19 @@ fn read_pec_stitches(
         if jump {
             pattern.add_stitch_relative(StitchType::Jump, x as f32, y as f32);
         } else if trim {
-            pattern.add_stitch_absolute(StitchType::Trim, 0.0, 0.0);
+            pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
             pattern.add_stitch_relative(StitchType::Jump, x as f32, y as f32);
         } else {
             pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);
         }
     }
 
-    pattern.add_stitch_absolute(StitchType::End, 0.0, 0.0);
+    let (end_x, end_y) = pattern
+        .stitches
+        .last()
+        .map(|s| (s.x, s.y))
+        .unwrap_or((0.0, 0.0));
+    pattern.add_stitch_absolute(StitchType::End, end_x, end_y);
     Ok(())
 }
 
@@ -358,7 +363,7 @@ fn read_pec(
 
     // Read stitch block end offset (24-bit LE)
     let pec_block_start = cursor.position();
-    let stitch_block_end_offset = read_u24_be(cursor)?;
+    let stitch_block_end_offset = read_u24_le(cursor)?;
     let stitch_block_end = if stitch_block_end_offset >= 5 {
         pec_block_start + (stitch_block_end_offset as u64) - 5u64
     } else {
@@ -744,6 +749,48 @@ mod tests {
         assert_eq!(signed12(100), 100);
         assert_eq!(signed12(0x7FF), 0x7FF);
         assert_eq!(signed12(0xFFF), -1);
+    }
+
+    #[test]
+    fn test_read_pec_stitches_long_x_does_not_desync_stream() {
+        let data = [0x81, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x00];
+        let mut cursor = Cursor::new(&data[..]);
+        let mut pattern = EmbPattern::new();
+
+        read_pec_stitches(&mut cursor, &mut pattern).expect("stitch decode should succeed");
+
+        assert_eq!(pattern.stitches.len(), 3);
+        assert_eq!(pattern.stitches[0].stitch_type, StitchType::Stitch);
+        assert_eq!(pattern.stitches[1].stitch_type, StitchType::Stitch);
+        assert_eq!(pattern.stitches[1].x, 260.0);
+        assert_eq!(pattern.stitches[1].y, 6.0);
+        assert_eq!(pattern.stitches[2].stitch_type, StitchType::End);
+        assert_eq!(pattern.stitches[2].x, 260.0);
+        assert_eq!(pattern.stitches[2].y, 6.0);
+    }
+
+    #[test]
+    fn test_read_pec_stitches_color_change_preserves_position() {
+        let data = [
+            0x01, 0x02,       // stitch (+1,+2)
+            0xFE, 0xB0, 0x01, // color change marker + skip byte
+            0x03, 0x04,       // stitch (+3,+4)
+            0xFF, 0x00,
+        ];
+        let mut cursor = Cursor::new(&data[..]);
+        let mut pattern = EmbPattern::new();
+
+        read_pec_stitches(&mut cursor, &mut pattern).expect("stitch decode should succeed");
+
+        assert_eq!(pattern.stitches[0].stitch_type, StitchType::Stitch);
+        assert_eq!(pattern.stitches[0].x, 1.0);
+        assert_eq!(pattern.stitches[0].y, 2.0);
+        assert_eq!(pattern.stitches[1].stitch_type, StitchType::ColorChange);
+        assert_eq!(pattern.stitches[1].x, 1.0);
+        assert_eq!(pattern.stitches[1].y, 2.0);
+        assert_eq!(pattern.stitches[2].stitch_type, StitchType::Stitch);
+        assert_eq!(pattern.stitches[2].x, 4.0);
+        assert_eq!(pattern.stitches[2].y, 6.0);
     }
 
     #[test]
