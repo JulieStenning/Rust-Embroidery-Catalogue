@@ -60,6 +60,28 @@ mod tests {
     }
 
     #[test]
+    fn color_change_switches_to_next_thread_color() {
+        let mut pattern = EmbPattern::new();
+        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch { x: 8.0, y: 0.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch { x: 8.0, y: 6.0, stitch_type: StitchType::ColorChange });
+        pattern.stitches.push(Stitch { x: 12.0, y: 6.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch { x: 20.0, y: 6.0, stitch_type: StitchType::Stitch });
+        pattern.threadlist.push(EmbThread::new(0xFF0000));
+        pattern.threadlist.push(EmbThread::new(0x0000FF));
+
+        let settings = RenderSettings::default().with_preview_3d(false);
+        let png = render_pattern_to_png(&pattern, &settings);
+        let img = image::load_from_memory(&png).expect("decode png").to_rgba8();
+
+        let red = Rgba([255, 0, 0, 255]);
+        let blue = Rgba([0, 0, 255, 255]);
+
+        assert!(img.pixels().any(|pixel| *pixel == red), "first thread color should be rendered");
+        assert!(img.pixels().any(|pixel| *pixel == blue), "second thread color should be rendered after color change");
+    }
+
+    #[test]
     fn does_not_panic_on_empty_pattern() {
         let pattern = EmbPattern::new();
         let settings = RenderSettings::default();
@@ -318,7 +340,7 @@ pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) ->
 
     // Draw stitches as colored lines (2D only, one color per thread block)
     // This mimics the basic 2D preview in the Python PngWriter.
-    let mut thread_index = 0;
+    let mut thread_index = usize::from(!pattern.threadlist.is_empty());
     let mut last_point: Option<(i32, i32)> = None;
     // Default to black if no threads
     let mut current_color = if pattern.threadlist.is_empty() {

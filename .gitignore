@@ -130,3 +130,4 @@ Start the ollama server.url
 logs/backfill_info.log
 Zed ollama qwen.txt
 docs/Specs/Embroidery Design Management UI Overview.md
+logs/startup-error.log
