@@ -20,6 +20,9 @@ fn read_vp3(data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
     // Read magic code: %vsm%\0 (6 bytes)
     let mut magic = [0u8; 6];
     cursor.read_exact(&mut magic)?;
+    if magic != *b"%vsm%\0" {
+        return Err("VP3: invalid file signature".into());
+    }
     // skip_vp3_string: header string (Produced by...)
     skip_vp3_string(&mut cursor)?;
     cursor.seek(SeekFrom::Current(7))?;
@@ -52,6 +55,16 @@ fn signed16(b0: u8, b1: u8) -> i16 {
     }
 }
 
+fn should_add_block_jump(abs_x: f32, abs_y: f32) -> bool {
+    abs_x != 0.0 || abs_y != 0.0
+}
+
+fn vp3_long_delta_is_jump(dx: i16, dy: i16) -> bool {
+    // VP3 encodes long deltas with 0x80 0x01. Deltas outside short-stitch range
+    // are treated as travel moves to avoid rendering bridge artifacts.
+    dx.unsigned_abs() > 127 || dy.unsigned_abs() > 127
+}
+
 fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, center_x: f32, center_y: f32) -> Result<(), Box<dyn std::error::Error>> {
     let mut _bytescheck = [0u8; 3];
     let _block_start = cursor.position();
@@ -63,7 +76,7 @@ fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, cen
     let start_position_y = -signed32(read_i32_be(cursor)?) as f32 / 100.0;
     let abs_x = start_position_x + center_x;
     let abs_y = start_position_y + center_y;
-    if abs_x != 0.0 && abs_y != 0.0 {
+    if should_add_block_jump(abs_x, abs_y) {
         pattern.add_stitch_absolute(StitchType::Jump, abs_x, abs_y);
     }
     let thread = vp3_read_thread(cursor)?;
@@ -88,11 +101,19 @@ fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, cen
             continue;
         }
         if y == 0x01 {
+            if i + 5 >= stitch_bytes.len() {
+                break;
+            }
             let x = signed16(stitch_bytes[i], stitch_bytes[i + 1]);
             i += 2;
             let y = signed16(stitch_bytes[i], stitch_bytes[i + 1]);
             i += 2;
-            pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);
+            let stitch_type = if vp3_long_delta_is_jump(x, y) {
+                StitchType::Jump
+            } else {
+                StitchType::Stitch
+            };
+            pattern.add_stitch_relative(stitch_type, x as f32, y as f32);
             i += 2; // skip 2 bytes (usually 0x80 0x02)
         } else if y == 0x02 {
             // Only seen after 80 01, should have been skipped. No effect.
@@ -147,7 +168,10 @@ fn vp3_read_thread(cursor: &mut Cursor<&[u8]>) -> Result<EmbThread, Box<dyn std:
     for _ in 0..colors {
         thread.color = read_u24_be(cursor)?;
         let _parts = read_u8(cursor)?;
-        let _color_length = read_u16_be(cursor)?;
+        let color_length = read_u16_be(cursor)? as i64;
+        if color_length > 0 {
+            cursor.seek(SeekFrom::Current(color_length))?;
+        }
     }
     let _thread_type = read_u8(cursor)?;
     let _weight = read_u8(cursor)?;
@@ -168,6 +192,16 @@ fn read_vp3_string_8(cursor: &mut Cursor<&[u8]>) -> Result<String, Box<dyn std::
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[test]
+    fn vp3_colorblock_jump_is_added_when_only_one_axis_is_non_zero() {
+        assert!(!should_add_block_jump(0.0, 0.0));
+        assert!(should_add_block_jump(12.0, 0.0));
+        assert!(should_add_block_jump(0.0, -8.5));
+        assert!(should_add_block_jump(3.0, 2.0));
+    }
 
     #[test]
     fn vp3_thread_parser_consumes_all_color_entries() {
@@ -190,6 +224,98 @@ mod tests {
         assert_eq!(thread.description.as_deref(), Some("desc"));
         assert_eq!(thread.brand.as_deref(), Some("brand"));
         assert_eq!(cursor.position() as usize, bytes.len());
+    }
+
+    #[test]
+    fn vp3_thread_parser_skips_color_payload_bytes() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&[
+            0x01, 0x00, // one color, no transition
+            0x11, 0x22, 0x33, // color
+            0x01, // one part
+            0x00, 0x02, // payload length
+            0xAA, 0xBB, // payload bytes to skip
+            0x05, 0x28, // thread type, weight
+            0x00, 0x01, b'a',
+            0x00, 0x01, b'b',
+            0x00, 0x01, b'c',
+        ]);
+
+        let mut cursor = Cursor::new(bytes.as_slice());
+        let thread = vp3_read_thread(&mut cursor).expect("VP3 thread with payload should parse");
+
+        assert_eq!(thread.color, 0x112233);
+        assert_eq!(thread.catalog_number.as_deref(), Some("a"));
+        assert_eq!(thread.description.as_deref(), Some("b"));
+        assert_eq!(thread.brand.as_deref(), Some("c"));
+        assert_eq!(cursor.position() as usize, bytes.len());
+    }
+
+    #[test]
+    fn vp3_long_delta_jump_threshold_matches_vp3_stitch_limit() {
+        assert!(!vp3_long_delta_is_jump(127, 0));
+        assert!(!vp3_long_delta_is_jump(0, -127));
+        assert!(vp3_long_delta_is_jump(128, 0));
+        assert!(vp3_long_delta_is_jump(0, -3200));
+    }
+
+    #[test]
+    fn vp3_user_fixture_stitch_diagnostics() {
+        let file_path = PathBuf::from("tests").join("testdata").join("220306.vp3");
+        if !file_path.exists() {
+            eprintln!("Skipping VP3 diagnostics because fixture is missing: {}", file_path.display());
+            return;
+        }
+
+        let data = fs::read(&file_path).expect("should read VP3 fixture");
+        let pattern = read_vp3(&data).expect("VP3 fixture should parse");
+
+        let mut prev = (0.0_f32, 0.0_f32);
+        let mut has_prev = false;
+        let mut max_len = 0.0_f32;
+        let mut over_127 = 0_usize;
+        let mut over_255 = 0_usize;
+        let mut stitch_count = 0_usize;
+
+        for stitch in &pattern.stitches {
+            if stitch.stitch_type != StitchType::Stitch {
+                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
+                    has_prev = false;
+                }
+                continue;
+            }
+
+            stitch_count += 1;
+            if has_prev {
+                let dx = stitch.x - prev.0;
+                let dy = stitch.y - prev.1;
+                let len = (dx * dx + dy * dy).sqrt();
+                if len > max_len {
+                    max_len = len;
+                }
+                if dx.abs() > 127.0 || dy.abs() > 127.0 {
+                    over_127 += 1;
+                }
+                if dx.abs() > 255.0 || dy.abs() > 255.0 {
+                    over_255 += 1;
+                }
+            }
+
+            prev = (stitch.x, stitch.y);
+            has_prev = true;
+        }
+
+        eprintln!(
+            "VP3 diagnostics 220306: stitches={}, max_len={:.2}, over127={}, over255={}, jumps={}, trims={}",
+            stitch_count,
+            max_len,
+            over_127,
+            over_255,
+            pattern.count_stitch_commands(StitchType::Jump),
+            pattern.count_stitch_commands(StitchType::Trim),
+        );
+
+        assert_eq!(over_127, 0, "oversized stitch segments should be classified as jumps");
     }
 }
 

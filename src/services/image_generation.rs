@@ -939,6 +939,71 @@ mod tests {
     }
 
     #[test]
+    fn python_and_native_backends_match_metrics_for_complex_vp3_fixture() {
+        let file_path = PathBuf::from("tests").join("testdata").join("Cake 3.vp3");
+        assert!(file_path.exists(), "expected complex VP3 fixture file to exist");
+
+        let request = ImageGenerationRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            preview_3d: false,
+            preview_3d_profile: None,
+        };
+
+        let native = generate_preview_via_native(&request);
+        assert!(native.error.is_none(), "native backend should succeed for complex VP3 fixture");
+
+        let python = generate_preview_via_python(&request);
+        if python.error.is_some() {
+            eprintln!(
+                "Skipping complex VP3 parity assertions because python adapter is unavailable: {}",
+                python.error.unwrap_or_else(|| "unknown python adapter error".to_string())
+            );
+            return;
+        }
+
+        assert_eq!(native.image_type.as_deref(), Some("2d"));
+        assert_eq!(python.image_type.as_deref(), Some("2d"));
+        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(python.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+
+        assert_eq!(native.stitch_count, python.stitch_count);
+        assert_eq!(native.color_count, python.color_count);
+        assert_eq!(native.color_change_count, python.color_change_count);
+
+        let native_width = native.width_mm.expect("native width should be present");
+        let python_width = python.width_mm.expect("python width should be present");
+        let native_height = native.height_mm.expect("native height should be present");
+        let python_height = python.height_mm.expect("python height should be present");
+
+        assert!((native_width - python_width).abs() <= 0.01);
+        assert!((native_height - python_height).abs() <= 0.01);
+    }
+
+    #[test]
+    fn native_backend_parses_user_vp3_regression_fixture_when_present() {
+        let file_path = PathBuf::from("tests").join("testdata").join("220306.vp3");
+        if !file_path.exists() {
+            eprintln!(
+                "Skipping user VP3 regression fixture test because file is not present: {}",
+                file_path.display()
+            );
+            return;
+        }
+
+        let request = ImageGenerationRequest {
+            file_path: file_path.to_string_lossy().to_string(),
+            preview_3d: false,
+            preview_3d_profile: None,
+        };
+
+        let native = generate_preview_via_native(&request);
+        assert!(native.error.is_none(), "native backend should succeed for user VP3 fixture");
+        assert_eq!(native.image_type.as_deref(), Some("2d"));
+        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(native.stitch_count.unwrap_or_default() > 0);
+    }
+
+    #[test]
     fn extension_support_marks_hus_as_native_only() {
         assert_eq!(extension_support("C:/imports/sample.hus"), BackendSupport::NativeOnly);
     }
