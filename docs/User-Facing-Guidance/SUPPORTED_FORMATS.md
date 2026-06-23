@@ -15,47 +15,8 @@ preview are available for all of them where the file contains the necessary data
 | `.pes`    | Brother / Babylock |
 | `.hus`    | Viking/Husqvarna |
 | `.vp3`    | Viking/Pfaff |
-| `.sew`    | Janome (older) |
 | `.dst`    | Tajima (industrial/interchange) |
 | `.exp`    | Melco (industrial/interchange) |
-| `.u01`    | Barudan |
-| `.tbf`    | ThredWorks |
-| `.xxx`    | Singer |
-| `.pec`    | Brother (stitch-only subset of .pes) |
-| `.10o`    | Toyota |
-| `.100`    | Toyota |
-| `.dat`    | Barudan |
-| `.dsb`    | Barudan |
-| `.dsz`    | ZSK |
-| `.emd`    | Elna |
-| `.exy`    | Eltac |
-| `.fxy`    | Fortron |
-| `.gt`     | Gold Thread |
-| `.inb`    | Inbro |
-| `.jpx`    | Janome (extended) |
-| `.max`    | Pfaff |
-| `.mit`    | Mitsubishi |
-| `.new`    | Pfaff |
-| `.pcm`    | Pfaff |
-| `.pcq`    | Pfaff |
-| `.pcs`    | Pfaff |
-| `.phb`    | Brother |
-| `.phc`    | Brother |
-| `.shv`    | Viking |
-| `.stc`    | Elna |
-| `.stx`    | Elna |
-| `.tap`    | Happy |
-| `.zhs`    | ZSK |
-| `.zxy`    | ZSK |
-| `.gcode`  | CNC G-code embroidery |
-
----
-
-## Limited support
-
-| Extension | Notes |
-|-----------|-------|
-| `.art`    | Wilcom/Bernina proprietary format. pyembroidery cannot fully decode the object format, so support is limited. If an Embird Spider sidecar is present, dimensions (and therefore hoop suggestion) can often be derived from Spider metadata. Preview is taken from the Spider sidecar JPEG when available, otherwise from the embedded icon (100 x 100 BMP). |
 
 ---
 

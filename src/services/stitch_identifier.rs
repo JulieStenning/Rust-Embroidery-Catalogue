@@ -1,11 +1,6 @@
 use crate::models::{EmbPattern, StitchType};
 use crate::readers::{
-	A100Reader, A10oReader, ArtReader, BroReader, DatReader, DsbReader, DstReader, DszReader,
-	EmdReader, EmbroideryReader, ExyReader, ExpReader, FxyReader, GcodeReader, GtReader,
-	HusReader, InbReader, JefReader, JpxReader, MaxReader, MitReader, NewReader, PcmReader,
-	PcqReader, PcsReader, PecReader, PesReader, PhbReader, PhcReader, PmvReader, SewReader,
-	ShvReader, StcReader, StxReader, TapReader, TbfReader, U01Reader, Vp3Reader, XxxReader,
-	ZhsReader, ZxyReader,
+	DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader,
 };
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::PI;
@@ -103,46 +98,12 @@ fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
 		.ok_or_else(|| format!("Missing file extension for '{}'.", file_path))?;
 
 	let parsed = match extension.as_str() {
-		"10o" => A10oReader.read(&data),
-		"100" => A100Reader.read(&data),
-		"pec" => PecReader.read(&data),
 		"pes" => PesReader.read(&data),
 		"dst" => DstReader.read(&data),
 		"exp" => ExpReader.read(&data),
-		"gcode" => GcodeReader.read(&data),
 		"jef" => JefReader.read(&data),
 		"hus" => HusReader.read(&data),
-		"art" => ArtReader.read(&data),
-		"bro" => BroReader.read(&data),
-		"dat" => DatReader.read(&data),
-		"dsb" => DsbReader.read(&data),
-		"dsz" => DszReader.read(&data),
-		"emd" => EmdReader.read(&data),
-		"exy" => ExyReader.read(&data),
-		"fxy" => FxyReader.read(&data),
-		"gt" => GtReader.read(&data),
-		"inb" => InbReader.read(&data),
-		"jpx" => JpxReader.read(&data),
-		"max" => MaxReader.read(&data),
-		"mit" => MitReader.read(&data),
-		"new" => NewReader.read(&data),
-		"pcm" => PcmReader.read(&data),
-		"pcq" => PcqReader.read(&data),
-		"pcs" => PcsReader.read(&data),
-		"phb" => PhbReader.read(&data),
-		"phc" => PhcReader.read(&data),
-		"pmv" => PmvReader.read(&data),
-		"sew" => SewReader.read(&data),
-		"shv" => ShvReader.read(&data),
-		"stc" => StcReader.read(&data),
-		"stx" => StxReader.read(&data),
-		"tap" => TapReader.read(&data),
-		"tbf" => TbfReader.read(&data),
-		"u01" => U01Reader.read(&data),
 		"vp3" => Vp3Reader.read(&data),
-		"xxx" => XxxReader.read(&data),
-		"zhs" => ZhsReader.read(&data),
-		"zxy" => ZxyReader.read(&data),
 		_ => return Err(format!("Unsupported extension '.{}'", extension)),
 	};
 

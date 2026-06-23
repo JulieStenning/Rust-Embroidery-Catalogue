@@ -6,17 +6,11 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "jef", "pes", "hus", "dst", "exp", "vp3", "u01", "pec", "xxx", "tbf", "10o", "100",
-    "dat", "dsb", "dsz", "emd", "exy", "fxy", "gt", "inb", "jpx", "max", "mit", "new",
-    "pcm", "pcq", "pcs", "phb", "phc", "sew", "shv", "stc", "stx", "tap", "zhs", "zxy",
-    "gcode", "art", "pmv",
+    "jef", "pes", "hus", "dst", "exp", "vp3", 
 ];
 
 pub const EXTENSION_PRIORITY: &[&str] = &[
-    "jef", "pes", "vp3", "hus", "dst", "exp", "u01", "pec", "xxx", "tbf", "10o", "100",
-    "dat", "dsb", "dsz", "emd", "exy", "fxy", "gt", "inb", "jpx", "max", "mit", "new",
-    "pcm", "pcq", "pcs", "phb", "phc", "sew", "shv", "stc", "stx", "tap", "zhs", "zxy",
-    "gcode", "art", "pmv",
+    "jef", "pes", "vp3", "hus", "dst", "exp", 
 ];
 
 const EXCLUDED_DIRECTORY_NAMES: &[&str] = &["system volume information"];

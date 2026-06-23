@@ -1824,7 +1824,6 @@ mod tests {
     fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
         let fixture = Path::new("tests")
             .join("testdata")
-            .join("Not Mandatory")
             .join("Bean.hus");
         assert!(fixture.exists(), "expected Bean.hus fixture to exist");
 
@@ -1851,7 +1850,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata/Not Mandatory".to_string()],
+                root_paths: vec!["tests/testdata".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),

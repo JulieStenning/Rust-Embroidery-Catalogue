@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn read_hus_fixture_produces_stitches_threads_and_end() {
-        let path = "tests/testdata/Not Mandatory/Bean.hus";
+        let path = "tests/testdata/Bean.hus";
         let data = fs::read(path).expect("expected HUS fixture file");
         let pattern = HusReader.read(&data).expect("expected HUS parsing to succeed");
 

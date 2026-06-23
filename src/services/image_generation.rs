@@ -2,12 +2,7 @@ use base64::Engine;
 use crate::models::EmbPattern;
 use crate::png_writer::{render_pattern_to_png, RenderSettings, ThreeDStyle};
 use crate::readers::{
-    A10oReader, A100Reader, ArtReader, DatReader, DsbReader, DstReader, DszReader,
-    EmdReader, EmbroideryReader, ExyReader, ExpReader, FxyReader, GcodeReader, GtReader,
-    HusReader, InbReader, JefReader, JpxReader, MaxReader, MitReader, NewReader, PcmReader,
-    PcqReader, PcsReader, PecReader, PesReader, PhbReader, PhcReader, PmvReader, SewReader,
-    ShvReader, StcReader, StxReader, TapReader, TbfReader, U01Reader, Vp3Reader, XxxReader,
-    ZhsReader, ZxyReader,
+    DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader, 
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,10 +15,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const NATIVE_PREVIEW_EXTENSIONS: &[&str] = &[
-    "pes", "dst", "exp", "jef", "vp3", "hus", "10o", "100", "pec", "dat", "dsb", "dsz",
-    "emd", "exy", "fxy", "gcode", "gt", "inb", "jpx", "max", "mit", "new", "pcm", "pcq",
-    "pcs", "phb", "phc", "pmv", "sew", "shv", "stc", "stx", "tap", "tbf", "u01", "xxx",
-    "art", "zhs", "zxy",
+    "pes", "dst", "exp", "jef", "vp3", "hus", 
 ];
 const PYTHON_PREVIEW_EXTENSIONS: &[&str] = &[
     "jef", "pes", "dst", "exp", "vp3",
@@ -443,45 +435,12 @@ fn read_pattern_from_file(file_path: &str) -> Result<EmbPattern, String> {
         .ok_or_else(|| format!("Missing file extension for '{}'.", file_path))?;
 
     let parsed = match extension.as_str() {
-        "10o" => A10oReader.read(&data),
-        "100" => A100Reader.read(&data),
-        "pec" => PecReader.read(&data),
         "pes" => PesReader.read(&data),
         "dst" => DstReader.read(&data),
         "exp" => ExpReader.read(&data),
-        "gcode" => GcodeReader.read(&data),
         "jef" => JefReader.read(&data),
         "hus" => HusReader.read(&data),
-        "art" => ArtReader.read(&data),
-        "dat" => DatReader.read(&data),
-        "dsb" => DsbReader.read(&data),
-        "dsz" => DszReader.read(&data),
-        "emd" => EmdReader.read(&data),
-        "exy" => ExyReader.read(&data),
-        "fxy" => FxyReader.read(&data),
-        "gt" => GtReader.read(&data),
-        "inb" => InbReader.read(&data),
-        "jpx" => JpxReader.read(&data),
-        "max" => MaxReader.read(&data),
-        "mit" => MitReader.read(&data),
-        "new" => NewReader.read(&data),
-        "pcm" => PcmReader.read(&data),
-        "pcq" => PcqReader.read(&data),
-        "pcs" => PcsReader.read(&data),
-        "phb" => PhbReader.read(&data),
-        "phc" => PhcReader.read(&data),
-        "pmv" => PmvReader.read(&data),
-        "sew" => SewReader.read(&data),
-        "shv" => ShvReader.read(&data),
-        "stc" => StcReader.read(&data),
-        "stx" => StxReader.read(&data),
-        "tap" => TapReader.read(&data),
-        "tbf" => TbfReader.read(&data),
-        "u01" => U01Reader.read(&data),
         "vp3" => Vp3Reader.read(&data),
-        "xxx" => XxxReader.read(&data),
-        "zhs" => ZhsReader.read(&data),
-        "zxy" => ZxyReader.read(&data),
         _ => {
             return Err(format!(
                 "Native image backend does not support extension '.{}'.",
@@ -1010,40 +969,8 @@ mod tests {
 
     #[test]
     fn extension_support_marks_promoted_optional_formats_as_native_only() {
-        assert_eq!(extension_support("C:/imports/sample.10o"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.100"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.gcode"), BackendSupport::NativeOnly);
         assert_eq!(extension_support("C:/imports/sample.dat"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.dsb"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.dsz"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.emd"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.exy"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.fxy"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.gt"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.inb"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.jpx"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.max"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.mit"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.new"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.pcm"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.pcq"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.pcs"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.phb"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.phc"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.pec"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.pmv"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.sew"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.shv"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.stc"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.stx"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.tap"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.tbf"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.u01"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.xxx"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.art"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.zhs"), BackendSupport::NativeOnly);
-        assert_eq!(extension_support("C:/imports/sample.zxy"), BackendSupport::NativeOnly);
-    }
+        }
 
     #[test]
     fn extension_support_marks_unknown_as_unsupported() {
