@@ -278,8 +278,8 @@
     if (parseDesignDetailId(route) !== null) {
       return {
         title: "Design Detail",
-        subtitle: "Design metadata and actions",
-        description: "Review one design, edit metadata and tags, manage project membership, and run file and print actions.",
+        subtitle: " ",
+        description: "",
         cta: "Use the detail controls to update this design",
       };
     }
