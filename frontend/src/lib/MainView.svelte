@@ -421,7 +421,6 @@
   let detailNotes = $state("");
   let detailDesignerId = $state("");
   let detailSourceId = $state("");
-  let detailHoopId = $state("");
   let detailTagSelection = $state([]);
   let detailProjectToAdd = $state("");
   let detailBrowseIds = $state([]);
@@ -2914,7 +2913,6 @@
       detailNotes = String(detailItem?.notes || "");
       detailDesignerId = detailItem?.designer_id == null ? "" : String(detailItem.designer_id);
       detailSourceId = detailItem?.source_id == null ? "" : String(detailItem.source_id);
-      detailHoopId = detailItem?.hoop_id == null ? "" : String(detailItem.hoop_id);
       detailTagSelection = Array.isArray(detailItem?.tags)
         ? detailItem.tags.map((tag) => Number(tag?.id)).filter((id) => Number.isFinite(id))
         : [];
@@ -2957,7 +2955,6 @@
       notes: detailNotes,
       designer_id: detailDesignerId ? Number(detailDesignerId) : null,
       source_id: detailSourceId ? Number(detailSourceId) : null,
-      hoop_id: detailHoopId ? Number(detailHoopId) : null,
     });
     detailSaving = false;
 
@@ -5005,9 +5002,7 @@
                             {item.tagsChecked ? "✓" : "x"}
                           </span>
                         </div>
-                        {#if item.hoop}
-                          <p class="browse-card-hoop ui-field-label text-xs text-indigo-600">{item.hoop}</p>
-                        {/if}
+                        <p class="browse-card-hoop ui-field-label text-xs text-indigo-600">{item.hoop || "Hoop unknown"}</p>
                         {#if item.projects.length > 0}
                           <p class="browse-card-projects ui-field-label text-xs text-gray-500" title={item.projects.join(", ")}>
                             {item.projects.join(", ")}
@@ -5634,7 +5629,7 @@
                       <span class="block mb-1">Notes</span>
                       <textarea class="w-full border rounded px-2 py-1" rows="4" bind:value={detailNotes}></textarea>
                     </label>
-                    <div class="grid sm:grid-cols-3 gap-2">
+                    <div class="grid sm:grid-cols-2 gap-2">
                       <label class="text-sm text-gray-700">
                         <span class="block mb-1">Designer</span>
                         <select class="w-full border rounded px-2 py-1" bind:value={detailDesignerId}>
@@ -5650,15 +5645,6 @@
                           <option value="">None</option>
                           {#each detailItem.sources || [] as source}
                             <option value={String(source.id)}>{source.name}</option>
-                          {/each}
-                        </select>
-                      </label>
-                      <label class="text-sm text-gray-700">
-                        <span class="block mb-1">Hoop</span>
-                        <select class="w-full border rounded px-2 py-1" bind:value={detailHoopId}>
-                          <option value="">None</option>
-                          {#each detailItem.hoops || [] as hoop}
-                            <option value={String(hoop.id)}>{hoop.name}</option>
                           {/each}
                         </select>
                       </label>

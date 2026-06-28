@@ -47,6 +47,12 @@ const TAG_SEED = [
   "Butterflies and Insects",
 ];
 
+const MOCK_HOOPS = [
+  { id: 1, name: "Hoop A" },
+  { id: 2, name: "Hoop B" },
+  { id: 3, name: "Hoop C" },
+];
+
 function normalizeBrowseItem(raw, index, options = {}) {
   const { useSeedTags = false } = options;
   const id = Number(raw?.id ?? index + 1);
@@ -76,7 +82,7 @@ function normalizeBrowseItem(raw, index, options = {}) {
           : [],
     image_tags: Array.isArray(raw?.image_tags) ? raw.image_tags.map(String) : [],
     stitching_tags: Array.isArray(raw?.stitching_tags) ? raw.stitching_tags.map(String) : [],
-    hoop: raw?.hoop ?? (seed % 2 === 0 ? "Hoop A" : "Hoop B"),
+    hoop: raw?.hoop ?? null,
     rating:
       raw?.rating == null || Number.isNaN(Number(raw.rating))
         ? seed % 5
@@ -116,22 +122,38 @@ export async function getDesignDetail(designId) {
     return { item: null, source: "mock", error: `Invalid design id: ${designId}` };
   }
 
+  let invokeError = null;
   try {
-    // Send both key styles so the call works across mixed command bindings.
     const detail = await invoke("get_design_detail", {
       designId: normalizedId,
+    });
+    if (detail && typeof detail === "object") {
+      return { item: detail, source: "rust" };
+    }
+  } catch (error) {
+    invokeError = error;
+  }
+
+  try {
+    const detail = await invoke("get_design_detail", {
       design_id: normalizedId,
     });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
     }
   } catch (error) {
-    console.info("get_design_detail not available yet, using mock detail.", error);
+    invokeError = invokeError || error;
+  }
+
+  if (invokeError) {
+    console.info("get_design_detail not available yet, using mock detail.", invokeError);
 
     const fallback = MOCK_DESIGNS.find((item) => item.id === normalizedId) || null;
     if (!fallback) {
-      return { item: null, source: "mock", error: String(error) };
+      return { item: null, source: "mock", error: String(invokeError) };
     }
+
+    const matchedHoop = MOCK_HOOPS.find((hoop) => hoop.name === fallback.hoop) || null;
 
     return {
       item: {
@@ -140,12 +162,15 @@ export async function getDesignDetail(designId) {
         filepath: `C:/mock/${fallback.filename}`,
         designer: fallback.designer,
         source: fallback.source,
+        hoop: fallback.hoop,
+        hoop_id: matchedHoop ? matchedHoop.id : null,
+        hoops: MOCK_HOOPS,
         notes: "Mock detail while Rust route migration continues.",
         rating: null,
         date_added: null,
       },
       source: "mock",
-      error: String(error),
+      error: String(invokeError),
     };
   }
 
@@ -154,6 +179,8 @@ export async function getDesignDetail(designId) {
     return { item: null, source: "mock" };
   }
 
+  const matchedHoop = MOCK_HOOPS.find((hoop) => hoop.name === fallback.hoop) || null;
+
   return {
     item: {
       id: fallback.id,
@@ -161,6 +188,9 @@ export async function getDesignDetail(designId) {
       filepath: `C:/mock/${fallback.filename}`,
       designer: fallback.designer,
       source: fallback.source,
+      hoop: fallback.hoop,
+      hoop_id: matchedHoop ? matchedHoop.id : null,
+      hoops: MOCK_HOOPS,
       notes: "Mock detail while Rust route migration continues.",
       rating: null,
       date_added: null,

@@ -799,14 +799,49 @@ async fn persist_bulk_import_confirm_wire(
                 );
             }
 
+            let hoop_id = match (image_result.width_mm, image_result.height_mm) {
+                (Some(width_mm), Some(height_mm)) => {
+                    sqlx::query_scalar::<_, i64>(
+                        r#"
+                        SELECT h.id
+                        FROM hoops h
+                        WHERE
+                            (
+                                CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                                AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                            )
+                            OR (
+                                CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                                AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                            )
+                        ORDER BY
+                            (CAST(h.max_width_mm AS REAL) * CAST(h.max_height_mm AS REAL)) ASC,
+                            CAST(h.max_width_mm AS REAL) ASC,
+                            CAST(h.max_height_mm AS REAL) ASC,
+                            h.name COLLATE NOCASE ASC
+                        LIMIT 1
+                        "#,
+                    )
+                    .bind(width_mm)
+                    .bind(height_mm)
+                    .bind(height_mm)
+                    .bind(width_mm)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?
+                }
+                _ => None,
+            };
+
             let t_insert = Instant::now();
             let insert_result = sqlx::query(
-                "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
+                "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
             )
             .bind(&filename)
             .bind(file_path)
             .bind(designer_id)
             .bind(source_id)
+            .bind(hoop_id)
             .bind(image_result.image_data)
             .bind(image_result.image_type)
             .bind(image_result.width_mm)
@@ -1614,6 +1649,7 @@ mod tests {
                 date_added TEXT,
                 designer_id INTEGER,
                 source_id INTEGER,
+                hoop_id INTEGER,
                 image_data BLOB,
                 image_type TEXT,
                 width_mm REAL,
@@ -1630,6 +1666,20 @@ mod tests {
         .execute(&pool)
         .await
         .expect("failed to create designs table");
+
+        sqlx::query(
+            r#"
+            CREATE TABLE hoops (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                max_width_mm REAL NOT NULL,
+                max_height_mm REAL NOT NULL
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create hoops table");
 
         sqlx::query(
             r#"
