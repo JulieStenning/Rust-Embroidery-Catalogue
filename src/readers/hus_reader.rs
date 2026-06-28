@@ -379,6 +379,27 @@ fn hus_thread_set() -> Vec<EmbThread> {
     ]
 }
 
+fn apply_hus_command(pattern: &mut EmbPattern, cmd: u8, x: f32, y: f32) -> bool {
+    match cmd {
+        0x80 => pattern.add_stitch_relative(StitchType::Stitch, x, y),
+        0x81 => pattern.add_stitch_relative(StitchType::Jump, x, y),
+        0x84 => pattern.add_stitch_relative(StitchType::ColorChange, x, y),
+        0x88 => {
+            if x != 0.0 || y != 0.0 {
+                pattern.add_stitch_relative(StitchType::Jump, x, y);
+            }
+            pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
+        }
+        0x90 => return false,
+        _ => {
+            // Ignore unknown commands or flag bytes instead of dropping the loop early.
+            return true;
+        }
+    }
+
+    true
+}
+
 pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
     let mut cursor = Cursor::new(data);
     let mut pattern = EmbPattern::new();
@@ -447,21 +468,12 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
         let x = (x_decompressed[i] as i8) as f32;
         let y = -((y_decompressed[i] as i8) as f32);
 
-        match cmd {
-            0x80 => pattern.add_stitch_relative(StitchType::Stitch, x, y),
-            0x81 => pattern.add_stitch_relative(StitchType::Jump, x, y),
-            0x84 => pattern.add_stitch_relative(StitchType::ColorChange, x, y),
-            0x88 => {
-                if x != 0.0 || y != 0.0 {
-                    pattern.add_stitch_relative(StitchType::Jump, x, y);
-                }
-                pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
-            }
-            0x90 => break,
-            _ => {
-                // Ignore unknown commands or flag bytes instead of dropping the loop early
-                eprintln!("Warning: Encountered unknown stitch command byte: {cmd:#X} at index {i}");
-            }
+        if !apply_hus_command(&mut pattern, cmd, x, y) {
+            break;
+        }
+
+        if !matches!(cmd, 0x80 | 0x81 | 0x84 | 0x88 | 0x90) {
+            eprintln!("Warning: Encountered unknown stitch command byte: {cmd:#X} at index {i}");
         }
     }
 
@@ -508,5 +520,18 @@ mod tests {
             .iter()
             .any(|stitch| stitch.x != 0.0 || stitch.y != 0.0);
         assert!(any_non_zero, "expected decoded coordinates, not all zeros");
+    }
+
+    #[test]
+    fn hus_jump_command_maps_to_jump() {
+        let mut pattern = EmbPattern::new();
+
+        let keep_parsing = apply_hus_command(&mut pattern, 0x81, 5.0, -7.0);
+
+        assert!(keep_parsing);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+        assert_eq!(pattern.stitches[0].x, 5.0);
+        assert_eq!(pattern.stitches[0].y, -7.0);
     }
 }

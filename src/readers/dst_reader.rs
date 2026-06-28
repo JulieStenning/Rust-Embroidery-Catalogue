@@ -314,4 +314,24 @@ mod tests {
         assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 2);
         assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
     }
+
+    #[test]
+    fn test_read_dst_jump_command_maps_to_jump() {
+        let mut data = vec![0u8; 512];
+
+        // Jump record: bits 0-1 and 7 set on byte[2] => 0x83.
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0x83);
+
+        // End marker.
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0xF3);
+
+        let pattern = read_dst(&data).expect("should parse DST jump command");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+    }
 }

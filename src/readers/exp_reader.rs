@@ -223,4 +223,15 @@ mod tests {
         assert_eq!(pattern.count_stitch_commands(StitchType::ColorChange), 1);
         assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
     }
+
+    #[test]
+    fn test_read_exp_color_change_zero_delta_does_not_emit_jump() {
+        // Color change with zero movement should not create a jump.
+        let data = vec![0x80, 0x01, 0x00, 0x00];
+
+        let pattern = read_exp(&data).expect("should parse EXP zero-delta color change");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::ColorChange), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 0);
+    }
 }

@@ -794,6 +794,30 @@ mod tests {
     }
 
     #[test]
+    fn test_read_pec_stitches_jump_flag_maps_to_jump() {
+        let data = [
+            0x90, 0x05, // long X with jump flag set, X = +5
+            0x06, // Y short = +6
+            0xFF, 0x00,
+        ];
+        let mut cursor = Cursor::new(&data[..]);
+        let mut pattern = EmbPattern::new();
+
+        read_pec_stitches(&mut cursor, &mut pattern).expect("stitch decode should succeed");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+
+        let jump = pattern
+            .stitches
+            .iter()
+            .find(|s| s.stitch_type == StitchType::Jump)
+            .expect("expected jump stitch");
+        assert_eq!(jump.x, 5.0);
+        assert_eq!(jump.y, 6.0);
+    }
+
+    #[test]
     fn test_interpolate_duplicate_color_as_stop() {
         let mut pattern = EmbPattern::new();
         pattern.add_thread(EmbThread::new(0xFF0000));

@@ -56,7 +56,13 @@ fn signed16(b0: u8, b1: u8) -> i16 {
 }
 
 fn should_add_block_jump(abs_x: f32, abs_y: f32) -> bool {
-    abs_x != 0.0 && abs_y != 0.0
+    abs_x != 0.0 || abs_y != 0.0
+}
+
+fn should_treat_long_form_as_jump(dx: i16, dy: i16) -> bool {
+    // VP3 has no explicit jump opcode inside stitch blocks. Very large long-form deltas
+    // can represent non-sewing repositioning and should not render connector lines.
+    dx.abs() > 127 || dy.abs() > 127
 }
 
 fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, center_x: f32, center_y: f32) -> Result<(), Box<dyn std::error::Error>> {
@@ -102,7 +108,11 @@ fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, cen
             i += 2;
             let y = signed16(stitch_bytes[i], stitch_bytes[i + 1]);
             i += 2;
-            pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);
+            if should_treat_long_form_as_jump(x, y) {
+                pattern.add_stitch_relative(StitchType::Jump, x as f32, y as f32);
+            } else {
+                pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);
+            }
             i += 2; // skip 2 bytes (usually 0x80 0x02)
         } else if y == 0x02 {
             // Only seen after 80 01, should have been skipped. No effect.
@@ -187,8 +197,8 @@ mod tests {
     #[test]
     fn vp3_colorblock_jump_matches_reference_behavior() {
         assert!(!should_add_block_jump(0.0, 0.0));
-        assert!(!should_add_block_jump(12.0, 0.0));
-        assert!(!should_add_block_jump(0.0, -8.5));
+        assert!(should_add_block_jump(12.0, 0.0));
+        assert!(should_add_block_jump(0.0, -8.5));
         assert!(should_add_block_jump(3.0, 2.0));
     }
 
@@ -254,6 +264,14 @@ mod tests {
 
         assert_eq!(pattern.stitches.len(), 1);
         assert_eq!(pattern.stitches[0].stitch_type, StitchType::Stitch);
+    }
+
+    #[test]
+    fn vp3_huge_long_form_deltas_become_jumps() {
+        assert!(!should_treat_long_form_as_jump(120, -120));
+        assert!(!should_treat_long_form_as_jump(127, 0));
+        assert!(should_treat_long_form_as_jump(128, 0));
+        assert!(should_treat_long_form_as_jump(0, -300));
     }
 
     #[test]
@@ -384,6 +402,74 @@ mod tests {
             jump_count,
         );
         assert!(pattern.count_stitch_commands(StitchType::Stitch) > 0);
+    }
+
+    #[test]
+    fn vp3_peacock_fixture_stitch_diagnostics() {
+        let file_path = PathBuf::from("tests").join("testdata").join("01Peacock.vp3");
+        if !file_path.exists() {
+            eprintln!(
+                "Skipping VP3 diagnostics because fixture is missing: {}",
+                file_path.display()
+            );
+            return;
+        }
+
+        let data = fs::read(&file_path).expect("should read VP3 fixture");
+        let pattern = read_vp3(&data).expect("VP3 fixture should parse");
+
+        let mut prev = (0.0_f32, 0.0_f32);
+        let mut has_prev = false;
+        let mut max_len = 0.0_f32;
+        let mut over_127 = 0_usize;
+        let mut over_255 = 0_usize;
+        let mut over_400 = 0_usize;
+        let mut stitch_count = 0_usize;
+
+        for stitch in &pattern.stitches {
+            if stitch.stitch_type != StitchType::Stitch {
+                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
+                    has_prev = false;
+                }
+                continue;
+            }
+
+            stitch_count += 1;
+            if has_prev {
+                let dx = stitch.x - prev.0;
+                let dy = stitch.y - prev.1;
+                let len = (dx * dx + dy * dy).sqrt();
+                if len > max_len {
+                    max_len = len;
+                }
+                if dx.abs() > 127.0 || dy.abs() > 127.0 {
+                    over_127 += 1;
+                }
+                if dx.abs() > 255.0 || dy.abs() > 255.0 {
+                    over_255 += 1;
+                }
+                if dx.abs() > 400.0 || dy.abs() > 400.0 {
+                    over_400 += 1;
+                }
+            }
+
+            prev = (stitch.x, stitch.y);
+            has_prev = true;
+        }
+
+        eprintln!(
+            "VP3 diagnostics 01Peacock: stitches={}, max_len={:.2}, over127={}, over255={}, over400={}, jumps={}, trims={}",
+            stitch_count,
+            max_len,
+            over_127,
+            over_255,
+            over_400,
+            pattern.count_stitch_commands(StitchType::Jump),
+            pattern.count_stitch_commands(StitchType::Trim),
+        );
+
+        assert!(pattern.count_stitch_commands(StitchType::Stitch) > 0);
+        assert_eq!(over_127, 0, "expected implausibly long VP3 connector deltas to be classified as jumps");
     }
 }
 

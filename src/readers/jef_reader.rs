@@ -397,4 +397,34 @@ mod tests {
         // No thread entries (count_colors was 0)
         assert!(pattern.threadlist.is_empty());
     }
+
+    #[test]
+    fn test_read_jef_jump_opcode_maps_to_jump() {
+        let stitch_offset: u32 = 116;
+        let mut data = Vec::with_capacity(124);
+
+        // Header with zero color entries.
+        data.extend_from_slice(&stitch_offset.to_le_bytes());
+        data.extend_from_slice(&[0u8; 20]);
+        data.extend_from_slice(&0u32.to_le_bytes());
+        data.extend_from_slice(&[0u8; 88]);
+
+        // Jump command: 0x80 0x02 + delta bytes.
+        data.extend_from_slice(&[0x80, 0x02, 0x05, 0xF9]);
+        // End command: 0x80 0x10 + ignored delta bytes.
+        data.extend_from_slice(&[0x80, 0x10, 0x00, 0x00]);
+
+        let pattern = read_jef(&data).expect("should parse JEF jump command");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+
+        let jump = pattern
+            .stitches
+            .iter()
+            .find(|s| s.stitch_type == StitchType::Jump)
+            .expect("expected jump stitch");
+        assert_eq!(jump.x, 5.0);
+        assert_eq!(jump.y, 7.0);
+    }
 }
