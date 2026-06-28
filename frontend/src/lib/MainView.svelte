@@ -6119,7 +6119,7 @@
                       Running Import...
                     {/if}
                   {:else}
-                    {importPrecheck.is_first_import ? "No, import now anyway" : "No, import now"}
+                    Import Designs
                   {/if}
                 </button>
                 <button
