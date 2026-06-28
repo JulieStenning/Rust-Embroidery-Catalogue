@@ -215,6 +215,47 @@ fn dst_read_stitches(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Re
     Ok(())
 }
 
+/// Ensure DST patterns have enough thread entries for preview rendering.
+///
+/// DST files often omit explicit thread colours. In that case, use the
+/// declared `CO` header count (if present) and detected color-change commands
+/// to synthesize a deterministic, high-contrast palette.
+fn ensure_dst_threads(pattern: &mut EmbPattern) {
+    let color_changes = pattern
+        .stitches
+        .iter()
+        .filter(|s| s.stitch_type == StitchType::ColorChange)
+        .count();
+
+    let required_from_stitches = if color_changes > 0 { color_changes + 1 } else { 0 };
+
+    // DST `CO` is the number of colour-change commands, so blocks = CO + 1.
+    let required_from_header = pattern
+        .extras
+        .get("CO")
+        .and_then(|v| v.trim().parse::<usize>().ok().map(|co| co + 1))
+        .unwrap_or(0);
+
+    let required_threads = required_from_stitches.max(required_from_header);
+    if required_threads == 0 || pattern.threadlist.len() >= required_threads {
+        return;
+    }
+
+    // Bright preview palette so color blocks are distinguishable in renderers.
+    const DST_FALLBACK_PALETTE: [u32; 24] = [
+        0x1F77B4, 0xD62728, 0x2CA02C, 0xFF7F0E, 0x9467BD, 0x8C564B, 0xE377C2, 0x17BECF,
+        0xBCBD22, 0x7F7F7F, 0x00A651, 0xED1C24, 0x1C75BC, 0xFBB03B, 0x662D91, 0x39B54A,
+        0xF15A24, 0xA349A4, 0x00AEEF, 0xC69C6D, 0xEF4136, 0x22B573, 0x2E3192, 0xFFF200,
+    ];
+
+    let mut next_index = pattern.threadlist.len();
+    while pattern.threadlist.len() < required_threads {
+        let color = DST_FALLBACK_PALETTE[next_index % DST_FALLBACK_PALETTE.len()];
+        pattern.add_thread(EmbThread::new(color));
+        next_index += 1;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Public entry-point
 // ---------------------------------------------------------------------------
@@ -236,6 +277,9 @@ pub fn read_dst(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 
     // --- 2. Parse the stitch data ---------------------------------------------
     dst_read_stitches(&mut cursor, &mut pattern)?;
+
+    // --- 3. Normalize thread list for formats without explicit thread metadata -
+    ensure_dst_threads(&mut pattern);
 
     Ok(pattern)
 }
@@ -333,5 +377,18 @@ mod tests {
 
         assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
         assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+    }
+
+    #[test]
+    fn test_read_dst_peacock_generates_threads_from_co() {
+        let data = include_bytes!("../../tests/testdata/01dstPeacock.dst");
+        let pattern = read_dst(data).expect("should parse provided DST sample");
+
+        // Header declares CO:18 (color-change commands), so 19 thread blocks.
+        assert_eq!(
+            pattern.extras.get("CO").map(|s| s.as_str()),
+            Some("18")
+        );
+        assert_eq!(pattern.threadlist.len(), 19);
     }
 }
