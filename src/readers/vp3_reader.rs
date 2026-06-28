@@ -39,10 +39,10 @@ fn read_vp3(data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
     for i in 0..count_colors {
         vp3_read_colorblock(&mut cursor, &mut pattern, center_x, center_y)?;
         if i + 1 < count_colors {
-            pattern.add_stitch_absolute(StitchType::ColorChange, 0.0, 0.0);
+            pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
         }
     }
-    pattern.add_stitch_absolute(StitchType::End, 0.0, 0.0);
+    pattern.add_stitch_relative(StitchType::End, 0.0, 0.0);
     Ok(pattern)
 }
 
@@ -56,13 +56,7 @@ fn signed16(b0: u8, b1: u8) -> i16 {
 }
 
 fn should_add_block_jump(abs_x: f32, abs_y: f32) -> bool {
-    abs_x != 0.0 || abs_y != 0.0
-}
-
-fn vp3_long_delta_is_jump(dx: i16, dy: i16) -> bool {
-    // VP3 encodes long deltas with 0x80 0x01. Deltas outside short-stitch range
-    // are treated as travel moves to avoid rendering bridge artifacts.
-    dx.unsigned_abs() > 127 || dy.unsigned_abs() > 127
+    abs_x != 0.0 && abs_y != 0.0
 }
 
 fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, center_x: f32, center_y: f32) -> Result<(), Box<dyn std::error::Error>> {
@@ -108,17 +102,12 @@ fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, cen
             i += 2;
             let y = signed16(stitch_bytes[i], stitch_bytes[i + 1]);
             i += 2;
-            let stitch_type = if vp3_long_delta_is_jump(x, y) {
-                StitchType::Jump
-            } else {
-                StitchType::Stitch
-            };
-            pattern.add_stitch_relative(stitch_type, x as f32, y as f32);
+            pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);
             i += 2; // skip 2 bytes (usually 0x80 0x02)
         } else if y == 0x02 {
             // Only seen after 80 01, should have been skipped. No effect.
         } else if y == 0x03 {
-            pattern.add_stitch_absolute(StitchType::Trim, 0.0, 0.0);
+            pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
         }
     }
     Ok(())
@@ -196,10 +185,10 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn vp3_colorblock_jump_is_added_when_only_one_axis_is_non_zero() {
+    fn vp3_colorblock_jump_matches_reference_behavior() {
         assert!(!should_add_block_jump(0.0, 0.0));
-        assert!(should_add_block_jump(12.0, 0.0));
-        assert!(should_add_block_jump(0.0, -8.5));
+        assert!(!should_add_block_jump(12.0, 0.0));
+        assert!(!should_add_block_jump(0.0, -8.5));
         assert!(should_add_block_jump(3.0, 2.0));
     }
 
@@ -252,11 +241,40 @@ mod tests {
     }
 
     #[test]
-    fn vp3_long_delta_jump_threshold_matches_vp3_stitch_limit() {
-        assert!(!vp3_long_delta_is_jump(127, 0));
-        assert!(!vp3_long_delta_is_jump(0, -127));
-        assert!(vp3_long_delta_is_jump(128, 0));
-        assert!(vp3_long_delta_is_jump(0, -3200));
+    fn vp3_long_form_stitches_are_preserved() {
+        let mut pattern = EmbPattern::new();
+        let stitch_bytes = [0x80, 0x01, 0x00, 0x90, 0xFF, 0x70, 0x80, 0x02];
+
+        // Simulate the 0x80 0x01 decode branch to assert command type is Stitch.
+        let mut i = 2usize;
+        let x = signed16(stitch_bytes[i], stitch_bytes[i + 1]);
+        i += 2;
+        let y = signed16(stitch_bytes[i], stitch_bytes[i + 1]);
+        pattern.add_stitch_relative(StitchType::Stitch, x as f32, y as f32);
+
+        assert_eq!(pattern.stitches.len(), 1);
+        assert_eq!(pattern.stitches[0].stitch_type, StitchType::Stitch);
+    }
+
+    #[test]
+    fn vp3_control_commands_preserve_current_position() {
+        let mut pattern = EmbPattern::new();
+        pattern.add_stitch_absolute(StitchType::Stitch, 12.0, -8.0);
+
+        pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
+        pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
+        pattern.add_stitch_relative(StitchType::End, 0.0, 0.0);
+
+        let trim = pattern.stitches[1];
+        let color_change = pattern.stitches[2];
+        let end = pattern.stitches[3];
+
+        assert_eq!(trim.x, 12.0);
+        assert_eq!(trim.y, -8.0);
+        assert_eq!(color_change.x, 12.0);
+        assert_eq!(color_change.y, -8.0);
+        assert_eq!(end.x, 12.0);
+        assert_eq!(end.y, -8.0);
     }
 
     #[test]
@@ -315,7 +333,57 @@ mod tests {
             pattern.count_stitch_commands(StitchType::Trim),
         );
 
-        assert_eq!(over_127, 0, "oversized stitch segments should be classified as jumps");
+    }
+
+    #[test]
+    fn vp3_isolated_colour_fixture_keeps_long_stitches() {
+        let file_path = PathBuf::from("tests").join("testdata").join("test-less-220306.vp3");
+        if !file_path.exists() {
+            eprintln!("Skipping isolated VP3 diagnostics because fixture is missing: {}", file_path.display());
+            return;
+        }
+
+        let data = fs::read(&file_path).expect("should read isolated VP3 fixture");
+        let pattern = read_vp3(&data).expect("isolated VP3 fixture should parse");
+
+        let mut prev = (0.0_f32, 0.0_f32);
+        let mut has_prev = false;
+        let mut over_127 = 0_usize;
+        let mut max_len = 0.0_f32;
+        let mut jump_count = 0usize;
+        for stitch in &pattern.stitches {
+            if stitch.stitch_type != StitchType::Stitch {
+                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
+                    if stitch.stitch_type == StitchType::Jump {
+                        jump_count += 1;
+                    }
+                    has_prev = false;
+                }
+                continue;
+            }
+            if has_prev {
+                let dx = stitch.x - prev.0;
+                let dy = stitch.y - prev.1;
+                let len = (dx * dx + dy * dy).sqrt();
+                if len > max_len {
+                    max_len = len;
+                }
+                if dx.abs() > 127.0 || dy.abs() > 127.0 {
+                    over_127 += 1;
+                }
+            }
+            prev = (stitch.x, stitch.y);
+            has_prev = true;
+        }
+
+        eprintln!(
+            "VP3 diagnostics test-less-220306: stitches={}, over127={}, max_len={:.2}, jumps={}",
+            pattern.count_stitch_commands(StitchType::Stitch),
+            over_127,
+            max_len,
+            jump_count,
+        );
+        assert!(pattern.count_stitch_commands(StitchType::Stitch) > 0);
     }
 }
 

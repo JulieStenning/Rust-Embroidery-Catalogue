@@ -126,8 +126,8 @@ struct DesignDetailRow {
 	filepath: String,
 	image_data: Option<Vec<u8>>,
 	image_type: Option<String>,
-	width_mm: Option<i64>,
-	height_mm: Option<i64>,
+	width_mm: Option<f64>,
+	height_mm: Option<f64>,
 	stitch_count: Option<i64>,
 	color_count: Option<i64>,
 	color_change_count: Option<i64>,
@@ -229,6 +229,10 @@ pub struct Render3dPreviewResult {
 
 fn round_mm_to_i64(value: Option<f64>) -> Option<i64> {
 	value.map(|v| v.round() as i64)
+}
+
+fn ceil_mm_to_i64(value: Option<f64>) -> Option<i64> {
+	value.map(|v| v.ceil() as i64)
 }
 
 fn normalize_optional_text(value: &Option<String>) -> Option<String> {
@@ -636,8 +640,8 @@ async fn get_design_detail_with_pool(
 			d.filepath AS filepath,
 			d.image_data AS image_data,
 			d.image_type AS image_type,
-			CAST(d.width_mm AS INTEGER) AS width_mm,
-			CAST(d.height_mm AS INTEGER) AS height_mm,
+			d.width_mm AS width_mm,
+			d.height_mm AS height_mm,
 			d.stitch_count AS stitch_count,
 			d.color_count AS color_count,
 			d.color_change_count AS color_change_count,
@@ -772,8 +776,8 @@ async fn get_design_detail_with_pool(
 		filepath: row.filepath,
 		image_type: row.image_type.clone(),
 		image_data_url: build_data_url(row.image_data, row.image_type.as_deref()),
-		width_mm: row.width_mm,
-		height_mm: row.height_mm,
+		width_mm: ceil_mm_to_i64(row.width_mm),
+		height_mm: ceil_mm_to_i64(row.height_mm),
 		stitch_count: row.stitch_count,
 		color_count: row.color_count,
 		color_change_count: row.color_change_count,
