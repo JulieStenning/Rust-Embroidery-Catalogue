@@ -6102,7 +6102,7 @@
                 </p>
               {:else}
                 <p class="ui-help-note">
-                  Would you like to review your hoops, tags, sources, or designers before importing? Hoops usually only need special attention on the first import.
+                  Consider reviewing your hoops, tags, sources, or designers before importing. Hoops usually only need special attention on the first import.
                 </p>
               {/if}
 
