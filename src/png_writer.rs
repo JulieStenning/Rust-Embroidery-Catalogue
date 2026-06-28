@@ -286,7 +286,25 @@ fn lighten_color(color: Rgba<u8>, amount: u8) -> Rgba<u8> {
 }
 
 fn draw_segment_2d(img: &mut RgbaImage, from: (i32, i32), to: (i32, i32), color: Rgba<u8>) {
-    draw_antialiased_line_segment_mut(img, from, to, color, interpolate);
+    // Match pyembroidery's default 2D thread thickness more closely so
+    // satin columns render as filled thread paths rather than hairline combs.
+    const THREAD_RADIUS: i32 = 2;
+
+    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
+        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
+            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+                continue;
+            }
+
+            draw_antialiased_line_segment_mut(
+                img,
+                (from.0 + ox, from.1 + oy),
+                (to.0 + ox, to.1 + oy),
+                color,
+                interpolate,
+            );
+        }
+    }
 }
 
 fn draw_segment_3d(

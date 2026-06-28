@@ -261,28 +261,35 @@ pub fn read_jef(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
             Ok(b) => b,
             Err(_) => break,
         };
-        let _dx = signed8(extra[0]) as f32;
-        let _dy = -(signed8(extra[1]) as f32);
+        let dx = signed8(extra[0]) as f32;
+        let dy = -(signed8(extra[1]) as f32);
 
         match ctrl {
             0x02 => {
                 // Jump – use the absolute position encoded in extra bytes
-                pattern.add_stitch_relative(StitchType::Jump, _dx, _dy);
+                pattern.add_stitch_relative(StitchType::Jump, dx, dy);
             }
             0x01 => {
                 // Colour change (or STOP if the thread entry is a
                 // placeholder for index 0).
                 if raw_indices.get(color_index).is_none_or(|&r| r == 0) {
                     // Placeholder → emit STOP
-                    pattern.add_stitch_absolute(StitchType::Stop, 0.0, 0.0);
+                    pattern.add_stitch_relative(StitchType::Stop, 0.0, 0.0);
                     // Remove the dummy thread entry (mirrors Python's
                     // `del out.threadlist[color_index]`).
                     if color_index < pattern.threadlist.len() {
                         pattern.threadlist.remove(color_index);
                     }
                 } else {
-                    pattern.add_stitch_absolute(StitchType::ColorChange, 0.0, 0.0);
+                    pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
                     color_index += 1;
+                }
+
+                // JEF colour change commands can carry a non-zero movement.
+                // Preserve this as a jump so subsequent relative stitches stay
+                // in the correct coordinate frame.
+                if dx != 0.0 || dy != 0.0 {
+                    pattern.add_stitch_relative(StitchType::Jump, dx, dy);
                 }
             }
             0x10 => {
@@ -334,6 +341,33 @@ mod tests {
         assert_eq!(pattern.stitches.last().map(|s| (s.x as i32, s.y as i32)), Some((0, 0)), "Unexpected end coords");
         assert_eq!(pattern.count_threads(), 1, "Unexpected thread changes");
         assert_eq!(pattern.count_color_changes(), 0, "Unexpected colour changes");
+    }
+
+    #[test]
+    fn test_read_bear_mask_6x10_jef_file() {
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Bear Mask 6x10 Hoop.jef";
+        let data = std::fs::read(path).expect("Failed to read 6x10 Bear Mask JEF file");
+        let pattern = read_jef(&data).expect("Failed to parse 6x10 Bear Mask JEF file");
+
+        // Basic sanity checks to ensure parser remains stable for this fixture.
+        assert!(!pattern.stitches.is_empty(), "Expected stitches in 6x10 Bear Mask");
+        assert!(
+            pattern.count_stitch_commands(StitchType::Stitch) > 0,
+            "Expected drawable stitches in 6x10 Bear Mask"
+        );
+
+        let (min_x, min_y, max_x, max_y) = pattern.bounds();
+        let width = (max_x - min_x).abs();
+        let height = (max_y - min_y).abs();
+        assert!(width > 700.0, "Expected wider than 70mm in deci-mm units, got {width}");
+        assert!(height > 250.0, "Expected taller than 25mm in deci-mm units, got {height}");
+
+        // First coordinate should not be stuck at origin for this design.
+        let first = pattern.stitches.first().expect("Expected first stitch");
+        assert!(
+            first.x != 0.0 || first.y != 0.0,
+            "Unexpected origin-anchored first stitch in 6x10 Bear Mask"
+        );
     }
     #[test]
     fn test_read_jef_two_stitches() {
@@ -426,5 +460,49 @@ mod tests {
             .expect("expected jump stitch");
         assert_eq!(jump.x, 5.0);
         assert_eq!(jump.y, 7.0);
+    }
+
+    #[test]
+    fn test_read_jef_color_change_preserves_nonzero_movement() {
+        // Stitch data begins after 116-byte header plus two i32 color entries.
+        let stitch_offset: u32 = 124;
+        let mut data = Vec::with_capacity(140);
+
+        // Header with two color entries so 0x80 0x01 is treated as ColorChange.
+        data.extend_from_slice(&stitch_offset.to_le_bytes());
+        data.extend_from_slice(&[0u8; 20]);
+        data.extend_from_slice(&2u32.to_le_bytes());
+        data.extend_from_slice(&[0u8; 88]);
+        data.extend_from_slice(&1i32.to_le_bytes());
+        data.extend_from_slice(&2i32.to_le_bytes());
+
+        // Regular stitch to move to (10, 0).
+        data.extend_from_slice(&[0x0A, 0x00]);
+        // Color change with non-zero movement dx=5, dy=3.
+        data.extend_from_slice(&[0x80, 0x01, 0x05, 0xFD]);
+        // One more regular stitch dx=2, dy=0 -> should end at (17, 3).
+        data.extend_from_slice(&[0x02, 0x00]);
+
+        let pattern = read_jef(&data).expect("should parse JEF color change movement");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::ColorChange), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
+
+        let jump = pattern
+            .stitches
+            .iter()
+            .find(|s| s.stitch_type == StitchType::Jump)
+            .expect("expected jump emitted for color-change movement");
+        assert_eq!(jump.x, 15.0);
+        assert_eq!(jump.y, 3.0);
+
+        let last_stitch = pattern
+            .stitches
+            .iter()
+            .rev()
+            .find(|s| s.stitch_type == StitchType::Stitch)
+            .expect("expected final stitch command");
+        assert_eq!(last_stitch.x, 17.0);
+        assert_eq!(last_stitch.y, 3.0);
     }
 }
