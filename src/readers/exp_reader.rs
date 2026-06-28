@@ -11,6 +11,13 @@ use std::io::Cursor;
 
 use crate::models::{EmbPattern, StitchType};
 
+/// Bright fallback palette used when EXP files do not embed explicit thread colours.
+const EXP_FALLBACK_PALETTE: [u32; 24] = [
+    0x1F77B4, 0xD62728, 0x2CA02C, 0xFF7F0E, 0x9467BD, 0x8C564B, 0xE377C2, 0x17BECF,
+    0xBCBD22, 0x7F7F7F, 0x00A651, 0xED1C24, 0x1C75BC, 0xFBB03B, 0x662D91, 0x39B54A,
+    0xF15A24, 0xA349A4, 0x00AEEF, 0xC69C6D, 0xEF4136, 0x22B573, 0x2E3192, 0xFFF200,
+];
+
 // ---------------------------------------------------------------------------
 // Low-level helpers
 // ---------------------------------------------------------------------------
@@ -86,10 +93,10 @@ pub fn read_exp_stitches(
         match control {
             0x80 => {
                 // Trim
-                pattern.add_stitch_absolute(StitchType::Trim, 0.0, 0.0);
+                pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
             }
             0x02 => {
-                // This shouldn't exist, but treat as stitch
+                // This shouldn't exist, but treat as stitch.
                 pattern.add_stitch_relative(StitchType::Stitch, x, y);
             }
             0x04 => {
@@ -98,19 +105,26 @@ pub fn read_exp_stitches(
             }
             0x01 => {
                 // Color change
-                pattern.add_stitch_absolute(StitchType::ColorChange, 0.0, 0.0);
+                pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
                 if x != 0.0 || y != 0.0 {
                     pattern.add_stitch_relative(StitchType::Jump, x, y);
                 }
             }
             _ => {
-                // Uncaught control — stop parsing (matching Python behaviour)
-                break;
+                // Some EXP variants contain vendor-specific control bytes.
+                // Consume the record and continue rather than truncating parse.
+                if x != 0.0 || y != 0.0 {
+                    pattern.add_stitch_relative(StitchType::Jump, x, y);
+                }
             }
         }
     }
 
-    pattern.add_stitch_absolute(StitchType::End, 0.0, 0.0);
+    if let Some(last) = pattern.stitches.last() {
+        pattern.add_stitch_absolute(StitchType::End, last.x, last.y);
+    } else {
+        pattern.add_stitch_absolute(StitchType::End, 0.0, 0.0);
+    }
 
     Ok(())
 }
@@ -132,11 +146,12 @@ pub fn read_exp(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 
     read_exp_stitches(&mut cursor, &mut pattern)?;
 
-    // If no threads, but color changes exist, add placeholder threads
+    // If no threads are declared in-file, synthesize preview colors from color blocks.
     let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
     if pattern.threadlist.is_empty() && num_colour_changes > 0 {
-        for _ in 0..=num_colour_changes {
-            pattern.threadlist.push(crate::models::EmbThread::new(0x000000));
+        for i in 0..=num_colour_changes {
+            let color = EXP_FALLBACK_PALETTE[i % EXP_FALLBACK_PALETTE.len()];
+            pattern.threadlist.push(crate::models::EmbThread::new(color));
         }
     }
 
@@ -149,6 +164,8 @@ pub fn read_exp(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn test_read_exp_two_stitches() {
@@ -233,5 +250,99 @@ mod tests {
 
         assert_eq!(pattern.count_stitch_commands(StitchType::ColorChange), 1);
         assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 0);
+    }
+
+    #[test]
+    fn test_read_exp_unknown_control_does_not_abort_and_consumes_record() {
+        // Unknown control should not truncate parsing.
+        // 0x80 0x10 + dx/dy then a regular stitch.
+        let data = vec![0x80, 0x10, 0x02, 0xFE, 0x03, 0xFD];
+
+        let pattern = read_exp(&data).expect("should parse unknown control robustly");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 1);
+    }
+
+    #[test]
+    fn test_read_exp_color_change_preserves_current_position() {
+        // Stitch to (10, 10), color change, then stitch +2,+3 -> should end at (12,13)
+        let data = vec![0x0A, 0xF6, 0x80, 0x01, 0x00, 0x00, 0x02, 0xFD];
+
+        let pattern = read_exp(&data).expect("should parse EXP with color change");
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches.len(), 2);
+        assert_eq!(stitches[0].x, 10.0);
+        assert_eq!(stitches[0].y, 10.0);
+        assert_eq!(stitches[1].x, 12.0);
+        assert_eq!(stitches[1].y, 13.0);
+    }
+
+    #[test]
+    fn test_read_exp_trim_preserves_current_position() {
+        // Stitch to (6, 6), trim, then stitch +1,+1 -> should end at (7,7)
+        let data = vec![0x06, 0xFA, 0x80, 0x80, 0x00, 0x00, 0x01, 0xFF];
+
+        let pattern = read_exp(&data).expect("should parse EXP with trim");
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches.len(), 2);
+        assert_eq!(stitches[0].x, 6.0);
+        assert_eq!(stitches[0].y, 6.0);
+        assert_eq!(stitches[1].x, 7.0);
+        assert_eq!(stitches[1].y, 7.0);
+    }
+
+    #[test]
+    fn test_real_peacock_fixture_control_commands_preserve_position() {
+        let file_path = PathBuf::from("tests").join("testdata").join("01expPeacock.exp");
+        assert!(file_path.exists(), "expected 01expPeacock.exp fixture to exist");
+
+        let data = fs::read(&file_path).expect("should read EXP fixture");
+        let pattern = read_exp(&data).expect("should parse real EXP fixture");
+
+        for index in 1..pattern.stitches.len() {
+            let prev = &pattern.stitches[index - 1];
+            let current = &pattern.stitches[index];
+
+            if current.stitch_type == StitchType::ColorChange || current.stitch_type == StitchType::Trim {
+                assert_eq!(
+                    (current.x, current.y),
+                    (prev.x, prev.y),
+                    "control command at index {} should keep current position",
+                    index
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_exp_fallback_threads_use_palette_not_black_only() {
+        // Two color blocks => three fallback threads should be synthesized.
+        let data = vec![
+            0x01, 0xFF, // stitch
+            0x80, 0x01, 0x00, 0x00, // color change
+            0x01, 0xFF, // stitch
+            0x80, 0x01, 0x00, 0x00, // color change
+            0x01, 0xFF, // stitch
+        ];
+
+        let pattern = read_exp(&data).expect("should parse EXP and add fallback threads");
+        assert_eq!(pattern.threadlist.len(), 3);
+
+        let all_black = pattern
+            .threadlist
+            .iter()
+            .all(|thread| thread.color == 0x000000);
+        assert!(!all_black, "fallback EXP threads should not all be black");
     }
 }
