@@ -291,6 +291,15 @@ impl EmbPattern {
     pub fn count_threads(&self) -> usize {
         self.threadlist.len()
     }
+
+    /// Return the number of distinct thread RGB colours.
+    pub fn count_distinct_thread_colors(&self) -> usize {
+        self.threadlist
+            .iter()
+            .map(|thread| thread.color)
+            .collect::<std::collections::HashSet<u32>>()
+            .len()
+    }
 }
 
 impl Default for EmbPattern {

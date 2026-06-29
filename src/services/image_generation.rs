@@ -524,7 +524,7 @@ fn analyze_pattern_with_native_renderer(
     preview_3d_profile: Option<&str>,
 ) -> ImageGenerationResult {
     let stitch_count = i64::try_from(pattern.count_stitches()).unwrap_or(i64::MAX);
-    let color_count = i64::try_from(pattern.count_threads()).unwrap_or(i64::MAX);
+    let color_count = i64::try_from(pattern.count_distinct_thread_colors()).unwrap_or(i64::MAX);
     let color_change_count = i64::try_from(pattern.count_color_changes()).unwrap_or(i64::MAX);
 
     if pattern.stitches.is_empty() {
@@ -840,6 +840,37 @@ mod tests {
         assert_eq!(result.stitch_count, Some(0));
         assert_eq!(result.color_count, Some(0));
         assert_eq!(result.color_change_count, Some(0));
+    }
+
+    #[test]
+    fn native_analysis_counts_distinct_colors_but_keeps_color_changes() {
+        let mut pattern = EmbPattern::new();
+        pattern.add_thread(EmbThread::new(0xFF0000));
+        pattern.add_thread(EmbThread::new(0x00FF00));
+        pattern.add_thread(EmbThread::new(0xFF0000));
+        pattern.add_thread(EmbThread::new(0x0000FF));
+        pattern.add_thread(EmbThread::new(0xFF0000));
+
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 1.0,
+            y: 1.0,
+            stitch_type: StitchType::ColorChange,
+        });
+        pattern.stitches.push(Stitch {
+            x: 2.0,
+            y: 2.0,
+            stitch_type: StitchType::ColorChange,
+        });
+
+        let result = analyze_pattern_with_native_renderer(&pattern, false, None);
+
+        assert_eq!(result.color_count, Some(3));
+        assert_eq!(result.color_change_count, Some(2));
     }
 
     #[test]
