@@ -206,8 +206,14 @@
 	border-color: rgb(55 48 163);
 }
 
+.menu-button-primary[disabled],
+.menu-button-primary[aria-disabled="true"],
+.menu-button-secondary[disabled],
+.menu-button-secondary[aria-disabled="true"],
 .ui-action-button[disabled],
-.ui-action-button[aria-disabled="true"] {
+.ui-action-button[aria-disabled="true"],
+.ui-action-button-primary[disabled],
+.ui-action-button-primary[aria-disabled="true"] {
 	opacity: 0.5;
 	cursor: not-allowed;
 }

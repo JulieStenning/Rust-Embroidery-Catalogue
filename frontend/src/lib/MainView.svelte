@@ -2824,22 +2824,47 @@
     if (item?.id == null) {
       return;
     }
-    navigateTo(`#/designs/${item.id}`);
-  }
 
-  function loadDetailBrowseContext(designId) {
-    try {
-      const raw = window.sessionStorage.getItem("browse_ids");
-      const parsed = JSON.parse(raw || "[]");
-      const ids = Array.isArray(parsed)
-        ? parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
-        : [];
+    const designId = Number(item.id);
+    if (!Number.isFinite(designId) || designId <= 0) {
+      return;
+    }
+
+    const ids = browseFilteredItems
+      .map((browseItem) => Number(browseItem?.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (ids.length > 0) {
       detailBrowseIds = ids;
-      detailBrowseIndex = ids.indexOf(Number(designId));
-    } catch (error) {
+      detailBrowseIndex = ids.indexOf(designId);
+    } else {
       detailBrowseIds = [];
       detailBrowseIndex = -1;
     }
+
+    navigateTo(`#/designs/${item.id}`);
+  }
+
+  function syncDetailBrowseContext(designId) {
+    const normalizedDesignId = Number(designId);
+    if (!Number.isFinite(normalizedDesignId) || normalizedDesignId <= 0) {
+      detailBrowseIds = [];
+      detailBrowseIndex = -1;
+      return;
+    }
+
+    const ids = browseFilteredItems
+      .map((item) => Number(item?.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (ids.length > 0) {
+      detailBrowseIds = ids;
+      detailBrowseIndex = ids.indexOf(normalizedDesignId);
+      return;
+    }
+
+    detailBrowseIds = [];
+    detailBrowseIndex = -1;
   }
 
   function goToPreviousDetail() {
@@ -2919,7 +2944,7 @@
       detailProjectToAdd = Array.isArray(detailItem?.available_projects) && detailItem.available_projects.length > 0
         ? String(detailItem.available_projects[0].id)
         : "";
-      loadDetailBrowseContext(designId);
+      syncDetailBrowseContext(designId);
     } catch (error) {
       detailError = `Could not load design detail: ${error}`;
       detailItem = null;
@@ -4370,6 +4395,7 @@
   $effect(() => {
     const id = detailDesignId ?? printDesignId;
     if (id !== null) {
+      syncDetailBrowseContext(id);
       loadDesignDetail(id);
       return;
     }
@@ -5531,7 +5557,6 @@
           {/if}
 
           <div class="route-panel">
-            <p class="font-semibold">Data source: {detailSource}</p>
             {#if detailLoading}
               <p>Loading design detail...</p>
             {:else if detailError}
