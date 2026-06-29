@@ -368,19 +368,80 @@ fn get_designs_base_path() -> PathBuf {
 	derive_data_root_from_database_url().join("MachineEmbroideryDesigns")
 }
 
-fn resolve_design_full_path(relative_file_path: &str) -> PathBuf {
-	let cleaned = relative_file_path
+fn normalize_path_for_compare(path: &str) -> String {
+	path
+		.trim()
 		.replace('\\', "/")
-		.trim_start_matches('/')
-		.to_string();
-
-	if cleaned.is_empty() {
-		get_designs_base_path()
-	} else {
-		get_designs_base_path().join(cleaned)
-	}
+		.trim_end_matches('/')
+		.to_ascii_lowercase()
 }
 
+fn normalize_stored_design_filepath(stored_filepath: &str) -> String {
+	let normalized = stored_filepath.trim().replace('\\', "/");
+	if normalized.is_empty() {
+		return String::new();
+	}
+
+	let lower = normalized.to_ascii_lowercase();
+	if lower == "machineembroiderydesigns" || lower.starts_with("machineembroiderydesigns/") {
+		return format!("/{}", normalized.trim_start_matches('/'));
+	}
+
+	if let Some(index) = lower.find("/machineembroiderydesigns/") {
+		return format!("/{}", normalized[(index + 1)..].trim_start_matches('/'));
+	}
+
+	if let Some(index) = lower.find("/machineembroiderydesigns") {
+		if index + "/machineembroiderydesigns".len() == lower.len() {
+			return format!("/{}", normalized[(index + 1)..].trim_start_matches('/'));
+		}
+	}
+
+	let data_root = derive_data_root_from_database_url();
+	let designs_base = get_designs_base_path();
+	let normalized_for_match = normalize_path_for_compare(&normalized);
+	let data_root_for_match = normalize_path_for_compare(&data_root.to_string_lossy());
+	let designs_base_for_match = normalize_path_for_compare(&designs_base.to_string_lossy());
+
+	if normalized_for_match == designs_base_for_match {
+		return "/MachineEmbroideryDesigns".to_string();
+	}
+
+	let designs_prefix = format!("{}/", designs_base_for_match);
+	if normalized_for_match.starts_with(&designs_prefix) {
+		let suffix = normalized[(designs_base_for_match.len() + 1)..].trim_start_matches('/');
+		return format!("/MachineEmbroideryDesigns/{}", suffix);
+	}
+
+	if normalized_for_match == data_root_for_match {
+		return "/".to_string();
+	}
+
+	let data_prefix = format!("{}/", data_root_for_match);
+	if normalized_for_match.starts_with(&data_prefix) {
+		let suffix = normalized[(data_root_for_match.len() + 1)..].trim_start_matches('/');
+		return format!("/{}", suffix);
+	}
+
+	normalized
+}
+
+fn resolve_design_full_path(relative_file_path: &str) -> PathBuf {
+	let normalized = normalize_stored_design_filepath(relative_file_path);
+
+	if normalized.is_empty() {
+		return get_designs_base_path();
+	}
+
+	let cleaned = normalized.trim_start_matches('/').to_string();
+	let cleaned_lower = cleaned.to_ascii_lowercase();
+
+	if cleaned_lower == "machineembroiderydesigns" || cleaned_lower.starts_with("machineembroiderydesigns/") {
+		return derive_data_root_from_database_url().join(cleaned);
+	}
+
+	get_designs_base_path().join(cleaned)
+}
 fn nearest_existing_folder(path: &Path, fallback: &Path) -> PathBuf {
 	let mut candidate = if path.is_dir() {
 		path.to_path_buf()
@@ -407,6 +468,20 @@ fn nearest_existing_folder(path: &Path, fallback: &Path) -> PathBuf {
 	}
 
 	fallback.to_path_buf()
+}
+
+#[cfg(target_os = "windows")]
+fn normalize_windows_explorer_target(path: &Path) -> PathBuf {
+	let raw = path.to_string_lossy();
+	let without_verbatim = if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
+		format!(r"\\{}", rest)
+	} else if let Some(rest) = raw.strip_prefix(r"\\?\") {
+		rest.to_string()
+	} else {
+		raw.to_string()
+	};
+
+	PathBuf::from(without_verbatim.replace('/', r"\"))
 }
 
 fn open_with_default_app(path: &Path) -> Result<(), String> {
@@ -522,11 +597,16 @@ async fn open_design_in_explorer_with_pool(
 	let base = get_designs_base_path();
 	let opened_path = if full_path.is_file() {
 		if cfg!(target_os = "windows") {
+			let select_target = normalize_windows_explorer_target(
+				&full_path
+				.canonicalize()
+				.unwrap_or_else(|_| full_path.clone()),
+			);
 			let _ = Command::new("explorer.exe")
 				.arg("/select,")
-				.arg(&full_path)
+				.arg(&select_target)
 				.spawn()
-				.map_err(|e| format!("Failed to open Explorer: {}", e))?;
+				.map_err(|e| format!("Failed to open Explorer: {}", e))?;			
 		} else {
 			open_with_default_app(full_path.parent().unwrap_or(&full_path))?;
 		}
@@ -534,8 +614,11 @@ async fn open_design_in_explorer_with_pool(
 	} else {
 		let folder = nearest_existing_folder(&full_path, &base);
 		if cfg!(target_os = "windows") {
+			let open_target = normalize_windows_explorer_target(
+				&folder.canonicalize().unwrap_or_else(|_| folder.clone()),
+			);
 			let _ = Command::new("explorer.exe")
-				.arg(&folder)
+				.arg(&open_target)
 				.spawn()
 				.map_err(|e| format!("Failed to open Explorer: {}", e))?;
 		} else {
@@ -773,7 +856,7 @@ async fn get_design_detail_with_pool(
 	Ok(Some(DesignDetail {
 		id: row.id,
 		filename: row.filename,
-		filepath: row.filepath,
+		filepath: normalize_stored_design_filepath(&row.filepath),
 		image_type: row.image_type.clone(),
 		image_data_url: build_data_url(row.image_data, row.image_type.as_deref()),
 		width_mm: ceil_mm_to_i64(row.width_mm),

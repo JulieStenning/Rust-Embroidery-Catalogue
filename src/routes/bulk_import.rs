@@ -1,8 +1,9 @@
+use crate::config::BootstrapConfig;
 use crate::services::{folder_picker, image_generation, scanning, stitch_identifier, tagging, validation};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -431,6 +432,74 @@ fn normalize_path_for_match(path: &str) -> String {
     path.replace('\\', "/").to_ascii_lowercase()
 }
 
+fn strip_sqlite_prefix(database_url: &str) -> &str {
+    database_url
+        .strip_prefix("sqlite:///")
+        .or_else(|| database_url.strip_prefix("sqlite://"))
+        .or_else(|| database_url.strip_prefix("sqlite:"))
+        .unwrap_or(database_url)
+}
+
+fn derive_data_root_from_database_url() -> PathBuf {
+    let config = BootstrapConfig::from_env();
+    let db_path = Path::new(strip_sqlite_prefix(&config.database_url));
+
+    let root = if let Some(parent) = db_path.parent() {
+        if parent
+            .file_name()
+            .map(|name| name.to_string_lossy().eq_ignore_ascii_case("database"))
+            .unwrap_or(false)
+        {
+            parent.parent().unwrap_or(parent)
+        } else {
+            parent
+        }
+    } else {
+        Path::new("data")
+    };
+
+    root.canonicalize().unwrap_or_else(|_| root.to_path_buf())
+}
+
+fn get_designs_base_path() -> PathBuf {
+    derive_data_root_from_database_url().join("MachineEmbroideryDesigns")
+}
+
+fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String> {
+    let normalized_full = full_path.trim().replace('\\', "/");
+    if normalized_full.is_empty() {
+        return Err("Import filepath is empty.".to_string());
+    }
+
+    let full_lower = normalized_full.to_ascii_lowercase();
+    if let Some(idx) = full_lower.find("/machineembroiderydesigns/") {
+        let rel = &normalized_full[(idx + 1)..];
+        return Ok(format!("/{}", rel.trim_start_matches('/')));
+    }
+    if full_lower.ends_with("/machineembroiderydesigns") {
+        return Ok("/MachineEmbroideryDesigns".to_string());
+    }
+
+    let designs_base = get_designs_base_path();
+    let base_norm = designs_base.to_string_lossy().replace('\\', "/");
+    let base_lower = base_norm.to_ascii_lowercase();
+    if full_lower == base_lower {
+        return Ok("/MachineEmbroideryDesigns".to_string());
+    }
+
+    let base_prefix = format!("{}/", base_lower.trim_end_matches('/'));
+    if full_lower.starts_with(&base_prefix) {
+        let suffix = &normalized_full[(base_prefix.len())..];
+        return Ok(format!("/MachineEmbroideryDesigns/{}", suffix.trim_start_matches('/')));
+    }
+
+    Err(format!(
+        "Selected file is outside catalogue design storage. Expected under '{}', got '{}'.",
+        designs_base.to_string_lossy(),
+        full_path
+    ))
+}
+
 fn normalize_name_for_import_matching(value: &str) -> String {
     value
         .to_ascii_lowercase()
@@ -735,6 +804,8 @@ async fn persist_bulk_import_confirm_wire(
                 break;
             }
 
+            let stored_filepath = full_path_to_stored_design_filepath(file_path)?;
+
             emit_progress(
                 "processing_file",
                 processed_count,
@@ -747,7 +818,7 @@ async fn persist_bulk_import_confirm_wire(
             let existing_design_id: Option<i64> = sqlx::query_scalar(
                 "SELECT id FROM designs WHERE filepath = ? LIMIT 1",
             )
-            .bind(file_path)
+            .bind(&stored_filepath)
             .fetch_optional(&mut *tx)
             .await
             .map_err(|e| e.to_string())?;
@@ -838,7 +909,7 @@ async fn persist_bulk_import_confirm_wire(
                 "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
             )
             .bind(&filename)
-            .bind(file_path)
+            .bind(&stored_filepath)
             .bind(designer_id)
             .bind(source_id)
             .bind(hoop_id)
@@ -858,7 +929,7 @@ async fn persist_bulk_import_confirm_wire(
             let t_tag = Instant::now();
             let matched_descriptions = tagging::suggest_tier1_descriptions(
                 &filename,
-                file_path,
+                &stored_filepath,
                 &valid_descriptions,
             );
 
@@ -868,7 +939,7 @@ async fn persist_bulk_import_confirm_wire(
                     stitch_identifier::suggest_stitching_from_pattern_file(
                         file_path,
                         &filename,
-                        file_path,
+                        &stored_filepath,
                         &valid_stitching_descriptions,
                         Some(0.70),
                     );
@@ -1499,7 +1570,9 @@ async fn filter_existing_scanned_files(
     Ok(scanned_files
         .into_iter()
         .filter(|file| {
-            let normalized = normalize_path_for_match(&file.full_path);
+            let normalized = full_path_to_stored_design_filepath(&file.full_path)
+                .map(|value| normalize_path_for_match(&value))
+                .unwrap_or_else(|_| normalize_path_for_match(&file.full_path));
             !existing_set.contains(&normalized)
         })
         .collect())
