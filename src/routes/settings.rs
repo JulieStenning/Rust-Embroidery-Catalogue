@@ -325,6 +325,17 @@ fn strip_sqlite_prefix(database_url: &str) -> &str {
         .unwrap_or(database_url)
 }
 
+fn normalize_path_for_display(path: &Path) -> String {
+    let rendered = path.to_string_lossy().to_string();
+    if let Some(rest) = rendered.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{}", rest);
+    }
+    if let Some(rest) = rendered.strip_prefix(r"\\?\") {
+        return rest.to_string();
+    }
+    rendered
+}
+
 fn derive_data_root_from_database_url() -> String {
     let config = BootstrapConfig::from_env();
     let db_path = Path::new(strip_sqlite_prefix(&config.database_url));
@@ -343,19 +354,12 @@ fn derive_data_root_from_database_url() -> String {
         Path::new("data")
     };
 
-    root.canonicalize()
-        .unwrap_or_else(|_| root.to_path_buf())
-        .to_string_lossy()
-        .to_string()
+    normalize_path_for_display(&root.canonicalize().unwrap_or_else(|_| root.to_path_buf()))
 }
 
 fn derive_log_folder_from_data_root(data_root: &str) -> String {
     let log_path = PathBuf::from(data_root).join("logs");
-    log_path
-        .canonicalize()
-        .unwrap_or(log_path)
-        .to_string_lossy()
-        .to_string()
+    normalize_path_for_display(&log_path.canonicalize().unwrap_or(log_path))
 }
 
 fn save_google_api_key_to_env(value: &str) -> Result<(), String> {
