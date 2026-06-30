@@ -12,9 +12,32 @@ impl BootstrapConfig {
     pub fn from_env() -> Self {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
+        let database_url = normalize_database_url(&database_url);
 
         Self { database_url }
     }
+}
+
+/// Normalize DATABASE_URL so SQLx always receives a valid SQLite URL.
+///
+/// Accepted inputs:
+/// - sqlite:data/database/catalogue.db
+/// - sqlite://data/database/catalogue.db
+/// - sqlite:///D:/path/to/catalogue.db
+/// - data/database/catalogue.db
+///
+/// Bare file paths are promoted to `sqlite:<path>`.
+pub fn normalize_database_url(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return DEFAULT_DATABASE_URL.to_string();
+    }
+
+    if trimmed.starts_with("sqlite:") {
+        return trimmed.to_string();
+    }
+
+    format!("sqlite:{}", trimmed)
 }
 
 #[tauri::command]

@@ -1,4 +1,4 @@
--- Diesel migration: drop all tables for Rust-Embroidery-Catalogue
+-- SQLx reversible migration: drop initial schema for Rust-Embroidery-Catalogue
 DROP TABLE IF EXISTS project_designs;
 DROP TABLE IF EXISTS design_tags;
 DROP TABLE IF EXISTS settings;

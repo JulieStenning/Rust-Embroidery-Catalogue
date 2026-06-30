@@ -1,29 +1,29 @@
--- Diesel migration: initial schema for Rust-Embroidery-Catalogue
+-- SQLx reversible migration: initial schema for Rust-Embroidery-Catalogue
 
-CREATE TABLE designers (
+CREATE TABLE IF NOT EXISTS designers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL UNIQUE
 );
 
-CREATE TABLE sources (
+CREATE TABLE IF NOT EXISTS sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL UNIQUE
 );
 
-CREATE TABLE hoops (
+CREATE TABLE IF NOT EXISTS hoops (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL UNIQUE,
     max_width_mm NUMERIC(8,2) NOT NULL,
     max_height_mm NUMERIC(8,2) NOT NULL
 );
 
-CREATE TABLE tags (
+CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     description VARCHAR(255) NOT NULL UNIQUE,
     tag_group VARCHAR(20)
 );
 
-CREATE TABLE designs (
+CREATE TABLE IF NOT EXISTS designs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     filename VARCHAR(500) NOT NULL,
     filepath VARCHAR(1000) NOT NULL,
@@ -44,38 +44,38 @@ CREATE TABLE designs (
     source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
     hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL
 );
-CREATE INDEX ix_designs_designer_id_filename ON designs(designer_id, filename);
-CREATE INDEX ix_designs_source_id_filename ON designs(source_id, filename);
+CREATE INDEX IF NOT EXISTS ix_designs_designer_id_filename ON designs(designer_id, filename);
+CREATE INDEX IF NOT EXISTS ix_designs_source_id_filename ON designs(source_id, filename);
 
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
     date_created DATE
 );
 
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
     key VARCHAR(100) PRIMARY KEY,
     value TEXT NOT NULL,
     description TEXT
 );
 
-CREATE TABLE design_tags (
+CREATE TABLE IF NOT EXISTS design_tags (
     design_id INTEGER NOT NULL REFERENCES designs(id) ON DELETE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     PRIMARY KEY (design_id, tag_id)
 );
-CREATE INDEX ix_design_tags_tag_id_design_id ON design_tags(tag_id, design_id);
+CREATE INDEX IF NOT EXISTS ix_design_tags_tag_id_design_id ON design_tags(tag_id, design_id);
 
-CREATE TABLE project_designs (
+CREATE TABLE IF NOT EXISTS project_designs (
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     design_id INTEGER NOT NULL REFERENCES designs(id) ON DELETE CASCADE,
     PRIMARY KEY (project_id, design_id)
 );
-CREATE INDEX ix_project_designs_design_id_project_id ON project_designs(design_id, project_id);
+CREATE INDEX IF NOT EXISTS ix_project_designs_design_id_project_id ON project_designs(design_id, project_id);
 
 -- Insert default settings into the settings table
-INSERT INTO settings (key, value, description) VALUES
+INSERT OR IGNORE INTO settings (key, value, description) VALUES
     ('disclaimer_accepted', 'FALSE', 'Whether the application''s disclaimer has been accepted for this installation.'),
     ('import.last_browse_folder', '', 'Most recently used folder for the bulk import picker.'),
     ('ai.tier2_auto', 'FALSE', 'Run Tier 2 (Gemini text AI) automatically during import when a Google API key is present.'),
@@ -85,7 +85,7 @@ INSERT INTO settings (key, value, description) VALUES
     ('import.commit_batch_size', '', 'Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (1000).');
 
 -- Insert default tags into the tags table
-INSERT INTO tags (id, description, tag_group) VALUES
+INSERT OR IGNORE INTO tags (id, description, tag_group) VALUES
 (1, 'Cross Stitch', 'stitching'),
 (2, 'In The Hoop', 'stitching'),
 (3, 'Filled', 'stitching'),
@@ -184,4 +184,3 @@ INSERT INTO tags (id, description, tag_group) VALUES
 (116, 'Clothes', 'image'),
 (117, 'Netfill', 'stitching'),
 (118, 'Dancing', 'image');
-
