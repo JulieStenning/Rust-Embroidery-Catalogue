@@ -46,3 +46,4 @@ tests/testdata/Bear Mask 6x10 Hoop.jef
 tests/testdata/01dstPeacock.dst
 tests/testdata/01expPeacock.exp
 tests/testdata/01husPeacock.hus
+logs/backfill_info.log

@@ -1,4 +1,4 @@
-use crate::models::{EmbPattern, StitchType};
+use crate::models::{EmbPattern, StitchType, Stitch};
 use crate::readers::{
 	DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader,
 };
@@ -115,6 +115,8 @@ struct StitchIdentifier<'a> {
 	confidence_threshold: f64,
 	vectors: Vec<Vector>,
 	name_text: String,
+	filename: String,
+	folder_name: String,
 }
 
 impl<'a> StitchIdentifier<'a> {
@@ -136,42 +138,167 @@ impl<'a> StitchIdentifier<'a> {
 			confidence_threshold,
 			vectors: build_vectors(pattern),
 			name_text,
+			filename: filename.to_string(),
+			folder_name: folder_name.to_string(),
 		}
 	}
 
 	fn identify_stitches(&self) -> Vec<String> {
-		let scores = self.get_detailed_analysis();
-		let stitch_types = [
-			"applique",
-			"cross_stitch",
-			"cutwork",
-			"filled",
-			"ith",
-			"lace",
-			"outline",
-			"satin",
-		];
-
 		let mut found = Vec::new();
-		for stitch_type in stitch_types {
-			if scores.get(stitch_type).copied().unwrap_or(0.0) >= self.confidence_threshold {
+
+		// 1. Quick win: Prioritize metadata keywords.
+		for &stitch_type in &["ith", "applique", "cross_stitch", "lace"] {
+			if self.name_confidence(stitch_type) >= 0.99 {
 				found.push(stitch_type.to_string());
 			}
 		}
 
-		let satin_precedence_threshold = (self.confidence_threshold - 0.07).max(0.63);
-		let satin_score = scores.get("satin").copied().unwrap_or(0.0);
-		let outline_score = scores.get("outline").copied().unwrap_or(0.0);
-		if satin_score >= satin_precedence_threshold
-			&& !found.contains(&"lace".to_string())
-			&& outline_score < 0.78
-		{
-			if !found.contains(&"satin".to_string()) {
-				found.push("satin".to_string());
+		// 2. Split pattern into color blocks
+		let block_stitches = split_into_color_blocks(self.pattern);
+		let mut block_analyses = Vec::new();
+
+		for (i, stitches) in block_stitches.iter().enumerate() {
+			let stitch_count = stitches.iter().filter(|s| s.stitch_type == StitchType::Stitch).count();
+			if stitch_count < 6 {
+				continue;
 			}
-			found.retain(|name| name != "outline");
+
+			// Create a temporary EmbPattern for this block
+			let mut block_pattern = EmbPattern::new();
+			block_pattern.stitches = stitches.clone();
+
+			let block_identifier = StitchIdentifier::new(
+				&block_pattern,
+				&self.filename,
+				&self.folder_name,
+				self.confidence_threshold,
+			);
+
+			// Run block-level analysis
+			let block_scores = block_identifier.get_detailed_analysis();
+			block_analyses.push((i, stitches.clone(), block_scores.clone(), stitch_count));
+
+			// Now split the block into islands based on jumps/trims/stops
+			let islands = split_block_into_islands(stitches);
+			let mut block_tags = Vec::new();
+
+			if islands.len() <= 1 {
+				let mut tags = Vec::new();
+				for &stitch_type in &["cross_stitch", "cutwork", "filled", "lace", "outline", "satin"] {
+					if block_scores.get(stitch_type).copied().unwrap_or(0.0) >= self.confidence_threshold {
+						tags.push(stitch_type.to_string());
+					}
+				}
+				apply_precedence_rules(&mut tags, &block_scores, self.confidence_threshold);
+				block_tags = tags;
+			} else {
+				for island_stitches in islands {
+					let island_stitch_count = island_stitches.iter().filter(|s| s.stitch_type == StitchType::Stitch).count();
+					if island_stitch_count < 6 {
+						continue;
+					}
+
+					let mut island_pattern = EmbPattern::new();
+					island_pattern.stitches = island_stitches;
+
+					let island_identifier = StitchIdentifier::new(
+						&island_pattern,
+						&self.filename,
+						&self.folder_name,
+						self.confidence_threshold,
+					);
+
+					let island_scores = island_identifier.get_detailed_analysis();
+					let mut island_tags = Vec::new();
+					for &stitch_type in &["cross_stitch", "cutwork", "filled", "lace", "outline", "satin"] {
+						if island_scores.get(stitch_type).copied().unwrap_or(0.0) >= self.confidence_threshold {
+							island_tags.push(stitch_type.to_string());
+						}
+					}
+					apply_precedence_rules(&mut island_tags, &island_scores, self.confidence_threshold);
+					block_tags.extend(island_tags);
+				}
+			}
+
+			found.extend(block_tags);
 		}
 
+		// 3. Run Applique/ITH geometry-matching detection between all pairs of blocks
+		// We require at least TWO outline-like blocks (placement + tack-down) that match geometrically.
+		let mut has_applique = false;
+		for idx_a in 0..block_analyses.len() {
+			for idx_b in (idx_a + 1)..block_analyses.len() {
+				let (_, stitches_a, scores_a, _) = &block_analyses[idx_a];
+				let (_, stitches_b, scores_b, _) = &block_analyses[idx_b];
+
+				if geometry_matches(stitches_a, stitches_b) {
+					let outline_a = scores_a.get("outline").copied().unwrap_or(0.0);
+					let outline_b = scores_b.get("outline").copied().unwrap_or(0.0);
+					if outline_a >= self.confidence_threshold && outline_b >= self.confidence_threshold {
+						has_applique = true;
+						break;
+					}
+				}
+			}
+			if has_applique {
+				break;
+			}
+		}
+
+		if has_applique {
+			if !found.contains(&"applique".to_string()) {
+				found.push("applique".to_string());
+			}
+			if !found.contains(&"ith".to_string()) {
+				found.push("ith".to_string());
+			}
+		}
+// --- New Step: Demote Outlines that accent a Fill/Satin block ---
+let mut has_substantial_fill_or_satin = false;
+let mut outline_block_indices = Vec::new();
+let mut filled_satin_block_indices = Vec::new();
+
+// Identify which blocks contributed what scores
+for (idx, _, scores, _) in &block_analyses {
+    let satin = scores.get("satin").copied().unwrap_or(0.0);
+    let filled = scores.get("filled").copied().unwrap_or(0.0);
+    let outline = scores.get("outline").copied().unwrap_or(0.0);
+
+    if (satin >= self.confidence_threshold || filled >= self.confidence_threshold) && (satin > outline && filled > outline) {
+        filled_satin_block_indices.push(idx);
+        has_substantial_fill_or_satin = true;
+    }
+    if outline >= self.confidence_threshold {
+        outline_block_indices.push(idx);
+    }
+}
+
+// If a design contains BOTH a heavy fill/satin and an outline, check their geometry
+if has_substantial_fill_or_satin && !outline_block_indices.is_empty() {
+    let mut remove_outline_tag = false;
+    
+    for &out_idx in &outline_block_indices {
+        for &fill_idx in &filled_satin_block_indices {
+            let (_, stitches_out, _, _) = &block_analyses[*out_idx];
+            let (_, stitches_fill, _, _) = &block_analyses[*fill_idx];
+            
+            // If the outline block's geometry tightly matches or frames the fill block,
+            // it's an accent line, not a standalone "Line Outline" design.
+            if geometry_matches(stitches_out, stitches_fill) {
+                remove_outline_tag = true;
+                break;
+            }
+        }
+    }
+    
+    if remove_outline_tag {
+        // Only strip the "outline" tag if it isn't an applique/ITH file
+        if !found.contains(&"applique".to_string()) {
+            found.retain(|name| name != "outline");
+        }
+    }
+}
+		// Apply global cleanup filters
 		if found.contains(&"lace".to_string()) {
 			found.retain(|name| name != "filled");
 		}
@@ -182,17 +309,6 @@ impl<'a> StitchIdentifier<'a> {
 
 		if found.contains(&"applique".to_string()) {
 			found.retain(|name| !matches!(name.as_str(), "satin" | "outline"));
-		}
-
-		if found.is_empty()
-			&& satin_score >= (self.confidence_threshold - 0.12).max(0.58)
-			&& outline_score < 0.60
-		{
-			found.push("satin".to_string());
-		}
-
-		if found.is_empty() && outline_score >= 0.48 && satin_score < 0.58 && self.confidence_threshold <= 0.75 {
-			found.push("outline".to_string());
 		}
 
 		found.sort();
@@ -215,6 +331,9 @@ impl<'a> StitchIdentifier<'a> {
 
 	fn detect_cross_stitch(&self) -> f64 {
 		let name_conf = self.name_confidence("cross_stitch");
+		if name_conf >= 0.99 {
+			return name_conf;
+		}
 		if self.vectors.is_empty() {
 			return name_conf;
 		}
@@ -270,7 +389,7 @@ impl<'a> StitchIdentifier<'a> {
 
 	fn detect_ith(&self) -> f64 {
 		let name_conf = self.name_confidence("ith");
-		if name_conf > 0.0 {
+		if name_conf >= 0.99 {
 			return name_conf;
 		}
 		if self.vectors.is_empty() {
@@ -300,7 +419,7 @@ impl<'a> StitchIdentifier<'a> {
 
 	fn detect_applique(&self) -> f64 {
 		let name_conf = self.name_confidence("applique");
-		if name_conf > 0.0 {
+		if name_conf >= 0.99 {
 			return name_conf;
 		}
 		if self.vectors.is_empty() {
@@ -366,33 +485,10 @@ impl<'a> StitchIdentifier<'a> {
 
 	fn detect_lace(&self) -> f64 {
 		let name_conf = self.name_confidence("lace");
-		if name_conf > 0.0 {
+		if name_conf >= 0.99 {
 			return name_conf;
 		}
-		if self.vectors.is_empty() {
-			return 0.0;
-		}
-
-		let satin = self.detect_satin_like_score();
-		let running = self.running_like_score();
-		let filled_like = self.detect_filled_like_score();
-		let density = self.stitch_density_score();
-		if satin < 0.55 || running < 0.65 || filled_like < 0.6 || density > 0.85 {
-			return 0.0;
-		}
-
-		let color_blocks = self.color_blocks_count() as f64;
-		let color_score = if color_blocks <= 2.0 {
-			1.0
-		} else {
-			(1.0 - ((color_blocks - 2.0) / 4.0)).max(0.0)
-		};
-		let jumps = self.pattern.count_stitch_commands(StitchType::Jump) as f64;
-		let trims = self.pattern.count_stitch_commands(StitchType::Trim) as f64;
-		let continuity = 1.0 - ((jumps + trims) / ((self.vectors.len() as f64 / 25.0) + 1.0)).min(1.0);
-
-		(0.30 * satin + 0.25 * running + 0.20 * filled_like + 0.15 * color_score + 0.10 * continuity)
-			.min(1.0)
+		0.0
 	}
 
 	fn detect_outline(&self) -> f64 {
@@ -452,7 +548,7 @@ impl<'a> StitchIdentifier<'a> {
 
 		for keyword in keywords {
 			if self.name_text.contains(keyword) {
-				return 0.95;
+				return 0.99;
 			}
 		}
 
@@ -659,6 +755,142 @@ fn stitch_bounds(pattern: &EmbPattern) -> (f64, f64, f64, f64) {
 	(min_x, min_y, max_x, max_y)
 }
 
+fn split_into_color_blocks(pattern: &EmbPattern) -> Vec<Vec<Stitch>> {
+	let mut blocks = Vec::new();
+	let mut current_block = Vec::new();
+
+	for stitch in &pattern.stitches {
+		current_block.push(*stitch);
+		if stitch.stitch_type == StitchType::ColorChange {
+			if !current_block.is_empty() {
+				blocks.push(current_block);
+				current_block = Vec::new();
+			}
+		}
+	}
+	if !current_block.is_empty() {
+		blocks.push(current_block);
+	}
+	blocks
+}
+
+fn block_bounds(stitches: &[Stitch]) -> (f64, f64, f64, f64) {
+	let mut min_x = f64::INFINITY;
+	let mut min_y = f64::INFINITY;
+	let mut max_x = f64::NEG_INFINITY;
+	let mut max_y = f64::NEG_INFINITY;
+
+	for stitch in stitches {
+		if stitch.stitch_type != StitchType::Stitch {
+			continue;
+		}
+		let x = stitch.x as f64;
+		let y = stitch.y as f64;
+		if x < min_x {
+			min_x = x;
+		}
+		if y < min_y {
+			min_y = y;
+		}
+		if x > max_x {
+			max_x = x;
+		}
+		if y > max_y {
+			max_y = y;
+		}
+	}
+
+	if !min_x.is_finite() {
+		return (0.0, 0.0, 0.0, 0.0);
+	}
+
+	(min_x, min_y, max_x, max_y)
+}
+
+fn split_block_into_islands(stitches: &[Stitch]) -> Vec<Vec<Stitch>> {
+	let mut islands = Vec::new();
+	let mut current_island = Vec::new();
+
+	for stitch in stitches {
+		if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim || stitch.stitch_type == StitchType::Stop {
+			if !current_island.is_empty() {
+				islands.push(current_island);
+				current_island = Vec::new();
+			}
+		} else if stitch.stitch_type == StitchType::Stitch {
+			current_island.push(*stitch);
+		}
+	}
+	if !current_island.is_empty() {
+		islands.push(current_island);
+	}
+	islands
+}
+
+fn apply_precedence_rules(tags: &mut Vec<String>, scores: &HashMap<&'static str, f64>, confidence_threshold: f64) {
+	let satin_precedence_threshold = (confidence_threshold - 0.07).max(0.63);
+	let satin_score = scores.get("satin").copied().unwrap_or(0.0);
+	let outline_score = scores.get("outline").copied().unwrap_or(0.0);
+	if satin_score >= satin_precedence_threshold
+		&& !tags.contains(&"lace".to_string())
+		&& outline_score < 0.78
+	{
+		if !tags.contains(&"satin".to_string()) {
+			tags.push("satin".to_string());
+		}
+		tags.retain(|name| name != "outline");
+	}
+
+	if tags.is_empty()
+		&& satin_score >= (confidence_threshold - 0.12).max(0.58)
+		&& outline_score < 0.60
+	{
+		tags.push("satin".to_string());
+	}
+
+	if tags.is_empty() && outline_score >= 0.48 && satin_score < 0.58 && confidence_threshold <= 0.75 {
+		tags.push("outline".to_string());
+	}
+}
+
+fn geometry_matches(block_a: &[Stitch], block_b: &[Stitch]) -> bool {
+	let (min_xa, min_ya, max_xa, max_ya) = block_bounds(block_a);
+	let (min_xb, min_yb, max_xb, max_yb) = block_bounds(block_b);
+
+	let wa = max_xa - min_xa;
+	let ha = max_ya - min_ya;
+	let wb = max_xb - min_xb;
+	let hb = max_yb - min_yb;
+
+	if wa <= 1.0 || ha <= 1.0 || wb <= 1.0 || hb <= 1.0 {
+		return false;
+	}
+
+	let center_xa = (min_xa + max_xa) / 2.0;
+	let center_ya = (min_ya + max_ya) / 2.0;
+	let center_xb = (min_xb + max_xb) / 2.0;
+	let center_yb = (min_yb + max_yb) / 2.0;
+
+	let w_diff = (wa - wb).abs();
+	let h_diff = (ha - hb).abs();
+	let cx_diff = (center_xa - center_xb).abs();
+	let cy_diff = (center_ya - center_yb).abs();
+
+	let max_w = wa.max(wb);
+	let max_h = ha.max(hb);
+	let max_dim = max_w.max(max_h);
+
+	let size_tol = 2.5;
+	let center_tol = 2.0;
+
+	let w_match = w_diff <= size_tol || (w_diff / max_w) <= 0.10;
+	let h_match = h_diff <= size_tol || (h_diff / max_h) <= 0.10;
+	let cx_match = cx_diff <= center_tol || (cx_diff / max_dim) <= 0.08;
+	let cy_match = cy_diff <= center_tol || (cy_diff / max_dim) <= 0.08;
+
+	w_match && h_match && cx_match && cy_match
+}
+
 fn angle_diff(a: f64, b: f64) -> f64 {
 	let mut d = (a - b).abs() % 360.0;
 	if d > 180.0 {
@@ -784,5 +1016,170 @@ mod tests {
 		);
 
 		assert!(tags.contains(&"Line Outline".to_string()));
+	}
+
+	#[test]
+	fn identifies_metadata_priority_keyword() {
+		// Even if the pattern is empty, name metadata "some_fsl_design.pes" should identify it as Lace.
+		let pattern = EmbPattern::new();
+		let valid = HashSet::from([
+			"Lace".to_string(),
+			"In The Hoop".to_string(),
+		]);
+
+		let tags = suggest_stitching_from_pattern(
+			&pattern,
+			"some_fsl_design.pes",
+			"C:/imports/lace/some_fsl_design.pes",
+			&valid,
+			Some(0.70),
+		);
+
+		assert!(tags.contains(&"Lace".to_string()));
+	}
+
+	#[test]
+	fn identifies_multi_block_mixed_types() {
+		let mut pattern = outline_pattern();
+		// Color change
+		pattern.stitches.push(Stitch {
+			x: 0.0,
+			y: 0.0,
+			stitch_type: StitchType::ColorChange,
+		});
+		// Block 2: dense fill
+		let mut y = 2000.0_f32;
+		for _row in 0..15 {
+			for step in 0..20 {
+				let x = 2000.0 + step as f32 * 2.0;
+				pattern.stitches.push(Stitch {
+					x,
+					y,
+					stitch_type: StitchType::Stitch,
+				});
+			}
+			y += 1.0;
+		}
+
+		let valid = HashSet::from([
+			"Filled".to_string(),
+			"Line Outline".to_string(),
+		]);
+
+		let tags = suggest_stitching_from_pattern(
+			&pattern,
+			"mixed.pes",
+			"C:/imports/mixed/mixed.pes",
+			&valid,
+			Some(0.70),
+		);
+
+		assert!(tags.contains(&"Line Outline".to_string()));
+		assert!(tags.contains(&"Filled".to_string()));
+	}
+
+	#[test]
+	fn identifies_applique_geometric_matching() {
+		let mut pattern = EmbPattern::new();
+		// Block 1: outline square (placement)
+		for i in 0..=5 {
+			pattern.stitches.push(Stitch { x: i as f32 * 20.0, y: 0.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..=5 {
+			pattern.stitches.push(Stitch { x: 100.0, y: i as f32 * 20.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..=5 {
+			pattern.stitches.push(Stitch { x: 100.0 - i as f32 * 20.0, y: 100.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..5 {
+			pattern.stitches.push(Stitch { x: 0.0, y: 100.0 - i as f32 * 20.0, stitch_type: StitchType::Stitch });
+		}
+		pattern.stitches.push(Stitch {
+			x: 0.0,
+			y: 0.0,
+			stitch_type: StitchType::ColorChange,
+		});
+		// Block 2: identical square (tackdown) but slightly offset
+		for i in 0..=5 {
+			pattern.stitches.push(Stitch { x: i as f32 * 20.0 + 1.0, y: 1.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..=5 {
+			pattern.stitches.push(Stitch { x: 101.0, y: i as f32 * 20.0 + 1.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..=5 {
+			pattern.stitches.push(Stitch { x: 101.0 - i as f32 * 20.0, y: 101.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..5 {
+			pattern.stitches.push(Stitch { x: 1.0, y: 101.0 - i as f32 * 20.0, stitch_type: StitchType::Stitch });
+		}
+
+		let valid = HashSet::from([
+			"Applique".to_string(),
+			"In The Hoop".to_string(),
+		]);
+
+		let tags = suggest_stitching_from_pattern(
+			&pattern,
+			"test_app.pes",
+			"C:/imports/test_app.pes",
+			&valid,
+			Some(0.70),
+		);
+
+		assert!(tags.contains(&"Applique".to_string()));
+		assert!(tags.contains(&"In The Hoop".to_string()));
+	}
+
+	#[test]
+	fn does_not_identify_applique_for_single_outline() {
+		let mut pattern = EmbPattern::new();
+		// Block 1: dense fill block
+		let mut y = 0.0_f32;
+		for _row in 0..15 {
+			for step in 0..20 {
+				let x = step as f32 * 2.0;
+				pattern.stitches.push(Stitch {
+					x,
+					y,
+					stitch_type: StitchType::Stitch,
+				});
+			}
+			y += 1.0;
+		}
+		// Color change
+		pattern.stitches.push(Stitch {
+			x: 0.0,
+			y: 0.0,
+			stitch_type: StitchType::ColorChange,
+		});
+		// Block 2: outline matching geometrically
+		for i in 0..=5 {
+			pattern.stitches.push(Stitch { x: i as f32 * 7.6, y: 0.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..=5 {
+			pattern.stitches.push(Stitch { x: 38.0, y: i as f32 * 2.8, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..=5 {
+			pattern.stitches.push(Stitch { x: 38.0 - i as f32 * 7.6, y: 14.0, stitch_type: StitchType::Stitch });
+		}
+		for i in 1..5 {
+			pattern.stitches.push(Stitch { x: 0.0, y: 14.0 - i as f32 * 2.8, stitch_type: StitchType::Stitch });
+		}
+
+		let valid = HashSet::from([
+			"Applique".to_string(),
+			"In The Hoop".to_string(),
+		]);
+
+		let tags = suggest_stitching_from_pattern(
+			&pattern,
+			"regular.pes",
+			"C:/imports/regular/regular.pes",
+			&valid,
+			Some(0.70),
+		);
+
+		assert!(!tags.contains(&"Applique".to_string()));
+		assert!(!tags.contains(&"In The Hoop".to_string()));
 	}
 }
