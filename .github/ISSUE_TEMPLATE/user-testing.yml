@@ -1,0 +1,51 @@
+name: "User Testing Feedback"
+description: "Report your findings, bugs, or UX friction during testing."
+title: "[User Test]: "
+labels: ["user-testing", "feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the application! Please fill out the form below to help us improve the experience.
+  
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "What task were you trying to accomplish?"
+      description: "Describe what you were trying to do in the app."
+      placeholder: "e.g., I was trying to import a database catalog..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Steps to Reproduce / What you did"
+      description: "Provide a clear list of steps to reproduce the behavior."
+      placeholder: |
+        1. Opened the app
+        2. Clicked on...
+        3. Selected the file...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: "Friction Level"
+      description: "How much did this disrupt your workflow?"
+      options:
+        - "Blocker (I couldn't finish the task)"
+        - "Annoyance (I finished it, but it was frustrating/confusing)"
+        - "Suggestion (It works, but could be better)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "System Details"
+      description: "Operating system, app version, or specific hardware details if relevant."
+      placeholder: "e.g., Windows 11, App v0.2.0"
+    validations:
+      required: false

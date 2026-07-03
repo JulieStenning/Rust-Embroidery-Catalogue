@@ -1,0 +1,80 @@
+name: Bug Report
+description: Report a reproducible bug in Embroidery Catalogue.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.  Please fill in as much detail as possible so we can reproduce and fix it quickly.
+
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Installation type
+      description: How are you running the application?
+      options:
+        - Windows installer (packaged release)
+        - Portable / USB deployment
+        - Run from source
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Version number from the GitHub Release page or `pyproject.toml`.
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: Windows version (the app is Windows-only).
+      placeholder: "e.g. Windows 11 23H2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps that consistently trigger the bug.
+      placeholder: |
+        1. Open the catalogue.
+        2. Click ...
+        3. See error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened?  Include any error messages or screenshots.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error output
+      description: Paste any relevant log output here.  Do **not** include API keys or credentials.
+      render: text
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — e.g. does it happen with a specific file format, after a specific action, etc.

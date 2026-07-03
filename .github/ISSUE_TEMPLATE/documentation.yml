@@ -1,0 +1,38 @@
+name: Documentation Issue
+description: Report a gap, error, or improvement needed in the documentation.
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the documentation.  Please be as specific as possible about where the problem is and what would make it better.
+
+  - type: input
+    id: location
+    attributes:
+      label: Document location
+      description: Which file or page has the issue?  Include the file path or URL.
+      placeholder: "e.g. docs/User-Facing-Guidance/GETTING_STARTED.md, README.md#configuration"
+    validations:
+      required: true
+
+  - type: textarea
+    id: pain_point
+    attributes:
+      label: What is unclear, missing, or incorrect?
+      description: Describe the problem with the current documentation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed improvement
+      description: How should the documentation be changed?  You can paste a suggested rewrite if you have one.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — e.g. what you were trying to do when you hit the confusion.

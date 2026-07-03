@@ -1,0 +1,46 @@
+name: Feature Request
+description: Suggest a new feature or improvement for Embroidery Catalogue.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.  Please describe the problem you want to solve and how you envision the solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem or limitation are you experiencing?  Focus on the "why", not the solution yet.
+      placeholder: "I find it hard to … because …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Describe your typical workflow and how this feature would fit in.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed solution
+      description: Describe how you imagine this feature working.  Sketches, mockups, or step-by-step walkthroughs are all welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried any workarounds or alternative approaches?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — e.g. links to similar features in other apps, relevant file formats, etc.
