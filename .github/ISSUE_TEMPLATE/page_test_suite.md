@@ -10,9 +10,19 @@ labels: testing-hub
 This issue tracks the user-facing functionality for the **[Page Name]** view.
 
 ### 🔄 Core Workflows to Test
-- [ ] **Initial Load:** Page opens without lag and renders correctly.
-- [ ] **Primary Action:** 
-- [ ] **Navigation:** 
+
+- [ ] **Initial Load**
+  - [ ] Screen opens without lag or visual stutter
+  - [ ] Default layout elements and text render correctly
+  - [ ] Initial data or records populate as expected
+
+- [ ] **Primary Action: [e.g., Run Import / Save Design]**
+  - [ ] [test]
+  
+- [ ] **Navigation**
+  - [ ] User can safely exit or go back without freezing the app
+  - [ ] Leaving the page midway prompts a "Save changes?" warning if data is unsaved
+  - [ ] [test]
 
 ### ❌ Failed Tests / Discovered Friction
-*Hover over a failed test above and click "Convert to issue", or list it manually below:*
+*Hover over a failed subtest above and click "Convert to issue", or track them below:*
