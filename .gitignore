@@ -47,3 +47,5 @@ tests/testdata/01dstPeacock.dst
 tests/testdata/01expPeacock.exp
 tests/testdata/01husPeacock.hus
 logs/backfill_info.log
+tests/user tests template.md
+tests/Browse.md
