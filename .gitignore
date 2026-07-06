@@ -54,3 +54,5 @@ tests/User test git issues/user tests template.md
 tests/User test git issues/import.md
 tests/User test git issues/Bulk Import - Pre-import Actions
 tests/User test git issues/Bulk Import - Review Scanned Files
+tests/User test git issues/Help.md
+tests/User test git issues/Projects.md
