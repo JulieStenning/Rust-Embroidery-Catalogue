@@ -5531,7 +5531,7 @@
       {#if currentUiKind !== "import" && currentUiKind !== "projects-list" && currentUiKind !== "project-new" && currentUiKind !== "project-detail" && currentUiKind !== "project-print" && currentUiKind !== "about" && currentUiKind !== "about-document" && !adminIsTagsRoute && !adminIsSourcesRoute && !adminIsHoopsRoute}
         <h1 class="ui-page-title">{currentPage.title}</h1>
         {#if currentPage.subtitle}
-          <p class="text-sm uppercase tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
+          <p class="text-sm tracking-wide text-indigo-600 font-semibold">{currentPage.subtitle}</p>
         {/if}
         {#if currentPage.description}
           <p class="text-gray-600">{currentPage.description}</p>
@@ -6482,7 +6482,7 @@
 
             <div class="admin-card bg-white rounded shadow overflow-hidden max-w-2xl">
               <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Name</th>
                     <th class="px-4 py-2"></th>
@@ -6544,10 +6544,10 @@
                 <svg class={`h-4 w-4 text-green-700 transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
                 </svg>
-                <h2 class="text-sm font-semibold text-green-800 uppercase tracking-wide">Image Tags</h2>
+                <h2 class="text-sm font-semibold text-green-800 tracking-wide">Image Tags</h2>
               </summary>
               <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Description</th>
                     <th class="px-4 py-2 text-left">Group</th>
@@ -6587,10 +6587,10 @@
                 <svg class={`h-4 w-4 text-blue-700 transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
                 </svg>
-                <h2 class="text-sm font-semibold text-blue-800 uppercase tracking-wide">Stitching Tags</h2>
+                <h2 class="text-sm font-semibold text-blue-800 tracking-wide">Stitching Tags</h2>
               </summary>
               <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Description</th>
                     <th class="px-4 py-2 text-left">Group</th>
@@ -6628,10 +6628,10 @@
             {#if unclassifiedTags.length > 0}
               <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
                 <div class="bg-amber-50 border-b border-amber-200 px-4 py-2">
-                  <h2 class="text-sm font-semibold text-amber-800 uppercase tracking-wide">Unclassified Tags</h2>
+                  <h2 class="text-sm font-semibold text-amber-800 tracking-wide">Unclassified Tags</h2>
                 </div>
                 <table class="w-full text-sm">
-                  <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                  <thead class="bg-gray-50 text-gray-600 text-xs">
                     <tr>
                       <th class="px-4 py-2 text-left">Description</th>
                       <th class="px-4 py-2 text-left">Group</th>
@@ -6684,7 +6684,7 @@
 
             <div class="admin-card bg-white rounded shadow overflow-hidden max-w-2xl">
               <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Name</th>
                     <th class="px-4 py-2"></th>
@@ -6713,7 +6713,7 @@
           {:else if adminIsHoopsRoute}
             <h1 class="ui-page-title admin-title">Manage Hoops</h1>
             <p class="text-sm text-gray-500 max-w-3xl">
-              Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
+              <br />Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
             </p>
 
             <div class="admin-card bg-white rounded shadow p-4 max-w-4xl">
@@ -6760,12 +6760,12 @@
 
             <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
               <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Name</th>
-                    <th class="px-4 py-2 text-right">Max Width (mm)</th>
-                    <th class="px-4 py-2 text-right">Max Height (mm)</th>
-                    <th class="px-4 py-2 text-right">Used By</th>
+                    <th class="px-4 py-2 text-right">Max width (mm)</th>
+                    <th class="px-4 py-2 text-right">Max height (mm)</th>
+                    <th class="px-4 py-2 text-right">Used by</th>
                     <th class="px-4 py-2"></th>
                   </tr>
                 </thead>
@@ -7084,7 +7084,7 @@
               {/if}
               <div class="bg-white rounded border border-gray-200 overflow-x-auto max-h-56">
                 <table class="w-full text-xs">
-                  <thead class="bg-gray-100 text-gray-600 uppercase">
+                  <thead class="bg-gray-100 text-gray-600">
                     <tr>
                       <th class="px-2 py-1 text-left">Id</th>
                       <th class="px-2 py-1 text-left">Exists</th>
@@ -7111,7 +7111,7 @@
 
           <div class="bg-white rounded shadow overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+              <thead class="bg-gray-50 text-gray-600 text-xs">
                 <tr>
                   <th class="px-3 py-2 w-8"></th>
                   <th class="px-4 py-2 text-left">Filename</th>
