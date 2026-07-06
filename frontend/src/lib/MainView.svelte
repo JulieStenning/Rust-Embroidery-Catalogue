@@ -5792,9 +5792,9 @@
           <h1 class="ui-page-title import-title">Bulk Import</h1>
           {#if importRouteStep === 1}
             <p class="ui-help-note import-step1-intro">
-              Select one or more folders containing embroidery files. Sub-folders are scanned automatically.
-              Selected files are <strong>copied into the catalogue</strong>, and each source folder name is preserved inside managed storage.
-              <a href="#/help#importing" class="ui-app-link ml-1">Import help</a>
+            <br>Select one or more folders containing embroidery files. Sub-folders are included automatically.
+            <br>Your original files are never altered or moved. Files outside your main design directory are safely copied into the catalogue.
+            <a href="#/help#importing" class="ui-app-link ml-1">Import help</a>
             </p>
           {/if}
 
