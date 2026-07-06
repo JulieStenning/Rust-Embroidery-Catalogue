@@ -49,3 +49,5 @@ tests/testdata/01husPeacock.hus
 logs/backfill_info.log
 tests/user tests template.md
 tests/Browse.md
+tests/User test git issues/Browse.md
+tests/User test git issues/user tests template.md
