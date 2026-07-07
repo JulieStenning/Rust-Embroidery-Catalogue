@@ -58,9 +58,11 @@
     runStitchingBackfill,
     listDesigners,
     createDesigner,
+    updateDesigner,
     deleteDesigner as removeDesigner,
     listSources,
     createSource,
+    updateSource,
     deleteSource as removeSource,
     listTags,
     createTag,
@@ -121,7 +123,7 @@
     },
     "#/admin/hoops": {
       title: "Hoops",
-      subtitle: "Hoop catalog management",
+      subtitle: "Hoop catalogue management",
       description: "Add, review, and remove machine hoop sizes used during import and design validation.",
       cta: "Maintain the hoop list your machine setup supports",
     },
@@ -563,12 +565,20 @@
   let hoops = $state([]);
 
   let newDesignerName = $state("");
+  let editingDesignerId = $state(null);
+  let editingDesignerName = $state("");
+  let pendingDeleteDesignerId = $state(null);
   let newSourceName = $state("");
   let newTagDescription = $state("");
   let newTagGroup = $state("image");
   let newHoopName = $state("");
+  let canAddSource = $derived(String(newSourceName || "").trim().length > 0);
+  let canClearSourceForm = $derived(String(newSourceName || "").trim().length > 0);
   let newHoopWidth = $state("");
   let newHoopHeight = $state("");
+  let editingSourceId = $state(null);
+  let editingSourceName = $state("");
+  let pendingDeleteSourceId = $state(null);
   let canAddHoop = $derived(
     String(newHoopName || "").trim().length > 0 &&
       String(newHoopWidth || "").trim() !== "" &&
@@ -626,11 +636,23 @@
     try {
       if (adminIsDesignersRoute) {
         const result = await listDesigners();
-        designers = Array.isArray(result?.items) ? result.items : [];
+        designers = Array.isArray(result?.items)
+          ? result.items.map((designer) => ({
+              id: Number(designer.id),
+              name: String(designer.name || ""),
+              designCount: Number(designer.design_count ?? designer.designCount ?? 0),
+            }))
+          : [];
         adminDataSource = result?.source || "mock";
       } else if (adminIsSourcesRoute) {
         const result = await listSources();
-        sources = Array.isArray(result?.items) ? result.items : [];
+        sources = Array.isArray(result?.items)
+          ? result.items.map((source) => ({
+              id: Number(source.id),
+              name: String(source.name || ""),
+              designCount: Number(source.design_count ?? source.designCount ?? 0),
+            }))
+          : [];
         adminDataSource = result?.source || "mock";
       } else if (adminIsTagsRoute) {
         const result = await listTags();
@@ -678,13 +700,70 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
+  function beginEditDesigner(designer) {
+    if (!designer) {
+      return;
+    }
+
+    pendingDeleteDesignerId = null;
+    editingDesignerId = Number(designer.id);
+    editingDesignerName = String(designer.name || "");
+  }
+
+  function cancelEditDesigner() {
+    editingDesignerId = null;
+    editingDesignerName = "";
+  }
+
+  async function saveDesignerEdit(id) {
+    const name = editingDesignerName.trim();
+    if (!name) {
+      setAdminNotice("Enter a designer name.", "error");
+      return;
+    }
+
+    const result = await updateDesigner(id, name);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not update designer: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    cancelEditDesigner();
+    setAdminNotice("Designer updated.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  function requestDeleteDesigner(designer) {
+    if (!designer) {
+      return;
+    }
+
+    cancelEditDesigner();
+    pendingDeleteDesignerId = Number(designer.id);
+    if (Number(designer.designCount) > 0) {
+      setAdminNotice(
+        `Deleting '${designer.name}' will clear the designer assignment from ${designer.designCount} design(s).`,
+        "info"
+      );
+      return;
+    }
+
+    setAdminNotice(`Delete '${designer.name}'? Click confirm delete to continue.`, "info");
+  }
+
+  function cancelDeleteDesigner() {
+    pendingDeleteDesignerId = null;
+  }
+
   async function deleteDesigner(id) {
+    pendingDeleteDesignerId = null;
     const result = await removeDesigner(id);
     if (!result?.persisted) {
       setAdminNotice(`Could not delete designer: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
+    cancelEditDesigner();
     setAdminNotice("Designer deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
@@ -703,16 +782,78 @@
     }
 
     newSourceName = "";
+    setAdminNotice("Source added.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
+  function clearNewSourceForm() {
+    newSourceName = "";
+  }
+
+  function beginEditSource(source) {
+    if (!source) {
+      return;
+    }
+
+    pendingDeleteSourceId = null;
+    editingSourceId = Number(source.id);
+    editingSourceName = String(source.name || "");
+  }
+
+  function cancelEditSource() {
+    editingSourceId = null;
+    editingSourceName = "";
+  }
+
+  async function saveSourceEdit(id) {
+    const name = editingSourceName.trim();
+    if (!name) {
+      setAdminNotice("Enter a source name.", "error");
+      return;
+    }
+
+    const result = await updateSource(id, name);
+    if (!result?.persisted) {
+      setAdminNotice(`Could not update source: ${result?.error || "Unknown error"}`, "error");
+      return;
+    }
+
+    cancelEditSource();
+    setAdminNotice("Source updated.", "success");
+    await loadAdminDataForCurrentRoute(true);
+  }
+
+  function requestDeleteSource(source) {
+    if (!source) {
+      return;
+    }
+
+    cancelEditSource();
+    pendingDeleteSourceId = Number(source.id);
+    if (Number(source.designCount) > 0) {
+      setAdminNotice(
+        `Deleting '${source.name}' will clear the source assignment from ${source.designCount} design(s).`,
+        "info"
+      );
+      return;
+    }
+
+    setAdminNotice(`Delete '${source.name}'? Click confirm delete to continue.`, "info");
+  }
+
+  function cancelDeleteSource() {
+    pendingDeleteSourceId = null;
+  }
+
   async function deleteSource(id) {
+    pendingDeleteSourceId = null;
     const result = await removeSource(id);
     if (!result?.persisted) {
       setAdminNotice(`Could not delete source: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
+    cancelEditSource();
     setAdminNotice("Source deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
@@ -6494,33 +6635,77 @@
                   placeholder="New designer name..."
                   class="admin-input flex-1 border rounded px-3 py-2 text-sm"
                 />
-                <button type="submit" class="settings-primary-button text-sm">Add</button>
+                <button type="submit" class="menu-button-primary ui-action-button ui-action-button-primary text-sm">Add</button>
               </form>
             </div>
 
-            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-2xl">
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
               <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Name</th>
+                    <th class="px-4 py-2 text-right">Used by</th>
                     <th class="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                   {#if designers.length === 0}
                     <tr>
-                      <td colspan="2" class="px-4 py-3 text-gray-400">No designers yet.</td>
+                      <td colspan="3" class="px-4 py-3 text-gray-400">No designers yet.</td>
                     </tr>
                   {:else}
                     {#each designers as designer}
                       <tr>
-                        <td class="px-4 py-2">{designer.name}</td>
+                        <td class="px-4 py-2 font-medium">
+                          {#if editingDesignerId === designer.id}
+                            <input
+                              type="text"
+                              bind:value={editingDesignerName}
+                              class="admin-input border rounded px-2 py-1 text-sm w-full"
+                            />
+                          {:else}
+                            {designer.name}
+                          {/if}
+                        </td>
+                        <td class="px-4 py-2 text-right text-gray-600">{designer.designCount}</td>
                         <td class="px-4 py-2 text-right">
-                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteDesigner(designer.id)}>
-                            Delete
-                          </button>
+                          <div class="flex justify-end gap-2 flex-wrap">
+                            {#if editingDesignerId === designer.id}
+                              <button type="button" class="text-indigo-600 hover:text-indigo-800 text-xs" onclick={() => saveDesignerEdit(designer.id)}>
+                                Save
+                              </button>
+                              <button type="button" class="text-gray-500 hover:text-gray-700 text-xs" onclick={cancelEditDesigner}>
+                                Cancel
+                              </button>
+                            {:else if pendingDeleteDesignerId === designer.id}
+                              <button type="button" class="text-red-600 hover:text-red-800 text-xs" onclick={() => deleteDesigner(designer.id)}>
+                                Confirm delete
+                              </button>
+                              <button type="button" class="text-gray-500 hover:text-gray-700 text-xs" onclick={cancelDeleteDesigner}>
+                                Cancel
+                              </button>
+                            {:else}
+                              <button type="button" class="text-indigo-600 hover:text-indigo-800 text-xs" onclick={() => beginEditDesigner(designer)}>
+                                Edit
+                              </button>
+                              <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => requestDeleteDesigner(designer)}>
+                                Delete
+                              </button>
+                            {/if}
+                          </div>
                         </td>
                       </tr>
+                      {#if pendingDeleteDesignerId === designer.id}
+                        <tr class="bg-amber-50">
+                          <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
+                            {#if designer.designCount > 0}
+                              This designer is currently used by {designer.designCount} design(s). If you delete it, those designs will no longer have a designer assigned.
+                            {:else}
+                              Confirm deletion for this designer.
+                            {/if}
+                          </td>
+                        </tr>
+                      {/if}
                     {/each}
                   {/if}
                 </tbody>
@@ -6682,8 +6867,8 @@
             {/if}
           {:else if adminIsSourcesRoute}
             <h1 class="ui-page-title admin-title">Manage Sources</h1>
-            <p class="text-sm text-gray-500">
-              Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
+            <p class="text-sm text-gray-500 mb-4">
+            <br />  Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
             </p>
 
             <div class="admin-card bg-white rounded shadow p-4 max-w-xl">
@@ -6696,33 +6881,78 @@
                   placeholder="e.g. Purchased, Downloaded..."
                   class="admin-input flex-1 border rounded px-3 py-2 text-sm"
                 />
-                <button type="submit" class="settings-primary-button text-sm">Add</button>
+                <button type="submit" class="menu-button-primary ui-action-button ui-action-button-primary text-sm" disabled={!canAddSource}>Add</button>
+                <button type="button" class="menu-button-secondary ui-action-button text-sm" onclick={clearNewSourceForm} disabled={!canClearSourceForm}>Clear</button>
               </form>
             </div>
 
-            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-2xl">
+            <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl">
               <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-600 text-xs">
                   <tr>
                     <th class="px-4 py-2 text-left">Name</th>
+                    <th class="px-4 py-2 text-right">Used by</th>
                     <th class="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                   {#if sources.length === 0}
                     <tr>
-                      <td colspan="2" class="px-4 py-3 text-gray-400">No sources yet.</td>
+                      <td colspan="3" class="px-4 py-3 text-gray-400">No sources yet.</td>
                     </tr>
                   {:else}
                     {#each sources as source}
                       <tr>
-                        <td class="px-4 py-2">{source.name}</td>
+                        <td class="px-4 py-2 font-medium">
+                          {#if editingSourceId === source.id}
+                            <input
+                              type="text"
+                              bind:value={editingSourceName}
+                              class="admin-input border rounded px-2 py-1 text-sm w-full"
+                            />
+                          {:else}
+                            {source.name}
+                          {/if}
+                        </td>
+                        <td class="px-4 py-2 text-right text-gray-600">{source.designCount}</td>
                         <td class="px-4 py-2 text-right">
-                          <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => deleteSource(source.id)}>
-                            Delete
-                          </button>
+                          <div class="flex justify-end gap-2 flex-wrap">
+                            {#if editingSourceId === source.id}
+                              <button type="button" class="text-indigo-600 hover:text-indigo-800 text-xs" onclick={() => saveSourceEdit(source.id)}>
+                                Save
+                              </button>
+                              <button type="button" class="text-gray-500 hover:text-gray-700 text-xs" onclick={cancelEditSource}>
+                                Cancel
+                              </button>
+                            {:else if pendingDeleteSourceId === source.id}
+                              <button type="button" class="text-red-600 hover:text-red-800 text-xs" onclick={() => deleteSource(source.id)}>
+                                Confirm delete
+                              </button>
+                              <button type="button" class="text-gray-500 hover:text-gray-700 text-xs" onclick={cancelDeleteSource}>
+                                Cancel
+                              </button>
+                            {:else}
+                              <button type="button" class="text-indigo-600 hover:text-indigo-800 text-xs" onclick={() => beginEditSource(source)}>
+                                Edit
+                              </button>
+                              <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick={() => requestDeleteSource(source)}>
+                                Delete
+                              </button>
+                            {/if}
+                          </div>
                         </td>
                       </tr>
+                      {#if pendingDeleteSourceId === source.id}
+                        <tr class="bg-amber-50">
+                          <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
+                            {#if source.designCount > 0}
+                              This source is currently used by {source.designCount} design(s). If you delete it, those designs will no longer have a source assigned.
+                            {:else}
+                              Confirm deletion for this source.
+                            {/if}
+                          </td>
+                        </tr>
+                      {/if}
                     {/each}
                   {/if}
                 </tbody>

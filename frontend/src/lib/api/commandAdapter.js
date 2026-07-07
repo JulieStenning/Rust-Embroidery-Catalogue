@@ -1776,7 +1776,33 @@ export async function createDesigner(name) {
     return {
       source: "rust",
       persisted: true,
-      item: { id: Number(item?.id), name: String(item?.name || "") },
+      item: {
+        id: Number(item?.id),
+        name: String(item?.name || ""),
+        design_count: Number(item?.design_count ?? 0),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function updateDesigner(designerId, name) {
+  try {
+    const item = await invoke("update_designer", {
+      request: {
+        designer_id: Number(designerId),
+        name,
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        name: String(item?.name || ""),
+        design_count: Number(item?.design_count ?? 0),
+      },
     };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -1798,7 +1824,11 @@ export async function listSources() {
     if (Array.isArray(items)) {
       return {
         source: "rust",
-        items: items.map((item) => ({ id: Number(item?.id), name: String(item?.name || "") })),
+        items: items.map((item) => ({
+          id: Number(item?.id),
+          name: String(item?.name || ""),
+          design_count: Number(item?.design_count ?? 0),
+        })),
       };
     }
   } catch (error) {
@@ -1808,9 +1838,9 @@ export async function listSources() {
   return {
     source: "mock",
     items: [
-      { id: 1, name: "Purchased" },
-      { id: 2, name: "Downloaded" },
-      { id: 3, name: "Gift" },
+      { id: 1, name: "Purchased", design_count: 0 },
+      { id: 2, name: "Downloaded", design_count: 2 },
+      { id: 3, name: "Gift", design_count: 0 },
     ],
   };
 }
@@ -1821,7 +1851,33 @@ export async function createSource(name) {
     return {
       source: "rust",
       persisted: true,
-      item: { id: Number(item?.id), name: String(item?.name || "") },
+      item: {
+        id: Number(item?.id),
+        name: String(item?.name || ""),
+        design_count: Number(item?.design_count ?? 0),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+export async function updateSource(sourceId, name) {
+  try {
+    const item = await invoke("update_source", {
+      request: {
+        source_id: Number(sourceId),
+        name,
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        name: String(item?.name || ""),
+        design_count: Number(item?.design_count ?? 0),
+      },
     };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };

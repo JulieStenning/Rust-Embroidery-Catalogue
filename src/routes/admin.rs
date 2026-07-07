@@ -7,6 +7,7 @@ use tauri::State;
 pub struct AdminDesigner {
 	pub id: i64,
 	pub name: String,
+	pub design_count: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -14,14 +15,27 @@ pub struct CreateDesignerRequest {
 	pub name: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateDesignerRequest {
+	pub designer_id: i64,
+	pub name: String,
+}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct AdminSource {
 	pub id: i64,
 	pub name: String,
+	pub design_count: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateSourceRequest {
+	pub name: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateSourceRequest {
+	pub source_id: i64,
 	pub name: String,
 }
 
@@ -139,9 +153,14 @@ async fn ensure_unique_name_except_id(
 pub async fn list_designers(state: State<'_, AppState>) -> Result<Vec<AdminDesigner>, String> {
 	sqlx::query_as::<_, AdminDesigner>(
 		r#"
-		SELECT id, name
-		FROM designers
-		ORDER BY name COLLATE NOCASE ASC
+		SELECT
+			d.id,
+			d.name,
+			COUNT(des.id) AS design_count
+		FROM designers d
+		LEFT JOIN designs des ON des.designer_id = d.id
+		GROUP BY d.id, d.name
+		ORDER BY d.name COLLATE NOCASE ASC
 		"#,
 	)
 	.fetch_all(&state.db)
@@ -173,7 +192,52 @@ async fn create_designer_with_pool(
 	Ok(AdminDesigner {
 		id: result.last_insert_rowid(),
 		name,
+		design_count: 0,
 	})
+}
+
+#[tauri::command]
+pub async fn update_designer(
+	state: State<'_, AppState>,
+	request: UpdateDesignerRequest,
+) -> Result<AdminDesigner, String> {
+	update_designer_with_pool(&state.db, request).await
+}
+
+async fn update_designer_with_pool(pool: &SqlitePool, request: UpdateDesignerRequest) -> Result<AdminDesigner, String> {
+	let name = validate_non_empty(&request.name, "Designer name")?;
+	ensure_unique_name_except_id(pool, "designers", "id", request.designer_id, &name, "Designer").await?;
+
+	let result = sqlx::query("UPDATE designers SET name = ? WHERE id = ?")
+		.bind(&name)
+		.bind(request.designer_id)
+		.execute(pool)
+		.await
+		.map_err(|e| e.to_string())?;
+
+	if result.rows_affected() == 0 {
+		return Err(format!("Designer with id={} not found.", request.designer_id));
+	}
+
+	let row = sqlx::query_as::<_, AdminDesigner>(
+		r#"
+		SELECT
+			d.id,
+			d.name,
+			COUNT(des.id) AS design_count
+		FROM designers d
+		LEFT JOIN designs des ON des.designer_id = d.id
+		WHERE d.id = ?
+		GROUP BY d.id, d.name
+		LIMIT 1
+		"#,
+	)
+	.bind(request.designer_id)
+	.fetch_one(pool)
+	.await
+	.map_err(|e| e.to_string())?;
+
+	Ok(row)
 }
 
 #[tauri::command]
@@ -199,9 +263,14 @@ async fn delete_designer_with_pool(pool: &SqlitePool, designer_id: i64) -> Resul
 pub async fn list_sources(state: State<'_, AppState>) -> Result<Vec<AdminSource>, String> {
 	sqlx::query_as::<_, AdminSource>(
 		r#"
-		SELECT id, name
-		FROM sources
-		ORDER BY name COLLATE NOCASE ASC
+		SELECT
+			s.id,
+			s.name,
+			COUNT(d.id) AS design_count
+		FROM sources s
+		LEFT JOIN designs d ON d.source_id = s.id
+		GROUP BY s.id, s.name
+		ORDER BY s.name COLLATE NOCASE ASC
 		"#,
 	)
 	.fetch_all(&state.db)
@@ -230,7 +299,52 @@ async fn create_source_with_pool(pool: &SqlitePool, request: CreateSourceRequest
 	Ok(AdminSource {
 		id: result.last_insert_rowid(),
 		name,
+		design_count: 0,
 	})
+}
+
+#[tauri::command]
+pub async fn update_source(
+	state: State<'_, AppState>,
+	request: UpdateSourceRequest,
+) -> Result<AdminSource, String> {
+	update_source_with_pool(&state.db, request).await
+}
+
+async fn update_source_with_pool(pool: &SqlitePool, request: UpdateSourceRequest) -> Result<AdminSource, String> {
+	let name = validate_non_empty(&request.name, "Source name")?;
+	ensure_unique_name_except_id(pool, "sources", "id", request.source_id, &name, "Source").await?;
+
+	let result = sqlx::query("UPDATE sources SET name = ? WHERE id = ?")
+		.bind(&name)
+		.bind(request.source_id)
+		.execute(pool)
+		.await
+		.map_err(|e| e.to_string())?;
+
+	if result.rows_affected() == 0 {
+		return Err(format!("Source with id={} not found.", request.source_id));
+	}
+
+	let row = sqlx::query_as::<_, AdminSource>(
+		r#"
+		SELECT
+			s.id,
+			s.name,
+			COUNT(d.id) AS design_count
+		FROM sources s
+		LEFT JOIN designs d ON d.source_id = s.id
+		WHERE s.id = ?
+		GROUP BY s.id, s.name
+		LIMIT 1
+		"#,
+	)
+	.bind(request.source_id)
+	.fetch_one(pool)
+	.await
+	.map_err(|e| e.to_string())?;
+
+	Ok(row)
 }
 
 #[tauri::command]
@@ -555,6 +669,8 @@ mod tests {
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				filename VARCHAR(500) NOT NULL,
 				filepath VARCHAR(1000) NOT NULL,
+				designer_id INTEGER REFERENCES designers(id) ON DELETE SET NULL,
+				source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
 				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL
 			);
 			"#,
@@ -761,6 +877,62 @@ mod tests {
 				.expect_err("expected case-insensitive duplicate source error")
 				.contains("already exists")
 		);
+	}
+
+	#[tokio::test]
+	async fn update_source_updates_existing_row() {
+		let pool = test_pool().await;
+
+		let created = create_source_with_pool(
+			&pool,
+			CreateSourceRequest {
+				name: "USB Import".to_string(),
+			},
+		)
+		.await
+		.expect("expected source to be created");
+
+		let updated = update_source_with_pool(
+			&pool,
+			UpdateSourceRequest {
+				source_id: created.id,
+				name: "Downloaded".to_string(),
+			},
+		)
+		.await
+		.expect("expected source to update");
+
+		assert_eq!(updated.id, created.id);
+		assert_eq!(updated.name, "Downloaded");
+		assert_eq!(updated.design_count, 0);
+	}
+
+	#[tokio::test]
+	async fn update_designer_updates_existing_row() {
+		let pool = test_pool().await;
+
+		let created = create_designer_with_pool(
+			&pool,
+			CreateDesignerRequest {
+				name: "Amazing Designs".to_string(),
+			},
+		)
+		.await
+		.expect("expected designer to be created");
+
+		let updated = update_designer_with_pool(
+			&pool,
+			UpdateDesignerRequest {
+				designer_id: created.id,
+				name: "Urban Threads".to_string(),
+			},
+		)
+		.await
+		.expect("expected designer to update");
+
+		assert_eq!(updated.id, created.id);
+		assert_eq!(updated.name, "Urban Threads");
+		assert_eq!(updated.design_count, 0);
 	}
 
 	#[tokio::test]
