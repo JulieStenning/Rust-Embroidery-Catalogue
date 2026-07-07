@@ -569,6 +569,18 @@
   let newHoopName = $state("");
   let newHoopWidth = $state("");
   let newHoopHeight = $state("");
+  let canAddHoop = $derived(
+    String(newHoopName || "").trim().length > 0 &&
+      String(newHoopWidth || "").trim() !== "" &&
+      String(newHoopHeight || "").trim() !== "" &&
+      Number(newHoopWidth) > 0 &&
+      Number(newHoopHeight) > 0
+  );
+  let canClearHoopForm = $derived(
+    String(newHoopName || "").trim().length > 0 ||
+      String(newHoopWidth || "").trim().length > 0 ||
+      String(newHoopHeight || "").trim().length > 0
+  );
   let editingHoopId = $state(null);
   let editingHoopName = $state("");
   let editingHoopWidth = $state("");
@@ -767,6 +779,12 @@
     newHoopHeight = "";
     setAdminNotice("Hoop added.", "success");
     await loadAdminDataForCurrentRoute(true);
+  }
+
+  function clearNewHoopForm() {
+    newHoopName = "";
+    newHoopWidth = "";
+    newHoopHeight = "";
   }
 
   function beginEditHoop(hoop) {
@@ -6754,7 +6772,8 @@
                     class="admin-input border rounded px-3 py-2 text-sm w-36"
                   />
                 </div>
-                <button type="submit" class="settings-primary-button text-sm">Add</button>
+                <button type="submit" class="menu-button-primary ui-action-button ui-action-button-primary text-sm" disabled={!canAddHoop}>Add</button>
+                <button type="button" class="menu-button-secondary ui-action-button text-sm" onclick={clearNewHoopForm} disabled={!canClearHoopForm}>Clear</button>
               </form>
             </div>
 
@@ -6846,7 +6865,7 @@
                         <tr class="bg-amber-50">
                           <td colspan="5" class="px-4 py-2 text-xs text-amber-800">
                             {#if hoop.designCount > 0}
-                              This hoop is assigned to {hoop.designCount} design(s). Deleting it will set those design hoop assignments to blank.
+                              This hoop is currently used by {hoop.designCount} design(s). If you delete it, those designs will no longer have a hoop assigned.
                             {:else}
                               Confirm deletion for this hoop.
                             {/if}
