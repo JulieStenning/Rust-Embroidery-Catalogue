@@ -105,8 +105,8 @@
     },
     "#/admin/designers": {
       title: "Manage Designers",
-      subtitle: "",
-      description: "Designers are the creators or brands of embroidery designs. Use this list to keep designer names consistent.",
+      subtitle: " ",
+      description: "Designers are the creators or brands of embroidery designs.",
       cta: "Next backend hookup: designers CRUD commands",
     },
     "#/admin/tags": {
@@ -574,6 +574,8 @@
   let newHoopName = $state("");
   let canAddSource = $derived(String(newSourceName || "").trim().length > 0);
   let canClearSourceForm = $derived(String(newSourceName || "").trim().length > 0);
+  let canAddDesigner = $derived(String(newDesignerName || "").trim().length > 0);
+  let canClearDesignerForm = $derived(String(newDesignerName || "").trim().length > 0);
   let newHoopWidth = $state("");
   let newHoopHeight = $state("");
   let editingSourceId = $state(null);
@@ -788,6 +790,10 @@
 
   function clearNewSourceForm() {
     newSourceName = "";
+  }
+
+  function clearNewDesignerForm() {
+    newDesignerName = "";
   }
 
   function beginEditSource(source) {
@@ -6635,7 +6641,8 @@
                   placeholder="New designer name..."
                   class="admin-input flex-1 border rounded px-3 py-2 text-sm"
                 />
-                <button type="submit" class="menu-button-primary ui-action-button ui-action-button-primary text-sm">Add</button>
+                <button type="submit" class="menu-button-primary ui-action-button ui-action-button-primary text-sm" disabled={!canAddDesigner}>Add</button>
+                <button type="button" class="menu-button-secondary ui-action-button text-sm" onclick={clearNewDesignerForm} disabled={!canClearDesignerForm}>Clear</button>
               </form>
             </div>
 

@@ -1753,7 +1753,11 @@ export async function listDesigners() {
     if (Array.isArray(items)) {
       return {
         source: "rust",
-        items: items.map((item) => ({ id: Number(item?.id), name: String(item?.name || "") })),
+        items: items.map((item) => ({
+          id: Number(item?.id),
+          name: String(item?.name || ""),
+          design_count: Number(item?.design_count ?? 0),
+        })),
       };
     }
   } catch (error) {
