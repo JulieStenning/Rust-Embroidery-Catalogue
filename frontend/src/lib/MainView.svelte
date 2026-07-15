@@ -1913,7 +1913,7 @@
       projectNewName = "";
       projectNewDescription = "";
       await loadProjects(true);
-      navigateTo(`#/projects/${result.project_id}`);
+      navigateTo("#/projects");
     }
   }
 
@@ -6358,8 +6358,9 @@
           </div>
 
           <p class="projects-intro text-sm text-gray-500">
+            <br />
             Group designs for a planned embroidery task - for example a seasonal set or a quilt block series.
-            <a href="#importing" class="text-indigo-600 hover:underline">Learn more</a>
+            <a href="#projects" class="text-indigo-600 hover:underline">Learn more</a>
           </p>
 
           {#if projectsActionMessage}
@@ -6412,7 +6413,7 @@
             <h2 class="projects-subtitle text-2xl font-bold text-gray-800">New Project</h2>
             <p class="projects-intro text-sm text-gray-500">
               Projects let you group designs for a planned embroidery task.
-              <a href="#importing" class="text-indigo-600 hover:underline">Help</a>
+              <a href="#projects" class="text-indigo-600 hover:underline">Help</a>
             </p>
 
             {#if projectsActionMessage}
