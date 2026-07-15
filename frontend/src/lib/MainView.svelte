@@ -6448,7 +6448,7 @@
                   placeholder="Optional notes, goals, or deadline"
                 ></textarea>
               </label>
-              <button type="submit" class="menu-button-primary" disabled={projectNewSaving}>
+              <button type="submit" class="menu-button-primary" disabled={projectNewSaving || !String(projectNewName || "").trim()}>
                 {projectNewSaving ? "Creating..." : "Create Project"}
               </button>
             </form>
