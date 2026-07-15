@@ -1,0 +1,3 @@
+Always write idiomatic Rust with clear error types.
+
+Keep the SQLite queries strictly inside the Rust backend, exposing them to Svelte only via Tauri commands.
