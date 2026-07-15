@@ -448,6 +448,12 @@
   let projectDetailSaving = $state(false);
   let projectDetailName = $state("");
   let projectDetailDescription = $state("");
+  let projectDetailOriginalName = $state("");
+  let projectDetailOriginalDescription = $state("");
+  let projectDetailHasChanges = $derived(
+    projectDetailName !== projectDetailOriginalName ||
+    projectDetailDescription !== projectDetailOriginalDescription
+  );
 
   let projectPrint = $state(null);
   let projectPrintSource = $state("mock");
@@ -1934,9 +1940,13 @@
         projectDetailError = result?.error || `Could not load project ${projectId}.`;
         projectDetailName = "";
         projectDetailDescription = "";
+        projectDetailOriginalName = "";
+        projectDetailOriginalDescription = "";
       } else {
         projectDetailName = String(projectDetail?.project?.name || "");
         projectDetailDescription = String(projectDetail?.project?.description || "");
+        projectDetailOriginalName = projectDetailName;
+        projectDetailOriginalDescription = projectDetailDescription;
       }
     } catch (error) {
       projectDetail = null;
@@ -1955,6 +1965,11 @@
     }
     await loadProjectDetailView(projectDetailId);
     await loadProjects(true);
+  }
+
+  function undoProjectDetailChanges() {
+    projectDetailName = projectDetailOriginalName;
+    projectDetailDescription = projectDetailOriginalDescription;
   }
 
   async function saveProjectDetail() {
@@ -6499,8 +6514,16 @@
                   bind:value={projectDetailDescription}
                   placeholder="Description..."
                 ></textarea>
-                <button type="submit" class="menu-button-primary" disabled={projectDetailSaving}>
+                <button type="submit" class="menu-button-primary" disabled={projectDetailSaving || !projectDetailHasChanges}>
                   {projectDetailSaving ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  class="menu-button-secondary"
+                  disabled={projectDetailSaving || !projectDetailHasChanges}
+                  onclick={undoProjectDetailChanges}
+                >
+                  Undo
                 </button>
               </form>
             {/if}
