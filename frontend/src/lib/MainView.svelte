@@ -99,7 +99,7 @@
     },
     "#/help": {
       title: "Help",
-      subtitle: "",
+      subtitle: " ",
       description: "Quick guidance for using the Embroidery Catalogue.",
       cta: "Use quick-jump links to move between sections",
     },

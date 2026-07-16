@@ -17,11 +17,11 @@
     </p>
     <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
       <p><strong>Quoted phrases:</strong> <code class="bg-gray-100 px-1 rounded">"cross stitch"</code></p>
-      <p><strong>Exclude terms:</strong> <code class="bg-gray-100 px-1 rounded">rose -applique</code></p>
+      <p><strong>Exclude terms:</strong> <code class="bg-gray-100 px-1 rounded">-rose -applique</code></p>
       <p><strong>OR searches:</strong> <code class="bg-gray-100 px-1 rounded">rose OR tulip</code></p>
       <p><strong>Filename wildcards:</strong> <code class="bg-gray-100 px-1 rounded">rose*.jef</code></p>
-      <p><strong>Unverified only:</strong> show designs that still need metadata review.</p>
-      <p><strong>Quick search vs. filters:</strong> use Additional filters for exact phrase, any words, none words, designer, hoop, and more.</p>
+      <p><strong>Unverified only:</strong> show designs with tags that still need verifying.</p>
+      <p><strong>Quick search vs. filters:</strong> use Additional filters for exact phrase, any words, designer, hoop, and more.</p>
     </div>
   </section>
 
