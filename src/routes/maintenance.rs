@@ -117,12 +117,6 @@ pub struct BrowseOrphanPathResult {
     pub opened: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct OrphanDebugRequest {
-    pub contains: Option<String>,
-    pub limit: Option<i64>,
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct OrphanPathDebugItem {
     pub id: i64,
@@ -130,14 +124,6 @@ pub struct OrphanPathDebugItem {
     pub filepath: String,
     pub resolved_path: String,
     pub exists: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct OrphanDebugResult {
-    pub base_path: String,
-    pub checked: usize,
-    pub found: usize,
-    pub samples: Vec<OrphanPathDebugItem>,
 }
 
 #[derive(Debug, Clone)]
@@ -904,77 +890,6 @@ async fn delete_design_ids_with_pool(
     Ok(deleted)
 }
 
-async fn collect_orphan_debug_with_pool(
-    pool: &SqlitePool,
-    base_path: &Path,
-    request: Option<OrphanDebugRequest>,
-) -> Result<OrphanDebugResult, String> {
-    let contains_filter = request
-        .as_ref()
-        .and_then(|item| item.contains.as_ref())
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty());
-    let limit = request
-        .as_ref()
-        .and_then(|item| item.limit)
-        .unwrap_or(200)
-        .clamp(1, 1000) as usize;
-
-    let rows = sqlx::query_as::<_, (i64, String, String)>(
-        "SELECT id, filename, filepath FROM designs ORDER BY filepath",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|error| error.to_string())?;
-
-    let mut checked = 0usize;
-    let mut found = 0usize;
-    let mut samples = Vec::new();
-
-    for (id, filename, filepath) in rows {
-        if filepath.trim().is_empty() {
-            continue;
-        }
-
-        if let Some(filter) = &contains_filter {
-            if !filepath.to_ascii_lowercase().contains(filter) {
-                continue;
-            }
-        }
-
-        checked = checked.saturating_add(1);
-        let resolved = resolve_design_full_path(base_path, &filepath);
-        let exists = resolved.is_file();
-        if !exists {
-            found = found.saturating_add(1);
-        }
-
-        if samples.len() < limit {
-            samples.push(OrphanPathDebugItem {
-                id,
-                filename,
-                filepath,
-                resolved_path: normalize_path_string(&resolved),
-                exists,
-            });
-        }
-    }
-
-    eprintln!(
-        "[orphans-debug] base={} checked={} found={} filter={:?}",
-        normalize_path_string(base_path),
-        checked,
-        found,
-        contains_filter
-    );
-
-    Ok(OrphanDebugResult {
-        base_path: normalize_path_string(base_path),
-        checked,
-        found,
-        samples,
-    })
-}
 
 fn strip_sqlite_prefix(database_url: &str) -> &str {
     database_url
@@ -1600,12 +1515,3 @@ mod tests {
     }
 }
 
-#[tauri::command]
-pub async fn debug_orphans_scan(
-    state: State<'_, AppState>,
-    request: Option<OrphanDebugRequest>,
-) -> Result<OrphanDebugResult, String> {
-    let pool = &state.db;
-    let base_path = derive_designs_source_path();
-    collect_orphan_debug_with_pool(pool, &base_path, request).await
-}

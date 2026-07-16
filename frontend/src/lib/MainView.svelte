@@ -50,7 +50,6 @@
     deleteOrphans as removeOrphans,
     deleteAllOrphans as removeAllOrphans,
     browseOrphanPath,
-    debugOrphansScan,
     getTaggingActionsViewModel,
     runUnifiedBackfill,
     stopUnifiedBackfill,
@@ -1043,11 +1042,7 @@
   let orphanSelectedIds = $state([]);
   let orphanActionMessage = $state("");
   let orphanActionType = $state("info");
-  let orphanDebugFilter = $state("1033");
-  let orphanDebugLoading = $state(false);
-  let orphanDebugError = $state("");
-  let orphanDebugResult = $state(null);
-
+  
   function toggleSettingsApiKeyVisibility() {
     settingsApiKeyRevealed = !settingsApiKeyRevealed;
   }
@@ -1724,30 +1719,6 @@
 
     // Fall back to in-app navigation if popup blocking prevents opening a tab.
     navigateTo(route);
-  }
-
-  async function runOrphanDebugScan() {
-    if (orphanDebugLoading) {
-      return;
-    }
-
-    orphanDebugLoading = true;
-    orphanDebugError = "";
-
-    const result = await debugOrphansScan({
-      contains: orphanDebugFilter,
-      limit: 300,
-    });
-
-    if (result?.source !== "rust" && result?.error) {
-      orphanDebugError = `Could not run orphan debug scan: ${result.error}`;
-      orphanDebugResult = null;
-      orphanDebugLoading = false;
-      return;
-    }
-
-    orphanDebugResult = result;
-    orphanDebugLoading = false;
   }
 
   function navigateTo(route) {
@@ -7392,63 +7363,6 @@
                 Delete all
               </button>
             </div>
-          </div>
-
-          <div class="border border-gray-200 rounded p-3 bg-gray-50 space-y-2">
-            <p class="text-xs font-semibold text-gray-700">Orphan debug scan</p>
-            <div class="flex flex-wrap items-end gap-2 text-sm">
-              <label class="flex flex-col gap-1 min-w-[20rem]">
-                <span class="text-xs text-gray-600">Filter filepath contains</span>
-                <input
-                  type="text"
-                  class="border rounded px-2 py-1 text-sm"
-                  bind:value={orphanDebugFilter}
-                  placeholder="Amazing Designs - 1033 Crestswer"
-                />
-              </label>
-              <button type="button" class="menu-button-secondary" onclick={runOrphanDebugScan} disabled={orphanDebugLoading}>
-                {orphanDebugLoading ? "Running..." : "Run debug scan"}
-              </button>
-            </div>
-
-            {#if orphanDebugError}
-              <p class="text-xs text-red-700">{orphanDebugError}</p>
-            {/if}
-
-            {#if orphanDebugResult}
-              <p class="text-xs text-gray-700">
-                Base: {orphanDebugResult.base_path} | Checked: {orphanDebugResult.checked} | Found: {orphanDebugResult.found} | Samples: {orphanDebugResult.samples.length}
-              </p>
-              {#if orphanDebugResult.checked === 0 && orphanDebugFilter.trim().length > 0}
-                <p class="text-xs text-amber-700">
-                  No rows matched this filter. Try a broader substring such as just the numeric set id (for example: 1033).
-                </p>
-              {/if}
-              <div class="bg-white rounded border border-gray-200 overflow-x-auto max-h-56">
-                <table class="w-full text-xs">
-                  <thead class="bg-gray-100 text-gray-600">
-                    <tr>
-                      <th class="px-2 py-1 text-left">Id</th>
-                      <th class="px-2 py-1 text-left">Exists</th>
-                      <th class="px-2 py-1 text-left">Filename</th>
-                      <th class="px-2 py-1 text-left">Stored filepath</th>
-                      <th class="px-2 py-1 text-left">Resolved path</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-100">
-                    {#each orphanDebugResult.samples as sample}
-                      <tr>
-                        <td class="px-2 py-1">{sample.id}</td>
-                        <td class="px-2 py-1 {sample.exists ? 'text-green-700' : 'text-red-700'}">{sample.exists ? "yes" : "no"}</td>
-                        <td class="px-2 py-1">{sample.filename}</td>
-                        <td class="px-2 py-1 font-mono">{sample.filepath}</td>
-                        <td class="px-2 py-1 font-mono">{sample.resolved_path}</td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
           </div>
 
           <div class="bg-white rounded shadow overflow-x-auto">
