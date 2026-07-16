@@ -13,9 +13,9 @@ use crate::models::{EmbPattern, StitchType};
 
 /// Bright fallback palette used when EXP files do not embed explicit thread colours.
 const EXP_FALLBACK_PALETTE: [u32; 24] = [
-    0x1F77B4, 0xD62728, 0x2CA02C, 0xFF7F0E, 0x9467BD, 0x8C564B, 0xE377C2, 0x17BECF,
-    0xBCBD22, 0x7F7F7F, 0x00A651, 0xED1C24, 0x1C75BC, 0xFBB03B, 0x662D91, 0x39B54A,
-    0xF15A24, 0xA349A4, 0x00AEEF, 0xC69C6D, 0xEF4136, 0x22B573, 0x2E3192, 0xFFF200,
+    0x1F77B4, 0xD62728, 0x2CA02C, 0xFF7F0E, 0x9467BD, 0x8C564B, 0xE377C2, 0x17BECF, 0xBCBD22,
+    0x7F7F7F, 0x00A651, 0xED1C24, 0x1C75BC, 0xFBB03B, 0x662D91, 0x39B54A, 0xF15A24, 0xA349A4,
+    0x00AEEF, 0xC69C6D, 0xEF4136, 0x22B573, 0x2E3192, 0xFFF200,
 ];
 
 // ---------------------------------------------------------------------------
@@ -147,11 +147,17 @@ pub fn read_exp(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
     read_exp_stitches(&mut cursor, &mut pattern)?;
 
     // If no threads are declared in-file, synthesize preview colors from color blocks.
-    let num_colour_changes = pattern.stitches.iter().filter(|s| s.stitch_type == StitchType::ColorChange).count();
+    let num_colour_changes = pattern
+        .stitches
+        .iter()
+        .filter(|s| s.stitch_type == StitchType::ColorChange)
+        .count();
     if pattern.threadlist.is_empty() && num_colour_changes > 0 {
         for i in 0..=num_colour_changes {
             let color = EXP_FALLBACK_PALETTE[i % EXP_FALLBACK_PALETTE.len()];
-            pattern.threadlist.push(crate::models::EmbThread::new(color));
+            pattern
+                .threadlist
+                .push(crate::models::EmbThread::new(color));
         }
     }
 
@@ -304,8 +310,13 @@ mod tests {
 
     #[test]
     fn test_real_peacock_fixture_control_commands_preserve_position() {
-        let file_path = PathBuf::from("tests").join("testdata").join("01expPeacock.exp");
-        assert!(file_path.exists(), "expected 01expPeacock.exp fixture to exist");
+        let file_path = PathBuf::from("tests")
+            .join("testdata")
+            .join("01expPeacock.exp");
+        assert!(
+            file_path.exists(),
+            "expected 01expPeacock.exp fixture to exist"
+        );
 
         let data = fs::read(&file_path).expect("should read EXP fixture");
         let pattern = read_exp(&data).expect("should parse real EXP fixture");
@@ -314,7 +325,9 @@ mod tests {
             let prev = &pattern.stitches[index - 1];
             let current = &pattern.stitches[index];
 
-            if current.stitch_type == StitchType::ColorChange || current.stitch_type == StitchType::Trim {
+            if current.stitch_type == StitchType::ColorChange
+                || current.stitch_type == StitchType::Trim
+            {
                 assert_eq!(
                     (current.x, current.y),
                     (prev.x, prev.y),

@@ -1,9 +1,9 @@
-use base64::Engine;
 use crate::models::EmbPattern;
 use crate::png_writer::{render_pattern_to_png, RenderSettings, ThreeDStyle};
 use crate::readers::{
-    DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader, 
+    DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader,
 };
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -14,12 +14,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-const NATIVE_PREVIEW_EXTENSIONS: &[&str] = &[
-    "pes", "dst", "exp", "jef", "vp3", "hus", 
-];
-const PYTHON_PREVIEW_EXTENSIONS: &[&str] = &[
-    "jef", "pes", "dst", "exp", "vp3",
-];
+const NATIVE_PREVIEW_EXTENSIONS: &[&str] = &["pes", "dst", "exp", "jef", "vp3", "hus"];
+const PYTHON_PREVIEW_EXTENSIONS: &[&str] = &["jef", "pes", "dst", "exp", "vp3"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BackendSupport {
@@ -156,7 +152,10 @@ pub fn generate_previews_via_python_batch(
     };
 
     if !script_path.exists() {
-        let msg = format!("Python image adapter script not found: {}", script_path.to_string_lossy());
+        let msg = format!(
+            "Python image adapter script not found: {}",
+            script_path.to_string_lossy()
+        );
         for req in requests {
             results.insert(req.file_path.clone(), error_result(msg.clone()));
         }
@@ -312,7 +311,9 @@ pub fn generate_preview(request: &ImageGenerationRequest) -> ImageGenerationResu
                     color_count: None,
                     color_change_count: None,
                     backend: "python".to_string(),
-                    error: Some("Python image backend does not support this extension.".to_string()),
+                    error: Some(
+                        "Python image backend does not support this extension.".to_string(),
+                    ),
                 };
             }
             generate_preview_via_python(request)
@@ -328,7 +329,9 @@ pub fn generate_preview(request: &ImageGenerationRequest) -> ImageGenerationResu
                     color_count: None,
                     color_change_count: None,
                     backend: "native".to_string(),
-                    error: Some("Native image backend does not support this extension.".to_string()),
+                    error: Some(
+                        "Native image backend does not support this extension.".to_string(),
+                    ),
                 };
             }
             generate_preview_via_native(request)
@@ -396,8 +399,12 @@ fn generate_preview_auto(request: &ImageGenerationRequest) -> ImageGenerationRes
         backend: "auto".to_string(),
         error: Some(format!(
             "Auto backend failed with native renderer: '{}'; python fallback also failed: '{}'",
-            native.error.unwrap_or_else(|| "unknown native error".to_string()),
-            python.error.unwrap_or_else(|| "unknown python error".to_string())
+            native
+                .error
+                .unwrap_or_else(|| "unknown native error".to_string()),
+            python
+                .error
+                .unwrap_or_else(|| "unknown python error".to_string())
         )),
     }
 }
@@ -582,7 +589,8 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
         };
     }
 
-    let python_executable = std::env::var("RUST_EMBROIDERY_PYTHON").unwrap_or_else(|_| "python".to_string());
+    let python_executable =
+        std::env::var("RUST_EMBROIDERY_PYTHON").unwrap_or_else(|_| "python".to_string());
     let preview_flag = if request.preview_3d { "true" } else { "false" };
     let timeout_ms = std::env::var("IMPORT_IMAGE_PYTHON_TIMEOUT_MS")
         .ok()
@@ -625,11 +633,12 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
                     let _ = child.kill();
                     let _ = child.wait();
                     if request.preview_3d {
-                        let fallback_result = generate_preview_via_python(&ImageGenerationRequest {
-                            file_path: request.file_path.clone(),
-                            preview_3d: false,
-                            preview_3d_profile: request.preview_3d_profile.clone(),
-                        });
+                        let fallback_result =
+                            generate_preview_via_python(&ImageGenerationRequest {
+                                file_path: request.file_path.clone(),
+                                preview_3d: false,
+                                preview_3d_profile: request.preview_3d_profile.clone(),
+                            });
                         if fallback_result.error.is_none() {
                             return fallback_result;
                         }
@@ -740,10 +749,11 @@ fn generate_preview_via_python(request: &ImageGenerationRequest) -> ImageGenerat
         }
     };
 
-    let image_data = parsed
-        .image_base64
-        .as_ref()
-        .and_then(|encoded| base64::engine::general_purpose::STANDARD.decode(encoded).ok());
+    let image_data = parsed.image_base64.as_ref().and_then(|encoded| {
+        base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .ok()
+    });
 
     if parsed.error.is_some() && request.preview_3d {
         let fallback_result = generate_preview_via_python(&ImageGenerationRequest {
@@ -794,7 +804,11 @@ mod tests {
 
         assert_eq!(result.backend, "native");
         assert!(result.error.is_none());
-        assert!(result.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(result
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
         assert_eq!(result.image_type.as_deref(), Some("2d"));
         assert_eq!(result.width_mm, Some(2.0));
         assert_eq!(result.height_mm, Some(1.0));
@@ -823,7 +837,11 @@ mod tests {
         assert_eq!(result.backend, "native");
         assert!(result.error.is_none());
         assert_eq!(result.image_type.as_deref(), Some("3d"));
-        assert!(result.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(result
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
     }
 
     #[test]
@@ -885,7 +903,10 @@ mod tests {
         };
 
         let native = generate_preview_via_native(&request);
-        assert!(native.error.is_none(), "native backend should succeed for fixture file");
+        assert!(
+            native.error.is_none(),
+            "native backend should succeed for fixture file"
+        );
 
         let python = generate_preview_via_python(&request);
         if python.error.is_some() {
@@ -896,14 +917,25 @@ mod tests {
             return;
         }
 
-        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
-        assert!(python.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(native
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
+        assert!(python
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
         assert_eq!(native.image_type.as_deref(), Some("2d"));
         assert_eq!(python.image_type.as_deref(), Some("2d"));
 
         assert_eq!(native.stitch_count.is_some(), python.stitch_count.is_some());
         assert_eq!(native.color_count.is_some(), python.color_count.is_some());
-        assert_eq!(native.color_change_count.is_some(), python.color_change_count.is_some());
+        assert_eq!(
+            native.color_change_count.is_some(),
+            python.color_change_count.is_some()
+        );
         assert_eq!(native.width_mm.is_some(), python.width_mm.is_some());
         assert_eq!(native.height_mm.is_some(), python.height_mm.is_some());
     }
@@ -922,16 +954,26 @@ mod tests {
         let native = generate_preview_via_native(&request);
 
         assert_eq!(native.backend, "native");
-        assert!(native.error.is_none(), "native backend should succeed for VP3 fixture");
+        assert!(
+            native.error.is_none(),
+            "native backend should succeed for VP3 fixture"
+        );
         assert_eq!(native.image_type.as_deref(), Some("2d"));
-        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(native
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
         assert!(native.stitch_count.unwrap_or_default() > 0);
     }
 
     #[test]
     fn python_and_native_backends_match_metrics_for_complex_vp3_fixture() {
         let file_path = PathBuf::from("tests").join("testdata").join("Cake 3.vp3");
-        assert!(file_path.exists(), "expected complex VP3 fixture file to exist");
+        assert!(
+            file_path.exists(),
+            "expected complex VP3 fixture file to exist"
+        );
 
         let request = ImageGenerationRequest {
             file_path: file_path.to_string_lossy().to_string(),
@@ -940,21 +982,34 @@ mod tests {
         };
 
         let native = generate_preview_via_native(&request);
-        assert!(native.error.is_none(), "native backend should succeed for complex VP3 fixture");
+        assert!(
+            native.error.is_none(),
+            "native backend should succeed for complex VP3 fixture"
+        );
 
         let python = generate_preview_via_python(&request);
         if python.error.is_some() {
             eprintln!(
                 "Skipping complex VP3 parity assertions because python adapter is unavailable: {}",
-                python.error.unwrap_or_else(|| "unknown python adapter error".to_string())
+                python
+                    .error
+                    .unwrap_or_else(|| "unknown python adapter error".to_string())
             );
             return;
         }
 
         assert_eq!(native.image_type.as_deref(), Some("2d"));
         assert_eq!(python.image_type.as_deref(), Some("2d"));
-        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
-        assert!(python.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(native
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
+        assert!(python
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
 
         assert_eq!(native.stitch_count, python.stitch_count);
         assert_eq!(native.color_count, python.color_count);
@@ -987,25 +1042,41 @@ mod tests {
         };
 
         let native = generate_preview_via_native(&request);
-        assert!(native.error.is_none(), "native backend should succeed for user VP3 fixture");
+        assert!(
+            native.error.is_none(),
+            "native backend should succeed for user VP3 fixture"
+        );
         assert_eq!(native.image_type.as_deref(), Some("2d"));
-        assert!(native.image_data.as_ref().map(|bytes| !bytes.is_empty()).unwrap_or(false));
+        assert!(native
+            .image_data
+            .as_ref()
+            .map(|bytes| !bytes.is_empty())
+            .unwrap_or(false));
         assert!(native.stitch_count.unwrap_or_default() > 0);
     }
 
     #[test]
     fn extension_support_marks_hus_as_native_only() {
-        assert_eq!(extension_support("C:/imports/sample.hus"), BackendSupport::NativeOnly);
+        assert_eq!(
+            extension_support("C:/imports/sample.hus"),
+            BackendSupport::NativeOnly
+        );
     }
 
     #[test]
     fn extension_support_marks_promoted_optional_formats_as_native_only() {
-        assert_eq!(extension_support("C:/imports/sample.dat"), BackendSupport::NativeOnly);
-        }
+        assert_eq!(
+            extension_support("C:/imports/sample.dat"),
+            BackendSupport::NativeOnly
+        );
+    }
 
     #[test]
     fn extension_support_marks_unknown_as_unsupported() {
-        assert_eq!(extension_support("C:/imports/sample.txt"), BackendSupport::Unsupported);
+        assert_eq!(
+            extension_support("C:/imports/sample.txt"),
+            BackendSupport::Unsupported
+        );
     }
 
     #[test]
@@ -1025,5 +1096,4 @@ mod tests {
             .unwrap_or_default()
             .contains("skipped"));
     }
-
 }

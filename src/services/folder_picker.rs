@@ -34,7 +34,10 @@ pub fn resolve_assignment(
     }
 }
 
-pub fn browse_folder(start_dir: Option<&str>, allow_multi: bool) -> Result<BrowseFolderResult, String> {
+pub fn browse_folder(
+    start_dir: Option<&str>,
+    allow_multi: bool,
+) -> Result<BrowseFolderResult, String> {
     let mut dialog = FileDialog::new();
 
     if let Some(candidate) = start_dir.map(str::trim).filter(|value| !value.is_empty()) {

@@ -1,8 +1,8 @@
 // Disclaimer logic — track and update disclaimer acceptance via the settings table.
 // Uses SQLx for database access.
 
-use sqlx::SqliteConnection;
 use crate::settings::{get_setting, update_setting};
+use sqlx::SqliteConnection;
 
 /// Returns true if the user has already accepted the disclaimer for this installation.
 pub async fn is_disclaimer_accepted(conn: &mut SqliteConnection) -> bool {
@@ -16,5 +16,7 @@ pub async fn is_disclaimer_accepted(conn: &mut SqliteConnection) -> bool {
 /// Returns true if the update succeeded.
 pub async fn set_disclaimer_accepted(conn: &mut SqliteConnection, accepted: bool) -> bool {
     let value = if accepted { "TRUE" } else { "FALSE" };
-    update_setting(conn, "disclaimer_accepted", value).await.is_ok()
+    update_setting(conn, "disclaimer_accepted", value)
+        .await
+        .is_ok()
 }

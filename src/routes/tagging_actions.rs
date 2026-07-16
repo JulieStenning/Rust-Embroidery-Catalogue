@@ -1,6 +1,6 @@
-use crate::settings;
 use crate::services::auto_tagging;
 use crate::services::backfill;
+use crate::settings;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
@@ -59,9 +59,10 @@ pub async fn get_tagging_actions_view_model(
     let ai_delay = get_setting_with_default(&mut conn, KEY_AI_DELAY)
         .await
         .map_err(|e| e.to_string())?;
-    let import_commit_batch_size = get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
-        .await
-        .map_err(|e| e.to_string())?;
+    let import_commit_batch_size =
+        get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let has_google_api_key = std::env::var("GOOGLE_API_KEY")
         .map(|value| !value.trim().is_empty())
@@ -131,7 +132,9 @@ pub async fn run_stitching_backfill(
 }
 
 #[tauri::command]
-pub fn preview_tagging_action(request: TaggingActionRequest) -> Result<TaggingActionPreview, String> {
+pub fn preview_tagging_action(
+    request: TaggingActionRequest,
+) -> Result<TaggingActionPreview, String> {
     let precedence = auto_tagging::TaggingPrecedence {
         request_override: request.request_override,
         settings_default: request.settings_default,
@@ -149,7 +152,10 @@ pub fn preview_tagging_action(request: TaggingActionRequest) -> Result<TaggingAc
     })
 }
 
-async fn get_setting_with_default(conn: &mut SqliteConnection, key: &str) -> Result<String, sqlx::Error> {
+async fn get_setting_with_default(
+    conn: &mut SqliteConnection,
+    key: &str,
+) -> Result<String, sqlx::Error> {
     let current = settings::get_setting(conn, key).await?;
     if let Some(setting) = current {
         return Ok(setting.value);

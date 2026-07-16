@@ -1,4 +1,3 @@
-
 /// Trait for embroidery file readers.
 ///
 /// All implementations **must** populate the returned `EmbPattern` with enough information

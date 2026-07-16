@@ -298,9 +298,9 @@ impl EmbCompress {
                 out.extend_from_within(position..end);
             } else {
                 for i in position..(position + length) {
-                    let b = *out
-                        .get(i)
-                        .ok_or_else(|| "compressed stream overlap copy out of bounds".to_string())?;
+                    let b = *out.get(i).ok_or_else(|| {
+                        "compressed stream overlap copy out of bounds".to_string()
+                    })?;
                     out.push(b);
                 }
             }
@@ -449,7 +449,7 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
 
     let command_compressed = &data[command_offset..(command_offset + cmd_len)];
     let x_compressed = &data[x_offset..(x_offset + x_len)];
-    let y_compressed = &data[y_offset..data.len()]; 
+    let y_compressed = &data[y_offset..data.len()];
 
     let command_decompressed = expand(command_compressed, Some(number_of_stitches))?;
     let x_decompressed = expand(x_compressed, Some(number_of_stitches))?;
@@ -497,10 +497,15 @@ mod tests {
     fn read_hus_fixture_produces_stitches_threads_and_end() {
         let path = "tests/testdata/Bean.hus";
         let data = fs::read(path).expect("expected HUS fixture file");
-        let pattern = HusReader.read(&data).expect("expected HUS parsing to succeed");
+        let pattern = HusReader
+            .read(&data)
+            .expect("expected HUS parsing to succeed");
 
         assert!(pattern.stitches.len() > 10, "expected parsed stitches");
-        assert!(!pattern.threadlist.is_empty(), "expected parsed thread entries");
+        assert!(
+            !pattern.threadlist.is_empty(),
+            "expected parsed thread entries"
+        );
         assert_eq!(
             pattern.stitches.last().map(|s| s.stitch_type),
             Some(StitchType::End),

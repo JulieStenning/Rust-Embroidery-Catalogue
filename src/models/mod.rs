@@ -147,11 +147,7 @@ pub struct Stitch {
 
 impl Stitch {
     pub fn new(x: f32, y: f32, stitch_type: StitchType) -> Self {
-        Stitch {
-            x,
-            y,
-            stitch_type,
-        }
+        Stitch { x, y, stitch_type }
     }
 }
 
@@ -198,7 +194,12 @@ impl EmbThread {
 
     /// Return the hex colour string e.g. "#ff0000".
     pub fn hex_color(&self) -> String {
-        format!("#{:02x}{:02x}{:02x}", self.get_red(), self.get_green(), self.get_blue())
+        format!(
+            "#{:02x}{:02x}{:02x}",
+            self.get_red(),
+            self.get_green(),
+            self.get_blue()
+        )
     }
 }
 
@@ -225,12 +226,7 @@ impl EmbPattern {
     }
 
     /// Add a stitch relative to the last stitch position.
-    pub fn add_stitch_relative(
-        &mut self,
-        stitch_type: StitchType,
-        dx: f32,
-        dy: f32,
-    ) {
+    pub fn add_stitch_relative(&mut self, stitch_type: StitchType, dx: f32, dy: f32) {
         let (prev_x, prev_y) = self
             .stitches
             .last()

@@ -221,7 +221,11 @@ fn read_pec_stitches(
         }
 
         // Decode Y — in the long-X case, the next unread byte becomes Y.
-        let y_byte1 = if val1 & FLAG_LONG != 0 { read_u8(cursor)? } else { val2 };
+        let y_byte1 = if val1 & FLAG_LONG != 0 {
+            read_u8(cursor)?
+        } else {
+            val2
+        };
 
         if y_byte1 & FLAG_LONG != 0 {
             if y_byte1 & TRIM_CODE != 0 {
@@ -261,11 +265,7 @@ fn read_pec_stitches(
 // ===========================================================================
 
 /// Process PEC colour bytes using the built-in thread palette.
-fn process_pec_colors(
-    color_bytes: &[u8],
-    pattern: &mut EmbPattern,
-    values: &mut Vec<EmbThread>,
-) {
+fn process_pec_colors(color_bytes: &[u8], pattern: &mut EmbPattern, values: &mut Vec<EmbThread>) {
     let thread_set = get_pec_thread_set();
     let max_value = thread_set.len();
     for &byte in color_bytes {
@@ -286,7 +286,8 @@ fn process_pec_table(
 ) {
     let thread_set = get_pec_thread_set();
     let max_value = thread_set.len();
-    let mut thread_map: std::collections::HashMap<usize, EmbThread> = std::collections::HashMap::new();
+    let mut thread_map: std::collections::HashMap<usize, EmbThread> =
+        std::collections::HashMap::new();
 
     for &byte in color_bytes {
         let color_index = byte as usize % max_value;
@@ -390,7 +391,10 @@ fn read_pec(
             let graphic_hex: String = graphic.iter().map(|b| format!("{:02x}", b)).collect();
             pattern.extras.insert(
                 name,
-                format!("{};{};{}", graphic_hex, pec_graphic_byte_stride, thread_color),
+                format!(
+                    "{};{};{}",
+                    graphic_hex, pec_graphic_byte_stride, thread_color
+                ),
             );
         }
     }
@@ -402,7 +406,10 @@ fn read_pec(
 // PES header reading (version-specific)
 // ===========================================================================
 
-fn read_pes_metadata(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Result<(), binrw::Error> {
+fn read_pes_metadata(
+    cursor: &mut Cursor<&[u8]>,
+    pattern: &mut EmbPattern,
+) -> Result<(), binrw::Error> {
     if let Some(v) = read_pes_string(cursor)? {
         if !v.is_empty() {
             pattern.extras.insert("name".into(), v);
@@ -431,7 +438,10 @@ fn read_pes_metadata(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Re
     Ok(())
 }
 
-fn read_pes_thread(cursor: &mut Cursor<&[u8]>, threadlist: &mut Vec<EmbThread>) -> Result<(), binrw::Error> {
+fn read_pes_thread(
+    cursor: &mut Cursor<&[u8]>,
+    threadlist: &mut Vec<EmbThread>,
+) -> Result<(), binrw::Error> {
     let catalog_number = read_pes_string(cursor)?;
     let color = 0xFF000000 | read_u24_be(cursor)?;
     cursor.seek(SeekFrom::Current(5))?;
@@ -451,7 +461,10 @@ fn read_pes_thread(cursor: &mut Cursor<&[u8]>, threadlist: &mut Vec<EmbThread>) 
     Ok(())
 }
 
-fn skip_complex_items(cursor: &mut Cursor<&[u8]>, threadlist: &mut Vec<EmbThread>) -> Result<bool, binrw::Error> {
+fn skip_complex_items(
+    cursor: &mut Cursor<&[u8]>,
+    threadlist: &mut Vec<EmbThread>,
+) -> Result<bool, binrw::Error> {
     let count_programmable_fills = read_u16_le(cursor)?;
     if count_programmable_fills != 0 {
         return Ok(true);
@@ -717,9 +730,7 @@ fn interpolate_duplicate_color_as_stop(pattern: &mut EmbPattern) {
                     init_color = false;
                 }
             }
-            StitchType::ColorChange
-            | StitchType::ColorBreak
-            | StitchType::NeedleSet => {
+            StitchType::ColorChange | StitchType::ColorBreak | StitchType::NeedleSet => {
                 init_color = true;
                 last_change = Some(position);
             }
@@ -772,9 +783,9 @@ mod tests {
     #[test]
     fn test_read_pec_stitches_color_change_preserves_position() {
         let data = [
-            0x01, 0x02,       // stitch (+1,+2)
+            0x01, 0x02, // stitch (+1,+2)
             0xFE, 0xB0, 0x01, // color change marker + skip byte
-            0x03, 0x04,       // stitch (+3,+4)
+            0x03, 0x04, // stitch (+3,+4)
             0xFF, 0x00,
         ];
         let mut cursor = Cursor::new(&data[..]);

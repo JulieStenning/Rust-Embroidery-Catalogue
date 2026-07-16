@@ -43,7 +43,11 @@ fn is_sqlite_locked_error(err: &sqlx::Error) -> bool {
     match err {
         sqlx::Error::Database(db_err) => {
             let code = db_err.code().unwrap_or(Cow::Borrowed(""));
-            code == "5" || db_err.message().to_ascii_lowercase().contains("database is locked")
+            code == "5"
+                || db_err
+                    .message()
+                    .to_ascii_lowercase()
+                    .contains("database is locked")
         }
         _ => false,
     }

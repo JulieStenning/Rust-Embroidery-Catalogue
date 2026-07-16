@@ -67,7 +67,9 @@ pub struct BrowseDataRootResult {
 }
 
 #[tauri::command]
-pub async fn get_settings_view_model(state: State<'_, AppState>) -> Result<SettingsViewModel, String> {
+pub async fn get_settings_view_model(
+    state: State<'_, AppState>,
+) -> Result<SettingsViewModel, String> {
     let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
 
     let image_preference = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
@@ -92,12 +94,14 @@ pub async fn get_settings_view_model(state: State<'_, AppState>) -> Result<Setti
     let ai_delay = get_setting_with_default(&mut conn, KEY_AI_DELAY)
         .await
         .map_err(|e| e.to_string())?;
-    let import_commit_batch_size = get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
-        .await
-        .map_err(|e| e.to_string())?;
-    let import_last_browse_folder = get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER)
-        .await
-        .map_err(|e| e.to_string())?;
+    let import_commit_batch_size =
+        get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
+            .await
+            .map_err(|e| e.to_string())?;
+    let import_last_browse_folder =
+        get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let google_api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
     let has_google_api_key = !google_api_key.trim().is_empty();
@@ -155,12 +159,20 @@ pub async fn save_settings_view_model(
 
     let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
 
-    upsert_setting(&mut conn, KEY_AI_TIER2_AUTO, bool_to_setting(request.ai_tier2_auto))
-        .await
-        .map_err(|e| e.to_string())?;
-    upsert_setting(&mut conn, KEY_AI_TIER3_AUTO, bool_to_setting(request.ai_tier3_auto))
-        .await
-        .map_err(|e| e.to_string())?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_TIER2_AUTO,
+        bool_to_setting(request.ai_tier2_auto),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_TIER3_AUTO,
+        bool_to_setting(request.ai_tier3_auto),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, &ai_batch_size)
         .await
         .map_err(|e| e.to_string())?;
@@ -204,7 +216,10 @@ pub fn browse_settings_data_root(start_dir: Option<String>) -> BrowseDataRootRes
     }
 }
 
-async fn get_setting_with_default(conn: &mut SqliteConnection, key: &str) -> Result<String, sqlx::Error> {
+async fn get_setting_with_default(
+    conn: &mut SqliteConnection,
+    key: &str,
+) -> Result<String, sqlx::Error> {
     let current = settings::get_setting(conn, key).await?;
     if let Some(setting) = current {
         return Ok(setting.value);
@@ -215,7 +230,11 @@ async fn get_setting_with_default(conn: &mut SqliteConnection, key: &str) -> Res
     Ok(fallback)
 }
 
-async fn upsert_setting(conn: &mut SqliteConnection, key: &str, value: &str) -> Result<(), sqlx::Error> {
+async fn upsert_setting(
+    conn: &mut SqliteConnection,
+    key: &str,
+    value: &str,
+) -> Result<(), sqlx::Error> {
     sqlx::query(
         "INSERT INTO settings (key, value, description) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
@@ -425,8 +444,14 @@ mod tests {
         assert_eq!(normalize_preview_3d_profile("soft"), "soft");
         assert_eq!(normalize_preview_3d_profile("  SOFT "), "soft");
         assert_eq!(normalize_preview_3d_profile("balanced"), "balanced");
-        assert_eq!(normalize_preview_3d_profile("high-contrast"), "high-contrast");
-        assert_eq!(normalize_preview_3d_profile("HIGH_CONTRAST"), "high-contrast");
+        assert_eq!(
+            normalize_preview_3d_profile("high-contrast"),
+            "high-contrast"
+        );
+        assert_eq!(
+            normalize_preview_3d_profile("HIGH_CONTRAST"),
+            "high-contrast"
+        );
         assert_eq!(normalize_preview_3d_profile("other"), "balanced");
     }
 
@@ -521,11 +546,15 @@ mod tests {
         assert!(write_result.is_ok());
         let written = std::fs::read_to_string(test_dir.join(".env")).expect(".env should exist");
         assert!(written.contains("GOOGLE_API_KEY=test-key-123"));
-        assert_eq!(std::env::var("GOOGLE_API_KEY").unwrap_or_default(), "test-key-123");
+        assert_eq!(
+            std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+            "test-key-123"
+        );
 
         let clear_result = save_google_api_key_to_env("");
         assert!(clear_result.is_ok());
-        let cleared = std::fs::read_to_string(test_dir.join(".env")).expect(".env should still exist");
+        let cleared =
+            std::fs::read_to_string(test_dir.join(".env")).expect(".env should still exist");
         assert!(!cleared.contains("GOOGLE_API_KEY="));
         assert!(std::env::var("GOOGLE_API_KEY").is_err());
 

@@ -1,7 +1,7 @@
 // Database connection management using SQLx
+use crate::config::BootstrapConfig;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
-use crate::config::BootstrapConfig;
 
 /// Create a SQLite connection pool (max 1 connection — appropriate for a local
 /// single-user desktop app). The pool is `Send + Sync`, which allows it to be
@@ -18,7 +18,12 @@ pub async fn establish_connection() -> SqlitePool {
     sqlx::query("PRAGMA busy_timeout = 30000")
         .execute(&pool)
         .await
-        .unwrap_or_else(|e| panic!("Failed to set SQLite busy timeout for '{}': {}", database_url, e));
+        .unwrap_or_else(|e| {
+            panic!(
+                "Failed to set SQLite busy timeout for '{}': {}",
+                database_url, e
+            )
+        });
 
     pool
 }

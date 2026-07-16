@@ -2,27 +2,42 @@ use image::ImageEncoder;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{EmbPattern, Stitch, StitchType, EmbThread};
+    use crate::models::{EmbPattern, EmbThread, Stitch, StitchType};
 
     fn count_non_bg_pixels(png_bytes: &[u8], bg: Rgba<u8>) -> usize {
-        let img = image::load_from_memory(png_bytes).expect("decode png").to_rgba8();
+        let img = image::load_from_memory(png_bytes)
+            .expect("decode png")
+            .to_rgba8();
         img.pixels().filter(|p| **p != bg).count()
     }
 
     fn image_dimensions(png_bytes: &[u8]) -> (u32, u32) {
-        let img = image::load_from_memory(png_bytes).expect("decode png").to_rgba8();
+        let img = image::load_from_memory(png_bytes)
+            .expect("decode png")
+            .to_rgba8();
         (img.width(), img.height())
     }
 
     #[test]
     fn renders_simple_pattern() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 10.0, y: 0.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
         pattern.threadlist.push(EmbThread::new(0xFF0000)); // Red
         let settings = RenderSettings::default();
         let png = render_pattern_to_png(&pattern, &settings);
-        assert!(count_non_bg_pixels(&png, settings.background) > 0, "Should render visible line");
+        assert!(
+            count_non_bg_pixels(&png, settings.background) > 0,
+            "Should render visible line"
+        );
     }
 
     #[test]
@@ -30,55 +45,117 @@ mod tests {
         let pattern = EmbPattern::new();
         let settings = RenderSettings::default();
         let png = render_pattern_to_png(&pattern, &settings);
-        assert_eq!(count_non_bg_pixels(&png, settings.background), 0, "No stitches should be blank");
+        assert_eq!(
+            count_non_bg_pixels(&png, settings.background),
+            0,
+            "No stitches should be blank"
+        );
     }
 
     #[test]
     fn uses_default_color_if_no_threads() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 10.0, y: 0.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
         let settings = RenderSettings::default();
         let png = render_pattern_to_png(&pattern, &settings);
         // Should not be blank
-        assert!(count_non_bg_pixels(&png, settings.background) > 0, "Should render with default color");
+        assert!(
+            count_non_bg_pixels(&png, settings.background) > 0,
+            "Should render with default color"
+        );
     }
 
     #[test]
     fn renders_color_change_segments() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 10.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 10.0, y: 10.0, stitch_type: StitchType::ColorChange });
-        pattern.stitches.push(Stitch { x: 20.0, y: 10.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10.0,
+            y: 10.0,
+            stitch_type: StitchType::ColorChange,
+        });
+        pattern.stitches.push(Stitch {
+            x: 20.0,
+            y: 10.0,
+            stitch_type: StitchType::Stitch,
+        });
         pattern.threadlist.push(EmbThread::new(0xFF0000)); // Red
         pattern.threadlist.push(EmbThread::new(0x0000FF)); // Blue
         let settings = RenderSettings::default();
         let png = render_pattern_to_png(&pattern, &settings);
         // Should not be blank
-        assert!(count_non_bg_pixels(&png, settings.background) > 0, "Should render with color changes");
+        assert!(
+            count_non_bg_pixels(&png, settings.background) > 0,
+            "Should render with color changes"
+        );
     }
 
     #[test]
     fn color_change_switches_to_next_thread_color() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 8.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 8.0, y: 6.0, stitch_type: StitchType::ColorChange });
-        pattern.stitches.push(Stitch { x: 12.0, y: 6.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 20.0, y: 6.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 8.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 8.0,
+            y: 6.0,
+            stitch_type: StitchType::ColorChange,
+        });
+        pattern.stitches.push(Stitch {
+            x: 12.0,
+            y: 6.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 20.0,
+            y: 6.0,
+            stitch_type: StitchType::Stitch,
+        });
         pattern.threadlist.push(EmbThread::new(0xFF0000));
         pattern.threadlist.push(EmbThread::new(0x0000FF));
 
         let settings = RenderSettings::default().with_preview_3d(false);
         let png = render_pattern_to_png(&pattern, &settings);
-        let img = image::load_from_memory(&png).expect("decode png").to_rgba8();
+        let img = image::load_from_memory(&png)
+            .expect("decode png")
+            .to_rgba8();
 
         let red = Rgba([255, 0, 0, 255]);
         let blue = Rgba([0, 0, 255, 255]);
 
-        assert!(img.pixels().any(|pixel| *pixel == red), "first thread color should be rendered");
-        assert!(img.pixels().any(|pixel| *pixel == blue), "second thread color should be rendered after color change");
+        assert!(
+            img.pixels().any(|pixel| *pixel == red),
+            "first thread color should be rendered"
+        );
+        assert!(
+            img.pixels().any(|pixel| *pixel == blue),
+            "second thread color should be rendered after color change"
+        );
     }
 
     #[test]
@@ -91,25 +168,56 @@ mod tests {
     #[test]
     fn ignores_jump_only_outliers_when_framing_preview() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 10.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 10000.0, y: 10000.0, stitch_type: StitchType::Jump });
-        pattern.stitches.push(Stitch { x: 12.0, y: 1.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 10000.0,
+            y: 10000.0,
+            stitch_type: StitchType::Jump,
+        });
+        pattern.stitches.push(Stitch {
+            x: 12.0,
+            y: 1.0,
+            stitch_type: StitchType::Stitch,
+        });
         pattern.threadlist.push(EmbThread::new(0x00AA00));
 
         let settings = RenderSettings::default();
         let png = render_pattern_to_png(&pattern, &settings);
         let (width, height) = image_dimensions(&png);
 
-        assert!(width < 200 && height < 200, "jump-only outlier should not inflate preview size");
+        assert!(
+            width < 200 && height < 200,
+            "jump-only outlier should not inflate preview size"
+        );
     }
 
     #[test]
     fn preview_3d_mode_produces_distinct_image_from_2d() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 24.0, y: 8.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 36.0, y: 14.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 24.0,
+            y: 8.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 36.0,
+            y: 14.0,
+            stitch_type: StitchType::Stitch,
+        });
         pattern.threadlist.push(EmbThread::new(0x1E88E5));
 
         let settings_2d = RenderSettings::default().with_preview_3d(false);
@@ -129,9 +237,21 @@ mod tests {
     #[test]
     fn three_d_style_profile_changes_render_output() {
         let mut pattern = EmbPattern::new();
-        pattern.stitches.push(Stitch { x: 0.0, y: 0.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 18.0, y: 8.0, stitch_type: StitchType::Stitch });
-        pattern.stitches.push(Stitch { x: 30.0, y: 12.0, stitch_type: StitchType::Stitch });
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y: 0.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 18.0,
+            y: 8.0,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 30.0,
+            y: 12.0,
+            stitch_type: StitchType::Stitch,
+        });
         pattern.threadlist.push(EmbThread::new(0xE53935));
 
         let soft_profile = ThreeDStyle {
@@ -162,11 +282,13 @@ mod tests {
                 .with_three_d_style(punchy_profile),
         );
 
-        assert_ne!(soft_png, punchy_png, "3D style tuning should affect output image");
+        assert_ne!(
+            soft_png, punchy_png,
+            "3D style tuning should affect output image"
+        );
     }
 }
 /// PNG rendering for embroidery previews (Rust replacement for Python PngWriter)
-
 use crate::models::{EmbPattern, StitchType};
 use image::{Rgba, RgbaImage};
 use imageproc::drawing::draw_antialiased_line_segment_mut;
@@ -365,23 +487,14 @@ pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) ->
         Rgba([0, 0, 0, 255])
     } else {
         let thread = &pattern.threadlist[0];
-        Rgba([
-            thread.get_red(),
-            thread.get_green(),
-            thread.get_blue(),
-            255,
-        ])
+        Rgba([thread.get_red(), thread.get_green(), thread.get_blue(), 255])
     };
     for stitch in &pattern.stitches {
         // Color change: update thread color
-        if stitch.stitch_type == StitchType::ColorChange && thread_index < pattern.threadlist.len() {
+        if stitch.stitch_type == StitchType::ColorChange && thread_index < pattern.threadlist.len()
+        {
             let thread = &pattern.threadlist[thread_index];
-            current_color = Rgba([
-                thread.get_red(),
-                thread.get_green(),
-                thread.get_blue(),
-                255,
-            ]);
+            current_color = Rgba([thread.get_red(), thread.get_green(), thread.get_blue(), 255]);
             thread_index += 1;
             last_point = None;
             continue;
@@ -412,12 +525,7 @@ pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) ->
     let mut buf = Vec::new();
     use image::codecs::png::PngEncoder;
     PngEncoder::new(&mut buf)
-        .write_image(
-            &img,
-            img.width(),
-            img.height(),
-            image::ColorType::Rgba8,
-        )
+        .write_image(&img, img.width(), img.height(), image::ColorType::Rgba8)
         .expect("PNG encoding failed");
     buf
 }

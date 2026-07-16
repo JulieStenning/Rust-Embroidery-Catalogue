@@ -1,5 +1,7 @@
 use crate::config::BootstrapConfig;
-use crate::services::{folder_picker, image_generation, scanning, stitch_identifier, tagging, validation};
+use crate::services::{
+    folder_picker, image_generation, scanning, stitch_identifier, tagging, validation,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
@@ -13,7 +15,8 @@ use tauri::Emitter;
 const BULK_IMPORT_CONTEXT_TTL: Duration = Duration::from_secs(15 * 60);
 const BULK_IMPORT_CONTEXT_MAX_ENTRIES: usize = 128;
 
-static BULK_IMPORT_CONTEXT_STORE: OnceLock<Mutex<HashMap<String, StoredBulkImportContext>>> = OnceLock::new();
+static BULK_IMPORT_CONTEXT_STORE: OnceLock<Mutex<HashMap<String, StoredBulkImportContext>>> =
+    OnceLock::new();
 static BULK_IMPORT_CONTEXT_COUNTER: AtomicU64 = AtomicU64::new(1);
 static BULK_IMPORT_DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 static BULK_IMPORT_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
@@ -364,24 +367,23 @@ fn normalize_import_image_preference_override(raw_value: Option<&str>) -> Option
 }
 
 async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, String> {
-    let raw_batch_size: Option<String> = sqlx::query_scalar(
-        "SELECT value FROM settings WHERE key = ? LIMIT 1",
-    )
-    .bind(KEY_IMPORT_COMMIT_BATCH_SIZE)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let raw_batch_size: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = ? LIMIT 1")
+            .bind(KEY_IMPORT_COMMIT_BATCH_SIZE)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    Ok(normalize_import_commit_batch_size(raw_batch_size.as_deref()))
+    Ok(normalize_import_commit_batch_size(
+        raw_batch_size.as_deref(),
+    ))
 }
 
 async fn load_tag_catalog(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
-    sqlx::query_as::<_, (i64, String)>(
-        "SELECT id, description FROM tags ORDER BY id ASC",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())
+    sqlx::query_as::<_, (i64, String)>("SELECT id, description FROM tags ORDER BY id ASC")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 async fn load_stitching_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, String> {
@@ -491,7 +493,10 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
     let base_prefix = format!("{}/", base_lower.trim_end_matches('/'));
     if full_lower.starts_with(&base_prefix) {
         let suffix = &normalized_full[(base_prefix.len())..];
-        return Ok(format!("/MachineEmbroideryDesigns/{}", suffix.trim_start_matches('/')));
+        return Ok(format!(
+            "/MachineEmbroideryDesigns/{}",
+            suffix.trim_start_matches('/')
+        ));
     }
 
     Err(format!(
@@ -563,7 +568,8 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
                 }
             } else {
                 // File is the root itself — use root folder name + filename
-                let filename = source.file_name()
+                let filename = source
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("unknown");
                 Some(format!("{}/{}", root_folder_name, filename))
@@ -571,21 +577,37 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
         })
         .unwrap_or_else(|| {
             // Fallback: use just the filename
-            source.file_name()
+            source
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string()
         });
 
     let dest = designs_base.join(&rel_path);
-    let dest_parent = dest.parent()
-        .ok_or_else(|| format!("Cannot determine parent directory for destination: '{}'", dest.display()))?;
+    let dest_parent = dest.parent().ok_or_else(|| {
+        format!(
+            "Cannot determine parent directory for destination: '{}'",
+            dest.display()
+        )
+    })?;
 
-    fs::create_dir_all(dest_parent)
-        .map_err(|e| format!("Failed to create directory '{}': {}", dest_parent.display(), e))?;
+    fs::create_dir_all(dest_parent).map_err(|e| {
+        format!(
+            "Failed to create directory '{}': {}",
+            dest_parent.display(),
+            e
+        )
+    })?;
 
-    fs::copy(source, &dest)
-        .map_err(|e| format!("Failed to copy '{}' to '{}': {}", source.display(), dest.display(), e))?;
+    fs::copy(source, &dest).map_err(|e| {
+        format!(
+            "Failed to copy '{}' to '{}': {}",
+            source.display(),
+            dest.display(),
+            e
+        )
+    })?;
 
     println!(
         "Copied external file '{}' to managed directory '{}'",
@@ -725,7 +747,9 @@ fn build_preview_folder_assignments(
     assignments
 }
 
-async fn load_designers_for_import_inference(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
+async fn load_designers_for_import_inference(
+    pool: &SqlitePool,
+) -> Result<Vec<(i64, String)>, String> {
     sqlx::query_as::<_, (i64, String)>(
         "SELECT id, name FROM designers ORDER BY LENGTH(name) DESC, name ASC, id ASC",
     )
@@ -734,7 +758,9 @@ async fn load_designers_for_import_inference(pool: &SqlitePool) -> Result<Vec<(i
     .map_err(|error| error.to_string())
 }
 
-async fn load_sources_for_import_inference(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
+async fn load_sources_for_import_inference(
+    pool: &SqlitePool,
+) -> Result<Vec<(i64, String)>, String> {
     sqlx::query_as::<_, (i64, String)>(
         "SELECT id, name FROM sources ORDER BY LENGTH(name) DESC, name ASC, id ASC",
     )
@@ -755,7 +781,10 @@ fn resolve_assignment_for_file(
         let normalized_folder = normalize_path_for_match(&assignment.folder_path);
         if normalized_file.starts_with(&normalized_folder) {
             let score = normalized_folder.len();
-            if best_match.map(|(_, best_score)| score > best_score).unwrap_or(true) {
+            if best_match
+                .map(|(_, best_score)| score > best_score)
+                .unwrap_or(true)
+            {
                 best_match = Some((assignment, score));
             }
         }
@@ -789,8 +818,10 @@ async fn persist_bulk_import_confirm_wire(
     let preview_3d_profile = load_import_preview_3d_profile_if_initialized(pool).await?;
     let commit_batch_size = load_import_commit_batch_size(pool).await?;
     let tag_catalog = load_tag_catalog(pool).await?;
-    let valid_descriptions: HashSet<String> =
-        tag_catalog.iter().map(|(_, description)| description.clone()).collect();
+    let valid_descriptions: HashSet<String> = tag_catalog
+        .iter()
+        .map(|(_, description)| description.clone())
+        .collect();
     let description_to_tag_id: HashMap<String, i64> = tag_catalog
         .into_iter()
         .map(|(tag_id, description)| (description, tag_id))
@@ -883,7 +914,7 @@ async fn persist_bulk_import_confirm_wire(
                     None,
                 );
                 let t_batch = Instant::now();
-                
+
                 let cache = image_generation::generate_previews_via_python_batch(&python_requests);
                 println!(
                     "[TIMING] Python batch done: {}ms for {} file(s)",
@@ -901,7 +932,8 @@ async fn persist_bulk_import_confirm_wire(
                 break;
             }
 
-            let stored_filepath = ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
+            let stored_filepath =
+                ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
 
             emit_progress(
                 "processing_file",
@@ -912,13 +944,12 @@ async fn persist_bulk_import_confirm_wire(
             );
 
             let t_dedup = Instant::now();
-            let existing_design_id: Option<i64> = sqlx::query_scalar(
-                "SELECT id FROM designs WHERE filepath = ? LIMIT 1",
-            )
-            .bind(&stored_filepath)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|e| e.to_string())?;
+            let existing_design_id: Option<i64> =
+                sqlx::query_scalar("SELECT id FROM designs WHERE filepath = ? LIMIT 1")
+                    .bind(&stored_filepath)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
             total_dedup_check_ms += t_dedup.elapsed().as_millis();
 
             if existing_design_id.is_some() {
@@ -957,20 +988,22 @@ async fn persist_bulk_import_confirm_wire(
                 filename,
                 image_result.backend,
                 image_gen_ms,
-                image_result.error.as_deref().map(|e| format!(" error={e}")).unwrap_or_default(),
+                image_result
+                    .error
+                    .as_deref()
+                    .map(|e| format!(" error={e}"))
+                    .unwrap_or_default(),
             );
             if let Some(error) = image_result.error.as_ref() {
                 println!(
                     "Image generation adapter error for '{}': {}",
-                    file_path,
-                    error
+                    file_path, error
                 );
             }
 
             let hoop_id = match (image_result.width_mm, image_result.height_mm) {
-                (Some(width_mm), Some(height_mm)) => {
-                    sqlx::query_scalar::<_, i64>(
-                        r#"
+                (Some(width_mm), Some(height_mm)) => sqlx::query_scalar::<_, i64>(
+                    r#"
                         SELECT h.id
                         FROM hoops h
                         WHERE
@@ -989,15 +1022,14 @@ async fn persist_bulk_import_confirm_wire(
                             h.name COLLATE NOCASE ASC
                         LIMIT 1
                         "#,
-                    )
-                    .bind(width_mm)
-                    .bind(height_mm)
-                    .bind(height_mm)
-                    .bind(width_mm)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .map_err(|e| e.to_string())?
-                }
+                )
+                .bind(width_mm)
+                .bind(height_mm)
+                .bind(height_mm)
+                .bind(width_mm)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?,
                 _ => None,
             };
 
@@ -1072,14 +1104,12 @@ async fn persist_bulk_import_confirm_wire(
             }
 
             for tag_id in &stitching_tag_ids {
-                sqlx::query(
-                    "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
-                )
-                .bind(design_id)
-                .bind(*tag_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
+                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                    .bind(design_id)
+                    .bind(*tag_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
             }
 
             if !matched_descriptions.is_empty() || !stitching_tag_ids.is_empty() {
@@ -1361,7 +1391,7 @@ pub fn debug_bulk_import_assignment_resolution_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportAssignmentResolutionSummary, String> {
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
-    
+
     let mut explicit_field_count = 0usize;
     let mut global_field_count = 0usize;
     let mut inferred_field_count = 0usize;
@@ -1394,7 +1424,7 @@ pub fn precheck_bulk_import_wire(
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
     let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized()?;
     let context_token = store_bulk_import_context(confirm_wire.clone());
-    
+
     Ok(BulkImportPrecheckResult {
         context_token,
         context_token_present: true,
@@ -1415,8 +1445,9 @@ pub async fn precheck_bulk_import_action_wire(
 
     match request.action {
         BulkImportPrecheckActionWire::ReviewHoops => {
-            get_bulk_import_context(&context_token)
-                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+            get_bulk_import_context(&context_token).ok_or_else(|| {
+                format!("Unknown or expired bulk import context token: {context_token}")
+            })?;
 
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
@@ -1428,8 +1459,9 @@ pub async fn precheck_bulk_import_action_wire(
             })
         }
         BulkImportPrecheckActionWire::ReviewTags => {
-            get_bulk_import_context(&context_token)
-                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+            get_bulk_import_context(&context_token).ok_or_else(|| {
+                format!("Unknown or expired bulk import context token: {context_token}")
+            })?;
 
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
@@ -1441,8 +1473,9 @@ pub async fn precheck_bulk_import_action_wire(
             })
         }
         BulkImportPrecheckActionWire::ReviewSources => {
-            get_bulk_import_context(&context_token)
-                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+            get_bulk_import_context(&context_token).ok_or_else(|| {
+                format!("Unknown or expired bulk import context token: {context_token}")
+            })?;
 
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
@@ -1454,8 +1487,9 @@ pub async fn precheck_bulk_import_action_wire(
             })
         }
         BulkImportPrecheckActionWire::ReviewDesigners => {
-            get_bulk_import_context(&context_token)
-                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+            get_bulk_import_context(&context_token).ok_or_else(|| {
+                format!("Unknown or expired bulk import context token: {context_token}")
+            })?;
 
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
@@ -1467,8 +1501,9 @@ pub async fn precheck_bulk_import_action_wire(
             })
         }
         BulkImportPrecheckActionWire::Cancel => {
-            take_bulk_import_context(&context_token)
-                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+            take_bulk_import_context(&context_token).ok_or_else(|| {
+                format!("Unknown or expired bulk import context token: {context_token}")
+            })?;
 
             Ok(BulkImportPrecheckActionResult {
                 action: request.action,
@@ -1480,10 +1515,12 @@ pub async fn precheck_bulk_import_action_wire(
             })
         }
         BulkImportPrecheckActionWire::ImportNow => {
-            get_bulk_import_context(&context_token)
-                .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
+            get_bulk_import_context(&context_token).ok_or_else(|| {
+                format!("Unknown or expired bulk import context token: {context_token}")
+            })?;
 
-            let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized_async().await?;
+            let (is_first_import, needs_hoop_setup) =
+                load_import_precheck_state_if_initialized_async().await?;
             let requires_skip_hoops_confirmation =
                 is_first_import && needs_hoop_setup && !request.confirm_skip_hoops;
 
@@ -1562,7 +1599,7 @@ pub fn confirm_bulk_import_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
     let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
-    
+
     Ok(BulkImportConfirmExecutionResult {
         context_token_present: confirm_wire.context_token.is_some(),
         canonical_confirm: true,
@@ -1693,8 +1730,7 @@ fn preview_bulk_import_wire_with_pool(
     }
 
     scanned_files.sort_by(|left, right| {
-        left
-            .full_path
+        left.full_path
             .to_ascii_lowercase()
             .cmp(&right.full_path.to_ascii_lowercase())
     });
@@ -1711,8 +1747,10 @@ fn preview_bulk_import_wire_with_pool(
     let mut preview_assignments = build_preview_folder_assignments(&wire, &scanned_files);
 
     if let Some(active_pool) = pool {
-        let designers = tauri::async_runtime::block_on(load_designers_for_import_inference(active_pool))?;
-        let sources = tauri::async_runtime::block_on(load_sources_for_import_inference(active_pool))?;
+        let designers =
+            tauri::async_runtime::block_on(load_designers_for_import_inference(active_pool))?;
+        let sources =
+            tauri::async_runtime::block_on(load_sources_for_import_inference(active_pool))?;
 
         for assignment in &mut preview_assignments {
             let (inferred_designer_id, inferred_source_id) = infer_assignment_ids_from_folder_path(
@@ -1761,8 +1799,8 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use sqlx::sqlite::SqlitePoolOptions;
+    use std::fs;
 
     async fn import_test_pool() -> SqlitePool {
         let pool = SqlitePoolOptions::new()
@@ -1906,7 +1944,8 @@ mod tests {
         };
 
         let encoded = serde_json::to_string(&wire).expect("wire should serialize");
-        let decoded: BulkImportWire = serde_json::from_str(&encoded).expect("wire should deserialize");
+        let decoded: BulkImportWire =
+            serde_json::from_str(&encoded).expect("wire should deserialize");
 
         assert_eq!(decoded.root_paths.len(), 1);
         assert_eq!(decoded.per_folder_assignments.len(), 1);
@@ -1942,7 +1981,7 @@ mod tests {
             None,
             None,
         ))
-            .expect("persist should succeed");
+        .expect("persist should succeed");
         assert_eq!(persisted, 1);
 
         // The file is now stored under MachineEmbroideryDesigns/testdata/Bean.pes
@@ -1982,7 +2021,10 @@ mod tests {
 
         std::env::set_var("IMPORT_IMAGE_BACKEND", "auto");
         // Intentionally point to a missing executable so python path fails and auto must use native fallback.
-        std::env::set_var("RUST_EMBROIDERY_PYTHON", "__missing_python_for_auto_fallback_test__");
+        std::env::set_var(
+            "RUST_EMBROIDERY_PYTHON",
+            "__missing_python_for_auto_fallback_test__",
+        );
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
         tauri::async_runtime::block_on(async {
@@ -2011,7 +2053,7 @@ mod tests {
             None,
             None,
         ))
-            .expect("persist should succeed even when python path is unavailable");
+        .expect("persist should succeed even when python path is unavailable");
         assert_eq!(persisted, 1);
 
         // The file is now stored under MachineEmbroideryDesigns/testdata/Bean.pes
@@ -2046,19 +2088,18 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
-        let fixture = Path::new("tests")
-            .join("testdata")
-            .join("Bean.hus");
+        let fixture = Path::new("tests").join("testdata").join("Bean.hus");
         assert!(fixture.exists(), "expected Bean.hus fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
         std::env::set_var("IMPORT_IMAGE_BACKEND", "auto");
 
-        let generation_result = image_generation::generate_preview(&image_generation::ImageGenerationRequest {
-            file_path: fixture.to_string_lossy().to_string(),
-            preview_3d: true,
-            preview_3d_profile: Some("balanced".to_string()),
-        });
+        let generation_result =
+            image_generation::generate_preview(&image_generation::ImageGenerationRequest {
+                file_path: fixture.to_string_lossy().to_string(),
+                preview_3d: true,
+                preview_3d_profile: Some("balanced".to_string()),
+            });
 
         assert_eq!(generation_result.backend, "native");
         let error_text = generation_result
@@ -2091,7 +2132,7 @@ mod tests {
             None,
             None,
         ))
-            .expect("persist should succeed for .hus even when preview generation fails");
+        .expect("persist should succeed for .hus even when preview generation fails");
         assert_eq!(persisted, 1);
 
         // The file is now stored under MachineEmbroideryDesigns/testdata/Bean.hus
@@ -2103,14 +2144,16 @@ mod tests {
                 .await
         })
         .expect("expected design lookup to succeed");
-        assert!(persisted_row_id.is_some(), "expected .hus design row to be inserted");
+        assert!(
+            persisted_row_id.is_some(),
+            "expected .hus design row to be inserted"
+        );
 
         if let Some(value) = previous_backend {
             std::env::set_var("IMPORT_IMAGE_BACKEND", value);
         } else {
             std::env::remove_var("IMPORT_IMAGE_BACKEND");
         }
-
     }
 
     #[test]
@@ -2130,17 +2173,27 @@ mod tests {
     fn normalize_import_image_preference_override_accepts_only_2d_or_3d() {
         assert_eq!(normalize_import_image_preference_override(None), None);
         assert_eq!(normalize_import_image_preference_override(Some("")), None);
-        assert_eq!(normalize_import_image_preference_override(Some("2d")), Some(false));
-        assert_eq!(normalize_import_image_preference_override(Some(" 3D ")), Some(true));
-        assert_eq!(normalize_import_image_preference_override(Some("unexpected")), None);
+        assert_eq!(
+            normalize_import_image_preference_override(Some("2d")),
+            Some(false)
+        );
+        assert_eq!(
+            normalize_import_image_preference_override(Some(" 3D ")),
+            Some(true)
+        );
+        assert_eq!(
+            normalize_import_image_preference_override(Some("unexpected")),
+            None
+        );
     }
 
     #[test]
     fn load_import_commit_batch_size_reads_setting_override() {
         let pool = tauri::async_runtime::block_on(import_test_pool());
 
-        let default_batch_size = tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
-            .expect("default batch size should load");
+        let default_batch_size =
+            tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
+                .expect("default batch size should load");
         assert_eq!(default_batch_size, 10);
 
         tauri::async_runtime::block_on(async {
@@ -2155,8 +2208,9 @@ mod tests {
         })
         .expect("failed to set import commit batch size");
 
-        let configured_batch_size = tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
-            .expect("configured batch size should load");
+        let configured_batch_size =
+            tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
+                .expect("configured batch size should load");
         assert_eq!(configured_batch_size, 25);
     }
 
@@ -2302,7 +2356,7 @@ mod tests {
 
         let image_type = tauri::async_runtime::block_on(async {
             sqlx::query_scalar::<_, Option<String>>(
-                "SELECT image_type FROM designs WHERE filepath = ? LIMIT 1"
+                "SELECT image_type FROM designs WHERE filepath = ? LIMIT 1",
             )
             .bind(stored_filepath)
             .fetch_one(&pool)
@@ -2353,7 +2407,10 @@ mod tests {
     fn assignment_field_resolution_prefers_explicit_global_inferred_blank() {
         let explicit = resolve_assignment_field(Some(1), Some(2), Some(3));
         assert_eq!(explicit.value, Some(1));
-        assert_eq!(explicit.source, AssignmentFieldSourceWire::ExplicitPerFolder);
+        assert_eq!(
+            explicit.source,
+            AssignmentFieldSourceWire::ExplicitPerFolder
+        );
 
         let global = resolve_assignment_field(None, Some(2), Some(3));
         assert_eq!(global.value, Some(2));
@@ -2416,14 +2473,26 @@ mod tests {
         let resolved = resolve_bulk_import_assignments(&confirm_wire);
         assert_eq!(resolved.len(), 2);
         assert_eq!(resolved[0].designer_id.value, Some(10));
-        assert_eq!(resolved[0].designer_id.source, AssignmentFieldSourceWire::ExplicitPerFolder);
+        assert_eq!(
+            resolved[0].designer_id.source,
+            AssignmentFieldSourceWire::ExplicitPerFolder
+        );
         assert_eq!(resolved[0].source_id.value, Some(8));
-        assert_eq!(resolved[0].source_id.source, AssignmentFieldSourceWire::Global);
+        assert_eq!(
+            resolved[0].source_id.source,
+            AssignmentFieldSourceWire::Global
+        );
 
         assert_eq!(resolved[1].designer_id.value, Some(7));
-        assert_eq!(resolved[1].designer_id.source, AssignmentFieldSourceWire::Global);
+        assert_eq!(
+            resolved[1].designer_id.source,
+            AssignmentFieldSourceWire::Global
+        );
         assert_eq!(resolved[1].source_id.value, Some(8));
-        assert_eq!(resolved[1].source_id.source, AssignmentFieldSourceWire::Global);
+        assert_eq!(
+            resolved[1].source_id.source,
+            AssignmentFieldSourceWire::Global
+        );
     }
 
     #[test]
@@ -2687,7 +2756,10 @@ mod tests {
 
         assert!(!action_result.consumed_context);
         assert!(action_result.context_token_present);
-        assert!(action_result.next_route.unwrap_or_default().contains("/admin/tags/"));
+        assert!(action_result
+            .next_route
+            .unwrap_or_default()
+            .contains("/admin/tags/"));
         assert!(take_bulk_import_context(&precheck.context_token).is_some());
     }
 
@@ -2846,7 +2918,11 @@ mod tests {
         }
 
         assert!(take_bulk_import_context(&first_token).is_none());
-        assert!(take_bulk_import_context(&format!("bulk-import-test-{}", BULK_IMPORT_CONTEXT_MAX_ENTRIES as u64 + 1)).is_some());
+        assert!(take_bulk_import_context(&format!(
+            "bulk-import-test-{}",
+            BULK_IMPORT_CONTEXT_MAX_ENTRIES as u64 + 1
+        ))
+        .is_some());
     }
 
     #[test]
@@ -2865,21 +2941,25 @@ mod tests {
             canonical_confirm: false,
         };
 
-        let expired_created_at = current_timestamp_millis()
-            .saturating_sub(BULK_IMPORT_CONTEXT_TTL.as_millis() + 1);
-        insert_bulk_import_context_for_test(expired_token.clone(), current_wire, expired_created_at, 9999);
+        let expired_created_at =
+            current_timestamp_millis().saturating_sub(BULK_IMPORT_CONTEXT_TTL.as_millis() + 1);
+        insert_bulk_import_context_for_test(
+            expired_token.clone(),
+            current_wire,
+            expired_created_at,
+            9999,
+        );
 
         assert!(take_bulk_import_context(&expired_token).is_none());
     }
 }
 
 async fn load_import_preview_3d_if_initialized(pool: &SqlitePool) -> Result<bool, String> {
-    let image_preference: Option<String> = sqlx::query_scalar(
-        "SELECT value FROM settings WHERE key = 'image.preference' LIMIT 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let image_preference: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'image.preference' LIMIT 1")
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
     Ok(!matches!(
         image_preference
@@ -2891,7 +2971,9 @@ async fn load_import_preview_3d_if_initialized(pool: &SqlitePool) -> Result<bool
     ))
 }
 
-async fn load_import_preview_3d_profile_if_initialized(pool: &SqlitePool) -> Result<String, String> {
+async fn load_import_preview_3d_profile_if_initialized(
+    pool: &SqlitePool,
+) -> Result<String, String> {
     let profile: Option<String> = sqlx::query_scalar(
         "SELECT value FROM settings WHERE key = 'image.preview_3d_profile' LIMIT 1",
     )

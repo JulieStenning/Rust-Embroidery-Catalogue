@@ -101,7 +101,8 @@ pub fn get_about_documents() -> Vec<AboutDocumentSummary> {
 #[tauri::command]
 pub fn get_about_document(slug: String) -> Result<AboutDocumentDetail, String> {
     let normalized_slug = slug.trim().to_lowercase();
-    let doc = resolve_document(&normalized_slug).ok_or_else(|| "Document not found.".to_string())?;
+    let doc =
+        resolve_document(&normalized_slug).ok_or_else(|| "Document not found.".to_string())?;
 
     let path = resolve_document_path(&project_root(), doc.filename);
     if !path.exists() {

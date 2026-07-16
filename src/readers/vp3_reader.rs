@@ -10,8 +10,8 @@ impl EmbroideryReader for Vp3Reader {
     }
 }
 
-use std::io::{Cursor, Read, Seek, SeekFrom};
 use crate::models::{EmbPattern, EmbThread, StitchType};
+use std::io::{Cursor, Read, Seek, SeekFrom};
 
 fn read_vp3(data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
     let mut pattern = EmbPattern::new();
@@ -65,7 +65,12 @@ fn should_treat_long_form_as_jump(dx: i16, dy: i16) -> bool {
     dx.abs() > 127 || dy.abs() > 127
 }
 
-fn vp3_read_colorblock(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern, center_x: f32, center_y: f32) -> Result<(), Box<dyn std::error::Error>> {
+fn vp3_read_colorblock(
+    cursor: &mut Cursor<&[u8]>,
+    pattern: &mut EmbPattern,
+    center_x: f32,
+    center_y: f32,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut _bytescheck = [0u8; 3];
     let _block_start = cursor.position();
     cursor.read_exact(&mut _bytescheck)?;
@@ -129,7 +134,6 @@ fn skip_vp3_string(cursor: &mut Cursor<&[u8]>) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
-
 fn read_u8(cursor: &mut Cursor<&[u8]>) -> Result<u8, Box<dyn std::error::Error>> {
     let mut buf = [0u8; 1];
     cursor.read_exact(&mut buf)?;
@@ -157,8 +161,6 @@ fn read_i32_be(cursor: &mut Cursor<&[u8]>) -> Result<i32, Box<dyn std::error::Er
 fn signed32(val: i32) -> i32 {
     val
 }
-
-
 
 fn vp3_read_thread(cursor: &mut Cursor<&[u8]>) -> Result<EmbThread, Box<dyn std::error::Error>> {
     let mut thread = EmbThread::new(0);
@@ -210,9 +212,8 @@ mod tests {
             0x11, 0x22, 0x33, 0x00, 0x00, 0x00, // first color + parts + length
             0x44, 0x55, 0x66, 0x00, 0x00, 0x00, // second color + parts + length
             0x05, 0x28, // thread type, weight
-            0x00, 0x03, b'a', b'b', b'c',
-            0x00, 0x04, b'd', b'e', b's', b'c',
-            0x00, 0x05, b'b', b'r', b'a', b'n', b'd',
+            0x00, 0x03, b'a', b'b', b'c', 0x00, 0x04, b'd', b'e', b's', b'c', 0x00, 0x05, b'b',
+            b'r', b'a', b'n', b'd',
         ]);
 
         let mut cursor = Cursor::new(bytes.as_slice());
@@ -235,9 +236,7 @@ mod tests {
             0x00, 0x02, // payload length
             0xAA, 0xBB, // payload bytes to skip
             0x05, 0x28, // thread type, weight
-            0x00, 0x01, b'a',
-            0x00, 0x01, b'b',
-            0x00, 0x01, b'c',
+            0x00, 0x01, b'a', 0x00, 0x01, b'b', 0x00, 0x01, b'c',
         ]);
 
         let mut cursor = Cursor::new(bytes.as_slice());
@@ -299,7 +298,10 @@ mod tests {
     fn vp3_user_fixture_stitch_diagnostics() {
         let file_path = PathBuf::from("tests").join("testdata").join("220306.vp3");
         if !file_path.exists() {
-            eprintln!("Skipping VP3 diagnostics because fixture is missing: {}", file_path.display());
+            eprintln!(
+                "Skipping VP3 diagnostics because fixture is missing: {}",
+                file_path.display()
+            );
             return;
         }
 
@@ -315,7 +317,8 @@ mod tests {
 
         for stitch in &pattern.stitches {
             if stitch.stitch_type != StitchType::Stitch {
-                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
+                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim
+                {
                     has_prev = false;
                 }
                 continue;
@@ -350,14 +353,18 @@ mod tests {
             pattern.count_stitch_commands(StitchType::Jump),
             pattern.count_stitch_commands(StitchType::Trim),
         );
-
     }
 
     #[test]
     fn vp3_isolated_colour_fixture_keeps_long_stitches() {
-        let file_path = PathBuf::from("tests").join("testdata").join("test-less-220306.vp3");
+        let file_path = PathBuf::from("tests")
+            .join("testdata")
+            .join("test-less-220306.vp3");
         if !file_path.exists() {
-            eprintln!("Skipping isolated VP3 diagnostics because fixture is missing: {}", file_path.display());
+            eprintln!(
+                "Skipping isolated VP3 diagnostics because fixture is missing: {}",
+                file_path.display()
+            );
             return;
         }
 
@@ -371,7 +378,8 @@ mod tests {
         let mut jump_count = 0usize;
         for stitch in &pattern.stitches {
             if stitch.stitch_type != StitchType::Stitch {
-                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
+                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim
+                {
                     if stitch.stitch_type == StitchType::Jump {
                         jump_count += 1;
                     }
@@ -406,7 +414,9 @@ mod tests {
 
     #[test]
     fn vp3_peacock_fixture_stitch_diagnostics() {
-        let file_path = PathBuf::from("tests").join("testdata").join("01Peacock.vp3");
+        let file_path = PathBuf::from("tests")
+            .join("testdata")
+            .join("01Peacock.vp3");
         if !file_path.exists() {
             eprintln!(
                 "Skipping VP3 diagnostics because fixture is missing: {}",
@@ -428,7 +438,8 @@ mod tests {
 
         for stitch in &pattern.stitches {
             if stitch.stitch_type != StitchType::Stitch {
-                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
+                if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim
+                {
                     has_prev = false;
                 }
                 continue;
@@ -469,7 +480,9 @@ mod tests {
         );
 
         assert!(pattern.count_stitch_commands(StitchType::Stitch) > 0);
-        assert_eq!(over_127, 0, "expected implausibly long VP3 connector deltas to be classified as jumps");
+        assert_eq!(
+            over_127, 0,
+            "expected implausibly long VP3 connector deltas to be classified as jumps"
+        );
     }
 }
-

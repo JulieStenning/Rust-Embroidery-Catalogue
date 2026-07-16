@@ -1,6 +1,6 @@
 pub mod embroidery_reader;
-pub use crate::readers::embroidery_reader::EmbroideryReader;
 pub use crate::readers::dst_reader::DstReader;
+pub use crate::readers::embroidery_reader::EmbroideryReader;
 pub use crate::readers::exp_reader::ExpReader;
 pub use crate::readers::hus_reader::HusReader;
 pub use crate::readers::jef_reader::JefReader;

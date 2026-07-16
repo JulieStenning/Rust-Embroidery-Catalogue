@@ -324,23 +324,38 @@ pub fn read_jef(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 mod tests {
     use super::*;
     use crate::models::StitchType;
-    
+
     #[test]
     fn test_read_bean_jef_file() {
         let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Bean.jef";
         let data = std::fs::read(path).expect("Failed to read test JEF file");
         let pattern = read_jef(&data).expect("Failed to parse JEF file");
         for (i, s) in pattern.stitches.iter().enumerate() {
-            println!("stitch {}: ({}, {}) type: {:?}", i, s.x as i32, s.y as i32, s.stitch_type);
+            println!(
+                "stitch {}: ({}, {}) type: {:?}",
+                i, s.x as i32, s.y as i32, s.stitch_type
+            );
         }
         assert_eq!(pattern.stitches.len(), 324, "Unexpected stitch count");
         let (min_x, min_y, max_x, max_y) = pattern.bounds();
         assert_eq!((max_x - min_x).abs() as i32, 500, "Unexpected width");
         assert_eq!((max_y - min_y).abs() as i32, 500, "Unexpected height");
-        assert_eq!(pattern.stitches.first().map(|s| (s.x as i32, s.y as i32)), Some((-125, -125)), "Unexpected begin coords");
-        assert_eq!(pattern.stitches.last().map(|s| (s.x as i32, s.y as i32)), Some((0, 0)), "Unexpected end coords");
+        assert_eq!(
+            pattern.stitches.first().map(|s| (s.x as i32, s.y as i32)),
+            Some((-125, -125)),
+            "Unexpected begin coords"
+        );
+        assert_eq!(
+            pattern.stitches.last().map(|s| (s.x as i32, s.y as i32)),
+            Some((0, 0)),
+            "Unexpected end coords"
+        );
         assert_eq!(pattern.count_threads(), 1, "Unexpected thread changes");
-        assert_eq!(pattern.count_color_changes(), 0, "Unexpected colour changes");
+        assert_eq!(
+            pattern.count_color_changes(),
+            0,
+            "Unexpected colour changes"
+        );
     }
 
     #[test]
@@ -350,7 +365,10 @@ mod tests {
         let pattern = read_jef(&data).expect("Failed to parse 6x10 Bear Mask JEF file");
 
         // Basic sanity checks to ensure parser remains stable for this fixture.
-        assert!(!pattern.stitches.is_empty(), "Expected stitches in 6x10 Bear Mask");
+        assert!(
+            !pattern.stitches.is_empty(),
+            "Expected stitches in 6x10 Bear Mask"
+        );
         assert!(
             pattern.count_stitch_commands(StitchType::Stitch) > 0,
             "Expected drawable stitches in 6x10 Bear Mask"
@@ -359,8 +377,14 @@ mod tests {
         let (min_x, min_y, max_x, max_y) = pattern.bounds();
         let width = (max_x - min_x).abs();
         let height = (max_y - min_y).abs();
-        assert!(width > 700.0, "Expected wider than 70mm in deci-mm units, got {width}");
-        assert!(height > 250.0, "Expected taller than 25mm in deci-mm units, got {height}");
+        assert!(
+            width > 700.0,
+            "Expected wider than 70mm in deci-mm units, got {width}"
+        );
+        assert!(
+            height > 250.0,
+            "Expected taller than 25mm in deci-mm units, got {height}"
+        );
 
         // First coordinate should not be stuck at origin for this design.
         let first = pattern.stitches.first().expect("Expected first stitch");

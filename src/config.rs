@@ -10,8 +10,8 @@ pub struct BootstrapConfig {
 
 impl BootstrapConfig {
     pub fn from_env() -> Self {
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
+        let database_url =
+            std::env::var("DATABASE_URL").unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
         let database_url = normalize_database_url(&database_url);
 
         Self { database_url }

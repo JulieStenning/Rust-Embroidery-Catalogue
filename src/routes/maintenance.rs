@@ -244,9 +244,13 @@ pub async fn save_backup_settings(
     upsert_setting(&mut conn, KEY_BACKUP_DATABASE_DESTINATION, &db_destination)
         .await
         .map_err(|e| e.to_string())?;
-    upsert_setting(&mut conn, KEY_BACKUP_DESIGNS_DESTINATION, &designs_destination)
-        .await
-        .map_err(|e| e.to_string())?;
+    upsert_setting(
+        &mut conn,
+        KEY_BACKUP_DESIGNS_DESTINATION,
+        &designs_destination,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
 
     Ok(SaveBackupSettingsResult {
         saved: true,
@@ -271,7 +275,9 @@ pub fn browse_backup_folder(start_dir: Option<String>) -> BrowseBackupFolderResu
 }
 
 #[tauri::command]
-pub async fn run_database_backup(state: State<'_, AppState>) -> Result<DatabaseBackupResult, String> {
+pub async fn run_database_backup(
+    state: State<'_, AppState>,
+) -> Result<DatabaseBackupResult, String> {
     let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
     let completed_at = current_epoch_seconds_string();
 
@@ -285,7 +291,9 @@ pub async fn run_database_backup(state: State<'_, AppState>) -> Result<DatabaseB
             backup_path: None,
             size_bytes: 0,
             completed_at,
-            error: Some("No database backup destination configured. Save a destination first.".to_string()),
+            error: Some(
+                "No database backup destination configured. Save a destination first.".to_string(),
+            ),
         });
     }
 
@@ -317,7 +325,8 @@ pub async fn run_database_backup(state: State<'_, AppState>) -> Result<DatabaseB
     let timestamp = sqlite_localtime_format(&mut conn, "%Y-%m-%d_%H%M")
         .await
         .unwrap_or_else(|_| fallback_filename_timestamp());
-    let destination_path = unique_path_with_suffix(destination_dir.join(format!("catalogue_{}.db", timestamp)));
+    let destination_path =
+        unique_path_with_suffix(destination_dir.join(format!("catalogue_{}.db", timestamp)));
 
     let escaped_destination = destination_path.to_string_lossy().replace('\'', "''");
     let vacuum_sql = format!("VACUUM INTO '{}'", escaped_destination);
@@ -330,15 +339,14 @@ pub async fn run_database_backup(state: State<'_, AppState>) -> Result<DatabaseB
                 backup_path: None,
                 size_bytes: 0,
                 completed_at,
-                error: Some(format!(
-                    "Could not create database backup: {}",
-                    copy_error
-                )),
+                error: Some(format!("Could not create database backup: {}", copy_error)),
             });
         }
     }
 
-    let size_bytes = fs::metadata(&destination_path).map(|metadata| metadata.len()).unwrap_or(0);
+    let size_bytes = fs::metadata(&destination_path)
+        .map(|metadata| metadata.len())
+        .unwrap_or(0);
 
     Ok(DatabaseBackupResult {
         success: true,
@@ -368,7 +376,9 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
             archived: 0,
             total_bytes_copied: 0,
             completed_at,
-            error: Some("No designs backup destination configured. Save a destination first.".to_string()),
+            error: Some(
+                "No designs backup destination configured. Save a destination first.".to_string(),
+            ),
         });
     }
 
@@ -532,7 +542,9 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
         }
     }
 
-    if let Err(error) = cleanup_empty_directories(&destination_root, &destination_root.join("_deleted"), true) {
+    if let Err(error) =
+        cleanup_empty_directories(&destination_root, &destination_root.join("_deleted"), true)
+    {
         eprintln!(
             "[backup] Could not clean up empty directories under '{}': {}",
             normalize_path_string(&destination_root),
@@ -561,7 +573,10 @@ pub async fn run_both_backups(state: State<'_, AppState>) -> Result<BothBackupsR
     Ok(BothBackupsResult { database, designs })
 }
 
-async fn get_setting_with_default(conn: &mut SqliteConnection, key: &str) -> Result<String, sqlx::Error> {
+async fn get_setting_with_default(
+    conn: &mut SqliteConnection,
+    key: &str,
+) -> Result<String, sqlx::Error> {
     if let Some(setting) = settings::get_setting(conn, key).await? {
         return Ok(setting.value);
     }
@@ -570,7 +585,11 @@ async fn get_setting_with_default(conn: &mut SqliteConnection, key: &str) -> Res
     Ok("".to_string())
 }
 
-async fn upsert_setting(conn: &mut SqliteConnection, key: &str, value: &str) -> Result<(), sqlx::Error> {
+async fn upsert_setting(
+    conn: &mut SqliteConnection,
+    key: &str,
+    value: &str,
+) -> Result<(), sqlx::Error> {
     sqlx::query(
         "INSERT INTO settings (key, value, description) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
@@ -621,26 +640,43 @@ fn derive_designs_source_path() -> PathBuf {
 }
 
 fn resolve_design_full_path(base_path: &Path, stored_filepath: &str) -> PathBuf {
-    // Match legacy Python behavior from services/designs.py::_full_path:
-    // normpath(base_path.rstrip("/\\") + filepath.replace("\\", os.sep)).
-    // This deliberately treats stored values as catalogue-relative text, even if they
-    // look absolute, so orphan detection remains parity-correct with existing data.
-    let mut base = normalize_path_string(base_path);
-    while base.ends_with('/') || base.ends_with('\\') {
-        base.pop();
+    // Normalise the stored path: trim whitespace and normalise separators.
+    let candidate = stored_filepath.trim().replace('\\', "/");
+
+    if candidate.is_empty() {
+        return base_path.to_path_buf();
     }
 
-    let candidate = stored_filepath.replace('\\', std::path::MAIN_SEPARATOR_STR);
+    // If the stored path is absolute, use it directly.
     let candidate_path = PathBuf::from(&candidate);
     if candidate_path.is_absolute() {
         return candidate_path;
     }
 
-    let starts_with_sep = candidate.starts_with('/') || candidate.starts_with('\\');
-    let combined = if starts_with_sep {
-        format!("{}{}", base, candidate)
+    // If the stored path starts with "MachineEmbroideryDesigns" (case-insensitive),
+    // resolve it relative to the data root (the parent of the designs base path).
+    // This handles the common case where the catalogue stores paths like
+    // "/MachineEmbroideryDesigns/testdata/01Peacock.dst" or
+    // "MachineEmbroideryDesigns/testdata/01Peacock.dst".
+    let cleaned = candidate.trim_start_matches('/');
+    let cleaned_lower = cleaned.to_ascii_lowercase();
+    if cleaned_lower == "machineembroiderydesigns"
+        || cleaned_lower.starts_with("machineembroiderydesigns/")
+    {
+        // Derive the data root from the base_path parameter (base_path is
+        // <data_root>/MachineEmbroideryDesigns), so the data root is its parent.
+        let data_root = base_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        return data_root.join(cleaned);
+    }
+
+    // Otherwise, resolve relative to the designs base path.
+    let combined = if candidate.starts_with('/') || candidate.starts_with('\\') {
+        format!("{}{}", normalize_path_string(base_path), candidate)
     } else {
-        format!("{}{}{}", base, std::path::MAIN_SEPARATOR, candidate)
+        format!("{}/{}", normalize_path_string(base_path), candidate)
     };
 
     PathBuf::from(combined)
@@ -716,7 +752,10 @@ fn external_launches_disabled() -> bool {
     std::env::var("PYTEST_CURRENT_TEST").is_ok()
 }
 
-async fn scan_orphans_with_pool(pool: &SqlitePool, base_path: &Path) -> Result<OrphanScanResult, String> {
+async fn scan_orphans_with_pool(
+    pool: &SqlitePool,
+    base_path: &Path,
+) -> Result<OrphanScanResult, String> {
     let rows = sqlx::query_as::<_, (String,)>("SELECT filepath FROM designs")
         .fetch_all(pool)
         .await
@@ -739,13 +778,15 @@ async fn scan_orphans_with_pool(pool: &SqlitePool, base_path: &Path) -> Result<O
     Ok(OrphanScanResult { checked, found })
 }
 
-async fn find_orphan_ids_with_pool(pool: &SqlitePool, base_path: &Path) -> Result<Vec<i64>, String> {
-    let rows = sqlx::query_as::<_, (i64, String)>(
-        "SELECT id, filepath FROM designs ORDER BY filepath",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|error| error.to_string())?;
+async fn find_orphan_ids_with_pool(
+    pool: &SqlitePool,
+    base_path: &Path,
+) -> Result<Vec<i64>, String> {
+    let rows =
+        sqlx::query_as::<_, (i64, String)>("SELECT id, filepath FROM designs ORDER BY filepath")
+            .fetch_all(pool)
+            .await
+            .map_err(|error| error.to_string())?;
 
     let mut orphan_ids = Vec::new();
     for (id, filepath) in rows {
@@ -787,7 +828,8 @@ async fn get_orphans_page_with_pool(
     };
 
     let normalized_page = page.min(total_pages.max(1));
-    let offset = usize::try_from((normalized_page - 1) * page_size).map_err(|error| error.to_string())?;
+    let offset =
+        usize::try_from((normalized_page - 1) * page_size).map_err(|error| error.to_string())?;
     let take = usize::try_from(page_size).map_err(|error| error.to_string())?;
 
     let page_ids: Vec<i64> = orphan_ids.into_iter().skip(offset).take(take).collect();
@@ -832,7 +874,10 @@ async fn get_orphans_page_with_pool(
     })
 }
 
-async fn delete_design_ids_with_pool(pool: &SqlitePool, design_ids: &[i64]) -> Result<usize, String> {
+async fn delete_design_ids_with_pool(
+    pool: &SqlitePool,
+    design_ids: &[i64],
+) -> Result<usize, String> {
     if design_ids.is_empty() {
         return Ok(0);
     }
@@ -991,18 +1036,31 @@ fn unique_path_with_suffix(base_path: PathBuf) -> PathBuf {
 }
 
 fn ensure_writable_directory(path: &Path) -> Result<(), String> {
-    fs::create_dir_all(path)
-        .map_err(|error| format!("Could not create destination '{}': {}", normalize_path_string(path), error))?;
+    fs::create_dir_all(path).map_err(|error| {
+        format!(
+            "Could not create destination '{}': {}",
+            normalize_path_string(path),
+            error
+        )
+    })?;
 
     let probe = path.join(".backup-write-test.tmp");
-    fs::write(&probe, b"ok")
-        .map_err(|error| format!("Destination is not writable '{}': {}", normalize_path_string(path), error))?;
+    fs::write(&probe, b"ok").map_err(|error| {
+        format!(
+            "Destination is not writable '{}': {}",
+            normalize_path_string(path),
+            error
+        )
+    })?;
     let _ = fs::remove_file(&probe);
 
     Ok(())
 }
 
-async fn sqlite_localtime_format(conn: &mut SqliteConnection, format: &str) -> Result<String, String> {
+async fn sqlite_localtime_format(
+    conn: &mut SqliteConnection,
+    format: &str,
+) -> Result<String, String> {
     let value = sqlx::query_scalar::<_, Option<String>>("SELECT strftime(?, 'now', 'localtime')")
         .bind(format)
         .fetch_one(conn)
@@ -1017,7 +1075,10 @@ async fn sqlite_localtime_format(conn: &mut SqliteConnection, format: &str) -> R
     Ok(value)
 }
 
-fn collect_file_snapshots(root: &Path, skip_deleted_tree: bool) -> Result<HashMap<PathBuf, FileSnapshot>, String> {
+fn collect_file_snapshots(
+    root: &Path,
+    skip_deleted_tree: bool,
+) -> Result<HashMap<PathBuf, FileSnapshot>, String> {
     let mut map = HashMap::new();
     if !root.exists() {
         return Ok(map);
@@ -1038,7 +1099,10 @@ fn collect_file_snapshots_recursive(
         let path = entry.path();
         let file_type = entry.file_type().map_err(|error| error.to_string())?;
 
-        let relative = path.strip_prefix(root).map_err(|error| error.to_string())?.to_path_buf();
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|error| error.to_string())?
+            .to_path_buf();
         if skip_deleted_tree && relative.starts_with("_deleted") {
             continue;
         }
@@ -1069,7 +1133,10 @@ fn files_match(left: &FileSnapshot, right: &FileSnapshot) -> bool {
         return false;
     }
 
-    match (modified_epoch_seconds(left.modified), modified_epoch_seconds(right.modified)) {
+    match (
+        modified_epoch_seconds(left.modified),
+        modified_epoch_seconds(right.modified),
+    ) {
         (Some(left_secs), Some(right_secs)) => {
             (left_secs - right_secs).abs() <= FILE_COMPARE_TIME_TOLERANCE_SECS
         }
@@ -1085,7 +1152,11 @@ fn modified_epoch_seconds(value: Option<SystemTime>) -> Option<i64> {
     })
 }
 
-fn cleanup_empty_directories(root: &Path, preserve_root: &Path, is_root: bool) -> Result<(), String> {
+fn cleanup_empty_directories(
+    root: &Path,
+    preserve_root: &Path,
+    is_root: bool,
+) -> Result<(), String> {
     if !root.is_dir() {
         return Ok(());
     }
@@ -1115,8 +1186,8 @@ fn cleanup_empty_directories(root: &Path, preserve_root: &Path, is_root: bool) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::{Connection, Executor, SqliteConnection};
     use sqlx::sqlite::SqlitePoolOptions;
+    use sqlx::{Connection, Executor, SqliteConnection};
     use std::time::Duration;
 
     fn unique_temp_path(prefix: &str) -> PathBuf {
@@ -1132,9 +1203,18 @@ mod tests {
 
     #[test]
     fn strip_sqlite_prefix_handles_supported_formats() {
-        assert_eq!(strip_sqlite_prefix("sqlite:///tmp/catalogue.db"), "tmp/catalogue.db");
-        assert_eq!(strip_sqlite_prefix("sqlite://tmp/catalogue.db"), "tmp/catalogue.db");
-        assert_eq!(strip_sqlite_prefix("sqlite:tmp/catalogue.db"), "tmp/catalogue.db");
+        assert_eq!(
+            strip_sqlite_prefix("sqlite:///tmp/catalogue.db"),
+            "tmp/catalogue.db"
+        );
+        assert_eq!(
+            strip_sqlite_prefix("sqlite://tmp/catalogue.db"),
+            "tmp/catalogue.db"
+        );
+        assert_eq!(
+            strip_sqlite_prefix("sqlite:tmp/catalogue.db"),
+            "tmp/catalogue.db"
+        );
         assert_eq!(strip_sqlite_prefix("tmp/catalogue.db"), "tmp/catalogue.db");
     }
 
@@ -1193,7 +1273,8 @@ mod tests {
 
         fs::create_dir_all(&empty_dir).expect("empty dir should be created");
         fs::create_dir_all(&deleted_dir).expect("deleted dir should be created");
-        fs::write(deleted_dir.join("archived.pes"), b"content").expect("archived file should be created");
+        fs::write(deleted_dir.join("archived.pes"), b"content")
+            .expect("archived file should be created");
 
         cleanup_empty_directories(&root, &root.join("_deleted"), true)
             .expect("cleanup should complete");
@@ -1422,12 +1503,16 @@ mod tests {
     async fn delete_design_ids_with_pool_deletes_only_requested_rows() {
         let pool = setup_orphans_test_pool().await;
 
-        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (10, 'first.jef', '/first.jef')")
-            .await
-            .expect("first insert should succeed");
-        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (11, 'second.jef', '/second.jef')")
-            .await
-            .expect("second insert should succeed");
+        pool.execute(
+            "INSERT INTO designs (id, filename, filepath) VALUES (10, 'first.jef', '/first.jef')",
+        )
+        .await
+        .expect("first insert should succeed");
+        pool.execute(
+            "INSERT INTO designs (id, filename, filepath) VALUES (11, 'second.jef', '/second.jef')",
+        )
+        .await
+        .expect("second insert should succeed");
 
         let deleted = delete_design_ids_with_pool(&pool, &[10])
             .await
@@ -1440,6 +1525,78 @@ mod tests {
             .await
             .expect("remaining count should load");
         assert_eq!(remaining, 1);
+    }
+
+    #[tokio::test]
+    async fn scan_orphans_does_not_report_machine_embroidery_designs_path_as_orphan() {
+        // Regression test: stored paths like "/MachineEmbroideryDesigns/testdata/01Peacock.dst"
+        // should resolve to the correct location under the data root, not produce a doubled path.
+        let pool = setup_orphans_test_pool().await;
+
+        // Create a temp directory structure mimicking the real layout:
+        //   <root>/MachineEmbroideryDesigns/testdata/01Peacock.dst
+        let root = unique_temp_path("orphans-med-path-test");
+        let designs_dir = root.join("MachineEmbroideryDesigns").join("testdata");
+        fs::create_dir_all(&designs_dir).expect("testdata dir should be created");
+        fs::write(designs_dir.join("01Peacock.dst"), b"embroidery data")
+            .expect("test file should be created");
+
+        // The base_path passed to orphan scan is <root>/MachineEmbroideryDesigns
+        let base_path = root.join("MachineEmbroideryDesigns");
+
+        // Insert a design with the stored path format used by the catalogue:
+        // "/MachineEmbroideryDesigns/testdata/01Peacock.dst"
+        sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+            .bind(1_i64)
+            .bind("01Peacock.dst")
+            .bind("/MachineEmbroideryDesigns/testdata/01Peacock.dst")
+            .execute(&pool)
+            .await
+            .expect("design insert should succeed");
+
+        let result = scan_orphans_with_pool(&pool, &base_path)
+            .await
+            .expect("scan should succeed");
+
+        assert_eq!(result.checked, 1, "should have checked exactly one design");
+        assert_eq!(
+            result.found, 0,
+            "should NOT report the existing file as an orphan"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn scan_orphans_handles_machine_embroidery_designs_path_without_leading_slash() {
+        // Also test the variant without a leading slash:
+        // "MachineEmbroideryDesigns/testdata/01Peacock.dst"
+        let pool = setup_orphans_test_pool().await;
+
+        let root = unique_temp_path("orphans-med-no-slash-test");
+        let designs_dir = root.join("MachineEmbroideryDesigns").join("testdata");
+        fs::create_dir_all(&designs_dir).expect("testdata dir should be created");
+        fs::write(designs_dir.join("01Peacock.dst"), b"embroidery data")
+            .expect("test file should be created");
+
+        let base_path = root.join("MachineEmbroideryDesigns");
+
+        sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+            .bind(1_i64)
+            .bind("01Peacock.dst")
+            .bind("MachineEmbroideryDesigns/testdata/01Peacock.dst")
+            .execute(&pool)
+            .await
+            .expect("design insert should succeed");
+
+        let result = scan_orphans_with_pool(&pool, &base_path)
+            .await
+            .expect("scan should succeed");
+
+        assert_eq!(result.checked, 1);
+        assert_eq!(result.found, 0);
+
+        let _ = fs::remove_dir_all(&root);
     }
 }
 

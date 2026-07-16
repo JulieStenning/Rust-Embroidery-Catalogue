@@ -1,13 +1,11 @@
 // Scanning service for recursive file discovery with deterministic dedup policy.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 
-pub const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "jef", "pes", "hus", "dst", "exp", "vp3", 
-];
+pub const SUPPORTED_EXTENSIONS: &[&str] = &["jef", "pes", "hus", "dst", "exp", "vp3"];
 
 const EXCLUDED_DIRECTORY_NAMES: &[&str] = &["system volume information"];
 
@@ -33,16 +31,25 @@ fn normalize_extension(extension: &str) -> String {
 }
 
 fn make_dedup_group_key(parent: &Path, stem: &str, extension: &str) -> String {
-    format!("{}|{}|{}",
-        parent.to_string_lossy().replace('\\', "/").to_ascii_lowercase(),
+    format!(
+        "{}|{}|{}",
+        parent
+            .to_string_lossy()
+            .replace('\\', "/")
+            .to_ascii_lowercase(),
         stem.to_ascii_lowercase(),
-        extension.to_ascii_lowercase())
+        extension.to_ascii_lowercase()
+    )
 }
 
 fn should_skip_directory(path: &Path) -> bool {
     path.file_name()
         .and_then(|value| value.to_str())
-        .map(|value| EXCLUDED_DIRECTORY_NAMES.iter().any(|candidate| candidate.eq_ignore_ascii_case(value)))
+        .map(|value| {
+            EXCLUDED_DIRECTORY_NAMES
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(value))
+        })
         .unwrap_or(false)
 }
 

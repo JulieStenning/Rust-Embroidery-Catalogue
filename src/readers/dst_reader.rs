@@ -54,9 +54,7 @@ fn process_header_info(pattern: &mut EmbPattern, prefix: &str, value: &str) {
             }
         }
         _ => {
-            pattern
-                .extras
-                .insert(prefix.to_string(), value.to_string());
+            pattern.extras.insert(prefix.to_string(), value.to_string());
         }
     }
 }
@@ -66,7 +64,10 @@ fn process_header_info(pattern: &mut EmbPattern, prefix: &str, value: &str) {
 /// The Python reader byte-scans for `\r` (13) and `\n` (10) delimiters,
 /// splitting the header into segments and decoding each as UTF-8 with
 /// graceful fallback on decode errors.
-fn dst_read_header(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Result<(), binrw::Error> {
+fn dst_read_header(
+    cursor: &mut Cursor<&[u8]>,
+    pattern: &mut EmbPattern,
+) -> Result<(), binrw::Error> {
     let pos = cursor.position() as usize;
     let data = cursor.get_ref();
     let end = data.len().min(pos + 512);
@@ -158,7 +159,10 @@ fn read_exact(cursor: &mut Cursor<&[u8]>, n: usize) -> Result<Vec<u8>, binrw::Er
     Ok(bytes)
 }
 
-fn dst_read_stitches(cursor: &mut Cursor<&[u8]>, pattern: &mut EmbPattern) -> Result<(), binrw::Error> {
+fn dst_read_stitches(
+    cursor: &mut Cursor<&[u8]>,
+    pattern: &mut EmbPattern,
+) -> Result<(), binrw::Error> {
     let mut sequin_mode = false;
 
     loop {
@@ -227,7 +231,11 @@ fn ensure_dst_threads(pattern: &mut EmbPattern) {
         .filter(|s| s.stitch_type == StitchType::ColorChange)
         .count();
 
-    let required_from_stitches = if color_changes > 0 { color_changes + 1 } else { 0 };
+    let required_from_stitches = if color_changes > 0 {
+        color_changes + 1
+    } else {
+        0
+    };
 
     // DST `CO` is the number of colour-change commands, so blocks = CO + 1.
     let required_from_header = pattern
@@ -243,9 +251,9 @@ fn ensure_dst_threads(pattern: &mut EmbPattern) {
 
     // Bright preview palette so color blocks are distinguishable in renderers.
     const DST_FALLBACK_PALETTE: [u32; 24] = [
-        0x1F77B4, 0xD62728, 0x2CA02C, 0xFF7F0E, 0x9467BD, 0x8C564B, 0xE377C2, 0x17BECF,
-        0xBCBD22, 0x7F7F7F, 0x00A651, 0xED1C24, 0x1C75BC, 0xFBB03B, 0x662D91, 0x39B54A,
-        0xF15A24, 0xA349A4, 0x00AEEF, 0xC69C6D, 0xEF4136, 0x22B573, 0x2E3192, 0xFFF200,
+        0x1F77B4, 0xD62728, 0x2CA02C, 0xFF7F0E, 0x9467BD, 0x8C564B, 0xE377C2, 0x17BECF, 0xBCBD22,
+        0x7F7F7F, 0x00A651, 0xED1C24, 0x1C75BC, 0xFBB03B, 0x662D91, 0x39B54A, 0xF15A24, 0xA349A4,
+        0x00AEEF, 0xC69C6D, 0xEF4136, 0x22B573, 0x2E3192, 0xFFF200,
     ];
 
     let mut next_index = pattern.threadlist.len();
@@ -385,10 +393,7 @@ mod tests {
         let pattern = read_dst(data).expect("should parse provided DST sample");
 
         // Header declares CO:18 (color-change commands), so 19 thread blocks.
-        assert_eq!(
-            pattern.extras.get("CO").map(|s| s.as_str()),
-            Some("18")
-        );
+        assert_eq!(pattern.extras.get("CO").map(|s| s.as_str()), Some("18"));
         assert_eq!(pattern.threadlist.len(), 19);
     }
 }

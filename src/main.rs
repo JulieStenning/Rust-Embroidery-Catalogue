@@ -1,16 +1,16 @@
 // Embroidery Catalogue — Tauri v2 entry point
 
-pub mod database;
 pub mod config;
-pub mod settings;
+pub mod database;
 pub mod disclaimer;
-pub mod readers;
 pub mod models;
 pub mod png_writer;
-pub mod templating;
-pub mod utils;
+pub mod readers;
 pub mod routes;
 pub mod services;
+pub mod settings;
+pub mod templating;
+pub mod utils;
 
 use sqlx::SqlitePool;
 use tauri::State;
@@ -217,4 +217,3 @@ fn load_dotenv() {
         }
     }
 }
-
