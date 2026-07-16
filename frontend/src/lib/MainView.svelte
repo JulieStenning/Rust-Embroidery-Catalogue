@@ -1488,6 +1488,7 @@
     const sectionId = hashParts.length > 2 ? hashParts.slice(2).join("#") : rawHash.startsWith("#") ? rawHash.slice(1) : "";
     const scrollToHelpSection = HELP_SECTION_IDS.has(sectionId);
     const enteringProjects = currentRoute !== "#/projects" && nextRoute === "#/projects";
+    const enteringOrphans = currentRoute !== "#/admin/orphans" && nextRoute === "#/admin/orphans";
     currentRoute = nextRoute;
 
     if (scrollToHelpSection) {
@@ -1499,6 +1500,11 @@
     if (enteringProjects) {
       // Force a single refresh when landing on projects without creating a reactive reload loop.
       projectsLoaded = false;
+    }
+
+    if (enteringOrphans) {
+      // Force a single refresh when landing on orphans without creating a reactive reload loop.
+      orphansLoaded = false;
     }
   }
 
