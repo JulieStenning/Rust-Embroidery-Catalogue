@@ -337,6 +337,7 @@
   }
 
   let currentRoute = $state("");
+  let previousRoute = $state("");
   let currentPage = $derived(resolveCurrentPage(currentRoute));
   let currentUiKind = $derived(resolveCurrentUiKind(currentRoute));
   let detailDesignId = $derived(parseDesignDetailId(currentRoute));
@@ -4659,11 +4660,30 @@
     adminTagsPanelStateLoaded = true;
   });
 
+  // Clear all notification messages when navigating to a different route.
+  // This prevents stale messages from a previous page persisting on the new page.
   $effect(() => {
-    if (currentUiKind !== "admin-list") {
+    const route = currentRoute;
+    if (route && previousRoute && previousRoute !== route) {
+      browseActionNotice = "";
+      detailActionMessage = "";
+      detailActionIsError = false;
+      projectsActionMessage = "";
+      projectsActionIsError = false;
+      importActionMessage = "";
+      importActionSource = "mock";
+      settingsSaveState = "idle";
+      settingsSaveMessage = "";
+      backupStatus = "idle";
+      backupMessage = "";
+      taggingStatusType = "info";
+      taggingStatusMessage = "Configure actions, then run selected actions.";
       adminNotice = "";
       adminNoticeType = "info";
+      orphanActionMessage = "";
+      orphanActionType = "info";
     }
+    previousRoute = route;
   });
 
   $effect(() => {
