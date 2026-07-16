@@ -1,12 +1,17 @@
 <div class="space-y-10 max-w-3xl">
-   <nav class="flex flex-wrap gap-3 text-sm no-print">
-    <a href="#search" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔍 Search</a>
-    <a href="#importing" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a>
-    <a href="#ai-tagging" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a>
-    <a href="#tagging-actions" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🏷 Tagging Actions</a>
-    <a href="#projects" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📁 Projects</a>
-    <a href="#maintenance" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🛠 Maintenance</a>
-    <a href="#troubleshooting" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔧 Troubleshooting</a>
+  <div class="space-y-1 font-sans no-print">
+    <h1 class="ui-page-title text-2xl font-bold text-gray-800">Help</h1>
+    <p class="text-gray-600 text-sm">Quick guidance for using the Embroidery Catalogue.</p>
+  </div>
+
+  <nav class="flex flex-wrap gap-3 text-sm no-print">
+    <a href="#/help?section=search" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔍 Search</a>
+    <a href="#/help?section=importing" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a>
+    <a href="#/help?section=ai-tagging" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a>
+    <a href="#/help?section=tagging-actions" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🏷 Tagging Actions</a>
+    <a href="#/help?section=projects" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📁 Projects</a>
+    <a href="#/help?section=maintenance" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🛠 Maintenance</a>
+    <a href="#/help?section=troubleshooting" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔧 Troubleshooting</a>
   </nav>
 
   <section id="search">
