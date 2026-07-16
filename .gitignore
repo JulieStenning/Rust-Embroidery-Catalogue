@@ -62,3 +62,6 @@ tests/User test git issues/Designers.md
 tests/User test git issues/Hoops.md
 tests/User test git issues/Sources.md
 tests/User test git issues/Tags.md
+tests/testdata/01Peacock.dst
+tests/testdata/01Peacock.exp
+tests/testdata/01Peacock.hus

@@ -9,10 +9,6 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "jef", "pes", "hus", "dst", "exp", "vp3", 
 ];
 
-pub const EXTENSION_PRIORITY: &[&str] = &[
-    "jef", "pes", "vp3", "hus", "dst", "exp", 
-];
-
 const EXCLUDED_DIRECTORY_NAMES: &[&str] = &["system volume information"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,30 +32,11 @@ fn normalize_extension(extension: &str) -> String {
     extension.trim_start_matches('.').to_ascii_lowercase()
 }
 
-fn extension_rank(extension: &str) -> usize {
-    EXTENSION_PRIORITY
-        .iter()
-        .position(|candidate| candidate.eq_ignore_ascii_case(extension))
-        .unwrap_or(usize::MAX)
-}
-
-fn make_dedup_group_key(parent: &Path, stem: &str) -> String {
-    format!("{}|{}", parent.to_string_lossy().replace('\\', "/").to_ascii_lowercase(), stem.to_ascii_lowercase())
-}
-
-fn should_replace_candidate(current_extension: &str, new_extension: &str) -> bool {
-    let current_rank = extension_rank(current_extension);
-    let new_rank = extension_rank(new_extension);
-
-    if new_rank < current_rank {
-        return true;
-    }
-
-    if new_rank == current_rank {
-        return new_extension < current_extension;
-    }
-
-    false
+fn make_dedup_group_key(parent: &Path, stem: &str, extension: &str) -> String {
+    format!("{}|{}|{}",
+        parent.to_string_lossy().replace('\\', "/").to_ascii_lowercase(),
+        stem.to_ascii_lowercase(),
+        extension.to_ascii_lowercase())
 }
 
 fn should_skip_directory(path: &Path) -> bool {
@@ -106,23 +83,14 @@ fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
             None => continue,
         };
 
-        let dedup_group_key = make_dedup_group_key(parent, stem);
+        let dedup_group_key = make_dedup_group_key(parent, stem, &extension);
         let candidate = ScannedFile {
             full_path: path.to_string_lossy().to_string(),
             extension: extension.clone(),
             dedup_group_key: dedup_group_key.clone(),
         };
 
-        match dedup.get(&dedup_group_key) {
-            Some(existing)
-                if !should_replace_candidate(existing.extension.as_str(), extension.as_str()) =>
-            {
-                continue;
-            }
-            _ => {
-                dedup.insert(dedup_group_key, candidate);
-            }
-        }
+        dedup.insert(dedup_group_key, candidate);
     }
 }
 
@@ -207,7 +175,29 @@ mod tests {
     }
 
     #[test]
-    fn scan_deduplicates_by_parent_and_stem_using_priority() {
+    fn scan_keeps_all_supported_formats_of_same_design() {
+        let root = unique_temp_dir("scan-multi-format");
+        fs::create_dir_all(&root).expect("root should be created");
+
+        create_file(&root.join("design.pes"));
+        create_file(&root.join("design.jef"));
+        create_file(&root.join("design.vp3"));
+
+        let result = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+        });
+
+        assert_eq!(result.files.len(), 3, "all three formats should be kept");
+        let extensions: Vec<&str> = result.files.iter().map(|f| f.extension.as_str()).collect();
+        assert!(extensions.contains(&"pes"));
+        assert!(extensions.contains(&"jef"));
+        assert!(extensions.contains(&"vp3"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn scan_deduplicates_unsupported_extension_replaced_by_supported() {
         let root = unique_temp_dir("scan-dedup");
         fs::create_dir_all(&root).expect("root should be created");
 

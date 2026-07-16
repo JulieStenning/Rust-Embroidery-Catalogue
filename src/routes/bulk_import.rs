@@ -3,6 +3,7 @@ use crate::services::{folder_picker, image_generation, scanning, stitch_identifi
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -500,6 +501,75 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
     ))
 }
 
+/// Ensures a file is located under the managed MachineEmbroideryDesigns directory.
+/// If the file is already under that directory, returns the stored filepath directly.
+/// If the file is outside, copies it into the managed directory preserving the path
+/// relative to the import root that contains it, then returns the stored filepath for the copy.
+fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result<String, String> {
+    // Fast path: file is already under MachineEmbroideryDesigns
+    if let Ok(stored) = full_path_to_stored_design_filepath(full_path) {
+        return Ok(stored);
+    }
+
+    // Copy path: file is outside the managed directory
+    let source = Path::new(full_path);
+    if !source.exists() {
+        return Err(format!("Import file does not exist: '{}'", full_path));
+    }
+
+    let designs_base = get_designs_base_path();
+    let source_norm = source.to_string_lossy().replace('\\', "/");
+
+    // Find the import root that contains this file and compute the relative path.
+    let rel_path = root_paths
+        .iter()
+        .map(|root| root.replace('\\', "/").trim_end_matches('/').to_string())
+        .filter(|root| {
+            let root_lower = root.to_ascii_lowercase();
+            source_norm.to_ascii_lowercase().starts_with(&root_lower)
+        })
+        .max_by_key(|root| root.len())
+        .and_then(|root| {
+            let root_lower = root.to_ascii_lowercase();
+            let source_lower = source_norm.to_ascii_lowercase();
+            if source_lower.len() > root_lower.len() {
+                let after_root = &source_norm[root.len()..];
+                Some(after_root.trim_start_matches('/').to_string())
+            } else {
+                // File is the root itself — use just the filename
+                source.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.to_string())
+            }
+        })
+        .unwrap_or_else(|| {
+            // Fallback: use just the filename
+            source.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string()
+        });
+
+    let dest = designs_base.join(&rel_path);
+    let dest_parent = dest.parent()
+        .ok_or_else(|| format!("Cannot determine parent directory for destination: '{}'", dest.display()))?;
+
+    fs::create_dir_all(dest_parent)
+        .map_err(|e| format!("Failed to create directory '{}': {}", dest_parent.display(), e))?;
+
+    fs::copy(source, &dest)
+        .map_err(|e| format!("Failed to copy '{}' to '{}': {}", source.display(), dest.display(), e))?;
+
+    println!(
+        "Copied external file '{}' to managed directory '{}'",
+        source.display(),
+        dest.display()
+    );
+
+    // Now compute the stored filepath from the copy destination
+    full_path_to_stored_design_filepath(&dest.to_string_lossy())
+}
+
 fn normalize_name_for_import_matching(value: &str) -> String {
     value
         .to_ascii_lowercase()
@@ -804,7 +874,7 @@ async fn persist_bulk_import_confirm_wire(
                 break;
             }
 
-            let stored_filepath = full_path_to_stored_design_filepath(file_path)?;
+            let stored_filepath = ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
 
             emit_progress(
                 "processing_file",
