@@ -18,6 +18,7 @@ serde_json = "1.0"
 tauri = { version = "2", features = [] }
 base64 = "0.22"
 rfd = "0.14"
+trash = "3"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

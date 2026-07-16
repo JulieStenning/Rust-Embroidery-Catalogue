@@ -1084,8 +1084,22 @@ async fn remove_design_from_project_with_pool(
 	})
 }
 
-async fn delete_design_with_pool(pool: &SqlitePool, design_id: i64) -> Result<DesignCommandResult, String> {
+async fn delete_design_with_pool(
+	pool: &SqlitePool,
+	design_id: i64,
+	delete_file: bool,
+) -> Result<DesignCommandResult, String> {
 	ensure_design_exists(pool, design_id).await?;
+
+	let filepath: Option<String> = if delete_file {
+		sqlx::query_scalar::<_, String>("SELECT filepath FROM designs WHERE id = ?")
+			.bind(design_id)
+			.fetch_optional(pool)
+			.await
+			.map_err(|e| e.to_string())?
+	} else {
+		None
+	};
 
 	sqlx::query("DELETE FROM designs WHERE id = ?")
 		.bind(design_id)
@@ -1093,9 +1107,31 @@ async fn delete_design_with_pool(pool: &SqlitePool, design_id: i64) -> Result<De
 		.await
 		.map_err(|e| e.to_string())?;
 
+	if let Some(stored_path) = filepath {
+		let trimmed = stored_path.trim();
+		if !trimmed.is_empty() {
+			let full_path = resolve_design_full_path(trimmed);
+			if full_path.is_file() {
+				trash::delete(&full_path).map_err(|e| {
+					format!(
+						"Design deleted from catalogue, but could not move file to recycle bin: {}. File path: {}",
+						e,
+						full_path.display()
+					)
+				})?;
+			}
+		}
+	}
+
+	let message = if delete_file {
+		"Design and file deleted.".to_string()
+	} else {
+		"Design deleted.".to_string()
+	};
+
 	Ok(DesignCommandResult {
 		design_id,
-		message: "Design deleted.".to_string(),
+		message,
 	})
 }
 
@@ -1497,8 +1533,9 @@ pub async fn remove_design_from_project(
 pub async fn delete_design(
 	state: State<'_, AppState>,
 	design_id: i64,
+	delete_file: bool,
 ) -> Result<DesignCommandResult, String> {
-	delete_design_with_pool(&state.db, design_id).await
+	delete_design_with_pool(&state.db, design_id, delete_file).await
 }
 
 #[tauri::command]

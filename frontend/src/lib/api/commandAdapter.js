@@ -397,12 +397,13 @@ export async function removeDesignFromProject(designId, projectId) {
   }
 }
 
-export async function deleteDesign(designId) {
+export async function deleteDesign(designId, deleteFile = false) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("delete_design", {
       designId: normalizedId,
+      deleteFile: Boolean(deleteFile),
     });
     return {
       source: "rust",

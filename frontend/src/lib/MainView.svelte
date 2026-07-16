@@ -421,6 +421,7 @@
   let detailActionMessage = $state("");
   let detailActionIsError = $state(false);
   let detailSaving = $state(false);
+  let deleteModalStep = $state(null);
   let detailNotes = $state("");
   let detailDesignerId = $state("");
   let detailSourceId = $state("");
@@ -3299,26 +3300,67 @@
     }
   }
 
-  async function deleteDetailDesign() {
+  function openDeleteModal() {
     if (!detailItem?.id || detailSaving) {
       return;
     }
 
-    const confirmed = window.confirm("Delete this design from the catalogue?");
-    if (!confirmed) {
+    deleteModalStep = "choose";
+  }
+
+  function closeDeleteModal(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    if (detailSaving) {
       return;
     }
 
+    deleteModalStep = null;
+  }
+
+  function handleDeleteWithFileChoice() {
+    if (detailSaving) {
+      return;
+    }
+
+    deleteModalStep = "confirm-file-delete";
+  }
+
+  function handleBackToFirstDeleteModal() {
+    if (detailSaving) {
+      return;
+    }
+
+    deleteModalStep = "choose";
+  }
+
+  async function deleteDetailDesign(deleteFile) {
+    if (!detailItem?.id || detailSaving) {
+      return;
+    }
+
+    const designId = detailItem.id;
     detailSaving = true;
-    const result = await deleteDesign(detailItem.id);
+    const result = await deleteDesign(designId, deleteFile);
     detailSaving = false;
 
     if (result.persisted) {
+      deleteModalStep = null;
       navigateTo("#/designs");
       return;
     }
 
-    setDetailActionNotice(result.message, true);
+    deleteModalStep = null;
+    setDetailActionNotice(result.message || result.error || "The design could not be deleted.", true);
+  }
+
+  async function handleDeleteCatalogueOnly() {
+    await deleteDetailDesign(false);
+  }
+
+  async function handleDeleteWithFile() {
+    await deleteDetailDesign(true);
   }
 
   function openDetailPrintView() {
@@ -5927,7 +5969,7 @@
                   </details>
 
                   <div class="flex justify-end">
-                    <button class="menu-button-secondary" onclick={deleteDetailDesign} disabled={detailSaving}>Delete design</button>
+                    <button class="menu-button-secondary" onclick={openDeleteModal} disabled={detailSaving}>Delete design</button>
                   </div>
                 </div>
               </div>
@@ -7540,6 +7582,104 @@
   {/if}
 </main>
 
+{#if deleteModalStep === "choose"}
+  <div
+    use:portalToBody
+    class="tag-chooser-overlay no-print"
+    style="position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delete-design-choice-title"
+    aria-describedby="delete-design-choice-description"
+  >
+    <button
+      type="button"
+      style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"
+      aria-label="Cancel deleting design"
+      onmousedown={closeDeleteModal}
+      onclick={closeDeleteModal}
+    ></button>
+
+    <div
+      class="tag-chooser-dialog"
+      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
+    >
+      <div class="tag-chooser-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+        <h2 id="delete-design-choice-title" class="text-lg font-semibold" style="margin:0;">
+          Delete design?
+        </h2>
+      </div>
+
+      <div class="tag-chooser-body" style="overflow-y:auto;flex:1;">
+        <p id="delete-design-choice-description" class="text-sm" style="margin:0;">
+          Do you also want to delete the design file from your computer?
+        </p>
+        {#if detailItem?.filepath}
+          <p class="text-sm text-gray-500" style="margin:0.75rem 0 0 0;word-break:break-all;">
+            {detailItem.filepath}
+          </p>
+        {/if}
+      </div>
+
+      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;">
+        <button type="button" class="menu-button-secondary" onclick={closeDeleteModal} disabled={detailSaving}>
+          Cancel
+        </button>
+        <button type="button" class="menu-button-secondary" onclick={handleDeleteCatalogueOnly} disabled={detailSaving}>
+          {detailSaving ? "Deleting..." : "No"}
+        </button>
+        <button type="button" class="menu-button-primary" onclick={handleDeleteWithFileChoice} disabled={detailSaving}>
+          Yes
+        </button>
+      </div>
+    </div>
+  </div>
+{:else if deleteModalStep === "confirm-file-delete"}
+  <div
+    use:portalToBody
+    class="tag-chooser-overlay no-print"
+    style="position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="delete-design-file-title"
+    aria-describedby="delete-design-file-description"
+  >
+    <button
+      type="button"
+      style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"
+      aria-label="Cancel deleting design"
+      onmousedown={closeDeleteModal}
+      onclick={closeDeleteModal}
+    ></button>
+
+    <div
+      class="tag-chooser-dialog"
+      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
+    >
+      <div class="tag-chooser-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+        <h2 id="delete-design-file-title" class="text-lg font-semibold" style="margin:0;">
+          Delete the design file?
+        </h2>
+      </div>
+
+      <div class="tag-chooser-body" style="overflow-y:auto;flex:1;">
+        <p id="delete-design-file-description" class="text-sm" style="margin:0;">
+          Do you really want to delete the file? This cannot be undone.
+        </p>
+      </div>
+
+      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;">
+        <button type="button" class="menu-button-secondary" onclick={handleBackToFirstDeleteModal} disabled={detailSaving}>
+          No
+        </button>
+        <button type="button" class="menu-button-primary" onclick={handleDeleteWithFile} disabled={detailSaving}>
+          {detailSaving ? "Deleting..." : "Yes"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if browseBulkModalOpen}
   {@const tagOptionsForChooser = browseBulkModalMode === "detail" ? (Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : []) : browseTagOptions}
   {@const groupedTagOptions = splitTagsByGroup(tagOptionsForChooser)}
@@ -7795,4 +7935,3 @@
     <a href="#/about/document/licence" class="hover:underline text-indigo-600">Licence</a>
   </div>
 </footer>
-
