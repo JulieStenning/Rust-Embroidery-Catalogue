@@ -175,14 +175,8 @@
 <div class="space-y-4">
   <div class="space-y-1 font-sans">
     <h1 class="ui-page-title text-2xl font-bold text-gray-800">Orphans</h1>
-    <p class="text-sm tracking-wide text-indigo-600 font-semibold">Orphaned design records</p>
     <p class="text-gray-600 text-sm">Find and remove database records whose files no longer exist on disk.</p>
   </div>
-
-  <p class="text-sm text-gray-500 max-w-3xl">
-    These designs exist in the database but their files were not found on disk.
-    Deleting a record removes it from the database only.
-  </p>
 
   <Notice message={orphanActionMessage} type={orphanActionType} />
 
