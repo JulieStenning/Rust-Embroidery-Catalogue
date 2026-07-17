@@ -43,87 +43,6 @@
   import Pagination from "./components/Pagination.svelte";
   import { splitTagsByGroup } from "./utils/tagHelpers.js";
 
-  const ROUTE_PAGES = {
-    "#/designs": {
-      title: "Browse",
-      subtitle: "Design browser",
-      description: "Browse and filter the embroidery design collection.",
-      cta: "",
-    },
-    "#/import": {
-      title: "Import",
-      subtitle: "Bulk import wizard",
-      description: "Select one or more folders, review discovered files and assignments, then run precheck and confirm import.",
-      cta: "",
-    },
-    "#/projects": {
-      title: "Projects",
-      subtitle: "Project planning and membership",
-      description: "Create and manage project groups, remove design memberships, and print project sheets.",
-      cta: "",
-    },
-    "#/help": {
-      title: "Help",
-      subtitle: " ",
-      description: "Quick guidance for using the Embroidery Catalogue.",
-      cta: "",
-    },
-    "#/admin/designers": {
-      title: "Manage Designers",
-      subtitle: " ",
-      description: "Designers are the creators or brands of embroidery designs.",
-      cta: "",
-    },
-    "#/admin/tags": {
-      title: "Tags",
-      subtitle: "",
-      description: "",
-      cta: "",
-    },
-    "#/admin/sources": {
-      title: "Sources",
-      subtitle: "",
-      description: "",
-      cta: "",
-    },
-    "#/admin/hoops": {
-      title: "Hoops",
-      subtitle: "Hoop catalogue management",
-      description: "Add, review, and remove machine hoop sizes used during import and design validation.",
-      cta: "",
-    },
-    "#/admin/settings": {
-      title: "Settings",
-      subtitle: "Admin settings",
-      description: "This page exposes app settings such as AI and import configuration.",
-      cta: "",
-    },
-    "#/admin/maintenance/backup": {
-      title: "Backup",
-      subtitle: "Backup and maintenance",
-      description: "Backup execution, destination controls, and status reporting.",
-      cta: "",
-    },
-    "#/admin/tagging-actions": {
-      title: "Tagging Actions",
-      subtitle: "Batch tagging",
-      description: "Tier controls and batch tagging execution options.",
-      cta: "",
-    },
-    "#/admin/orphans": {
-      title: "Orphans",
-      subtitle: "Orphaned design records",
-      description: "Find and remove database records whose files no longer exist on disk.",
-      cta: "",
-    },
-    "#/about": {
-      title: "About",
-      subtitle: "App information and bundled documents",
-      description: "Open project documents such as privacy, security, AI tagging, and licence.",
-      cta: "",
-    },
-  };
-
   const ORDERED_ROUTE_HINTS = [
     "#/designs",
     "#/import",
@@ -205,32 +124,6 @@
   }
 
   /** @param {string} route */
-  function resolveCurrentPage(route) {
-    if (parseProjectPrintId(route) !== null) {
-      return { title: "Project Print", subtitle: "Printable project card sheet" };
-    }
-    if (route === "#/projects/new") {
-      return { title: "New Project", subtitle: "Create planning card" };
-    }
-    if (parseProjectDetailId(route) !== null) {
-      return { title: "Project Details", subtitle: "Manage project card" };
-    }
-    if (parseDesignPrintId(route) !== null) {
-      return { title: "Print Design Card", subtitle: "Printable design details card" };
-    }
-    if (parseDesignDetailId(route) !== null) {
-      return { title: "Design Details", subtitle: "Review and edit design metadata" };
-    }
-    if (parseAboutDocumentSlug(route) !== null) {
-      return { title: "Document View", subtitle: "Read Bundled Document" };
-    }
-    if (parseImportWizardStep(route) !== null) {
-      return ROUTE_PAGES["#/import"];
-    }
-    return ROUTE_PAGES[/** @type {keyof typeof ROUTE_PAGES} */ (route)] || null;
-  }
-
-  /** @param {string} route */
   function resolveCurrentUiKind(route) {
     if (parseProjectPrintId(route) !== null) return "project-print";
     if (route === "#/projects/new") return "project-new";
@@ -244,7 +137,6 @@
 
   let currentRoute = $state("");
   let previousRoute = $state("");
-  let currentPage = $derived(resolveCurrentPage(currentRoute));
   let currentUiKind = $derived(resolveCurrentUiKind(currentRoute));
   let detailDesignId = $derived(parseDesignDetailId(currentRoute));
   let printDesignId = $derived(parseDesignPrintId(currentRoute));
