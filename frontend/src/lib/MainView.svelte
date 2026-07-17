@@ -1659,7 +1659,7 @@
   {#if currentUiKind === "browse"}
     <section class="browse-section space-y-4">
       <h1 class="ui-page-title browse-title text-2xl font-bold text-gray-800">Browse Designs</h1>
-
+      <br />
       <form
         class="browse-search-shell space-y-3 no-print bg-white rounded shadow p-4 border"
         onsubmit={(event) => {
@@ -1669,6 +1669,7 @@
       >
         <div class="ui-section-shell browse-general-search space-y-1.5">
           <label class="ui-section-label browse-general-search-label block text-xs font-semibold text-gray-600 uppercase" for="browse-q">General search</label>
+          <p></p>
           <div class="browse-general-search-row flex items-center gap-2">
             <input
               id="browse-q"
@@ -1704,7 +1705,7 @@
             <span>{browseAdditionalFiltersOpen ? "▼" : "▶"}</span>
             <span>Additional Filters</span>
           </summary>
-          <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t mt-2">
+          <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t mt-2 px-4">
             <!-- Designers Filter -->
             <div class="space-y-1">
               <span class="block text-xs font-semibold text-gray-700">Designer</span>
@@ -1780,7 +1781,7 @@
         </details>
 
         <!-- Sorting and Columns -->
-        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs border-t text-gray-600">
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 pb-4 text-xs border-t text-gray-600 px-4">
           <div class="flex flex-wrap items-center gap-3">
             <label class="flex items-center gap-1.5 font-medium">
               Sort by:
@@ -1800,7 +1801,7 @@
               </select>
             </label>
             <button type="button" class="text-indigo-600 hover:underline" onclick={clearBrowseFilters}>Reset filters</button>
-          </div>
+           </div>
           <div>
             <span>Found <strong>{browseFilteredItems.length}</strong> design(s).</span>
           </div>
