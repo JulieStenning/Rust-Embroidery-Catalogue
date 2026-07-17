@@ -131,7 +131,7 @@ export async function getDesignDetail(designId) {
   let invokeError = null;
   try {
     const detail = await invoke("get_design_detail", {
-      design_id: normalizedId,
+      designId: normalizedId,
     });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
@@ -142,7 +142,7 @@ export async function getDesignDetail(designId) {
 
   try {
     const detail = await invoke("get_design_detail", {
-      design_id: normalizedId,
+      designId: normalizedId,
     });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
