@@ -334,6 +334,15 @@
 
   let browseFilters = $state(defaultBrowseFilters());
 
+  let browseNeedsRefresh = $state(false);
+
+  /** @param {number} importedCount */
+  function handleImportCompleted(importedCount) {
+    if (importedCount >= 1) {
+      browseNeedsRefresh = true;
+    }
+  }
+
   // Detail navigation browse context
   /** @type {number[]} */
   let detailBrowseIds = $state([]);
@@ -1601,9 +1610,10 @@
 
   // Reactive effects for routing/loading
   $effect(() => {
-    if (currentRoute === "#/designs" && !browseHasLoaded) {
+    if (currentRoute === "#/designs" && (!browseHasLoaded || browseNeedsRefresh)) {
       untrack(() => {
-        loadBrowseItems();
+        loadBrowseItems(true);
+        browseNeedsRefresh = false;
       });
     }
   });
@@ -2046,6 +2056,7 @@
     <ImportView
       {currentRoute}
       {navigateTo}
+      onImportCompleted={handleImportCompleted}
     />
   {:else if currentUiKind === "about"}
     <AboutView />

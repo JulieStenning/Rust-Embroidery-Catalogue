@@ -12,7 +12,7 @@
     getSettingsViewModel
   } from "../api/commandAdapter.js";
 
-  let { currentRoute, navigateTo } = $props();
+  let { currentRoute, navigateTo, onImportCompleted } = $props();
 
   let settingsImagePreference = $state("2d");
   let settingsHelpUrl = $state("#/help");
@@ -458,6 +458,10 @@
       const hashRoute = mapServerImportRouteToHash(actionResult?.next_route);
       if (hashRoute) {
         if (hashRoute === "#/designs") {
+          const persistedCount = Number(actionResult?.confirm_result?.persisted_design_count ?? 0);
+          if (persistedCount >= 1 && typeof onImportCompleted === "function") {
+            onImportCompleted(persistedCount);
+          }
           resetImportWizard();
         }
         navigateTo(hashRoute);
