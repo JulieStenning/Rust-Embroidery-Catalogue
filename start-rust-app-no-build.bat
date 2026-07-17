@@ -57,7 +57,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-start "Rust Frontend Dev Server" cmd /k "cd /d ""%~dp0"" && npm --prefix frontend run dev"
+REM Invoke Vite directly via node to avoid npm spawning a bash console.
+start "Rust Frontend Dev Server" cmd /k "cd /d ""%~dp0frontend"" && node node_modules\vite\bin\vite.js"
 
 echo [Rust App] Waiting for dev server on 127.0.0.1:5173...
 set "TRIES=0"
