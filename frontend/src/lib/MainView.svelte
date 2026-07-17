@@ -1940,13 +1940,15 @@
                   <div>
                     <div class="browse-card-title-row flex items-start justify-between gap-1.5">
                       <p class="browse-card-title text-sm font-semibold text-gray-800 truncate flex-1" title={item.filename}>{item.filename}</p>
-                      <span
-                        class={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${item.tagsChecked ? "bg-green-500" : "bg-orange-400"}`}
-                        title={item.tagsChecked ? "Verified" : "Not verified"}
-                        aria-label={item.tagsChecked ? "Verified" : "Not verified"}
-                      >
-                        {item.tagsChecked ? "✓" : "!"}
-                      </span>
+                      {#if item.tagsChecked}
+                        <span
+                          class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-green-500"
+                          title="Verified"
+                          aria-label="Verified"
+                        >
+                          ✓
+                        </span>
+                      {/if}
                     </div>
                     <p class="browse-card-hoop text-xs font-semibold text-indigo-600 mt-1">{item.hoop || "Hoop unknown"}</p>
                     {#if item.projects.length > 0}
