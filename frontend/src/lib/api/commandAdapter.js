@@ -90,7 +90,7 @@ function normalizeBrowseItem(raw, index, options = {}) {
     hoop: raw?.hoop ?? null,
     rating:
       raw?.rating == null || Number.isNaN(Number(raw.rating))
-        ? seed % 5
+        ? null
         : Math.max(0, Math.min(5, Number(raw.rating))),
     is_stitched: Boolean(raw?.is_stitched),
     tags_checked: raw?.tags_checked ?? seed % 4 !== 0,

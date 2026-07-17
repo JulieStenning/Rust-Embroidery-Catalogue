@@ -1875,9 +1875,11 @@
                     {:else}
                       <p class="browse-card-tags text-[11px] text-gray-300 italic">No tags</p>
                     {/if}
-                    <p class="browse-card-rating text-xs text-yellow-500 font-bold mt-1" aria-label={`Rating ${item.rating ?? 0} out of 5`}>
-                      {browseStars(item.rating ?? 0)}
-                    </p>
+                    {#if item.rating != null && item.rating > 0}
+                      <p class="browse-card-rating text-xs text-yellow-500 font-bold mt-1" aria-label={`Rating ${item.rating} out of 5`}>
+                        {browseStars(item.rating)}
+                      </p>
+                    {/if}
                   </div>
                 </div>
               </button>
