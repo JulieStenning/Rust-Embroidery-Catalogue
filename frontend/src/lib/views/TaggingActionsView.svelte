@@ -29,13 +29,16 @@
   let taggingRunColorCounts = $state(false);
   let taggingStatusType = $state("info");
   let taggingStatusMessage = $state("Configure actions, then run selected actions.");
+  /** @type {{processed: number, errors: number, stopped: boolean, actions: string[], error?: string} | null} */
   let taggingLastSummary = $state(null);
+  /** @type {Array<{level: string, message: string}>} */
   let taggingLogEntries = $state([]);
 
   let taggingCommitValue = $derived(Math.max(1, Number.parseInt(taggingCommitEvery, 10) || 100));
   let taggingBatchValue = $derived(Math.max(1, Number.parseInt(taggingBatchSize, 10) || 100));
   let taggingWorkersValue = $derived(Math.max(1, Number.parseInt(taggingWorkers, 10) || 4));
 
+  /** @param {Record<string, any>} model */
   function applyTaggingViewModel(model) {
     taggingHasGoogleApiKey = Boolean(model?.has_google_api_key);
     taggingTier2Default = Boolean(model?.ai_tier2_auto);
@@ -81,6 +84,7 @@
     taggingLogEntries = Array.isArray(result?.entries) ? result.entries : [];
   }
 
+  /** @param {Event} event */
   async function runTaggingActions(event) {
     event?.preventDefault?.();
     if (taggingRunInFlight) return;

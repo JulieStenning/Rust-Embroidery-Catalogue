@@ -12,6 +12,7 @@
 
   let { currentUiKind, projectDetailId, projectPrintId, navigateTo } = $props();
 
+  /** @type {any[]} */
   let projectsItems = $state([]);
   let projectsSource = $state("mock");
   let projectsLoading = $state(false);
@@ -25,6 +26,7 @@
   let projectNewDescription = $state("");
   let projectNewSaving = $state(false);
 
+  /** @type {{ project: { id: number, name: string, description?: string }, designs: any[] } | null} */
   let projectDetail = $state(null);
   let projectDetailSource = $state("mock");
   let projectDetailLoading = $state(false);
@@ -35,6 +37,7 @@
   let projectDetailOriginalName = $state("");
   let projectDetailOriginalDescription = $state("");
 
+  /** @type {{ project: { name: string, description?: string }, designs: any[] } | null} */
   let projectPrint = $state(null);
   let projectPrintSource = $state("mock");
   let projectPrintLoading = $state(false);
@@ -45,6 +48,10 @@
     projectDetailDescription !== projectDetailOriginalDescription
   );
 
+  /**
+   * @param {string} message
+   * @param {boolean} [isError]
+   */
   function setProjectsNotice(message, isError = false) {
     projectsActionMessage = message;
     projectsActionIsError = isError;
@@ -114,6 +121,9 @@
     }
   }
 
+  /**
+   * @param {number | string} projectId
+   */
   async function loadProjectDetailView(projectId) {
     if (projectId == null) return;
 
@@ -204,6 +214,9 @@
     }
   }
 
+  /**
+   * @param {number | string} designId
+   */
   async function removeDesignFromProjectMembership(designId) {
     if (!projectDetail?.project?.id || !designId || projectDetailSaving) return;
 
@@ -217,6 +230,9 @@
     }
   }
 
+  /**
+   * @param {number | string} projectId
+   */
   async function loadProjectPrint(projectId) {
     if (projectId == null) return;
 
@@ -248,6 +264,9 @@
     window.print();
   }
 
+  /**
+   * @param {number | string | null | undefined} rating
+   */
   function ratingToStars(rating) {
     const numeric = Number(rating);
     if (!Number.isFinite(numeric) || numeric <= 0) return "";
@@ -391,7 +410,7 @@
       <button class="projects-back-link text-indigo-600 text-sm hover:underline" onclick={() => navigateTo("#/projects")}>← Projects</button>
       <div class="flex flex-wrap gap-3">
         {#if projectDetail?.project?.id}
-          <button class="projects-action-link text-sm text-gray-600 hover:underline" onclick={() => navigateTo(`#/projects/${projectDetail.project.id}/print`)}>Print Sheet</button>
+          <button class="projects-action-link text-sm text-gray-600 hover:underline" onclick={() => navigateTo(`#/projects/${projectDetail?.project?.id}/print`)}>Print Sheet</button>
         {/if}
         <button class="projects-danger-link text-sm text-red-500 hover:underline" onclick={confirmDeleteProject} disabled={projectDetailSaving || !projectDetail?.project?.id}>Delete Project</button>
       </div>

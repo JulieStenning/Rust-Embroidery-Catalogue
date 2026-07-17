@@ -17,6 +17,36 @@
   } from "../api/commandAdapter.js";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
 
+  /**
+   * @typedef {Object} DesignDetailItem
+   * @property {number} id
+   * @property {string} [filename]
+   * @property {string} [filepath]
+   * @property {string} [image_data_url]
+   * @property {string} [image_type]
+   * @property {string} [designer]
+   * @property {string} [source]
+   * @property {string} [hoop]
+   * @property {string} [date_added]
+   * @property {number} [width_mm]
+   * @property {number} [height_mm]
+   * @property {number} [stitch_count]
+   * @property {number} [color_count]
+   * @property {number} [color_change_count]
+   * @property {number|null} [rating]
+   * @property {boolean} [is_stitched]
+   * @property {string} [notes]
+   * @property {number|null} [designer_id]
+   * @property {number|null} [source_id]
+   * @property {boolean} [tags_checked]
+   * @property {Array<{id: number, description: string, tag_group?: string}>} [tags]
+   * @property {Array<{id: number, name: string}>} [designers]
+   * @property {Array<{id: number, name: string}>} [sources]
+   * @property {Array<{id: number, name: string}>} [projects]
+   * @property {Array<{id: number, name: string}>} [available_projects]
+   * @property {Array<{id: number, description: string, tag_group?: string}>} [all_tags]
+   */
+
   let { detailDesignId, detailBrowseIds = [], detailBrowseIndex = -1, navigateTo } = $props();
 
   let detailLoading = $state(false);
@@ -25,22 +55,27 @@
   let detailActionMessage = $state("");
   let detailActionIsError = $state(false);
 
+  /** @type {DesignDetailItem | null} */
   let detailItem = $state(null);
   let detailSource = $state("mock");
   let detailNotes = $state("");
   let detailDesignerId = $state("");
   let detailSourceId = $state("");
   let detailProjectToAdd = $state("");
+  /** @type {number[]} */
   let detailTagSelection = $state([]);
 
-  let deleteModalStep = $state(null); // null | "choose" | "confirm-file-delete"
+  /** @type {null | "choose" | "confirm-file-delete"} */
+  let deleteModalStep = $state(null);
   let browseBulkModalOpen = $state(false);
 
+  /** @param {string} message @param {boolean} [isError] */
   function setDetailActionNotice(message, isError = false) {
     detailActionMessage = message;
     detailActionIsError = isError;
   }
 
+  /** @param {number | string} designId */
   async function loadDesignDetail(designId) {
     if (designId == null) return;
 
@@ -97,6 +132,7 @@
     }
   }
 
+  /** @param {number | null} rating */
   async function submitDetailRating(rating) {
     if (!detailItem?.id || detailSaving) return;
 
@@ -147,6 +183,7 @@
     return false;
   }
 
+  /** @param {number} projectId */
   async function addDetailToProject(projectId) {
     if (!detailItem?.id || !projectId || detailSaving) return;
 
@@ -164,6 +201,7 @@
     await addDetailToProject(Number(detailProjectToAdd));
   }
 
+  /** @param {number} projectId */
   async function removeDetailFromProject(projectId) {
     if (!detailItem?.id || !projectId || detailSaving) return;
 
@@ -240,6 +278,7 @@
     deleteModalStep = "choose";
   }
 
+  /** @param {Event} [event] */
   function closeDeleteModal(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -257,6 +296,7 @@
     deleteModalStep = "choose";
   }
 
+  /** @param {boolean} deleteFile */
   async function deleteDetailDesign(deleteFile) {
     if (!detailItem?.id || detailSaving) return;
 
@@ -291,10 +331,12 @@
     browseBulkModalOpen = false;
   }
 
+  /** @param {number} tagId */
   function tagChooserSelectionIncludes(tagId) {
     return detailTagSelection.includes(Number(tagId));
   }
 
+  /** @param {number} tagId @param {boolean} checked */
   function toggleTagChooserSelection(tagId, checked) {
     const id = Number(tagId);
     if (!Number.isFinite(id)) return;
@@ -312,6 +354,7 @@
     }
   }
 
+  /** @param {HTMLElement} node */
   function portalToBody(node) {
     if (typeof document === "undefined") return {};
     const host = document.body;
@@ -327,6 +370,7 @@
     };
   }
 
+  /** @param {number | string} rating */
   function ratingToStars(rating) {
     const numeric = Number(rating);
     if (!Number.isFinite(numeric) || numeric <= 0) return "";

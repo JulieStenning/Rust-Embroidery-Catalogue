@@ -14,15 +14,18 @@
   let orphansLoading = $state(false);
   let orphansLoaded = $state(false);
   let orphansError = $state("");
+  /** @type {any[]} */
   let orphanItems = $state([]);
   let orphanPage = $state(1);
   let orphanPageSize = $state(100);
   let orphanTotal = $state(0);
   let orphanTotalPages = $state(1);
+  /** @type {number[]} */
   let orphanSelectedIds = $state([]);
   let orphanActionMessage = $state("");
   let orphanActionType = $state("info");
 
+  /** @param {number} page */
   async function loadOrphansPage(page, force = false) {
     if (orphansLoading) return;
     if (!force && orphansLoaded && page === orphanPage) return;
@@ -50,10 +53,12 @@
     }
   }
 
+  /** @param {number} id */
   function orphanIsSelected(id) {
     return orphanSelectedIds.includes(Number(id));
   }
 
+  /** @param {number} id @param {boolean} checked */
   function toggleOrphanSelection(id, checked) {
     const normalizedId = Number(id);
     if (checked) {
@@ -71,6 +76,7 @@
     orphanSelectedIds = [];
   }
 
+  /** @param {string} filepath */
   async function openOrphanPath(filepath) {
     const result = await browseOrphanPath(filepath);
     if (result.opened) {
@@ -133,12 +139,14 @@
     await loadOrphansPage(1, true);
   }
 
+  /** @param {number} page */
   function goToOrphanPage(page) {
     const nextPage = Math.max(1, Math.min(orphanTotalPages, Number(page) || 1));
     if (nextPage === orphanPage) return;
     loadOrphansPage(nextPage, true);
   }
 
+  /** @param {number} designId */
   function openOrphanDesign(designId) {
     const id = Number(designId);
     if (!Number.isFinite(id) || id <= 0) return;

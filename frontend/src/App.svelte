@@ -14,7 +14,7 @@
     if (typeof window === "undefined") {
       return false;
     }
-    return typeof window.__TAURI_INTERNALS__?.invoke === "function";
+    return typeof (/** @type {any} */ (window)).__TAURI_INTERNALS__?.invoke === "function";
   }
 
   /** Called once on mount to determine which view to show */

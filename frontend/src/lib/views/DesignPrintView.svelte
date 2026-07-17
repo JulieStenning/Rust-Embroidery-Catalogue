@@ -6,9 +6,31 @@
 
   let detailLoading = $state(false);
   let detailError = $state("");
+  /** @type {DesignItem | null} */
   let detailItem = $state(null);
   let detailSource = $state("mock");
 
+  /**
+   * @typedef {Object} DesignItem
+   * @property {string} filename
+   * @property {string} [image_data_url]
+   * @property {string} [filepath]
+   * @property {string} [designer]
+   * @property {string} [source]
+   * @property {string} [hoop]
+   * @property {number} [width_mm]
+   * @property {number} [height_mm]
+   * @property {number} [stitch_count]
+   * @property {number} [color_count]
+   * @property {number} [color_change_count]
+   * @property {string} [date_added]
+   * @property {number} [rating]
+   * @property {boolean} [is_stitched]
+   * @property {string} [notes]
+   * @property {Array<{description: string}>} [tags]
+   */
+
+  /** @param {number | null} designId */
   async function loadDesignDetail(designId) {
     if (designId == null) return;
 
@@ -37,6 +59,7 @@
     window.print();
   }
 
+  /** @param {number | string | undefined | null} rating */
   function ratingToStars(rating) {
     const numeric = Number(rating);
     if (!Number.isFinite(numeric) || numeric <= 0) return "";
@@ -104,7 +127,7 @@
         {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
           <div class="p-4 bg-gray-50 rounded border">
             <p class="font-semibold text-sm text-gray-800 mb-1">Tags</p>
-            <p class="text-sm text-gray-700">{detailItem.tags.map((tag) => tag.description).join(", ")}</p>
+            <p class="text-sm text-gray-700">{detailItem.tags.map((/** @type {{description: string}} */ tag) => tag.description).join(", ")}</p>
           </div>
         {/if}
       </div>

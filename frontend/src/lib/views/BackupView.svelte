@@ -69,6 +69,7 @@
     }
   }
 
+  /** @param {"database" | "designs"} kind */
   async function browseBackupDestination(kind) {
     const startDir = kind === "database" ? backupDbDestination : backupDesignsDestination;
     const result = await browseBackupFolder(startDir);
@@ -90,6 +91,7 @@
     }
   }
 
+  /** @param {SubmitEvent} event */
   async function saveBackupDestinations(event) {
     event.preventDefault();
 
@@ -118,6 +120,7 @@
     backupMessage = result.message || "Could not save backup destinations.";
   }
 
+  /** @param {"database" | "designs" | "both"} action */
   async function runBackupAction(action) {
     if (backupAnyRunning) return;
 

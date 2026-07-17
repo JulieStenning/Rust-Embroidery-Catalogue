@@ -53,6 +53,11 @@ const MOCK_HOOPS = [
   { id: 3, name: "Hoop C" },
 ];
 
+/**
+ * @param {Record<string, any> | null | undefined} raw
+ * @param {number} index
+ * @param {{ useSeedTags?: boolean }} [options]
+ */
 function normalizeBrowseItem(raw, index, options = {}) {
   const { useSeedTags = false } = options;
   const id = Number(raw?.id ?? index + 1);
@@ -115,6 +120,7 @@ export async function getBrowseDesigns() {
 /**
  * Try to load a single design detail from Rust command surface.
  * Falls back to mock data while detail command migration is in progress.
+ * @param {number | string} designId
  */
 export async function getDesignDetail(designId) {
   const normalizedId = Number(designId);
@@ -125,7 +131,7 @@ export async function getDesignDetail(designId) {
   let invokeError = null;
   try {
     const detail = await invoke("get_design_detail", {
-      designId: normalizedId,
+      design_id: normalizedId,
     });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
@@ -199,6 +205,9 @@ export async function getDesignDetail(designId) {
   };
 }
 
+/**
+ * @param {number | string} designId
+ */
 export async function getDesignImageDataUrl(designId) {
   const normalizedId = Number(designId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
@@ -206,7 +215,7 @@ export async function getDesignImageDataUrl(designId) {
   }
 
   try {
-    const image = await invoke("get_design_image_data_url", { designId: normalizedId });
+    const image = await invoke("get_design_image_data_url", { design_id: normalizedId });
     if (image && typeof image === "object") {
       return { item: image, source: "rust" };
     }
@@ -217,12 +226,16 @@ export async function getDesignImageDataUrl(designId) {
   return { item: null, source: "mock" };
 }
 
+/**
+ * @param {number | string} designId
+ * @param {Record<string, any>} request
+ */
 export async function updateDesignMetadata(designId, request) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("update_design_metadata", {
-      designId: normalizedId,
+      design_id: normalizedId,
       request,
     });
     return {
@@ -242,12 +255,16 @@ export async function updateDesignMetadata(designId, request) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {number | null} rating
+ */
 export async function setDesignRating(designId, rating) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("set_design_rating", {
-      designId: normalizedId,
+      design_id: normalizedId,
       request: { rating: rating == null ? null : Number(rating) },
     });
     return {
@@ -267,12 +284,16 @@ export async function setDesignRating(designId, rating) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {boolean} isStitched
+ */
 export async function setDesignStitched(designId, isStitched) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("set_design_stitched", {
-      designId: normalizedId,
+      design_id: normalizedId,
       request: { is_stitched: Boolean(isStitched) },
     });
     return {
@@ -292,12 +313,16 @@ export async function setDesignStitched(designId, isStitched) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {boolean} tagsChecked
+ */
 export async function setDesignTagsChecked(designId, tagsChecked) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("set_design_tags_checked", {
-      designId: normalizedId,
+      design_id: normalizedId,
       request: { tags_checked: Boolean(tagsChecked) },
     });
     return {
@@ -317,6 +342,10 @@ export async function setDesignTagsChecked(designId, tagsChecked) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {Array<number | string>} tagIds
+ */
 export async function setDesignTags(designId, tagIds) {
   const normalizedId = Number(designId);
   const normalizedTagIds = Array.isArray(tagIds)
@@ -325,7 +354,7 @@ export async function setDesignTags(designId, tagIds) {
 
   try {
     const result = await invoke("set_design_tags", {
-      designId: normalizedId,
+      design_id: normalizedId,
       request: { tag_ids: normalizedTagIds },
     });
     return {
@@ -345,13 +374,17 @@ export async function setDesignTags(designId, tagIds) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {number | string} projectId
+ */
 export async function addDesignToProject(designId, projectId) {
   const normalizedId = Number(designId);
   const normalizedProjectId = Number(projectId);
 
   try {
     const result = await invoke("add_design_to_project", {
-      designId: normalizedId,
+      design_id: normalizedId,
       request: { project_id: normalizedProjectId },
     });
     return {
@@ -371,14 +404,18 @@ export async function addDesignToProject(designId, projectId) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {number | string} projectId
+ */
 export async function removeDesignFromProject(designId, projectId) {
   const normalizedId = Number(designId);
   const normalizedProjectId = Number(projectId);
 
   try {
     const result = await invoke("remove_design_from_project", {
-      designId: normalizedId,
-      projectId: normalizedProjectId,
+      design_id: normalizedId,
+      project_id: normalizedProjectId,
     });
     return {
       source: "rust",
@@ -397,13 +434,17 @@ export async function removeDesignFromProject(designId, projectId) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ * @param {boolean} [deleteFile]
+ */
 export async function deleteDesign(designId, deleteFile = false) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("delete_design", {
-      designId: normalizedId,
-      deleteFile: Boolean(deleteFile),
+      design_id: normalizedId,
+      delete_file: Boolean(deleteFile),
     });
     return {
       source: "rust",
@@ -422,12 +463,15 @@ export async function deleteDesign(designId, deleteFile = false) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ */
 export async function openDesignInEditor(designId) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("open_design_in_editor", {
-      designId: normalizedId,
+      design_id: normalizedId,
     });
     return {
       source: "rust",
@@ -446,12 +490,15 @@ export async function openDesignInEditor(designId) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ */
 export async function openDesignInExplorer(designId) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("open_design_in_explorer", {
-      designId: normalizedId,
+      design_id: normalizedId,
     });
     return {
       source: "rust",
@@ -470,12 +517,15 @@ export async function openDesignInExplorer(designId) {
   }
 }
 
+/**
+ * @param {number | string} designId
+ */
 export async function renderDesign3dPreview(designId) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invoke("render_design_3d_preview", {
-      designId: normalizedId,
+      design_id: normalizedId,
     });
     return {
       source: "rust",
@@ -497,6 +547,7 @@ export async function renderDesign3dPreview(designId) {
 /**
  * Try import preview using existing Rust bulk import command.
  * Falls back to a mock preview shape if command wiring is incomplete.
+ * @param {string | string[]} rootPaths
  */
 export async function previewImportFromRoots(rootPaths) {
   const normalizedRoots = Array.isArray(rootPaths)
@@ -546,6 +597,9 @@ export async function previewImportFromRoots(rootPaths) {
   }
 }
 
+/**
+ * @param {string} rootPath
+ */
 export async function previewImportFromRoot(rootPath) {
   const normalizedRoot = String(rootPath || "").trim();
   return previewImportFromRoots(normalizedRoot ? [normalizedRoot] : []);
@@ -553,6 +607,7 @@ export async function previewImportFromRoot(rootPath) {
 
 /**
  * Open native folder picker for import root selection.
+ * @param {string} [startDir]
  */
 export async function browseImportFolder(startDir = "") {
   try {
@@ -566,7 +621,7 @@ export async function browseImportFolder(startDir = "") {
     return {
       source: "rust",
       path: String(result?.path || ""),
-      paths: Array.isArray(result?.paths) ? result.paths.map((item) => String(item || "")).filter(Boolean) : [],
+      paths: Array.isArray(result?.paths) ? result.paths.map((/** @type {any} */ item) => String(item || "")).filter(Boolean) : [],
       message: result?.path ? "Folder selected." : "Folder selection cancelled.",
     };
   } catch (error) {
@@ -582,6 +637,7 @@ export async function browseImportFolder(startDir = "") {
 
 /**
  * Run import precheck and persist tokenized import context in Rust backend.
+ * @param {Record<string, any> | null} confirmWire
  */
 export async function precheckImportWire(confirmWire) {
   const wire = confirmWire && typeof confirmWire === "object" ? confirmWire : null;
@@ -604,7 +660,7 @@ export async function precheckImportWire(confirmWire) {
 
   try {
     const precheck = await invoke("precheck_bulk_import_wire", {
-      confirmWire: wire,
+      confirm_wire: wire,
     });
 
     return {
@@ -635,6 +691,11 @@ export async function precheckImportWire(confirmWire) {
 
 /**
  * Execute Step 3 precheck action in Rust backend.
+ * @param {object} options
+ * @param {string} options.contextToken
+ * @param {string} options.action
+ * @param {boolean} [options.confirmSkipHoops]
+ * @param {string | null} [options.imagePreferenceOverride]
  */
 export async function runPrecheckAction({
   contextToken,
@@ -722,6 +783,7 @@ export async function requestStopBulkImport() {
 /**
  * Mark selected designs as verified in Rust backend.
  * Falls back to local-only behavior while route wiring is in progress.
+ * @param {Array<number | string>} designIds
  */
 export async function bulkVerifyDesigns(designIds) {
   const normalizedIds = Array.isArray(designIds)
@@ -738,7 +800,7 @@ export async function bulkVerifyDesigns(designIds) {
   }
 
   try {
-    const result = await invoke("bulk_verify_designs", { designIds: normalizedIds });
+    const result = await invoke("bulk_verify_designs", { design_ids: normalizedIds });
     return {
       source: "rust",
       requested_count: Number(result?.requested_count ?? normalizedIds.length),
@@ -806,6 +868,10 @@ export async function getProjectsList() {
   return { items: [], source: "mock" };
 }
 
+/**
+ * @param {string} name
+ * @param {string} description
+ */
 export async function createProject(name, description) {
   const payload = {
     name: String(name || "").trim(),
@@ -831,6 +897,9 @@ export async function createProject(name, description) {
   }
 }
 
+/**
+ * @param {number | string} projectId
+ */
 export async function getProjectDetail(projectId) {
   const normalizedProjectId = Number(projectId);
   if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
@@ -838,7 +907,7 @@ export async function getProjectDetail(projectId) {
   }
 
   try {
-    const detail = await invoke("get_project_detail", { projectId: normalizedProjectId });
+    const detail = await invoke("get_project_detail", { project_id: normalizedProjectId });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
     }
@@ -853,6 +922,11 @@ export async function getProjectDetail(projectId) {
   return { item: null, source: "mock", error: "Project detail was empty." };
 }
 
+/**
+ * @param {number | string} projectId
+ * @param {string} name
+ * @param {string} description
+ */
 export async function updateProject(projectId, name, description) {
   const normalizedProjectId = Number(projectId);
   const payload = {
@@ -862,7 +936,7 @@ export async function updateProject(projectId, name, description) {
 
   try {
     const result = await invoke("update_project", {
-      projectId: normalizedProjectId,
+      project_id: normalizedProjectId,
       request: payload,
     });
     return {
@@ -882,11 +956,14 @@ export async function updateProject(projectId, name, description) {
   }
 }
 
+/**
+ * @param {number | string} projectId
+ */
 export async function deleteProject(projectId) {
   const normalizedProjectId = Number(projectId);
 
   try {
-    const result = await invoke("delete_project", { projectId: normalizedProjectId });
+    const result = await invoke("delete_project", { project_id: normalizedProjectId });
     return {
       source: "rust",
       persisted: true,
@@ -904,14 +981,18 @@ export async function deleteProject(projectId) {
   }
 }
 
+/**
+ * @param {number | string} projectId
+ * @param {number | string} designId
+ */
 export async function removeDesignFromProjectDetail(projectId, designId) {
   const normalizedProjectId = Number(projectId);
   const normalizedDesignId = Number(designId);
 
   try {
     const result = await invoke("remove_design_from_project_detail", {
-      projectId: normalizedProjectId,
-      designId: normalizedDesignId,
+      project_id: normalizedProjectId,
+      design_id: normalizedDesignId,
     });
     return {
       source: "rust",
@@ -932,6 +1013,9 @@ export async function removeDesignFromProjectDetail(projectId, designId) {
   }
 }
 
+/**
+ * @param {number | string} projectId
+ */
 export async function getProjectPrintView(projectId) {
   const normalizedProjectId = Number(projectId);
   if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
@@ -939,7 +1023,7 @@ export async function getProjectPrintView(projectId) {
   }
 
   try {
-    const view = await invoke("get_project_print_view", { projectId: normalizedProjectId });
+    const view = await invoke("get_project_print_view", { project_id: normalizedProjectId });
     if (view && typeof view === "object") {
       return { item: view, source: "rust" };
     }
@@ -957,6 +1041,8 @@ export async function getProjectPrintView(projectId) {
 /**
  * Add selected designs to a project in Rust backend.
  * Falls back to local-only behavior while route wiring is in progress.
+ * @param {number | string} projectId
+ * @param {Array<number | string>} designIds
  */
 export async function bulkAddDesignsToProject(projectId, designIds) {
   const normalizedProjectId = Number(projectId);
@@ -975,10 +1061,7 @@ export async function bulkAddDesignsToProject(projectId, designIds) {
   }
 
   try {
-    // Send both key styles so this works across mixed command bindings.
     const result = await invoke("bulk_add_designs_to_project", {
-      projectId: normalizedProjectId,
-      designIds: normalizedIds,
       project_id: normalizedProjectId,
       design_ids: normalizedIds,
     });
@@ -1037,6 +1120,8 @@ export async function getBrowseTags() {
 /**
  * Replace tag assignments for selected designs in Rust backend.
  * Falls back to local-only behavior while route wiring is in progress.
+ * @param {Array<number | string>} designIds
+ * @param {Array<number | string>} tagIds
  */
 export async function bulkSetTagsForDesigns(designIds, tagIds) {
   const normalizedDesignIds = Array.isArray(designIds)
@@ -1057,8 +1142,8 @@ export async function bulkSetTagsForDesigns(designIds, tagIds) {
 
   try {
     const result = await invoke("bulk_set_tags_for_designs", {
-      designIds: normalizedDesignIds,
-      tagIds: normalizedTagIds,
+      design_ids: normalizedDesignIds,
+      tag_ids: normalizedTagIds,
     });
     return {
       source: "rust",
@@ -1080,6 +1165,7 @@ export async function bulkSetTagsForDesigns(designIds, tagIds) {
 /**
  * Fetch page-scoped preview image data URLs for browse cards.
  * Falls back to empty previews if unavailable.
+ * @param {Array<number | string>} designIds
  */
 export async function getBrowseDesignPreviews(designIds) {
   const normalizedIds = Array.isArray(designIds)
@@ -1091,7 +1177,7 @@ export async function getBrowseDesignPreviews(designIds) {
   }
 
   try {
-    const previews = await invoke("get_design_previews_for_browse", { designIds: normalizedIds });
+    const previews = await invoke("get_design_previews_for_browse", { design_ids: normalizedIds });
     if (Array.isArray(previews)) {
       return {
         items: previews.map((item) => ({
@@ -1179,6 +1265,9 @@ export async function getAboutDocuments() {
   };
 }
 
+/**
+ * @param {string} slug
+ */
 export async function getAboutDocument(slug) {
   const normalizedSlug = String(slug || "").trim().toLowerCase();
   if (!normalizedSlug) {
@@ -1250,6 +1339,7 @@ export async function getSettingsViewModel() {
 
 /**
  * Save settings via Rust backend.
+ * @param {Record<string, any>} request
  */
 export async function saveSettings(request) {
   try {
@@ -1271,6 +1361,9 @@ export async function saveSettings(request) {
   }
 }
 
+/**
+ * @param {string} path
+ */
 export async function saveImportLastBrowseFolder(path) {
   try {
     const result = await invoke("save_import_last_browse_folder", { path: String(path || "") });
@@ -1294,10 +1387,11 @@ export async function saveImportLastBrowseFolder(path) {
 
 /**
  * Open settings data-root folder picker when available.
+ * @param {string} startDir
  */
 export async function browseSettingsDataRoot(startDir) {
   try {
-    const result = await invoke("browse_settings_data_root", { startDir });
+    const result = await invoke("browse_settings_data_root", { start_dir: startDir });
     return {
       source: "rust",
       path: result?.path ? String(result.path) : null,
@@ -1349,6 +1443,9 @@ export async function getTaggingActionsViewModel() {
   }
 }
 
+/**
+ * @param {Record<string, any>} request
+ */
 export async function runUnifiedBackfill(request) {
   try {
     const result = await invoke("run_unified_backfill", { request });
@@ -1390,6 +1487,9 @@ export async function stopUnifiedBackfill() {
   }
 }
 
+/**
+ * @param {number} [limit]
+ */
 export async function getBackfillLogEntries(limit = 20) {
   try {
     const entries = await invoke("get_backfill_log_entries", { limit: Number(limit) });
@@ -1415,11 +1515,14 @@ export async function getBackfillLogEntries(limit = 20) {
   };
 }
 
+/**
+ * @param {{ clearExistingStitching?: boolean, batchSize?: number }} [options]
+ */
 export async function runStitchingBackfill({ clearExistingStitching = false, batchSize = 100 } = {}) {
   try {
     const result = await invoke("run_stitching_backfill", {
-      clearExistingStitching: Boolean(clearExistingStitching),
-      batchSize: Number(batchSize),
+      clear_existing_stitching: Boolean(clearExistingStitching),
+      batch_size: Number(batchSize),
     });
     return {
       source: "rust",
@@ -1467,6 +1570,9 @@ export async function getBackupViewModel() {
   }
 }
 
+/**
+ * @param {{ dbDestination: string, designsDestination: string }} options
+ */
 export async function saveBackupSettings({ dbDestination, designsDestination }) {
   try {
     const result = await invoke("save_backup_settings", {
@@ -1495,10 +1601,13 @@ export async function saveBackupSettings({ dbDestination, designsDestination }) 
   }
 }
 
+/**
+ * @param {string} [startDir]
+ */
 export async function browseBackupFolder(startDir = "") {
   try {
     const result = await invoke("browse_backup_folder", {
-      startDir: String(startDir || "") || null,
+      start_dir: String(startDir || "") || null,
     });
 
     return {
@@ -1605,6 +1714,9 @@ export async function scanOrphans() {
   }
 }
 
+/**
+ * @param {{ page?: number, pageSize?: number }} [options]
+ */
 export async function getOrphansPage({ page = 1, pageSize = 100 } = {}) {
   const normalizedPage = Math.max(1, Number(page) || 1);
   const normalizedPageSize = Math.max(1, Number(pageSize) || 100);
@@ -1624,7 +1736,7 @@ export async function getOrphansPage({ page = 1, pageSize = 100 } = {}) {
       total: Number(result?.total ?? 0),
       total_pages: Number(result?.total_pages ?? 1),
       items: Array.isArray(result?.items)
-        ? result.items.map((item) => ({
+        ? result.items.map((/** @type {any} */ item) => ({
             id: Number(item?.id),
             filename: String(item?.filename || ""),
             filepath: String(item?.filepath || ""),
@@ -1646,6 +1758,9 @@ export async function getOrphansPage({ page = 1, pageSize = 100 } = {}) {
   }
 }
 
+/**
+ * @param {Array<number | string>} designIds
+ */
 export async function deleteOrphans(designIds) {
   const ids = Array.isArray(designIds)
     ? designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
@@ -1691,6 +1806,9 @@ export async function deleteAllOrphans() {
   }
 }
 
+/**
+ * @param {string} filepath
+ */
 export async function browseOrphanPath(filepath) {
   try {
     const result = await invoke("browse_orphan_path", {
@@ -1711,8 +1829,6 @@ export async function browseOrphanPath(filepath) {
     };
   }
 }
-
-
 
 export async function listDesigners() {
   try {
@@ -1741,6 +1857,9 @@ export async function listDesigners() {
   };
 }
 
+/**
+ * @param {string} name
+ */
 export async function createDesigner(name) {
   try {
     const item = await invoke("create_designer", { request: { name } });
@@ -1758,6 +1877,10 @@ export async function createDesigner(name) {
   }
 }
 
+/**
+ * @param {number | string} designerId
+ * @param {string} name
+ */
 export async function updateDesigner(designerId, name) {
   try {
     const item = await invoke("update_designer", {
@@ -1780,9 +1903,12 @@ export async function updateDesigner(designerId, name) {
   }
 }
 
+/**
+ * @param {number | string} designerId
+ */
 export async function deleteDesigner(designerId) {
   try {
-    await invoke("delete_designer", { designerId: Number(designerId) });
+    await invoke("delete_designer", { designer_id: Number(designerId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -1816,6 +1942,9 @@ export async function listSources() {
   };
 }
 
+/**
+ * @param {string} name
+ */
 export async function createSource(name) {
   try {
     const item = await invoke("create_source", { request: { name } });
@@ -1833,6 +1962,10 @@ export async function createSource(name) {
   }
 }
 
+/**
+ * @param {number | string} sourceId
+ * @param {string} name
+ */
 export async function updateSource(sourceId, name) {
   try {
     const item = await invoke("update_source", {
@@ -1855,9 +1988,12 @@ export async function updateSource(sourceId, name) {
   }
 }
 
+/**
+ * @param {number | string} sourceId
+ */
 export async function deleteSource(sourceId) {
   try {
-    await invoke("delete_source", { sourceId: Number(sourceId) });
+    await invoke("delete_source", { source_id: Number(sourceId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -1892,6 +2028,10 @@ export async function listTags() {
   };
 }
 
+/**
+ * @param {string} description
+ * @param {string | null} tagGroup
+ */
 export async function createTag(description, tagGroup) {
   try {
     const item = await invoke("create_tag", {
@@ -1914,6 +2054,10 @@ export async function createTag(description, tagGroup) {
   }
 }
 
+/**
+ * @param {number | string} tagId
+ * @param {string | null} tagGroup
+ */
 export async function setTagGroup(tagId, tagGroup) {
   try {
     const item = await invoke("set_tag_group", {
@@ -1933,9 +2077,12 @@ export async function setTagGroup(tagId, tagGroup) {
   }
 }
 
+/**
+ * @param {number | string} tagId
+ */
 export async function deleteTag(tagId) {
   try {
-    await invoke("delete_tag", { tagId: Number(tagId) });
+    await invoke("delete_tag", { tag_id: Number(tagId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -1971,6 +2118,11 @@ export async function listHoops() {
   };
 }
 
+/**
+ * @param {string} name
+ * @param {number} maxWidthMm
+ * @param {number} maxHeightMm
+ */
 export async function createHoop(name, maxWidthMm, maxHeightMm) {
   try {
     const item = await invoke("create_hoop", {
@@ -1996,6 +2148,12 @@ export async function createHoop(name, maxWidthMm, maxHeightMm) {
   }
 }
 
+/**
+ * @param {number | string} hoopId
+ * @param {string} name
+ * @param {number} maxWidthMm
+ * @param {number} maxHeightMm
+ */
 export async function updateHoop(hoopId, name, maxWidthMm, maxHeightMm) {
   try {
     const item = await invoke("update_hoop", {
@@ -2022,9 +2180,12 @@ export async function updateHoop(hoopId, name, maxWidthMm, maxHeightMm) {
   }
 }
 
+/**
+ * @param {number | string} hoopId
+ */
 export async function deleteHoop(hoopId) {
   try {
-    await invoke("delete_hoop", { hoopId: Number(hoopId) });
+    await invoke("delete_hoop", { hoop_id: Number(hoopId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };

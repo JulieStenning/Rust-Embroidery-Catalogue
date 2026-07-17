@@ -31,7 +31,8 @@
     settingsApiKeyRevealed = !settingsApiKeyRevealed;
   }
 
-  function applySettingsModel(model) {
+  /** @param {Record<string, any>} model */
+  function applySettingsModel(model = {}) {
     settingsImagePreference = model?.image_preference === "3d" ? "3d" : "2d";
     settingsGoogleApiKey = String(model?.google_api_key || "");
     settingsAiTier2Auto = Boolean(model?.ai_tier2_auto);
@@ -63,6 +64,7 @@
     }
   }
 
+  /** @param {Event} event */
   async function saveSettingsFromBackend(event) {
     event.preventDefault();
     settingsSaveState = "saving";

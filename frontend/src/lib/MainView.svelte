@@ -945,15 +945,22 @@
     if (browseSelectedIds.length === 0 || browseBulkProjectSelection.length === 0) return;
 
     browseLoading = true;
+    let totalAdded = 0;
+    let anyFailed = false;
     try {
-      const result = /** @type {any} */ (await bulkAddDesignsToProject(browseSelectedIds, browseBulkProjectSelection));
-      if (result?.persisted) {
-        browseActionNotice = `${result.added_count ?? result.updated} design(s) added to project(s).`;
-        closeBulkProjectModal();
-        await loadBrowseItems(true);
-      } else {
-        browseActionNotice = result?.error || "Could not bulk add designs to projects.";
+      for (const projectId of browseBulkProjectSelection) {
+        const result = /** @type {any} */ (await bulkAddDesignsToProject(projectId, browseSelectedIds));
+        if (result?.persisted) {
+          totalAdded += result.added_count ?? result.updated ?? 0;
+        } else {
+          anyFailed = true;
+        }
       }
+      browseActionNotice = anyFailed
+        ? `Some projects could not be updated. ${totalAdded} design(s) added to project(s).`
+        : `${totalAdded} design(s) added to project(s).`;
+      closeBulkProjectModal();
+      await loadBrowseItems(true);
     } catch (e) {
       browseActionNotice = `Bulk project add failed: ${e}`;
     } finally {

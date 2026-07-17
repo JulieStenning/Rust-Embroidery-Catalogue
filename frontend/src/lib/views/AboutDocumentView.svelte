@@ -1,13 +1,17 @@
 <script>
-  import { onMount, untrack } from "svelte";
+  import { onMount } from "svelte";
   import { getAboutDocument } from "../api/commandAdapter.js";
 
   let { slug } = $props();
 
+  /** @type {{ slug: string, title: string, description: string, filename: string, document_text: string } | null} */
   let documentItem = $state(null);
   let loading = $state(false);
   let error = $state("");
 
+  /**
+   * @param {{ slug?: string, filename?: string } | null | undefined} item
+   */
   function shouldRenderAsHtml(item) {
     if (!item || typeof item !== "object") return false;
     const slugName = String(item.slug || "").toLowerCase();
@@ -15,7 +19,10 @@
     return slugName === "disclaimer" || filename.endsWith(".html");
   }
 
-  async function loadAboutDocumentView(slugName, force = false) {
+  /**
+   * @param {string} slugName
+   */
+  async function loadAboutDocumentView(slugName) {
     const normalizedSlug = String(slugName || "").trim().toLowerCase();
     if (!normalizedSlug) {
       documentItem = null;
@@ -41,14 +48,6 @@
       loading = false;
     }
   }
-
-  $effect(() => {
-    if (slug) {
-      untrack(() => {
-        loadAboutDocumentView(slug);
-      });
-    }
-  });
 
   onMount(() => {
     if (slug) {

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { getAboutDocuments } from "../api/commandAdapter.js";
 
+  /** @type {any[]} */
   let aboutDocuments = $state([]);
   let aboutDocumentsLoading = $state(false);
   let aboutDocumentsError = $state("");

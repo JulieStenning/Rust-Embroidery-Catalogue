@@ -21,13 +21,15 @@
   let settingsLoading = $state(false);
 
   let importRootPath = $state("");
+  /** @type {string[]} */
   let importRootPaths = $state([]);
-  let importPreview = $state(null);
+  let importPreview = $state(/** @type {Record<string, any> | null} */ (null));
   let importPreviewSource = $state("mock");
-  let importPrecheck = $state(null);
+  let importPrecheck = $state(/** @type {Record<string, any> | null} */ (null));
   let importPrecheckSource = $state("mock");
   let importPrecheckMessage = $state("Run precheck after selecting files.");
   let importStep3ImagePreference = $state("2d");
+  /** @type {string[]} */
   let importSelectedFiles = $state([]);
   let importContextToken = $state("");
   let importActionMessage = $state("");
@@ -38,11 +40,15 @@
   let importStopRequestPending = $state(false);
   let importProgressStatus = $state("");
   let importProgressToken = $state("");
+  /** @type {(() => void) | null} */
   let importProgressUnlisten = null;
   let importGlobalDesignerId = $state("");
   let importGlobalSourceId = $state("");
+  /** @type {Record<string, {designerId: string, sourceId: string}>} */
   let importPerFolderAssignmentByPath = $state({});
+  /** @type {Array<Record<string, any>>} */
   let importDesigners = $state([]);
+  /** @type {Array<Record<string, any>>} */
   let importSources = $state([]);
   let importReferenceLoading = $state(false);
   let importLoading = $state(false);
@@ -52,6 +58,7 @@
   let importNowInProgress = $derived(importActionLoading && importActionInProgress === "import_now");
   let importRouteStep = $derived(parseImportWizardStep(currentRoute));
 
+  /** @param {string} route */
   function parseImportWizardStep(route) {
     if (route === "#/import") return 1;
     const match = route.match(/^#\/import\/step([123])$/);
@@ -93,14 +100,17 @@
     }
   }
 
+  /** @param {string} folderPath */
   function getImportFolderDesigner(folderPath) {
     return String(importPerFolderAssignmentByPath?.[folderPath]?.designerId || "");
   }
 
+  /** @param {string} folderPath */
   function getImportFolderSource(folderPath) {
     return String(importPerFolderAssignmentByPath?.[folderPath]?.sourceId || "");
   }
 
+  /** @param {any} value */
   function normalizeNameForImportMatching(value) {
     return String(value || "")
       .toLowerCase()
@@ -109,10 +119,12 @@
       .trim();
   }
 
+  /** @param {any} value */
   function compactNameForImportMatching(value) {
     return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   }
 
+  /** @param {any} value */
   function stripWebAffixesForImportMatching(value) {
     let compact = compactNameForImportMatching(value);
     if (compact.startsWith("www")) {
@@ -127,6 +139,7 @@
     return compact;
   }
 
+  /** @param {any} pathValue */
   function normalizeImportPathKey(pathValue) {
     return String(pathValue || "").trim().replace(/\\/g, "/").toLowerCase();
   }
@@ -146,6 +159,7 @@
     })()
   );
 
+  /** @param {any} pathValue @param {any[]} items */
   function suggestImportMatchFromPath(pathValue, items) {
     const normalizedPath = normalizeNameForImportMatching(pathValue);
     const compactPath = compactNameForImportMatching(pathValue);
@@ -176,6 +190,7 @@
     return null;
   }
 
+  /** @param {string} folderPath */
   function getInferredImportDesigner(folderPath) {
     const resolved = importPreviewResolvedAssignmentByPath.get(normalizeImportPathKey(folderPath));
     const resolvedId = Number(resolved?.inferred_designer_id);
@@ -186,6 +201,7 @@
     return suggestImportMatchFromPath(folderPath, importDesigners);
   }
 
+  /** @param {string} folderPath */
   function getInferredImportSource(folderPath) {
     const resolved = importPreviewResolvedAssignmentByPath.get(normalizeImportPathKey(folderPath));
     const resolvedId = Number(resolved?.inferred_source_id);
@@ -196,16 +212,19 @@
     return suggestImportMatchFromPath(folderPath, importSources);
   }
 
+  /** @param {string} folderPath */
   function getImportFolderDesignerInferredLabel(folderPath) {
     const inferred = getInferredImportDesigner(folderPath);
     return inferred?.name ? `Keep inferred (${inferred.name})` : "Keep inferred";
   }
 
+  /** @param {string} folderPath */
   function getImportFolderSourceInferredLabel(folderPath) {
     const inferred = getInferredImportSource(folderPath);
     return inferred?.name ? `Keep inferred (${inferred.name})` : "Keep inferred";
   }
 
+  /** @param {string} fullPath */
   function getFolderPathFromFilePath(fullPath) {
     const value = String(fullPath || "").trim();
     if (!value) return "";
@@ -215,6 +234,7 @@
     return normalized.slice(0, splitIndex);
   }
 
+  /** @param {string} folderPath */
   function getFolderLabelFromFolderPath(folderPath) {
     const value = String(folderPath || "").trim();
     if (!value) return "Unknown folder";
@@ -224,6 +244,7 @@
     return segments.length > 0 ? segments[segments.length - 1] : normalized;
   }
 
+  /** @param {string} fullPath */
   function getImportFilenameFromPath(fullPath) {
     const value = String(fullPath || "").trim();
     if (!value) return "Unknown file";
@@ -238,6 +259,7 @@
         .map((fullPath) => getFolderPathFromFilePath(fullPath))
         .filter(Boolean)
     );
+    /** @type {Record<string, {designerId: string, sourceId: string}>} */
     const next = {};
     for (const folderPath of folderPaths) {
       const previous = importPerFolderAssignmentByPath?.[folderPath] || {};
@@ -249,6 +271,7 @@
     importPerFolderAssignmentByPath = next;
   }
 
+  /** @param {string} fullPath @param {boolean} checked */
   function toggleImportFile(fullPath, checked) {
     const value = String(fullPath || "").trim();
     if (!value) return;
@@ -319,10 +342,10 @@
 
       return Array.from(grouped.values())
         .map((group) => {
-          const sortedFiles = group.files.sort((left, right) =>
+          const sortedFiles = group.files.sort(/** @param {any} left @param {any} right */ (left, right) =>
             left.filename.localeCompare(right.filename, undefined, { sensitivity: "base" })
           );
-          const selectedCount = sortedFiles.filter((file) => file.isSelected).length;
+          const selectedCount = sortedFiles.filter(/** @param {any} file */ (file) => file.isSelected).length;
           return {
             ...group,
             files: sortedFiles,
@@ -404,6 +427,7 @@
     }
   }
 
+  /** @param {any} nextRoute */
   function mapServerImportRouteToHash(nextRoute) {
     const route = String(nextRoute || "").toLowerCase();
     if (route.startsWith("/designs")) return "#/designs";
@@ -416,6 +440,7 @@
     return null;
   }
 
+  /** @param {string} action @param {boolean} [confirmSkipHoops] */
   async function executeImportPrecheckAction(action, confirmSkipHoops = false) {
     if (!importContextToken) {
       importError = "Missing import context token. Run precheck again.";
@@ -442,8 +467,12 @@
       });
 
       const actionResult = result.actionResult || null;
-      importActionSource = result.source || "mock";
-      importActionMessage = result.message || "Import precheck action complete.";
+      /** @type {string} */
+      const actionSource = result.source;
+      /** @type {string} */
+      const actionMessage = result.message;
+      importActionSource = actionSource || "mock";
+      importActionMessage = actionMessage || "Import precheck action complete.";
       importActionNeedsSkipHoopsConfirm = Boolean(actionResult?.requires_skip_hoops_confirmation);
 
       if (actionResult?.consumed_context) {
@@ -494,6 +523,7 @@
     }
   }
 
+  /** @param {string} folderPath @param {string} designerId */
   function setImportFolderDesigner(folderPath, designerId) {
     const key = String(folderPath || "").trim();
     if (!key) return;
@@ -506,6 +536,7 @@
     };
   }
 
+  /** @param {string} folderPath @param {string} sourceId */
   function setImportFolderSource(folderPath, sourceId) {
     const key = String(folderPath || "").trim();
     if (!key) return;
@@ -552,6 +583,7 @@
     }
   }
 
+  /** @param {number|null} index @param {string} path */
   function setImportRootPathAt(index, path) {
     const next = normalizeImportRootPath(path);
     if (!next) return;
@@ -600,6 +632,7 @@
     }
   }
 
+  /** @param {string} path */
   async function persistImportLastBrowseFolder(path) {
     const normalized = normalizeImportRootPath(path);
     if (!normalized) return;
@@ -610,6 +643,7 @@
     }
   }
 
+  /** @param {string} path */
   function parentFolder(path) {
     const p = String(path || "").trim().replace(/[/\\]+$/, "");
     if (!p) return "";
@@ -618,6 +652,7 @@
     return p.slice(0, lastSep);
   }
 
+  /** @param {string} value */
   function normalizeImportRootPath(value) {
     const trimmed = String(value || "").trim();
     if (!trimmed) return "";
@@ -650,6 +685,7 @@
     return uniqueRoots;
   }
 
+  /** @param {string} [path] */
   function addImportRootPath(path = importRootPath) {
     const next = normalizeImportRootPath(path);
     if (!next) return;
@@ -660,6 +696,7 @@
     importRootPath = next;
   }
 
+  /** @param {string} path */
   function removeImportRootPath(path) {
     const target = normalizeImportRootPath(path).toLowerCase();
     importRootPaths = importRootPaths.filter((value) => String(value || "").toLowerCase() !== target);
@@ -710,6 +747,7 @@
     importProgressToken = "";
   }
 
+  /** @param {string} contextToken */
   async function startImportProgressUpdates(contextToken) {
     const normalizedToken = String(contextToken || "").trim();
     if (!normalizedToken) return;
