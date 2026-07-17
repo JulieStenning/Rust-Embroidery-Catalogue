@@ -494,6 +494,8 @@
           resetImportWizard();
         }
         navigateTo(hashRoute);
+      } else if (action === "import_now") {
+        importError = actionMessage || "Import failed. Check the console for details and try again.";
       }
     } catch (error) {
       importError = `Import action failed: ${error}`;
@@ -995,7 +997,9 @@
         <div class="space-y-2 import-step2-actions-shell">
           <div class="ui-action-button-group import-step1-primary-actions import-step2-primary-actions import-step2-inline-actions flex flex-wrap gap-2 items-center">
             <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={runImportPrecheck} disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}>
-              {#if importSelectedFiles.length > 0}
+              {#if importLoading}
+                Running…
+              {:else if importSelectedFiles.length > 0}
                 Continue with {importSelectedFiles.length} design{importSelectedFiles.length === 1 ? "" : "s"}
               {:else}
                 Continue
@@ -1022,6 +1026,10 @@
             </button>
           </div>
         </div>
+
+        {#if importError}
+          <p class="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{importError}</p>
+        {/if}
 
         {#if importStep2FolderGroups.length > 0}
           <div class="space-y-4">
@@ -1214,6 +1222,10 @@
 
         {#if importActionMessage}
           <p class="ui-help-note text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded p-3 mt-3">{importActionMessage}</p>
+        {/if}
+
+        {#if importError}
+          <p class="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 mt-3">{importError}</p>
         {/if}
       </div>
     {:else}

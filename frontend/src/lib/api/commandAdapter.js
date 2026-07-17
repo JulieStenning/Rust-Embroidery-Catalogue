@@ -660,7 +660,7 @@ export async function precheckImportWire(confirmWire) {
 
   try {
     const precheck = await invoke("precheck_bulk_import_wire", {
-      confirm_wire: wire,
+      confirmWire: wire,
     });
 
     return {
@@ -669,23 +669,8 @@ export async function precheckImportWire(confirmWire) {
       message: "Precheck loaded from Rust command.",
     };
   } catch (error) {
-    console.info("precheck_bulk_import_wire unavailable or failed, using mock precheck.", error);
-    return {
-      source: "mock",
-      precheck: {
-        context_token: "mock-import-token",
-        context_token_present: true,
-        ready_for_confirm: true,
-        is_first_import: false,
-        needs_hoop_setup: false,
-        root_path_count: Number(wire?.wire?.root_paths?.length ?? 0),
-        selected_file_count: Number(wire?.wire?.selected_files?.length ?? 0),
-        resolved_assignments: Array.isArray(wire?.wire?.per_folder_assignments)
-          ? wire.wire.per_folder_assignments
-          : [],
-      },
-      message: "Rust precheck command not fully wired yet, using mock precheck.",
-    };
+    console.info("precheck_bulk_import_wire unavailable or failed.", error);
+    throw new Error(`Precheck failed: ${error}`);
   }
 }
 
@@ -749,12 +734,12 @@ export async function runPrecheckAction({
       actionResult: {
         action: normalizedAction,
         context_token_present: !isCancel,
-        consumed_context: isImportNow || isCancel,
+        consumed_context: isCancel,
         requires_skip_hoops_confirmation: false,
-        next_route: isImportNow ? "/designs/" : isCancel ? "/import/" : null,
+        next_route: isCancel ? "/import/" : null,
         confirm_result: null,
       },
-      message: "Rust precheck action command not fully wired yet, using mock result.",
+      message: `Import action failed: ${error}`,
     };
   }
 }
