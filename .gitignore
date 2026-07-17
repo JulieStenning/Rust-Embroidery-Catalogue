@@ -25,11 +25,9 @@ data/
 beta testing cline.txt
 decode_exp_stitches.py
 rust.csv
-rust.csv
 preview.png
 settings.csv
 Google Api Key.txt
-.env
 .env
 bash.exe.stackdump
 current chat.txt
@@ -65,3 +63,4 @@ tests/User test git issues/Tags.md
 tests/testdata/01Peacock.dst
 tests/testdata/01Peacock.exp
 tests/testdata/01Peacock.hus
+frontend/eslint_errors.txt
