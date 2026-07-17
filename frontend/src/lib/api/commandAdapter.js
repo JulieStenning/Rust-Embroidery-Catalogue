@@ -443,8 +443,8 @@ export async function deleteDesign(designId, deleteFile = false) {
 
   try {
     const result = await invoke("delete_design", {
-      design_id: normalizedId,
-      delete_file: Boolean(deleteFile),
+      designId: normalizedId,
+      deleteFile: Boolean(deleteFile),
     });
     return {
       source: "rust",
