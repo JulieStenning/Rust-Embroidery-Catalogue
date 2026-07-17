@@ -1177,7 +1177,7 @@ export async function getBrowseDesignPreviews(designIds) {
   }
 
   try {
-    const previews = await invoke("get_design_previews_for_browse", { design_ids: normalizedIds });
+    const previews = await invoke("get_design_previews_for_browse", { designIds: normalizedIds });
     if (Array.isArray(previews)) {
       return {
         items: previews.map((item) => ({
