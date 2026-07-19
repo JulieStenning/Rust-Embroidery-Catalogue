@@ -477,24 +477,40 @@
     return segments[segments.length - 2];
   }
 
+  /**
+   * @param {string} a
+   * @param {string} b
+   */
+  function compareStrings(a, b) {
+    return a.localeCompare(b);
+  }
+
+  /**
+   * @param {any} t
+   * @returns {string}
+   */
+  function mapTagToString(t) {
+    return typeof t === "object" && t !== null ? String(t.description || "") : String(t);
+  }
+
   /** @param {any} item */
   function normalizeCardItem(item) {
     if (!item || typeof item !== "object") {
       return null;
     }
     const imageTags = Array.isArray(item.image_tags)
-      ? item.image_tags.map(String).sort((left, right) => left.localeCompare(right))
+      ? item.image_tags.map(String).sort(compareStrings)
       : [];
     const stitchingTags = Array.isArray(item.stitching_tags)
-      ? item.stitching_tags.map(String).sort((left, right) => left.localeCompare(right))
+      ? item.stitching_tags.map(String).sort(compareStrings)
       : [];
     const fallbackTags = Array.isArray(item.tags)
-      ? item.tags.map((t) => (typeof t === "object" && t !== null ? String(t.description || "") : String(t)))
+      ? item.tags.map(mapTagToString)
       : [];
     const flatTags =
       imageTags.length > 0 || stitchingTags.length > 0
         ? Array.from(new Set([...imageTags, ...stitchingTags]))
-        : fallbackTags.sort((left, right) => left.localeCompare(right));
+        : fallbackTags.sort(compareStrings);
 
     const folder = item.folder || extractFolder(item.filepath);
     const id = Number(item.id);
