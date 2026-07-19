@@ -482,10 +482,19 @@
     if (!item || typeof item !== "object") {
       return null;
     }
-    const tags = Array.isArray(item.tags) ? item.tags : [];
-    const imageTags = tags.filter(/** @param {any} t */ (t) => t.tag_group === "image").map(/** @param {any} t */ (t) => t.description);
-    const stitchingTags = tags.filter(/** @param {any} t */ (t) => t.tag_group === "stitching").map(/** @param {any} t */ (t) => t.description);
-    const flatTags = tags.map(/** @param {any} t */ (t) => t.description);
+    const imageTags = Array.isArray(item.image_tags)
+      ? item.image_tags.map(String).sort((left, right) => left.localeCompare(right))
+      : [];
+    const stitchingTags = Array.isArray(item.stitching_tags)
+      ? item.stitching_tags.map(String).sort((left, right) => left.localeCompare(right))
+      : [];
+    const fallbackTags = Array.isArray(item.tags)
+      ? item.tags.map((t) => (typeof t === "object" && t !== null ? String(t.description || "") : String(t)))
+      : [];
+    const flatTags =
+      imageTags.length > 0 || stitchingTags.length > 0
+        ? Array.from(new Set([...imageTags, ...stitchingTags]))
+        : fallbackTags.sort((left, right) => left.localeCompare(right));
 
     const folder = item.folder || extractFolder(item.filepath);
     const id = Number(item.id);
