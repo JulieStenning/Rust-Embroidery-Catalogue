@@ -1644,6 +1644,33 @@
 
   let browseCardItems = $derived(browsePageItems);
 
+  let browsePageRows = $derived(
+    (() => {
+      const columns = Math.max(1, browseGridColumns || 1);
+      const rows = [];
+      for (let index = 0; index < browsePageItems.length; index += columns) {
+        rows.push(browsePageItems.slice(index, index + columns));
+      }
+      return rows;
+    })()
+  );
+
+  /** @param {any[]} rowItems */
+  function isBrowseRowFullySelected(rowItems) {
+    return rowItems.length > 0 && rowItems.every((item) => browseSelectedIds.includes(item.id));
+  }
+
+  /** @param {any[]} rowItems */
+  function toggleBrowseRowSelection(rowItems) {
+    const allSelected = isBrowseRowFullySelected(rowItems);
+    const rowIds = rowItems.map((item) => item.id);
+    if (allSelected) {
+      browseSelectedIds = browseSelectedIds.filter((id) => !rowIds.includes(id));
+    } else {
+      browseSelectedIds = Array.from(new Set([...browseSelectedIds, ...rowIds]));
+    }
+  }
+
   syncRouteFromHash();
 </script>
 
@@ -1836,21 +1863,36 @@
       <!-- Browse Results Grid -->
       <div
         bind:this={browseGridContainer}
-        class="browse-grid-container grid gap-4"
-        style={`grid-template-columns: repeat(${browseGridColumns}, minmax(0, 1fr));`}
+        class="browse-grid-rows flex flex-col gap-5"
       >
         {#if browseLoading && browseItems.length === 0}
-          <p class="text-center py-12 text-gray-500 font-medium col-span-full">Loading designs...</p>
+          <p class="text-center py-12 text-gray-500 font-medium">Loading designs...</p>
         {:else if browseFilteredItems.length === 0}
-          <p class="text-center py-12 text-gray-500 font-medium col-span-full">No designs match your filters.</p>
+          <p class="text-center py-12 text-gray-500 font-medium">No designs match your filters.</p>
         {:else}
-          {#each browseCardItems as item (item.id)}
+          {#each browsePageRows as rowItems, rowIndex (rowIndex)}
+            <div class="browse-grid-row grid gap-4" style={`grid-template-columns: 2rem repeat(${browseGridColumns}, minmax(0, 1fr));`}>
+              <!-- Row selector checkbox -->
+              <label
+                class="browse-row-selector flex items-center justify-center bg-indigo-50 rounded cursor-pointer select-none"
+                title={`Select row ${rowIndex + 1}`}
+              >
+                <span class="sr-only">Select row {rowIndex + 1}</span>
+                <input
+                  type="checkbox"
+                  class="browse-row-checkbox rounded accent-indigo-500"
+                  checked={isBrowseRowFullySelected(rowItems)}
+                  onchange={() => toggleBrowseRowSelection(rowItems)}
+                />
+              </label>
+
+              {#each rowItems as item (item.id)}
             <article class="browse-card border rounded-lg bg-white overflow-hidden shadow-sm flex flex-col hover:shadow transition relative" data-id={item.id}>
               <!-- Selection checkbox -->
               <label class="absolute top-2.5 left-2.5 z-10 bg-white/95 rounded p-1 shadow-sm border cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  class="rounded accent-indigo-650"
+                  class="browse-design-checkbox rounded accent-indigo-650"
                   checked={browseSelectedIds.includes(item.id)}
                   oninput={() => toggleBrowseCardSelection(item.id, !browseSelectedIds.includes(item.id))}
                 />
@@ -1933,6 +1975,8 @@
                 </details>
               {/if}
             </article>
+              {/each}
+            </div>
           {/each}
         {/if}
       </div>
