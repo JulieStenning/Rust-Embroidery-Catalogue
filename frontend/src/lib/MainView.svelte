@@ -1914,7 +1914,7 @@
               {#each rowItems as item (item.id)}
             <article class="browse-card border rounded-lg bg-white overflow-hidden shadow-sm flex flex-col hover:shadow transition relative" data-id={item.id}>
               <!-- Selection checkbox -->
-              <label class="absolute top-2.5 left-2.5 z-10 bg-white/95 rounded p-1 shadow-sm border cursor-pointer select-none">
+              <label class="absolute top-2.5 left-2.5 z-10 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   class="browse-design-checkbox rounded accent-indigo-650"
