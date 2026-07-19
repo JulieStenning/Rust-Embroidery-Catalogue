@@ -262,7 +262,7 @@
     /** @type {Record<string, {designerId: string, sourceId: string}>} */
     const next = {};
     for (const folderPath of folderPaths) {
-      const previous = importPerFolderAssignmentByPath?.[folderPath] || {};
+      const previous = importPerFolderAssignmentByPath?.[folderPath] || { designerId: "", sourceId: "" };
       next[folderPath] = {
         designerId: String(previous.designerId || ""),
         sourceId: String(previous.sourceId || ""),
