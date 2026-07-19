@@ -1,9 +1,21 @@
 {
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@tailwindcss/postcss": "^4.2.4",
+    "@tauri-apps/api": "^2.11.1",
     "autoprefixer": "^10.5.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-svelte": "^2.46.1",
+    "globals": "^15.13.0",
     "postcss": "^8.5.14",
-    "tailwindcss": "^4.3.0"
+    "prettier": "^3.4.2",
+    "prettier-plugin-svelte": "^3.3.2",
+    "svelte": "^5.56.6",
+    "svelte-check": "^4.1.1",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.4.3"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0"
