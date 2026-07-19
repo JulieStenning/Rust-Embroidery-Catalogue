@@ -892,7 +892,7 @@ export async function getProjectDetail(projectId) {
   }
 
   try {
-    const detail = await invoke("get_project_detail", { project_id: normalizedProjectId });
+    const detail = await invoke("get_project_detail", { projectId: normalizedProjectId });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
     }
@@ -921,7 +921,7 @@ export async function updateProject(projectId, name, description) {
 
   try {
     const result = await invoke("update_project", {
-      project_id: normalizedProjectId,
+      projectId: normalizedProjectId,
       request: payload,
     });
     return {
@@ -948,7 +948,7 @@ export async function deleteProject(projectId) {
   const normalizedProjectId = Number(projectId);
 
   try {
-    const result = await invoke("delete_project", { project_id: normalizedProjectId });
+    const result = await invoke("delete_project", { projectId: normalizedProjectId });
     return {
       source: "rust",
       persisted: true,
@@ -1008,7 +1008,7 @@ export async function getProjectPrintView(projectId) {
   }
 
   try {
-    const view = await invoke("get_project_print_view", { project_id: normalizedProjectId });
+    const view = await invoke("get_project_print_view", { projectId: normalizedProjectId });
     if (view && typeof view === "object") {
       return { item: view, source: "rust" };
     }
@@ -1376,7 +1376,7 @@ export async function saveImportLastBrowseFolder(path) {
  */
 export async function browseSettingsDataRoot(startDir) {
   try {
-    const result = await invoke("browse_settings_data_root", { start_dir: startDir });
+    const result = await invoke("browse_settings_data_root", { startDir: startDir });
     return {
       source: "rust",
       path: result?.path ? String(result.path) : null,
@@ -1592,7 +1592,7 @@ export async function saveBackupSettings({ dbDestination, designsDestination }) 
 export async function browseBackupFolder(startDir = "") {
   try {
     const result = await invoke("browse_backup_folder", {
-      start_dir: String(startDir || "") || null,
+      startDir: String(startDir || "") || null,
     });
 
     return {
@@ -1893,7 +1893,7 @@ export async function updateDesigner(designerId, name) {
  */
 export async function deleteDesigner(designerId) {
   try {
-    await invoke("delete_designer", { designer_id: Number(designerId) });
+    await invoke("delete_designer", { designerId: Number(designerId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -1978,7 +1978,7 @@ export async function updateSource(sourceId, name) {
  */
 export async function deleteSource(sourceId) {
   try {
-    await invoke("delete_source", { source_id: Number(sourceId) });
+    await invoke("delete_source", { sourceId: Number(sourceId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -2067,7 +2067,7 @@ export async function setTagGroup(tagId, tagGroup) {
  */
 export async function deleteTag(tagId) {
   try {
-    await invoke("delete_tag", { tag_id: Number(tagId) });
+    await invoke("delete_tag", { tagId: Number(tagId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -2170,7 +2170,7 @@ export async function updateHoop(hoopId, name, maxWidthMm, maxHeightMm) {
  */
 export async function deleteHoop(hoopId) {
   try {
-    await invoke("delete_hoop", { hoop_id: Number(hoopId) });
+    await invoke("delete_hoop", { hoopId: Number(hoopId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
