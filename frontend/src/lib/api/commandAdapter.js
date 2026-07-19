@@ -215,7 +215,7 @@ export async function getDesignImageDataUrl(designId) {
   }
 
   try {
-    const image = await invoke("get_design_image_data_url", { design_id: normalizedId });
+    const image = await invoke("get_design_image_data_url", { designId: normalizedId });
     if (image && typeof image === "object") {
       return { item: image, source: "rust" };
     }
@@ -235,7 +235,7 @@ export async function updateDesignMetadata(designId, request) {
 
   try {
     const result = await invoke("update_design_metadata", {
-      design_id: normalizedId,
+      designId: normalizedId,
       request,
     });
     return {
@@ -264,7 +264,7 @@ export async function setDesignRating(designId, rating) {
 
   try {
     const result = await invoke("set_design_rating", {
-      design_id: normalizedId,
+      designId: normalizedId,
       request: { rating: rating == null ? null : Number(rating) },
     });
     return {
@@ -293,7 +293,7 @@ export async function setDesignStitched(designId, isStitched) {
 
   try {
     const result = await invoke("set_design_stitched", {
-      design_id: normalizedId,
+      designId: normalizedId,
       request: { is_stitched: Boolean(isStitched) },
     });
     return {
@@ -322,7 +322,7 @@ export async function setDesignTagsChecked(designId, tagsChecked) {
 
   try {
     const result = await invoke("set_design_tags_checked", {
-      design_id: normalizedId,
+      designId: normalizedId,
       request: { tags_checked: Boolean(tagsChecked) },
     });
     return {
@@ -354,7 +354,7 @@ export async function setDesignTags(designId, tagIds) {
 
   try {
     const result = await invoke("set_design_tags", {
-      design_id: normalizedId,
+      designId: normalizedId,
       request: { tag_ids: normalizedTagIds },
     });
     return {
@@ -384,7 +384,7 @@ export async function addDesignToProject(designId, projectId) {
 
   try {
     const result = await invoke("add_design_to_project", {
-      design_id: normalizedId,
+      designId: normalizedId,
       request: { project_id: normalizedProjectId },
     });
     return {
@@ -414,8 +414,8 @@ export async function removeDesignFromProject(designId, projectId) {
 
   try {
     const result = await invoke("remove_design_from_project", {
-      design_id: normalizedId,
-      project_id: normalizedProjectId,
+      designId: normalizedId,
+      projectId: normalizedProjectId,
     });
     return {
       source: "rust",
@@ -471,7 +471,7 @@ export async function openDesignInEditor(designId) {
 
   try {
     const result = await invoke("open_design_in_editor", {
-      design_id: normalizedId,
+      designId: normalizedId,
     });
     return {
       source: "rust",
@@ -498,7 +498,7 @@ export async function openDesignInExplorer(designId) {
 
   try {
     const result = await invoke("open_design_in_explorer", {
-      design_id: normalizedId,
+      designId: normalizedId,
     });
     return {
       source: "rust",
@@ -525,7 +525,7 @@ export async function renderDesign3dPreview(designId) {
 
   try {
     const result = await invoke("render_design_3d_preview", {
-      design_id: normalizedId,
+      designId: normalizedId,
     });
     return {
       source: "rust",
@@ -785,7 +785,7 @@ export async function bulkVerifyDesigns(designIds) {
   }
 
   try {
-    const result = await invoke("bulk_verify_designs", { design_ids: normalizedIds });
+    const result = await invoke("bulk_verify_designs", { designIds: normalizedIds });
     return {
       source: "rust",
       requested_count: Number(result?.requested_count ?? normalizedIds.length),
@@ -976,8 +976,8 @@ export async function removeDesignFromProjectDetail(projectId, designId) {
 
   try {
     const result = await invoke("remove_design_from_project_detail", {
-      project_id: normalizedProjectId,
-      design_id: normalizedDesignId,
+      projectId: normalizedProjectId,
+      designId: normalizedDesignId,
     });
     return {
       source: "rust",
@@ -1047,8 +1047,8 @@ export async function bulkAddDesignsToProject(projectId, designIds) {
 
   try {
     const result = await invoke("bulk_add_designs_to_project", {
-      project_id: normalizedProjectId,
-      design_ids: normalizedIds,
+      projectId: normalizedProjectId,
+      designIds: normalizedIds,
     });
     return {
       source: "rust",
@@ -1127,8 +1127,8 @@ export async function bulkSetTagsForDesigns(designIds, tagIds) {
 
   try {
     const result = await invoke("bulk_set_tags_for_designs", {
-      design_ids: normalizedDesignIds,
-      tag_ids: normalizedTagIds,
+      designIds: normalizedDesignIds,
+      tagIds: normalizedTagIds,
     });
     return {
       source: "rust",
