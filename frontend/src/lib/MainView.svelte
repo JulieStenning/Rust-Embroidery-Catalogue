@@ -516,6 +516,25 @@
     const id = Number(item.id);
     const dateAdded = item.date_added || (id ? new Date(id * 1000).toISOString() : "");
 
+    const projectsRaw = Array.isArray(item?.projects)
+      ? item.projects
+      : Array.isArray(item?.project_names)
+        ? item.project_names
+        : typeof item?.projects === "string"
+          ? item.projects.split(",")
+          : typeof item?.project_names === "string"
+            ? item.project_names.split(",")
+            : [];
+
+    const projects = projectsRaw
+      .map(/** @param {any} project */ (project) => {
+        if (typeof project === "string") {
+          return project.trim();
+        }
+        return String(project?.name || "").trim();
+      })
+      .filter(Boolean);
+
     return {
       id,
       filename: String(item.filename || ""),
@@ -526,7 +545,7 @@
       rating: item.rating == null ? null : Number(item.rating),
       is_stitched: Boolean(item.is_stitched),
       tagsChecked: Boolean(item.tags_checked),
-      projects: Array.isArray(item.projects) ? item.projects.map(/** @param {any} p */ (p) => String(p.name || "")) : [],
+      projects,
       imageTags,
       stitchingTags,
       tags: flatTags,
@@ -1093,7 +1112,18 @@
     if (pendingVal !== undefined) {
       return pendingVal;
     }
-    return Array.isArray(item.projects) && item.projects.includes(String(projectId));
+    if (!Array.isArray(item.projects)) return false;
+
+    if (item.projects.includes(String(projectId)) || item.projects.includes(Number(projectId))) {
+      return true;
+    }
+
+    const targetProject = browseProjects.find(/** @param {any} p */ (p) => Number(p.id) === prjId);
+    if (targetProject && targetProject.name) {
+      const targetName = String(targetProject.name).trim().toLowerCase();
+      return item.projects.some(/** @param {any} p */ (p) => String(p).trim().toLowerCase() === targetName);
+    }
+    return false;
   }
 
   /** @param {any} designId @param {any} projectId @param {any} checked */
@@ -1968,7 +1998,7 @@
                     <p class="browse-card-hoop text-xs font-semibold text-indigo-600 mt-1">{item.hoop || "Hoop unknown"}</p>
                     {#if item.projects.length > 0}
                       <p class="browse-card-projects text-[11px] text-gray-500 mt-1 truncate" title={item.projects.join(", ")}>
-                        📁 {item.projects.join(", ")}
+                        {item.projects.join(", ")}
                       </p>
                     {/if}
                   </div>
