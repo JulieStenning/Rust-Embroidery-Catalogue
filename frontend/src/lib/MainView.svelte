@@ -228,6 +228,27 @@
 
   let browseNeedsRefresh = $state(false);
 
+  let browseFiltersAreDefault = $derived(
+    browseFilters.q === "" &&
+    browseFilters.allWords === "" &&
+    browseFilters.exactPhrase === "" &&
+    browseFilters.anyWords === "" &&
+    browseFilters.noneWords === "" &&
+    browseFilters.filename === "" &&
+    browseFilters.designerFilters.length === 0 &&
+    browseFilters.tagFilters.length === 0 &&
+    browseFilters.hoop === "" &&
+    browseFilters.sourceFilters.length === 0 &&
+    browseFilters.rating === "" &&
+    browseFilters.stitched === "" &&
+    !browseFilters.unverifiedOnly &&
+    browseFilters.searchFilename &&
+    browseFilters.searchTags &&
+    browseFilters.searchFolder &&
+    browseFilters.sortBy === "name" &&
+    browseFilters.sortDir === "asc"
+  );
+
   /** @param {number} importedCount */
   function handleImportCompleted(importedCount) {
     if (importedCount >= 1) {
@@ -1800,7 +1821,11 @@
                 <option value="desc">Descending</option>
               </select>
             </label>
-            <button type="button" class="text-indigo-600 hover:underline" onclick={clearBrowseFilters}>Reset filters</button>
+            <button type="button" class="text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed" onclick={clearBrowseFilters} disabled={browseFiltersAreDefault}>Reset filters</button>
+            <span class="text-gray-300">|</span>
+            <button type="button" class="text-indigo-600 hover:underline" onclick={checkAllBrowseOnPage}>Select all on page</button>
+            <span class="text-gray-300">|</span>
+            <button type="button" class="text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed" onclick={checkNoneBrowse} disabled={browseSelectedIds.length === 0}>Deselect all</button>
            </div>
           <div>
             <span>Found <strong>{browseFilteredItems.length}</strong> design(s).</span>
@@ -2510,9 +2535,6 @@
   >
     <div class="flex items-center gap-3 text-sm text-gray-700">
       <span class="font-semibold">{browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected</span>
-      <button type="button" class="text-indigo-650 hover:underline" onclick={checkAllBrowseOnPage}>Select all on page</button>
-      <span class="text-gray-300">|</span>
-      <button type="button" class="text-indigo-650 hover:underline" onclick={checkNoneBrowse}>Deselect all</button>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
