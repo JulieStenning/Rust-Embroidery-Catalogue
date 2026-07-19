@@ -184,6 +184,8 @@
   let browseBulkModalMode = $state("browse");
   /** @type {Array<number | string>} */
   let browseBulkTagSelection = $state([]);
+  /** @type {Array<number | string>} */
+  let browseBulkTagIndeterminate = $state([]);
   /** @type {number[]} */
   let browseBulkProjectSelection = $state([]);
   let browseBulkProjectDropdownOpen = $state(false);
@@ -933,7 +935,35 @@
   function openBulkTagModal() {
     if (browseSelectedIds.length === 0) return;
     browseBulkModalMode = "browse";
-    browseBulkTagSelection = [];
+
+    const selectedDesigns = browseItems.filter((item) => browseSelectedIds.includes(item.id));
+    const totalSelected = selectedDesigns.length;
+    const checkedIds = /** @type {Array<number | string>} */ ([]);
+    const indeterminateIds = /** @type {Array<number | string>} */ ([]);
+
+    if (totalSelected > 0 && browseTagOptions.length > 0) {
+      for (const tagOption of browseTagOptions) {
+        const tagId = Number(tagOption.id);
+        if (!Number.isFinite(tagId)) continue;
+        const desc = String(tagOption.description || "").trim().toLowerCase();
+
+        let count = 0;
+        for (const design of selectedDesigns) {
+          if (Array.isArray(design.tags) && design.tags.some((t) => String(t || "").trim().toLowerCase() === desc)) {
+            count++;
+          }
+        }
+
+        if (count === totalSelected) {
+          checkedIds.push(tagId);
+        } else if (count > 0 && count < totalSelected) {
+          indeterminateIds.push(tagId);
+        }
+      }
+    }
+
+    browseBulkTagSelection = checkedIds;
+    browseBulkTagIndeterminate = indeterminateIds;
     browseBulkModalOpen = true;
   }
 
@@ -946,10 +976,18 @@
     return browseBulkTagSelection.includes(Number(tagId));
   }
 
+  /** @param {number | string} tagId */
+  function tagChooserIndeterminateIncludes(tagId) {
+    return browseBulkTagIndeterminate.includes(Number(tagId));
+  }
+
   /** @param {any} tagId @param {any} checked */
   function toggleTagChooserSelection(tagId, checked) {
     const id = Number(tagId);
     if (!Number.isFinite(id)) return;
+    if (browseBulkTagIndeterminate.includes(id)) {
+      browseBulkTagIndeterminate = browseBulkTagIndeterminate.filter((value) => value !== id);
+    }
     if (checked) {
       browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, id]));
     } else {
@@ -2752,6 +2790,7 @@
               onchange={(event) => {
                 if (event.currentTarget.checked) {
                   browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, BROWSE_TAG_UNTAGGED]));
+                  browseBulkTagIndeterminate = [];
                 } else {
                   browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== BROWSE_TAG_UNTAGGED);
                 }
@@ -2771,6 +2810,7 @@
                     <input
                       type="checkbox"
                       checked={tagChooserSelectionIncludes(tagOption.id)}
+                      indeterminate={tagChooserIndeterminateIncludes(tagOption.id)}
                       onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
                       disabled={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
                     />
@@ -2790,6 +2830,7 @@
                     <input
                       type="checkbox"
                       checked={tagChooserSelectionIncludes(tagOption.id)}
+                      indeterminate={tagChooserIndeterminateIncludes(tagOption.id)}
                       onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
                       disabled={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
                     />
@@ -2809,6 +2850,7 @@
                     <input
                       type="checkbox"
                       checked={tagChooserSelectionIncludes(tagOption.id)}
+                      indeterminate={tagChooserIndeterminateIncludes(tagOption.id)}
                       onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
                       disabled={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
                     />
