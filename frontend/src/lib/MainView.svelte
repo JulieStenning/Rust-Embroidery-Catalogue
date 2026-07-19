@@ -632,7 +632,9 @@
   async function loadBrowseProjects() {
     try {
       const result = await getBrowseProjects();
-      browseProjects = Array.isArray(result?.items) ? result.items : [];
+      const items = Array.isArray(result?.items) ? [...result.items] : [];
+      items.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
+      browseProjects = items;
       browseProjectsSource = result?.source || "mock";
       browseProjectsLoaded = true;
     } catch (error) {
@@ -970,6 +972,9 @@
     if (browseSelectedIds.length === 0) return;
     browseBulkProjectSelection = [];
     browseBulkProjectDropdownOpen = true;
+    if (browseProjects.length === 0 && !browseProjectsLoaded) {
+      loadBrowseProjects();
+    }
   }
 
   function closeBulkProjectModal() {
@@ -1580,6 +1585,14 @@
   });
 
   $effect(() => {
+    if (currentRoute === "#/designs" && !browseProjectsLoaded) {
+      untrack(() => {
+        loadBrowseProjects();
+      });
+    }
+  });
+
+  $effect(() => {
     if (currentRoute !== "#/designs") return;
     const ids = browsePageItems.map((item) => item.id);
     untrack(() => {
@@ -1976,29 +1989,29 @@
                 </div>
               </button>
 
-              {#if browseProjects.length > 0}
-                <details
-                  class="browse-card-project-details px-4 py-2 bg-gray-50 border-t no-print"
-                  ontoggle={(event) => handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
-                >
-                  <summary class="browse-card-project-summary text-xs font-semibold text-gray-500 cursor-pointer hover:text-indigo-600 select-none">
-                    + Add to project
-                  </summary>
-                  <div class="ui-checkbox-list-shell mt-1.5 max-h-36 overflow-auto px-2 py-1.5 border rounded bg-white space-y-1">
-                    {#each browseProjects as project}
-                      <label class="ui-field-label flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          class="ui-checkbox accent-indigo-650 rounded"
-                          checked={isBrowseCardProjectChecked(item, project.id)}
-                          onchange={(event) => updateBrowseCardProjectPending(item.id, project.id, event.currentTarget.checked)}
-                        />
-                        <span>{project.name}</span>
-                      </label>
-                    {/each}
-                  </div>
-                </details>
-              {/if}
+              <details
+                class="browse-card-project-details px-4 py-2 bg-gray-50 border-t no-print"
+                ontoggle={(event) => handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
+              >
+                <summary class="browse-card-project-summary text-xs font-semibold text-gray-500 cursor-pointer hover:text-indigo-600 select-none">
+                  + Add to project
+                </summary>
+                <div class="ui-checkbox-list-shell mt-1.5 max-h-36 overflow-auto px-2 py-1.5 border rounded bg-white space-y-1">
+                  {#each browseProjects as project}
+                    <label class="ui-field-label flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        class="ui-checkbox accent-indigo-650 rounded"
+                        checked={isBrowseCardProjectChecked(item, project.id)}
+                        onchange={(event) => updateBrowseCardProjectPending(item.id, project.id, event.currentTarget.checked)}
+                      />
+                      <span>{project.name}</span>
+                    </label>
+                  {:else}
+                    <p class="text-[11px] text-gray-500 italic px-1 py-0.5">No projects found. Create one first.</p>
+                  {/each}
+                </div>
+              </details>
             </article>
               {/each}
             </div>
