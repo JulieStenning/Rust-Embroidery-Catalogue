@@ -771,8 +771,8 @@ export async function requestStopBulkImport() {
  * @param {Array<number | string>} designIds
  */
 export async function bulkVerifyDesigns(designIds) {
-  const normalizedIds = Array.isArray(designIds)
-    ? designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+  const normalizedIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
+    ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
     : [];
 
   if (normalizedIds.length === 0) {
@@ -1031,8 +1031,8 @@ export async function getProjectPrintView(projectId) {
  */
 export async function bulkAddDesignsToProject(projectId, designIds) {
   const normalizedProjectId = Number(projectId);
-  const normalizedIds = Array.isArray(designIds)
-    ? designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+  const normalizedIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
+    ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
     : [];
 
   if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0 || normalizedIds.length === 0) {
@@ -1109,11 +1109,11 @@ export async function getBrowseTags() {
  * @param {Array<number | string>} tagIds
  */
 export async function bulkSetTagsForDesigns(designIds, tagIds) {
-  const normalizedDesignIds = Array.isArray(designIds)
-    ? designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+  const normalizedDesignIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
+    ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
     : [];
-  const normalizedTagIds = Array.isArray(tagIds)
-    ? Array.from(new Set(tagIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+  const normalizedTagIds = (tagIds && typeof tagIds[Symbol.iterator] === 'function')
+    ? Array.from(new Set(Array.from(tagIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
     : [];
 
   if (normalizedDesignIds.length === 0) {

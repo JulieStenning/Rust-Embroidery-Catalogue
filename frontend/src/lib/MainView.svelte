@@ -41,6 +41,8 @@
   import ImportView from "./views/ImportView.svelte";
 
   import Pagination from "./components/Pagination.svelte";
+  import SelectionHeader from "./components/SelectionHeader.svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { splitTagsByGroup } from "./utils/tagHelpers.js";
 
   const ORDERED_ROUTE_HINTS = [
@@ -172,8 +174,8 @@
   let browsePreviewRequestCounter = 0;
   let browseCurrentPage = $state(1);
   let browseAdditionalFiltersOpen = $state(false);
-  /** @type {number[]} */
-  let browseSelectedIds = $state([]);
+  /** @type {SvelteSet<number>} */
+  let browseSelectedIds = $state(new SvelteSet());
   /** @type {HTMLDivElement | null} */
   let browseBulkBarNode = $state(null);
   /** @type {HTMLDivElement | null} */
@@ -854,26 +856,38 @@
     })()
   );
 
-  let browseSelectedCount = $derived(browseSelectedIds.length);
+  let browseSelectedCount = $derived(browseSelectedIds.size);
   let showBrowseBulkBar = $derived(currentUiKind === "browse" && browseSelectedCount > 0);
 
-  /** @param {any} id @param {any} checked */
+  let totalFilteredCount = $derived(browseFilteredItems.length);
+  let totalCountOnPage = $derived(browsePageItems.length);
+  let selectedCountOnPage = $derived(browsePageItems.filter((item) => browseSelectedIds.has(item.id)).length);
+  let isAllSelectedOnPage = $derived(totalCountOnPage > 0 && selectedCountOnPage === totalCountOnPage);
+
+  /** 
+   * @param {number | string} id 
+   * @param {boolean} checked 
+   */
   function toggleBrowseCardSelection(id, checked) {
     const targetId = Number(id);
     if (checked) {
-      browseSelectedIds = Array.from(new Set([...browseSelectedIds, targetId]));
+      browseSelectedIds.add(targetId);
     } else {
-      browseSelectedIds = browseSelectedIds.filter((item) => item !== targetId);
+      browseSelectedIds.delete(targetId);
     }
   }
 
-  function checkAllBrowseOnPage() {
-    const pageIds = browsePageItems.map((item) => item.id);
-    browseSelectedIds = Array.from(new Set([...browseSelectedIds, ...pageIds]));
-  }
-
-  function checkNoneBrowse() {
-    browseSelectedIds = [];
+  /** @param {boolean} checked */
+  function toggleSelectAllBrowseOnPage(checked) {
+    if (checked) {
+      for (const item of browsePageItems) {
+        browseSelectedIds.add(item.id);
+      }
+    } else {
+      for (const item of browsePageItems) {
+        browseSelectedIds.delete(item.id);
+      }
+    }
   }
 
   function toggleAdditionalFilters() {
@@ -933,10 +947,10 @@
 
   // Bulk Actions
   function openBulkTagModal() {
-    if (browseSelectedIds.length === 0) return;
+    if (browseSelectedIds.size === 0) return;
     browseBulkModalMode = "browse";
 
-    const selectedDesigns = browseItems.filter((item) => browseSelectedIds.includes(item.id));
+    const selectedDesigns = browseItems.filter((item) => browseSelectedIds.has(item.id));
     const totalSelected = selectedDesigns.length;
     const checkedIds = /** @type {Array<number | string>} */ ([]);
     const indeterminateIds = /** @type {Array<number | string>} */ ([]);
@@ -949,7 +963,7 @@
 
         let count = 0;
         for (const design of selectedDesigns) {
-          if (Array.isArray(design.tags) && design.tags.some((t) => String(t || "").trim().toLowerCase() === desc)) {
+          if (Array.isArray(design.tags) && design.tags.some(/** @param {any} t */ (t) => String(t || "").trim().toLowerCase() === desc)) {
             count++;
           }
         }
@@ -996,7 +1010,7 @@
   }
 
   async function applyBulkTags() {
-    if (browseSelectedIds.length === 0) return;
+    if (browseSelectedIds.size === 0) return;
 
     const tagIds = [...browseBulkTagSelection];
     const clearAll = tagIds.includes(BROWSE_TAG_UNTAGGED);
@@ -1004,7 +1018,7 @@
 
     browseLoading = true;
     try {
-      const result = /** @type {any} */ (await bulkSetTagsForDesigns(browseSelectedIds, finalTags));
+      const result = /** @type {any} */ (await bulkSetTagsForDesigns(Array.from(browseSelectedIds), finalTags));
       if (result?.persisted) {
         browseActionNotice = `${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`;
         closeBulkTagModal();
@@ -1026,7 +1040,7 @@
   }
 
   function openBulkProjectModal() {
-    if (browseSelectedIds.length === 0) return;
+    if (browseSelectedIds.size === 0) return;
     browseBulkProjectSelection = [];
     browseBulkProjectDropdownOpen = true;
     if (browseProjects.length === 0 && !browseProjectsLoaded) {
@@ -1050,14 +1064,14 @@
   }
 
   async function addSelectedToProject() {
-    if (browseSelectedIds.length === 0 || browseBulkProjectSelection.length === 0) return;
+    if (browseSelectedIds.size === 0 || browseBulkProjectSelection.length === 0) return;
 
     browseLoading = true;
     let totalAdded = 0;
     let anyFailed = false;
     try {
       for (const projectId of browseBulkProjectSelection) {
-        const result = /** @type {any} */ (await bulkAddDesignsToProject(projectId, browseSelectedIds));
+        const result = /** @type {any} */ (await bulkAddDesignsToProject(projectId, Array.from(browseSelectedIds)));
         if (result?.persisted) {
           totalAdded += result.added_count ?? result.updated ?? 0;
         } else {
@@ -1077,11 +1091,11 @@
   }
 
   async function runBulkVerify() {
-    if (browseSelectedIds.length === 0) return;
+    if (browseSelectedIds.size === 0) return;
 
     browseLoading = true;
     try {
-      const result = /** @type {any} */ (await bulkVerifyDesigns(browseSelectedIds));
+      const result = /** @type {any} */ (await bulkVerifyDesigns(Array.from(browseSelectedIds)));
       if (result?.persisted) {
         browseActionNotice = `${result.verified_count ?? result.updated} design(s) marked verified.`;
         await loadBrowseItems(true);
@@ -1096,7 +1110,7 @@
   }
 
   function openBrowseDeleteConfirm() {
-    if (browseSelectedIds.length === 0) return;
+    if (browseSelectedIds.size === 0) return;
     browseDeleteConfirmOpen = true;
   }
 
@@ -1105,11 +1119,11 @@
   }
 
   async function confirmDeleteSelectedBrowseItems() {
-    if (browseSelectedIds.length === 0) return;
+    if (browseSelectedIds.size === 0) return;
 
     browseDeleteSelectedBusy = true;
     try {
-      const result = await bulkVerifyDesigns(browseSelectedIds); // Placeholder API or bulk delete
+      const result = await bulkVerifyDesigns(Array.from(browseSelectedIds)); // Placeholder API or bulk delete
       // Since bulkDelete isn't standard, delete each one or call bulk delete if exists
       // The plan states "Delete selected designs from database only"
       let successCount = 0;
@@ -1120,7 +1134,7 @@
         }
       }
       browseActionNotice = `${successCount} design(s) deleted from database.`;
-      browseSelectedIds = [];
+      browseSelectedIds.clear();
       closeBrowseDeleteConfirm();
       await loadBrowseItems(true);
     } catch (e) {
@@ -1131,7 +1145,7 @@
   }
 
   function clearBrowseSelection() {
-    browseSelectedIds = [];
+    browseSelectedIds.clear();
   }
 
   /** @param {any} item @param {any} summaryNode */
@@ -1725,10 +1739,11 @@
   });
 
   $effect(() => {
-    const validIds = new Set(browseCardItems.map((item) => item.id));
-    const next = browseSelectedIds.filter((id) => validIds.has(id));
-    if (next.length !== browseSelectedIds.length || next.some((id, index) => id !== browseSelectedIds[index])) {
-      browseSelectedIds = next;
+    const validIds = new Set(browseItems.map((item) => item.id));
+    for (const id of browseSelectedIds) {
+      if (!validIds.has(id)) {
+        browseSelectedIds.delete(id);
+      }
     }
   });
 
@@ -1763,17 +1778,20 @@
 
   /** @param {any[]} rowItems */
   function isBrowseRowFullySelected(rowItems) {
-    return rowItems.length > 0 && rowItems.every((item) => browseSelectedIds.includes(item.id));
+    return rowItems.length > 0 && rowItems.every((item) => browseSelectedIds.has(item.id));
   }
 
   /** @param {any[]} rowItems */
   function toggleBrowseRowSelection(rowItems) {
     const allSelected = isBrowseRowFullySelected(rowItems);
-    const rowIds = rowItems.map((item) => item.id);
     if (allSelected) {
-      browseSelectedIds = browseSelectedIds.filter((id) => !rowIds.includes(id));
+      for (const item of rowItems) {
+        browseSelectedIds.delete(item.id);
+      }
     } else {
-      browseSelectedIds = Array.from(new Set([...browseSelectedIds, ...rowIds]));
+      for (const item of rowItems) {
+        browseSelectedIds.add(item.id);
+      }
     }
   }
 
@@ -1955,16 +1973,17 @@
               </select>
             </label>
             <button type="button" class="text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed" onclick={clearBrowseFilters} disabled={browseFiltersAreDefault}>Reset filters</button>
-            <span class="text-gray-300">|</span>
-            <button type="button" class="text-indigo-600 hover:underline" onclick={checkAllBrowseOnPage}>Select all on page</button>
-            <span class="text-gray-300">|</span>
-            <button type="button" class="text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed" onclick={checkNoneBrowse} disabled={browseSelectedIds.length === 0}>Deselect all</button>
            </div>
-          <div>
-            <span>Found <strong>{browseFilteredItems.length}</strong> design(s).</span>
-          </div>
         </div>
       </form>
+
+      <SelectionHeader 
+        {totalFilteredCount} 
+        {selectedCountOnPage} 
+        {totalCountOnPage} 
+        {isAllSelectedOnPage} 
+        onToggleSelectAllPage={toggleSelectAllBrowseOnPage} 
+      />
 
       <!-- Browse Results Grid -->
       <div
@@ -1999,8 +2018,8 @@
                 <input
                   type="checkbox"
                   class="browse-design-checkbox rounded accent-indigo-650"
-                  checked={browseSelectedIds.includes(item.id)}
-                  oninput={() => toggleBrowseCardSelection(item.id, !browseSelectedIds.includes(item.id))}
+                  checked={browseSelectedIds.has(item.id)}
+                  oninput={() => toggleBrowseCardSelection(item.id, !browseSelectedIds.has(item.id))}
                 />
               </label>
 
