@@ -609,15 +609,26 @@
       [key]: value,
     };
     browseCurrentPage = 1;
+    if (
+      key === "searchFilename" ||
+      key === "searchTags" ||
+      key === "searchFolder" ||
+      key === "unverifiedOnly" ||
+      (key === "q" && !value)
+    ) {
+      loadBrowseItems(true);
+    }
   }
 
   function clearBrowseFilters() {
     browseFilters = defaultBrowseFilters();
     browseCurrentPage = 1;
+    loadBrowseItems(true);
   }
 
   function applyBrowseFilters() {
     browseCurrentPage = 1;
+    loadBrowseItems(true);
   }
 
   async function loadBrowseItems(force = false) {
@@ -626,7 +637,13 @@
     browseLoading = true;
     browseError = "";
     try {
-      const result = await getBrowseDesigns();
+      const payload = {
+        q: browseFilters.q,
+        search_file_name: browseFilters.searchFilename,
+        search_tags: browseFilters.searchTags,
+        search_folder_name: browseFilters.searchFolder,
+      };
+      const result = await getBrowseDesigns(payload);
       const rawItems = Array.isArray(result?.items) ? result.items : [];
       browseItems = rawItems.map(normalizeCardItem).filter(Boolean);
       browseSource = result?.source || "mock";
@@ -1858,6 +1875,39 @@
                 onchange={(event) => updateBrowseFilter("unverifiedOnly", event.currentTarget.checked)}
               />
               Unverified only
+            </label>
+          </div>
+          <div class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-gray-700 my-1.5 py-1.5 px-3 bg-gray-50 rounded border border-gray-200">
+            <span class="font-semibold text-gray-600 uppercase text-[11px] tracking-wide">Search in:</span>
+            <label class="ui-field-label flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                id="search-filename-checkbox"
+                type="checkbox"
+                class="ui-checkbox accent-indigo-600 rounded cursor-pointer"
+                checked={browseFilters.searchFilename}
+                onchange={(event) => updateBrowseFilter("searchFilename", event.currentTarget.checked)}
+              />
+              <span>File name</span>
+            </label>
+            <label class="ui-field-label flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                id="search-folder-checkbox"
+                type="checkbox"
+                class="ui-checkbox accent-indigo-600 rounded cursor-pointer"
+                checked={browseFilters.searchFolder}
+                onchange={(event) => updateBrowseFilter("searchFolder", event.currentTarget.checked)}
+              />
+              <span>Folder name</span>
+            </label>
+            <label class="ui-field-label flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                id="search-tags-checkbox"
+                type="checkbox"
+                class="ui-checkbox accent-indigo-600 rounded cursor-pointer"
+                checked={browseFilters.searchTags}
+                onchange={(event) => updateBrowseFilter("searchTags", event.currentTarget.checked)}
+              />
+              <span>Tags</span>
             </label>
           </div>
           <p class="ui-help-note browse-general-help text-xs text-gray-500 mt-0.5">

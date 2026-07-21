@@ -13,6 +13,7 @@ use tauri::State;
 pub struct BrowseDesignSummary {
     pub id: i64,
     pub filename: String,
+    pub filepath: String,
     pub designer: String,
     pub source: String,
     pub hoop: Option<String>,
@@ -29,6 +30,7 @@ pub struct BrowseDesignSummary {
 struct BrowseDesignSummaryRow {
     pub id: i64,
     pub filename: String,
+    pub filepath: String,
     pub designer: String,
     pub source: String,
     pub hoop: Option<String>,
@@ -39,6 +41,14 @@ struct BrowseDesignSummaryRow {
     pub is_stitched: bool,
     pub tags_checked: bool,
     pub rating: Option<i64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GetDesignsPayload {
+    pub q: Option<String>,
+    pub search_file_name: Option<bool>,
+    pub search_tags: Option<bool>,
+    pub search_folder_name: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1155,12 +1165,16 @@ async fn get_design_image_data_with_pool(
 }
 
 #[tauri::command]
-pub async fn get_designs(state: State<'_, AppState>) -> Result<Vec<BrowseDesignSummary>, String> {
-    let rows = sqlx::query_as::<_, BrowseDesignSummaryRow>(
+pub async fn get_designs(
+    state: State<'_, AppState>,
+    payload: Option<GetDesignsPayload>,
+) -> Result<Vec<BrowseDesignSummary>, String> {
+    let mut query_builder = QueryBuilder::<Sqlite>::new(
 		r#"
 		SELECT
 			d.id AS id,
 			d.filename AS filename,
+			d.filepath AS filepath,
 			COALESCE(designers.name, 'Unknown') AS designer,
 			COALESCE(sources.name, 'Unknown') AS source,
 			hoops.name AS hoop,
@@ -1182,20 +1196,67 @@ pub async fn get_designs(state: State<'_, AppState>) -> Result<Vec<BrowseDesignS
 		LEFT JOIN hoops ON hoops.id = d.hoop_id
 		LEFT JOIN design_tags ON design_tags.design_id = d.id
 		LEFT JOIN tags ON tags.id = design_tags.tag_id
-		GROUP BY d.id
-		ORDER BY d.filename COLLATE NOCASE ASC
-		LIMIT 500
-		"#,
-	)
-	.fetch_all(&state.db)
-	.await
-	.map_err(|e| e.to_string())?;
+		"#
+    );
+
+    if let Some(ref p) = payload {
+        if let Some(ref q) = p.q {
+            let q_trimmed = q.trim();
+            if !q_trimmed.is_empty() {
+                let search_file = p.search_file_name.unwrap_or(true);
+                let search_tags = p.search_tags.unwrap_or(true);
+                let search_folder = p.search_folder_name.unwrap_or(true);
+
+                if search_file || search_tags || search_folder {
+                    query_builder.push(" WHERE (");
+
+                    let mut or_added = false;
+                    let like_pattern = format!("%{}%", q_trimmed.to_lowercase());
+
+                    if search_file {
+                        query_builder.push("LOWER(d.filename) LIKE ");
+                        query_builder.push_bind(like_pattern.clone());
+                        or_added = true;
+                    }
+
+                    if search_tags {
+                        if or_added {
+                            query_builder.push(" OR ");
+                        }
+                        query_builder.push("d.id IN (SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE LOWER(tags.description) LIKE ");
+                        query_builder.push_bind(like_pattern.clone());
+                        query_builder.push(")");
+                        or_added = true;
+                    }
+
+                    if search_folder {
+                        if or_added {
+                            query_builder.push(" OR ");
+                        }
+                        query_builder.push("LOWER(d.filepath) LIKE ");
+                        query_builder.push_bind(like_pattern);
+                    }
+
+                    query_builder.push(")");
+                }
+            }
+        }
+    }
+
+    query_builder.push(" GROUP BY d.id ORDER BY d.filename COLLATE NOCASE ASC LIMIT 500");
+
+    let rows = query_builder
+        .build_query_as::<BrowseDesignSummaryRow>()
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let items = rows
         .into_iter()
         .map(|row| BrowseDesignSummary {
             id: row.id,
             filename: row.filename,
+            filepath: row.filepath,
             designer: row.designer,
             source: row.source,
             hoop: row.hoop,

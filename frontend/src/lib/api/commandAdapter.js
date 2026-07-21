@@ -68,6 +68,7 @@ function normalizeBrowseItem(raw, index, options = {}) {
   return {
     id,
     filename,
+    filepath: String(raw?.filepath || ""),
     designer: String(raw?.designer || "Unknown"),
     source: String(raw?.source || "Unknown"),
     projects: Array.isArray(raw?.projects)
@@ -100,10 +101,11 @@ function normalizeBrowseItem(raw, index, options = {}) {
 /**
  * Try to load designs from Rust command surface.
  * Falls back to local mock data while command migration is in progress.
+ * @param {import("../types").SearchPayload} [payload]
  */
-export async function getBrowseDesigns() {
+export async function getBrowseDesigns(payload) {
   try {
-    const designs = await invoke("get_designs");
+    const designs = await invoke("get_designs", { payload });
     if (Array.isArray(designs)) {
       return { items: designs.map((item, index) => normalizeBrowseItem(item, index)), source: "rust" };
     }
