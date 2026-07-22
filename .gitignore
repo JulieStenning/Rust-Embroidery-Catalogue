@@ -64,3 +64,4 @@ tests/testdata/01Peacock.dst
 tests/testdata/01Peacock.exp
 tests/testdata/01Peacock.hus
 frontend/eslint_errors.txt
+tests/testdata/Rose.eof

@@ -1186,6 +1186,203 @@ async fn get_design_image_data_with_pool(
     }))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeneralSearchToken {
+    pub text: String,
+    pub phrase: bool,
+    pub exclude: bool,
+    pub is_extension: bool,
+}
+
+fn parse_general_search_groups(query: &str) -> Vec<Vec<GeneralSearchToken>> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    let mut groups = Vec::new();
+    let mut current_group = Vec::new();
+    let mut buffer = String::new();
+    let mut in_quotes = false;
+
+    for ch in trimmed.chars() {
+        match ch {
+            '"' => {
+                buffer.push(ch);
+                in_quotes = !in_quotes;
+            }
+            ' ' | '\t' | '\n' if !in_quotes => {
+                let token = buffer.trim();
+                if !token.is_empty() {
+                    if token.eq_ignore_ascii_case("OR") {
+                        if !current_group.is_empty() {
+                            groups.push(std::mem::take(&mut current_group));
+                        }
+                    } else {
+                        current_group.push(parse_general_token(token));
+                    }
+                    buffer.clear();
+                }
+            }
+            _ => buffer.push(ch),
+        }
+    }
+
+    if !buffer.trim().is_empty() {
+        let token = buffer.trim();
+        if token.eq_ignore_ascii_case("OR") {
+            if !current_group.is_empty() {
+                groups.push(std::mem::take(&mut current_group));
+            }
+        } else {
+            current_group.push(parse_general_token(token));
+        }
+    }
+
+    if !current_group.is_empty() {
+        groups.push(current_group);
+    }
+
+    groups
+}
+
+fn parse_general_token(raw: &str) -> GeneralSearchToken {
+    let trimmed = raw.trim();
+    let mut exclude = false;
+    let mut text = trimmed;
+
+    if let Some(stripped) = trimmed.strip_prefix('-') {
+        exclude = true;
+        text = stripped;
+    }
+
+    let phrase = text.starts_with('"') && text.ends_with('"') || text.contains('"');
+    let normalized = text.trim_matches('"').trim();
+
+    let is_extension = normalized.starts_with("*") && normalized.len() > 1 && !normalized.contains(' ');
+    let final_text = if is_extension {
+        normalized.trim_start_matches('*').trim_start_matches('.').trim().to_string()
+    } else {
+        normalized.to_string()
+    };
+
+    GeneralSearchToken {
+        text: final_text,
+        phrase,
+        exclude,
+        is_extension,
+    }
+}
+
+fn push_general_search_clause(
+    query_builder: &mut QueryBuilder<Sqlite>,
+    search_file: bool,
+    search_tags: bool,
+    search_folder: bool,
+    general_groups: &[Vec<GeneralSearchToken>],
+) {
+    if general_groups.is_empty() {
+        return;
+    }
+
+    query_builder.push("(");
+    for (group_index, group_tokens) in general_groups.iter().enumerate() {
+        if group_index > 0 {
+            query_builder.push(" OR ");
+        }
+
+        if group_tokens.is_empty() {
+            continue;
+        }
+
+        query_builder.push("(");
+        for (token_index, token) in group_tokens.iter().enumerate() {
+            if token_index > 0 {
+                query_builder.push(" AND ");
+            }
+
+            let pattern = format!("%{}%", token.text.to_lowercase());
+            if token.exclude {
+                query_builder.push("NOT (");
+            }
+
+            let mut added = false;
+            if search_file {
+                query_builder.push("LOWER(d.filename) LIKE ");
+                query_builder.push_bind(pattern.clone());
+                added = true;
+            }
+
+            if search_tags {
+                if added {
+                    query_builder.push(" OR ");
+                }
+                query_builder.push("d.id IN (SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE LOWER(tags.description) LIKE ");
+                query_builder.push_bind(pattern.clone());
+                query_builder.push(")");
+                added = true;
+            }
+
+            if search_folder {
+                if added {
+                    query_builder.push(" OR ");
+                }
+                query_builder.push("LOWER(d.filepath) LIKE ");
+                query_builder.push_bind(pattern);
+            }
+
+            if token.exclude {
+                query_builder.push(")");
+            }
+        }
+        query_builder.push(")");
+    }
+    query_builder.push(")");
+}
+
+#[cfg(test)]
+mod parser_tests {
+    use super::{parse_general_search_groups, GeneralSearchToken};
+
+    #[test]
+    fn parses_or_groups_exclusions_and_extensions() {
+        let groups = parse_general_search_groups(r#"rose "cross stitch" -applique OR *.hus"#);
+
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].len(), 3);
+        assert_eq!(groups[1].len(), 1);
+
+        let first = &groups[0][0];
+        assert_eq!(first.text, "rose");
+        assert!(!first.exclude);
+        assert!(!first.phrase);
+
+        let second = &groups[0][1];
+        assert_eq!(second.text, "cross stitch");
+        assert!(!second.exclude);
+        assert!(second.phrase);
+
+        let third = &groups[0][2];
+        assert_eq!(third.text, "applique");
+        assert!(third.exclude);
+        assert!(!third.phrase);
+
+        let extension = &groups[1][0];
+        assert_eq!(extension.text, "hus");
+        assert!(extension.is_extension);
+    }
+
+    #[test]
+    fn preserves_terms_inside_quotes() {
+        let groups = parse_general_search_groups(r#""exact phrase""#);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].len(), 1);
+        let token = &groups[0][0];
+        assert_eq!(token.text, "exact phrase");
+        assert!(token.phrase);
+    }
+}
+
 #[tauri::command]
 pub async fn get_designs(
     state: State<'_, AppState>,
@@ -1207,8 +1404,8 @@ pub async fn get_designs(
                 WHERE project_designs.design_id = d.id
             ) AS projects_csv,
             GROUP_CONCAT(tags.description, '|||') AS tags_csv,
-            GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') = 'stitching_type' THEN tags.description END, '|||') AS stitching_tags_csv,
-            GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') != 'stitching_type' THEN tags.description END, '|||') AS image_tags_csv,
+            GROUP_CONCAT(CASE WHEN lower(COALESCE(tags.tag_group, '')) = 'stitching' THEN tags.description END, '|||') AS stitching_tags_csv,
+            GROUP_CONCAT(CASE WHEN lower(COALESCE(tags.tag_group, '')) != 'stitching' THEN tags.description END, '|||') AS image_tags_csv,
             d.is_stitched AS is_stitched,
             d.tags_checked AS tags_checked,
             d.rating AS rating
@@ -1229,44 +1426,17 @@ pub async fn get_designs(
             let search_file = p.search_file_name.unwrap_or(true);
             let search_tags = p.search_tags.unwrap_or(true);
             let search_folder = p.search_folder_name.unwrap_or(true);
+            let general_groups = parse_general_search_groups(q);
 
             if search_file || search_tags || search_folder {
                 push_where_clause(&mut query_builder, &mut has_where);
-                query_builder.push("(");
-
-                let mut or_added = false;
-                let like_pattern = format!("%{}%", q.to_lowercase());
-
-                if search_file {
-                    query_builder.push("LOWER(d.filename) LIKE ");
-                    query_builder.push_bind(like_pattern.clone());
-                    or_added = true;
-                }
-
-                if search_tags {
-                    if or_added {
-                        query_builder.push(" OR ");
-                    }
-                    query_builder.push("d.id IN (SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE LOWER(tags.description) LIKE ");
-                    query_builder.push_bind(like_pattern.clone());
-                    query_builder.push(")");
-                    or_added = true;
-                }
-
-                if search_folder {
-                    if or_added {
-                        query_builder.push(" OR ");
-                    }
-                    query_builder.push("LOWER(d.filepath) LIKE ");
-                    query_builder.push_bind(like_pattern);
-                }
-
-                query_builder.push(")");
+                push_general_search_clause(&mut query_builder, search_file, search_tags, search_folder, &general_groups);
             }
         }
 
         if p.unverified_only.unwrap_or(false) {
-                push_where_clause(&mut query_builder, &mut has_where);
+            push_where_clause(&mut query_builder, &mut has_where);
+            query_builder.push("d.tags_checked = 0");
         }
 
         if let Some(ref filters) = p.additional_filters {
@@ -1289,7 +1459,7 @@ pub async fn get_designs(
                 push_where_clause(&mut query_builder, &mut has_where);
                 query_builder.push("d.id IN (");
                 query_builder.push("SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ");
-                query_builder.push("COALESCE(tags.tag_group, '') != 'stitching_type' AND (");
+                query_builder.push("lower(COALESCE(tags.tag_group, '')) != 'stitching' AND (");
                 for (index, value) in image_tag_filters.iter().enumerate() {
                     if index > 0 {
                         query_builder.push(" OR ");
@@ -1306,7 +1476,7 @@ pub async fn get_designs(
                 push_where_clause(&mut query_builder, &mut has_where);
                 query_builder.push("d.id IN (");
                 query_builder.push("SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ");
-                query_builder.push("COALESCE(tags.tag_group, '') = 'stitching_type' AND (");
+                query_builder.push("lower(COALESCE(tags.tag_group, '')) = 'stitching' AND (");
                 for (index, value) in stitching_tag_filters.iter().enumerate() {
                     if index > 0 {
                         query_builder.push(" OR ");
