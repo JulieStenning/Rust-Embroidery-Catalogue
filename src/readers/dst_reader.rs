@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn test_read_dst_peacock_generates_threads_from_co() {
-        let data = include_bytes!("../../tests/testdata/01dstPeacock.dst");
+        let data = include_bytes!("../../tests/User tests/01dstPeacock.dst");
         let pattern = read_dst(data).expect("should parse provided DST sample");
 
         // Header declares CO:18 (color-change commands), so 19 thread blocks.
