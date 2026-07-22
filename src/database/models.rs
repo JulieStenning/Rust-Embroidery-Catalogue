@@ -63,6 +63,8 @@ pub struct Design {
     pub designer_id: Option<i64>,
     pub source_id: Option<i64>,
     pub hoop_id: Option<i64>,
+    pub file_size_bytes: Option<i64>,
+    pub file_hash_blake3: Option<String>,
 }
 
 /// A project record.

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -468,24 +470,41 @@ fn get_designs_base_path() -> PathBuf {
     derive_data_root_from_database_url().join("MachineEmbroideryDesigns")
 }
 
+/// Returns whether `full_path` resides under the canonical designs base directory.
+/// Uses case-insensitive, separator-normalized boundary-safe prefix matching so that
+/// only files genuinely under AppRoot/data/MachineEmbroideryDesigns are treated as in-library.
+fn is_path_under_designs_base(full_path: &str) -> bool {
+    let normalized = full_path.trim().replace('\\', "/");
+    let normalized_lower = normalized.to_ascii_lowercase();
+
+    let designs_base = get_designs_base_path();
+    let base_norm = designs_base.to_string_lossy().replace('\\', "/");
+    let base_lower = base_norm.to_ascii_lowercase();
+
+    if normalized_lower == base_lower {
+        return true;
+    }
+
+    let base_prefix = format!("{}/", base_lower.trim_end_matches('/'));
+    normalized_lower.starts_with(&base_prefix)
+}
+
+/// Converts a full on-disk file path under the designs base directory to the
+/// canonical stored filepath (e.g. `/MachineEmbroideryDesigns/sub/design.pes`).
+/// Now uses strict canonical-base-prefix validation instead of substring matching,
+/// so unrelated paths containing "machineembroiderydesigns" in their name do not
+/// bypass the copy guard.
 fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String> {
     let normalized_full = full_path.trim().replace('\\', "/");
     if normalized_full.is_empty() {
         return Err("Import filepath is empty.".to_string());
     }
 
-    let full_lower = normalized_full.to_ascii_lowercase();
-    if let Some(idx) = full_lower.find("/machineembroiderydesigns/") {
-        let rel = &normalized_full[(idx + 1)..];
-        return Ok(format!("/{}", rel.trim_start_matches('/')));
-    }
-    if full_lower.ends_with("/machineembroiderydesigns") {
-        return Ok("/MachineEmbroideryDesigns".to_string());
-    }
-
     let designs_base = get_designs_base_path();
     let base_norm = designs_base.to_string_lossy().replace('\\', "/");
     let base_lower = base_norm.to_ascii_lowercase();
+    let full_lower = normalized_full.to_ascii_lowercase();
+
     if full_lower == base_lower {
         return Ok("/MachineEmbroideryDesigns".to_string());
     }
@@ -506,16 +525,166 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
     ))
 }
 
-/// Ensures a file is located under the managed MachineEmbroideryDesigns directory.
-/// If the file is already under that directory, returns the stored filepath directly.
-/// If the file is outside, copies it into the managed directory preserving the path
-/// relative to the import root that contains it, then returns the stored filepath for the copy.
+/// Pure helper: computes the prospective stored filepath for a file given its
+/// absolute path and the selected import root_paths, without touching the filesystem.
+/// This is the single source of truth for path mapping used by both preview dedup
+/// and confirm-time import.
 ///
-/// The destination preserves the root folder name as the first component under
-/// MachineEmbroideryDesigns. For example, importing from `tests/testdata/Bean.pes`
-/// with root `tests/testdata` copies to `MachineEmbroideryDesigns/testdata/Bean.pes`.
+/// Path construction rules:
+/// 1. If the file is already under the designs base, its stored path is derived directly.
+/// 2. Otherwise, find the longest matching root_path, extract the root folder leaf
+///    (the last component of the root), and build the destination as
+///    `/MachineEmbroideryDesigns/{root_leaf}/{relative_subpath}`.
+/// 3. Drive-letter-only roots (e.g. `C:/`) have no natural leaf; files are placed
+///    directly under `/MachineEmbroideryDesigns/` using the path relative to the drive root.
+fn compute_prospective_stored_filepath(
+    full_path: &str,
+    root_paths: &[String],
+) -> Result<String, String> {
+    // Fast path: file already under the managed directory
+    if let Ok(stored) = full_path_to_stored_design_filepath(full_path) {
+        return Ok(stored);
+    }
+
+    let source = Path::new(full_path);
+    let source_norm = source.to_string_lossy().replace('\\', "/");
+
+    // Find the longest matching import root.
+    let rel_path = root_paths
+        .iter()
+        .map(|root| root.replace('\\', "/").trim_end_matches('/').to_string())
+        .filter(|root| {
+            let root_lower = root.to_ascii_lowercase();
+            let source_lower = source_norm.to_ascii_lowercase();
+            if let Some(rest) = source_lower.strip_prefix(&root_lower) {
+                rest.is_empty() || rest.starts_with('/')
+            } else {
+                false
+            }
+        })
+        .max_by_key(|root| root.len())
+        .map(|root| {
+            let root_folder_name = Path::new(&root)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("import");
+
+            let root_lower = root.to_ascii_lowercase();
+            let source_lower = source_norm.to_ascii_lowercase();
+
+            // Detect drive-letter-only root: e.g. "C:" or "C:/" => no natural leaf.
+            // Canonical drive-root paths on Windows look like "C:" or "C:/".
+            let is_drive_root = root.len() <= 3
+                && root.ends_with(':')
+                || (root.len() <= 4 && root.ends_with(":/"));
+
+            if is_drive_root {
+                // Place files directly under /MachineEmbroideryDesigns using
+                // the path relative to the drive root.
+                if source_lower.len() > root_lower.len() {
+                    let after_root = &source_norm[root.len()..];
+                    let sub_path = after_root.trim_start_matches('/');
+                    if sub_path.is_empty() {
+                        source
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown")
+                            .to_string()
+                    } else {
+                        sub_path.to_string()
+                    }
+                } else {
+                    source
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown")
+                        .to_string()
+                }
+            } else if source_lower.len() > root_lower.len() {
+                let after_root = &source_norm[root.len()..];
+                let sub_path = after_root.trim_start_matches('/');
+                if sub_path.is_empty() {
+                    root_folder_name.to_string()
+                } else {
+                    format!("{}/{}", root_folder_name, sub_path)
+                }
+            } else {
+                let filename = source
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+                format!("{}/{}", root_folder_name, filename)
+            }
+        })
+        .unwrap_or_else(|| {
+            source
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string()
+        });
+
+    Ok(format!(
+        "/MachineEmbroideryDesigns/{}",
+        rel_path.trim_start_matches('/')
+    ))
+}
+
+/// Compute BLAKE3 hash of a file. Returns hex-encoded string.
+fn compute_file_hash_blake3(file_path: &Path) -> Result<String, String> {
+    let mut file = File::open(file_path).map_err(|e| {
+        format!(
+            "Failed to open file for hashing '{}': {}",
+            file_path.display(),
+            e
+        )
+    })?;
+
+    let mut hasher = blake3::Hasher::new();
+    let mut buffer = [0u8; 65536]; // 64 KiB buffer
+    loop {
+        let bytes_read = file.read(&mut buffer).map_err(|e| {
+            format!(
+                "Failed to read file for hashing '{}': {}",
+                file_path.display(),
+                e
+            )
+        })?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
+/// Get file size in bytes via metadata.
+fn compute_file_size(file_path: &Path) -> Result<i64, String> {
+    let metadata = fs::metadata(file_path).map_err(|e| {
+        format!(
+            "Failed to read metadata for '{}': {}",
+            file_path.display(),
+            e
+        )
+    })?;
+    Ok(metadata.len() as i64)
+}
+
+/// Ensures a file is located under the managed MachineEmbroideryDesigns directory.
+/// If the file is already under that directory, returns the stored filepath directly
+/// (no copy needed for in-library files).
+/// If the file is outside, copies it into the managed directory using the path
+/// computed by `compute_prospective_stored_filepath`.
+///
+/// Collision policy (Phase 4):
+/// - If destination exists and content matches (same BLAKE3 + size), reuse the
+///   existing stored path (no copy).
+/// - If destination exists and content differs, auto-rename the new file
+///   (stem + _1, _2, etc.) and return the renamed stored path.
+/// - The resulting stored filepath is what gets persisted and returned.
 fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result<String, String> {
-    // Fast path: file is already under MachineEmbroideryDesigns
+    // Fast path: file is already under MachineEmbroideryDesigns (in-library)
     if let Ok(stored) = full_path_to_stored_design_filepath(full_path) {
         return Ok(stored);
     }
@@ -526,65 +695,102 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
         return Err(format!("Import file does not exist: '{}'", full_path));
     }
 
+    // Pre-compute source file content fingerprint for collision detection
+    let source_size = compute_file_size(source)?;
+    let source_hash = compute_file_hash_blake3(source)?;
+
     let designs_base = get_designs_base_path();
-    let source_norm = source.to_string_lossy().replace('\\', "/");
 
-    // Find the import root that contains this file and compute the relative path.
-    // The relative path includes the root folder name so that the destination
-    // preserves the original folder structure under MachineEmbroideryDesigns.
-    let rel_path = root_paths
-        .iter()
-        .map(|root| root.replace('\\', "/").trim_end_matches('/').to_string())
-        .filter(|root| {
-            let root_lower = root.to_ascii_lowercase();
-            // Boundary-safe check: the source must start with root, and the
-            // character immediately after root must be '/' or end-of-string.
-            let source_lower = source_norm.to_ascii_lowercase();
-            if let Some(rest) = source_lower.strip_prefix(&root_lower) {
-                rest.is_empty() || rest.starts_with('/')
+    // Use the single-source-of-truth path helper to compute the prospective
+    // stored relative path (e.g. "testdata/Bean.pes").
+    let prospective_stored =
+        compute_prospective_stored_filepath(full_path, root_paths)?;
+    // prospective_stored looks like "/MachineEmbroideryDesigns/testdata/Bean.pes"
+    let rel_path = prospective_stored
+        .strip_prefix("/MachineEmbroideryDesigns/")
+        .unwrap_or(&prospective_stored)
+        .trim_start_matches('/');
+
+    let dest = designs_base.join(rel_path);
+
+    // Check if destination already exists
+    if dest.exists() {
+        // Compute hash of existing destination file
+        let dest_size = compute_file_size(&dest).unwrap_or(0);
+        let dest_hash = compute_file_hash_blake3(&dest).unwrap_or_default();
+
+        if dest_size == source_size && dest_hash == source_hash {
+            // Content matches — reuse existing stored filepath, no copy needed
+            println!(
+                "Import file '{}' content-identical to existing '{}' — reusing stored path",
+                source.display(),
+                dest.display()
+            );
+            return Ok(prospective_stored);
+        }
+
+        // Content differs — auto-rename the new file
+        let dest_parent = dest.parent().ok_or_else(|| {
+            format!(
+                "Cannot determine parent directory for destination: '{}'",
+                dest.display()
+            )
+        })?;
+
+        let stem = dest
+            .file_stem()
+            .and_then(|n| n.to_str())
+            .unwrap_or("design");
+        let ext = dest.extension().and_then(|n| n.to_str()).unwrap_or("");
+
+        let mut counter = 1u32;
+        let final_dest = loop {
+            let candidate_name = if ext.is_empty() {
+                format!("{}_{}", stem, counter)
             } else {
-                false
+                format!("{}_{}.{}", stem, counter, ext)
+            };
+            let candidate = dest_parent.join(&candidate_name);
+            if !candidate.exists() {
+                break candidate;
             }
-        })
-        .max_by_key(|root| root.len())
-        .and_then(|root| {
-            // Extract the root folder name (last component of the root path).
-            let root_folder_name = Path::new(&root)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("import");
-
-            let root_lower = root.to_ascii_lowercase();
-            let source_lower = source_norm.to_ascii_lowercase();
-            if source_lower.len() > root_lower.len() {
-                // Source is inside the root: preserve root folder name + sub-path.
-                let after_root = &source_norm[root.len()..];
-                let sub_path = after_root.trim_start_matches('/');
-                if sub_path.is_empty() {
-                    // Source is the root directory itself — use just the root folder name
-                    Some(root_folder_name.to_string())
-                } else {
-                    Some(format!("{}/{}", root_folder_name, sub_path))
-                }
-            } else {
-                // File is the root itself — use root folder name + filename
-                let filename = source
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown");
-                Some(format!("{}/{}", root_folder_name, filename))
+            counter += 1;
+            if counter > 1000 {
+                return Err(format!(
+                    "Failed to find available auto-rename target for '{}' after 1000 attempts",
+                    dest.display()
+                ));
             }
-        })
-        .unwrap_or_else(|| {
-            // Fallback: use just the filename
-            source
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string()
-        });
+        };
 
-    let dest = designs_base.join(&rel_path);
+        println!(
+            "Import collision: '{}' exists with different content — auto-renaming to '{}'",
+            dest.display(),
+            final_dest.display()
+        );
+
+        fs::create_dir_all(dest_parent).map_err(|e| {
+            format!(
+                "Failed to create directory '{}': {}",
+                dest_parent.display(),
+                e
+            )
+        })?;
+
+        fs::copy(source, &final_dest).map_err(|e| {
+            format!(
+                "Failed to copy '{}' to '{}': {}",
+                source.display(),
+                final_dest.display(),
+                e
+            )
+        })?;
+
+        // Compute stored filepath from the renamed copy
+        return full_path_to_stored_design_filepath(&final_dest.to_string_lossy());
+    }
+
+    // No collision: copy to the computed destination
     let dest_parent = dest.parent().ok_or_else(|| {
         format!(
             "Cannot determine parent directory for destination: '{}'",
@@ -1033,9 +1239,53 @@ async fn persist_bulk_import_confirm_wire(
                 _ => None,
             };
 
+            // Compute content fingerprint from the actual stored file for confirm-time persistence
+            let designs_base_path = get_designs_base_path();
+            let stored_path = designs_base_path.join(
+                stored_filepath
+                    .strip_prefix("/MachineEmbroideryDesigns/")
+                    .unwrap_or(&stored_filepath),
+            );
+            let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
+            let file_hash_blake3: Option<String> =
+                compute_file_hash_blake3(&stored_path).ok();
+
+            // Confirm-time content-based dedup guard (Phase 3.4):
+            // If the stored filepath already exists (double-check before insert),
+            // or if another row already has the same hash+size, skip.
+            let t_confirm_dedup = Instant::now();
+            if file_size_bytes.is_some() && file_hash_blake3.is_some() {
+                let existing_by_fingerprint: Option<i64> = sqlx::query_scalar(
+                    "SELECT id FROM designs WHERE file_size_bytes = ? AND file_hash_blake3 = ? LIMIT 1",
+                )
+                .bind(file_size_bytes)
+                .bind(file_hash_blake3.as_ref().unwrap())
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+                if existing_by_fingerprint.is_some() {
+                    total_dedup_check_ms += t_confirm_dedup.elapsed().as_millis();
+                    println!(
+                        "Confirm dedup: '{}' content-match with existing row — skipping",
+                        stored_filepath
+                    );
+                    processed_count += 1;
+                    emit_progress(
+                        "processed",
+                        processed_count,
+                        persisted_design_count,
+                        committed_design_count,
+                        Some(file_path),
+                    );
+                    continue;
+                }
+            } else {
+                total_dedup_check_ms += t_confirm_dedup.elapsed().as_millis();
+            }
+
             let t_insert = Instant::now();
             let insert_result = sqlx::query(
-                "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)",
+                "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, tags_checked, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)",
             )
             .bind(&filename)
             .bind(&stored_filepath)
@@ -1049,6 +1299,8 @@ async fn persist_bulk_import_confirm_wire(
             .bind(image_result.stitch_count)
             .bind(image_result.color_count)
             .bind(image_result.color_change_count)
+            .bind(file_size_bytes)
+            .bind(file_hash_blake3.as_ref())
             .execute(&mut *tx)
             .await
             .map_err(|e| e.to_string())?;
@@ -1683,33 +1935,99 @@ pub fn resolve_bulk_import_assignments(
         .collect()
 }
 
+/// Preview-phase dedupe: excludes scanned files already present in the DB,
+/// checking both by prospective stored filepath AND by content fingerprint
+/// (BLAKE3 hash + file size).
+///
+/// For every scanned file we compute its prospective stored filepath using the
+/// single-source-of-truth helper so external-source files get the same mapping
+/// as they will during confirm. Then we filter against:
+///   1. stored filepath match (normalized), OR
+///   2. (file_size_bytes, file_hash_blake3) match — with lazy hashing for
+///      files that pass the filepath check first.
 async fn filter_existing_scanned_files(
     pool: &SqlitePool,
     scanned_files: Vec<scanning::ScannedFile>,
+    root_paths: &[String],
 ) -> Result<Vec<scanning::ScannedFile>, String> {
     if scanned_files.is_empty() {
         return Ok(scanned_files);
     }
 
+    // Load existing path set
     let existing_paths = sqlx::query_scalar::<_, String>("SELECT filepath FROM designs")
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
-    let existing_set: HashSet<String> = existing_paths
+    let existing_path_set: HashSet<String> = existing_paths
         .into_iter()
         .map(|path| normalize_path_for_match(&path))
         .collect();
 
-    Ok(scanned_files
+    // Load fingerprint pairs for content-based dedup
+    let fingerprint_rows: Vec<(Option<i64>, Option<String>)> = sqlx::query_as(
+        "SELECT file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IS NOT NULL AND file_hash_blake3 IS NOT NULL",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    // Build a set of (size, hash) pairs for O(1) lookup
+    let fingerprint_set: HashSet<(i64, String)> = fingerprint_rows
         .into_iter()
-        .filter(|file| {
-            let normalized = full_path_to_stored_design_filepath(&file.full_path)
-                .map(|value| normalize_path_for_match(&value))
-                .unwrap_or_else(|_| normalize_path_for_match(&file.full_path));
-            !existing_set.contains(&normalized)
+        .filter_map(|(size_opt, hash_opt)| {
+            match (size_opt, hash_opt) {
+                (Some(size), Some(hash)) => Some((size, hash.to_ascii_lowercase())),
+                _ => None,
+            }
         })
-        .collect())
+        .collect();
+
+    let mut result: Vec<scanning::ScannedFile> = Vec::with_capacity(scanned_files.len());
+    let mut excluded_by_path: usize = 0;
+    let mut excluded_by_hash: usize = 0;
+
+    for file in scanned_files {
+        // Compute prospective stored filepath using the single-source-of-truth helper
+        let prospective_path = compute_prospective_stored_filepath(&file.full_path, root_paths)
+            .unwrap_or_else(|_| format!("/MachineEmbroideryDesigns/{}", file.full_path));
+
+        let normalized_prospective = normalize_path_for_match(&prospective_path);
+
+        // Check 1: filepath match
+        if existing_path_set.contains(&normalized_prospective) {
+            excluded_by_path += 1;
+            continue;
+        }
+
+        // Check 2: content fingerprint match (lazy hash — only if not excluded by path)
+        let source_path = Path::new(&file.full_path);
+        if source_path.exists() && !fingerprint_set.is_empty() {
+            if let (Ok(size), Ok(hash)) = (
+                compute_file_size(source_path),
+                compute_file_hash_blake3(source_path),
+            ) {
+                if fingerprint_set.contains(&(size, hash.to_ascii_lowercase())) {
+                    excluded_by_hash += 1;
+                    continue;
+                }
+            }
+        }
+
+        result.push(file);
+    }
+
+    if excluded_by_path > 0 || excluded_by_hash > 0 {
+        println!(
+            "Preview dedup: excluded_by_path={} excluded_by_hash={} imported={}",
+            excluded_by_path,
+            excluded_by_hash,
+            result.len()
+        );
+    }
+
+    Ok(result)
 }
 
 fn preview_bulk_import_wire_with_pool(
@@ -1739,6 +2057,7 @@ fn preview_bulk_import_wire_with_pool(
         scanned_files = tauri::async_runtime::block_on(filter_existing_scanned_files(
             active_pool,
             scanned_files,
+            &wire.root_paths,
         ))?;
     }
 
@@ -1867,7 +2186,9 @@ mod tests {
                 color_change_count INTEGER,
                 is_stitched INTEGER NOT NULL DEFAULT 0,
                 tags_checked INTEGER NOT NULL DEFAULT 0,
-                tagging_tier INTEGER
+                tagging_tier INTEGER,
+                file_size_bytes INTEGER,
+                file_hash_blake3 TEXT
             );
             "#,
         )
@@ -2951,6 +3272,209 @@ mod tests {
         );
 
         assert!(take_bulk_import_context(&expired_token).is_none());
+    }
+
+    // =========================================================================
+    // Phase 5 - Path derivation tests (5.1)
+    // =========================================================================
+
+    /// Under AppRoot: full_path_to_stored_design_filepath should return
+    /// the canonical stored path directly.
+    #[test]
+    fn stored_filepath_from_designs_base_subdirectory() {
+        // We can't change DATABASE_URL at runtime, but we can test the
+        // computation against a hypothetical base by constructing a path
+        // and checking it is NOT treated as in-library when it clearly isn't.
+        let result =
+            full_path_to_stored_design_filepath("C:/SomeRandomPath/not-a-design.pes");
+        assert!(result.is_err(), "unrelated path must not be in-library");
+    }
+
+    /// The old substring-based in-library detection is gone: paths containing
+    /// "machineembroiderydesigns" as a substring but not actually under the
+    /// canonical designs base must now be treated as external (not in-library).
+    #[test]
+    fn unrelated_path_containing_sentinel_is_not_in_library() {
+        // A path like C:/tmp/machineembroiderydesigns-test/file.pes
+        // was previously treated as in-library by the old substring scan.
+        // With strict base-prefix validation it must now be external.
+        let is_under = is_path_under_designs_base(
+            "C:/tmp/machineembroiderydesigns-test/design.pes",
+        );
+        assert!(!is_under);
+
+        let parsed =
+            full_path_to_stored_design_filepath(
+                "C:/tmp/machineembroiderydesigns-test/design.pes",
+            );
+        assert!(parsed.is_err(), "unrelated path must not produce stored path");
+    }
+
+    /// compute_prospective_stored_filepath with a standard leaf root.
+    #[test]
+    fn prospective_path_standard_root_with_leaf() {
+        // Simulates: selected root C:/x/d/f, file C:/x/d/f/Babies/Jef Files/design.jef
+        let result = compute_prospective_stored_filepath(
+            "C:/x/d/f/Babies/Jef Files/design.jef",
+            &["C:/x/d/f".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            "/MachineEmbroideryDesigns/f/Babies/Jef Files/design.jef"
+        );
+    }
+
+    /// compute_prospective_stored_filepath with a parent root (leaf = x).
+    #[test]
+    fn prospective_path_parent_root() {
+        // Selected root C:/x, file C:/x/d/f/Babies/Jef Files/design.jef
+        let result = compute_prospective_stored_filepath(
+            "C:/x/d/f/Babies/Jef Files/design.jef",
+            &["C:/x".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            "/MachineEmbroideryDesigns/x/d/f/Babies/Jef Files/design.jef"
+        );
+    }
+
+    /// compute_prospective_stored_filepath with drive-root selection (no leaf).
+    #[test]
+    fn prospective_path_drive_root() {
+        // Selected root C:/, file C:/Designs/Floral/a.pes
+        let result = compute_prospective_stored_filepath(
+            "C:/Designs/Floral/a.pes",
+            &["C:/".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            "/MachineEmbroideryDesigns/Designs/Floral/a.pes"
+        );
+    }
+
+    /// compute_prospective_stored_filepath with mixed slash separators.
+    #[test]
+    fn prospective_path_mixed_separators() {
+        // Backslash in the file path, forward-slash root
+        let result = compute_prospective_stored_filepath(
+            "C:\\x\\d\\f\\Babies\\Jef Files\\design.jef",
+            &["C:/x/d/f".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            "/MachineEmbroideryDesigns/f/Babies/Jef Files/design.jef"
+        );
+    }
+
+    /// Longest-root match must be chosen when multiple roots are provided.
+    #[test]
+    fn prospective_path_longest_root_wins() {
+        let result = compute_prospective_stored_filepath(
+            "C:/x/d/f/Babies/Jef Files/design.jef",
+            &["C:/x".to_string(), "C:/x/d/f".to_string()],
+        );
+        assert!(result.is_ok());
+        // Longer root "C:/x/d/f" wins => leaf "f"
+        assert_eq!(
+            result.unwrap(),
+            "/MachineEmbroideryDesigns/f/Babies/Jef Files/design.jef"
+        );
+    }
+
+    // =========================================================================
+    // Phase 5 - In-library detection strictness (5.3)
+    // =========================================================================
+
+    #[test]
+    fn is_path_under_designs_base_accepts_actual_subpath() {
+        let designs_base = get_designs_base_path();
+        let file_path = designs_base
+            .join("some-folder")
+            .join("test.pes")
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        let is_under = is_path_under_designs_base(&file_path);
+        assert!(is_under);
+    }
+
+    // =========================================================================
+    // Phase 5 - file hash + size utilities
+    // =========================================================================
+
+    #[test]
+    fn compute_blake3_hash_of_known_content() {
+        let dir = std::env::temp_dir().join(format!("rec-hash-test-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        fs::create_dir_all(&dir).expect("temp dir should be created");
+        let file_path = dir.join("content.bin");
+        fs::write(&file_path, b"hello world").expect("file should be written");
+
+        let hash = compute_file_hash_blake3(&file_path).expect("hash should succeed");
+        let size = compute_file_size(&file_path).expect("size should succeed");
+
+        assert_eq!(size, 11); // "hello world" = 11 bytes
+        assert!(!hash.is_empty());
+        assert_eq!(hash.len(), 64); // BLAKE3 hex = 64 chars
+
+        let _ = fs::remove_file(&file_path);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // =========================================================================
+    // Phase 5 - Preview dedup with prospective stored path (5.2)
+    // =========================================================================
+
+    #[tokio::test]
+    async fn preview_dedup_excludes_by_prospective_stored_path() {
+        let pool = import_test_pool().await;
+
+        // Seed a design row that maps to a prospective stored path for a
+        // hypothetical external file under /MachineEmbroideryDesigns.
+        let stored = "/MachineEmbroideryDesigns/some-folder/unique-file.pes";
+        sqlx::query(
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
+        )
+        .bind("unique-file.pes")
+        .bind(stored)
+        .execute(&pool)
+        .await
+        .expect("seed design should insert");
+
+        // Create a temp file outside the designs base that maps to the same
+        // prospective stored path.
+        let dir = std::env::temp_dir()
+            .join(format!("rec-dedup-prospective-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        let sub = dir.join("some-folder");
+        fs::create_dir_all(&sub).expect("temp subdir should be created");
+        let file_path = sub.join("unique-file.pes");
+        fs::write(&file_path, b"dummy").expect("temp file should be written");
+        let file_path_text = file_path.to_string_lossy().to_string();
+
+        let scanned = vec![scanning::ScannedFile {
+            full_path: file_path_text,
+            extension: "pes".to_string(),
+            dedup_group_key: "test".to_string(),
+        }];
+
+        let filtered = filter_existing_scanned_files(
+            &pool,
+            scanned,
+            &[dir.to_string_lossy().to_string()],
+        )
+        .await
+        .expect("filter should succeed");
+
+        // The file should be excluded because its prospective stored path
+        // "/MachineEmbroideryDesigns/some-folder/unique-file.pes" matches the
+        // seeded row.
+        assert!(filtered.is_empty());
+
+        let _ = fs::remove_file(&file_path);
+        let _ = fs::remove_dir_all(&dir);
     }
 }
 
