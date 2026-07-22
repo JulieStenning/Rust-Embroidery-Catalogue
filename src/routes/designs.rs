@@ -44,11 +44,33 @@ struct BrowseDesignSummaryRow {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct BrowseAdditionalFiltersPayload {
+    pub designer_filters: Option<Vec<String>>,
+    pub image_tag_filters: Option<Vec<String>>,
+    pub stitching_tag_filters: Option<Vec<String>>,
+    pub source_filters: Option<Vec<String>>,
+    pub hoop_size: Option<String>,
+    pub min_rating: Option<i64>,
+    pub stitched_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct GetDesignsPayload {
     pub q: Option<String>,
     pub search_file_name: Option<bool>,
     pub search_tags: Option<bool>,
     pub search_folder_name: Option<bool>,
+    pub unverified_only: Option<bool>,
+    pub additional_filters: Option<BrowseAdditionalFiltersPayload>,
+}
+
+fn push_where_clause(query_builder: &mut QueryBuilder<Sqlite>, has_where: &mut bool) {
+    if *has_where {
+        query_builder.push(" AND ");
+    } else {
+        query_builder.push(" WHERE ");
+        *has_where = true;
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1170,74 +1192,172 @@ pub async fn get_designs(
     payload: Option<GetDesignsPayload>,
 ) -> Result<Vec<BrowseDesignSummary>, String> {
     let mut query_builder = QueryBuilder::<Sqlite>::new(
-		r#"
-		SELECT
-			d.id AS id,
-			d.filename AS filename,
-			d.filepath AS filepath,
-			COALESCE(designers.name, 'Unknown') AS designer,
-			COALESCE(sources.name, 'Unknown') AS source,
-			hoops.name AS hoop,
-			(
-				SELECT GROUP_CONCAT(projects.name, '|||')
-				FROM project_designs
-				JOIN projects ON projects.id = project_designs.project_id
-				WHERE project_designs.design_id = d.id
-			) AS projects_csv,
-			GROUP_CONCAT(tags.description, '|||') AS tags_csv,
-			GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') = 'stitching_type' THEN tags.description END, '|||') AS stitching_tags_csv,
-			GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') != 'stitching_type' THEN tags.description END, '|||') AS image_tags_csv,
-			d.is_stitched AS is_stitched,
-			d.tags_checked AS tags_checked,
-			d.rating AS rating
-		FROM designs d
-		LEFT JOIN designers ON designers.id = d.designer_id
-		LEFT JOIN sources ON sources.id = d.source_id
-		LEFT JOIN hoops ON hoops.id = d.hoop_id
-		LEFT JOIN design_tags ON design_tags.design_id = d.id
-		LEFT JOIN tags ON tags.id = design_tags.tag_id
-		"#
+        r#"
+        SELECT
+            d.id AS id,
+            d.filename AS filename,
+            d.filepath AS filepath,
+            COALESCE(designers.name, 'Unknown') AS designer,
+            COALESCE(sources.name, 'Unknown') AS source,
+            hoops.name AS hoop,
+            (
+                SELECT GROUP_CONCAT(projects.name, '|||')
+                FROM project_designs
+                JOIN projects ON projects.id = project_designs.project_id
+                WHERE project_designs.design_id = d.id
+            ) AS projects_csv,
+            GROUP_CONCAT(tags.description, '|||') AS tags_csv,
+            GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') = 'stitching_type' THEN tags.description END, '|||') AS stitching_tags_csv,
+            GROUP_CONCAT(CASE WHEN COALESCE(tags.tag_group, '') != 'stitching_type' THEN tags.description END, '|||') AS image_tags_csv,
+            d.is_stitched AS is_stitched,
+            d.tags_checked AS tags_checked,
+            d.rating AS rating
+        FROM designs d
+        LEFT JOIN designers ON designers.id = d.designer_id
+        LEFT JOIN sources ON sources.id = d.source_id
+        LEFT JOIN hoops ON hoops.id = d.hoop_id
+        LEFT JOIN design_tags ON design_tags.design_id = d.id
+        LEFT JOIN tags ON tags.id = design_tags.tag_id
+        "#
     );
 
+    let mut has_where = false;
+
     if let Some(ref p) = payload {
-        if let Some(ref q) = p.q {
-            let q_trimmed = q.trim();
-            if !q_trimmed.is_empty() {
-                let search_file = p.search_file_name.unwrap_or(true);
-                let search_tags = p.search_tags.unwrap_or(true);
-                let search_folder = p.search_folder_name.unwrap_or(true);
+        let q_trimmed = p.q.as_deref().map(str::trim).filter(|value| !value.is_empty());
+        if let Some(q) = q_trimmed {
+            let search_file = p.search_file_name.unwrap_or(true);
+            let search_tags = p.search_tags.unwrap_or(true);
+            let search_folder = p.search_folder_name.unwrap_or(true);
 
-                if search_file || search_tags || search_folder {
-                    query_builder.push(" WHERE (");
+            if search_file || search_tags || search_folder {
+                push_where_clause(&mut query_builder, &mut has_where);
+                query_builder.push("(");
 
-                    let mut or_added = false;
-                    let like_pattern = format!("%{}%", q_trimmed.to_lowercase());
+                let mut or_added = false;
+                let like_pattern = format!("%{}%", q.to_lowercase());
 
-                    if search_file {
-                        query_builder.push("LOWER(d.filename) LIKE ");
-                        query_builder.push_bind(like_pattern.clone());
-                        or_added = true;
+                if search_file {
+                    query_builder.push("LOWER(d.filename) LIKE ");
+                    query_builder.push_bind(like_pattern.clone());
+                    or_added = true;
+                }
+
+                if search_tags {
+                    if or_added {
+                        query_builder.push(" OR ");
                     }
-
-                    if search_tags {
-                        if or_added {
-                            query_builder.push(" OR ");
-                        }
-                        query_builder.push("d.id IN (SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE LOWER(tags.description) LIKE ");
-                        query_builder.push_bind(like_pattern.clone());
-                        query_builder.push(")");
-                        or_added = true;
-                    }
-
-                    if search_folder {
-                        if or_added {
-                            query_builder.push(" OR ");
-                        }
-                        query_builder.push("LOWER(d.filepath) LIKE ");
-                        query_builder.push_bind(like_pattern);
-                    }
-
+                    query_builder.push("d.id IN (SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE LOWER(tags.description) LIKE ");
+                    query_builder.push_bind(like_pattern.clone());
                     query_builder.push(")");
+                    or_added = true;
+                }
+
+                if search_folder {
+                    if or_added {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(d.filepath) LIKE ");
+                    query_builder.push_bind(like_pattern);
+                }
+
+                query_builder.push(")");
+            }
+        }
+
+        if p.unverified_only.unwrap_or(false) {
+                push_where_clause(&mut query_builder, &mut has_where);
+        }
+
+        if let Some(ref filters) = p.additional_filters {
+            let designer_filters = filters.designer_filters.as_deref().unwrap_or(&[]);
+            if !designer_filters.is_empty() {
+                push_where_clause(&mut query_builder, &mut has_where);
+                query_builder.push("(");
+                for (index, value) in designer_filters.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(COALESCE(designers.name, 'Unknown')) = ");
+                    query_builder.push_bind(value.trim().to_lowercase());
+                }
+                query_builder.push(")");
+            }
+
+            let image_tag_filters = filters.image_tag_filters.as_deref().unwrap_or(&[]);
+            if !image_tag_filters.is_empty() {
+                push_where_clause(&mut query_builder, &mut has_where);
+                query_builder.push("d.id IN (");
+                query_builder.push("SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ");
+                query_builder.push("COALESCE(tags.tag_group, '') != 'stitching_type' AND (");
+                for (index, value) in image_tag_filters.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(tags.description) = ");
+                    query_builder.push_bind(value.trim().to_lowercase());
+                }
+                query_builder.push(")");
+                query_builder.push(")");
+            }
+
+            let stitching_tag_filters = filters.stitching_tag_filters.as_deref().unwrap_or(&[]);
+            if !stitching_tag_filters.is_empty() {
+                push_where_clause(&mut query_builder, &mut has_where);
+                query_builder.push("d.id IN (");
+                query_builder.push("SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ");
+                query_builder.push("COALESCE(tags.tag_group, '') = 'stitching_type' AND (");
+                for (index, value) in stitching_tag_filters.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(tags.description) = ");
+                    query_builder.push_bind(value.trim().to_lowercase());
+                }
+                query_builder.push(")");
+                query_builder.push(")");
+            }
+
+            let source_filters = filters.source_filters.as_deref().unwrap_or(&[]);
+            if !source_filters.is_empty() {
+                push_where_clause(&mut query_builder, &mut has_where);
+                query_builder.push("(");
+                for (index, value) in source_filters.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(COALESCE(sources.name, 'Unknown')) = ");
+                    query_builder.push_bind(value.trim().to_lowercase());
+                }
+                query_builder.push(")");
+            }
+
+            if let Some(ref hoop_size) = filters.hoop_size {
+                let hoop_size_trimmed = hoop_size.trim();
+                if !hoop_size_trimmed.is_empty() {
+                    push_where_clause(&mut query_builder, &mut has_where);
+                    query_builder.push("LOWER(COALESCE(hoops.name, '')) = ");
+                    query_builder.push_bind(hoop_size_trimmed.to_lowercase());
+                }
+            }
+
+            if let Some(min_rating) = filters.min_rating {
+                if min_rating >= 1 {
+                    push_where_clause(&mut query_builder, &mut has_where);
+                    query_builder.push("d.rating >= ");
+                    query_builder.push_bind(min_rating);
+                }
+            }
+
+            if let Some(ref stitched_status) = filters.stitched_status {
+                let stitched_status_trimmed = stitched_status.trim();
+                if !stitched_status_trimmed.is_empty() && stitched_status_trimmed != "all" {
+                    push_where_clause(&mut query_builder, &mut has_where);
+                    if stitched_status_trimmed == "yes" {
+                        query_builder.push("d.is_stitched = 1");
+                    } else {
+                        query_builder.push("d.is_stitched = 0");
+                    }
                 }
             }
         }

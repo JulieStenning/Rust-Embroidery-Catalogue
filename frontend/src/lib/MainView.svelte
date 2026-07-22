@@ -161,6 +161,22 @@
   let browseTagOptions = $state([]);
   let browseTagsSource = $state("mock");
   let browsePreviewsSource = $state("mock");
+  let browseImageTagOptions = $derived(
+    (() => {
+      const grouped = splitTagsByGroup(browseTagOptions);
+      return [...(grouped.image || [])].sort((a, b) =>
+        String(a?.description || "").localeCompare(String(b?.description || ""), undefined, { sensitivity: "base" })
+      );
+    })()
+  );
+  let browseStitchingTagOptions = $derived(
+    (() => {
+      const grouped = splitTagsByGroup(browseTagOptions);
+      return [...(grouped.stitching || [])].sort((a, b) =>
+        String(a?.description || "").localeCompare(String(b?.description || ""), undefined, { sensitivity: "base" })
+      );
+    })()
+  );
   /** @type {string[]} */
   let browseDesignerFilterOptions = $state([]);
   /** @type {string[]} */
@@ -215,7 +231,8 @@
     noneWords: "",
     filename: "",
     designerFilters: /** @type {string[]} */ ([]),
-    tagFilters: /** @type {string[]} */ ([]),
+    imageTagFilters: /** @type {string[]} */ ([]),
+    stitchingTagFilters: /** @type {string[]} */ ([]),
     hoop: "",
     sourceFilters: /** @type {string[]} */ ([]),
     rating: "",
@@ -240,7 +257,8 @@
     browseFilters.noneWords === "" &&
     browseFilters.filename === "" &&
     browseFilters.designerFilters.length === 0 &&
-    browseFilters.tagFilters.length === 0 &&
+    browseFilters.imageTagFilters.length === 0 &&
+    browseFilters.stitchingTagFilters.length === 0 &&
     browseFilters.hoop === "" &&
     browseFilters.sourceFilters.length === 0 &&
     browseFilters.rating === "" &&
@@ -637,11 +655,27 @@
     browseLoading = true;
     browseError = "";
     try {
+      const stitchedStatus = /** @type {"all" | "yes" | "no"} */ (
+        browseFilters.stitched === "yes" || browseFilters.stitched === "no"
+          ? browseFilters.stitched
+          : "all"
+      );
+
       const payload = {
         q: browseFilters.q,
         search_file_name: browseFilters.searchFilename,
         search_tags: browseFilters.searchTags,
         search_folder_name: browseFilters.searchFolder,
+        unverified_only: browseFilters.unverifiedOnly,
+        additional_filters: {
+          designer_filters: Array.isArray(browseFilters.designerFilters) ? browseFilters.designerFilters : [],
+          image_tag_filters: Array.isArray(browseFilters.imageTagFilters) ? browseFilters.imageTagFilters : [],
+          stitching_tag_filters: Array.isArray(browseFilters.stitchingTagFilters) ? browseFilters.stitchingTagFilters : [],
+          source_filters: Array.isArray(browseFilters.sourceFilters) ? browseFilters.sourceFilters : [],
+          hoop_size: browseFilters.hoop || null,
+          min_rating: browseFilters.rating ? Number(browseFilters.rating) : null,
+          stitched_status: stitchedStatus,
+        },
       };
       const result = await getBrowseDesigns(payload);
       const rawItems = Array.isArray(result?.items) ? result.items : [];
@@ -818,12 +852,22 @@
       }
 
       /** @type {string[]} */
-      const tagFilters = Array.isArray(browseFilters.tagFilters) ? browseFilters.tagFilters : [];
-      if (tagFilters.length > 0) {
-        const activeTags = new Set(tagFilters.map((t) => String(t).toLowerCase().trim()));
+      const imageTagFilters = Array.isArray(browseFilters.imageTagFilters) ? browseFilters.imageTagFilters : [];
+      if (imageTagFilters.length > 0) {
+        const activeImageTags = new Set(imageTagFilters.map((tag) => String(tag).toLowerCase().trim()));
         filtered = filtered.filter((item) => {
-          const itemTags = Array.isArray(item.tags) ? item.tags : [];
-          return itemTags.some(/** @param {any} tag */ (tag) => activeTags.has(String(tag).toLowerCase().trim()));
+          const itemImageTags = Array.isArray(item.imageTags) ? item.imageTags : [];
+          return itemImageTags.some((tag) => activeImageTags.has(String(tag).toLowerCase().trim()));
+        });
+      }
+
+      /** @type {string[]} */
+      const stitchingTagFilters = Array.isArray(browseFilters.stitchingTagFilters) ? browseFilters.stitchingTagFilters : [];
+      if (stitchingTagFilters.length > 0) {
+        const activeStitchingTags = new Set(stitchingTagFilters.map((tag) => String(tag).toLowerCase().trim()));
+        filtered = filtered.filter((item) => {
+          const itemStitchingTags = Array.isArray(item.stitchingTags) ? item.stitchingTags : [];
+          return itemStitchingTags.some((tag) => activeStitchingTags.has(String(tag).toLowerCase().trim()));
         });
       }
 
@@ -842,7 +886,9 @@
       const ratingVal = String(browseFilters.rating || "").trim();
       if (ratingVal) {
         const score = Number(ratingVal);
-        filtered = filtered.filter((item) => item.rating === score);
+        if (Number.isFinite(score) && score >= 1) {
+          filtered = filtered.filter((item) => Number(item.rating || 0) >= score);
+        }
       }
 
       const stitchedVal = String(browseFilters.stitched || "").trim();
@@ -1941,13 +1987,26 @@
               </div>
             </div>
 
-            <!-- Tags Filter -->
+            <!-- Image Tags Filter -->
             <div class="space-y-1">
-              <span class="block text-xs font-semibold text-gray-700">Tag</span>
+              <span class="block text-xs font-semibold text-gray-700">Image tags</span>
               <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
-                {#each browseTagOptions as opt}
+                {#each browseImageTagOptions as opt}
                   <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={browseFilters.tagFilters.includes(opt.description)} onchange={() => toggleBrowseFilter("tagFilters", opt.description)} class="accent-indigo-600 rounded" />
+                    <input type="checkbox" checked={browseFilters.imageTagFilters.includes(opt.description)} onchange={() => toggleBrowseFilter("imageTagFilters", opt.description)} class="accent-indigo-600 rounded" />
+                    <span>{opt.description}</span>
+                  </label>
+                {/each}
+              </div>
+            </div>
+
+            <!-- Stitching Tags Filter -->
+            <div class="space-y-1">
+              <span class="block text-xs font-semibold text-gray-700">Stitching tags</span>
+              <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
+                {#each browseStitchingTagOptions as opt}
+                  <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={browseFilters.stitchingTagFilters.includes(opt.description)} onchange={() => toggleBrowseFilter("stitchingTagFilters", opt.description)} class="accent-indigo-600 rounded" />
                     <span>{opt.description}</span>
                   </label>
                 {/each}
@@ -1981,7 +2040,7 @@
 
               <div class="grid grid-cols-2 gap-2">
                 <label class="block">
-                  <span class="block font-semibold text-gray-700 mb-1">Rating</span>
+                  <span class="block font-semibold text-gray-700 mb-1">Minimum rating</span>
                   <select class="border rounded px-2.5 py-1.5 w-full bg-white text-xs" value={browseFilters.rating} onchange={(e) => updateBrowseFilter("rating", e.currentTarget.value)}>
                     <option value="">Any</option>
                     {#each [1, 2, 3, 4, 5] as score}
