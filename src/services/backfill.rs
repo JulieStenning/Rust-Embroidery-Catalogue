@@ -41,6 +41,7 @@ pub struct UnifiedBackfillActions {
     pub stitching: Option<StitchingActionOptions>,
     pub images: Option<ImageActionOptions>,
     pub color_counts: Option<ColorCountsActionOptions>,
+    pub fingerprinting: Option<FingerprintActionOptions>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -66,6 +67,11 @@ pub struct ImageActionOptions {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ColorCountsActionOptions {
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FingerprintActionOptions {
     pub enabled: Option<bool>,
 }
 
@@ -106,6 +112,18 @@ pub fn clear_stop_signal() {
     STOP_REQUESTED.store(false, Ordering::SeqCst);
 }
 
+/// Check whether a stop has been requested.  Used by sibling backfill modules
+/// (e.g., `fingerprint`) that share the same atomic flag.
+pub fn is_stop_requested() -> bool {
+    STOP_REQUESTED.load(Ordering::SeqCst)
+}
+
+/// Low-level setter for the stop flag, exposed for use by sibling modules
+/// that share this flag.  Prefer `request_stop()` for normal use.
+pub fn stop_requested_store(value: bool) {
+    STOP_REQUESTED.store(value, Ordering::SeqCst);
+}
+
 pub async fn run_unified_backfill(
     pool: &SqlitePool,
     request: UnifiedBackfillRequest,
@@ -123,6 +141,7 @@ pub async fn run_unified_backfill(
         stitching: None,
         images: None,
         color_counts: None,
+        fingerprinting: None,
     });
 
     let batch_size = resolve_i64_option(
@@ -342,6 +361,21 @@ pub async fn run_unified_backfill(
                         design_id, error
                     ));
                 }
+            }
+        }
+    }
+
+    if let Some(fp_action) = actions.fingerprinting {
+        if fp_action.enabled.unwrap_or(true) {
+            actions_run.push("fingerprinting".to_string());
+            let fp_summary =
+                crate::services::fingerprint::run_fingerprint_backfill(pool, commit_every)
+                    .await
+                    .map_err(|e| format!("Fingerprint backfill failed: {}", e))?;
+            processed += fp_summary.processed;
+            errors += fp_summary.errors;
+            if fp_summary.stopped {
+                log_info("Fingerprint backfill stopped by user request".to_string());
             }
         }
     }
@@ -999,14 +1033,14 @@ fn append_log_line(path: &Path, line: &str) {
     let _ = fs::write(path, content);
 }
 
-fn log_info(message: String) {
+pub fn log_info(message: String) {
     append_log_line(
         &info_log_path(),
         &format!("{}\t{}", now_epoch_seconds(), message),
     );
 }
 
-fn log_error(message: String) {
+pub fn log_error(message: String) {
     append_log_line(
         &error_log_path(),
         &format!("{}\t{}", now_epoch_seconds(), message),
@@ -1097,6 +1131,7 @@ mod tests {
                     stitching: None,
                     images: None,
                     color_counts: None,
+                    fingerprinting: None,
                 }),
                 batch_size: Some(100),
                 commit_every: Some(100),

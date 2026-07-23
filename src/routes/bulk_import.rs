@@ -501,27 +501,31 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
     }
 
     let designs_base = get_designs_base_path();
-    let base_norm = designs_base.to_string_lossy().replace('\\', "/");
-    let base_lower = base_norm.to_ascii_lowercase();
-    let full_lower = normalized_full.to_ascii_lowercase();
 
-    if full_lower == base_lower {
-        return Ok("/MachineEmbroideryDesigns".to_string());
-    }
-
-    let base_prefix = format!("{}/", base_lower.trim_end_matches('/'));
-    if full_lower.starts_with(&base_prefix) {
-        let suffix = &normalized_full[(base_prefix.len())..];
-        return Ok(format!(
-            "/MachineEmbroideryDesigns/{}",
-            suffix.trim_start_matches('/')
+    // Use the shared prefix-check helper
+    if !is_path_under_designs_base(&normalized_full) {
+        return Err(format!(
+            "Selected file is outside catalogue design storage. Expected under '{}', got '{}'.",
+            designs_base.to_string_lossy(),
+            full_path
         ));
     }
 
-    Err(format!(
-        "Selected file is outside catalogue design storage. Expected under '{}', got '{}'.",
-        designs_base.to_string_lossy(),
-        full_path
+    if normalized_full.to_ascii_lowercase() == designs_base.to_string_lossy().replace('\\', "/").to_ascii_lowercase() {
+        return Ok("/MachineEmbroideryDesigns".to_string());
+    }
+
+    let base_prefix = format!(
+        "{}/",
+        designs_base
+            .to_string_lossy()
+            .replace('\\', "/")
+            .trim_end_matches('/')
+    );
+    let suffix = &normalized_full[(base_prefix.len())..];
+    Ok(format!(
+        "/MachineEmbroideryDesigns/{}",
+        suffix.trim_start_matches('/')
     ))
 }
 

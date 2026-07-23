@@ -1,5 +1,6 @@
 use crate::services::auto_tagging;
 use crate::services::backfill;
+use crate::services::fingerprint;
 use crate::settings;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -120,6 +121,7 @@ pub async fn run_stitching_backfill(
             }),
             images: None,
             color_counts: None,
+            fingerprinting: None,
         }),
         batch_size,
         commit_every: Some(100),
@@ -129,6 +131,14 @@ pub async fn run_stitching_backfill(
         vision_delay_seconds: None,
     };
     backfill::run_unified_backfill(&state.db, request, false).await
+}
+
+#[tauri::command]
+pub async fn run_fingerprint_backfill(
+    state: State<'_, AppState>,
+    commit_every: Option<i64>,
+) -> Result<fingerprint::FingerprintSummary, String> {
+    fingerprint::run_fingerprint_backfill(&state.db, commit_every.unwrap_or(100)).await
 }
 
 #[tauri::command]

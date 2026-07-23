@@ -86,6 +86,17 @@ fn main() {
         disclaimer_text,
     };
 
+    // Launch a lightweight background backfill for orphan fingerprint data
+    // (hash + file size).  This is fire-and-forget — errors are logged, not fatal.
+    let fp_pool = app_state.db.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) =
+            services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await
+        {
+            eprintln!("Startup fingerprint backfill error: {}", err);
+        }
+    });
+
     routes::bulk_import::initialize_bulk_import_db_pool(app_state.db.clone());
     let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
     println!(
@@ -176,6 +187,7 @@ fn main() {
             routes::tagging_actions::stop_unified_backfill,
             routes::tagging_actions::get_backfill_log_entries,
             routes::tagging_actions::run_stitching_backfill,
+            routes::tagging_actions::run_fingerprint_backfill,
             routes::maintenance::maintenance_scaffold_enabled,
             routes::maintenance::get_backup_view_model,
             routes::maintenance::save_backup_settings,

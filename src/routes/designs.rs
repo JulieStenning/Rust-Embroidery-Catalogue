@@ -1342,7 +1342,7 @@ fn push_general_search_clause(
 
 #[cfg(test)]
 mod parser_tests {
-    use super::{parse_general_search_groups, GeneralSearchToken};
+    use super::parse_general_search_groups;
 
     #[test]
     fn parses_or_groups_exclusions_and_extensions() {
