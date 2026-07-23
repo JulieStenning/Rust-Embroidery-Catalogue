@@ -1051,7 +1051,7 @@ async fn persist_bulk_import_confirm_wire(
 
     // Timing accumulators
     let import_start = Instant::now();
-    let mut total_dedup_check_ms = 0u128;
+    let total_dedup_check_ms = 0u128;
     let mut total_image_gen_ms = 0u128;
     let mut total_db_insert_ms = 0u128;
     let mut total_tagging_ms = 0u128;
@@ -1153,27 +1153,6 @@ async fn persist_bulk_import_confirm_wire(
                 Some(file_path),
             );
 
-            let t_dedup = Instant::now();
-            let existing_design_id: Option<i64> =
-                sqlx::query_scalar("SELECT id FROM designs WHERE filepath = ? LIMIT 1")
-                    .bind(&stored_filepath)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .map_err(|e| e.to_string())?;
-            total_dedup_check_ms += t_dedup.elapsed().as_millis();
-
-            if existing_design_id.is_some() {
-                processed_count += 1;
-                emit_progress(
-                    "processed",
-                    processed_count,
-                    persisted_design_count,
-                    committed_design_count,
-                    Some(file_path),
-                );
-                continue;
-            }
-
             let (designer_id, source_id) =
                 resolve_assignment_for_file(file_path, confirm_wire, &resolved_assignments);
 
@@ -1253,39 +1232,6 @@ async fn persist_bulk_import_confirm_wire(
             let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
             let file_hash_blake3: Option<String> =
                 compute_file_hash_blake3(&stored_path).ok();
-
-            // Confirm-time content-based dedup guard (Phase 3.4):
-            // If the stored filepath already exists (double-check before insert),
-            // or if another row already has the same hash+size, skip.
-            let t_confirm_dedup = Instant::now();
-            if file_size_bytes.is_some() && file_hash_blake3.is_some() {
-                let existing_by_fingerprint: Option<i64> = sqlx::query_scalar(
-                    "SELECT id FROM designs WHERE file_size_bytes = ? AND file_hash_blake3 = ? LIMIT 1",
-                )
-                .bind(file_size_bytes)
-                .bind(file_hash_blake3.as_ref().unwrap())
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
-                if existing_by_fingerprint.is_some() {
-                    total_dedup_check_ms += t_confirm_dedup.elapsed().as_millis();
-                    println!(
-                        "Confirm dedup: '{}' content-match with existing row — skipping",
-                        stored_filepath
-                    );
-                    processed_count += 1;
-                    emit_progress(
-                        "processed",
-                        processed_count,
-                        persisted_design_count,
-                        committed_design_count,
-                        Some(file_path),
-                    );
-                    continue;
-                }
-            } else {
-                total_dedup_check_ms += t_confirm_dedup.elapsed().as_millis();
-            }
 
             let t_insert = Instant::now();
             let insert_result = sqlx::query(
@@ -1940,15 +1886,20 @@ pub fn resolve_bulk_import_assignments(
 }
 
 /// Preview-phase dedupe: excludes scanned files already present in the DB,
-/// checking both by prospective stored filepath AND by content fingerprint
-/// (BLAKE3 hash + file size).
+/// checking by prospective stored filepath AND by filename-aware content
+/// fingerprint (filename + file_size_bytes + file_hash_blake3).
 ///
-/// For every scanned file we compute its prospective stored filepath using the
-/// single-source-of-truth helper so external-source files get the same mapping
-/// as they will during confirm. Then we filter against:
-///   1. stored filepath match (normalized), OR
-///   2. (file_size_bytes, file_hash_blake3) match — with lazy hashing for
-///      files that pass the filepath check first.
+/// Duplicate definition: a file on disk is a duplicate only if ALL THREE
+/// properties match an existing DB row:
+///   - filename (case-insensitive)
+///   - file_size_bytes
+///   - file_hash_blake3
+///
+/// Two files with identical content but different filenames are NOT duplicates
+/// and both are allowed into the catalogue.
+///
+/// Performance: BLAKE3 hashing is lazy — only computed when a scanned file
+/// already matches an existing row on (filename + file_size_bytes).
 async fn filter_existing_scanned_files(
     pool: &SqlitePool,
     scanned_files: Vec<scanning::ScannedFile>,
@@ -1958,7 +1909,7 @@ async fn filter_existing_scanned_files(
         return Ok(scanned_files);
     }
 
-    // Load existing path set
+    // Stage 0: Load existing stored filepath set for path-based exclusion
     let existing_paths = sqlx::query_scalar::<_, String>("SELECT filepath FROM designs")
         .fetch_all(pool)
         .await
@@ -1969,64 +1920,109 @@ async fn filter_existing_scanned_files(
         .map(|path| normalize_path_for_match(&path))
         .collect();
 
-    // Load fingerprint pairs for content-based dedup
-    let fingerprint_rows: Vec<(Option<i64>, Option<String>)> = sqlx::query_as(
-        "SELECT file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IS NOT NULL AND file_hash_blake3 IS NOT NULL",
+    // Stage 1: Load (filename, file_size_bytes, file_hash_blake3) triples
+    // for filename-aware duplicate detection.
+    let fingerprint_rows: Vec<(String, i64, String)> = sqlx::query_as(
+        "SELECT filename, file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IS NOT NULL AND file_hash_blake3 IS NOT NULL",
     )
     .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())?;
 
-    // Build a set of (size, hash) pairs for O(1) lookup
-    let fingerprint_set: HashSet<(i64, String)> = fingerprint_rows
+    // Build a set of (filename_lower, size, hash_lower) triples for O(1) lookup.
+    // The hash is already stored in the DB — never re-computed for existing rows.
+    let fingerprint_set: HashSet<(String, i64, String)> = fingerprint_rows
         .into_iter()
-        .filter_map(|(size_opt, hash_opt)| {
-            match (size_opt, hash_opt) {
-                (Some(size), Some(hash)) => Some((size, hash.to_ascii_lowercase())),
-                _ => None,
-            }
+        .map(|(filename, size, hash)| {
+            (filename.to_ascii_lowercase(), size, hash.to_ascii_lowercase())
         })
         .collect();
 
     let mut result: Vec<scanning::ScannedFile> = Vec::with_capacity(scanned_files.len());
     let mut excluded_by_path: usize = 0;
-    let mut excluded_by_hash: usize = 0;
+    let mut excluded_by_triple: usize = 0;
 
     for file in scanned_files {
-        // Compute prospective stored filepath using the single-source-of-truth helper
+        // Stage 0: Compute prospective stored filepath and check against DB paths
         let prospective_path = compute_prospective_stored_filepath(&file.full_path, root_paths)
             .unwrap_or_else(|_| format!("/MachineEmbroideryDesigns/{}", file.full_path));
 
         let normalized_prospective = normalize_path_for_match(&prospective_path);
 
-        // Check 1: filepath match
         if existing_path_set.contains(&normalized_prospective) {
             excluded_by_path += 1;
             continue;
         }
 
-        // Check 2: content fingerprint match (lazy hash — only if not excluded by path)
-        let source_path = Path::new(&file.full_path);
-        if source_path.exists() && !fingerprint_set.is_empty() {
-            if let (Ok(size), Ok(hash)) = (
-                compute_file_size(source_path),
-                compute_file_hash_blake3(source_path),
-            ) {
-                if fingerprint_set.contains(&(size, hash.to_ascii_lowercase())) {
-                    excluded_by_hash += 1;
-                    continue;
-                }
+        // Stage 1: Quick (filename + size) match — no hashing yet
+        let filename_lower = file.filename.to_ascii_lowercase();
+        let file_size = match file.file_size_bytes {
+            Some(size) => size,
+            None => {
+                // File metadata unavailable (e.g. deleted during scan).
+                // Cannot match any fingerprint; include it (will fail later at persist).
+                result.push(file);
+                continue;
             }
+        };
+
+        // Check if any existing row shares (filename_lower, file_size).
+        // If not, this is a genuinely new design — fast path, no BLAKE3.
+        if fingerprint_set.is_empty() {
+            result.push(file);
+            continue;
         }
 
+        // Scan through the set for any (filename, size) collision.
+        // With ~126K rows we use a single-pass filter. If a collision exists
+        // we must compute the BLAKE3 hash of the scanned file to compare.
+        let candidate_triples: Vec<&(String, i64, String)> = fingerprint_set
+            .iter()
+            .filter(|(fname, fsize, _)| *fname == filename_lower && *fsize == file_size)
+            .collect();
+
+        if candidate_triples.is_empty() {
+            // No (filename, size) match — unique design, include without hashing
+            result.push(file);
+            continue;
+        }
+
+        // Stage 2: Lazy BLAKE3 — only computed when (filename + size) collide
+        let source_path = Path::new(&file.full_path);
+        if !source_path.exists() {
+            // File vanished; include it (will fail at persist with clear error)
+            result.push(file);
+            continue;
+        }
+
+        let file_hash = match compute_file_hash_blake3(source_path) {
+            Ok(hash) => hash.to_ascii_lowercase(),
+            Err(_) => {
+                // Hashing failed (e.g. permission error); include it
+                result.push(file);
+                continue;
+            }
+        };
+
+        // Check if full triple (filename, size, hash) matches any existing row
+        let is_duplicate = candidate_triples
+            .iter()
+            .any(|(_, _, existing_hash)| *existing_hash == file_hash);
+
+        if is_duplicate {
+            excluded_by_triple += 1;
+            continue;
+        }
+
+        // Same filename + same size but different hash — modified file, include it
         result.push(file);
     }
 
-    if excluded_by_path > 0 || excluded_by_hash > 0 {
+    if excluded_by_path > 0 || excluded_by_triple > 0 {
         println!(
-            "Preview dedup: excluded_by_path={} excluded_by_hash={} imported={}",
+            "Preview dedup: excluded_by_path={} excluded_by_triple={} imported={}",
             excluded_by_path,
-            excluded_by_hash,
+            excluded_by_triple,
             result.len()
         );
     }
@@ -2856,13 +2852,23 @@ mod tests {
         fs::write(&file_path, b"dummy").expect("temp pes should be written");
         let file_path_text = file_path.to_string_lossy().to_string();
 
+        // Seed a design row whose stored filepath matches the prospective
+        // stored path that filter_existing_scanned_files will compute
+        // from this temp-file + root combination.
+        let root_paths = vec![root.to_string_lossy().to_string()];
+        let prospective_stored = compute_prospective_stored_filepath(
+            &file_path_text,
+            &root_paths,
+        )
+        .expect("prospective stored path should resolve");
+
         let pool = tauri::async_runtime::block_on(import_test_pool());
         tauri::async_runtime::block_on(async {
             sqlx::query(
                 "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
             )
             .bind("existing-design.pes")
-            .bind(&file_path_text)
+            .bind(&prospective_stored)
             .execute(&pool)
             .await
         })
@@ -2870,7 +2876,7 @@ mod tests {
 
         let preview = preview_bulk_import_wire_with_pool(
             BulkImportWire {
-                root_paths: vec![root.to_string_lossy().to_string()],
+                root_paths,
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -3436,20 +3442,8 @@ mod tests {
     async fn preview_dedup_excludes_by_prospective_stored_path() {
         let pool = import_test_pool().await;
 
-        // Seed a design row that maps to a prospective stored path for a
-        // hypothetical external file under /MachineEmbroideryDesigns.
-        let stored = "/MachineEmbroideryDesigns/some-folder/unique-file.pes";
-        sqlx::query(
-            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
-        )
-        .bind("unique-file.pes")
-        .bind(stored)
-        .execute(&pool)
-        .await
-        .expect("seed design should insert");
-
-        // Create a temp file outside the designs base that maps to the same
-        // prospective stored path.
+        // Create a temp file outside the designs base and compute the
+        // prospective stored path that filter_existing_scanned_files will use.
         let dir = std::env::temp_dir()
             .join(format!("rec-dedup-prospective-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
         let sub = dir.join("some-folder");
@@ -3458,23 +3452,42 @@ mod tests {
         fs::write(&file_path, b"dummy").expect("temp file should be written");
         let file_path_text = file_path.to_string_lossy().to_string();
 
+        let root_paths = vec![dir.to_string_lossy().to_string()];
+        let prospective_stored = compute_prospective_stored_filepath(
+            &file_path_text,
+            &root_paths,
+        )
+        .expect("prospective stored path should resolve");
+
+        // Seed a design row whose stored filepath matches the prospective path.
+        sqlx::query(
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
+        )
+        .bind("unique-file.pes")
+        .bind(&prospective_stored)
+        .execute(&pool)
+        .await
+        .expect("seed design should insert");
+
+        let file_size = fs::metadata(&file_path).ok().map(|m| m.len() as i64);
         let scanned = vec![scanning::ScannedFile {
-            full_path: file_path_text,
+            full_path: file_path_text.clone(),
+            filename: "unique-file.pes".to_string(),
             extension: "pes".to_string(),
+            file_size_bytes: file_size,
             dedup_group_key: "test".to_string(),
         }];
 
         let filtered = filter_existing_scanned_files(
             &pool,
             scanned,
-            &[dir.to_string_lossy().to_string()],
+            &root_paths,
         )
         .await
         .expect("filter should succeed");
 
         // The file should be excluded because its prospective stored path
-        // "/MachineEmbroideryDesigns/some-folder/unique-file.pes" matches the
-        // seeded row.
+        // matches the seeded row.
         assert!(filtered.is_empty());
 
         let _ = fs::remove_file(&file_path);

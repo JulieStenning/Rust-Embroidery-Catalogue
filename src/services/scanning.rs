@@ -17,7 +17,9 @@ pub struct ScanInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScannedFile {
     pub full_path: String,
+    pub filename: String,
     pub extension: String,
+    pub file_size_bytes: Option<i64>,
     pub dedup_group_key: String,
 }
 
@@ -90,10 +92,19 @@ fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
             None => continue,
         };
 
+        let filename = match path.file_name().and_then(|value| value.to_str()) {
+            Some(value) => value.to_string(),
+            None => continue,
+        };
+
+        let file_size_bytes = fs::metadata(&path).ok().map(|m| m.len() as i64);
+
         let dedup_group_key = make_dedup_group_key(parent, stem, &extension);
         let candidate = ScannedFile {
             full_path: path.to_string_lossy().to_string(),
+            filename,
             extension: extension.clone(),
+            file_size_bytes,
             dedup_group_key: dedup_group_key.clone(),
         };
 
