@@ -44,6 +44,7 @@
   import SelectionHeader from "./components/SelectionHeader.svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { splitTagsByGroup } from "./utils/tagHelpers.js";
+  import { designSessionStore } from "./stores/designSessionStore.js";
 
   const ORDERED_ROUTE_HINTS = [
     "#/designs",
@@ -820,6 +821,31 @@
     }
   }
 
+  /**
+   * Apply accumulated session patches to the browse item list.
+   * Patches individual card data in-place so only affected cards re-render.
+   * Also invalidates cached previews for patched designs.
+   * @param {Record<number, import("./stores/designSessionStore.js").MutationPatch>} patches
+   */
+  function applyPatchesToBrowse(patches) {
+    let changed = false;
+    for (const [idStr, patch] of Object.entries(patches)) {
+      const id = Number(idStr);
+      const index = browseItems.findIndex((item) => item.id === id);
+      if (index !== -1) {
+        browseItems[index] = { ...browseItems[index], ...patch };
+        changed = true;
+      }
+
+      // Invalidate cached preview for this card so it re-fetches if needed
+      if (id in browsePreviewById) {
+        const nextPreviews = { ...browsePreviewById };
+        delete nextPreviews[id];
+        browsePreviewById = nextPreviews;
+      }
+    }
+  }
+
   // Derived Browse Computations
   let browseFilteredItems = $derived(
     (() => {
@@ -854,20 +880,20 @@
       /** @type {string[]} */
       const imageTagFilters = Array.isArray(browseFilters.imageTagFilters) ? browseFilters.imageTagFilters : [];
       if (imageTagFilters.length > 0) {
-        const activeImageTags = new Set(imageTagFilters.map((tag) => String(tag).toLowerCase().trim()));
+        const activeImageTags = new Set(imageTagFilters.map(/** @param {string} tag */ (tag) => String(tag).toLowerCase().trim()));
         filtered = filtered.filter((item) => {
           const itemImageTags = Array.isArray(item.imageTags) ? item.imageTags : [];
-          return itemImageTags.some((tag) => activeImageTags.has(String(tag).toLowerCase().trim()));
+          return itemImageTags.some(/** @param {string} tag */ (tag) => activeImageTags.has(String(tag).toLowerCase().trim()));
         });
       }
 
       /** @type {string[]} */
       const stitchingTagFilters = Array.isArray(browseFilters.stitchingTagFilters) ? browseFilters.stitchingTagFilters : [];
       if (stitchingTagFilters.length > 0) {
-        const activeStitchingTags = new Set(stitchingTagFilters.map((tag) => String(tag).toLowerCase().trim()));
+        const activeStitchingTags = new Set(stitchingTagFilters.map(/** @param {string} tag */ (tag) => String(tag).toLowerCase().trim()));
         filtered = filtered.filter((item) => {
           const itemStitchingTags = Array.isArray(item.stitchingTags) ? item.stitchingTags : [];
-          return itemStitchingTags.some((tag) => activeStitchingTags.has(String(tag).toLowerCase().trim()));
+          return itemStitchingTags.some(/** @param {string} tag */ (tag) => activeStitchingTags.has(String(tag).toLowerCase().trim()));
         });
       }
 
@@ -1705,11 +1731,22 @@
 
   // Reactive effects for routing/loading
   $effect(() => {
-    if (currentRoute === "#/designs" && (!browseHasLoaded || browseNeedsRefresh)) {
-      untrack(() => {
-        loadBrowseItems(true);
-        browseNeedsRefresh = false;
-      });
+    if (currentRoute === "#/designs") {
+      // Apply any accumulated session patches from DesignDetails edits
+      const patches = designSessionStore.consumePatches();
+      if (Object.keys(patches).length > 0) {
+        untrack(() => {
+          applyPatchesToBrowse(patches);
+        });
+      }
+
+      // Full reload still needed for import/deletion flows
+      if (!browseHasLoaded || browseNeedsRefresh) {
+        untrack(() => {
+          loadBrowseItems(true);
+          browseNeedsRefresh = false;
+        });
+      }
     }
   });
 

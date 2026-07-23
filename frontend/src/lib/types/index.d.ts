@@ -32,3 +32,21 @@ export interface BrowseDesignSummary {
   tags_checked: boolean;
   rating: number | null;
 }
+
+/**
+ * A partial subset of BrowseDesignSummary fields that can be mutated
+ * during a DesignDetails session and subsequently patched into the
+ * browse card grid without a full database re-fetch.
+ */
+export interface MutationPatch {
+  designer?: string;
+  source?: string;
+  hoop?: string | null;
+  projects?: string[];
+  tags?: string[];
+  imageTags?: string[];
+  stitchingTags?: string[];
+  rating?: number | null;
+  is_stitched?: boolean;
+  tagsChecked?: boolean;
+}

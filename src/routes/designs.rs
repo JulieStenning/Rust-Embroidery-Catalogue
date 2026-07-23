@@ -3,11 +3,12 @@ use crate::services::image_generation::{generate_preview, ImageGenerationRequest
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::{FromRow, QueryBuilder, Sqlite, SqlitePool};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tauri::State;
+use tauri::{Emitter, State};
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct BrowseDesignSummary {
@@ -1820,74 +1821,122 @@ pub async fn get_design_image_data_url(
 
 #[tauri::command]
 pub async fn update_design_metadata(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     request: UpdateDesignMetadataRequest,
 ) -> Result<DesignCommandResult, String> {
-    update_design_metadata_with_pool(&state.db, design_id, request).await
+    let result = update_design_metadata_with_pool(&state.db, design_id, request).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": {}
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn set_design_rating(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     request: SetDesignRatingRequest,
 ) -> Result<DesignCommandResult, String> {
-    set_design_rating_with_pool(&state.db, design_id, request.rating).await
+    let result = set_design_rating_with_pool(&state.db, design_id, request.rating).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": { "rating": request.rating }
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn set_design_stitched(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     request: SetDesignStitchedRequest,
 ) -> Result<DesignCommandResult, String> {
-    set_design_stitched_with_pool(&state.db, design_id, request.is_stitched).await
+    let result = set_design_stitched_with_pool(&state.db, design_id, request.is_stitched).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": { "is_stitched": request.is_stitched }
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn set_design_tags_checked(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     request: SetDesignTagsCheckedRequest,
 ) -> Result<DesignCommandResult, String> {
-    set_design_tags_checked_with_pool(&state.db, design_id, request.tags_checked).await
+    let result = set_design_tags_checked_with_pool(&state.db, design_id, request.tags_checked).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": { "tags_checked": request.tags_checked }
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn set_design_tags(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     request: SetDesignTagsRequest,
 ) -> Result<DesignCommandResult, String> {
-    set_design_tags_with_pool(&state.db, design_id, request.tag_ids).await
+    let result = set_design_tags_with_pool(&state.db, design_id, request.tag_ids).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": { "tags_checked": true }
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn add_design_to_project(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     request: SetDesignProjectRequest,
 ) -> Result<DesignCommandResult, String> {
-    add_design_to_project_with_pool(&state.db, design_id, request.project_id).await
+    let result = add_design_to_project_with_pool(&state.db, design_id, request.project_id).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": {}
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn remove_design_from_project(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     project_id: i64,
 ) -> Result<DesignCommandResult, String> {
-    remove_design_from_project_with_pool(&state.db, design_id, project_id).await
+    let result = remove_design_from_project_with_pool(&state.db, design_id, project_id).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": {}
+    }));
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn delete_design(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     design_id: i64,
     delete_file: bool,
 ) -> Result<DesignCommandResult, String> {
-    delete_design_with_pool(&state.db, design_id, delete_file).await
+    let result = delete_design_with_pool(&state.db, design_id, delete_file).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": { "_deleted": true }
+    }));
+    Ok(result)
 }
 
 #[tauri::command]

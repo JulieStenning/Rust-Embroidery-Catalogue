@@ -16,6 +16,7 @@
     renderDesign3dPreview
   } from "../api/commandAdapter.js";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
+  import { designSessionStore } from "../stores/designSessionStore.js";
 
   /**
    * @typedef {Object} DesignDetailItem
@@ -128,6 +129,17 @@
 
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      // Track the mutation for browse card sync
+      const selectedDesigner = (detailItem.designers || []).find(
+        /** @param {{id: number, name: string}} d */ (d) => d.id === Number(detailDesignerId)
+      );
+      const selectedSource = (detailItem.sources || []).find(
+        /** @param {{id: number, name: string}} s */ (s) => s.id === Number(detailSourceId)
+      );
+      designSessionStore.trackMutation(detailItem.id, {
+        designer: selectedDesigner?.name || detailItem.designer,
+        source: selectedSource?.name || detailItem.source,
+      });
       await refreshDetailAfterAction();
     }
   }
@@ -141,6 +153,7 @@
     detailSaving = false;
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      designSessionStore.trackMutation(detailItem.id, { rating });
       await refreshDetailAfterAction();
     }
   }
@@ -148,11 +161,13 @@
   async function toggleDetailStitched() {
     if (!detailItem?.id || detailSaving) return;
 
+    const newStitched = !detailItem?.is_stitched;
     detailSaving = true;
-    const result = await setDesignStitched(detailItem.id, !detailItem?.is_stitched);
+    const result = await setDesignStitched(detailItem.id, newStitched);
     detailSaving = false;
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      designSessionStore.trackMutation(detailItem.id, { is_stitched: newStitched });
       await refreshDetailAfterAction();
     }
   }
@@ -160,11 +175,13 @@
   async function toggleDetailTagsChecked() {
     if (!detailItem?.id || detailSaving) return;
 
+    const newChecked = !detailItem?.tags_checked;
     detailSaving = true;
-    const result = await setDesignTagsChecked(detailItem.id, !detailItem?.tags_checked);
+    const result = await setDesignTagsChecked(detailItem.id, newChecked);
     detailSaving = false;
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      designSessionStore.trackMutation(detailItem.id, { tagsChecked: newChecked });
       await refreshDetailAfterAction();
     }
   }
@@ -177,6 +194,26 @@
     detailSaving = false;
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      // Compute tag arrays from the selected tag IDs and the all_tags lookup
+      const allTags = Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : [];
+      const selectedTags = allTags.filter(
+        /** @param {{id: number, description: string, tag_group?: string}} t */ (t) =>
+          detailTagSelection.includes(t.id)
+      );
+      const imageTags = selectedTags
+        .filter(/** @param {{tag_group?: string}} t */ (t) => t.tag_group === "image")
+        .map(/** @param {{description: string}} t */ (t) => t.description);
+      const stitchingTags = selectedTags
+        .filter(/** @param {{tag_group?: string}} t */ (t) => t.tag_group === "stitching")
+        .map(/** @param {{description: string}} t */ (t) => t.description);
+      const allTagDescriptions = selectedTags.map(/** @param {{description: string}} t */ (t) => t.description);
+
+      designSessionStore.trackMutation(detailItem.id, {
+        tags: allTagDescriptions,
+        imageTags,
+        stitchingTags,
+        tagsChecked: true,
+      });
       await refreshDetailAfterAction();
       return true;
     }
@@ -192,6 +229,17 @@
     detailSaving = false;
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      // Build updated project list from existing + the newly added project
+      const addedProject = (detailItem?.available_projects || []).find(
+        /** @param {{id: number, name: string}} p */ (p) => p.id === projectId
+      );
+      const currentProjects = Array.isArray(detailItem?.projects)
+        ? detailItem.projects.map(/** @param {{name: string}} p */ (p) => p.name)
+        : [];
+      const updatedProjects = addedProject
+        ? [...currentProjects, addedProject.name]
+        : currentProjects;
+      designSessionStore.trackMutation(detailItem.id, { projects: updatedProjects });
       await refreshDetailAfterAction();
     }
   }
@@ -210,6 +258,13 @@
     detailSaving = false;
     setDetailActionNotice(result.message, !result.persisted);
     if (result.persisted) {
+      // Build updated project list excluding the removed project
+      const currentProjects = Array.isArray(detailItem?.projects)
+        ? detailItem.projects
+            .filter(/** @param {{id: number}} p */ (p) => p.id !== projectId)
+            .map(/** @param {{name: string}} p */ (p) => p.name)
+        : [];
+      designSessionStore.trackMutation(detailItem.id, { projects: currentProjects });
       await refreshDetailAfterAction();
     }
   }
