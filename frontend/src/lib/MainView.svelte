@@ -1325,14 +1325,6 @@
     }
   }
 
-  /** @param {any} rating */
-  function browseStars(rating) {
-    const numeric = Number(rating);
-    if (!Number.isFinite(numeric) || numeric <= 0) return "";
-    const clamped = Math.min(5, Math.max(0, numeric));
-    return `${"★".repeat(clamped)}${"☆".repeat(5 - clamped)}`;
-  }
-
   /** @param {any} item */
   function openDesignDetail(item) {
     const designId = Number(item.id);
@@ -2219,11 +2211,14 @@
                     {:else}
                       <p class="browse-card-tags text-[11px] text-gray-300 italic">No tags</p>
                     {/if}
-                    {#if item.rating != null && item.rating > 0}
-                      <p class="browse-card-rating text-xs text-yellow-500 font-bold mt-1" aria-label={`Rating ${item.rating} out of 5`}>
-                        {browseStars(item.rating)}
+                      <p class="browse-card-rating text-xs mt-1" aria-label={item.rating != null && item.rating > 0 ? `Rating ${item.rating} out of 5` : 'Not rated'}>
+                        {#if item.rating != null && item.rating > 0}
+                          <span class="text-amber-600">★</span>
+                          <span class="text-gray-700 font-bold ml-0.5">{item.rating}</span>
+                        {:else}
+                          <span class="text-gray-400">☆ —</span>
+                        {/if}
                       </p>
-                    {/if}
                   </div>
                 </div>
               </button>
