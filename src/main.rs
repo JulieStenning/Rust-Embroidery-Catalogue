@@ -137,6 +137,7 @@ fn main() {
             routes::designs::add_design_to_project,
             routes::designs::remove_design_from_project,
             routes::designs::delete_design,
+            routes::designs::bulk_delete_designs,
             routes::designs::open_design_in_editor,
             routes::designs::open_design_in_explorer,
             routes::designs::render_design_3d_preview,

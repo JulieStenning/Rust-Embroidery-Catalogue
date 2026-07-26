@@ -1168,6 +1168,122 @@ async fn delete_design_with_pool(
     Ok(DesignCommandResult { design_id, message })
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulkDeleteDesignsRequest {
+    pub design_ids: Vec<i64>,
+    pub delete_files: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BulkDeleteDesignsResult {
+    pub requested_count: usize,
+    pub deleted_count: usize,
+    pub files_trashed: usize,
+    pub errors: Vec<String>,
+}
+
+async fn bulk_delete_designs_with_pool(
+    pool: &SqlitePool,
+    design_ids: &[i64],
+    delete_files: bool,
+) -> Result<BulkDeleteDesignsResult, String> {
+    if design_ids.is_empty() {
+        return Ok(BulkDeleteDesignsResult {
+            requested_count: 0,
+            deleted_count: 0,
+            files_trashed: 0,
+            errors: Vec::new(),
+        });
+    }
+
+    if design_ids.len() > 50 {
+        return Err("Cannot delete more than 50 designs in a single batch operation.".to_string());
+    }
+
+    // Deduplicate
+    let mut deduped: Vec<i64> = design_ids.to_vec();
+    deduped.sort_unstable();
+    deduped.dedup();
+
+    let requested_count = deduped.len();
+
+    // Fetch filepaths for all designs (needed if delete_files is true)
+    let filepath_rows: Vec<(i64, String)> = if delete_files {
+        let mut query = QueryBuilder::<Sqlite>::new(
+            "SELECT id, filepath FROM designs WHERE id IN (",
+        );
+        let mut separated = query.separated(", ");
+        for id in &deduped {
+            separated.push_bind(*id);
+        }
+        query.push(")");
+
+        query
+            .build_query_as::<(i64, String)>()
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?
+    } else {
+        Vec::new()
+    };
+
+    // Batch delete from DB
+    let mut delete_query = QueryBuilder::<Sqlite>::new("DELETE FROM designs WHERE id IN (");
+    let mut separated = delete_query.separated(", ");
+    for id in &deduped {
+        separated.push_bind(*id);
+    }
+    delete_query.push(")");
+
+    let delete_result = delete_query
+        .build()
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let deleted_count = delete_result.rows_affected() as usize;
+
+    // If delete_files is requested, trash each file (collect errors, don't abort)
+    let mut files_trashed = 0usize;
+    let mut errors: Vec<String> = Vec::new();
+
+    if delete_files {
+        for (design_id, filepath) in &filepath_rows {
+            let trimmed = filepath.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            let full_path = resolve_design_full_path(trimmed);
+            if !full_path.is_file() {
+                errors.push(format!(
+                    "Design {} file not found on disk: {}",
+                    design_id,
+                    full_path.display()
+                ));
+                continue;
+            }
+
+            match trash::delete(&full_path) {
+                Ok(()) => files_trashed += 1,
+                Err(e) => errors.push(format!(
+                    "Could not trash file for design {} ({}): {}",
+                    design_id,
+                    full_path.display(),
+                    e
+                )),
+            }
+        }
+    }
+
+    Ok(BulkDeleteDesignsResult {
+        requested_count,
+        deleted_count,
+        files_trashed,
+        errors,
+    })
+}
+
 async fn get_design_image_data_with_pool(
     pool: &SqlitePool,
     design_id: i64,
@@ -1936,6 +2052,23 @@ pub async fn delete_design(
         "design_id": design_id,
         "fields": { "_deleted": true }
     }));
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn bulk_delete_designs(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    request: BulkDeleteDesignsRequest,
+) -> Result<BulkDeleteDesignsResult, String> {
+    let result = bulk_delete_designs_with_pool(&state.db, &request.design_ids, request.delete_files).await?;
+    // Emit events for each deleted design
+    for design_id in &request.design_ids {
+        let _ = app_handle.emit("design:mutated", json!({
+            "design_id": design_id,
+            "fields": { "_deleted": true }
+        }));
+    }
     Ok(result)
 }
 

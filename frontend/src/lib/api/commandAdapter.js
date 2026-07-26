@@ -466,6 +466,60 @@ export async function deleteDesign(designId, deleteFile = false) {
 }
 
 /**
+ * Bulk delete designs from the catalogue.
+ * When deleteFiles is true, source design files are moved to the OS trash/recycle bin.
+ * 
+ * @param {Array<number | string>} designIds - Design IDs to delete (max 50).
+ * @param {boolean} [deleteFiles=false] - Whether to also move source files to the recycle bin.
+ * @returns {Promise<{
+ *   source: string,
+ *   persisted: boolean,
+ *   deleted_count: number,
+ *   files_trashed: number,
+ *   errors: string[]
+ * }>}
+ */
+export async function bulkDeleteDesigns(designIds, deleteFiles = false) {
+  const ids = Array.isArray(designIds)
+    ? Array.from(new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+    : [];
+
+  if (ids.length === 0) {
+    return {
+      source: "mock",
+      persisted: false,
+      deleted_count: 0,
+      files_trashed: 0,
+      errors: [],
+    };
+  }
+
+  try {
+    const result = await invoke("bulk_delete_designs", {
+      request: {
+        design_ids: ids,
+        delete_files: Boolean(deleteFiles),
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      deleted_count: Number(result?.deleted_count ?? 0),
+      files_trashed: Number(result?.files_trashed ?? 0),
+      errors: Array.isArray(result?.errors) ? result.errors.map(String) : [],
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      deleted_count: 0,
+      files_trashed: 0,
+      errors: [String(error)],
+    };
+  }
+}
+
+/**
  * @param {number | string} designId
  */
 export async function openDesignInEditor(designId) {
