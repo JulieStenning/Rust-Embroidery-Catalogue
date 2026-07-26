@@ -5,7 +5,6 @@
     getBrowseDesignPreviews,
     getBrowseProjects,
     getBrowseTags,
-    deleteDesign,
     addDesignToProject,
     removeDesignFromProject,
     listDesigners,
@@ -29,6 +28,7 @@
     bulkSetTagsForDesigns,
     bulkDeleteDesigns
   } from "./api/commandAdapter.js";
+  import DeleteDesignsModal from "./components/DeleteDesignsModal.svelte";
   import HelpView from "./views/HelpView.svelte";
   import AboutView from "./views/AboutView.svelte";
   import AboutDocumentView from "./views/AboutDocumentView.svelte";
@@ -212,9 +212,6 @@
   /** @type {Record<number, Record<number, boolean>>} */
   let browseCardProjectPendingById = $state({});
   let browseDeleteConfirmOpen = $state(false);
-  let browseDeleteSelectedBusy = $state(false);
-  let browseBulkDeleteFile = $state(false);
-  let browseBulkDeletePreviewOpen = $state(false);
   let browseActionNotice = $state("");
   const BROWSE_BULK_DELETE_MAX = 50;
   /** @type {HTMLDivElement | null} */
@@ -950,7 +947,7 @@
   );
 
   let browseSelectedCount = $derived(browseSelectedIds.size);
-  let browseSelectionLocked = $derived(browseDeleteConfirmOpen || browseDeleteSelectedBusy);
+  let browseSelectionLocked = $derived(browseDeleteConfirmOpen);
   let showBrowseBulkBar = $derived(currentUiKind === "browse" && browseSelectedCount > 0);
 
   let totalFilteredCount = $derived(browseFilteredItems.length);
@@ -1219,42 +1216,26 @@
 
   function closeBrowseDeleteConfirm() {
     browseDeleteConfirmOpen = false;
-    browseBulkDeleteFile = false;
-    browseBulkDeletePreviewOpen = false;
   }
 
-  async function confirmDeleteSelectedBrowseItems() {
-    if (browseSelectedIds.size === 0) return;
-
-    browseDeleteSelectedBusy = true;
-    try {
-      const result = await bulkDeleteDesigns(
-        Array.from(browseSelectedIds),
-        browseBulkDeleteFile
-      );
-      
-      if (result.persisted) {
-        let notice = `${result.deleted_count} design(s) deleted from catalogue.`;
-        if (result.files_trashed > 0) {
-          notice += ` ${result.files_trashed} source file(s) moved to recycle bin.`;
-        }
-        if (result.errors && result.errors.length > 0) {
-          notice += ` (${result.errors.length} file warning(s) — see console for details)`;
-          console.warn("Bulk delete file warnings:", result.errors);
-        }
-        browseActionNotice = notice;
-      } else {
-        browseActionNotice = result.errors?.[0] || "Bulk delete failed.";
+  /** @param {any} result */
+  function handleBulkDeleteResult(result) {
+    if (result.persisted) {
+      let notice = `${result.deleted_count} design(s) deleted from catalogue.`;
+      if (result.files_trashed > 0) {
+        notice += ` ${result.files_trashed} source file(s) moved to recycle bin.`;
       }
-      
-      browseSelectedIds.clear();
-      closeBrowseDeleteConfirm();
-      await loadBrowseItems(true);
-    } catch (e) {
-      browseActionNotice = `Delete failed: ${e}`;
-    } finally {
-      browseDeleteSelectedBusy = false;
+      if (result.errors && result.errors.length > 0) {
+        notice += ` (${result.errors.length} file warning(s) — see console for details)`;
+        console.warn("Bulk delete file warnings:", result.errors);
+      }
+      browseActionNotice = notice;
+    } else {
+      browseActionNotice = result.errors?.[0] || "Bulk delete failed.";
     }
+    browseSelectedIds.clear();
+    browseDeleteConfirmOpen = false;
+    loadBrowseItems(true);
   }
 
   function clearBrowseSelection() {
@@ -2313,6 +2294,7 @@
       {detailBrowseIds}
       {detailBrowseIndex}
       {navigateTo}
+      onDesignDeleted={() => { browseNeedsRefresh = true; }}
     />
   {:else if currentUiKind === "design-print"}
     <DesignPrintView
@@ -2928,7 +2910,6 @@
         type="button"
         class="menu-button-secondary ui-action-button text-xs text-red-500 border-red-200"
         onclick={openBrowseDeleteConfirm}
-        disabled={browseDeleteSelectedBusy}
       >
         Delete selected
       </button>
@@ -3062,119 +3043,19 @@
   </div>
 {/if}
 
-<!-- Browse Delete Selected Modal -->
-{#if browseDeleteConfirmOpen}
-  {@const deletePreviewItems = browseItems.filter((item) => browseSelectedIds.has(item.id))}
-  <div
-    use:portalToBody
-    class="tag-chooser-overlay no-print"
-    style="position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="browse-delete-selected-title"
-  >
-    <button
-      type="button"
-      style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"
-      aria-label="Close delete selected confirmation"
-      onclick={closeBrowseDeleteConfirm}
-    ></button>
-
-    <div
-      class="tag-chooser-dialog"
-      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
-    >
-      <div class="tag-chooser-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-        <h2 id="browse-delete-selected-title" class="text-lg font-bold text-gray-800" style="margin:0;">
-          Delete selected designs?
-        </h2>
-      </div>
-
-      <div class="tag-chooser-body" style="overflow-y:auto;flex:1;">
-        <p class="text-xs text-gray-500 font-semibold" style="margin:0 0 0.75rem 0;">
-          {browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.
-        </p>
-
-        <!-- File action toggle -->
-        <div class="border rounded p-3 mb-3 bg-gray-50 space-y-2">
-          <p class="text-xs font-semibold text-gray-700">What should happen to the source files?</p>
-          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-            <input
-              type="radio"
-              name="bulk-delete-file-action"
-              class="accent-indigo-600"
-              checked={!browseBulkDeleteFile}
-              onchange={() => { browseBulkDeleteFile = false; }}
-            />
-            <span>Remove from catalogue only (keep files on disk)</span>
-          </label>
-          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-            <input
-              type="radio"
-              name="bulk-delete-file-action"
-              class="accent-indigo-600"
-              checked={browseBulkDeleteFile}
-              onchange={() => { browseBulkDeleteFile = true; }}
-            />
-            <span>Move source files to recycle bin</span>
-          </label>
-          {#if browseBulkDeleteFile}
-            <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-              ⚠️ Source files will be moved to the system recycle bin. You can restore them from there if needed.
-            </p>
-          {/if}
-        </div>
-
-        <!-- Collapsible preview list -->
-        <details class="border rounded p-2 bg-gray-50" bind:open={browseBulkDeletePreviewOpen}>
-          <summary class="text-xs font-semibold text-gray-600 cursor-pointer select-none list-none flex items-center gap-1">
-            <span>{browseBulkDeletePreviewOpen ? "▼" : "▶"}</span>
-            <span>Review selected designs ({deletePreviewItems.length})</span>
-          </summary>
-          <div class="mt-2 space-y-1 max-h-48 overflow-y-auto">
-            {#each deletePreviewItems as item}
-              <div class="flex items-center gap-2 px-2 py-1 bg-white rounded border text-xs">
-                {#if browsePreviewById[item.id]}
-                  <img
-                    src={browsePreviewById[item.id]}
-                    alt={item.filename}
-                    class="w-8 h-8 object-contain rounded"
-                  />
-                {:else}
-                  <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-400 font-bold">?</div>
-                {/if}
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium text-gray-800 truncate">{item.filename}</p>
-                  <p class="text-gray-400 truncate" title={item.filepath}>{item.filepath || "No filepath"}</p>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </details>
-      </div>
-
-      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;">
-        <button
-          type="button"
-          class="menu-button-secondary"
-          onclick={closeBrowseDeleteConfirm}
-          disabled={browseDeleteSelectedBusy}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="menu-button-primary"
-          style="background-color:#dc2626;border-color:#dc2626;"
-          onclick={confirmDeleteSelectedBrowseItems}
-          disabled={browseDeleteSelectedBusy}
-        >
-          {browseDeleteSelectedBusy ? "Deleting..." : `Delete ${browseSelectedCount} design${browseSelectedCount === 1 ? "" : "s"}`}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Shared Delete Modal -->
+<DeleteDesignsModal
+  designIds={Array.from(browseSelectedIds)}
+  previewItems={browseItems.filter((item) => browseSelectedIds.has(item.id)).map((item) => ({
+    id: item.id,
+    filename: item.filename,
+    filepath: item.filepath,
+    dataUrl: browsePreviewById[item.id] ?? null,
+  }))}
+  open={browseDeleteConfirmOpen}
+  onClose={closeBrowseDeleteConfirm}
+  onDeleted={handleBulkDeleteResult}
+/>
 
 <footer class="max-w-7xl mx-auto px-4 pb-6 text-xs text-gray-500">
   <div class="border-t border-gray-300 pt-4 flex flex-wrap items-center gap-x-3 gap-y-1">

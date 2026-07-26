@@ -437,35 +437,6 @@ export async function removeDesignFromProject(designId, projectId) {
 }
 
 /**
- * @param {number | string} designId
- * @param {boolean} [deleteFile]
- */
-export async function deleteDesign(designId, deleteFile = false) {
-  const normalizedId = Number(designId);
-
-  try {
-    const result = await invoke("delete_design", {
-      designId: normalizedId,
-      deleteFile: Boolean(deleteFile),
-    });
-    return {
-      source: "rust",
-      persisted: true,
-      design_id: Number(result?.design_id ?? normalizedId),
-      message: String(result?.message || "Design deleted."),
-    };
-  } catch (error) {
-    return {
-      source: "mock",
-      persisted: false,
-      design_id: normalizedId,
-      message: `Could not delete design: ${error}`,
-      error: String(error),
-    };
-  }
-}
-
-/**
  * Bulk delete designs from the catalogue.
  * When deleteFiles is true, source design files are moved to the OS trash/recycle bin.
  * 
