@@ -62,6 +62,35 @@
 
   /** @type {DesignDetailItem | null} */
   let detailItem = $state(null);
+
+  let ratingHover = $state(0);
+  function handleStarClick(/** @type {number} */ score) {
+    if (!detailItem?.id || detailSaving) return;
+    // If clicking the already-active rating, clear it
+    if (detailItem.rating === score) {
+      submitDetailRating(null);
+    } else {
+      submitDetailRating(score);
+    }
+  }
+  /** @param {number} score */
+  function onStarMouseEnter(score) {
+    ratingHover = score;
+  }
+  function onStarMouseLeave() {
+    ratingHover = 0;
+  }
+  function onStarFocus(/** @type {number} */ score) {
+    ratingHover = score;
+  }
+  function onStarBlur() {
+    ratingHover = 0;
+  }
+  let effectiveRating = $derived(
+    ratingHover > 0
+      ? ratingHover
+      : (/** @type {DesignDetailItem | null} */ (detailItem))?.rating ?? 0
+  );
   let detailSource = $state("mock");
   let detailNotes = $state("");
   let detailDesignerId = $state("");
@@ -539,46 +568,79 @@
         <!-- Technical metadata (read-only, compact badge grid) -->
         <TechnicalDataGrid items={technicalItems} />
 
-        <!-- Rating + Stitched status -->
-        <div class="route-panel bg-gray-50 rounded border p-3 space-y-2.5">
-          <p class="font-semibold text-gray-800 text-sm">Rating & Status</p>
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-xs text-gray-600 mr-1">Rating: <strong>{detailItem.rating ?? "—"}</strong></span>
+        <!-- Rating + Stitched + Verified (consolidated horizontal row) -->
+        <div class="route-card bg-gray-50 rounded border px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <!-- 5 Interactive Stars -->
+          <div class="flex items-center gap-0.5" role="radiogroup" aria-label="Rating">
             {#each [1, 2, 3, 4, 5] as score}
               <button
-                class="px-2 py-0.5 rounded border hover:bg-gray-100 text-xs font-semibold"
-                onclick={() => submitDetailRating(score)}
+                class="text-lg leading-none px-0.5 transition-colors duration-100
+                  {score <= effectiveRating
+                    ? 'text-indigo-600'
+                    : 'text-gray-300 hover:text-indigo-400'}"
+                onclick={() => handleStarClick(score)}
+                onmouseenter={() => onStarMouseEnter(score)}
+                onmouseleave={onStarMouseLeave}
+                onfocus={() => onStarFocus(score)}
+                onblur={onStarBlur}
                 disabled={detailSaving}
-              >
-                {score}★
-              </button>
+                aria-label="{score} star{score !== 1 ? 's' : ''}"
+                title="{score} star{score !== 1 ? 's' : ''}"
+              >★</button>
             {/each}
+          </div>
+
+          <!-- Rating badge -->
+          <span class="text-xs font-medium whitespace-nowrap {detailItem.rating ? 'text-indigo-700' : 'text-gray-400'}">
             {#if detailItem.rating}
-              <button class="px-2 py-0.5 rounded border text-red-500 hover:bg-red-50 text-xs font-semibold" onclick={() => submitDetailRating(null)} disabled={detailSaving}>Clear</button>
+              Rating: ★ {detailItem.rating} / 5
+            {:else}
+              Rating: Unrated
             {/if}
-          </div>
-          <div class="flex flex-wrap gap-2 pt-0.5">
-            <button class="menu-button-secondary text-xs px-2.5 py-1" onclick={toggleDetailStitched} disabled={detailSaving}>
-              {detailItem.is_stitched ? "✓ Mark as Not Stitched" : "Mark as Stitched"}
+          </span>
+
+          <!-- Clear rating (only shown when rated) -->
+          {#if detailItem.rating}
+            <button
+              class="text-xs text-red-400 hover:text-red-600 hover:underline font-medium"
+              onclick={() => submitDetailRating(null)}
+              disabled={detailSaving}
+            >Clear</button>
+          {/if}
+
+          <!-- Divider -->
+          <span class="text-gray-300 select-none" aria-hidden="true">|</span>
+
+          <!-- Stitched toggle -->
+          <button
+            class="text-xs px-2.5 py-1 rounded border font-semibold transition-colors
+              {detailItem.is_stitched
+                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100'}"
+            onclick={toggleDetailStitched}
+            disabled={detailSaving}
+          >
+            {detailItem.is_stitched ? '✓ Stitched' : 'Mark as Stitched'}
+          </button>
+
+          <!-- Verified toggle (only shown if tags exist) -->
+          {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
+            <button
+              class="text-xs px-2.5 py-1 rounded border font-semibold transition-colors
+                {detailItem.tags_checked
+                  ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                  : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'}"
+              onclick={toggleDetailTagsChecked}
+              disabled={detailSaving}
+            >
+              {detailItem.tags_checked ? '✓ Verified' : '⚠ Verify'}
             </button>
-            {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
-              <button class="menu-button-secondary text-xs px-2.5 py-1" onclick={toggleDetailTagsChecked} disabled={detailSaving}>
-                {detailItem.tags_checked ? "✓ Verified" : "⚠ Verify"}
-              </button>
-            {/if}
-          </div>
+          {/if}
         </div>
 
         <!-- Tags -->
         <div class="route-panel bg-gray-50 rounded border p-3 space-y-2">
-          <div class="flex items-center justify-between">
-            <p class="font-semibold text-gray-800 text-sm">Tags</p>
-            {#if detailItem.tags_checked}
-              <span class="text-[11px] font-semibold text-green-600">✓ Verified</span>
-            {:else if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
-              <span class="text-[11px] font-semibold text-orange-500">⚠ Not verified</span>
-            {/if}
-          </div>
+          <p class="font-semibold text-gray-800 text-sm">Tags</p>
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.tags as tag}
