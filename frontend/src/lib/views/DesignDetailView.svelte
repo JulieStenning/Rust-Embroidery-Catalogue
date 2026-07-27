@@ -474,8 +474,24 @@
 
         <div class="space-y-4">
           <div class="grid sm:grid-cols-2 gap-3">
-            <div class="route-card bg-gray-50 rounded border p-3 text-sm"><strong>Designer:</strong> {detailItem.designer || "Unknown"}</div>
-            <div class="route-card bg-gray-50 rounded border p-3 text-sm"><strong>Source:</strong> {detailItem.source || "Unknown"}</div>
+            <label class="route-card bg-gray-50 rounded border p-3 text-sm">
+              <span class="block mb-1 font-medium">Designer</span>
+              <select class="w-full border rounded px-2 py-1 text-sm bg-white" bind:value={detailDesignerId}>
+                <option value="">None</option>
+                {#each detailItem.designers || [] as designer}
+                  <option value={String(designer.id)}>{designer.name}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="route-card bg-gray-50 rounded border p-3 text-sm">
+              <span class="block mb-1 font-medium">Source</span>
+              <select class="w-full border rounded px-2 py-1 text-sm bg-white" bind:value={detailSourceId}>
+                <option value="">None</option>
+                {#each detailItem.sources || [] as source}
+                  <option value={String(source.id)}>{source.name}</option>
+                {/each}
+              </select>
+            </label>
             <div class="route-card bg-gray-50 rounded border p-3 text-sm"><strong>Hoop:</strong> {detailItem.hoop || "Unknown"}</div>
             <div class="route-card bg-gray-50 rounded border p-3 text-sm"><strong>Date added:</strong> {detailItem.date_added || "Unknown"}</div>
             <div class="route-card bg-gray-50 rounded border p-3 text-sm"><strong>Dimensions:</strong> {detailItem.width_mm ?? "?"} x {detailItem.height_mm ?? "?"} mm</div>
@@ -535,26 +551,6 @@
               <span class="block mb-1 font-medium">Notes</span>
               <textarea class="w-full border rounded px-2.5 py-1.5 text-sm" rows="3" bind:value={detailNotes}></textarea>
             </label>
-            <div class="grid sm:grid-cols-2 gap-2">
-              <label class="text-sm text-gray-700">
-                <span class="block mb-1 font-medium">Designer</span>
-                <select class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" bind:value={detailDesignerId}>
-                  <option value="">None</option>
-                  {#each detailItem.designers || [] as designer}
-                    <option value={String(designer.id)}>{designer.name}</option>
-                  {/each}
-                </select>
-              </label>
-              <label class="text-sm text-gray-700">
-                <span class="block mb-1 font-medium">Source</span>
-                <select class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" bind:value={detailSourceId}>
-                  <option value="">None</option>
-                  {#each detailItem.sources || [] as source}
-                    <option value={String(source.id)}>{source.name}</option>
-                  {/each}
-                </select>
-              </label>
-            </div>
             <button type="submit" class="menu-button-primary text-xs" disabled={detailSaving}>Save metadata</button>
           </form>
 
