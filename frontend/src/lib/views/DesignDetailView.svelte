@@ -474,14 +474,16 @@
 
 <div class="detail-page font-sans h-screen flex flex-col">
   <!-- Top navigation bar -->
-  <div class="flex flex-wrap items-center gap-2 px-4 pt-3 pb-2 shrink-0 no-print">
-    <button class="menu-button-secondary text-xs px-2.5 py-1.5" onclick={() => navigateTo("#/designs")}>&larr; Back to Browse</button>
-    <button class="menu-button-secondary text-xs px-2.5 py-1.5" onclick={openDetailPrintView} disabled={!detailItem}>Print View</button>
-    <button class="menu-button-secondary text-xs px-2.5 py-1.5" onclick={goToPreviousDetail} disabled={detailBrowseIndex <= 0}>&lsaquo; Prev</button>
-    <button class="menu-button-secondary text-xs px-2.5 py-1.5" onclick={goToNextDetail} disabled={detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1}>Next &rsaquo;</button>
+  <div class="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-2 shrink-0 no-print">
+    <button class="menu-button-primary text-xs px-2.5 py-1" onclick={() => navigateTo("#/designs")}>&larr; Back to Browse</button>
+    <span class="flex-1" aria-hidden="true"></span>
+    <button class="menu-button-nav" onclick={goToPreviousDetail} disabled={detailBrowseIndex <= 0} title="Previous design">&lsaquo; Prev</button>
     {#if detailBrowseIndex >= 0 && detailBrowseIds.length > 0}
-      <span class="text-sm text-gray-500 font-medium">{detailBrowseIndex + 1} / {detailBrowseIds.length}</span>
+      <span class="text-sm text-gray-500 font-medium tabular-nums mx-1">{detailBrowseIndex + 1} / {detailBrowseIds.length}</span>
     {/if}
+    <button class="menu-button-nav" onclick={goToNextDetail} disabled={detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1} title="Next design">Next &rsaquo;</button>
+    <span class="text-gray-300 select-none mx-0.5" aria-hidden="true">|</span>
+    <button class="menu-button-nav" onclick={openDetailPrintView} disabled={!detailItem} title="Print view">Print</button>
   </div>
 
   <!-- Action notice banner -->
@@ -533,8 +535,8 @@
 
         <!-- Action buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
-          <button class="menu-button-secondary text-xs px-2.5 py-1.5" onclick={launchDetailInEditor} disabled={detailSaving}>Open in Editor</button>
-          <button class="menu-button-secondary text-xs px-2.5 py-1.5" onclick={launchDetailInExplorer} disabled={detailSaving}>Show in Explorer</button>
+          <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor</button>
+          <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button>
           <button class="menu-button-primary text-xs px-2.5 py-1.5" onclick={renderDetail3dPreview} disabled={detailSaving}>
             {detailItem.image_data_url ? (detailItem.image_type === "3d" ? "✓ 3D Preview" : "Render 3D Preview") : "Generate 3D Preview"}
           </button>
@@ -626,27 +628,35 @@
 
           <!-- Stitched toggle -->
           <button
-            class="text-xs px-2.5 py-1 rounded border font-semibold transition-colors
-              {detailItem.is_stitched
-                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100'}"
+            class="menu-button-toggle {detailItem.is_stitched
+              ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
+              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400'}"
             onclick={toggleDetailStitched}
             disabled={detailSaving}
+            title={detailItem.is_stitched ? 'Mark as not stitched' : 'Mark as stitched'}
           >
-            {detailItem.is_stitched ? '✓ Stitched' : 'Mark as Stitched'}
+            {#if detailItem.is_stitched}
+              <span aria-hidden="true">&#10003;</span> Stitched
+            {:else}
+              Mark as Stitched
+            {/if}
           </button>
 
           <!-- Verified toggle (only shown if tags exist) -->
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <button
-              class="text-xs px-2.5 py-1 rounded border font-semibold transition-colors
-                {detailItem.tags_checked
-                  ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-                  : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'}"
+              class="menu-button-toggle {detailItem.tags_checked
+                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
+                : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
               onclick={toggleDetailTagsChecked}
               disabled={detailSaving}
+              title={detailItem.tags_checked ? 'Mark as unverified' : 'Mark as verified'}
             >
-              {detailItem.tags_checked ? '✓ Verified' : '⚠ Verify'}
+              {#if detailItem.tags_checked}
+                <span aria-hidden="true">&#10003;</span> Verified
+              {:else}
+                <span aria-hidden="true">&#9888;</span> Verify
+              {/if}
             </button>
           {/if}
         </div>
