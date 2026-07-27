@@ -300,11 +300,6 @@
 	align-items: center;
 }
 
-.browse-search-submit-button,
-.browse-search-reset-button {
-	/* Intentional semantic hooks for Browse Search actions. */
-}
-
 .route-card,
 .route-panel {
 	border: 1px solid rgb(229 231 235);
@@ -694,6 +689,7 @@
 .projects-tile-description {
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
@@ -1233,6 +1229,7 @@
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	-webkit-box-orient: vertical;
 }
 
@@ -1242,6 +1239,7 @@
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	-webkit-box-orient: vertical;
 }
 
