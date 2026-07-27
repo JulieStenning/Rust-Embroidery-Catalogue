@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import DisclaimerView from "./lib/DisclaimerView.svelte";
   import MainView from "./lib/MainView.svelte";
+  import ToastContainer from "./lib/components/ToastContainer.svelte";
 
   /** Whether the disclaimer check has completed */
   let loading = $state(true);
@@ -77,4 +78,5 @@
 {:else}
   <!-- Main application -->
   <MainView />
+  <ToastContainer />
 {/if}

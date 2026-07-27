@@ -21,6 +21,7 @@
   import TechnicalDataGrid from "../components/TechnicalDataGrid.svelte";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
+  import { addToast } from "../stores/toastStore.js";
 
   /**
    * @typedef {Object} DesignDetailItem
@@ -57,9 +58,6 @@
   let detailLoading = $state(false);
   let detailError = $state("");
   let detailSaving = $state(false);
-  let detailActionMessage = $state("");
-  let detailActionIsError = $state(false);
-
   /** @type {DesignDetailItem | null} */
   let detailItem = $state(null);
 
@@ -127,12 +125,6 @@
     })()
   );
 
-  /** @param {string} message @param {boolean} [isError] */
-  function setDetailActionNotice(message, isError = false) {
-    detailActionMessage = message;
-    detailActionIsError = isError;
-  }
-
   /** @param {number | string} designId */
   async function loadDesignDetail(designId) {
     if (designId == null) return;
@@ -184,7 +176,7 @@
     });
     detailSaving = false;
 
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       // Track the mutation for browse card sync
       const selectedDesigner = (detailItem.designers || []).find(
@@ -208,7 +200,7 @@
     detailSaving = true;
     const result = await setDesignRating(detailItem.id, rating);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       designSessionStore.trackMutation(detailItem.id, { rating });
       await refreshDetailAfterAction();
@@ -222,7 +214,7 @@
     detailSaving = true;
     const result = await setDesignStitched(detailItem.id, newStitched);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       designSessionStore.trackMutation(detailItem.id, { is_stitched: newStitched });
       await refreshDetailAfterAction();
@@ -236,7 +228,7 @@
     detailSaving = true;
     const result = await setDesignTagsChecked(detailItem.id, newChecked);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       designSessionStore.trackMutation(detailItem.id, { tagsChecked: newChecked });
       await refreshDetailAfterAction();
@@ -249,7 +241,7 @@
     detailSaving = true;
     const result = await setDesignTags(detailItem.id, detailTagSelection);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       // Compute tag arrays from the selected tag IDs and the all_tags lookup
       const allTags = Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : [];
@@ -284,7 +276,7 @@
     detailSaving = true;
     const result = await addDesignToProject(detailItem.id, projectId);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       // Build updated project list from existing + the newly added project
       const addedProject = (detailItem?.available_projects || []).find(
@@ -313,7 +305,7 @@
     detailSaving = true;
     const result = await removeDesignFromProject(detailItem.id, projectId);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       // Build updated project list excluding the removed project
       const currentProjects = Array.isArray(detailItem?.projects)
@@ -332,7 +324,7 @@
     detailSaving = true;
     const result = await openDesignInEditor(detailItem.id);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted || !result?.result?.success);
+    addToast(result.message, (!result.persisted || !result?.result?.success) ? "error" : "success");
   }
 
   async function launchDetailInExplorer() {
@@ -341,7 +333,7 @@
     detailSaving = true;
     const result = await openDesignInExplorer(detailItem.id);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted || !result?.result?.success);
+    addToast(result.message, (!result.persisted || !result?.result?.success) ? "error" : "success");
   }
 
   async function renderDetail3dPreview() {
@@ -350,7 +342,7 @@
     detailSaving = true;
     const result = await renderDesign3dPreview(detailItem.id);
     detailSaving = false;
-    setDetailActionNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       const refreshedImage = await getDesignImageDataUrl(detailItem.id);
       if (refreshedImage?.item?.data_url) {
@@ -402,7 +394,7 @@
       onDesignDeleted();
       navigateTo("#/designs");
     } else {
-      setDetailActionNotice(result.errors?.[0] || "Could not delete design.", true);
+      addToast(result.errors?.[0] || "Could not delete design.", "error");
     }
   }
 
@@ -434,7 +426,7 @@
     detailSaving = false;
 
     if (result.persisted) {
-      setDetailActionNotice(result.message, false);
+      addToast(result.message, "success");
       // Track mutation for browse card sync
       const updatedTags = (detailItem.tags || []).map(t => t.description);
       designSessionStore.trackMutation(detailItem.id, {
@@ -443,7 +435,7 @@
         stitchingTags: (detailItem.tags || []).filter(t => t.tag_group === 'stitching').map(t => t.description),
       });
     } else {
-      setDetailActionNotice(result.message, true);
+      addToast(result.message, "error");
       // Rollback optimistic update by re-fetching from backend
       await refreshDetailAfterAction();
     }
@@ -485,13 +477,6 @@
     <span class="text-gray-300 select-none mx-0.5" aria-hidden="true">|</span>
     <button class="menu-button-nav" onclick={openDetailPrintView} disabled={!detailItem} title="Print view">Print</button>
   </div>
-
-  <!-- Action notice banner -->
-  {#if detailActionMessage}
-    <div class="mx-4 mb-1 shrink-0 rounded border px-3 py-2 text-sm {detailActionIsError ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}">
-      {detailActionMessage}
-    </div>
-  {/if}
 
   <!-- Two-column body -->
   {#if detailLoading}
