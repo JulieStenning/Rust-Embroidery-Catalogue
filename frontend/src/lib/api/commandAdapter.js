@@ -378,6 +378,36 @@ export async function setDesignTags(designId, tagIds) {
 
 /**
  * @param {number | string} designId
+ * @param {number | string} tagId
+ */
+export async function removeDesignTag(designId, tagId) {
+  const normalizedId = Number(designId);
+  const normalizedTagId = Number(tagId);
+
+  try {
+    const result = await invoke("remove_design_tag", {
+      designId: normalizedId,
+      tagId: normalizedTagId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      design_id: Number(result?.design_id ?? normalizedId),
+      message: String(result?.message || "Tag removed from design."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      design_id: normalizedId,
+      message: `Could not remove tag: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * @param {number | string} designId
  * @param {number | string} projectId
  */
 export async function addDesignToProject(designId, projectId) {

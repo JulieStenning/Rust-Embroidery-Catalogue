@@ -134,6 +134,7 @@ fn main() {
             routes::designs::set_design_stitched,
             routes::designs::set_design_tags_checked,
             routes::designs::set_design_tags,
+            routes::designs::remove_design_tag,
             routes::designs::add_design_to_project,
             routes::designs::remove_design_from_project,
             routes::designs::delete_design,

@@ -1070,6 +1070,31 @@ async fn set_design_tags_with_pool(
     })
 }
 
+async fn remove_design_tag_with_pool(
+    pool: &SqlitePool,
+    design_id: i64,
+    tag_id: i64,
+) -> Result<DesignCommandResult, String> {
+    if tag_id <= 0 {
+        return Err("Tag id must be a positive integer.".to_string());
+    }
+
+    ensure_design_exists(pool, design_id).await?;
+    ensure_foreign_key_exists(pool, "tags", Some(tag_id), "Tag").await?;
+
+    sqlx::query("DELETE FROM design_tags WHERE design_id = ? AND tag_id = ?")
+        .bind(design_id)
+        .bind(tag_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(DesignCommandResult {
+        design_id,
+        message: "Tag removed from design.".to_string(),
+    })
+}
+
 async fn add_design_to_project_with_pool(
     pool: &SqlitePool,
     design_id: i64,
@@ -2006,6 +2031,21 @@ pub async fn set_design_tags(
     let _ = app_handle.emit("design:mutated", json!({
         "design_id": design_id,
         "fields": { "tags_checked": true }
+    }));
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn remove_design_tag(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    design_id: i64,
+    tag_id: i64,
+) -> Result<DesignCommandResult, String> {
+    let result = remove_design_tag_with_pool(&state.db, design_id, tag_id).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": {}
     }));
     Ok(result)
 }

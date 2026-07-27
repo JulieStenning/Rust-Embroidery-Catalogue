@@ -8,6 +8,7 @@
     setDesignStitched,
     setDesignTagsChecked,
     setDesignTags,
+    removeDesignTag,
     addDesignToProject,
     removeDesignFromProject,
     bulkDeleteDesigns,
@@ -386,6 +387,39 @@
     await refreshDetailAfterAction();
   }
 
+  /** @param {number} tagId @param {MouseEvent} event */
+  async function handleRemoveTag(tagId, event) {
+    event.stopPropagation();
+    if (!detailItem?.id || detailSaving) return;
+
+    // Optimistic UI update: immediately remove the tag from the display
+    detailItem = {
+      ...detailItem,
+      tags: (detailItem.tags || []).filter(t => t.id !== tagId),
+    };
+    detailTagSelection = detailTagSelection.filter(id => id !== tagId);
+
+    // Persist to backend
+    detailSaving = true;
+    const result = await removeDesignTag(detailItem.id, tagId);
+    detailSaving = false;
+
+    if (result.persisted) {
+      setDetailActionNotice(result.message, false);
+      // Track mutation for browse card sync
+      const updatedTags = (detailItem.tags || []).map(t => t.description);
+      designSessionStore.trackMutation(detailItem.id, {
+        tags: updatedTags,
+        imageTags: (detailItem.tags || []).filter(t => t.tag_group === 'image').map(t => t.description),
+        stitchingTags: (detailItem.tags || []).filter(t => t.tag_group === 'stitching').map(t => t.description),
+      });
+    } else {
+      setDetailActionNotice(result.message, true);
+      // Rollback optimistic update by re-fetching from backend
+      await refreshDetailAfterAction();
+    }
+  }
+
   /** @param {number | string} rating */
   function ratingToStars(rating) {
     const numeric = Number(rating);
@@ -548,8 +582,14 @@
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.tags as tag}
-                <span class={`text-[11px] px-2 py-0.5 rounded-full font-medium ${tag.tag_group === "stitching" ? "bg-blue-100 text-blue-700" : tag.tag_group === "image" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                <span class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium {tag.tag_group === "stitching" ? "bg-blue-100 text-blue-700" : tag.tag_group === "image" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}">
                   {tag.description}
+                  <button
+                    class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-red-600 rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
+                    onclick={(e) => handleRemoveTag(tag.id, e)}
+                    disabled={detailSaving}
+                    title="Remove tag"
+                  >&times;</button>
                 </span>
               {/each}
             </div>
