@@ -16,6 +16,7 @@
     renderDesign3dPreview
   } from "../api/commandAdapter.js";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
+  import TagSelectionModal from "../components/TagSelectionModal.svelte";
   import TechnicalDataGrid from "../components/TechnicalDataGrid.svelte";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
@@ -380,47 +381,9 @@
     browseBulkModalOpen = true;
   }
 
-  function closeDetailTagModal() {
+  async function closeDetailTagModal() {
     browseBulkModalOpen = false;
-  }
-
-  /** @param {number} tagId */
-  function tagChooserSelectionIncludes(tagId) {
-    return detailTagSelection.includes(Number(tagId));
-  }
-
-  /** @param {number} tagId @param {boolean} checked */
-  function toggleTagChooserSelection(tagId, checked) {
-    const id = Number(tagId);
-    if (!Number.isFinite(id)) return;
-    if (checked) {
-      detailTagSelection = Array.from(new Set([...detailTagSelection, id]));
-    } else {
-      detailTagSelection = detailTagSelection.filter((value) => value !== id);
-    }
-  }
-
-  async function applySharedTagChooser() {
-    const saved = await saveDetailTags();
-    if (saved) {
-      closeDetailTagModal();
-    }
-  }
-
-  /** @param {HTMLElement} node */
-  function portalToBody(node) {
-    if (typeof document === "undefined") return {};
-    const host = document.body;
-    const parent = node.parentNode;
-    const marker = document.createComment("detail-modal-portal");
-    if (parent) parent.insertBefore(marker, node);
-    host.appendChild(node);
-    return {
-      destroy() {
-        if (node.parentNode === host) host.removeChild(node);
-        if (marker.parentNode) marker.parentNode.removeChild(marker);
-      },
-    };
+    await refreshDetailAfterAction();
   }
 
   /** @param {number | string} rating */
@@ -595,8 +558,6 @@
           {/if}
           <div class="flex items-center gap-2 pt-0.5">
             <button class="menu-button-primary text-xs px-2.5 py-1" onclick={openDetailTagModal} disabled={detailSaving}>Choose tags...</button>
-            <button class="menu-button-secondary text-xs px-2.5 py-1" onclick={saveDetailTags} disabled={detailSaving}>Save tags</button>
-            <span class="text-[10px] text-gray-400">Saving marks as verified.</span>
           </div>
         </div>
 
@@ -668,99 +629,10 @@
   onDeleted={handleDetailDeleteResult}
 />
 
-{#if browseBulkModalOpen}
-  {@const tagOptionsForChooser = Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : []}
-  {@const groupedTagOptions = splitTagsByGroup(tagOptionsForChooser)}
-  <div
-    use:portalToBody
-    class="tag-chooser-overlay no-print"
-    style="position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="bulk-tag-title"
-  >
-    <button
-      type="button"
-      style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"
-      aria-label="Close tag chooser"
-      onclick={closeDetailTagModal}
-    ></button>
-    <div
-      class="tag-chooser-dialog"
-      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;"
-    >
-      <div class="tag-chooser-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-        <h2 id="bulk-tag-title" class="text-lg font-semibold" style="margin:0;">
-          Choose tags for this design
-        </h2>
-      </div>
-      <div class="tag-chooser-body" style="overflow-y:auto;flex:1;">
-        <p class="text-sm font-medium" style="margin:0 0 0.75rem 0;">
-          {detailItem?.filename || "Current design"}
-        </p>
-
-        <div class="tag-chooser-sections">
-          {#if groupedTagOptions.image.length > 0}
-            <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">Image tags</p>
-              <div class="tag-chooser-grid">
-                {#each groupedTagOptions.image as tagOption}
-                  <label class="tag-chooser-option">
-                    <input
-                      type="checkbox"
-                      checked={tagChooserSelectionIncludes(tagOption.id)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
-                    />
-                    <span>{tagOption.description}</span>
-                  </label>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          {#if groupedTagOptions.stitching.length > 0}
-            <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold">Stitching tags</p>
-              <div class="tag-chooser-grid">
-                {#each groupedTagOptions.stitching as tagOption}
-                  <label class="tag-chooser-option">
-                    <input
-                      type="checkbox"
-                      checked={tagChooserSelectionIncludes(tagOption.id)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
-                    />
-                    <span>{tagOption.description}</span>
-                  </label>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          {#if groupedTagOptions.unclassified.length > 0}
-            <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold">Unclassified tags</p>
-              <div class="tag-chooser-grid">
-                {#each groupedTagOptions.unclassified as tagOption}
-                  <label class="tag-chooser-option">
-                    <input
-                      type="checkbox"
-                      checked={tagChooserSelectionIncludes(tagOption.id)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
-                    />
-                    <span>{tagOption.description}</span>
-                  </label>
-                {/each}
-              </div>
-            </section>
-          {/if}
-        </div>
-      </div>
-      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;">
-        <button type="button" class="menu-button-secondary" onclick={closeDetailTagModal}>Cancel</button>
-        <button type="button" class="menu-button-primary" onclick={applySharedTagChooser} disabled={detailSaving}>
-          Save tags
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<TagSelectionModal
+  designId={detailItem?.id ?? 0}
+  allTags={Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : []}
+  selectedTagIds={detailTagSelection}
+  open={browseBulkModalOpen}
+  onClose={closeDetailTagModal}
+/>

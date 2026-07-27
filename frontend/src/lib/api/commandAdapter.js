@@ -830,10 +830,6 @@ export async function bulkVerifyDesigns(designIds) {
   }
 }
 
-/**
- * Load project choices for browse bulk actions.
- * Falls back to mock project options while migration is in progress.
- */
 export async function getBrowseProjects() {
   try {
     const projects = await invoke("get_projects_for_browse");
