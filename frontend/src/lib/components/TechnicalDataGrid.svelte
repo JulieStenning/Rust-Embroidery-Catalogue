@@ -3,11 +3,11 @@
   let { items = [] } = $props();
 </script>
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
-  {#each items as item}
-    <div class="flex flex-col bg-gray-50 rounded border border-gray-200 px-2.5 py-1.5">
-      <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{item.label}</span>
-      <span class="text-sm font-medium text-gray-800">{item.value ?? "?"}</span>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+  {#each items as item, i}
+    <div class="flex items-baseline gap-2 {i < items.length - 1 && i % 2 === 0 ? 'sm:border-b sm:border-gray-100 sm:pb-1' : ''} {i < items.length - 1 && i % 2 !== 0 ? 'sm:border-b sm:border-gray-100 sm:pb-1' : ''} {i < items.length - 1 ? 'border-b border-gray-100 pb-1' : ''}">
+      <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide shrink-0 w-[6rem] sm:w-[7rem]">{item.label}</span>
+      <span class="text-sm font-medium text-gray-800 truncate">{item.value ?? "?"}</span>
     </div>
   {/each}
 </div>

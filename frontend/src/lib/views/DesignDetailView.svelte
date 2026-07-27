@@ -509,7 +509,7 @@
       <!-- LEFT COLUMN: Preview + Actions (sticky on large screens) -->
       <div class="lg:w-5/12 xl:w-2/5 lg:sticky lg:top-0 lg:self-start lg:max-h-full flex flex-col gap-3 p-4 pb-2 lg:pb-4 lg:border-r border-gray-200 overflow-y-auto">
         <!-- Filename -->
-        <div class="route-card bg-gray-50 rounded border px-3 py-2">
+        <div class="route-card">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span>
           <p class="font-medium text-gray-800 text-sm mt-0.5">{detailItem.filename || "Unknown"}</p>
         </div>
@@ -528,7 +528,7 @@
             class="w-full rounded border border-gray-200 bg-white p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
           />
         {:else}
-          <div class="route-card bg-gray-50 rounded border p-6 text-gray-500 text-center italic text-sm">No preview image saved yet.</div>
+          <div class="route-card p-6 text-gray-500 text-center italic text-sm">No preview image saved yet.</div>
         {/if}
 
         <!-- Action buttons -->
@@ -542,34 +542,47 @@
       </div>
 
       <!-- RIGHT COLUMN: Editable content (scrollable) -->
-      <div class="lg:w-7/12 xl:w-3/5 flex-1 overflow-y-auto p-4 pt-2 lg:pt-4 space-y-3">
-        <!-- Designer + Source dropdowns (editable metadata) -->
-        <div class="grid sm:grid-cols-2 gap-3">
-          <label class="route-card bg-gray-50 rounded border p-3 text-sm">
-            <span class="block mb-1 font-medium text-gray-700">Designer</span>
-            <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailDesignerId}>
-              <option value="">None</option>
-              {#each detailItem.designers || [] as designer}
-                <option value={String(designer.id)}>{designer.name}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="route-card bg-gray-50 rounded border p-3 text-sm">
-            <span class="block mb-1 font-medium text-gray-700">Source</span>
-            <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailSourceId}>
-              <option value="">None</option>
-              {#each detailItem.sources || [] as source}
-                <option value={String(source.id)}>{source.name}</option>
-              {/each}
-            </select>
-          </label>
+      <div class="lg:w-7/12 xl:w-3/5 flex-1 overflow-y-auto p-4 pt-2 lg:pt-4 space-y-2.5">
+        <!-- ============================================ -->
+        <!-- ZONE A: Editable Metadata (Designer + Source) -->
+        <!-- ============================================ -->
+        <div class="route-card space-y-2">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Designer & Source</h3>
+          <div class="grid sm:grid-cols-2 gap-2.5">
+            <label class="block text-sm">
+              <span class="block mb-0.5 font-medium text-gray-600 text-xs">Designer</span>
+              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailDesignerId}>
+                <option value="">None</option>
+                {#each detailItem.designers || [] as designer}
+                  <option value={String(designer.id)}>{designer.name}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="block text-sm">
+              <span class="block mb-0.5 font-medium text-gray-600 text-xs">Source</span>
+              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailSourceId}>
+                <option value="">None</option>
+                {#each detailItem.sources || [] as source}
+                  <option value={String(source.id)}>{source.name}</option>
+                {/each}
+              </select>
+            </label>
+          </div>
         </div>
 
-        <!-- Technical metadata (read-only, compact badge grid) -->
-        <TechnicalDataGrid items={technicalItems} />
+        <!-- ============================================ -->
+        <!-- ZONE B: Read-Only Technical Facts            -->
+        <!-- ============================================ -->
+        <div class="route-card space-y-1.5">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Technical Data</h3>
+          <TechnicalDataGrid items={technicalItems} />
+        </div>
 
-        <!-- Rating + Stitched + Verified (consolidated horizontal row) -->
-        <div class="route-card bg-gray-50 rounded border px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <!-- ============================================ -->
+        <!-- ZONE C: Rating & Status (interactive)        -->
+        <!-- ============================================ -->
+        <div class="route-card flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h3 class="w-full text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Rating & Status</h3>
           <!-- 5 Interactive Stars -->
           <div class="flex items-center gap-0.5" role="radiogroup" aria-label="Rating">
             {#each [1, 2, 3, 4, 5] as score}
@@ -639,8 +652,8 @@
         </div>
 
         <!-- Tags -->
-        <div class="route-panel bg-gray-50 rounded border p-3 space-y-2">
-          <p class="font-semibold text-gray-800 text-sm">Tags</p>
+        <div class="route-card space-y-1.5">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tags</h3>
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.tags as tag}
@@ -658,14 +671,12 @@
           {:else}
             <p class="text-xs text-gray-400 italic">No tags assigned.</p>
           {/if}
-          <div class="flex items-center gap-2 pt-0.5">
-            <button class="menu-button-primary text-xs px-2.5 py-1" onclick={openDetailTagModal} disabled={detailSaving}>Choose tags...</button>
-          </div>
+          <button class="menu-button-primary text-xs px-2.5 py-1" onclick={openDetailTagModal} disabled={detailSaving}>Choose tags...</button>
         </div>
 
         <!-- Notes -->
-        <div class="route-panel bg-gray-50 rounded border p-3 space-y-2">
-          <p class="font-semibold text-gray-800 text-sm">Notes</p>
+        <div class="route-card space-y-1.5">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</h3>
           <textarea
             class="w-full border rounded px-2.5 py-1.5 text-sm bg-white"
             rows="2"
@@ -680,10 +691,10 @@
         </div>
 
         <!-- Projects -->
-        <div class="route-panel bg-gray-50 rounded border p-3 space-y-2">
-          <p class="font-semibold text-gray-800 text-sm">Projects</p>
+        <div class="route-card space-y-1.5">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Projects</h3>
           {#if Array.isArray(detailItem.projects) && detailItem.projects.length > 0}
-            <div class="space-y-1.5">
+            <div class="space-y-1">
               {#each detailItem.projects as project}
                 <div class="flex items-center justify-between border bg-white rounded px-2.5 py-1.5 text-sm">
                   <span class="font-medium text-gray-700">{project.name}</span>
@@ -709,7 +720,7 @@
         </div>
 
         <!-- Delete -->
-        <div class="flex justify-end pt-1 pb-2">
+        <div class="flex justify-end pt-0.5 pb-2">
           <button class="menu-button-secondary text-red-500 border-red-200 hover:bg-red-50 text-xs px-2.5 py-1.5" onclick={openDeleteModal} disabled={detailSaving}>Delete design</button>
         </div>
       </div>
