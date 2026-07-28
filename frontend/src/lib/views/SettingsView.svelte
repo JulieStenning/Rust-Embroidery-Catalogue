@@ -5,11 +5,11 @@
     saveSettings,
     browseSettingsDataRoot
   } from "../api/commandAdapter.js";
+  import { addToast } from "../stores/toastStore.js";
 
   let settingsLoading = $state(false);
   let settingsLoaded = $state(false);
   let settingsSaveState = $state("idle"); // "idle" | "saving" | "saved" | "error"
-  let settingsSaveMessage = $state("");
 
   let settingsImagePreference = $state("2d");
   let settingsGoogleApiKey = $state("");
@@ -57,8 +57,7 @@
       applySettingsModel(result.model || {});
       settingsLoaded = true;
     } catch (error) {
-      settingsSaveState = "error";
-      settingsSaveMessage = `Could not load settings: ${error}`;
+      addToast(`Could not load settings: ${error}`, "error");
     } finally {
       settingsLoading = false;
     }
@@ -68,7 +67,6 @@
   async function saveSettingsFromBackend(event) {
     event.preventDefault();
     settingsSaveState = "saving";
-    settingsSaveMessage = "";
 
     try {
       const result = await saveSettings({
@@ -84,14 +82,14 @@
 
       if (result.saved) {
         settingsSaveState = "saved";
-        settingsSaveMessage = result.message || "Settings saved successfully.";
+        addToast(result.message || "Settings saved successfully.", "success");
       } else {
         settingsSaveState = "error";
-        settingsSaveMessage = result.message || "Settings could not be saved.";
+        addToast(result.message || "Settings could not be saved.", "error");
       }
     } catch (error) {
       settingsSaveState = "error";
-      settingsSaveMessage = `Could not save settings: ${error}`;
+      addToast(`Could not save settings: ${error}`, "error");
     }
   }
 
@@ -100,13 +98,11 @@
     if (result.path) {
       settingsDataRoot = result.path;
       settingsSaveState = "idle";
-      settingsSaveMessage = "";
       return;
     }
 
     if (result.error) {
-      settingsSaveState = "error";
-      settingsSaveMessage = result.error;
+      addToast(result.error, "error");
     }
   }
 
@@ -117,16 +113,6 @@
 
 <section class="settings-page space-y-6">
   <h1 class="ui-page-title settings-title mb-6">Application Settings</h1>
-
-  {#if settingsSaveState === "saved"}
-    <div class="settings-alert settings-alert-success bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
-      {settingsSaveMessage || "Settings saved successfully."}
-    </div>
-  {:else if settingsSaveState === "error"}
-    <div class="settings-alert settings-alert-error bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
-      {settingsSaveMessage || "Settings could not be saved."}
-    </div>
-  {/if}
 
   <div class="settings-layout max-w-3xl space-y-6">
     {#if settingsLoading && !settingsLoaded}

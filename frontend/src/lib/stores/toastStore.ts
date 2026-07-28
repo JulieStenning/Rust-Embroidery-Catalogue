@@ -17,10 +17,12 @@ export interface Toast {
   id: number;
   /** Display message text */
   message: string;
-  /** Visual variant — maps to green / red / blue backgrounds */
-  type: "success" | "error" | "info";
+  /** Visual variant — maps to green / red / blue / amber backgrounds */
+  type: "success" | "error" | "info" | "warning";
   /** Timestamp (ms) for animation sequencing */
   createdAt: number;
+  /** When true, the toast is NOT auto-dismissed (must be closed manually) */
+  persistent: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,19 +39,29 @@ export const toasts = writable<Toast[]>([]);
 /**
  * Add a transient notification to the toast stack.
  *
- * @param message - The text to display.
- * @param type    - One of "success", "error", or "info".
+ * @param message   - The text to display.
+ * @param type      - One of "success", "error", "info", or "warning".
+ * @param persistent - When true the toast will not auto-dismiss (default false).
+ * @param durationMs - Optional override for auto-dismiss duration in ms (default 2800).
  */
-export function addToast(message: string, type: Toast["type"] = "info"): void {
+export function addToast(
+  message: string,
+  type: Toast["type"] = "info",
+  persistent = false,
+  durationMs: number | null = null,
+): void {
   const id = nextId++;
-  const toast: Toast = { id, message, type, createdAt: Date.now() };
+  const toast: Toast = { id, message, type, createdAt: Date.now(), persistent };
 
   toasts.update((list) => [...list, toast]);
 
-  // Schedule auto-dismiss
-  setTimeout(() => {
-    removeToast(id);
-  }, AUTO_DISMISS_MS);
+  // Schedule auto-dismiss (skip if persistent)
+  if (!persistent) {
+    const ms = durationMs ?? AUTO_DISMISS_MS;
+    setTimeout(() => {
+      removeToast(id);
+    }, ms);
+  }
 }
 
 /**

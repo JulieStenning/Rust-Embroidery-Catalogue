@@ -9,6 +9,7 @@
     runBothBackups,
     getSettingsViewModel
   } from "../api/commandAdapter.js";
+  import { addToast } from "../stores/toastStore.js";
 
   let backupDbDestination = $state("");
   let backupDesignsDestination = $state("");
@@ -20,8 +21,6 @@
   let backupLoading = $state(false);
   let backupDatabaseRunning = $state(false);
   let backupDesignsRunning = $state(false);
-  let backupStatus = $state("idle"); // "idle" | "saved" | "error"
-  let backupMessage = $state("");
 
   let settingsDataRoot = $state("");
 
@@ -62,8 +61,7 @@
 
       backupLoaded = true;
     } catch (error) {
-      backupStatus = "error";
-      backupMessage = `Could not load backup settings: ${error}`;
+      addToast(`Could not load backup settings: ${error}`, "error");
     } finally {
       backupLoading = false;
     }
@@ -80,14 +78,11 @@
       } else {
         backupDesignsDestination = result.path;
       }
-      backupStatus = "idle";
-      backupMessage = "";
       return;
     }
 
     if (result.error) {
-      backupStatus = "error";
-      backupMessage = result.error;
+      addToast(result.error, "error");
     }
   }
 
@@ -96,8 +91,7 @@
     event.preventDefault();
 
     if (!backupHasUnsavedChanges) {
-      backupStatus = "error";
-      backupMessage = "There are no destination changes to save.";
+      addToast("There are no destination changes to save.", "error");
       return;
     }
 
@@ -111,13 +105,11 @@
       backupSavedDesignsDestination = String(result.designs_destination || backupDesignsDestination).trim();
       backupDbDestination = backupSavedDbDestination;
       backupDesignsDestination = backupSavedDesignsDestination;
-      backupStatus = "saved";
-      backupMessage = result.message || "Backup destinations saved.";
+      addToast(result.message || "Backup destinations saved.", "success");
       return;
     }
 
-    backupStatus = "error";
-    backupMessage = result.message || "Could not save backup destinations.";
+    addToast(result.message || "Could not save backup destinations.", "error");
   }
 
   /** @param {"database" | "designs" | "both"} action */
@@ -125,20 +117,17 @@
     if (backupAnyRunning) return;
 
     if (action === "database" && !backupHasDbDestination) {
-      backupStatus = "error";
-      backupMessage = "No database backup destination is configured. Please set one below and save destinations.";
+      addToast("No database backup destination is configured. Please set one below and save destinations.", "error");
       return;
     }
 
     if (action === "designs" && !backupHasDesignsDestination) {
-      backupStatus = "error";
-      backupMessage = "No designs backup destination is configured. Please set one below and save destinations.";
+      addToast("No designs backup destination is configured. Please set one below and save destinations.", "error");
       return;
     }
 
     if (action === "both" && (!backupHasDbDestination || !backupHasDesignsDestination)) {
-      backupStatus = "error";
-      backupMessage = "Both backup destinations must be configured before you can run both backups.";
+      addToast("Both backup destinations must be configured before you can run both backups.", "error");
       return;
     }
 
@@ -151,27 +140,23 @@
       if (action === "database") {
         const result = await runDatabaseBackup();
         if (!result.success) {
-          backupStatus = "error";
-          backupMessage = result.error || "Database backup failed.";
+          addToast(result.error || "Database backup failed.", "error");
           return;
         }
 
         const mb = (Number(result.size_bytes || 0) / (1024 * 1024)).toFixed(2);
-        backupStatus = "saved";
-        backupMessage = `Database backup created: ${result.backup_path || "(path unavailable)"} (${mb} MB).`;
+        addToast(`Database backup created: ${result.backup_path || "(path unavailable)"} (${mb} MB).`, "success");
         return;
       }
 
       if (action === "designs") {
         const result = await runDesignsBackup();
         if (!result.success) {
-          backupStatus = "error";
-          backupMessage = result.error || "Designs backup failed.";
+          addToast(result.error || "Designs backup failed.", "error");
           return;
         }
 
-        backupStatus = "saved";
-        backupMessage = `Designs backup complete: scanned ${result.scanned}, copied ${result.copied}, updated ${result.updated}, unchanged ${result.unchanged}, archived ${result.archived}.`;
+        addToast(`Designs backup complete: scanned ${result.scanned}, copied ${result.copied}, updated ${result.updated}, unchanged ${result.unchanged}, archived ${result.archived}.`, "success");
         return;
       }
 
@@ -180,15 +165,13 @@
       const designsOk = Boolean(result?.designs?.success);
 
       if (dbOk && designsOk) {
-        backupStatus = "saved";
-        backupMessage = "Both backups completed successfully.";
+        addToast("Both backups completed successfully.", "success");
         return;
       }
 
       const dbError = String(result?.database?.error || "").trim();
       const designsError = String(result?.designs?.error || "").trim();
-      backupStatus = "error";
-      backupMessage = `Backup results: database ${dbOk ? "ok" : "failed"}${dbError ? ` (${dbError})` : ""}; designs ${designsOk ? "ok" : "failed"}${designsError ? ` (${designsError})` : ""}.`;
+      addToast(`Backup results: database ${dbOk ? "ok" : "failed"}${dbError ? ` (${dbError})` : ""}; designs ${designsOk ? "ok" : "failed"}${designsError ? ` (${designsError})` : ""}.`, "error");
     } finally {
       if (runsDatabase) backupDatabaseRunning = false;
       if (runsDesigns) backupDesignsRunning = false;
@@ -212,16 +195,6 @@
     <p class="font-semibold">Important</p>
     <p>Ensure backup folders reside on a separate drive from your library (e.g. an external USB drive or a network folder).</p>
   </div>
-
-  {#if backupStatus === "saved"}
-    <div class="settings-alert bg-green-50 border border-green-300 text-green-800 rounded px-4 py-2 text-sm">
-      {backupMessage || "Backup destinations saved."}
-    </div>
-  {:else if backupStatus === "error"}
-    <div class="settings-alert bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
-      {backupMessage || "Backup action could not be completed."}
-    </div>
-  {/if}
 
   <div class="settings-layout max-w-3xl space-y-6">
     <form class="settings-card backup-card bg-white rounded shadow p-6 space-y-5" onsubmit={saveBackupDestinations}>

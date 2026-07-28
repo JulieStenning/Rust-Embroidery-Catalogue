@@ -9,6 +9,7 @@
     removeDesignFromProjectDetail,
     getProjectPrintView
   } from "../api/commandAdapter.js";
+  import { addToast } from "../stores/toastStore.js";
 
   let { currentUiKind, projectDetailId, projectPrintId, navigateTo } = $props();
 
@@ -19,8 +20,6 @@
   let projectsLoaded = $state(false);
   let projectsError = $state("");
   let projectsLoadRequestToken = 0;
-  let projectsActionMessage = $state("");
-  let projectsActionIsError = $state(false);
 
   let projectNewName = $state("");
   let projectNewDescription = $state("");
@@ -47,15 +46,6 @@
     projectDetailName !== projectDetailOriginalName ||
     projectDetailDescription !== projectDetailOriginalDescription
   );
-
-  /**
-   * @param {string} message
-   * @param {boolean} [isError]
-   */
-  function setProjectsNotice(message, isError = false) {
-    projectsActionMessage = message;
-    projectsActionIsError = isError;
-  }
 
   async function loadProjects(force = false) {
     if (projectsLoading && !force) return;
@@ -104,7 +94,7 @@
 
     const name = String(projectNewName || "").trim();
     if (!name) {
-      setProjectsNotice("Project name is required.", true);
+      addToast("Project name is required.", "error");
       return;
     }
 
@@ -112,7 +102,7 @@
     const result = await createProject(name, projectNewDescription);
     projectNewSaving = false;
 
-    setProjectsNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       projectNewName = "";
       projectNewDescription = "";
@@ -179,7 +169,7 @@
 
     const name = String(projectDetailName || "").trim();
     if (!name) {
-      setProjectsNotice("Project name is required.", true);
+      addToast("Project name is required.", "error");
       return;
     }
 
@@ -187,7 +177,7 @@
     const result = await updateProject(projectDetail.project.id, name, projectDetailDescription);
     projectDetailSaving = false;
 
-    setProjectsNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       projectDetailOriginalName = name;
       projectDetailOriginalDescription = projectDetailDescription;
@@ -207,7 +197,7 @@
     const result = await deleteProject(projectDetail.project.id);
     projectDetailSaving = false;
 
-    setProjectsNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       await loadProjects(true);
       navigateTo("#/projects");
@@ -224,7 +214,7 @@
     const result = await removeDesignFromProjectDetail(projectDetail.project.id, designId);
     projectDetailSaving = false;
 
-    setProjectsNotice(result.message, !result.persisted);
+    addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       await refreshProjectDetailView();
     }
@@ -313,12 +303,6 @@
       <a href="#/help?section=projects" class="text-indigo-600 hover:underline">Learn more</a>
     </p>
 
-    {#if projectsActionMessage}
-      <div class={`rounded border px-3 py-2 text-sm ${projectsActionIsError ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
-        {projectsActionMessage}
-      </div>
-    {/if}
-
     <div class="projects-shell">
       {#if projectsLoading}
         <p>Loading projects...</p>
@@ -366,12 +350,6 @@
         <a href="#/help?section=projects" class="text-indigo-600 hover:underline font-medium">Help</a>
       </p>
 
-      {#if projectsActionMessage}
-        <div class={`rounded border px-3 py-2 text-sm ${projectsActionIsError ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
-          {projectsActionMessage}
-        </div>
-      {/if}
-
       <form
         class="space-y-3"
         onsubmit={(event) => {
@@ -415,12 +393,6 @@
         <button class="projects-danger-link text-sm text-red-500 hover:underline" onclick={confirmDeleteProject} disabled={projectDetailSaving || !projectDetail?.project?.id}>Delete Project</button>
       </div>
     </div>
-
-    {#if projectsActionMessage}
-      <div class={`rounded border px-3 py-2 text-sm ${projectsActionIsError ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
-        {projectsActionMessage}
-      </div>
-    {/if}
 
     <div class="projects-form-card bg-white rounded shadow p-6">
       {#if projectDetailLoading}

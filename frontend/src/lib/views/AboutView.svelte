@@ -1,24 +1,23 @@
 <script>
   import { onMount } from "svelte";
   import { getAboutDocuments } from "../api/commandAdapter.js";
+  import { addToast } from "../stores/toastStore.js";
 
   /** @type {any[]} */
   let aboutDocuments = $state([]);
   let aboutDocumentsLoading = $state(false);
-  let aboutDocumentsError = $state("");
 
   async function loadAboutDocuments(force = false) {
     if (aboutDocumentsLoading && !force) return;
 
     aboutDocumentsLoading = true;
-    aboutDocumentsError = "";
 
     try {
       const result = await getAboutDocuments();
       aboutDocuments = Array.isArray(result?.items) ? result.items : [];
     } catch (error) {
       aboutDocuments = [];
-      aboutDocumentsError = `Could not load about documents: ${error}`;
+      addToast(`Could not load about documents: ${error}`, "error");
     } finally {
       aboutDocumentsLoading = false;
     }
@@ -87,12 +86,6 @@
       </p>
     </div>
   </div>
-
-  {#if aboutDocumentsError}
-    <div class="bg-red-50 border border-red-300 text-red-700 rounded px-4 py-3 text-sm">
-      {aboutDocumentsError}
-    </div>
-  {/if}
 
   <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
     {#if aboutDocumentsLoading}

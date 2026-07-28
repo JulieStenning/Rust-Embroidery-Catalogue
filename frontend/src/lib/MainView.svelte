@@ -46,6 +46,7 @@
   import { SvelteSet } from "svelte/reactivity";
   import { splitTagsByGroup } from "./utils/tagHelpers.js";
   import { designSessionStore } from "./stores/designSessionStore.js";
+  import { addToast } from "./stores/toastStore.js";
 
   const ORDERED_ROUTE_HINTS = [
     "#/designs",
@@ -212,7 +213,6 @@
   /** @type {Record<number, Record<number, boolean>>} */
   let browseCardProjectPendingById = $state({});
   let browseDeleteConfirmOpen = $state(false);
-  let browseActionNotice = $state("");
   const BROWSE_BULK_DELETE_MAX = 50;
   /** @type {HTMLDivElement | null} */
   let browseGridContainer = $state(null);
@@ -329,8 +329,6 @@
   let adminStitchingTagsOpen = $state(true);
   let adminTagsPanelStateLoaded = $state(false);
 
-  let adminNotice = $state("");
-  let adminNoticeType = $state("info");
   let adminLoading = $state(false);
 
   let canAddDesigner = $derived(newDesignerName.trim().length > 0);
@@ -344,12 +342,6 @@
   let adminIsTagsRoute = $derived(currentRoute === "#/admin/tags");
   let adminIsSourcesRoute = $derived(currentRoute === "#/admin/sources");
   let adminIsHoopsRoute = $derived(currentRoute === "#/admin/hoops");
-
-  /** @param {string} message @param {string} [type] */
-  function setAdminNotice(message, type = "info") {
-    adminNotice = message;
-    adminNoticeType = type;
-  }
 
   /** @param {string} hashString */
   function normalizeHash(hashString) {
@@ -1120,15 +1112,15 @@
     try {
       const result = /** @type {any} */ (await bulkSetTagsForDesigns(Array.from(browseSelectedIds), finalTags));
       if (result?.persisted) {
-        browseActionNotice = `${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`;
+        addToast(`${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`, "success");
         closeBulkTagModal();
         await loadBrowseItems(true);
       } else {
-        browseActionNotice = result?.error || "Could not bulk update tags.";
+        addToast(result?.error || "Could not bulk update tags.", "error");
         closeBulkTagModal();
       }
     } catch (e) {
-      browseActionNotice = `Bulk tagging failed: ${e}`;
+      addToast(`Bulk tagging failed: ${e}`, "error");
       closeBulkTagModal();
     } finally {
       browseLoading = false;
@@ -1178,13 +1170,13 @@
           anyFailed = true;
         }
       }
-      browseActionNotice = anyFailed
+      addToast(anyFailed
         ? `Some projects could not be updated. ${totalAdded} design(s) added to project(s).`
-        : `${totalAdded} design(s) added to project(s).`;
+        : `${totalAdded} design(s) added to project(s).`, anyFailed ? "warning" : "success");
       closeBulkProjectModal();
       await loadBrowseItems(true);
     } catch (e) {
-      browseActionNotice = `Bulk project add failed: ${e}`;
+      addToast(`Bulk project add failed: ${e}`, "error");
     } finally {
       browseLoading = false;
     }
@@ -1197,13 +1189,13 @@
     try {
       const result = /** @type {any} */ (await bulkVerifyDesigns(Array.from(browseSelectedIds)));
       if (result?.persisted) {
-        browseActionNotice = `${result.verified_count ?? result.updated} design(s) marked verified.`;
+        addToast(`${result.verified_count ?? result.updated} design(s) marked verified.`, "success");
         await loadBrowseItems(true);
       } else {
-        browseActionNotice = result?.error || "Could not verify designs.";
+        addToast(result?.error || "Could not verify designs.", "error");
       }
     } catch (e) {
-      browseActionNotice = `Verification failed: ${e}`;
+      addToast(`Verification failed: ${e}`, "error");
     } finally {
       browseLoading = false;
     }
@@ -1229,9 +1221,9 @@
         notice += ` (${result.errors.length} file warning(s) — see console for details)`;
         console.warn("Bulk delete file warnings:", result.errors);
       }
-      browseActionNotice = notice;
+      addToast(notice, "success");
     } else {
-      browseActionNotice = result.errors?.[0] || "Bulk delete failed.";
+      addToast(result.errors?.[0] || "Bulk delete failed.", "error");
     }
     browseSelectedIds.clear();
     browseDeleteConfirmOpen = false;
@@ -1390,7 +1382,7 @@
           : [];
       }
     } catch (e) {
-      setAdminNotice(`Failed to load admin data: ${e}`, "error");
+      addToast(`Failed to load admin data: ${e}`, "error");
     } finally {
       adminLoading = false;
     }
@@ -1404,12 +1396,12 @@
 
     const result = await createDesigner(name);
     if (!result?.persisted) {
-      setAdminNotice(`Could not add designer: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not add designer: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     newDesignerName = "";
-    setAdminNotice("Designer added.", "success");
+    addToast("Designer added.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1430,18 +1422,18 @@
   async function saveDesignerEdit(id) {
     const name = editingDesignerName.trim();
     if (!name) {
-      setAdminNotice("Enter a designer name.", "error");
+      addToast("Enter a designer name.", "error");
       return;
     }
 
     const result = await updateDesigner(id, name);
     if (!result?.persisted) {
-      setAdminNotice(`Could not update designer: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not update designer: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     cancelEditDesigner();
-    setAdminNotice("Designer updated.", "success");
+    addToast("Designer updated.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1451,26 +1443,25 @@
     cancelEditDesigner();
     pendingDeleteDesignerId = Number(designer.id);
     if (Number(designer.designCount) > 0) {
-      setAdminNotice(`Deleting '${designer.name}' will clear assignment from ${designer.designCount} design(s).`, "info");
+      addToast(`Deleting '${designer.name}' will clear assignment from ${designer.designCount} design(s).`, "info");
       return;
     }
-    setAdminNotice(`Delete '${designer.name}'? Click confirm delete to continue.`, "info");
+    addToast(`Delete '${designer.name}'? Click confirm delete to continue.`, "info");
   }
 
   function cancelDeleteDesigner() {
     pendingDeleteDesignerId = null;
-    setAdminNotice("");
   }
 
   /** @param {number} id */
   async function deleteDesigner(id) {
     const result = await removeDesigner(id);
     if (!result?.persisted) {
-      setAdminNotice(`Could not delete designer: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not delete designer: ${result?.error || "Unknown error"}`, "error");
       return;
     }
     pendingDeleteDesignerId = null;
-    setAdminNotice("Designer deleted.", "success");
+    addToast("Designer deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1486,12 +1477,12 @@
 
     const result = await createSource(name);
     if (!result?.persisted) {
-      setAdminNotice(`Could not add source: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not add source: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     newSourceName = "";
-    setAdminNotice("Source added.", "success");
+    addToast("Source added.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1512,18 +1503,18 @@
   async function saveSourceEdit(id) {
     const name = editingSourceName.trim();
     if (!name) {
-      setAdminNotice("Enter a source name.", "error");
+      addToast("Enter a source name.", "error");
       return;
     }
 
     const result = await updateSource(id, name);
     if (!result?.persisted) {
-      setAdminNotice(`Could not update source: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not update source: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     cancelEditSource();
-    setAdminNotice("Source updated.", "success");
+    addToast("Source updated.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1533,26 +1524,25 @@
     cancelEditSource();
     pendingDeleteSourceId = Number(source.id);
     if (Number(source.designCount) > 0) {
-      setAdminNotice(`Deleting '${source.name}' will clear assignment from ${source.designCount} design(s).`, "info");
+      addToast(`Deleting '${source.name}' will clear assignment from ${source.designCount} design(s).`, "info");
       return;
     }
-    setAdminNotice(`Delete '${source.name}'? Click confirm delete to continue.`, "info");
+    addToast(`Delete '${source.name}'? Click confirm delete to continue.`, "info");
   }
 
   function cancelDeleteSource() {
     pendingDeleteSourceId = null;
-    setAdminNotice("");
   }
 
   /** @param {number} id */
   async function deleteSource(id) {
     const result = await removeSource(id);
     if (!result?.persisted) {
-      setAdminNotice(`Could not delete source: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not delete source: ${result?.error || "Unknown error"}`, "error");
       return;
     }
     pendingDeleteSourceId = null;
-    setAdminNotice("Source deleted.", "success");
+    addToast("Source deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1570,14 +1560,14 @@
 
     const result = await createHoop(name, w, h);
     if (!result?.persisted) {
-      setAdminNotice(`Could not add hoop: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not add hoop: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     newHoopName = "";
     newHoopWidth = 0;
     newHoopHeight = 0;
-    setAdminNotice("Hoop added.", "success");
+    addToast("Hoop added.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1604,18 +1594,18 @@
     const w = Number(editingHoopWidth);
     const h = Number(editingHoopHeight);
     if (!name || w <= 0 || h <= 0) {
-      setAdminNotice("Enter hoop details.", "error");
+      addToast("Enter hoop details.", "error");
       return;
     }
 
     const result = await updateHoop(id, name, w, h);
     if (!result?.persisted) {
-      setAdminNotice(`Could not update hoop: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not update hoop: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     cancelEditHoop();
-    setAdminNotice("Hoop updated.", "success");
+    addToast("Hoop updated.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1625,26 +1615,25 @@
     cancelEditHoop();
     pendingDeleteHoopId = Number(hoop.id);
     if (Number(hoop.designCount) > 0) {
-      setAdminNotice(`Deleting '${hoop.name}' will clear assignment from ${hoop.designCount} design(s).`, "info");
+      addToast(`Deleting '${hoop.name}' will clear assignment from ${hoop.designCount} design(s).`, "info");
       return;
     }
-    setAdminNotice(`Delete '${hoop.name}'? Click confirm delete to continue.`, "info");
+    addToast(`Delete '${hoop.name}'? Click confirm delete to continue.`, "info");
   }
 
   function cancelDeleteHoop() {
     pendingDeleteHoopId = null;
-    setAdminNotice("");
   }
 
   /** @param {number} id */
   async function deleteHoop(id) {
     const result = await removeHoop(id);
     if (!result?.persisted) {
-      setAdminNotice(`Could not delete hoop: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not delete hoop: ${result?.error || "Unknown error"}`, "error");
       return;
     }
     pendingDeleteHoopId = null;
-    setAdminNotice("Hoop deleted.", "success");
+    addToast("Hoop deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1662,12 +1651,12 @@
 
     const result = await createTag(desc, newTagGroup);
     if (!result?.persisted) {
-      setAdminNotice(`Could not add tag: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not add tag: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
     newTagDescription = "";
-    setAdminNotice("Tag added.", "success");
+    addToast("Tag added.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1675,10 +1664,10 @@
   async function deleteTag(id) {
     const result = await removeTag(id);
     if (!result?.persisted) {
-      setAdminNotice(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
       return;
     }
-    setAdminNotice("Tag deleted.", "success");
+    addToast("Tag deleted.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1686,10 +1675,10 @@
   async function setTagGroup(id, group) {
     const result = await updateTagGroup(id, group || null);
     if (!result?.persisted) {
-      setAdminNotice(`Could not set tag group: ${result?.error || "Unknown error"}`, "error");
+      addToast(`Could not set tag group: ${result?.error || "Unknown error"}`, "error");
       return;
     }
-    setAdminNotice("Tag updated.", "success");
+    addToast("Tag updated.", "success");
     await loadAdminDataForCurrentRoute(true);
   }
 
@@ -1844,21 +1833,6 @@
     }
   });
 
-  // Watch for page notices to clear
-  let lastRoute = "";
-  $effect(() => {
-    const route = currentRoute;
-    if (route !== lastRoute) {
-      if (route === "#/designs") {
-        browseActionNotice = "";
-      }
-      if (route.startsWith("#/admin/")) {
-        adminNotice = "";
-        adminNoticeType = "info";
-      }
-      lastRoute = route;
-    }
-  });
 
   let browseCardItems = $derived(browsePageItems);
 
@@ -2264,9 +2238,6 @@
         ariaLabel="Browse pagination"
       />
 
-      {#if browseActionNotice}
-        <p class="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-2 shadow-sm font-medium">{browseActionNotice}</p>
-      {/if}
     </section>
   {:else if currentUiKind === "settings"}
     <SettingsView />
@@ -2312,22 +2283,6 @@
     <HelpView />
   {:else if currentUiKind === "admin-list"}
     <section class="admin-page space-y-4">
-      {#if adminNotice}
-        <div
-          class="admin-alert rounded px-4 py-2 text-sm border font-medium shadow-sm"
-          class:bg-green-50={adminNoticeType === "success"}
-          class:border-green-300={adminNoticeType === "success"}
-          class:text-green-800={adminNoticeType === "success"}
-          class:bg-red-50={adminNoticeType === "error"}
-          class:border-red-300={adminNoticeType === "error"}
-          class:text-red-800={adminNoticeType === "error"}
-          class:bg-blue-50={adminNoticeType !== "success" && adminNoticeType !== "error"}
-          class:border-blue-200={adminNoticeType !== "success" && adminNoticeType !== "error"}
-          class:text-blue-800={adminNoticeType !== "success" && adminNoticeType !== "error"}
-        >
-          {adminNotice}
-        </div>
-      {/if}
 
       {#if adminIsDesignersRoute}
         <div class="space-y-1 font-sans">

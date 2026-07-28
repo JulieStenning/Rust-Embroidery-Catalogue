@@ -9,7 +9,7 @@
     scanOrphans
   } from "../api/commandAdapter.js";
   import Pagination from "../components/Pagination.svelte";
-  import Notice from "../components/Notice.svelte";
+  import { addToast } from "../stores/toastStore.js";
 
   let orphansLoading = $state(false);
   let orphansLoaded = $state(false);
@@ -22,8 +22,6 @@
   let orphanTotalPages = $state(1);
   /** @type {number[]} */
   let orphanSelectedIds = $state([]);
-  let orphanActionMessage = $state("");
-  let orphanActionType = $state("info");
 
   /** @param {number} page */
   async function loadOrphansPage(page, force = false) {
@@ -80,18 +78,15 @@
   async function openOrphanPath(filepath) {
     const result = await browseOrphanPath(filepath);
     if (result.opened) {
-      orphanActionType = "success";
-      orphanActionMessage = `Opened: ${result.opened}`;
+      addToast(`Opened: ${result.opened}`, "success");
       return;
     }
-    orphanActionType = "error";
-    orphanActionMessage = `Could not open folder: ${result?.error || "Unknown error"}`;
+    addToast(`Could not open folder: ${result?.error || "Unknown error"}`, "error");
   }
 
   async function deleteSelectedOrphans() {
     if (orphanSelectedIds.length === 0) {
-      orphanActionType = "error";
-      orphanActionMessage = "Select at least one orphan record first.";
+      addToast("Select at least one orphan record first.", "error");
       return;
     }
 
@@ -102,13 +97,11 @@
 
     const result = await removeOrphans(orphanSelectedIds);
     if (!result?.persisted) {
-      orphanActionType = "error";
-      orphanActionMessage = `Could not delete selected orphans: ${result?.error || "Unknown error"}`;
+      addToast(`Could not delete selected orphans: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
-    orphanActionType = "success";
-    orphanActionMessage = `${result.deleted} record(s) deleted.`;
+    addToast(`${result.deleted} record(s) deleted.`, "success");
     await loadOrphansPage(orphanPage, true);
     if (orphanPage > orphanTotalPages) {
       await loadOrphansPage(orphanTotalPages, true);
@@ -117,8 +110,7 @@
 
   async function deleteEveryOrphan() {
     if (orphanTotal <= 0) {
-      orphanActionType = "info";
-      orphanActionMessage = "There are no orphan records to delete.";
+      addToast("There are no orphan records to delete.", "info");
       return;
     }
 
@@ -129,13 +121,11 @@
 
     const result = await removeAllOrphans();
     if (!result?.persisted) {
-      orphanActionType = "error";
-      orphanActionMessage = `Could not delete all orphans: ${result?.error || "Unknown error"}`;
+      addToast(`Could not delete all orphans: ${result?.error || "Unknown error"}`, "error");
       return;
     }
 
-    orphanActionType = "success";
-    orphanActionMessage = `${result.deleted} record(s) deleted.`;
+    addToast(`${result.deleted} record(s) deleted.`, "success");
     await loadOrphansPage(1, true);
   }
 
@@ -156,8 +146,7 @@
   async function triggerDiskScan() {
     if (orphansLoading) return;
     orphansLoading = true;
-    orphanActionType = "info";
-    orphanActionMessage = "Scanning disk for orphaned records...";
+    addToast("Scanning disk for orphaned records...", "info");
     try {
       const result = await scanOrphans();
       if (result?.source !== "rust" && result?.error) {
@@ -165,12 +154,10 @@
       }
       const orphanChecked = Number(result?.checked ?? 0);
       const orphanFound = Number(result?.found ?? 0);
-      orphanActionType = "success";
-      orphanActionMessage = `Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} orphan(s).`;
+      addToast(`Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} orphan(s).`, "success");
       await loadOrphansPage(1, true);
     } catch (e) {
-      orphanActionType = "error";
-      orphanActionMessage = `Could not complete scan: ${e}`;
+      addToast(`Could not complete scan: ${e}`, "error");
       orphansLoading = false;
     }
   }
@@ -186,10 +173,10 @@
     <p class="text-gray-600 text-sm">Find and remove database records whose files no longer exist on disk.</p>
   </div>
 
-  <Notice message={orphanActionMessage} type={orphanActionType} />
-
   {#if orphansError}
-    <Notice message={orphansError} type="error" />
+    <div class="bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+      {orphansError}
+    </div>
   {/if}
 
   <div class="flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">

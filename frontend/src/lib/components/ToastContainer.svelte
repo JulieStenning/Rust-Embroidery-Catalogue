@@ -18,6 +18,7 @@
         class:toast-success={toast.type === "success"}
         class:toast-error={toast.type === "error"}
         class:toast-info={toast.type === "info"}
+        class:toast-warning={toast.type === "warning"}
         role="alert"
       >
         <span class="toast-message">{toast.message}</span>
@@ -78,6 +79,12 @@
     color: #1e40af;
   }
 
+  .toast-item.toast-warning {
+    background-color: #fffbeb;
+    border-color: #fcd34d;
+    color: #92400e;
+  }
+
   .toast-message {
     flex: 1;
     min-width: 0;
@@ -130,6 +137,12 @@
       background-color: #1e1b4b;
       border-color: #3730a3;
       color: #c7d2fe;
+    }
+
+    .toast-item.toast-warning {
+      background-color: #422006;
+      border-color: #92400e;
+      color: #fde68a;
     }
   }
 </style>

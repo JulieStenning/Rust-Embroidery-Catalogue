@@ -11,6 +11,7 @@
     saveImportLastBrowseFolder,
     getSettingsViewModel
   } from "../api/commandAdapter.js";
+  import { addToast } from "../stores/toastStore.js";
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
@@ -53,7 +54,6 @@
   let importReferenceLoading = $state(false);
   let importLoading = $state(false);
   let importBrowseLoading = $state(false);
-  let importError = $state("");
 
   let importNowInProgress = $derived(importActionLoading && importActionInProgress === "import_now");
   let importRouteStep = $derived(parseImportWizardStep(currentRoute));
@@ -400,12 +400,11 @@
 
   async function runImportPrecheck() {
     if (importSelectedFiles.length === 0) {
-      importError = "Select at least one file before continuing.";
+      addToast("Select at least one file before continuing.", "error");
       return;
     }
 
     importLoading = true;
-    importError = "";
     importActionMessage = "";
     importActionNeedsSkipHoopsConfirm = false;
 
@@ -418,7 +417,7 @@
       importContextToken = String(importPrecheck?.context_token || "");
       navigateTo(importPrecheck ? "#/import/step3" : "#/import/step2");
     } catch (error) {
-      importError = `Import precheck failed: ${error}`;
+      addToast(`Import precheck failed: ${error}`, "error");
       importPrecheck = null;
       importContextToken = "";
       navigateTo("#/import/step2");
@@ -443,13 +442,12 @@
   /** @param {string} action @param {boolean} [confirmSkipHoops] */
   async function executeImportPrecheckAction(action, confirmSkipHoops = false) {
     if (!importContextToken) {
-      importError = "Missing import context token. Run precheck again.";
+      addToast("Missing import context token. Run precheck again.", "error");
       return;
     }
 
     importActionLoading = true;
     importActionInProgress = String(action || "");
-    importError = "";
 
     const importNowAction = action === "import_now";
     if (importNowAction) {
@@ -495,10 +493,10 @@
         }
         navigateTo(hashRoute);
       } else if (action === "import_now") {
-        importError = actionMessage || "Import failed. Check the console for details and try again.";
+        addToast(actionMessage || "Import failed. Check the console for details and try again.", "error");
       }
     } catch (error) {
-      importError = `Import action failed: ${error}`;
+      addToast(`Import action failed: ${error}`, "error");
     } finally {
       if (importNowAction) {
         await stopImportProgressUpdates();
@@ -513,14 +511,13 @@
     if (!importNowInProgress || importStopRequestPending) return;
 
     importStopRequestPending = true;
-    importError = "";
 
     try {
       const result = await requestStopBulkImport();
       importActionSource = result.source || "mock";
       importActionMessage = result.message || "Stop requested.";
     } catch (error) {
-      importError = `Stop request failed: ${error}`;
+      addToast(`Stop request failed: ${error}`, "error");
       importStopRequestPending = false;
     }
   }
@@ -553,7 +550,6 @@
 
   async function runImportPreview() {
     importLoading = true;
-    importError = "";
     importActionMessage = "";
     importActionNeedsSkipHoopsConfirm = false;
 
@@ -572,7 +568,7 @@
       importContextToken = "";
       navigateTo("#/import/step2");
     } catch (error) {
-      importError = `Import preview failed: ${error}`;
+      addToast(`Import preview failed: ${error}`, "error");
       importPreview = null;
       importPreviewSource = "mock";
       importSelectedFiles = [];
@@ -601,7 +597,6 @@
     if (importBrowseLoading || importLoading || importActionLoading) return;
 
     importBrowseLoading = true;
-    importError = "";
 
     try {
       const currentValue = targetIndex === null || targetIndex === undefined || targetIndex < 0
@@ -628,7 +623,7 @@
         }
       }
     } catch (error) {
-      importError = `Folder browse failed: ${error}`;
+      addToast(`Folder browse failed: ${error}`, "error");
     } finally {
       importBrowseLoading = false;
     }
@@ -735,7 +730,6 @@
     importGlobalDesignerId = "";
     importGlobalSourceId = "";
     importPerFolderAssignmentByPath = {};
-    importError = "";
 
     navigateTo("#/import/step1");
   }
@@ -943,10 +937,6 @@
           </button>
         </div>
 
-        {#if importError}
-          <p class="text-sm text-red-600">{importError}</p>
-        {/if}
-
         {#if importPreview}
           <div class="grid sm:grid-cols-3 gap-3 text-sm pt-2">
             <div class="ui-section-shell import-metric-card bg-gray-50 border rounded p-3 text-center">Source: <strong>{importPreviewSource}</strong></div>
@@ -1026,10 +1016,6 @@
             </button>
           </div>
         </div>
-
-        {#if importError}
-          <p class="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{importError}</p>
-        {/if}
 
         {#if importStep2FolderGroups.length > 0}
           <div class="space-y-4">
@@ -1224,9 +1210,6 @@
           <p class="ui-help-note text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded p-3 mt-3">{importActionMessage}</p>
         {/if}
 
-        {#if importError}
-          <p class="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 mt-3">{importError}</p>
-        {/if}
       </div>
     {:else}
       <div class="ui-section-shell import-panel space-y-2 border rounded p-4 bg-white text-center">
