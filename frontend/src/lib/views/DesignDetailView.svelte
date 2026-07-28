@@ -93,6 +93,8 @@
   let detailNotes = $state("");
   let detailDesignerId = $state("");
   let detailSourceId = $state("");
+  let previousDesignerId = $state("");
+  let previousSourceId = $state("");
   let detailProjectToAdd = $state("");
   /** @type {number[]} */
   let detailTagSelection = $state([]);
@@ -144,6 +146,8 @@
       detailNotes = String(detailItem?.notes || "");
       detailDesignerId = detailItem?.designer_id == null ? "" : String(detailItem.designer_id);
       detailSourceId = detailItem?.source_id == null ? "" : String(detailItem.source_id);
+      previousDesignerId = detailDesignerId;
+      previousSourceId = detailSourceId;
       detailTagSelection = Array.isArray(detailItem?.tags)
         ? detailItem.tags.map((tag) => Number(tag?.id)).filter((id) => Number.isFinite(id))
         : [];
@@ -190,6 +194,72 @@
         source: selectedSource?.name || detailItem.source,
       });
       await refreshDetailAfterAction();
+    }
+  }
+
+  /**
+   * Auto-save handler for the Designer dropdown.
+   * Uses detailSaving guard to prevent concurrent writes.
+   * On failure, reverts the dropdown to its previous value and shows an error toast.
+   */
+  async function handleDesignerChange() {
+    if (!detailItem?.id || detailSaving) return;
+    const newValue = detailDesignerId;
+    const oldValue = previousDesignerId;
+
+    detailSaving = true;
+    const result = await updateDesignMetadata(detailItem.id, {
+      designer_id: newValue ? Number(newValue) : null,
+      source_id: detailSourceId ? Number(detailSourceId) : null,
+    });
+    detailSaving = false;
+
+    if (result.persisted) {
+      previousDesignerId = newValue;
+      const selectedDesigner = (detailItem.designers || []).find(
+        /** @param {{id: number, name: string}} d */ (d) => d.id === Number(newValue)
+      );
+      designSessionStore.trackMutation(detailItem.id, {
+        designer: selectedDesigner?.name || detailItem.designer,
+      });
+      addToast("Designer updated", "success");
+    } else {
+      // Revert dropdown to previous known good value
+      detailDesignerId = oldValue;
+      addToast(result.message || "Failed to update designer", "error");
+    }
+  }
+
+  /**
+   * Auto-save handler for the Source dropdown.
+   * Uses detailSaving guard to prevent concurrent writes.
+   * On failure, reverts the dropdown to its previous value and shows an error toast.
+   */
+  async function handleSourceChange() {
+    if (!detailItem?.id || detailSaving) return;
+    const newValue = detailSourceId;
+    const oldValue = previousSourceId;
+
+    detailSaving = true;
+    const result = await updateDesignMetadata(detailItem.id, {
+      designer_id: detailDesignerId ? Number(detailDesignerId) : null,
+      source_id: newValue ? Number(newValue) : null,
+    });
+    detailSaving = false;
+
+    if (result.persisted) {
+      previousSourceId = newValue;
+      const selectedSource = (detailItem.sources || []).find(
+        /** @param {{id: number, name: string}} s */ (s) => s.id === Number(newValue)
+      );
+      designSessionStore.trackMutation(detailItem.id, {
+        source: selectedSource?.name || detailItem.source,
+      });
+      addToast("Source updated", "success");
+    } else {
+      // Revert dropdown to previous known good value
+      detailSourceId = oldValue;
+      addToast(result.message || "Failed to update source", "error");
     }
   }
 
@@ -538,7 +608,7 @@
           <div class="grid sm:grid-cols-2 gap-2.5">
             <label class="block text-sm">
               <span class="block mb-0.5 font-medium text-gray-600 text-xs">Designer</span>
-              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailDesignerId}>
+              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailDesignerId} onchange={handleDesignerChange}>
                 <option value="">None</option>
                 {#each detailItem.designers || [] as designer}
                   <option value={String(designer.id)}>{designer.name}</option>
@@ -547,7 +617,7 @@
             </label>
             <label class="block text-sm">
               <span class="block mb-0.5 font-medium text-gray-600 text-xs">Source</span>
-              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailSourceId}>
+              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailSourceId} onchange={handleSourceChange}>
                 <option value="">None</option>
                 {#each detailItem.sources || [] as source}
                   <option value={String(source.id)}>{source.name}</option>
