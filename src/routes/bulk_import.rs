@@ -725,7 +725,7 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
 
         if dest_size == source_size && dest_hash == source_hash {
             // Content matches — reuse existing stored filepath, no copy needed
-            println!(
+            tracing::info!(
                 "Import file '{}' content-identical to existing '{}' — reusing stored path",
                 source.display(),
                 dest.display()
@@ -767,7 +767,7 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
             }
         };
 
-        println!(
+        tracing::info!(
             "Import collision: '{}' exists with different content — auto-renaming to '{}'",
             dest.display(),
             final_dest.display()
@@ -819,7 +819,7 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
         )
     })?;
 
-    println!(
+    tracing::info!(
         "Copied external file '{}' to managed directory '{}'",
         source.display(),
         dest.display()
@@ -1075,7 +1075,7 @@ async fn persist_bulk_import_confirm_wire(
             };
 
             if let Err(error) = handle.emit(BULK_IMPORT_PROGRESS_EVENT, event) {
-                println!("Failed to emit bulk import progress event: {error}");
+                tracing::error!("Failed to emit bulk import progress event: {error}");
             }
         }
     };
@@ -1126,7 +1126,7 @@ async fn persist_bulk_import_confirm_wire(
                 let t_batch = Instant::now();
 
                 let cache = image_generation::generate_previews_via_python_batch(&python_requests);
-                println!(
+                tracing::debug!(
                     "[TIMING] Python batch done: {}ms for {} file(s)",
                     t_batch.elapsed().as_millis(),
                     python_requests.len()
@@ -1172,7 +1172,7 @@ async fn persist_bulk_import_confirm_wire(
             });
             let image_gen_ms = t_image.elapsed().as_millis();
             total_image_gen_ms += image_gen_ms;
-            println!(
+            tracing::debug!(
                 "[TIMING] file={} backend={} image_gen={}ms{}",
                 filename,
                 image_result.backend,
@@ -1184,7 +1184,7 @@ async fn persist_bulk_import_confirm_wire(
                     .unwrap_or_default(),
             );
             if let Some(error) = image_result.error.as_ref() {
-                println!(
+                tracing::error!(
                     "Image generation adapter error for '{}': {}",
                     file_path, error
                 );
@@ -1343,7 +1343,7 @@ async fn persist_bulk_import_confirm_wire(
         total_commit_ms += commit_ms;
         committed_design_count += persisted_since_last_commit;
         if persisted_since_last_commit > 0 {
-            println!(
+            tracing::debug!(
                 "Bulk import committed chunk [{}-{}]: {} design(s), commit={}ms.",
                 chunk_start,
                 chunk_end - 1,
@@ -1375,7 +1375,7 @@ async fn persist_bulk_import_confirm_wire(
     committed_design_count += persisted_since_last_commit;
 
     let total_elapsed_ms = import_start.elapsed().as_millis();
-    println!(
+    tracing::info!(
         "[TIMING] Bulk import complete: total={}ms | dedup_check={}ms | image_gen={}ms | db_insert={}ms | tagging={}ms | commits={}ms | persisted={} skipped={}",
         total_elapsed_ms,
         total_dedup_check_ms,
@@ -1421,7 +1421,7 @@ fn persist_bulk_import_confirm_if_initialized(
             image_preference_override,
         )),
         None => {
-            println!("Bulk import DB pool not initialized; skipping persistence step.");
+            tracing::warn!("Bulk import DB pool not initialized; skipping persistence step.");
             Ok(0)
         }
     }
@@ -2019,7 +2019,7 @@ async fn filter_existing_scanned_files(
     }
 
     if excluded_by_path > 0 || excluded_by_triple > 0 {
-        println!(
+        tracing::info!(
             "Preview dedup: excluded_by_path={} excluded_by_triple={} imported={}",
             excluded_by_path,
             excluded_by_triple,

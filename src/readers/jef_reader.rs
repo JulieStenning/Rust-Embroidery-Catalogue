@@ -330,11 +330,8 @@ mod tests {
         let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Bean.jef";
         let data = std::fs::read(path).expect("Failed to read test JEF file");
         let pattern = read_jef(&data).expect("Failed to parse JEF file");
-        for (i, s) in pattern.stitches.iter().enumerate() {
-            println!(
-                "stitch {}: ({}, {}) type: {:?}",
-                i, s.x as i32, s.y as i32, s.stitch_type
-            );
+        for (_i, _s) in pattern.stitches.iter().enumerate() {
+            // (removed verbose per-stitch debug print)
         }
         assert_eq!(pattern.stitches.len(), 324, "Unexpected stitch count");
         let (min_x, min_y, max_x, max_y) = pattern.bounds();

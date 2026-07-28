@@ -254,7 +254,7 @@ pub fn generate_previews_via_python_batch(
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if started.elapsed().as_millis() > batch_timeout_ms as u128 {
-                    println!(
+                    tracing::debug!(
                         "[TIMING] Python batch timed out after {}ms with {}/{} results",
                         batch_timeout_ms,
                         results.len(),
@@ -910,7 +910,7 @@ mod tests {
 
         let python = generate_preview_via_python(&request);
         if python.error.is_some() {
-            eprintln!(
+            tracing::debug!(
                 "Skipping strict python/native parity assertions because python adapter is unavailable: {}",
                 python.error.unwrap_or_else(|| "unknown python adapter error".to_string())
             );
@@ -989,7 +989,7 @@ mod tests {
 
         let python = generate_preview_via_python(&request);
         if python.error.is_some() {
-            eprintln!(
+            tracing::debug!(
                 "Skipping complex VP3 parity assertions because python adapter is unavailable: {}",
                 python
                     .error
@@ -1028,7 +1028,7 @@ mod tests {
     fn native_backend_parses_user_vp3_regression_fixture_when_present() {
         let file_path = PathBuf::from("tests").join("testdata").join("220306.vp3");
         if !file_path.exists() {
-            eprintln!(
+            tracing::debug!(
                 "Skipping user VP3 regression fixture test because file is not present: {}",
                 file_path.display()
             );

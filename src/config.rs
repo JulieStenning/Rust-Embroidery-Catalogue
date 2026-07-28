@@ -43,7 +43,7 @@ pub fn normalize_database_url(raw: &str) -> String {
 #[tauri::command]
 pub fn debug_bootstrap_config() -> BootstrapConfig {
     let config = BootstrapConfig::from_env();
-    println!("Debug bootstrap configuration: {:#?}", config);
+    tracing::debug!("Debug bootstrap configuration: {:#?}", config);
     config
 }
 

@@ -15,7 +15,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::migrate::Migr
         match sqlx::migrate!("./migrations").run(pool).await {
             Ok(()) => return Ok(()),
             Err(err) if is_locked_migration_error(&err) && attempt < MAX_ATTEMPTS => {
-                println!(
+                tracing::warn!(
                     "Database is locked while running migrations (attempt {}/{}). Retrying in {}ms...",
                     attempt,
                     MAX_ATTEMPTS,

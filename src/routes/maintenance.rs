@@ -466,7 +466,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
 
         if let Some(parent) = destination_path.parent() {
             if let Err(error) = fs::create_dir_all(parent) {
-                eprintln!(
+                tracing::error!(
                     "[backup] Could not create destination folder '{}': {}",
                     normalize_path_string(parent),
                     error
@@ -478,7 +478,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
         match fs::copy(&source_snapshot.full_path, &destination_path) {
             Ok(bytes) => total_bytes_copied = total_bytes_copied.saturating_add(bytes),
             Err(error) => {
-                eprintln!(
+                tracing::error!(
                     "[backup] Could not copy '{}' to '{}': {}",
                     normalize_path_string(&source_snapshot.full_path),
                     normalize_path_string(&destination_path),
@@ -502,7 +502,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
         let archive_path = archive_root.join(relative_path);
         if let Some(parent) = archive_path.parent() {
             if let Err(error) = fs::create_dir_all(parent) {
-                eprintln!(
+                tracing::error!(
                     "[backup] Could not create archive folder '{}': {}",
                     normalize_path_string(parent),
                     error
@@ -518,7 +518,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
         match fs::rename(&snapshot.full_path, &archive_path) {
             Ok(_) => archived += 1,
             Err(error) => {
-                eprintln!(
+                tracing::error!(
                     "[backup] Could not archive '{}' to '{}': {}",
                     normalize_path_string(&snapshot.full_path),
                     normalize_path_string(&archive_path),
@@ -531,7 +531,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
     if let Err(error) =
         cleanup_empty_directories(&destination_root, &destination_root.join("_deleted"), true)
     {
-        eprintln!(
+        tracing::error!(
             "[backup] Could not clean up empty directories under '{}': {}",
             normalize_path_string(&destination_root),
             error

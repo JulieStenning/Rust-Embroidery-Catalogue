@@ -174,6 +174,10 @@ pub async fn run_unified_backfill(
         120.0,
     );
 
+    tracing::info!(
+        "Backfill run started batch_size={} commit_every={} workers={} tier2_delay={} tier3_delay={} api_key={}",
+        batch_size, commit_every, workers, tier2_delay_seconds, tier3_delay_seconds, has_api_key
+    );
     log_info(format!(
 		"Run started batch_size={} commit_every={} workers={} tier2_delay={} tier3_delay={} api_key={}",
 		batch_size, commit_every, workers, tier2_delay_seconds, tier3_delay_seconds, has_api_key

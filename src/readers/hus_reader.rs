@@ -473,7 +473,7 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
         }
 
         if !matches!(cmd, 0x80 | 0x81 | 0x84 | 0x88 | 0x90) {
-            eprintln!("Warning: Encountered unknown stitch command byte: {cmd:#X} at index {i}");
+            tracing::warn!("Encountered unknown stitch command byte: {cmd:#X} at index {i}");
         }
     }
 

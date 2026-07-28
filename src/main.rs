@@ -1,8 +1,11 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 // Embroidery Catalogue — Tauri v2 entry point
 
 pub mod config;
 pub mod database;
 pub mod disclaimer;
+pub mod logging;
 pub mod models;
 pub mod png_writer;
 pub mod readers;
@@ -13,7 +16,8 @@ pub mod templating;
 pub mod utils;
 
 use sqlx::SqlitePool;
-use tauri::State;
+use std::sync::atomic::AtomicBool;
+use tauri::{Manager, State};
 
 /// Shared application state managed by Tauri.
 /// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
@@ -22,6 +26,10 @@ pub struct AppState {
     pub db: SqlitePool,
     /// The disclaimer HTML text, embedded at compile time from DISCLAIMER.html.
     pub disclaimer_text: String,
+    /// Log guard — kept alive so log writes are flushed on app exit.
+    pub log_guard: logging::LogGuard,
+    /// Flag signalled when the app is shutting down; background tasks can check it.
+    pub shutdown_requested: AtomicBool,
 }
 
 // ─── Tauri Commands ───────────────────────────────────────────────────────────
@@ -54,12 +62,17 @@ fn get_disclaimer_text(state: State<'_, AppState>) -> Result<String, String> {
 // ─── Application entry point ──────────────────────────────────────────────────
 
 fn main() {
+    // ── Logging (must be first — before any output) ────────────────────
+    let log_dir = logging::resolve_log_dir();
+    let log_guard = logging::init_logging(&log_dir);
+    tracing::info!("Embroidery Catalogue starting — log_dir={}", log_dir.display());
+
     // Load .env file if present (best-effort; not required in production)
     load_dotenv();
 
     // Resolve bootstrap configuration from process environment.
     let bootstrap_config = config::BootstrapConfig::from_env();
-    println!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
+    tracing::info!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
 
     // Ensure the database directory exists before trying to connect
     config::ensure_database_dir(&bootstrap_config.database_url);
@@ -76,7 +89,7 @@ fn main() {
             .expect("Failed to run database migrations");
 
         // Embed the disclaimer text at compile time from DISCLAIMER.html
-        let disclaimer_text = include_str!("../DISCLAIMER.html").to_string();
+        let disclaimer_text = include_str!("../disclaimer.html").to_string();
 
         (pool, disclaimer_text)
     });
@@ -84,6 +97,8 @@ fn main() {
     let app_state = AppState {
         db: pool,
         disclaimer_text,
+        log_guard,
+        shutdown_requested: AtomicBool::new(false),
     };
 
     // Launch a lightweight background backfill for orphan fingerprint data
@@ -93,13 +108,13 @@ fn main() {
         if let Err(err) =
             services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await
         {
-            eprintln!("Startup fingerprint backfill error: {}", err);
+            tracing::error!("Startup fingerprint backfill error: {}", err);
         }
     });
 
     routes::bulk_import::initialize_bulk_import_db_pool(app_state.db.clone());
     let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
-    println!(
+    tracing::info!(
         "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
         startup_reset.cleared_context_count,
         startup_reset.active_context_count,
@@ -107,7 +122,7 @@ fn main() {
         startup_reset.reset_at_millis
     );
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(app_state)
         .setup(|app| {
             routes::bulk_import::initialize_bulk_import_app_handle(app.handle().clone());
@@ -204,8 +219,29 @@ fn main() {
             routes::maintenance::browse_orphan_path,
         ])
         // tauri::generate_context!() reads tauri.conf.json from the project root
-        .run(tauri::generate_context!())
-        .expect("Error while running the Embroidery Catalogue application");
+        .build(tauri::generate_context!())
+        .expect("Error while building the Embroidery Catalogue application");
+
+    app.run(|app_handle, event| {
+        match event {
+            tauri::RunEvent::ExitRequested { code, .. } => {
+                tracing::info!(
+                    "Exit requested (code: {:?}) — signalling shutdown...",
+                    code
+                );
+                let state = app_handle.state::<AppState>();
+                state
+                    .shutdown_requested
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+            tauri::RunEvent::Exit => {
+                tracing::info!("Embroidery Catalogue exiting.");
+                // AppState (including LogGuard) is dropped here,
+                // which flushes pending log writes to disk.
+            }
+            _ => {}
+        }
+    });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
