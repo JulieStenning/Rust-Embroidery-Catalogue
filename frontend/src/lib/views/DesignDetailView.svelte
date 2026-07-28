@@ -151,9 +151,7 @@
       detailTagSelection = Array.isArray(detailItem?.tags)
         ? detailItem.tags.map((tag) => Number(tag?.id)).filter((id) => Number.isFinite(id))
         : [];
-      detailProjectToAdd = Array.isArray(detailItem?.available_projects) && detailItem.available_projects.length > 0
-        ? String(detailItem.available_projects[0].id)
-        : "";
+      detailProjectToAdd = "";
     } catch (error) {
       detailError = `Could not load design detail: ${error}`;
       detailItem = null;
@@ -758,21 +756,30 @@
         <!-- Projects -->
         <div class="route-card space-y-1.5">
           <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Projects</h3>
+
           {#if Array.isArray(detailItem.projects) && detailItem.projects.length > 0}
-            <div class="space-y-1">
+            <div class="flex flex-wrap gap-1.5">
               {#each detailItem.projects as project}
-                <div class="flex items-center justify-between border bg-white rounded px-2.5 py-1.5 text-sm">
-                  <span class="font-medium text-gray-700">{project.name}</span>
-                  <button class="text-red-500 hover:text-red-700 hover:underline text-xs font-semibold" onclick={() => removeDetailFromProject(project.id)} disabled={detailSaving}>Remove</button>
-                </div>
+                <span class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                  <span aria-hidden="true">&#128193;</span>
+                  {project.name}
+                  <button
+                    class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-red-600 rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
+                    onclick={() => removeDetailFromProject(project.id)}
+                    disabled={detailSaving}
+                    title="Remove from project"
+                  >&times;</button>
+                </span>
               {/each}
             </div>
           {:else}
-            <p class="text-xs text-gray-400 italic">Not assigned to any project.</p>
+            <p class="text-xs text-gray-400 italic">Not assigned to any projects.</p>
           {/if}
+
           {#if Array.isArray(detailItem.available_projects) && detailItem.available_projects.length > 0}
             <div class="flex gap-2 pt-0.5">
               <select class="flex-1 border rounded px-2.5 py-1.5 text-sm bg-white" bind:value={detailProjectToAdd} disabled={detailSaving}>
+                <option value="">-- Select project to add --</option>
                 {#each detailItem.available_projects as project}
                   <option value={String(project.id)}>{project.name}</option>
                 {/each}
