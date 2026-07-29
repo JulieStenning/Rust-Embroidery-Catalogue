@@ -21,6 +21,7 @@
   let settingsImportCommitBatchSize = $state("");
   let settingsCanConfigureDataRoot = $state(false);
   let settingsDataRoot = $state("");
+  let settingsDatabasePath = $state("");
   let settingsLogFolder = $state("");
   let settingsAppMode = $state("development");
   let settingsHelpUrl = $state("#/help");
@@ -42,6 +43,7 @@
     settingsImportCommitBatchSize = String(model?.import_commit_batch_size || "");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
+    settingsDatabasePath = String(model?.database_path || "");
     settingsLogFolder = String(model?.log_folder || "");
     settingsAppMode = String(model?.app_mode || "development");
     settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
@@ -364,6 +366,11 @@
       <div>
         <p class="block text-sm font-semibold text-gray-700 mb-1">Log folder</p>
         <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsLogFolder}</code>
+      </div>
+
+      <div>
+        <p class="block text-sm font-semibold text-gray-700 mb-1">Database</p>
+        <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsDatabasePath}</code>
       </div>
     </div>
   </div>

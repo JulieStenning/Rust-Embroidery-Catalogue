@@ -1,7 +1,7 @@
 {
   "productName": "Embroidery Catalogue",
   "version": "0.1.0",
-  "identifier": "com.embroidery-catalogue.app",
+  "identifier": "com.embroiderycatalogue.app",
   "build": {
     "frontendDist": "../frontend/dist",
     "devUrl": "http://localhost:5173",
@@ -29,6 +29,9 @@
       "icons/32x32.png",
       "icons/icon.ico",
       "icons/icon.png"
+    ],
+    "resources": [
+      "resources/EmbroideryCatalogue.db"
     ]
   }
 }

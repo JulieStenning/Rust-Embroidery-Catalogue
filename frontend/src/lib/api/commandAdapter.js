@@ -2229,3 +2229,38 @@ export async function deleteHoop(hoopId) {
     return { source: "mock", persisted: false, error: String(error) };
   }
 }
+
+/**
+ * Fetch the current execution mode and path metadata from the Rust backend.
+ * Used to determine Portable vs Installed mode on startup.
+ *
+ * @returns {Promise<{
+ *   source: string,
+ *   status: import("../types/AppStatus").AppStatus | null,
+ *   error?: string
+ * }>}
+ */
+export async function getAppStatus() {
+  try {
+    const status = await invoke("get_app_status");
+    if (status && typeof status === "object") {
+      return {
+        source: "rust",
+        status: {
+          execution_mode: String(status.execution_mode) === "portable" ? "portable" : "installed",
+          data_root: String(status.data_root || ""),
+          embroidery_dir: String(status.embroidery_dir || ""),
+          database_path: String(status.database_path || ""),
+        },
+      };
+    }
+  } catch (error) {
+    console.info("get_app_status unavailable, returning null.", error);
+  }
+
+  return {
+    source: "mock",
+    status: null,
+    error: "get_app_status command not available.",
+  };
+}

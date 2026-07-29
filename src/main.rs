@@ -7,6 +7,7 @@ pub mod database;
 pub mod disclaimer;
 pub mod logging;
 pub mod models;
+pub mod paths;
 pub mod png_writer;
 pub mod readers;
 pub mod routes;
@@ -15,21 +16,56 @@ pub mod settings;
 pub mod templating;
 pub mod utils;
 
+use serde::Serialize;
 use sqlx::SqlitePool;
 use std::sync::atomic::AtomicBool;
 use tauri::{Manager, State};
+
+// ─── Shared Application State ─────────────────────────────────────────────────
 
 /// Shared application state managed by Tauri.
 /// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
 pub struct AppState {
     /// Connection pool for the SQLite database.
     pub db: SqlitePool,
+    /// Resolved application paths (Portable vs Installed mode).
+    pub paths: paths::AppPaths,
     /// The disclaimer HTML text, embedded at compile time from DISCLAIMER.html.
     pub disclaimer_text: String,
     /// Log guard — kept alive so log writes are flushed on app exit.
     pub log_guard: logging::LogGuard,
     /// Flag signalled when the app is shutting down; background tasks can check it.
     pub shutdown_requested: AtomicBool,
+}
+
+// ─── AppStatus (exposed to frontend) ──────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AppStatus {
+    pub execution_mode: String,
+    pub data_root: String,
+    pub embroidery_dir: String,
+    pub database_path: String,
+}
+
+/// Return the current execution mode and path metadata to the frontend.
+#[tauri::command]
+fn get_app_status(state: State<'_, AppState>) -> AppStatus {
+    let mode_str = match state.paths.mode {
+        paths::ExecutionMode::Portable => "portable".to_string(),
+        paths::ExecutionMode::Installed => "installed".to_string(),
+    };
+
+    AppStatus {
+        execution_mode: mode_str,
+        data_root: state.paths.data_root.to_string_lossy().to_string(),
+        embroidery_dir: state
+            .paths
+            .embroidery_designs_dir
+            .to_string_lossy()
+            .to_string(),
+        database_path: state.paths.database_path.to_string_lossy().to_string(),
+    }
 }
 
 // ─── Tauri Commands ───────────────────────────────────────────────────────────
@@ -62,16 +98,23 @@ fn get_disclaimer_text(state: State<'_, AppState>) -> Result<String, String> {
 // ─── Application entry point ──────────────────────────────────────────────────
 
 fn main() {
-    // ── Logging (must be first — before any output) ────────────────────
-    let log_dir = logging::resolve_log_dir();
-    let log_guard = logging::init_logging(&log_dir);
-    tracing::info!("Embroidery Catalogue starting — log_dir={}", log_dir.display());
+    // ── Resolve paths (must be first — before logging and DB) ────────
+    let app_paths = paths::resolve_app_paths();
+    tracing::info!(
+        "Embroidery Catalogue starting — mode={:?}, data_root={}",
+        app_paths.mode,
+        app_paths.data_root.display()
+    );
+
+    // ── Logging ───────────────────────────────────────────────────────
+    let log_guard = logging::init_logging(&app_paths.log_dir);
+    tracing::info!("Logging initialised — log_dir={}", app_paths.log_dir.display());
 
     // Load .env file if present (best-effort; not required in production)
     load_dotenv();
 
-    // Resolve bootstrap configuration from process environment.
-    let bootstrap_config = config::BootstrapConfig::from_env();
+    // Build bootstrap config from resolved paths
+    let bootstrap_config = config::BootstrapConfig::from_app_paths(&app_paths);
     tracing::info!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
 
     // Ensure the database directory exists before trying to connect
@@ -80,13 +123,29 @@ fn main() {
     // Run async setup using Tauri's built-in Tokio runtime
     // This avoids creating a conflicting second runtime alongside Tauri's own
     let (pool, disclaimer_text) = tauri::async_runtime::block_on(async {
-        // Establish the SQLite connection pool
-        let pool = database::connection::establish_connection().await;
-
-        // Run any pending migrations so the schema is always up to date
-        database::migrations::run_migrations(&pool)
+        // Establish the SQLite connection pool using resolved paths
+        let pool = database::connection::establish_connection(&app_paths)
             .await
-            .expect("Failed to run database migrations");
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Failed to establish database connection: {}",
+                    e
+                )
+            });
+
+        // NOTE: Migration runner is intentionally disabled.
+        // Both the seed DB (src-tauri/resources/) and the development DB are
+        // pre-migrated. Running sqlx::migrate!() would re-insert all seed data
+        // (118 tags, settings, etc.) from the initial migration, overwriting
+        // the curated seed DB content.
+        //
+        // If schema changes are needed in the future, run migrations manually:
+        //   - Update the dev DB with new schema
+        //   - Compact it and copy to src-tauri/resources/EmbroideryCatalogue.db
+        //   - Add the .sql migration file to migrations/ for documentation
+        //
+        // database::migrations::run_migrations(&pool).await
+        //     .expect("Failed to run database migrations");
 
         // Embed the disclaimer text at compile time from DISCLAIMER.html
         let disclaimer_text = include_str!("../disclaimer.html").to_string();
@@ -96,6 +155,7 @@ fn main() {
 
     let app_state = AppState {
         db: pool,
+        paths: app_paths,
         disclaimer_text,
         log_guard,
         shutdown_requested: AtomicBool::new(false),
@@ -129,6 +189,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_app_status,
             config::debug_bootstrap_config,
             check_disclaimer,
             accept_disclaimer,
@@ -233,6 +294,15 @@ fn main() {
                 state
                     .shutdown_requested
                     .store(true, std::sync::atomic::Ordering::SeqCst);
+
+                // Close the SQLite connection pool so VACUUM / WAL checkpoints
+                // finish cleanly before the process exits.
+                let pool = &state.db;
+                let pool_clone = pool.clone();
+                tauri::async_runtime::spawn(async move {
+                    pool_clone.close().await;
+                    tracing::info!("SQLite connection pool closed.");
+                });
             }
             tauri::RunEvent::Exit => {
                 tracing::info!("Embroidery Catalogue exiting.");

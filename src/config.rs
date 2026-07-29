@@ -1,7 +1,8 @@
 // Bootstrap configuration ownership (environment + startup defaults).
+use crate::paths::AppPaths;
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_DATABASE_URL: &str = "sqlite:data/database/catalogue.db";
+pub const DEFAULT_DATABASE_URL: &str = "sqlite:data/database/EmbroideryCatalogue.db";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootstrapConfig {
@@ -16,15 +17,22 @@ impl BootstrapConfig {
 
         Self { database_url }
     }
+
+    /// Build a `BootstrapConfig` from the resolved `AppPaths`.
+    /// The database URL is derived from `AppPaths.database_path`.
+    pub fn from_app_paths(paths: &AppPaths) -> Self {
+        let database_url = format!("sqlite:{}", paths.database_path.display());
+        Self { database_url }
+    }
 }
 
 /// Normalize DATABASE_URL so SQLx always receives a valid SQLite URL.
 ///
 /// Accepted inputs:
-/// - sqlite:data/database/catalogue.db
-/// - sqlite://data/database/catalogue.db
-/// - sqlite:///D:/path/to/catalogue.db
-/// - data/database/catalogue.db
+/// - sqlite:data/database/EmbroideryCatalogue.db
+/// - sqlite://data/database/EmbroideryCatalogue.db
+/// - sqlite:///D:/path/to/EmbroideryCatalogue.db
+/// - data/database/EmbroideryCatalogue.db
 ///
 /// Bare file paths are promoted to `sqlite:<path>`.
 pub fn normalize_database_url(raw: &str) -> String {

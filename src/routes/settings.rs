@@ -1,9 +1,9 @@
-use crate::config::BootstrapConfig;
+use crate::paths::ExecutionMode;
 use crate::settings;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::State;
 
 const KEY_AI_TIER2_AUTO: &str = "ai.tier2_auto";
@@ -29,6 +29,7 @@ pub struct SettingsViewModel {
     pub import_last_browse_folder: String,
     pub can_configure_data_root: bool,
     pub data_root: String,
+    pub database_path: String,
     pub log_folder: String,
     pub app_mode: String,
     pub ai_tagging_help_url: String,
@@ -106,8 +107,18 @@ pub async fn get_settings_view_model(
     let google_api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
     let has_google_api_key = !google_api_key.trim().is_empty();
 
-    let data_root = derive_data_root_from_database_url();
-    let log_folder = derive_log_folder_from_data_root(&data_root);
+    // Derive paths and mode from the centrally resolved AppPaths in state
+    let data_root = state.paths.data_root.to_string_lossy().to_string();
+    let database_path = state.paths.database_path.to_string_lossy().to_string();
+    let log_folder = state.paths.log_dir.to_string_lossy().to_string();
+    let can_configure_data_root = match state.paths.mode {
+        ExecutionMode::Portable => false,
+        ExecutionMode::Installed => true,
+    };
+    let app_mode = match state.paths.mode {
+        ExecutionMode::Portable => "portable".to_string(),
+        ExecutionMode::Installed => "installed".to_string(),
+    };
 
     Ok(SettingsViewModel {
         image_preference,
@@ -120,10 +131,11 @@ pub async fn get_settings_view_model(
         ai_delay,
         import_commit_batch_size,
         import_last_browse_folder,
-        can_configure_data_root: false,
+        can_configure_data_root,
         data_root,
+        database_path,
         log_folder,
-        app_mode: "development".to_string(),
+        app_mode,
         ai_tagging_help_url: "#/help".to_string(),
     })
 }
@@ -336,51 +348,6 @@ fn is_truthy(raw: &str) -> bool {
     )
 }
 
-fn strip_sqlite_prefix(database_url: &str) -> &str {
-    database_url
-        .strip_prefix("sqlite:///")
-        .or_else(|| database_url.strip_prefix("sqlite://"))
-        .or_else(|| database_url.strip_prefix("sqlite:"))
-        .unwrap_or(database_url)
-}
-
-fn normalize_path_for_display(path: &Path) -> String {
-    let rendered = path.to_string_lossy().to_string();
-    if let Some(rest) = rendered.strip_prefix(r"\\?\UNC\") {
-        return format!(r"\\{}", rest);
-    }
-    if let Some(rest) = rendered.strip_prefix(r"\\?\") {
-        return rest.to_string();
-    }
-    rendered
-}
-
-fn derive_data_root_from_database_url() -> String {
-    let config = BootstrapConfig::from_env();
-    let db_path = Path::new(strip_sqlite_prefix(&config.database_url));
-
-    let root = if let Some(parent) = db_path.parent() {
-        if parent
-            .file_name()
-            .map(|name| name.to_string_lossy().eq_ignore_ascii_case("database"))
-            .unwrap_or(false)
-        {
-            parent.parent().unwrap_or(parent)
-        } else {
-            parent
-        }
-    } else {
-        Path::new("data")
-    };
-
-    normalize_path_for_display(&root.canonicalize().unwrap_or_else(|_| root.to_path_buf()))
-}
-
-fn derive_log_folder_from_data_root(data_root: &str) -> String {
-    let log_path = PathBuf::from(data_root).join("logs");
-    normalize_path_for_display(&log_path.canonicalize().unwrap_or(log_path))
-}
-
 fn save_google_api_key_to_env(value: &str) -> Result<(), String> {
     let env_path = Path::new(".env");
     let existing = std::fs::read_to_string(env_path).unwrap_or_default();
@@ -507,23 +474,6 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("(blank)"));
-    }
-
-    #[test]
-    fn sqlite_prefix_stripping_handles_supported_formats() {
-        assert_eq!(
-            strip_sqlite_prefix("sqlite:///tmp/catalogue.db"),
-            "tmp/catalogue.db"
-        );
-        assert_eq!(
-            strip_sqlite_prefix("sqlite://tmp/catalogue.db"),
-            "tmp/catalogue.db"
-        );
-        assert_eq!(
-            strip_sqlite_prefix("sqlite:tmp/catalogue.db"),
-            "tmp/catalogue.db"
-        );
-        assert_eq!(strip_sqlite_prefix("tmp/catalogue.db"), "tmp/catalogue.db");
     }
 
     #[test]

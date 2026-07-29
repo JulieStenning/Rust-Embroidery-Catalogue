@@ -14,6 +14,15 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::migrate::Migr
     for attempt in 1..=MAX_ATTEMPTS {
         match sqlx::migrate!("./migrations").run(pool).await {
             Ok(()) => return Ok(()),
+            Err(err) if is_already_exists_error(&err) => {
+                // Schema already exists — this happens when the seed database
+                // is used but the _sqlx_migrations tracking table is missing.
+                // This is not an error; the schema is in place.
+                tracing::info!(
+                    "Migration 'already exists' — schema is already applied (likely a seed DB). Skipping."
+                );
+                return Ok(());
+            }
             Err(err) if is_locked_migration_error(&err) && attempt < MAX_ATTEMPTS => {
                 tracing::warn!(
                     "Database is locked while running migrations (attempt {}/{}). Retrying in {}ms...",
@@ -48,6 +57,24 @@ fn is_sqlite_locked_error(err: &sqlx::Error) -> bool {
                     .message()
                     .to_ascii_lowercase()
                     .contains("database is locked")
+        }
+        _ => false,
+    }
+}
+
+/// Check whether the error indicates the target schema object already exists.
+/// This can happen when a pre-migrated seed database is used but the
+/// `_sqlx_migrations` tracking table is missing or incomplete.
+pub fn is_already_exists_error(err: &MigrateError) -> bool {
+    match err {
+        MigrateError::ExecuteMigration(inner, _) | MigrateError::Execute(inner) => {
+            match inner {
+                sqlx::Error::Database(db_err) => {
+                    let msg = db_err.message().to_ascii_lowercase();
+                    msg.contains("already exists")
+                }
+                _ => false,
+            }
         }
         _ => false,
     }
