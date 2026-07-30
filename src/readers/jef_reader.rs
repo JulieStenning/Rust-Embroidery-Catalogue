@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_read_bean_jef_file() {
-        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Bean.jef";
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\Test Designs\Bean.jef";
         let data = std::fs::read(path).expect("Failed to read test JEF file");
         let pattern = read_jef(&data).expect("Failed to parse JEF file");
         for (_i, _s) in pattern.stitches.iter().enumerate() {
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_read_bear_mask_6x10_jef_file() {
-        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\testdata\Bear Mask 6x10 Hoop.jef";
+        let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\Test Designs\Bear Mask 6x10 Hoop.jef";
         let data = std::fs::read(path).expect("Failed to read 6x10 Bear Mask JEF file");
         let pattern = read_jef(&data).expect("Failed to parse 6x10 Bear Mask JEF file");
 

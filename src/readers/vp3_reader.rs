@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn vp3_user_fixture_stitch_diagnostics() {
-        let file_path = PathBuf::from("tests").join("testdata").join("220306.vp3");
+        let file_path = PathBuf::from("tests").join("Test Designs").join("220306.vp3");
         if !file_path.exists() {
             eprintln!(
                 "Skipping VP3 diagnostics because fixture is missing: {}",
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn vp3_isolated_colour_fixture_keeps_long_stitches() {
         let file_path = PathBuf::from("tests")
-            .join("testdata")
+            .join("Test Designs")
             .join("test-less-220306.vp3");
         if !file_path.exists() {
             eprintln!(
@@ -415,7 +415,7 @@ mod tests {
     #[test]
     fn vp3_peacock_fixture_stitch_diagnostics() {
         let file_path = PathBuf::from("tests")
-            .join("testdata")
+            .join("Test Designs")
             .join("01Peacock.vp3");
         if !file_path.exists() {
             eprintln!(

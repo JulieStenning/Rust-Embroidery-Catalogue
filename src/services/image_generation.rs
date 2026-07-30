@@ -893,7 +893,7 @@ mod tests {
 
     #[test]
     fn python_and_native_backends_share_core_result_contract_for_2d() {
-        let file_path = PathBuf::from("tests").join("testdata").join("Bean.pes");
+        let file_path = PathBuf::from("tests").join("Test Designs").join("Bean.pes");
         assert!(file_path.exists(), "expected test embroidery file to exist");
 
         let request = ImageGenerationRequest {
@@ -942,7 +942,7 @@ mod tests {
 
     #[test]
     fn native_backend_parses_vp3_fixture() {
-        let file_path = PathBuf::from("tests").join("testdata").join("Bean.vp3");
+        let file_path = PathBuf::from("tests").join("Test Designs").join("Bean.vp3");
         assert!(file_path.exists(), "expected VP3 fixture file to exist");
 
         let request = ImageGenerationRequest {
@@ -969,7 +969,7 @@ mod tests {
 
     #[test]
     fn python_and_native_backends_match_metrics_for_complex_vp3_fixture() {
-        let file_path = PathBuf::from("tests").join("testdata").join("Cake 3.vp3");
+        let file_path = PathBuf::from("tests").join("Test Designs").join("Cake 3.vp3");
         assert!(
             file_path.exists(),
             "expected complex VP3 fixture file to exist"
@@ -1026,7 +1026,7 @@ mod tests {
 
     #[test]
     fn native_backend_parses_user_vp3_regression_fixture_when_present() {
-        let file_path = PathBuf::from("tests").join("testdata").join("220306.vp3");
+        let file_path = PathBuf::from("tests").join("Test Designs").join("220306.vp3");
         if !file_path.exists() {
             tracing::debug!(
                 "Skipping user VP3 regression fixture test because file is not present: {}",

@@ -495,7 +495,7 @@ mod tests {
 
     #[test]
     fn read_hus_fixture_produces_stitches_threads_and_end() {
-        let path = "tests/testdata/Bean.hus";
+        let path = "tests/Test Designs/Bean.hus";
         let data = fs::read(path).expect("expected HUS fixture file");
         let pattern = HusReader
             .read(&data)
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn read_hus_old_cake_fixture_is_not_stubbed_zeroes() {
-        let path = "tests/testdata/Cake 3.hus";
+        let path = "tests/Test Designs/Cake 3.hus";
         let data = fs::read(path).expect("expected old HUS fixture file");
         let pattern = read_hus(&data).expect("expected HUS parser to decode fixture");
 

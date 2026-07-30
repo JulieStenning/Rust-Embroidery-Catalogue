@@ -388,11 +388,20 @@ mod tests {
     }
 
     #[test]
-    fn test_read_dst_peacock_generates_threads_from_co() {
-        let data = include_bytes!("../../tests/User tests/01dstPeacock.dst");
-        let pattern = read_dst(data).expect("should parse provided DST sample");
+    fn test_read_dst_synthetic_co_generates_threads() {
+        // Build a minimal DST file with CO:18 in the header.
+        // CO (colour-change count) = 18, so 19 thread blocks expected.
+        let mut data = vec![0u8; 512];
+        let header_text = b"CO:18\r";
+        data[..header_text.len()].copy_from_slice(header_text);
 
-        // Header declares CO:18 (color-change commands), so 19 thread blocks.
+        // Append END marker
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0xF3);
+
+        let pattern = read_dst(&data).expect("should parse synthetic DST");
+
         assert_eq!(pattern.extras.get("CO").map(|s| s.as_str()), Some("18"));
         assert_eq!(pattern.threadlist.len(), 19);
     }

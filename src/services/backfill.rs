@@ -1109,9 +1109,9 @@ mod tests {
             .execute(pool)
             .await
             .expect("seed tag3");
-        sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (1, 'cute_cat.pes', 'tests/testdata/cute_cat.pes', 0)").execute(pool).await.expect("seed design1");
-        sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (2, 'dog_crest.pes', 'tests/testdata/dog_crest.pes', 1)").execute(pool).await.expect("seed design2");
-        sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (3, 'flower.pes', 'tests/testdata/flower.pes', 0)").execute(pool).await.expect("seed design3");
+        sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (1, 'cute_cat.pes', 'tests/Test Designs/cute_cat.pes', 0)").execute(pool).await.expect("seed design1");
+        sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (2, 'dog_crest.pes', 'tests/Test Designs/dog_crest.pes', 1)").execute(pool).await.expect("seed design2");
+        sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (3, 'flower.pes', 'tests/Test Designs/flower.pes', 0)").execute(pool).await.expect("seed design3");
         sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (2, 1)")
             .execute(pool)
             .await
