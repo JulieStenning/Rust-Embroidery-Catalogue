@@ -32,11 +32,9 @@ Google Api Key.txt
 bash.exe.stackdump
 current chat.txt
 Start the ollama server.url
-logs/backfill_info.log
+logs/
 Zed ollama qwen.txt
 docs/Specs/Embroidery Design Management UI Overview.md
-logs/startup-error.log
-logs/backfill_info.log
 tests/user tests template.md
 tests/Browse.md
 tests/User test git issues/Browse.md
