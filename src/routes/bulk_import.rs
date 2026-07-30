@@ -2537,8 +2537,9 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_assigns_tier1_keyword_tags() {
-        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
-        assert!(fixture.exists(), "expected Bean.pes fixture to exist");
+        // Use Flower.pes fixture whose name contains "flower" -> "Flowers" from KEYWORD_MAP
+        let fixture = Path::new("tests").join("Test Designs").join("Flower.pes");
+        assert!(fixture.exists(), "expected Flower.pes fixture to exist");
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
@@ -2563,7 +2564,7 @@ mod tests {
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
 
-        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Flower.pes";
 
         let assigned_tags = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (String,)>(
@@ -2584,7 +2585,16 @@ mod tests {
 
         assert!(
             !assigned_tags.is_empty(),
-            "expected at least one tag assignment for imported design"
+            "expected at least one tag assignment for imported design; got {:?}",
+            assigned_tags
+        );
+
+        // Verify that "Flowers" was assigned (from "flower" keyword match)
+        let descriptions: Vec<&str> = assigned_tags.iter().map(|d| d.0.as_str()).collect();
+        assert!(
+            descriptions.contains(&"Flowers"),
+            "expected 'Flowers' tag to be assigned from 'flower' keyword; got {:?}",
+            descriptions
         );
     }
 
