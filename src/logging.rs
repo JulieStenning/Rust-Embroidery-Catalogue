@@ -67,6 +67,20 @@ pub fn init_logging(log_dir: &Path) -> LogGuard {
     }
 }
 
+impl LogGuard {
+    /// Create a dummy `LogGuard` for use in tests where a real logging
+    /// setup is not needed. Connects to `std::io::sink()` to avoid
+    /// writing actual log files.
+    #[cfg(test)]
+    pub(crate) fn dummy_for_test() -> Self {
+        let (_, file_guard) = tracing_appender::non_blocking(std::io::sink());
+        LogGuard {
+            _file_guard: file_guard,
+            _stdout_guard: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
