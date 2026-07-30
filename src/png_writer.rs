@@ -439,36 +439,71 @@ fn draw_segment_3d(
     let shadow = darken_color(color, style.shadow_strength);
     let highlight = lighten_color(color, style.highlight_strength);
 
-    // Faux thread volume: shadow underlay, widened core, then highlight ridge.
-    let shadow_offset = style.shadow_offset;
-    let highlight_offset = style.highlight_offset;
+    // Faux thread volume: shadow underlay, core, then highlight ridge.
+    // Use the same disk-fill approach as draw_segment_2d so that 3D
+    // has at least as much pixel coverage as 2D (3 overlapping thick
+    // lines vs a single thick line).
+    const THREAD_RADIUS: i32 = 2;
 
-    draw_antialiased_line_segment_mut(
-        img,
-        (from.0 + shadow_offset, from.1 + shadow_offset),
-        (to.0 + shadow_offset, to.1 + shadow_offset),
-        shadow,
-        interpolate,
-    );
-
-    for offset in -style.core_half_width..=style.core_half_width {
-        draw_antialiased_line_segment_mut(
-            img,
-            (from.0 + offset, from.1),
-            (to.0 + offset, to.1),
-            color,
-            interpolate,
-        );
+    // Shadow layer (offset down-right)
+    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
+        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
+            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+                continue;
+            }
+            draw_antialiased_line_segment_mut(
+                img,
+                (
+                    from.0 + ox + style.shadow_offset,
+                    from.1 + oy + style.shadow_offset,
+                ),
+                (
+                    to.0 + ox + style.shadow_offset,
+                    to.1 + oy + style.shadow_offset,
+                ),
+                shadow,
+                interpolate,
+            );
+        }
     }
 
-    draw_antialiased_line_segment_mut(img, from, to, color, interpolate);
-    draw_antialiased_line_segment_mut(
-        img,
-        (from.0 - highlight_offset, from.1 - highlight_offset),
-        (to.0 - highlight_offset, to.1 - highlight_offset),
-        highlight,
-        interpolate,
-    );
+    // Core layer (centred)
+    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
+        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
+            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+                continue;
+            }
+            draw_antialiased_line_segment_mut(
+                img,
+                (from.0 + ox, from.1 + oy),
+                (to.0 + ox, to.1 + oy),
+                color,
+                interpolate,
+            );
+        }
+    }
+
+    // Highlight layer (offset up-left)
+    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
+        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
+            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+                continue;
+            }
+            draw_antialiased_line_segment_mut(
+                img,
+                (
+                    from.0 + ox - style.highlight_offset,
+                    from.1 + oy - style.highlight_offset,
+                ),
+                (
+                    to.0 + ox - style.highlight_offset,
+                    to.1 + oy - style.highlight_offset,
+                ),
+                highlight,
+                interpolate,
+            );
+        }
+    }
 }
 
 /// Render an embroidery pattern to PNG bytes.
