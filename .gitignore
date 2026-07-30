@@ -53,3 +53,4 @@ tests/User test git issues/Tags.md
 frontend/eslint_errors.txt
 tests/Test Designs/Rose.eof
 copy portable files for Julie.bat
+examples/gen_jef_fixture.rs
