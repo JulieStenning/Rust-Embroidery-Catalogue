@@ -20,8 +20,11 @@ impl BootstrapConfig {
 
     /// Build a `BootstrapConfig` from the resolved `AppPaths`.
     /// The database URL is derived from `AppPaths.database_path`.
+    /// Forward slashes are used so the URL works correctly with SQLx on all
+    /// platforms (including Windows, where backslashes confuse the URI parser).
     pub fn from_app_paths(paths: &AppPaths) -> Self {
-        let database_url = format!("sqlite:{}", paths.database_path.display());
+        let display = paths.database_path.display().to_string();
+        let database_url = format!("sqlite:{}", display.replace('\\', "/"));
         Self { database_url }
     }
 }
