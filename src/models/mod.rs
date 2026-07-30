@@ -303,3 +303,152 @@ impl Default for EmbPattern {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── StitchType::from_command ──────────────────────────────────────
+
+    #[test]
+    fn test_from_command_known_codes() {
+        // Spot-check a representative sample of the known command codes.
+        assert_eq!(StitchType::from_command(0), StitchType::Stitch);
+        assert_eq!(StitchType::from_command(1), StitchType::Jump);
+        assert_eq!(StitchType::from_command(2), StitchType::Trim);
+        assert_eq!(StitchType::from_command(3), StitchType::Stop);
+        assert_eq!(StitchType::from_command(4), StitchType::End);
+        assert_eq!(StitchType::from_command(5), StitchType::ColorChange);
+        assert_eq!(StitchType::from_command(6), StitchType::SequinMode);
+        assert_eq!(StitchType::from_command(7), StitchType::SequinEject);
+        assert_eq!(StitchType::from_command(9), StitchType::NeedleSet);
+        assert_eq!(StitchType::from_command(0x0B), StitchType::Slow);
+        assert_eq!(StitchType::from_command(0x0C), StitchType::Fast);
+        assert_eq!(StitchType::from_command(0x10), StitchType::SetChangeSequence);
+        assert_eq!(StitchType::from_command(0xB0), StitchType::SewTo);
+        assert_eq!(StitchType::from_command(0xB1), StitchType::NeedleAt);
+        assert_eq!(StitchType::from_command(0xC0), StitchType::MatrixTranslate);
+        assert_eq!(StitchType::from_command(0xC1), StitchType::MatrixScaleOrigin);
+        assert_eq!(StitchType::from_command(0xC2), StitchType::MatrixRotateOrigin);
+        assert_eq!(StitchType::from_command(0xC3), StitchType::MatrixReset);
+        assert_eq!(StitchType::from_command(0xC4), StitchType::MatrixScale);
+        assert_eq!(StitchType::from_command(0xC5), StitchType::MatrixRotate);
+        assert_eq!(StitchType::from_command(0xD1), StitchType::ContingencyTieOnThreeSmall);
+        assert_eq!(StitchType::from_command(0xD2), StitchType::ContingencyTieOffThreeSmall);
+        assert_eq!(StitchType::from_command(0xD3), StitchType::ContingencyTieOnNone);
+        assert_eq!(StitchType::from_command(0xD4), StitchType::ContingencyTieOffNone);
+        assert_eq!(StitchType::from_command(0xD5), StitchType::OptionMaxStitchLength);
+        assert_eq!(StitchType::from_command(0xD6), StitchType::OptionMaxJumpLength);
+        assert_eq!(StitchType::from_command(0xD7), StitchType::OptionExplicitTrim);
+        assert_eq!(StitchType::from_command(0xD8), StitchType::OptionImplicitTrim);
+        assert_eq!(StitchType::from_command(0xE0), StitchType::StitchBreak);
+        assert_eq!(StitchType::from_command(0xE1), StitchType::SequenceBreak);
+        assert_eq!(StitchType::from_command(0xE2), StitchType::ColorBreak);
+        assert_eq!(StitchType::from_command(0xE4), StitchType::TieOn);
+        assert_eq!(StitchType::from_command(0xE5), StitchType::TieOff);
+        assert_eq!(StitchType::from_command(0xE9), StitchType::FrameEject);
+        assert_eq!(StitchType::from_command(0xF0), StitchType::ContingencyLongStitchNone);
+        assert_eq!(
+            StitchType::from_command(0xF1),
+            StitchType::ContingencyLongStitchJumpNeedle
+        );
+        assert_eq!(
+            StitchType::from_command(0xF2),
+            StitchType::ContingencyLongStitchSewTo
+        );
+    }
+
+    #[test]
+    fn test_from_command_masks_lower_8_bits() {
+        // Only the lower 8 bits matter — extra high bits are masked away.
+        assert_eq!(StitchType::from_command(0x100), StitchType::Stitch);
+        assert_eq!(StitchType::from_command(0x201), StitchType::Jump);
+        assert_eq!(StitchType::from_command(0xABCD_0004), StitchType::End);
+    }
+
+    #[test]
+    fn test_from_command_unknown() {
+        // A code that isn't mapped should produce Unknown preserving the raw value.
+        let result = StitchType::from_command(0xDEAD_BEEF);
+        assert_eq!(result, StitchType::Unknown(0xDEAD_BEEF));
+    }
+
+    // ── StitchType::to_command ────────────────────────────────────────
+
+    #[test]
+    fn test_to_command_all_known_variants() {
+        // Every known variant should produce the expected base command code.
+        assert_eq!(StitchType::Stitch.to_command(), 0);
+        assert_eq!(StitchType::Jump.to_command(), 1);
+        assert_eq!(StitchType::Trim.to_command(), 2);
+        assert_eq!(StitchType::Stop.to_command(), 3);
+        assert_eq!(StitchType::End.to_command(), 4);
+        assert_eq!(StitchType::ColorChange.to_command(), 5);
+        assert_eq!(StitchType::SequinMode.to_command(), 6);
+        assert_eq!(StitchType::SequinEject.to_command(), 7);
+        assert_eq!(StitchType::NeedleSet.to_command(), 9);
+        assert_eq!(StitchType::Slow.to_command(), 0x0B);
+        assert_eq!(StitchType::Fast.to_command(), 0x0C);
+        assert_eq!(StitchType::SetChangeSequence.to_command(), 0x10);
+        assert_eq!(StitchType::SewTo.to_command(), 0xB0);
+        assert_eq!(StitchType::NeedleAt.to_command(), 0xB1);
+        assert_eq!(StitchType::MatrixTranslate.to_command(), 0xC0);
+        assert_eq!(StitchType::MatrixScaleOrigin.to_command(), 0xC1);
+        assert_eq!(StitchType::MatrixRotateOrigin.to_command(), 0xC2);
+        assert_eq!(StitchType::MatrixReset.to_command(), 0xC3);
+        assert_eq!(StitchType::MatrixScale.to_command(), 0xC4);
+        assert_eq!(StitchType::MatrixRotate.to_command(), 0xC5);
+        assert_eq!(StitchType::ContingencyTieOnThreeSmall.to_command(), 0xD1);
+        assert_eq!(StitchType::ContingencyTieOffThreeSmall.to_command(), 0xD2);
+        assert_eq!(StitchType::ContingencyTieOnNone.to_command(), 0xD3);
+        assert_eq!(StitchType::ContingencyTieOffNone.to_command(), 0xD4);
+        assert_eq!(StitchType::OptionMaxStitchLength.to_command(), 0xD5);
+        assert_eq!(StitchType::OptionMaxJumpLength.to_command(), 0xD6);
+        assert_eq!(StitchType::OptionExplicitTrim.to_command(), 0xD7);
+        assert_eq!(StitchType::OptionImplicitTrim.to_command(), 0xD8);
+        assert_eq!(StitchType::StitchBreak.to_command(), 0xE0);
+        assert_eq!(StitchType::SequenceBreak.to_command(), 0xE1);
+        assert_eq!(StitchType::ColorBreak.to_command(), 0xE2);
+        assert_eq!(StitchType::TieOn.to_command(), 0xE4);
+        assert_eq!(StitchType::TieOff.to_command(), 0xE5);
+        assert_eq!(StitchType::FrameEject.to_command(), 0xE9);
+        assert_eq!(StitchType::ContingencyLongStitchNone.to_command(), 0xF0);
+        assert_eq!(StitchType::ContingencyLongStitchJumpNeedle.to_command(), 0xF1);
+        assert_eq!(StitchType::ContingencyLongStitchSewTo.to_command(), 0xF2);
+    }
+
+    #[test]
+    fn test_to_command_unknown_and_nocommand_return_zero() {
+        assert_eq!(StitchType::NoCommand.to_command(), 0);
+        assert_eq!(StitchType::Unknown(42).to_command(), 0);
+        assert_eq!(StitchType::Unknown(0xDEAD).to_command(), 0);
+    }
+
+    #[test]
+    fn test_from_command_to_command_roundtrip() {
+        // Roundtrip: from_command → to_command should recover the base code
+        // for every known command value.
+        let known_codes = [
+            0, 1, 2, 3, 4, 5, 6, 7, 9, 0x0B, 0x0C, 0x10, 0xB0, 0xB1, 0xC0, 0xC1, 0xC2, 0xC3,
+            0xC4, 0xC5, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xE0, 0xE1, 0xE2, 0xE4,
+            0xE5, 0xE9, 0xF0, 0xF1, 0xF2,
+        ];
+        for &code in &known_codes {
+            assert_eq!(
+                StitchType::from_command(code).to_command(),
+                code,
+                "Roundtrip failed for code 0x{code:02X}"
+            );
+        }
+    }
+
+    // ── EmbPattern::default ───────────────────────────────────────────
+
+    #[test]
+    fn test_embpattern_default() {
+        let pat = EmbPattern::default();
+        assert!(pat.stitches.is_empty());
+        assert!(pat.threadlist.is_empty());
+        assert!(pat.extras.is_empty());
+    }
+}
