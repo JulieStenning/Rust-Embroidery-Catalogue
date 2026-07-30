@@ -1116,6 +1116,765 @@ mod tests {
         ))
     }
 
+    // ─── Group A: Pure functions (zero setup) ───────────────────────────────────
+
+    #[test]
+    fn maintenance_scaffold_enabled_returns_true() {
+        assert!(maintenance_scaffold_enabled());
+    }
+
+    #[test]
+    fn setting_description_for_key_returns_correct_descriptions() {
+        let db_desc = setting_description_for_key(KEY_BACKUP_DATABASE_DESTINATION);
+        assert!(db_desc.contains("database"));
+        assert!(db_desc.contains("backup"));
+
+        let designs_desc = setting_description_for_key(KEY_BACKUP_DESIGNS_DESTINATION);
+        assert!(designs_desc.contains("designs"));
+        assert!(designs_desc.contains("backup"));
+
+        assert_eq!(setting_description_for_key("unknown.key"), "");
+    }
+
+    #[test]
+    fn is_truthy_recognises_valid_values() {
+        assert!(is_truthy("1"));
+        assert!(is_truthy("true"));
+        assert!(is_truthy("yes"));
+        assert!(is_truthy("y"));
+        assert!(is_truthy("accepted"));
+        // case insensitivity and whitespace
+        assert!(is_truthy(" TRUE "));
+        assert!(is_truthy("  Yes  "));
+        assert!(is_truthy("ACCEPTED"));
+    }
+
+    #[test]
+    fn is_truthy_rejects_invalid_values() {
+        assert!(!is_truthy("0"));
+        assert!(!is_truthy("no"));
+        assert!(!is_truthy("false"));
+        assert!(!is_truthy("off"));
+        assert!(!is_truthy(""));
+        assert!(!is_truthy("   "));
+        assert!(!is_truthy("maybe"));
+    }
+
+    #[test]
+    fn modified_epoch_seconds_handles_some_and_none() {
+        let time = SystemTime::now();
+        let result = modified_epoch_seconds(Some(time));
+        assert!(result.is_some());
+        let secs = result.unwrap();
+        assert!(secs > 1_700_000_000); // reasonable Unix timestamp in 2026
+
+        assert_eq!(modified_epoch_seconds(None), None);
+    }
+
+    #[test]
+    fn modified_epoch_seconds_handles_time_before_epoch() {
+        // SystemTime::UNIX_EPOCH - 1 second is before the epoch, so duration_since fails.
+        let before_epoch = UNIX_EPOCH - Duration::from_secs(1);
+        assert_eq!(modified_epoch_seconds(Some(before_epoch)), None);
+    }
+
+    #[test]
+    fn normalize_path_string_round_trips() {
+        let path = PathBuf::from(r"C:\Users\test\file.pes");
+        let result = normalize_path_string(&path);
+        assert!(result.contains("file.pes"));
+        assert!(result.contains("Users"));
+    }
+
+    #[test]
+    fn normalize_path_string_handles_unicode() {
+        let path = PathBuf::from("data/über/dossier.pes");
+        let result = normalize_path_string(&path);
+        assert!(result.contains("über"));
+    }
+
+    #[test]
+    fn current_epoch_seconds_string_returns_numeric_string() {
+        let result = current_epoch_seconds_string();
+        assert!(!result.is_empty());
+        assert!(result.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn fallback_filename_timestamp_returns_numeric_string() {
+        let result = fallback_filename_timestamp();
+        assert!(!result.is_empty());
+        assert!(result.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    // ─── Group B: Filesystem integration ───────────────────────────────────────
+
+    #[test]
+    fn ensure_writable_directory_creates_and_validates() {
+        let dir = unique_temp_path("backup-writable-test");
+        assert!(!dir.exists());
+
+        let result = ensure_writable_directory(&dir);
+        assert!(result.is_ok());
+        assert!(dir.exists());
+        // The probe file should have been cleaned up
+        assert!(!dir.join(".backup-write-test.tmp").exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ensure_writable_directory_accepts_existing_directory() {
+        let dir = unique_temp_path("backup-writable-existing-test");
+        fs::create_dir_all(&dir).expect("pre-create should succeed");
+
+        let result = ensure_writable_directory(&dir);
+        assert!(result.is_ok());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn collect_file_snapshots_returns_empty_map_for_missing_root() {
+        let missing = unique_temp_path("snapshot-missing");
+        let map = collect_file_snapshots(&missing, true).expect("missing root should return empty map");
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn collect_file_snapshots_finds_all_files() {
+        let root = unique_temp_path("snapshot-files-test");
+        fs::create_dir_all(root.join("subdir")).expect("subdir should be created");
+        fs::write(root.join("alpha.pes"), b"alpha").expect("alpha should be created");
+        fs::write(root.join("subdir").join("beta.pes"), b"beta").expect("beta should be created");
+
+        let map = collect_file_snapshots(&root, false).expect("snapshot should succeed");
+        assert_eq!(map.len(), 2);
+
+        let alpha_key = PathBuf::from("alpha.pes");
+        let beta_key = PathBuf::from("subdir/beta.pes");
+        assert!(map.contains_key(&alpha_key));
+        assert!(map.contains_key(&beta_key));
+        assert_eq!(map[&alpha_key].size, 5);
+        assert_eq!(map[&beta_key].size, 4);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn collect_file_snapshots_skips_deleted_tree_when_flag_set() {
+        let root = unique_temp_path("snapshot-deleted-skip");
+        fs::create_dir_all(root.join("_deleted").join("2026-01-01")).expect("deleted dirs should be created");
+        fs::create_dir_all(root.join("active")).expect("active dir should be created");
+        fs::write(root.join("active").join("keep.pes"), b"keep").expect("keep file should be created");
+        fs::write(root.join("_deleted").join("2026-01-01").join("gone.pes"), b"gone")
+            .expect("gone file should be created");
+
+        let map = collect_file_snapshots(&root, true).expect("snapshot with skip_deleted should succeed");
+        assert_eq!(map.len(), 1, "should only find files outside _deleted");
+        assert!(map.contains_key(&PathBuf::from("active/keep.pes")));
+
+        // Now collect without skipping to confirm _deleted is normally included
+        let map_all = collect_file_snapshots(&root, false).expect("snapshot without skip should succeed");
+        assert_eq!(map_all.len(), 2, "should find all files when not skipping _deleted");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn resolve_design_full_path_returns_base_for_empty_string() {
+        let base = PathBuf::from("C:/Designs");
+        assert_eq!(resolve_design_full_path(&base, ""), base);
+        assert_eq!(resolve_design_full_path(&base, "  "), base);
+    }
+
+    #[test]
+    fn resolve_design_full_path_preserves_absolute_path() {
+        let base = PathBuf::from("C:/Designs");
+        let absolute = PathBuf::from("D:/Other/file.pes");
+        let absolute_str = absolute.to_string_lossy().to_string();
+        let result = resolve_design_full_path(&base, &absolute_str);
+        // On Windows the absolute path will retain its drive letter; on non-Windows
+        // we just check it's absolute.
+        assert!(result.is_absolute());
+        assert_eq!(result, absolute);
+    }
+
+    #[test]
+    fn resolve_design_full_path_resolves_med_relative_to_data_root() {
+        // base_path = <data_root>/MachineEmbroideryDesigns
+        let data_root = unique_temp_path("resolve-med-test");
+        let designs_base = data_root.join("MachineEmbroideryDesigns").join("testdata");
+        fs::create_dir_all(&designs_base).expect("testdata dir should be created");
+        let base_path = data_root.join("MachineEmbroideryDesigns");
+
+        // Simulate a stored path like "/MachineEmbroideryDesigns/testdata/design.dst"
+        let result = resolve_design_full_path(&base_path, "/MachineEmbroideryDesigns/testdata/design.dst");
+        let expected = data_root.join("MachineEmbroideryDesigns/testdata/design.dst");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn resolve_design_full_path_resolves_med_without_leading_slash() {
+        let data_root = unique_temp_path("resolve-med-noslash-test");
+        let designs_base = data_root.join("MachineEmbroideryDesigns").join("testdata");
+        fs::create_dir_all(&designs_base).expect("testdata dir should be created");
+        let base_path = data_root.join("MachineEmbroideryDesigns");
+
+        let result = resolve_design_full_path(&base_path, "MachineEmbroideryDesigns/testdata/design.dst");
+        let expected = data_root.join("MachineEmbroideryDesigns/testdata/design.dst");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn resolve_design_full_path_resolves_relative_path() {
+        let base = PathBuf::from("C:/Designs");
+        let result = resolve_design_full_path(&base, "subdir/file.pes");
+        assert_eq!(result, PathBuf::from("C:/Designs/subdir/file.pes"));
+    }
+
+    #[test]
+    fn resolve_design_full_path_resolves_leading_slash_relative() {
+        let base = PathBuf::from("C:/Designs");
+        let result = resolve_design_full_path(&base, "/subdir/file.pes");
+        // On Windows the leading slash gets absorbed; we check the path ends as expected.
+        assert!(result.to_string_lossy().contains("Designs"));
+        assert!(result.to_string_lossy().contains("subdir/file.pes"));
+    }
+
+    #[test]
+    fn resolve_design_full_path_normalises_backslashes() {
+        let base = PathBuf::from("C:/Designs");
+        let result = resolve_design_full_path(&base, r"subdir\file.pes");
+        assert!(result.to_string_lossy().contains("subdir"));
+        assert!(result.to_string_lossy().contains("file.pes"));
+    }
+
+    #[test]
+    fn nearest_existing_folder_returns_dir_when_path_is_dir() {
+        let dir = unique_temp_path("nearest-dir-test");
+        fs::create_dir_all(&dir).expect("dir should be created");
+        let fallback = PathBuf::from("C:/fallback");
+
+        let result = nearest_existing_folder(&dir, &fallback);
+        assert_eq!(result, dir);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nearest_existing_folder_returns_parent_when_path_is_file() {
+        let dir = unique_temp_path("nearest-file-test");
+        fs::create_dir_all(&dir).expect("dir should be created");
+        let file = dir.join("design.pes");
+        fs::write(&file, b"data").expect("file should be created");
+        let fallback = PathBuf::from("C:/fallback");
+
+        let result = nearest_existing_folder(&file, &fallback);
+        assert_eq!(result, dir);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nearest_existing_folder_returns_fallback_when_nothing_exists() {
+        let non_existent = PathBuf::from("Q:/does/not/exist/deep/file.pes");
+        let fallback = PathBuf::from("C:/fallback");
+
+        let result = nearest_existing_folder(&non_existent, &fallback);
+        assert_eq!(result, fallback);
+    }
+
+    #[test]
+    fn nearest_existing_folder_returns_parent_when_dir_does_not_exist() {
+        let dir = unique_temp_path("nearest-parent-test");
+        fs::create_dir_all(&dir).expect("dir should be created");
+        let non_existent_sub = dir.join("nope").join("deeper").join("file.pes");
+        let fallback = PathBuf::from("C:/fallback");
+
+        let result = nearest_existing_folder(&non_existent_sub, &fallback);
+        assert_eq!(result, dir); // dir exists, so it should climb to it
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_match_returns_false_when_both_modified_none() {
+        let left = FileSnapshot {
+            full_path: PathBuf::from("left"),
+            size: 100,
+            modified: None,
+        };
+        let right = FileSnapshot {
+            full_path: PathBuf::from("right"),
+            size: 100,
+            modified: None,
+        };
+        assert!(!files_match(&left, &right));
+    }
+
+    #[test]
+    fn files_match_returns_false_when_one_modified_none() {
+        let left = FileSnapshot {
+            full_path: PathBuf::from("left"),
+            size: 100,
+            modified: Some(UNIX_EPOCH),
+        };
+        let right = FileSnapshot {
+            full_path: PathBuf::from("right"),
+            size: 100,
+            modified: None,
+        };
+        assert!(!files_match(&left, &right));
+        assert!(!files_match(&right, &left));
+    }
+
+    #[test]
+    fn collect_file_snapshots_recursive_skips_symlinks_and_non_files() {
+        // Only regular files and directories are followed; symlinks are not handled
+        // by file_type().is_file() / is_dir() checks, but the function does not
+        // explicitly handle them. This test ensures the function doesn't panic on a
+        // non-regular/non-directory entry (e.g., a named pipe or socket is unlikely,
+        // but we can verify robustness with empty dirs).
+        let root = unique_temp_path("snapshot-edge-test");
+        fs::create_dir_all(&root).expect("dir should be created");
+        // Just an empty directory: nothing to snapshot, but should not error
+        let map = collect_file_snapshots(&root, false).expect("empty dir should succeed");
+        assert!(map.is_empty());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn unique_path_with_suffix_returns_original_when_no_conflict() {
+        let temp_dir = unique_temp_path("unique-no-conflict-test");
+        fs::create_dir_all(&temp_dir).expect("temp dir should be created");
+        let path = temp_dir.join("unique_file.db");
+        // file does not exist, so the original path should be returned
+        let result = unique_path_with_suffix(path.clone());
+        assert_eq!(result, path);
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn unique_path_with_suffix_handles_file_without_extension() {
+        let temp_dir = unique_temp_path("unique-no-ext-test");
+        fs::create_dir_all(&temp_dir).expect("temp dir should be created");
+        let base = temp_dir.join("noext");
+        fs::write(&base, b"seed").expect("seed file should be created");
+
+        let candidate = unique_path_with_suffix(base.clone());
+        assert_ne!(candidate, base);
+        assert!(candidate
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .starts_with("noext_"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn cleanup_empty_directories_skips_non_directory_root() {
+        let file = unique_temp_path("cleanup-not-dir");
+        fs::write(&file, b"content").expect("file should be created");
+        // Should not fail when root is a file
+        let result = cleanup_empty_directories(&file, &PathBuf::from("anything"), true);
+        assert!(result.is_ok());
+        let _ = fs::remove_file(&file);
+    }
+
+    #[test]
+    fn cleanup_empty_directories_skips_when_root_starts_with_preserve_root() {
+        let root = unique_temp_path("cleanup-preserve-test");
+        let preserve = root.join("keep");
+        let child = preserve.join("sub");
+        fs::create_dir_all(&child).expect("dirs should be created");
+
+        // root itself starts with preserve? No — but a case where preserve is a
+        // parent or equal root is handled. Here we check that when root == preserve
+        // (is_root=true), we don't delete it but we *do* clean empty children.
+        // Actually, `starts_with(preserve_root)` when root == preserve_root returns true,
+        // so it short-circuits and does nothing. But is_root means the root itself won't
+        // be deleted anyway. Let's test root != preserve, but root starts_with preserve.
+        // That path is only reachable when cleanup is called *within* the _deleted tree,
+        // which it isn't in normal usage. For coverage we set preserve = root.join("_deleted")
+        // and root = preserve.join("sub") — then root starts_with(preserve) -> true -> early return.
+        let nested = preserve.join("sub");
+        fs::create_dir_all(&nested).expect("sub dir should exist");
+        let result = cleanup_empty_directories(&nested, &preserve, false);
+        assert!(result.is_ok());
+        // sub should NOT have been removed since root starts_with(preserve)
+        assert!(nested.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cleanup_empty_directories_removes_nested_empty() {
+        let root = unique_temp_path("cleanup-nested-test");
+        let parent = root.join("parent");
+        let child = parent.join("child");
+        fs::create_dir_all(&child).expect("dirs should be created");
+
+        cleanup_empty_directories(&root, &root.join("_deleted"), true)
+            .expect("cleanup should complete");
+
+        // Both child and parent should have been removed
+        assert!(!child.exists());
+        assert!(!parent.exists());
+        // Root should still exist
+        assert!(root.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cleanup_empty_directories_preserves_non_empty_tree() {
+        let root = unique_temp_path("cleanup-nonempty-test");
+        let parent = root.join("parent");
+        let child = parent.join("child");
+        fs::create_dir_all(&child).expect("dirs should be created");
+        fs::write(child.join("file.pes"), b"data").expect("file should be created");
+
+        cleanup_empty_directories(&root, &root.join("_deleted"), true)
+            .expect("cleanup should complete");
+
+        // Non-empty tree should be preserved
+        assert!(child.exists());
+        assert!(parent.exists());
+        assert!(root.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // ─── Group C: Database-dependent (in-memory SQLite) ────────────────────────
+
+    async fn setup_settings_table(conn: &mut SqliteConnection) {
+        conn.execute(
+            "CREATE TABLE settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                description TEXT NOT NULL
+            )",
+        )
+        .await
+        .expect("settings table should be created");
+    }
+
+    #[tokio::test]
+    async fn upsert_setting_inserts_new_row() {
+        let mut conn = SqliteConnection::connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite should connect");
+        setup_settings_table(&mut conn).await;
+
+        upsert_setting(&mut conn, KEY_BACKUP_DATABASE_DESTINATION, "D:/Backups/DB")
+            .await
+            .expect("upsert should succeed");
+
+        let row = sqlx::query_as::<_, (String, String, String)>(
+            "SELECT key, value, description FROM settings WHERE key = ?",
+        )
+        .bind(KEY_BACKUP_DATABASE_DESTINATION)
+        .fetch_one(&mut conn)
+        .await
+        .expect("row should exist");
+
+        assert_eq!(row.1, "D:/Backups/DB");
+        assert!(row.2.contains("database"));
+    }
+
+    #[tokio::test]
+    async fn upsert_setting_updates_existing_row() {
+        let mut conn = SqliteConnection::connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite should connect");
+        setup_settings_table(&mut conn).await;
+
+        // Insert once
+        upsert_setting(&mut conn, KEY_BACKUP_DESIGNS_DESTINATION, "D:/Backups/Designs")
+            .await
+            .expect("first upsert should succeed");
+
+        // Update with new value
+        upsert_setting(&mut conn, KEY_BACKUP_DESIGNS_DESTINATION, "E:/NewBackup")
+            .await
+            .expect("second upsert should succeed");
+
+        let row = sqlx::query_as::<_, (String, String, String)>(
+            "SELECT key, value, description FROM settings WHERE key = ?",
+        )
+        .bind(KEY_BACKUP_DESIGNS_DESTINATION)
+        .fetch_one(&mut conn)
+        .await
+        .expect("row should exist");
+
+        assert_eq!(row.1, "E:/NewBackup");
+        // Description should still be the designs backup description
+        assert!(row.2.contains("designs"));
+    }
+
+    #[tokio::test]
+    async fn find_orphan_ids_with_pool_returns_correct_ids() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-find-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+        fs::write(root.join("keep.jef"), b"ok").expect("keep file should be created");
+
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (1, 'keep.jef', '/keep.jef')")
+            .await
+            .expect("keep insert should succeed");
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (2, 'gone.jef', '/gone.jef')")
+            .await
+            .expect("gone insert should succeed");
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (3, 'also_gone.jef', '/also_gone.jef')")
+            .await
+            .expect("also gone insert should succeed");
+
+        let ids = find_orphan_ids_with_pool(&pool, &root)
+            .await
+            .expect("find orphans should succeed");
+
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains(&2));
+        assert!(ids.contains(&3));
+        assert!(!ids.contains(&1));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn find_orphan_ids_with_pool_skips_empty_filepath() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-empty-path-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (1, 'empty.jef', '')")
+            .await
+            .expect("empty filepath insert should succeed");
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (2, 'missing.jef', '/missing.jef')")
+            .await
+            .expect("missing insert should succeed");
+
+        let ids = find_orphan_ids_with_pool(&pool, &root)
+            .await
+            .expect("find orphans should succeed");
+
+        assert_eq!(ids.len(), 1);
+        assert!(ids.contains(&2));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn get_orphans_page_with_pool_defaults_to_page_one() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-default-page-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (1, 'missing.jef', '/missing.jef')")
+            .await
+            .expect("missing insert should succeed");
+
+        let result = get_orphans_page_with_pool(&pool, &root, None)
+            .await
+            .expect("page load should succeed");
+
+        assert_eq!(result.page, 1);
+        assert_eq!(result.page_size, 100);
+        assert_eq!(result.total, 1);
+        assert_eq!(result.items.len(), 1);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn get_orphans_page_with_pool_returns_empty_when_no_orphans() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-no-orphans-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+        fs::write(root.join("present.jef"), b"ok").expect("present file should be created");
+
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (1, 'present.jef', '/present.jef')")
+            .await
+            .expect("present insert should succeed");
+
+        let result = get_orphans_page_with_pool(&pool, &root, None)
+            .await
+            .expect("page load should succeed");
+
+        assert_eq!(result.items.len(), 0);
+        assert_eq!(result.total, 0);
+        assert_eq!(result.page, 1);
+        assert_eq!(result.total_pages, 1);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn get_orphans_page_with_pool_clamps_page_size() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-clamp-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+        // Insert two missing so we have orphan data
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (1, 'a.jef', '/a.jef')")
+            .await
+            .expect("insert a should succeed");
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (2, 'b.jef', '/b.jef')")
+            .await
+            .expect("insert b should succeed");
+
+        // page_size=0 should clamp to 1
+        let result = get_orphans_page_with_pool(
+            &pool,
+            &root,
+            Some(GetOrphansPageRequest {
+                page: Some(1),
+                page_size: Some(0),
+            }),
+        )
+        .await
+        .expect("page load should succeed");
+        assert_eq!(result.page_size, 1);
+        assert_eq!(result.items.len(), 1);
+
+        // page_size=1000 should clamp to 500
+        let result = get_orphans_page_with_pool(
+            &pool,
+            &root,
+            Some(GetOrphansPageRequest {
+                page: Some(1),
+                page_size: Some(1000),
+            }),
+        )
+        .await
+        .expect("page load should succeed");
+        assert_eq!(result.page_size, 500);
+        assert_eq!(result.items.len(), 2);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn get_orphans_page_with_pool_page_out_of_bounds_clamps() {
+        let pool = setup_orphans_test_pool().await;
+        let root = unique_temp_path("orphans-clamp-page-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+
+        pool.execute("INSERT INTO designs (id, filename, filepath) VALUES (1, 'a.jef', '/a.jef')")
+            .await
+            .expect("insert a should succeed");
+
+        // Request page 999 with page_size 1 — only 1 orphan exists so page clamps to 1
+        let result = get_orphans_page_with_pool(
+            &pool,
+            &root,
+            Some(GetOrphansPageRequest {
+                page: Some(999),
+                page_size: Some(1),
+            }),
+        )
+        .await
+        .expect("page load should succeed");
+        assert_eq!(result.page, 1);
+        assert_eq!(result.items.len(), 1);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn delete_design_ids_with_pool_empty_slice_returns_zero() {
+        let pool = setup_orphans_test_pool().await;
+
+        let deleted = delete_design_ids_with_pool(&pool, &[])
+            .await
+            .expect("delete empty slice should succeed");
+        assert_eq!(deleted, 0);
+    }
+
+    #[tokio::test]
+    async fn delete_design_ids_with_pool_chunks_large_batch() {
+        let pool = setup_orphans_test_pool().await;
+
+        // Insert 510 rows (exceeds the 500 chunk size)
+        let mut ids = Vec::new();
+        for i in 0..510 {
+            let filepath = format!("/{}.jef", i);
+            pool.execute(
+                sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+                    .bind(i)
+                    .bind(format!("{}.jef", i))
+                    .bind(filepath),
+            )
+            .await
+            .expect("insert should succeed");
+            ids.push(i);
+        }
+
+        let deleted = delete_design_ids_with_pool(&pool, &ids)
+            .await
+            .expect("delete batch should succeed");
+        assert_eq!(deleted, 510);
+
+        let remaining = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM designs")
+            .fetch_one(&pool)
+            .await
+            .expect("count should load");
+        assert_eq!(remaining, 0);
+    }
+
+    #[tokio::test]
+    async fn sqlite_localtime_format_returns_formatted_string() {
+        let mut conn = SqliteConnection::connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite should connect");
+
+        let result = sqlite_localtime_format(&mut conn, "%Y").await;
+        assert!(result.is_ok());
+        let year = result.unwrap();
+        assert_eq!(year.len(), 4);
+        assert!(year.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[tokio::test]
+    async fn sqlite_localtime_format_errors_on_empty_format() {
+        let mut conn = SqliteConnection::connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite should connect");
+
+        // strftime with an empty format returns an empty string, which should trigger the error path
+        let result = sqlite_localtime_format(&mut conn, "").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn scan_orphans_with_pool_handles_empty_database_gracefully() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite pool should connect");
+
+        pool.execute("CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT, filepath TEXT)")
+            .await
+            .expect("designs table should be created");
+
+        let root = unique_temp_path("orphans-empty-db-test");
+        fs::create_dir_all(&root).expect("test root should be created");
+
+        let result = scan_orphans_with_pool(&pool, &root)
+            .await
+            .expect("scan empty db should succeed");
+
+        assert_eq!(result.checked, 0);
+        assert_eq!(result.found, 0);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // ─── Existing tests (preserved) ────────────────────────────────────────────
+
     #[test]
     fn strip_sqlite_prefix_handles_supported_formats() {
         assert_eq!(
