@@ -69,3 +69,192 @@ pub fn ensure_database_dir(database_url: &str) {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::paths::{AppPaths, ExecutionMode};
+    use std::path::PathBuf;
+
+    // ─── normalize_database_url ──────────────────────────────────────────────
+
+    #[test]
+    fn normalize_empty_string_returns_default() {
+        assert_eq!(
+            normalize_database_url(""),
+            DEFAULT_DATABASE_URL
+        );
+    }
+
+    #[test]
+    fn normalize_whitespace_only_returns_default() {
+        assert_eq!(
+            normalize_database_url("   "),
+            DEFAULT_DATABASE_URL
+        );
+    }
+
+    #[test]
+    fn normalize_already_sqlite_prefix_preserved() {
+        let url = "sqlite:my/custom/path.db";
+        assert_eq!(normalize_database_url(url), url);
+    }
+
+    #[test]
+    fn normalize_sqlite_triple_slash_prefix_preserved() {
+        let url = "sqlite:///D:/data/EmbroideryCatalogue.db";
+        assert_eq!(normalize_database_url(url), url);
+    }
+
+    #[test]
+    fn normalize_sqlite_double_slash_prefix_preserved() {
+        let url = "sqlite://data/database/EmbroideryCatalogue.db";
+        assert_eq!(normalize_database_url(url), url);
+    }
+
+    #[test]
+    fn normalize_bare_path_prepends_sqlite_prefix() {
+        assert_eq!(
+            normalize_database_url("data/database/EmbroideryCatalogue.db"),
+            "sqlite:data/database/EmbroideryCatalogue.db"
+        );
+    }
+
+    #[test]
+    fn normalize_bare_path_with_surrounding_whitespace_trims_and_prepends() {
+        assert_eq!(
+            normalize_database_url("  data/database/EmbroideryCatalogue.db  "),
+            "sqlite:data/database/EmbroideryCatalogue.db"
+        );
+    }
+
+    // ─── debug_bootstrap_config ──────────────────────────────────────────────
+
+    #[test]
+    fn debug_bootstrap_config_returns_config_from_env() {
+        let prior = std::env::var("DATABASE_URL").ok();
+        let test_url = "sqlite:debug_test/test.db";
+        std::env::set_var("DATABASE_URL", test_url);
+
+        let config = debug_bootstrap_config();
+        assert_eq!(config.database_url, test_url);
+
+        // Restore the original variable.
+        if let Some(val) = prior {
+            std::env::set_var("DATABASE_URL", val);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
+    }
+
+    // ─── BootstrapConfig::from_env ───────────────────────────────────────────
+
+    #[test]
+    fn from_env_falls_back_to_default_when_env_var_missing() {
+        // Temporarily remove DATABASE_URL so the fallback is exercised.
+        let prior = std::env::var("DATABASE_URL").ok();
+        std::env::remove_var("DATABASE_URL");
+
+        let config = BootstrapConfig::from_env();
+        assert_eq!(config.database_url, DEFAULT_DATABASE_URL);
+
+        // Restore the original variable (if any).
+        if let Some(val) = prior {
+            std::env::set_var("DATABASE_URL", val);
+        }
+    }
+
+    #[test]
+    fn from_env_honours_explicit_env_var() {
+        let prior = std::env::var("DATABASE_URL").ok();
+        let test_url = "sqlite:test_data/test.db";
+        std::env::set_var("DATABASE_URL", test_url);
+
+        let config = BootstrapConfig::from_env();
+        assert_eq!(config.database_url, test_url);
+
+        // Restore the original variable.
+        if let Some(val) = prior {
+            std::env::set_var("DATABASE_URL", val);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
+    }
+
+    // ─── BootstrapConfig::from_app_paths ──────────────────────────────────────
+
+    #[test]
+    fn from_app_paths_constructs_sqlite_url_from_database_path() {
+        let paths = AppPaths {
+            mode: ExecutionMode::Installed,
+            data_root: PathBuf::from("/tmp/test_data"),
+            embroidery_designs_dir: PathBuf::from("/tmp/test_data/MachineEmbroideryDesigns"),
+            database_dir: PathBuf::from("/tmp/test_data/Database"),
+            database_path: PathBuf::from("/tmp/test_data/Database/EmbroideryCatalogue.db"),
+            thumbnail_cache_dir: PathBuf::from("/tmp/test_data/thumbnails"),
+            log_dir: PathBuf::from("/tmp/test_data/logs"),
+        };
+
+        let config = BootstrapConfig::from_app_paths(&paths);
+        assert_eq!(
+            config.database_url,
+            "sqlite:/tmp/test_data/Database/EmbroideryCatalogue.db"
+        );
+    }
+
+    // ─── ensure_database_dir ─────────────────────────────────────────────────
+
+    #[test]
+    fn ensure_database_dir_creates_parent_for_sqlite_path() {
+        let tmp = std::env::temp_dir().join(format!(
+            "config-test-sqlite-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db_url = format!("sqlite:{}/subdir/catalogue.db", tmp.display());
+
+        // Ensure the directory does not exist yet.
+        assert!(!tmp.join("subdir").exists());
+
+        ensure_database_dir(&db_url);
+
+        // After the call the directory should have been created.
+        assert!(tmp.join("subdir").exists());
+
+        // Clean up.
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn ensure_database_dir_creates_parent_for_bare_path() {
+        let tmp = std::env::temp_dir().join(format!(
+            "config-test-bare-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db_url = format!("{}/subdir/catalogue.db", tmp.display());
+
+        assert!(!tmp.join("subdir").exists());
+
+        ensure_database_dir(&db_url);
+
+        assert!(tmp.join("subdir").exists());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn ensure_database_dir_does_nothing_when_no_parent() {
+        // A filename with no directory component should not panic or create anything.
+        ensure_database_dir("sqlite:catalogue.db");
+        ensure_database_dir("catalogue.db");
+        // If we get here without panicking the test passes.
+    }
+}
