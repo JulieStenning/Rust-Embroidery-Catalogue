@@ -55,3 +55,7 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 
 ### 3. Lint & Type Verification
 - If the workspace contains a TypeScript or Svelte type-check command (such as `npm run check` or `npx svelte-check`), you **MUST** execute it after modifying frontend files to ensure zero type errors before completing your task.
+
+### 4. Unit Testing
+- Add unit tests to cover new code
+- check that backend tests do not fail
