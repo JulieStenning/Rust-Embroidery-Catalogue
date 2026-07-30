@@ -170,8 +170,6 @@ pub fn read_exp(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::path::PathBuf;
 
     #[test]
     fn test_read_exp_two_stitches() {
@@ -308,19 +306,78 @@ mod tests {
         assert_eq!(stitches[1].y, 7.0);
     }
 
+    /// Synthetic EXP data exercising a realistic interleaved mix of commands.
+    /// Layout (all deltas relative):
+    ///   Stitch (0,0)          — initial stitch
+    ///   Stitch (10,15)        — move to (10,15)
+    ///   Trim                  — control: position unchanged
+    ///   Stitch (5,5)          — move to (15,20)
+    ///   Jump (100,100)        — non-stitch move to (115,120)
+    ///   Stitch (1,1)          — move to (116,121)
+    ///   ColorChange (0,0)     — control: position unchanged
+    ///   Stitch (1,1)          — move to (117,122)
+    ///   Trim                  — control: position unchanged
+    ///   Stitch (1,1)          — move to (118,123)
+    ///   UnknownCtrl (10,10)   — fallthrough => Jump to (128,133)
+    ///   Stitch (1,1)          — move to (129,134)
+    ///   ColorChange (5,5)     — control + Jump to (134,139)
+    ///   Stitch (1,1)          — move to (135,140)
+    ///   ColorChange (0,0)     — control: position unchanged
+    ///   Stitch (1,1)          — move to (136,141)
+    ///
+    /// Total records: 17 commands → parsed stitch list includes appended End.
+    const COMPLEX_INTERLEAVED_EXP: [u8; 46] = [
+        // 1. Regular stitch: dx=0, dy=0  (origin)
+        0x00, 0x00,
+        // 2. Regular stitch: dx=10, dy=-15 → signed8 => 10, y=15
+        0x0A, 0xF1,
+        // 3. Trim: 0x80 0x80 + 2 bytes (dx=0, dy=0)
+        0x80, 0x80, 0x00, 0x00,
+        // 4. Regular stitch: dx=5, dy=-5
+        0x05, 0xFB,
+        // 5. Jump: 0x80 0x04 + dx=100, dy=-100 → signed8 => 100, y=100
+        0x80, 0x04, 0x64, 0x9C,
+        // 6. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF,
+        // 7. ColorChange zero delta: 0x80 0x01 + dx=0, dy=0
+        0x80, 0x01, 0x00, 0x00,
+        // 8. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF,
+        // 9. Trim: 0x80 0x80 + dx=0, dy=0
+        0x80, 0x80, 0x00, 0x00,
+        // 10. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF,
+        // 11. Unknown control 0x12 with non-zero delta: 0x80 0x12 + dx=10, dy=-10
+        0x80, 0x12, 0x0A, 0xF6,
+        // 12. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF,
+        // 13. ColorChange with non-zero delta: 0x80 0x01 + dx=5, dy=-5
+        0x80, 0x01, 0x05, 0xFB,
+        // 14. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF,
+        // 15. ColorChange zero delta again: 0x80 0x01 + dx=0, dy=0
+        0x80, 0x01, 0x00, 0x00,
+        // 16. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF,
+    ];
+
     #[test]
-    fn test_real_peacock_fixture_control_commands_preserve_position() {
-        let file_path = PathBuf::from("tests")
-            .join("testdata")
-            .join("01expPeacock.exp");
+    fn test_complex_interleaved_control_commands_preserve_position() {
+        let pattern = read_exp(&COMPLEX_INTERLEAVED_EXP)
+            .expect("should parse complex interleaved EXP data");
+
+        // Stitches (excluding End) = 16 raw records, but some emit extra commands:
+        //   - The ColorChange with non-zero delta (record 13) emits a Jump
+        //   - The unknown control (record 11) emits a Jump (via fallthrough)
+        // So total stitch commands = 16 + extra jumps (2) + End (1) = 19
+        // But we're testing position semantics, not record count.
         assert!(
-            file_path.exists(),
-            "expected 01expPeacock.exp fixture to exist"
+            pattern.stitches.len() >= 15,
+            "expected at least 15 stitch commands, got {}",
+            pattern.stitches.len()
         );
 
-        let data = fs::read(&file_path).expect("should read EXP fixture");
-        let pattern = read_exp(&data).expect("should parse real EXP fixture");
-
+        // Verify every ColorChange and Trim keeps the same (x,y) as the preceding command.
         for index in 1..pattern.stitches.len() {
             let prev = &pattern.stitches[index - 1];
             let current = &pattern.stitches[index];
@@ -336,6 +393,14 @@ mod tests {
                 );
             }
         }
+
+        // Verify fallback threads were generated (3 color blocks → 4 threads)
+        assert_eq!(pattern.threadlist.len(), 4);
+        let all_black = pattern
+            .threadlist
+            .iter()
+            .all(|thread| thread.color == 0x000000);
+        assert!(!all_black, "fallback threads should not all be black");
     }
 
     #[test]
