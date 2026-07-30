@@ -2118,8 +2118,11 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use sqlx::sqlite::SqlitePoolOptions;
     use std::fs;
+
+    const FIXTURES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/Test Designs");
 
     async fn import_test_pool() -> SqlitePool {
         let pool = SqlitePoolOptions::new()
@@ -2275,8 +2278,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn persist_bulk_import_confirm_wire_writes_image_fields_in_native_mode() {
-        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
+        let previous_db_url = std::env::var("DATABASE_URL").ok();
+        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-native-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        std::fs::create_dir_all(&tmp_db_dir).ok();
+        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
+        let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2285,7 +2293,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/Test Designs".to_string()],
+                root_paths: vec![FIXTURES_DIR.to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2330,11 +2338,21 @@ mod tests {
         } else {
             std::env::remove_var("IMPORT_IMAGE_BACKEND");
         }
+        if let Some(url) = previous_db_url {
+            std::env::set_var("DATABASE_URL", url);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
     }
 
     #[test]
+    #[serial]
     fn persist_bulk_import_confirm_wire_auto_backend_3d_pref_falls_back_safely_without_python() {
-        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
+        let previous_db_url = std::env::var("DATABASE_URL").ok();
+        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-auto3d-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        std::fs::create_dir_all(&tmp_db_dir).ok();
+        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
+        let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2357,7 +2375,7 @@ mod tests {
 
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/Test Designs".to_string()],
+                root_paths: vec![FIXTURES_DIR.to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2405,11 +2423,21 @@ mod tests {
         } else {
             std::env::remove_var("RUST_EMBROIDERY_PYTHON");
         }
+        if let Some(url) = previous_db_url {
+            std::env::set_var("DATABASE_URL", url);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
     }
 
     #[test]
+    #[serial]
     fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
-        let fixture = Path::new("tests").join("Test Designs").join("Bean.hus");
+        let previous_db_url = std::env::var("DATABASE_URL").ok();
+        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-hus-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        std::fs::create_dir_all(&tmp_db_dir).ok();
+        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
+        let fixture = Path::new(FIXTURES_DIR).join("Bean.hus");
         assert!(fixture.exists(), "expected Bean.hus fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2436,7 +2464,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/Test Designs".to_string()],
+                root_paths: vec![FIXTURES_DIR.to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2474,6 +2502,11 @@ mod tests {
             std::env::set_var("IMPORT_IMAGE_BACKEND", value);
         } else {
             std::env::remove_var("IMPORT_IMAGE_BACKEND");
+        }
+        if let Some(url) = previous_db_url {
+            std::env::set_var("DATABASE_URL", url);
+        } else {
+            std::env::remove_var("DATABASE_URL");
         }
     }
 
@@ -2536,15 +2569,20 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn persist_bulk_import_confirm_wire_assigns_tier1_keyword_tags() {
+        let previous_db_url = std::env::var("DATABASE_URL").ok();
+        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-tags-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        std::fs::create_dir_all(&tmp_db_dir).ok();
+        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
         // Use Flower.pes fixture whose name contains "flower" -> "Flowers" from KEYWORD_MAP
-        let fixture = Path::new("tests").join("Test Designs").join("Flower.pes");
+        let fixture = Path::new(FIXTURES_DIR).join("Flower.pes");
         assert!(fixture.exists(), "expected Flower.pes fixture to exist");
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/Test Designs".to_string()],
+                root_paths: vec![FIXTURES_DIR.to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2596,17 +2634,27 @@ mod tests {
             "expected 'Flowers' tag to be assigned from 'flower' keyword; got {:?}",
             descriptions
         );
+        if let Some(url) = previous_db_url {
+            std::env::set_var("DATABASE_URL", url);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
     }
 
     #[test]
+    #[serial]
     fn persist_bulk_import_confirm_wire_assigns_stitching_tags() {
-        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
+        let previous_db_url = std::env::var("DATABASE_URL").ok();
+        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-stitch-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        std::fs::create_dir_all(&tmp_db_dir).ok();
+        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
+        let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/Test Designs".to_string()],
+                root_paths: vec![FIXTURES_DIR.to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2650,11 +2698,21 @@ mod tests {
             !stitching_tags.is_empty(),
             "expected at least one stitching tag assignment"
         );
+        if let Some(url) = previous_db_url {
+            std::env::set_var("DATABASE_URL", url);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
     }
 
     #[test]
+    #[serial]
     fn persist_bulk_import_confirm_wire_honors_image_preference_override_for_session() {
-        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
+        let previous_db_url = std::env::var("DATABASE_URL").ok();
+        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-pref-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        std::fs::create_dir_all(&tmp_db_dir).ok();
+        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
+        let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2663,7 +2721,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/Test Designs".to_string()],
+                root_paths: vec![FIXTURES_DIR.to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2701,6 +2759,11 @@ mod tests {
             std::env::set_var("IMPORT_IMAGE_BACKEND", value);
         } else {
             std::env::remove_var("IMPORT_IMAGE_BACKEND");
+        }
+        if let Some(url) = previous_db_url {
+            std::env::set_var("DATABASE_URL", url);
+        } else {
+            std::env::remove_var("DATABASE_URL");
         }
     }
 
