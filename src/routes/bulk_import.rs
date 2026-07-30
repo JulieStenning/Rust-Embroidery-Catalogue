@@ -3566,6 +3566,895 @@ mod tests {
         let _ = fs::remove_file(&file_path);
         let _ = fs::remove_dir_all(&dir);
     }
+
+    // =========================================================================
+    // Additional coverage: pure function tests (High Impact)
+    // =========================================================================
+
+    #[test]
+    fn strip_sqlite_prefix_variants() {
+        assert_eq!(strip_sqlite_prefix("sqlite:///C:/data/test.db"), "C:/data/test.db");
+        assert_eq!(strip_sqlite_prefix("sqlite:///data/test.db"), "data/test.db");
+        assert_eq!(strip_sqlite_prefix("sqlite://data/test.db"), "data/test.db");
+        assert_eq!(strip_sqlite_prefix("sqlite:data/test.db"), "data/test.db");
+        assert_eq!(strip_sqlite_prefix(":memory:"), ":memory:");
+        assert_eq!(strip_sqlite_prefix("postgres://user:pass@localhost/db"), "postgres://user:pass@localhost/db");
+    }
+
+    #[test]
+    fn normalize_name_for_import_matching_variants() {
+        assert_eq!(normalize_name_for_import_matching("Acme-Designs"), "acme designs");
+        assert_eq!(normalize_name_for_import_matching("Urban_Threads/Shop"), "urban threads shop");
+        assert_eq!(normalize_name_for_import_matching("  Hello World  "), "hello world");
+        assert_eq!(normalize_name_for_import_matching(""), "");
+        assert_eq!(normalize_name_for_import_matching("a-b_c/d e"), "a b c d e");
+    }
+
+    #[test]
+    fn compact_name_for_import_matching_variants() {
+        assert_eq!(compact_name_for_import_matching("www.UrbanThreads.com"), "wwwurbanthreadscom");
+        assert_eq!(compact_name_for_import_matching("Hello_World-123"), "helloworld123");
+        assert_eq!(compact_name_for_import_matching(""), "");
+        assert_eq!(compact_name_for_import_matching("  A  B  "), "ab");
+        assert_eq!(compact_name_for_import_matching("special@#!chars"), "specialchars");
+    }
+
+    #[test]
+    fn strip_web_affixes_for_import_matching_variants() {
+        assert_eq!(strip_web_affixes_for_import_matching("www.UrbanThreads.com"), "urbanthreads");
+        assert_eq!(strip_web_affixes_for_import_matching("UrbanThreads.com"), "urbanthreads");
+        assert_eq!(strip_web_affixes_for_import_matching("Example.co.uk"), "example");
+        assert_eq!(strip_web_affixes_for_import_matching("Example.com.au"), "example");
+        assert_eq!(strip_web_affixes_for_import_matching("Example.org"), "example");
+        assert_eq!(strip_web_affixes_for_import_matching("Example.net"), "example");
+        assert_eq!(strip_web_affixes_for_import_matching("Short.co"), "short");
+        assert_eq!(strip_web_affixes_for_import_matching("ab.cd"), "abcd");
+        assert_eq!(strip_web_affixes_for_import_matching("no_suffix_here"), "nosuffixhere");
+    }
+
+    #[test]
+    fn folder_path_from_file_path_variants() {
+        assert_eq!(
+            folder_path_from_file_path("C:/designs/import/design.pes"),
+            Some("C:/designs/import".to_string())
+        );
+        // Bare filename has no parent dir — returns None (filtered by empty check)
+        assert_eq!(
+            folder_path_from_file_path("design.pes"),
+            None
+        );
+        assert_eq!(
+            folder_path_from_file_path(""),
+            None
+        );
+        assert_eq!(
+            folder_path_from_file_path("   "),
+            None
+        );
+        assert_eq!(
+            folder_path_from_file_path("C:/root/"),
+            Some("C:/".to_string())
+        );
+    }
+
+    #[test]
+    fn normalize_path_for_match_variants() {
+        assert_eq!(normalize_path_for_match("C:/Designs/Flower.pes"), "c:/designs/flower.pes");
+        assert_eq!(normalize_path_for_match("C:\\Designs\\Flower.pes"), "c:/designs/flower.pes");
+        assert_eq!(normalize_path_for_match(""), "");
+        assert_eq!(normalize_path_for_match("MIXED/Case/PATH"), "mixed/case/path");
+    }
+
+    #[test]
+    fn resolve_assignment_for_file_no_match_falls_back_to_global() {
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(42),
+                global_source_id: Some(99),
+                per_folder_assignments: vec![FolderAssignmentWire {
+                    folder_path: "C:/imports/folder-a".to_string(),
+                    designer_id: Some(10),
+                    source_id: None,
+                    inferred_designer_id: None,
+                    inferred_source_id: None,
+                }],
+                selected_files: vec![],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let resolved = resolve_bulk_import_assignments(&confirm_wire);
+
+        // File under folder-a should get folder-level designer + global source
+        let (designer, source) = resolve_assignment_for_file(
+            "C:/imports/folder-a/design.pes",
+            &confirm_wire,
+            &resolved,
+        );
+        assert_eq!(designer, Some(10));
+        assert_eq!(source, Some(99));
+
+        // File outside any assignment should get global fallback
+        let (designer2, source2) = resolve_assignment_for_file(
+            "C:/imports/other/design.pes",
+            &confirm_wire,
+            &resolved,
+        );
+        assert_eq!(designer2, Some(42));
+        assert_eq!(source2, Some(99));
+    }
+
+    #[test]
+    fn resolve_assignment_for_file_prefers_longest_matching_folder() {
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: vec![
+                    FolderAssignmentWire {
+                        folder_path: "C:/imports".to_string(),
+                        designer_id: Some(1),
+                        source_id: None,
+                        inferred_designer_id: None,
+                        inferred_source_id: None,
+                    },
+                    FolderAssignmentWire {
+                        folder_path: "C:/imports/folder-a".to_string(),
+                        designer_id: Some(2),
+                        source_id: Some(3),
+                        inferred_designer_id: None,
+                        inferred_source_id: None,
+                    },
+                ],
+                selected_files: vec![],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let resolved = resolve_bulk_import_assignments(&confirm_wire);
+        assert_eq!(resolved.len(), 2);
+
+        // File nested deep should match the longer path
+        let (designer, source) = resolve_assignment_for_file(
+            "C:/imports/folder-a/nested/design.pes",
+            &confirm_wire,
+            &resolved,
+        );
+        assert_eq!(designer, Some(2));
+        assert_eq!(source, Some(3));
+
+        // File at root level should match the shorter path
+        let (designer2, source2) = resolve_assignment_for_file(
+            "C:/imports/design.pes",
+            &confirm_wire,
+            &resolved,
+        );
+        assert_eq!(designer2, Some(1));
+        assert_eq!(source2, None);
+    }
+
+    #[test]
+    fn full_path_to_stored_design_filepath_edge_cases() {
+        // Empty path
+        let result = full_path_to_stored_design_filepath("");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("empty"));
+
+        // Wholly unrelated path
+        let result = full_path_to_stored_design_filepath("Z:/totally/unrelated/file.pes");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn compute_prospective_stored_filepath_edge_cases() {
+        // File already under designs base (fast path) — should use full_path_to_stored_design_filepath
+        // which will either succeed or fail. Since we can't guarantee where the designs base is,
+        // test that it doesn't panic and returns a consistent prefixed result.
+        let result = compute_prospective_stored_filepath(
+            "C:/test-root/imports/design.pes",
+            &["C:/test-root/imports".to_string()],
+        );
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with("/MachineEmbroideryDesigns/"));
+        assert!(path.ends_with("design.pes"));
+
+        // No matching root fallback — should use bare filename
+        let result = compute_prospective_stored_filepath(
+            "X:/orphan/file.pes",
+            &["Z:/unrelated".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "/MachineEmbroideryDesigns/file.pes");
+
+        // Source exactly at root boundary (file is the root itself... not possible, but test edge)
+        let result = compute_prospective_stored_filepath(
+            "C:/test-root/imports",
+            &["C:/test-root/imports".to_string()],
+        );
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with("/MachineEmbroideryDesigns/"));
+
+        // Drive-letter-only root with file directly under drive
+        let result = compute_prospective_stored_filepath(
+            "C:/design.pes",
+            &["C:/".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "/MachineEmbroideryDesigns/design.pes");
+
+        // Drive-letter-only root with nested path
+        let result = compute_prospective_stored_filepath(
+            "C:/Designs/Floral/a.pes",
+            &["C:/".to_string()],
+        );
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "/MachineEmbroideryDesigns/Designs/Floral/a.pes");
+    }
+
+    #[test]
+    fn compute_file_hash_blake3_file_not_found() {
+        let result = compute_file_hash_blake3(Path::new("Z:/nonexistent-file-for-test.bin"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn compute_file_size_file_not_found() {
+        let result = compute_file_size(Path::new("Z:/nonexistent-file-for-test.bin"));
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // Additional coverage: DB-dependent / integration tests (Medium Impact)
+    // =========================================================================
+
+    #[test]
+    #[serial]
+    fn precheck_action_review_hoops_keeps_context() {
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        let action_result = tauri::async_runtime::block_on(precheck_bulk_import_action_wire(
+            BulkImportPrecheckActionRequest {
+                context_token: precheck.context_token.clone(),
+                action: BulkImportPrecheckActionWire::ReviewHoops,
+                confirm_skip_hoops: false,
+                image_preference_override: None,
+            },
+        ))
+        .expect("review hoops action should succeed");
+
+        assert!(!action_result.consumed_context);
+        assert!(action_result.context_token_present);
+        assert!(action_result
+            .next_route
+            .unwrap_or_default()
+            .contains("/admin/hoops/"));
+        // Context still available after review
+        assert!(take_bulk_import_context(&precheck.context_token).is_some());
+    }
+
+    #[test]
+    #[serial]
+    fn precheck_action_review_sources_keeps_context() {
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        let action_result = tauri::async_runtime::block_on(precheck_bulk_import_action_wire(
+            BulkImportPrecheckActionRequest {
+                context_token: precheck.context_token.clone(),
+                action: BulkImportPrecheckActionWire::ReviewSources,
+                confirm_skip_hoops: false,
+                image_preference_override: None,
+            },
+        ))
+        .expect("review sources action should succeed");
+
+        assert!(!action_result.consumed_context);
+        assert!(action_result.context_token_present);
+        assert!(action_result
+            .next_route
+            .unwrap_or_default()
+            .contains("/admin/sources/"));
+        assert!(take_bulk_import_context(&precheck.context_token).is_some());
+    }
+
+    #[test]
+    #[serial]
+    fn precheck_action_review_designers_keeps_context() {
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        let action_result = tauri::async_runtime::block_on(precheck_bulk_import_action_wire(
+            BulkImportPrecheckActionRequest {
+                context_token: precheck.context_token.clone(),
+                action: BulkImportPrecheckActionWire::ReviewDesigners,
+                confirm_skip_hoops: false,
+                image_preference_override: None,
+            },
+        ))
+        .expect("review designers action should succeed");
+
+        assert!(!action_result.consumed_context);
+        assert!(action_result.context_token_present);
+        assert!(action_result
+            .next_route
+            .unwrap_or_default()
+            .contains("/admin/designers/"));
+        assert!(take_bulk_import_context(&precheck.context_token).is_some());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn filter_existing_scanned_files_empty_input() {
+        let pool = import_test_pool().await;
+        let result = filter_existing_scanned_files(&pool, vec![], &[]).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn filter_existing_scanned_files_different_hash_passes() {
+        let pool = import_test_pool().await;
+
+        let dir = std::env::temp_dir()
+            .join(format!("rec-filter-diffhash-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        let sub = dir.join("import-root");
+        fs::create_dir_all(&sub).expect("temp dir should be created");
+        let file_path = sub.join("test.pes");
+        fs::write(&file_path, b"version1").expect("file should be written");
+        let file_path_text = file_path.to_string_lossy().to_string();
+
+        // Seed a design with the same filename and size but a different hash,
+        // using a stored path that does NOT match the prospective path
+        // (so Stage 0 path-based dedup does NOT exclude it).
+        let same_filename = "test.pes";
+        let same_size = 9i64; // "version1" = 9 bytes
+        let different_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        sqlx::query(
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, ?, ?)",
+        )
+        .bind(same_filename)
+        .bind("/MachineEmbroideryDesigns/other-folder/test.pes")
+        .bind(same_size)
+        .bind(different_hash)
+        .execute(&pool)
+        .await
+        .expect("seed design should insert");
+
+        let root_paths = vec![dir.to_string_lossy().to_string()];
+
+        let scanned = vec![scanning::ScannedFile {
+            full_path: file_path_text.clone(),
+            filename: same_filename.to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(same_size),
+            dedup_group_key: "test".to_string(),
+        }];
+
+        let filtered = filter_existing_scanned_files(&pool, scanned, &root_paths)
+            .await
+            .expect("filter should succeed");
+
+        // The scanned file's prospective path is "import-root/test.pes" (different from "other-folder/test.pes"),
+        // so Stage 0 passes. Then filename+size collide with the seeded row, requiring BLAKE3 comparison.
+        // Since hashes differ, the file should NOT be treated as a duplicate.
+        assert_eq!(filtered.len(), 1, "different hash should pass dedup");
+
+        let _ = fs::remove_file(&file_path);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn filter_existing_scanned_files_triple_match_excludes() {
+        let pool = import_test_pool().await;
+
+        let dir = std::env::temp_dir()
+            .join(format!("rec-filter-triple-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        fs::create_dir_all(&dir).expect("temp dir should be created");
+        let file_path = dir.join("exact-match.pes");
+        fs::write(&file_path, b"hello world").expect("file should be written");
+        let file_path_text = file_path.to_string_lossy().to_string();
+
+        let file_size = fs::metadata(&file_path).ok().map(|m| m.len() as i64).unwrap_or(0);
+        let file_hash = compute_file_hash_blake3(&file_path).expect("hash should succeed");
+
+        // Seed a design matching all three: filename, size, hash
+        sqlx::query(
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, ?, ?)",
+        )
+        .bind("exact-match.pes")
+        .bind("/MachineEmbroideryDesigns/exact-match.pes")
+        .bind(file_size)
+        .bind(&file_hash)
+        .execute(&pool)
+        .await
+        .expect("seed design should insert");
+
+        let scanned = vec![scanning::ScannedFile {
+            full_path: file_path_text.clone(),
+            filename: "exact-match.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(file_size),
+            dedup_group_key: "test".to_string(),
+        }];
+
+        let filtered = filter_existing_scanned_files(&pool, scanned, &["dummy".to_string()])
+            .await
+            .expect("filter should succeed");
+
+        // Triple match → excluded
+        assert!(filtered.is_empty(), "triple match should be excluded");
+
+        let _ = fs::remove_file(&file_path);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn persist_bulk_import_confirm_if_initialized_no_pool() {
+        // Without a pool initialized, this should return Ok(0) with no panic
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec!["C:/imports/folder-a/design.pes".to_string()],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let result = persist_bulk_import_confirm_if_initialized(&confirm_wire, None, None);
+        assert_eq!(result, Ok(0));
+    }
+
+    #[test]
+    #[serial]
+    fn request_stop_bulk_import_sets_flag() {
+        let result = request_stop_bulk_import().expect("stop request should succeed");
+        assert!(result.stop_requested);
+
+        // Calling it again should still report stop_requested = true
+        let result2 = request_stop_bulk_import().expect("second stop request should succeed");
+        assert!(result2.stop_requested);
+    }
+
+    #[test]
+    fn debug_bulk_import_wire_summary() {
+        let wire = BulkImportWire {
+            root_paths: vec!["C:/imports".to_string(), "D:/other".to_string()],
+            global_designer_id: Some(7),
+            global_source_id: None,
+            per_folder_assignments: vec![FolderAssignmentWire {
+                folder_path: "C:/imports/folder-a".to_string(),
+                designer_id: Some(10),
+                source_id: None,
+                inferred_designer_id: None,
+                inferred_source_id: None,
+            }],
+            selected_files: vec!["C:/imports/folder-a/design.pes".to_string()],
+            create_on_import: true,
+        };
+
+        let summary = debug_bulk_import_wire(wire).expect("debug should succeed");
+        assert_eq!(summary.root_path_count, 2);
+        assert_eq!(summary.folder_assignment_count, 1);
+        assert_eq!(summary.selected_file_count, 1);
+        assert!(summary.create_on_import);
+    }
+
+    #[test]
+    fn debug_bulk_import_confirm_wire_summary() {
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: vec![FolderAssignmentWire {
+                    folder_path: "C:/imports/folder-a".to_string(),
+                    designer_id: Some(10),
+                    source_id: None,
+                    inferred_designer_id: None,
+                    inferred_source_id: None,
+                }],
+                selected_files: vec!["C:/imports/folder-a/design.pes".to_string()],
+                create_on_import: true,
+            },
+            context_token: Some("token-abc".to_string()),
+            canonical_confirm: true,
+        };
+
+        let summary = debug_bulk_import_confirm_wire(confirm_wire).expect("debug should succeed");
+        assert!(summary.context_token_present);
+        assert_eq!(summary.root_path_count, 1);
+        assert_eq!(summary.selected_file_count, 1);
+        assert!(summary.canonical_confirm);
+        assert_eq!(summary.resolved_assignment_count, 1);
+    }
+
+    #[test]
+    fn debug_bulk_import_assignment_resolution_summary() {
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: vec![
+                    FolderAssignmentWire {
+                        folder_path: "C:/imports/folder-a".to_string(),
+                        designer_id: Some(10),
+                        source_id: None,
+                        inferred_designer_id: None,
+                        inferred_source_id: None,
+                    },
+                    FolderAssignmentWire {
+                        folder_path: "C:/imports/folder-b".to_string(),
+                        designer_id: None,
+                        source_id: None,
+                        inferred_designer_id: None,
+                        inferred_source_id: None,
+                    },
+                ],
+                selected_files: vec![],
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+
+        let summary = debug_bulk_import_assignment_resolution_wire(confirm_wire)
+            .expect("debug should succeed");
+        // folder-a: designer=Explicit, source=Global ; folder-b: designer=Global, source=Global
+        assert_eq!(summary.resolved_count, 2);
+        assert_eq!(summary.explicit_field_count, 1);
+        assert_eq!(summary.global_field_count, 3);
+        assert_eq!(summary.inferred_field_count, 0);
+        assert_eq!(summary.blank_field_count, 0);
+    }
+
+    #[test]
+    fn bulk_import_request_from_conversion_edge_cases() {
+        // root_path should be used when root_paths is empty
+        let request = BulkImportRequest {
+            root_path: Some("  C:/imports  ".to_string()),
+            root_paths: vec![],
+            fallback_designer_id: Some(7),
+            fallback_source_id: Some(8),
+        };
+        let wire: BulkImportWire = request.into();
+        assert_eq!(wire.root_paths, vec!["C:/imports"]);
+        assert_eq!(wire.global_designer_id, Some(7));
+        assert_eq!(wire.global_source_id, Some(8));
+
+        // root_path should be ignored when root_paths is non-empty
+        let request2 = BulkImportRequest {
+            root_path: Some("  C:/ignored  ".to_string()),
+            root_paths: vec!["  C:/actual  ".to_string()],
+            fallback_designer_id: None,
+            fallback_source_id: None,
+        };
+        let wire2: BulkImportWire = request2.into();
+        assert_eq!(wire2.root_paths, vec!["C:/actual"]);
+
+        // Empty strings should be filtered out
+        let request3 = BulkImportRequest {
+            root_path: None,
+            root_paths: vec!["".to_string(), "  ".to_string(), "C:/valid".to_string()],
+            fallback_designer_id: None,
+            fallback_source_id: None,
+        };
+        let wire3: BulkImportWire = request3.into();
+        assert_eq!(wire3.root_paths, vec!["C:/valid"]);
+
+        // Both empty should yield empty root_paths
+        let request4 = BulkImportRequest {
+            root_path: None,
+            root_paths: vec![],
+            fallback_designer_id: None,
+            fallback_source_id: None,
+        };
+        let wire4: BulkImportWire = request4.into();
+        assert!(wire4.root_paths.is_empty());
+    }
+
+    #[test]
+    #[serial]
+    fn load_catalog_counts_returns_counts() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+
+        tauri::async_runtime::block_on(async {
+            sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES ('TestHoop', 100.0, 100.0)")
+                .execute(&pool)
+                .await
+        })
+        .expect("seed hoop should insert");
+
+        let (design_count, hoop_count) = tauri::async_runtime::block_on(load_catalog_counts(&pool))
+            .expect("counts should load");
+        assert_eq!(design_count, 0);
+        assert_eq!(hoop_count, 1);
+    }
+
+    #[test]
+    fn load_import_precheck_state_if_initialized_without_pool() {
+        let (is_first_import, needs_hoop_setup) =
+            load_import_precheck_state_if_initialized().expect("should return defaults");
+        assert!(!is_first_import);
+        assert!(!needs_hoop_setup);
+    }
+
+    #[test]
+    fn next_bulk_import_context_token_has_expected_format() {
+        let (token, sequence) = next_bulk_import_context_token();
+        assert!(token.starts_with("bulk-import-"), "token should start with bulk-import-");
+        assert!(token.contains('-'), "token should contain timestamps");
+        let sequence2 = BULK_IMPORT_CONTEXT_COUNTER.load(Ordering::Relaxed);
+        assert!(sequence2 > sequence, "counter should advance");
+    }
+
+    #[test]
+    fn canonicalize_bulk_import_confirm_wire_sets_canonical_flag() {
+        let wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/test".to_string()],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: true,
+            },
+            context_token: Some("test-token".to_string()),
+            canonical_confirm: false,
+        };
+
+        let canonicalized = canonicalize_bulk_import_confirm_wire(wire.clone());
+        assert!(canonicalized.canonical_confirm);
+        assert_eq!(canonicalized.context_token, wire.context_token);
+        assert_eq!(canonicalized.wire.root_paths, wire.wire.root_paths);
+    }
+
+    #[test]
+    fn build_preview_folder_assignments_merges_explicit_and_scanned() {
+        let wire = BulkImportWire {
+            root_paths: vec!["C:/imports".to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![FolderAssignmentWire {
+                folder_path: "C:/imports/explicit-folder".to_string(),
+                designer_id: Some(1),
+                source_id: Some(2),
+                inferred_designer_id: None,
+                inferred_source_id: None,
+            }],
+            selected_files: vec![],
+            create_on_import: true,
+        };
+
+        let scanned_files = vec![
+            scanning::ScannedFile {
+                full_path: "C:/imports/scanned-folder/design.pes".to_string(),
+                filename: "design.pes".to_string(),
+                extension: "pes".to_string(),
+                file_size_bytes: Some(100),
+                dedup_group_key: "test".to_string(),
+            },
+            scanning::ScannedFile {
+                full_path: "C:/imports/explicit-folder/design.pes".to_string(),
+                filename: "design.pes".to_string(),
+                extension: "pes".to_string(),
+                file_size_bytes: Some(200),
+                dedup_group_key: "test".to_string(),
+            },
+        ];
+
+        let assignments = build_preview_folder_assignments(&wire, &scanned_files);
+        assert_eq!(assignments.len(), 2);
+
+        // Explicit folder should keep its designer/source
+        let explicit = assignments.iter().find(|a| a.folder_path.contains("explicit-folder")).unwrap();
+        assert_eq!(explicit.designer_id, Some(1));
+        assert_eq!(explicit.source_id, Some(2));
+
+        // Scanned-only folder should have null assignments
+        let scanned = assignments.iter().find(|a| a.folder_path.contains("scanned-folder")).unwrap();
+        assert_eq!(scanned.designer_id, None);
+        assert_eq!(scanned.source_id, None);
+    }
+
+    #[test]
+    fn build_preview_folder_assignments_dedupes_by_normalized_path() {
+        let wire = BulkImportWire {
+            root_paths: vec!["C:/imports".to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![
+                FolderAssignmentWire {
+                    folder_path: "C:/imports/subfolder".to_string(),
+                    designer_id: Some(5),
+                    source_id: None,
+                    inferred_designer_id: None,
+                    inferred_source_id: None,
+                },
+            ],
+            selected_files: vec![],
+            create_on_import: true,
+        };
+
+        // Multiple files in same folder should produce only one assignment
+        let scanned_files = vec![
+            scanning::ScannedFile {
+                full_path: "C:/imports/subfolder/file1.pes".to_string(),
+                filename: "file1.pes".to_string(),
+                extension: "pes".to_string(),
+                file_size_bytes: Some(100),
+                dedup_group_key: "test".to_string(),
+            },
+            scanning::ScannedFile {
+                full_path: "C:/imports/subfolder/file2.pes".to_string(),
+                filename: "file2.pes".to_string(),
+                extension: "pes".to_string(),
+                file_size_bytes: Some(200),
+                dedup_group_key: "test".to_string(),
+            },
+        ];
+
+        let assignments = build_preview_folder_assignments(&wire, &scanned_files);
+        assert_eq!(assignments.len(), 1);
+        assert_eq!(assignments[0].designer_id, Some(5));
+    }
+
+    #[test]
+    fn reset_bulk_import_context_store_for_startup_works() {
+        // Seed a context
+        let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec!["C:/imports".to_string()],
+                global_designer_id: Some(7),
+                global_source_id: Some(8),
+                per_folder_assignments: Vec::new(),
+                selected_files: Vec::new(),
+                create_on_import: true,
+            },
+            context_token: None,
+            canonical_confirm: false,
+        })
+        .expect("precheck should succeed");
+
+        // Startup reset should clear it
+        let reset = reset_bulk_import_context_store_for_startup();
+        assert!(reset.cleared_context_count >= 1);
+        assert_eq!(reset.active_context_count, 0);
+        assert_eq!(reset.reason, "startup");
+        assert!(take_bulk_import_context(&precheck.context_token).is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn load_stitching_tag_lookup_direct() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let lookup = tauri::async_runtime::block_on(load_stitching_tag_lookup(&pool))
+            .expect("stitching tag lookup should succeed");
+        // "Line Outline" is seeded as a stitching tag
+        assert!(
+            lookup.contains_key("Line Outline"),
+            "expected 'Line Outline' stitching tag in lookup"
+        );
+        assert_eq!(lookup.len(), 1, "expected exactly 1 stitching tag");
+    }
+
+    #[test]
+    #[serial]
+    fn load_default_stitching_tag_id_direct() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        let default_id = tauri::async_runtime::block_on(load_default_stitching_tag_id(&pool))
+            .expect("default stitching tag id should load");
+        assert!(
+            default_id.is_some(),
+            "expected a default stitching tag id"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn load_import_preview_3d_if_initialized_direct() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+        // Default preference is '2d'
+        let is_3d = tauri::async_runtime::block_on(load_import_preview_3d_if_initialized(&pool))
+            .expect("preview 3d check should succeed");
+        assert!(!is_3d, "expected 2d preview when preference is '2d'");
+
+        // Change preference to 3d
+        tauri::async_runtime::block_on(async {
+            sqlx::query("UPDATE settings SET value = '3d' WHERE key = 'image.preference'")
+                .execute(&pool)
+                .await
+        })
+        .expect("failed to update preference to 3d");
+
+        let is_3d_now = tauri::async_runtime::block_on(load_import_preview_3d_if_initialized(&pool))
+            .expect("preview 3d check should succeed");
+        assert!(is_3d_now, "expected 3d preview when preference is '3d'");
+    }
+
+    #[test]
+    #[serial]
+    fn load_import_preview_3d_profile_if_initialized_direct() {
+        let pool = tauri::async_runtime::block_on(import_test_pool());
+
+        // Default (no profile setting) should return "balanced"
+        let profile = tauri::async_runtime::block_on(load_import_preview_3d_profile_if_initialized(&pool))
+            .expect("profile should load");
+        assert_eq!(profile, "balanced");
+
+        // Set to "soft"
+        tauri::async_runtime::block_on(async {
+            sqlx::query(
+                "INSERT INTO settings (key, value, description) VALUES ('image.preview_3d_profile', 'soft', 'test profile') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            )
+            .execute(&pool)
+            .await
+        })
+        .expect("failed to set 3d profile");
+
+        let profile_soft = tauri::async_runtime::block_on(load_import_preview_3d_profile_if_initialized(&pool))
+            .expect("profile should load");
+        assert_eq!(profile_soft, "soft");
+
+        // Set to "high-contrast" variant
+        tauri::async_runtime::block_on(async {
+            sqlx::query("UPDATE settings SET value = 'high_contrast' WHERE key = 'image.preview_3d_profile'")
+                .execute(&pool)
+                .await
+        })
+        .expect("failed to set high_contrast profile");
+
+        let profile_hc = tauri::async_runtime::block_on(load_import_preview_3d_profile_if_initialized(&pool))
+            .expect("profile should load");
+        assert_eq!(profile_hc, "high-contrast");
+    }
 }
 
 async fn load_import_preview_3d_if_initialized(pool: &SqlitePool) -> Result<bool, String> {
