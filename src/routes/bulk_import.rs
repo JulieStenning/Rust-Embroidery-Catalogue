@@ -2276,7 +2276,7 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_writes_image_fields_in_native_mode() {
-        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2285,7 +2285,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata".to_string()],
+                root_paths: vec!["tests/Test Designs".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2305,8 +2305,8 @@ mod tests {
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
 
-        // The file is now stored under MachineEmbroideryDesigns/testdata/Bean.pes
-        let stored_filepath = "/MachineEmbroideryDesigns/testdata/Bean.pes";
+        // The file is now stored under MachineEmbroideryDesigns/Test Designs/Bean.pes
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
         let row = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>, Option<f64>, Option<f64>, Option<i64>, Option<i64>, Option<i64>)>(
                 "SELECT image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count FROM designs WHERE filepath = ? LIMIT 1"
@@ -2334,7 +2334,7 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_auto_backend_3d_pref_falls_back_safely_without_python() {
-        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2357,7 +2357,7 @@ mod tests {
 
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata".to_string()],
+                root_paths: vec!["tests/Test Designs".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2377,8 +2377,8 @@ mod tests {
         .expect("persist should succeed even when python path is unavailable");
         assert_eq!(persisted, 1);
 
-        // The file is now stored under MachineEmbroideryDesigns/testdata/Bean.pes
-        let stored_filepath = "/MachineEmbroideryDesigns/testdata/Bean.pes";
+        // The file is now stored under MachineEmbroideryDesigns/Test Designs/Bean.pes
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
         let row = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>, Option<f64>, Option<f64>)>(
                 "SELECT image_data, image_type, width_mm, height_mm FROM designs WHERE filepath = ? LIMIT 1"
@@ -2409,7 +2409,7 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
-        let fixture = Path::new("tests").join("testdata").join("Bean.hus");
+        let fixture = Path::new("tests").join("Test Designs").join("Bean.hus");
         assert!(fixture.exists(), "expected Bean.hus fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2436,7 +2436,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata".to_string()],
+                root_paths: vec!["tests/Test Designs".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2456,8 +2456,8 @@ mod tests {
         .expect("persist should succeed for .hus even when preview generation fails");
         assert_eq!(persisted, 1);
 
-        // The file is now stored under MachineEmbroideryDesigns/testdata/Bean.hus
-        let stored_filepath = "/MachineEmbroideryDesigns/testdata/Bean.hus";
+        // The file is now stored under MachineEmbroideryDesigns/Test Designs/Bean.hus
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.hus";
         let persisted_row_id = tauri::async_runtime::block_on(async {
             sqlx::query_scalar::<_, i64>("SELECT id FROM designs WHERE filepath = ? LIMIT 1")
                 .bind(stored_filepath)
@@ -2537,13 +2537,13 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_assigns_tier1_keyword_tags() {
-        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata".to_string()],
+                root_paths: vec!["tests/Test Designs".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2563,7 +2563,7 @@ mod tests {
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
 
-        let stored_filepath = "/MachineEmbroideryDesigns/testdata/Bean.pes";
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
 
         let assigned_tags = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (String,)>(
@@ -2590,13 +2590,13 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_assigns_stitching_tags() {
-        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata".to_string()],
+                root_paths: vec!["tests/Test Designs".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2616,7 +2616,7 @@ mod tests {
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
 
-        let stored_filepath = "/MachineEmbroideryDesigns/testdata/Bean.pes";
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
 
         let stitching_tags = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (String,)>(
@@ -2644,7 +2644,7 @@ mod tests {
 
     #[test]
     fn persist_bulk_import_confirm_wire_honors_image_preference_override_for_session() {
-        let fixture = Path::new("tests").join("testdata").join("Bean.pes");
+        let fixture = Path::new("tests").join("Test Designs").join("Bean.pes");
         assert!(fixture.exists(), "expected Bean.pes fixture to exist");
 
         let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
@@ -2653,7 +2653,7 @@ mod tests {
         let pool = tauri::async_runtime::block_on(import_test_pool());
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
-                root_paths: vec!["tests/testdata".to_string()],
+                root_paths: vec!["tests/Test Designs".to_string()],
                 global_designer_id: None,
                 global_source_id: None,
                 per_folder_assignments: Vec::new(),
@@ -2673,7 +2673,7 @@ mod tests {
         .expect("persist should succeed with explicit session override");
         assert_eq!(persisted, 1);
 
-        let stored_filepath = "/MachineEmbroideryDesigns/testdata/Bean.pes";
+        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
 
         let image_type = tauri::async_runtime::block_on(async {
             sqlx::query_scalar::<_, Option<String>>(
