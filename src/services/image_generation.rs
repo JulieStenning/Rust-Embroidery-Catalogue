@@ -1073,6 +1073,7 @@ mod tests {
 
     #[test]
     fn generate_preview_skips_unsupported_extension_without_invoking_backends() {
+        std::env::set_var("IMPORT_IMAGE_BACKEND", "auto");
         let result = generate_preview(&ImageGenerationRequest {
             file_path: "C:/imports/sample.txt".to_string(),
             preview_3d: false,
