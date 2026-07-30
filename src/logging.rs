@@ -66,3 +66,49 @@ pub fn init_logging(log_dir: &Path) -> LogGuard {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// Helper to create a unique temp directory for each test run.
+    fn test_log_dir() -> PathBuf {
+        std::env::temp_dir().join("embroidery_logging_test")
+    }
+
+    /// Test that init_logging creates the directory and writes at least one log file.
+    ///
+    /// NOTE: Only one test can call init_logging per process because
+    /// tracing_subscriber::registry().init() is a global-once operation.
+    /// A second call would panic, so all assertions are combined into this
+    /// single test.
+    #[test]
+    fn test_init_logging_creates_directory_and_log_files() {
+        let log_dir = test_log_dir();
+
+        // Clean any leftover state from a previous failed run.
+        let _ = std::fs::remove_dir_all(&log_dir);
+        assert!(!log_dir.exists(), "Precondition: directory should not exist yet");
+
+        // Act – initialise logging.
+        let guard = init_logging(&log_dir);
+
+        // Assert the directory was created.
+        assert!(log_dir.exists(), "Log directory should exist after init");
+        assert!(log_dir.is_dir(), "Log directory should be a directory");
+
+        // Assert at least one file entry exists inside (the rolled log file).
+        let entries: Vec<_> = std::fs::read_dir(&log_dir)
+            .expect("Should be able to read log directory")
+            .filter_map(|e| e.ok())
+            .collect();
+        assert!(!entries.is_empty(), "At least one log file should exist");
+
+        // Drop the guard so pending writes are flushed.
+        drop(guard);
+
+        // Clean up after ourselves.
+        let _ = std::fs::remove_dir_all(&log_dir);
+    }
+}
