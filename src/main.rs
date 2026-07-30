@@ -16,6 +16,7 @@ pub mod settings;
 pub mod templating;
 pub mod utils;
 
+use crate::paths::{AppPaths, ExecutionMode};
 use serde::Serialize;
 use sqlx::SqlitePool;
 use std::sync::atomic::AtomicBool;
@@ -48,24 +49,26 @@ pub struct AppStatus {
     pub database_path: String,
 }
 
-/// Return the current execution mode and path metadata to the frontend.
-#[tauri::command]
-fn get_app_status(state: State<'_, AppState>) -> AppStatus {
-    let mode_str = match state.paths.mode {
+/// Pure function to construct an `AppStatus` from `AppPaths`.
+/// Extracted for testability — this does not depend on Tauri state.
+fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
+    let mode_str = match paths.mode {
         paths::ExecutionMode::Portable => "portable".to_string(),
         paths::ExecutionMode::Installed => "installed".to_string(),
     };
 
     AppStatus {
         execution_mode: mode_str,
-        data_root: state.paths.data_root.to_string_lossy().to_string(),
-        embroidery_dir: state
-            .paths
-            .embroidery_designs_dir
-            .to_string_lossy()
-            .to_string(),
-        database_path: state.paths.database_path.to_string_lossy().to_string(),
+        data_root: paths.data_root.to_string_lossy().to_string(),
+        embroidery_dir: paths.embroidery_designs_dir.to_string_lossy().to_string(),
+        database_path: paths.database_path.to_string_lossy().to_string(),
     }
+}
+
+/// Return the current execution mode and path metadata to the frontend.
+#[tauri::command]
+fn get_app_status(state: State<'_, AppState>) -> AppStatus {
+    app_status_from_paths(&state.paths)
 }
 
 // ─── Tauri Commands ───────────────────────────────────────────────────────────
@@ -321,18 +324,388 @@ fn load_dotenv() {
     let env_path = std::path::Path::new(".env");
     if env_path.exists() {
         if let Ok(content) = std::fs::read_to_string(env_path) {
-            for line in content.lines() {
-                let line = line.trim();
-                if line.is_empty() || line.starts_with('#') {
-                    continue;
-                }
-                if let Some((key, value)) = line.split_once('=') {
-                    // Only set if not already present in the environment
-                    if std::env::var(key.trim()).is_err() {
-                        std::env::set_var(key.trim(), value.trim());
-                    }
-                }
+            load_dotenv_from_str(&content);
+        }
+    }
+}
+
+/// Parse the content of a dotenv-style string, setting environment variables
+/// for any `KEY=VALUE` pairs that are not already present in the environment.
+///
+/// Lines that are empty, whitespace-only, or start with `'#'` are ignored.
+/// If a line does not contain `'='` it is silently skipped.
+/// Leading/trailing whitespace is trimmed from both the key and the value.
+///
+/// This is a pure function (no filesystem I/O) extracted from `load_dotenv`
+/// so it can be tested without temp files or fixtures.
+fn load_dotenv_from_str(content: &str) {
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some((key, value)) = line.split_once('=') {
+            let key = key.trim();
+            let value = value.trim();
+            // Skip lines with an empty key (e.g. "=value")
+            if key.is_empty() {
+                continue;
+            }
+            // Only set if not already present in the environment
+            if std::env::var(key).is_err() {
+                std::env::set_var(key, value);
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+use super::*;
+use std::fs;
+use std::path::PathBuf;
+
+////////////////////////////////////////////////////////////////////////////////
+// load_dotenv_from_str — pure parsing logic                                  //
+////////////////////////////////////////////////////////////////////////////////
+
+    // ─── load_dotenv_from_str — pure parsing logic ───────────────────────────
+
+    #[test]
+    fn parse_empty_string_sets_no_vars() {
+        // Act
+        load_dotenv_from_str("");
+
+        // Assert — we check that a well-known absent var is still absent
+        // (no crash / no side effects).
+        assert!(
+            std::env::var("EMBROIDERY_TEST_A").is_err(),
+            "No vars should have been set from an empty string"
+        );
+    }
+
+    #[test]
+    fn parse_comment_only_lines_sets_no_vars() {
+        let content = "# This is a comment\n# Another comment";
+        load_dotenv_from_str(content);
+        assert!(
+            std::env::var("EMBROIDERY_TEST_B").is_err(),
+            "Comment lines should not set variables"
+        );
+    }
+
+    #[test]
+    fn parse_whitespace_only_lines_sets_no_vars() {
+        let content = "   \n\t\n  ";
+        load_dotenv_from_str(content);
+        assert!(
+            std::env::var("EMBROIDERY_TEST_C").is_err(),
+            "Whitespace-only lines should be ignored"
+        );
+    }
+
+    #[test]
+    fn parse_simple_key_value_sets_env_var() {
+        // Ensure the var is cleared before the test
+        let _prev = std::env::var("EMBROIDERY_TEST_D").ok();
+        std::env::remove_var("EMBROIDERY_TEST_D");
+
+        load_dotenv_from_str("EMBROIDERY_TEST_D=hello");
+        assert_eq!(
+            std::env::var("EMBROIDERY_TEST_D").unwrap_or_default(),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn parse_key_with_whitespace_is_trimmed() {
+        let _prev = std::env::var("EMBROIDERY_TEST_E").ok();
+        std::env::remove_var("EMBROIDERY_TEST_E");
+
+        load_dotenv_from_str("  EMBROIDERY_TEST_E  =  world  ");
+        assert_eq!(
+            std::env::var("EMBROIDERY_TEST_E").unwrap_or_default(),
+            "world"
+        );
+    }
+
+    #[test]
+    fn parse_does_not_overwrite_existing_env_var() {
+        // Set an existing value
+        let _prev = std::env::var("EMBROIDERY_EXISTING").ok();
+        std::env::set_var("EMBROIDERY_EXISTING", "original");
+
+        // Attempt to overwrite via dotenv
+        load_dotenv_from_str("EMBROIDERY_EXISTING=overwrite_attempt");
+
+        // The original value must persist
+        assert_eq!(
+            std::env::var("EMBROIDERY_EXISTING").unwrap_or_default(),
+            "original",
+            "Should NOT overwrite an already-set environment variable"
+        );
+    }
+
+    #[test]
+    fn parse_multiple_assignments_sets_all() {
+        let _prev1 = std::env::var("EMBROIDERY_MULTI_A").ok();
+        let _prev2 = std::env::var("EMBROIDERY_MULTI_B").ok();
+        std::env::remove_var("EMBROIDERY_MULTI_A");
+        std::env::remove_var("EMBROIDERY_MULTI_B");
+
+        load_dotenv_from_str("EMBROIDERY_MULTI_A=foo\nEMBROIDERY_MULTI_B=bar");
+
+        assert_eq!(
+            std::env::var("EMBROIDERY_MULTI_A").unwrap_or_default(),
+            "foo"
+        );
+        assert_eq!(
+            std::env::var("EMBROIDERY_MULTI_B").unwrap_or_default(),
+            "bar"
+        );
+    }
+
+    #[test]
+    fn parse_line_without_equals_sign_is_skipped() {
+        let _prev = std::env::var("EMBROIDERY_SKIP_A").ok();
+        std::env::remove_var("EMBROIDERY_SKIP_A");
+
+        // Lines without '=' should be silently ignored
+        load_dotenv_from_str("EMBROIDERY_SKIP_A");
+        assert!(
+            std::env::var("EMBROIDERY_SKIP_A").is_err(),
+            "Line without '=' should not set a variable"
+        );
+    }
+
+    #[test]
+    fn parse_multiple_equals_signs_uses_only_first() {
+        let _prev = std::env::var("EMBROIDERY_MULTI_EQ").ok();
+        std::env::remove_var("EMBROIDERY_MULTI_EQ");
+
+        load_dotenv_from_str("EMBROIDERY_MULTI_EQ=val1=val2=val3");
+
+        // Only the first '=' acts as the delimiter; the rest are part of the value
+        assert_eq!(
+            std::env::var("EMBROIDERY_MULTI_EQ").unwrap_or_default(),
+            "val1=val2=val3"
+        );
+    }
+
+    #[test]
+    fn parse_mixed_content_with_comments_and_blanks() {
+        let _prev_a = std::env::var("EMBROIDERY_MIXED_A").ok();
+        let _prev_b = std::env::var("EMBROIDERY_MIXED_B").ok();
+        std::env::remove_var("EMBROIDERY_MIXED_A");
+        std::env::remove_var("EMBROIDERY_MIXED_B");
+
+        let content = "# Database config\nEMBROIDERY_MIXED_A=db_host\n\nEMBROIDERY_MIXED_B=db_port\n  ";
+        load_dotenv_from_str(content);
+
+        assert_eq!(
+            std::env::var("EMBROIDERY_MIXED_A").unwrap_or_default(),
+            "db_host"
+        );
+        assert_eq!(
+            std::env::var("EMBROIDERY_MIXED_B").unwrap_or_default(),
+            "db_port"
+        );
+    }
+
+    // ─── load_dotenv_from_str — edge cases ───────────────────────────────────
+
+    #[test]
+    fn parse_key_with_empty_value_sets_empty_string() {
+        let _prev = std::env::var("EMBROIDERY_EMPTY_VAL").ok();
+        std::env::remove_var("EMBROIDERY_EMPTY_VAL");
+
+        load_dotenv_from_str("EMBROIDERY_EMPTY_VAL=");
+
+        assert_eq!(
+            std::env::var("EMBROIDERY_EMPTY_VAL").unwrap_or_default(),
+            "",
+            "A key with '=' and no value should set the variable to empty string"
+        );
+    }
+
+    #[test]
+    fn parse_line_with_empty_key_is_skipped() {
+        let _prev = std::env::var("EMBROIDERY_EMPTY_KEY").ok();
+        std::env::remove_var("EMBROIDERY_EMPTY_KEY");
+
+        // An empty key after trimming should not set any variable.
+        load_dotenv_from_str("=some_value\n  =another");
+
+        assert!(
+            std::env::var("EMBROIDERY_EMPTY_KEY").is_err(),
+            "Lines with empty keys should be silently skipped (key is empty after trim)"
+        );
+    }
+
+    // ─── load_dotenv — filesystem integration ────────────────────────────────
+
+    #[test]
+    fn load_dotenv_handles_missing_file_gracefully() {
+        // Calling load_dotenv() when no .env file exists must not panic.
+        // Use a temp dir with a non-existent .env to be safe.
+        let tmp = std::env::temp_dir().join(format!(
+            "embroidery-main-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&tmp);
+        std::env::set_current_dir(&tmp).ok();
+
+        // This should not panic even though there's no .env file.
+        load_dotenv();
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn load_dotenv_reads_and_loads_from_file() {
+        let tmp = std::env::temp_dir().join(format!(
+            "embroidery-main-test-file-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::create_dir_all(&tmp);
+
+        // Write a temporary .env file
+        let env_path = tmp.join(".env");
+        let _prev = std::env::var("EMBROIDERY_FILE_TEST").ok();
+        std::env::remove_var("EMBROIDERY_FILE_TEST");
+        fs::write(&env_path, "EMBROIDERY_FILE_TEST=loaded_from_file\n").expect("write .env");
+
+        // Temporarily change cwd to our temp dir so load_dotenv finds the .env
+        let original_cwd = std::env::current_dir().ok();
+        std::env::set_current_dir(&tmp).ok();
+
+        load_dotenv();
+
+        assert_eq!(
+            std::env::var("EMBROIDERY_FILE_TEST").unwrap_or_default(),
+            "loaded_from_file"
+        );
+
+        // Restore cwd and clean up
+        if let Some(cwd) = original_cwd {
+            let _ = std::env::set_current_dir(cwd);
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    // ─── AppStatus struct ──────────────────────────────────────────────────
+
+    #[test]
+    fn app_status_from_paths_serializes_portable_mode() {
+        let paths = AppPaths {
+            mode: ExecutionMode::Portable,
+            data_root: PathBuf::from("E:/portable/data"),
+            embroidery_designs_dir: PathBuf::from("E:/portable/data/MachineEmbroideryDesigns"),
+            database_dir: PathBuf::from("E:/portable/data/Database"),
+            database_path: PathBuf::from("E:/portable/data/Database/EmbroideryCatalogue.db"),
+            thumbnail_cache_dir: PathBuf::from("E:/portable/data/thumbnails"),
+            log_dir: PathBuf::from("E:/portable/data/logs"),
+        };
+
+        let status = app_status_from_paths(&paths);
+
+        assert_eq!(status.execution_mode, "portable");
+        assert_eq!(status.data_root, "E:/portable/data");
+        assert_eq!(status.embroidery_dir, "E:/portable/data/MachineEmbroideryDesigns");
+        assert_eq!(status.database_path, "E:/portable/data/Database/EmbroideryCatalogue.db");
+    }
+
+    #[test]
+    fn app_status_from_paths_serializes_installed_mode() {
+        let paths = AppPaths {
+            mode: ExecutionMode::Installed,
+            data_root: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue"),
+            embroidery_designs_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns"),
+            database_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database"),
+            database_path: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database/EmbroideryCatalogue.db"),
+            thumbnail_cache_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/thumbnails"),
+            log_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/logs"),
+        };
+
+        let status = app_status_from_paths(&paths);
+
+        assert_eq!(status.execution_mode, "installed");
+        assert_eq!(status.data_root, "C:/Users/test/AppData/Roaming/EmbroideryCatalogue");
+    }
+
+    #[test]
+    fn app_status_from_paths_handles_windows_backslash_paths() {
+        // On Windows, to_string_lossy() on a PathBuf constructed from backslashes
+        // yields backslashes. The frontend receives these raw values.
+        let paths = AppPaths {
+            mode: ExecutionMode::Portable,
+            data_root: PathBuf::from("D:\\MyData"),
+            embroidery_designs_dir: PathBuf::from("D:\\MyData\\MachineEmbroideryDesigns"),
+            database_dir: PathBuf::from("D:\\MyData\\Database"),
+            database_path: PathBuf::from("D:\\MyData\\Database\\EmbroideryCatalogue.db"),
+            thumbnail_cache_dir: PathBuf::from("D:\\MyData\\thumbnails"),
+            log_dir: PathBuf::from("D:\\MyData\\logs"),
+        };
+
+        let status = app_status_from_paths(&paths);
+
+        // The path strings should contain the backslash separator as originally set.
+        assert!(status.data_root.contains('\\'), "Windows paths should retain backslashes");
+        assert!(status.embroidery_dir.contains('\\'), "Windows paths should retain backslashes");
+        assert!(status.database_path.contains('\\'), "Windows paths should retain backslashes");
+
+        // The execution mode should still be portable.
+        assert_eq!(status.execution_mode, "portable");
+    }
+
+    // ─── AppStatus struct (serialization) ─────────────────────────────────
+
+    #[test]
+    fn app_status_serializes_correct_field_names() {
+        let status = AppStatus {
+            execution_mode: "installed".to_string(),
+            data_root: "/some/data/root".to_string(),
+            embroidery_dir: "/some/data/root/MachineEmbroideryDesigns".to_string(),
+            database_path: "/some/data/root/Database/EmbroideryCatalogue.db".to_string(),
+        };
+
+        let json = serde_json::to_value(&status).expect("serialize AppStatus");
+        let map = json.as_object().expect("json should be an object");
+
+        // The frontend expects these exact field names
+        assert!(map.contains_key("execution_mode"), "missing 'execution_mode'");
+        assert!(map.contains_key("data_root"), "missing 'data_root'");
+        assert!(map.contains_key("embroidery_dir"), "missing 'embroidery_dir'");
+        assert!(map.contains_key("database_path"), "missing 'database_path'");
+
+        // Exactly 4 fields — no extra, no missing
+        assert_eq!(map.len(), 4, "AppStatus should serialize exactly 4 fields");
+    }
+
+    #[test]
+    fn app_status_serializes_correct_field_values() {
+        let status = AppStatus {
+            execution_mode: "portable".to_string(),
+            data_root: "D:/data".to_string(),
+            embroidery_dir: "D:/data/MachineEmbroideryDesigns".to_string(),
+            database_path: "D:/data/Database/EmbroideryCatalogue.db".to_string(),
+        };
+
+        let json = serde_json::to_value(&status).expect("serialize AppStatus");
+        let map = json.as_object().expect("json should be an object");
+
+        assert_eq!(map.get("execution_mode").and_then(|v| v.as_str()), Some("portable"));
+        assert_eq!(map.get("data_root").and_then(|v| v.as_str()), Some("D:/data"));
+        assert_eq!(map.get("embroidery_dir").and_then(|v| v.as_str()), Some("D:/data/MachineEmbroideryDesigns"));
+        assert_eq!(map.get("database_path").and_then(|v| v.as_str()), Some("D:/data/Database/EmbroideryCatalogue.db"));
     }
 }

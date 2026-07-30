@@ -28,3 +28,4 @@ tracing-appender = "0.2"
 tauri-build = { version = "2", features = [] }
 [dev-dependencies]
 serial_test = "3.0"
+tauri = { version = "2", features = ["test"] }
