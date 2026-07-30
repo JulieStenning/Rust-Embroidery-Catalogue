@@ -16,7 +16,6 @@ pub mod settings;
 pub mod templating;
 pub mod utils;
 
-use crate::paths::{AppPaths, ExecutionMode};
 use serde::Serialize;
 use sqlx::SqlitePool;
 use std::sync::atomic::AtomicBool;
@@ -606,8 +605,8 @@ use std::path::PathBuf;
 
     #[test]
     fn app_status_from_paths_serializes_portable_mode() {
-        let paths = AppPaths {
-            mode: ExecutionMode::Portable,
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Portable,
             data_root: PathBuf::from("E:/portable/data"),
             embroidery_designs_dir: PathBuf::from("E:/portable/data/MachineEmbroideryDesigns"),
             database_dir: PathBuf::from("E:/portable/data/Database"),
@@ -626,8 +625,8 @@ use std::path::PathBuf;
 
     #[test]
     fn app_status_from_paths_serializes_installed_mode() {
-        let paths = AppPaths {
-            mode: ExecutionMode::Installed,
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
             data_root: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue"),
             embroidery_designs_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns"),
             database_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database"),
@@ -646,8 +645,8 @@ use std::path::PathBuf;
     fn app_status_from_paths_handles_windows_backslash_paths() {
         // On Windows, to_string_lossy() on a PathBuf constructed from backslashes
         // yields backslashes. The frontend receives these raw values.
-        let paths = AppPaths {
-            mode: ExecutionMode::Portable,
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Portable,
             data_root: PathBuf::from("D:\\MyData"),
             embroidery_designs_dir: PathBuf::from("D:\\MyData\\MachineEmbroideryDesigns"),
             database_dir: PathBuf::from("D:\\MyData\\Database"),
