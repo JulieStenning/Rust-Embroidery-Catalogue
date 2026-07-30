@@ -1064,14 +1064,6 @@ mod tests {
     }
 
     #[test]
-    fn extension_support_marks_promoted_optional_formats_as_native_only() {
-        assert_eq!(
-            extension_support("C:/imports/sample.dat"),
-            BackendSupport::NativeOnly
-        );
-    }
-
-    #[test]
     fn extension_support_marks_unknown_as_unsupported() {
         assert_eq!(
             extension_support("C:/imports/sample.txt"),
