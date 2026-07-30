@@ -423,4 +423,42 @@ mod tests {
             .all(|thread| thread.color == 0x000000);
         assert!(!all_black, "fallback EXP threads should not all be black");
     }
+
+    // -----------------------------------------------------------------------
+    // EmbroideryReader trait tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_exp_reader_trait_read_success() {
+        let reader = ExpReader;
+        let data = vec![0x05, 0xF6, 0xFD, 0xF9];
+        let pattern = reader.read(&data).expect("ExpReader::read should parse valid EXP");
+        assert_eq!(
+            pattern.count_stitch_commands(StitchType::Stitch),
+            2,
+            "expected exactly 2 regular stitches via trait read"
+        );
+    }
+
+    #[test]
+    fn test_exp_reader_trait_read_handles_empty_data_gracefully() {
+        // Empty data should produce an empty pattern, not a panic or error.
+        let reader = ExpReader;
+        let pattern = reader.read(&[]).expect("empty data should produce Ok pattern");
+        assert_eq!(
+            pattern.count_stitch_commands(StitchType::Stitch),
+            0,
+            "empty data should produce zero stitches"
+        );
+        assert_eq!(
+            pattern.count_stitch_commands(StitchType::End),
+            1,
+            "even an empty pattern should have an End marker"
+        );
+        // The End marker should be at (0, 0) when there are no previous stitches.
+        if let Some(last) = pattern.stitches.last() {
+            assert_eq!(last.x, 0.0);
+            assert_eq!(last.y, 0.0);
+        }
+    }
 }
