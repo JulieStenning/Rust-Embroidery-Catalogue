@@ -405,4 +405,29 @@ mod tests {
         assert_eq!(pattern.extras.get("CO").map(|s| s.as_str()), Some("18"));
         assert_eq!(pattern.threadlist.len(), 19);
     }
+
+    #[test]
+    fn test_dst_reader_trait_read() {
+        // Test that the EmbroideryReader trait impl (DstReader::read) works.
+        let mut data = vec![0u8; 512];
+
+        // Two stitches: dx=+1, dy=+1 -> b0=0x81
+        data.push(0x81);
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0x81);
+        data.push(0x00);
+        data.push(0x00);
+
+        // END marker
+        data.push(0x00);
+        data.push(0x00);
+        data.push(0xF3);
+
+        let reader = DstReader;
+        let pattern = reader.read(&data).expect("DstReader::read should succeed");
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 2);
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+    }
 }
