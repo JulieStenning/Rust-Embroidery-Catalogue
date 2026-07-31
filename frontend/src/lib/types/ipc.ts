@@ -282,6 +282,341 @@ export interface AdapterAppStatusResponse {
   error?: string;
 }
 
+export interface ProjectSummary {
+  id: number;
+  name: string;
+  description?: string | null;
+  design_count?: number;
+  date_created?: string | null;
+}
+
+export interface ProjectDetailModel {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export interface ProjectDesignItem {
+  id: number;
+  filename: string;
+  filepath: string;
+  image_data_url?: string | null;
+  designer?: string;
+  source?: string;
+  hoop?: string | null;
+  rating?: number | null;
+  is_stitched?: boolean;
+  tags_checked?: boolean;
+  date_added?: string | null;
+}
+
+export interface ProjectDetailView {
+  project: ProjectDetailModel | null;
+  designs: ProjectDesignItem[];
+}
+
+export interface ProjectMutationResult {
+  project_id: number;
+  message: string;
+}
+
+export interface RemoveProjectDesignResult {
+  project_id: number;
+  design_id: number;
+  message: string;
+}
+
+export interface AdapterProjectListResponse {
+  source: string;
+  items: ProjectSummary[];
+  error?: string;
+}
+
+export interface AdapterProjectDetailResponse {
+  source: string;
+  item: ProjectDetailView | null;
+  error?: string;
+}
+
+export interface AdapterProjectMutationResponse {
+  source: string;
+  persisted: boolean;
+  project_id: number;
+  message: string;
+  error?: string;
+}
+
+export interface AdapterProjectDesignMutationResponse {
+  source: string;
+  persisted: boolean;
+  project_id: number;
+  design_id: number;
+  message: string;
+  error?: string;
+}
+
+export interface BulkImportScannedFile {
+  full_path?: string;
+  [key: string]: unknown;
+}
+
+export interface BulkImportPreview {
+  discovered_count: number;
+  selected_count: number;
+  folder_count: number;
+  scanned_files: BulkImportScannedFile[];
+  resolved_assignments: unknown[];
+  missing_root: boolean;
+  no_supported_files: boolean;
+  invalid_root: boolean;
+}
+
+export interface AdapterImportPreviewResponse {
+  source: string;
+  preview: BulkImportPreview;
+  message: string;
+}
+
+export interface BrowseImportFolderResult {
+  path?: string | null;
+  paths?: string[];
+}
+
+export interface AdapterBrowseImportFolderResponse {
+  source: string;
+  path: string;
+  paths: string[];
+  message: string;
+}
+
+export interface ImportPrecheckResult {
+  context_token: string;
+  context_token_present: boolean;
+  ready_for_confirm: boolean;
+  is_first_import: boolean;
+  needs_hoop_setup: boolean;
+  root_path_count: number;
+  selected_file_count: number;
+  resolved_assignments: unknown[];
+}
+
+export interface AdapterImportPrecheckResponse {
+  source: string;
+  precheck: ImportPrecheckResult;
+  message: string;
+}
+
+export interface ImportConfirmResult {
+  persisted_design_count?: number;
+  [key: string]: unknown;
+}
+
+export interface ImportPrecheckActionResult {
+  action: string;
+  context_token_present: boolean;
+  consumed_context: boolean;
+  requires_skip_hoops_confirmation: boolean;
+  next_route: string | null;
+  confirm_result: ImportConfirmResult | null;
+}
+
+export interface AdapterImportPrecheckActionResponse {
+  source: string;
+  actionResult: ImportPrecheckActionResult;
+  message: string;
+}
+
+export interface AdapterStopBulkImportResponse {
+  source: string;
+  stopRequested: boolean;
+  message: string;
+}
+
+export interface TaggingActionsViewModel {
+  has_google_api_key: boolean;
+  ai_tier2_auto: boolean;
+  ai_tier3_auto: boolean;
+  ai_batch_size: string;
+  ai_delay: string;
+  import_commit_batch_size: string;
+  default_batch_size: number;
+  default_commit_every: number;
+  default_workers: number;
+}
+
+export interface AdapterTaggingActionsViewModelResponse {
+  source: string;
+  model: TaggingActionsViewModel;
+  error?: string;
+}
+
+export interface UnifiedBackfillRequest {
+  [key: string]: unknown;
+}
+
+export interface UnifiedBackfillResult {
+  source: string;
+  processed: number;
+  errors: number;
+  stopped: boolean;
+  actions: string[];
+  commit_every?: number;
+  batch_size?: number;
+  workers?: number;
+  error?: string;
+}
+
+export interface AdapterStopUnifiedBackfillResponse {
+  source: string;
+  status: string;
+  error?: string;
+}
+
+export interface BackfillLogEntry {
+  level: string;
+  message: string;
+}
+
+export interface AdapterBackfillLogEntriesResponse {
+  source: string;
+  entries: BackfillLogEntry[];
+}
+
+export interface RunStitchingBackfillOptions {
+  clearExistingStitching?: boolean;
+  batchSize?: number;
+}
+
+export interface BackupViewModel {
+  db_destination: string;
+  designs_destination: string;
+  db_source_path: string;
+  designs_source_path: string;
+}
+
+export interface AdapterBackupViewModelResponse {
+  source: string;
+  model: BackupViewModel;
+  error?: string;
+}
+
+export interface SaveBackupSettingsRequest {
+  dbDestination: string;
+  designsDestination: string;
+}
+
+export interface AdapterSaveBackupSettingsResponse {
+  source: string;
+  persisted: boolean;
+  saved: boolean;
+  message: string;
+  db_destination?: string;
+  designs_destination?: string;
+  error?: string;
+}
+
+export interface AdapterBrowseBackupFolderResponse {
+  source: string;
+  path: string | null;
+  error: string | null;
+}
+
+export interface DatabaseBackupResult {
+  success: boolean;
+  backup_path: string;
+  size_bytes: number;
+  completed_at: string;
+  error: string;
+}
+
+export interface DesignsBackupResult {
+  success: boolean;
+  scanned: number;
+  copied: number;
+  updated: number;
+  unchanged: number;
+  archived: number;
+  total_bytes_copied: number;
+  completed_at: string;
+  error: string;
+}
+
+export interface AdapterRunBothBackupsResponse {
+  source: string;
+  database: DatabaseBackupResult | null;
+  designs: DesignsBackupResult | null;
+  error?: string;
+}
+
+export interface AdapterScanOrphansResponse {
+  source: string;
+  checked: number;
+  found: number;
+  error?: string;
+}
+
+export interface OrphanPageItem {
+  id: number;
+  filename: string;
+  filepath: string;
+  designer: string;
+  date_added: string | null;
+}
+
+export interface AdapterOrphansPageResponse {
+  source: string;
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  items: OrphanPageItem[];
+  error?: string;
+}
+
+export interface AdapterDeleteOrphansResponse {
+  source: string;
+  persisted: boolean;
+  deleted: number;
+  error?: string;
+}
+
+export interface AdapterBrowseOrphanPathResponse {
+  source: string;
+  ok: boolean;
+  opened: string;
+  error?: string;
+}
+
+export interface AdminEntitySummary {
+  id: number;
+  name: string;
+  design_count: number;
+}
+
+export interface AdminTagSummary {
+  id: number;
+  description: string;
+  tag_group: string;
+}
+
+export interface AdminHoopSummary {
+  id: number;
+  name: string;
+  max_width_mm: number;
+  max_height_mm: number;
+  design_count: number;
+}
+
+export interface AdapterPersistedResponse {
+  source: string;
+  persisted: boolean;
+  error?: string;
+}
+
+export interface AdapterPersistedItemResponse<TItem> extends AdapterPersistedResponse {
+  item?: TItem;
+}
+
 export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
   return {
     id: Number(wire.id),

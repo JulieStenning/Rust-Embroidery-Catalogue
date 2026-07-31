@@ -54,6 +54,18 @@
   /** @typedef {import("./types/ipc").ProjectListItem} ProjectListItem */
   /** @typedef {import("./types/ipc").SearchPayload} SearchPayload */
   /** @typedef {import("./types/ipc").MutationPatch} MutationPatch */
+  /** @typedef {import("./types/ipc").AdminTagSummary} AdminTagSummary */
+  /** @typedef {{ persisted: boolean, deleted_count: number, files_trashed: number, errors?: string[] }} BulkDeleteResult */
+  /** @typedef {{ q: string, allWords: string, exactPhrase: string, anyWords: string, noneWords: string, filename: string, designerFilters: string[], imageTagFilters: string[], stitchingTagFilters: string[], hoop: string, sourceFilters: string[], rating: string, stitched: string, unverifiedOnly: boolean, searchFilename: boolean, searchTags: boolean, searchFolder: boolean, sortBy: string, sortDir: string }} BrowseFilterState */
+  /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: string[] | string, folder?: string, date_added?: string }} BrowseCardInput */
+  /** @typedef {{ persisted: boolean, updated_count?: number, updated?: number, error?: string }} BulkSetTagsResult */
+  /** @typedef {{ persisted: boolean, added_count?: number, updated?: number, error?: string }} BulkAddToProjectResult */
+  /** @typedef {{ persisted: boolean, verified_count?: number, updated?: number, error?: string }} BulkVerifyResult */
+  /** @typedef {{ image: BrowseTagOption[], stitching: BrowseTagOption[], unclassified: BrowseTagOption[] }} TagOptionBuckets */
+
+  /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
+  /** @typedef {{ id: number, name: string, maxWidthMm: number, maxHeightMm: number, designCount: number }} HoopRow */
+  /** @typedef {{ id: number, description: string, tagGroup: string }} TagRow */
 
   const ORDERED_ROUTE_HINTS = [
     "#/designs",
@@ -232,6 +244,7 @@
   const BROWSE_ROW_SELECTOR_WIDTH = 28;
   const BROWSE_TAG_UNTAGGED = "__untagged__";
 
+  /** @returns {BrowseFilterState} */
   const defaultBrowseFilters = () => ({
     q: "",
     allWords: "",
@@ -293,7 +306,7 @@
   let detailBrowseIndex = $state(-1);
 
   // Admin CRUD state
-  /** @type {any[]} */
+  /** @type {AdminEntityRow[]} */
   let designers = $state([]);
   let newDesignerName = $state("");
   /** @type {number | null} */
@@ -302,7 +315,7 @@
   /** @type {number | null} */
   let pendingDeleteDesignerId = $state(null);
 
-  /** @type {any[]} */
+  /** @type {AdminEntityRow[]} */
   let sources = $state([]);
   let newSourceName = $state("");
   /** @type {number | null} */
@@ -311,7 +324,7 @@
   /** @type {number | null} */
   let pendingDeleteSourceId = $state(null);
 
-  /** @type {any[]} */
+  /** @type {HoopRow[]} */
   let hoops = $state([]);
   let newHoopName = $state("");
   let newHoopWidth = $state(0);
@@ -324,11 +337,11 @@
   /** @type {number | null} */
   let pendingDeleteHoopId = $state(null);
 
-  /** @type {any[]} */
+  /** @type {TagRow[]} */
   let imageTags = $state([]);
-  /** @type {any[]} */
+  /** @type {TagRow[]} */
   let stitchingTags = $state([]);
-  /** @type {any[]} */
+  /** @type {TagRow[]} */
   let unclassifiedTags = $state([]);
   let newTagDescription = $state("");
   let newTagGroup = $state("image");
@@ -509,14 +522,14 @@
   }
 
   /**
-   * @param {any} t
+   * @param {string | { description?: string }} t
    * @returns {string}
    */
   function mapTagToString(t) {
     return typeof t === "object" && t !== null ? String(t.description || "") : String(t);
   }
 
-  /** @param {any} item */
+  /** @param {BrowseCardInput | null | undefined} item */
   function normalizeCardItem(item) {
     if (!item || typeof item !== "object") {
       return null;
@@ -535,22 +548,22 @@
         ? Array.from(new Set([...imageTags, ...stitchingTags]))
         : fallbackTags.sort(compareStrings);
 
-    const folder = item.folder || extractFolder(item.filepath);
+    const folder = item.folder || extractFolder(String(item.filepath || ""));
     const id = Number(item.id);
     const dateAdded = item.date_added || (id ? new Date(id * 1000).toISOString() : "");
 
     const projectsRaw = Array.isArray(item?.projects)
       ? item.projects
-      : Array.isArray(item?.project_names)
+      : Array.isArray(item.project_names)
         ? item.project_names
         : typeof item?.projects === "string"
           ? item.projects.split(",")
-          : typeof item?.project_names === "string"
+          : typeof item.project_names === "string"
             ? item.project_names.split(",")
             : [];
 
     const projects = projectsRaw
-      .map(/** @param {any} project */ (project) => {
+      .map(/** @param {string | { name?: string }} project */ (project) => {
         if (typeof project === "string") {
           return project.trim();
         }
@@ -621,7 +634,7 @@
     return nameLeft.localeCompare(nameRight, undefined, { sensitivity: "base" }) * directionMultiplier;
   }
 
-  /** @param {string} key @param {any} value */
+  /** @param {keyof BrowseFilterState} key @param {BrowseFilterState[keyof BrowseFilterState]} value */
   function updateBrowseFilter(key, value) {
     browseFilters = {
       ...browseFilters,
@@ -648,6 +661,24 @@
   function applyBrowseFilters() {
     browseCurrentPage = 1;
     loadBrowseItems(true);
+  }
+
+  /**
+   * @template T
+   * @param {{ items?: T[] } | null | undefined} response
+   * @returns {T[]}
+   */
+  function getResponseItems(response) {
+    const items = response?.items;
+    return Array.isArray(items) ? items : [];
+  }
+
+  /**
+   * @param {{ source?: string } | null | undefined} response
+   * @returns {string}
+   */
+  function getResponseSource(response) {
+    return typeof response?.source === "string" && response.source ? response.source : "mock";
   }
 
   async function loadBrowseItems(force = false) {
@@ -680,9 +711,12 @@
         },
       };
       const result = await getBrowseDesigns(payload);
-      const rawItems = Array.isArray(result?.items) ? result.items : [];
-      browseItems = rawItems.map(normalizeCardItem).filter(Boolean);
-      browseSource = result?.source || "mock";
+      const rawItems = getResponseItems(result);
+      const normalizedItems = rawItems
+        .map(normalizeCardItem)
+        .filter((item) => item !== null);
+      browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
+      browseSource = getResponseSource(result);
       browseHasLoaded = true;
     } catch (error) {
       browseItems = [];
@@ -696,8 +730,8 @@
   async function loadBrowseTags() {
     try {
       const result = await getBrowseTags();
-      browseTagOptions = Array.isArray(result?.items) ? result.items : [];
-      browseTagsSource = result?.source || "mock";
+      browseTagOptions = getResponseItems(result);
+      browseTagsSource = getResponseSource(result);
     } catch (error) {
       browseTagOptions = [];
       browseTagsSource = "mock";
@@ -708,10 +742,10 @@
   async function loadBrowseProjects() {
     try {
       const result = await getBrowseProjects();
-      const items = Array.isArray(result?.items) ? [...result.items] : [];
+      const items = [...getResponseItems(result)];
       items.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
       browseProjects = items;
-      browseProjectsSource = result?.source || "mock";
+      browseProjectsSource = getResponseSource(result);
       browseProjectsLoaded = true;
     } catch (error) {
       browseProjects = [];
@@ -728,9 +762,13 @@
         listHoops(),
       ]);
 
+      const designerItems = getResponseItems(designerResult);
+      const sourceItems = getResponseItems(sourceResult);
+      const hoopItems = getResponseItems(hoopResult);
+
       browseDesignerFilterOptions = Array.from(
         new Set(
-          (Array.isArray(designerResult?.items) ? designerResult.items : [])
+          designerItems
             .map((item) => String(item?.name || "").trim())
             .filter(Boolean)
         )
@@ -738,7 +776,7 @@
 
       browseSourceFilterOptions = Array.from(
         new Set(
-          (Array.isArray(sourceResult?.items) ? sourceResult.items : [])
+          sourceItems
             .map((item) => String(item?.name || "").trim())
             .filter(Boolean)
         )
@@ -746,7 +784,7 @@
 
       browseHoopFilterOptions = Array.from(
         new Set(
-          (Array.isArray(hoopResult?.items) ? hoopResult.items : [])
+          hoopItems
             .map((item) => String(item?.name || "").trim())
             .filter(Boolean)
         )
@@ -834,7 +872,12 @@
       const id = Number(idStr);
       const index = browseItems.findIndex((item) => item.id === id);
       if (index !== -1) {
-        browseItems[index] = { ...browseItems[index], ...patch };
+        const { hoop, ...restPatch } = patch;
+        browseItems[index] = {
+          ...browseItems[index],
+          ...restPatch,
+          ...(hoop !== undefined ? { hoop: hoop ?? "" } : {}),
+        };
         changed = true;
       }
 
@@ -1028,7 +1071,7 @@
     browseGridColumns = 2;
   }
 
-  /** @param {string} key @param {string} filterValue */
+  /** @param {keyof BrowseFilterState} key @param {string} filterValue */
   function toggleBrowseFilter(key, filterValue) {
     const raw = browseFilters[/** @type {keyof typeof browseFilters} */ (key)];
     const list = /** @type {string[]} */ (Array.isArray(raw) ? [...raw] : []);
@@ -1063,7 +1106,7 @@
 
         let count = 0;
         for (const design of selectedDesigns) {
-          if (Array.isArray(design.tags) && design.tags.some(/** @param {any} t */ (t) => String(t || "").trim().toLowerCase() === desc)) {
+          if (Array.isArray(design.tags) && design.tags.some(/** @param {unknown} t */ (t) => String(t || "").trim().toLowerCase() === desc)) {
             count++;
           }
         }
@@ -1095,7 +1138,7 @@
     return browseBulkTagIndeterminate.includes(Number(tagId));
   }
 
-  /** @param {any} tagId @param {any} checked */
+  /** @param {number | string} tagId @param {boolean} checked */
   function toggleTagChooserSelection(tagId, checked) {
     const id = Number(tagId);
     if (!Number.isFinite(id)) return;
@@ -1118,7 +1161,7 @@
 
     browseLoading = true;
     try {
-      const result = /** @type {any} */ (await bulkSetTagsForDesigns(Array.from(browseSelectedIds), finalTags));
+      const result = /** @type {BulkSetTagsResult} */ (await bulkSetTagsForDesigns(Array.from(browseSelectedIds), finalTags));
       if (result?.persisted) {
         addToast(`${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`, "success");
         closeBulkTagModal();
@@ -1152,7 +1195,7 @@
     browseBulkProjectDropdownOpen = false;
   }
 
-  /** @param {any} projectId @param {any} checked */
+  /** @param {number | string} projectId @param {boolean} checked */
   function toggleBrowseBulkProjectSelection(projectId, checked) {
     const id = Number(projectId);
     if (!Number.isFinite(id)) return;
@@ -1171,7 +1214,7 @@
     let anyFailed = false;
     try {
       for (const projectId of browseBulkProjectSelection) {
-        const result = /** @type {any} */ (await bulkAddDesignsToProject(projectId, Array.from(browseSelectedIds)));
+        const result = /** @type {BulkAddToProjectResult} */ (await bulkAddDesignsToProject(projectId, Array.from(browseSelectedIds)));
         if (result?.persisted) {
           totalAdded += result.added_count ?? result.updated ?? 0;
         } else {
@@ -1195,7 +1238,7 @@
 
     browseLoading = true;
     try {
-      const result = /** @type {any} */ (await bulkVerifyDesigns(Array.from(browseSelectedIds)));
+      const result = /** @type {BulkVerifyResult} */ (await bulkVerifyDesigns(Array.from(browseSelectedIds)));
       if (result?.persisted) {
         addToast(`${result.verified_count ?? result.updated} design(s) marked verified.`, "success");
         await loadBrowseItems(true);
@@ -1218,7 +1261,7 @@
     browseDeleteConfirmOpen = false;
   }
 
-  /** @param {any} result */
+  /** @param {BulkDeleteResult} result */
   function handleBulkDeleteResult(result) {
     if (result.persisted) {
       let notice = `${result.deleted_count} design(s) deleted from catalogue.`;
@@ -1242,15 +1285,15 @@
     browseSelectedIds.clear();
   }
 
-  /** @param {any} item @param {any} summaryNode */
+  /** @param {BrowseDesignCard} item @param {HTMLElement | null} summaryNode */
   function handleBrowseCardProjectDetailsToggle(item, summaryNode) {
-    const detailsNode = summaryNode?.parentNode;
+    const detailsNode = /** @type {Element | null} */ (summaryNode?.parentNode);
     if (detailsNode && detailsNode.hasAttribute("open") && browseProjects.length === 0) {
       loadBrowseProjects();
     }
   }
 
-  /** @param {any} item @param {any} projectId */
+  /** @param {BrowseDesignCard} item @param {number | string} projectId */
   function isBrowseCardProjectChecked(item, projectId) {
     const designId = Number(item.id);
     const prjId = Number(projectId);
@@ -1260,19 +1303,19 @@
     }
     if (!Array.isArray(item.projects)) return false;
 
-    if (item.projects.includes(String(projectId)) || item.projects.includes(Number(projectId))) {
+    if (item.projects.includes(String(projectId))) {
       return true;
     }
 
-    const targetProject = browseProjects.find(/** @param {any} p */ (p) => Number(p.id) === prjId);
+    const targetProject = browseProjects.find((p) => Number(p.id) === prjId);
     if (targetProject && targetProject.name) {
       const targetName = String(targetProject.name).trim().toLowerCase();
-      return item.projects.some(/** @param {any} p */ (p) => String(p).trim().toLowerCase() === targetName);
+      return item.projects.some((p) => String(p).trim().toLowerCase() === targetName);
     }
     return false;
   }
 
-  /** @param {any} designId @param {any} projectId @param {any} checked */
+  /** @param {number | string} designId @param {number | string} projectId @param {boolean} checked */
   function updateBrowseCardProjectPending(designId, projectId, checked) {
     const targetDesignId = Number(designId);
     const targetProjectId = Number(projectId);
@@ -1287,7 +1330,7 @@
     applyBrowseCardProjectPending(targetDesignId);
   }
 
-  /** @param {any} designId */
+  /** @param {number | string} designId */
   async function applyBrowseCardProjectPending(designId) {
     const targetDesignId = Number(designId);
     const pending = browseCardProjectPendingById?.[targetDesignId] || {};
@@ -1325,7 +1368,7 @@
     }
   }
 
-  /** @param {any} item */
+  /** @param {{ id: number | string }} item */
   function openDesignDetail(item) {
     const designId = Number(item.id);
     if (!Number.isFinite(designId) || designId <= 0) return;
@@ -1345,12 +1388,12 @@
     navigateTo(`#/designs/${item.id}`);
   }
 
-  /** @param {any} event @param {any} item */
+  /** @param {MouseEvent} event @param {BrowseDesignCard | { id: number | string }} item */
   function handleBrowseCardOpenDetail(event, item) {
     const anyProjectDropdownOpen = getBrowseCardProjectDropdowns().some((dropdown) => dropdown.hasAttribute("open"));
     if (anyProjectDropdownOpen) {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
+      event.preventDefault();
+      event.stopPropagation();
       closeBrowseCardProjectDropdowns();
       return;
     }
@@ -1365,12 +1408,11 @@
     try {
       if (adminIsDesignersRoute) {
         const result = await listDesigners();
-        designers = Array.isArray(result?.items)
-          ? result.items.map(/** @param {any} d */ (d) => ({ id: Number(d.id), name: String(d.name || ""), designCount: Number(d.design_count || 0) }))
-          : [];
+        const items = getResponseItems(result);
+        designers = items.map((d) => ({ id: Number(d.id), name: String(d.name || ""), designCount: Number(d.design_count || 0) }));
       } else if (adminIsTagsRoute) {
         const result = await listTags();
-        const rawTags = Array.isArray(result?.items) ? result.items : [];
+        const rawTags = /** @type {AdminTagSummary[]} */ (getResponseItems(result));
         const mappedTags = rawTags.map((t) => ({ id: Number(t.id), description: String(t.description || ""), tagGroup: String(t.tag_group || "") }));
 
         const groups = splitTagsByGroup(mappedTags);
@@ -1380,14 +1422,12 @@
         adminTagsPanelStateLoaded = true;
       } else if (adminIsSourcesRoute) {
         const result = await listSources();
-        sources = Array.isArray(result?.items)
-          ? result.items.map((s) => ({ id: Number(s.id), name: String(s.name || ""), designCount: Number(s.design_count || 0) }))
-          : [];
+        const items = getResponseItems(result);
+        sources = items.map((s) => ({ id: Number(s.id), name: String(s.name || ""), designCount: Number(s.design_count || 0) }));
       } else if (adminIsHoopsRoute) {
         const result = await listHoops();
-        hoops = Array.isArray(result?.items)
-          ? result.items.map((h) => ({ id: Number(h.id), name: String(h.name || ""), maxWidthMm: Number(h.max_width_mm || 0), maxHeightMm: Number(h.max_height_mm || 0), designCount: Number(h.design_count || 0) }))
-          : [];
+        const items = getResponseItems(result);
+        hoops = items.map((h) => ({ id: Number(h.id), name: String(h.name || ""), maxWidthMm: Number(h.max_width_mm || 0), maxHeightMm: Number(h.max_height_mm || 0), designCount: Number(h.design_count || 0) }));
       }
     } catch (e) {
       addToast(`Failed to load admin data: ${e}`, "error");
@@ -1396,7 +1436,7 @@
     }
   }
 
-  /** @param {any} event */
+  /** @param {SubmitEvent} event */
   async function addDesigner(event) {
     event.preventDefault();
     const name = newDesignerName.trim();
@@ -1413,7 +1453,7 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {any} designer */
+  /** @param {AdminEntityRow} designer */
   function beginEditDesigner(designer) {
     if (!designer) return;
     pendingDeleteDesignerId = null;
@@ -1445,7 +1485,7 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {any} designer */
+  /** @param {AdminEntityRow} designer */
   function requestDeleteDesigner(designer) {
     if (!designer) return;
     cancelEditDesigner();
@@ -1477,7 +1517,7 @@
     newDesignerName = "";
   }
 
-  /** @param {any} event */
+  /** @param {SubmitEvent} event */
   async function addSource(event) {
     event.preventDefault();
     const name = newSourceName.trim();
@@ -1494,7 +1534,7 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {any} source */
+  /** @param {AdminEntityRow} source */
   function beginEditSource(source) {
     if (!source) return;
     pendingDeleteSourceId = null;
@@ -1526,7 +1566,7 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {any} source */
+  /** @param {AdminEntityRow} source */
   function requestDeleteSource(source) {
     if (!source) return;
     cancelEditSource();
@@ -1558,7 +1598,7 @@
     newSourceName = "";
   }
 
-  /** @param {any} event */
+  /** @param {SubmitEvent} event */
   async function addHoop(event) {
     event.preventDefault();
     const name = newHoopName.trim();
@@ -1579,7 +1619,7 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {any} hoop */
+  /** @param {HoopRow} hoop */
   function beginEditHoop(hoop) {
     if (!hoop) return;
     pendingDeleteHoopId = null;
@@ -1617,7 +1657,7 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {any} hoop */
+  /** @param {HoopRow} hoop */
   function requestDeleteHoop(hoop) {
     if (!hoop) return;
     cancelEditHoop();
@@ -1651,7 +1691,7 @@
     newHoopHeight = 0;
   }
 
-  /** @param {any} event */
+  /** @param {SubmitEvent} event */
   async function addTag(event) {
     event.preventDefault();
     const desc = newTagDescription.trim();
@@ -1690,9 +1730,10 @@
     await loadAdminDataForCurrentRoute(true);
   }
 
-  /** @param {string} panel @param {any} event */
+  /** @param {string} panel @param {Event} event */
   function handleAdminTagPanelToggle(panel, event) {
-    const isOpen = Boolean(event?.currentTarget?.open);
+    const detailsNode = /** @type {HTMLDetailsElement | null} */ (event?.currentTarget);
+    const isOpen = Boolean(detailsNode?.open);
     if (panel === "image") {
       adminImageTagsOpen = isOpen;
       if (typeof window !== "undefined") {
@@ -1855,12 +1896,12 @@
     })()
   );
 
-  /** @param {any[]} rowItems */
+  /** @param {BrowseDesignCard[]} rowItems */
   function isBrowseRowFullySelected(rowItems) {
     return rowItems.length > 0 && rowItems.every((item) => browseSelectedIds.has(item.id));
   }
 
-  /** @param {any[]} rowItems */
+  /** @param {BrowseDesignCard[]} rowItems */
   function toggleBrowseRowSelection(rowItems) {
     const allSelected = isBrowseRowFullySelected(rowItems);
     if (allSelected) {
@@ -2882,7 +2923,7 @@
 <!-- Browse Bulk Tag Modal -->
 {#if browseBulkModalOpen}
   {@const tagOptionsForChooser = browseTagOptions}
-  {@const groupedTagOptions = /** @type {{ image: any[], stitching: any[], unclassified: any[] }} */ (splitTagsByGroup(/** @type {any} */ (tagOptionsForChooser)))}
+  {@const groupedTagOptions = /** @type {TagOptionBuckets} */ (splitTagsByGroup(tagOptionsForChooser))}
   <div
     use:portalToBody
     class="tag-chooser-overlay no-print"
