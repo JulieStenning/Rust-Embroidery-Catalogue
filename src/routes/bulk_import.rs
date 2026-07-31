@@ -1089,8 +1089,8 @@ async fn persist_bulk_import_confirm_wire(
     );
 
     // Process files in chunks aligned to commit_batch_size.
-    // For each chunk: one Python batch call (pyembroidery imported once per chunk),
-    // then DB inserts, then commit. Cancellation takes effect between chunks.
+    // For each chunk: generate previews, insert into DB, then commit.
+    // Cancellation takes effect between chunks.
     let all_files = confirm_wire.wire.selected_files.clone();
     let mut chunk_start = 0usize;
 
@@ -1102,39 +1102,6 @@ async fn persist_bulk_import_confirm_wire(
 
         let chunk_end = (chunk_start + commit_batch_size).min(total_count);
         let chunk = &all_files[chunk_start..chunk_end];
-
-        // Pre-generate images for Python-only files in this chunk using a single subprocess.
-        let python_requests: Vec<image_generation::ImageGenerationRequest> = chunk
-            .iter()
-            .filter(|fp| image_generation::needs_python_backend(fp))
-            .map(|fp| image_generation::ImageGenerationRequest {
-                file_path: fp.clone(),
-                preview_3d,
-                preview_3d_profile: Some(preview_3d_profile.clone()),
-            })
-            .collect();
-
-        let mut chunk_image_cache: HashMap<String, image_generation::ImageGenerationResult> =
-            if !python_requests.is_empty() {
-                emit_progress(
-                    "generating_images",
-                    processed_count,
-                    persisted_design_count,
-                    committed_design_count,
-                    None,
-                );
-                let t_batch = Instant::now();
-
-                let cache = image_generation::generate_previews_via_python_batch(&python_requests);
-                tracing::debug!(
-                    "[TIMING] Python batch done: {}ms for {} file(s)",
-                    t_batch.elapsed().as_millis(),
-                    python_requests.len()
-                );
-                cache
-            } else {
-                HashMap::new()
-            };
 
         for file_path in chunk {
             if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
@@ -1163,13 +1130,12 @@ async fn persist_bulk_import_confirm_wire(
                 .to_string();
 
             let t_image = Instant::now();
-            let image_result = chunk_image_cache.remove(file_path).unwrap_or_else(|| {
+            let image_result =
                 image_generation::generate_preview(&image_generation::ImageGenerationRequest {
                     file_path: file_path.clone(),
                     preview_3d,
                     preview_3d_profile: Some(preview_3d_profile.clone()),
-                })
-            });
+                });
             let image_gen_ms = t_image.elapsed().as_millis();
             total_image_gen_ms += image_gen_ms;
             tracing::debug!(

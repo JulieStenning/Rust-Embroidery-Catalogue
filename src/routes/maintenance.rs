@@ -735,7 +735,7 @@ fn external_launches_disabled() -> bool {
         }
     }
 
-    std::env::var("PYTEST_CURRENT_TEST").is_ok()
+    false
 }
 
 async fn scan_orphans_with_pool(
