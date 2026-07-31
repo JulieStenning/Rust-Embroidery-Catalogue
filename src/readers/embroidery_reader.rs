@@ -49,15 +49,17 @@ impl ReadReport {
 
 pub trait EmbroideryReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, AppError> {
-        self.read_with_report(data).and_then(|report| {
-            report.pattern.ok_or_else(|| {
-                AppError::parse(report.error.unwrap_or_else(|| "reader returned no pattern".into()))
-            })
+        let report = self.read_with_report(data);
+        report.pattern.ok_or_else(|| {
+            AppError::parse(report.error.unwrap_or_else(|| "reader returned no pattern".into()))
         })
     }
 
-    fn read_with_report(&self, data: &[u8]) -> Result<ReadReport, AppError> {
-        self.read(data).map(ReadReport::success)
+    fn read_with_report(&self, data: &[u8]) -> ReadReport {
+        match self.read(data) {
+            Ok(pattern) => ReadReport::success(pattern),
+            Err(err) => ReadReport::failure(err.to_string()),
+        }
     }
 }
 
@@ -83,11 +85,8 @@ mod reader_conformance_tests {
                     // return Err if the header signature or minimum bytes are missing.
                     // The only requirement is that the call does NOT panic and returns
                     // a structured report describing the outcome.
-                    let result = r.read_with_report(&[]);
-                    assert!(result.is_ok() || result.is_err());
-                    if let Ok(report) = result {
-                        assert!(report.pattern.is_some() || report.error.is_some());
-                    }
+                    let report = r.read_with_report(&[]);
+                    assert!(report.pattern.is_some() || report.error.is_some());
                 }
             }
         };
