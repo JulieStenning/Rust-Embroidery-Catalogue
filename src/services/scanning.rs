@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::error::AppError;
+
 pub const SUPPORTED_EXTENSIONS: &[&str] = &["jef", "pes", "hus", "dst", "exp", "vp3"];
 
 const EXCLUDED_DIRECTORY_NAMES: &[&str] = &["system volume information"];
@@ -124,13 +126,27 @@ pub fn is_supported_extension(extension: &str) -> bool {
 }
 
 pub fn scan(input: &ScanInput) -> ScanResult {
+    scan_with_error(input).unwrap_or_else(|_| ScanResult {
+        files: Vec::new(),
+        missing_root: true,
+        no_supported_files: false,
+    })
+}
+
+pub fn scan_with_error(input: &ScanInput) -> Result<ScanResult, AppError> {
     let root_path = PathBuf::from(&input.root_path);
+
+    let trimmed = input.root_path.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::invalid_input("root path must not be empty"));
+    }
+
     if !root_path.exists() || !root_path.is_dir() {
-        return ScanResult {
+        return Ok(ScanResult {
             files: Vec::new(),
             missing_root: true,
             no_supported_files: false,
-        };
+        });
     }
 
     let mut dedup: HashMap<String, ScannedFile> = HashMap::new();
@@ -144,16 +160,17 @@ pub fn scan(input: &ScanInput) -> ScanResult {
     });
 
     let no_supported_files = files.is_empty();
-    ScanResult {
+    Ok(ScanResult {
         files,
         missing_root: false,
         no_supported_files,
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::AppError;
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -183,6 +200,16 @@ mod tests {
         assert!(is_supported_extension("PES"));
         assert!(is_supported_extension(".dst"));
         assert!(!is_supported_extension("txt"));
+    }
+
+    #[test]
+    fn scan_with_error_reports_empty_root_path_as_invalid_input() {
+        let result = scan_with_error(&ScanInput { root_path: String::new() });
+
+        assert!(matches!(
+            result,
+            Err(AppError::InvalidInput { .. })
+        ));
     }
 
     #[test]

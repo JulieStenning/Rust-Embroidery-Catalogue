@@ -4,6 +4,8 @@ use rfd::FileDialog;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+use crate::error::AppError;
+
 #[derive(Debug, Clone, Default)]
 pub struct FolderAssignment {
     pub folder_path: String,
@@ -87,7 +89,7 @@ fn map_multi_result(picks: Vec<PathBuf>) -> BrowseFolderResult {
 pub fn browse_folder(
     start_dir: Option<&str>,
     allow_multi: bool,
-) -> Result<BrowseFolderResult, String> {
+) -> Result<BrowseFolderResult, AppError> {
     let mut dialog = FileDialog::new();
 
     if let Some(dir) = resolve_start_dir(start_dir) {
@@ -101,6 +103,13 @@ pub fn browse_folder(
     };
 
     Ok(result)
+}
+
+pub fn browse_folder_with_error(
+    start_dir: Option<&str>,
+    allow_multi: bool,
+) -> Result<BrowseFolderResult, AppError> {
+    browse_folder(start_dir, allow_multi)
 }
 
 #[cfg(test)]

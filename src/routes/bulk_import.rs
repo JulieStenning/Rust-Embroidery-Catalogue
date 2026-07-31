@@ -1520,7 +1520,8 @@ pub fn browse_import_folder(
         Some(value) => (value.start_dir, value.allow_multi),
         None => (None, false),
     };
-    let result = folder_picker::browse_folder(start_dir.as_deref(), allow_multi)?;
+    let result = folder_picker::browse_folder_with_error(start_dir.as_deref(), allow_multi)
+        .map_err(|err| err.to_string())?;
 
     Ok(BulkImportBrowseFolderResult {
         path: result.path,
@@ -2017,7 +2018,7 @@ fn preview_bulk_import_wire_with_pool(
         let scan_input = scanning::ScanInput {
             root_path: root_path.clone(),
         };
-        let scan_result = scanning::scan(&scan_input);
+        let scan_result = scanning::scan_with_error(&scan_input).map_err(|err| err.to_string())?;
         missing_root = missing_root || scan_result.missing_root;
         root_had_any_existing_dir = root_had_any_existing_dir || !scan_result.missing_root;
         scanned_files.extend(scan_result.files);

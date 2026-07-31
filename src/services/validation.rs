@@ -1,5 +1,7 @@
 // Validation service contract for path and input safety checks.
 
+use crate::error::AppError;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
     EmptyPath,
@@ -60,6 +62,14 @@ pub fn validate_under_base(path: &str, base_path: &str) -> Result<(), Validation
     }
 
     Ok(())
+}
+
+pub fn validate_path_to_app_error(path: &str) -> Result<(), AppError> {
+    validate_path(path).map_err(|err| match err {
+        ValidationError::EmptyPath => AppError::invalid_input("path must not be empty"),
+        ValidationError::NotAbsolute => AppError::invalid_input("path must be absolute"),
+        _ => AppError::invalid_input(format!("invalid path: {path}")),
+    })
 }
 
 #[cfg(test)]

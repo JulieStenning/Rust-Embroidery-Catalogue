@@ -138,7 +138,9 @@ pub async fn run_fingerprint_backfill(
     state: State<'_, AppState>,
     commit_every: Option<i64>,
 ) -> Result<fingerprint::FingerprintSummary, String> {
-    fingerprint::run_fingerprint_backfill(&state.db, commit_every.unwrap_or(100)).await
+    fingerprint::run_fingerprint_backfill(&state.db, commit_every.unwrap_or(100))
+        .await
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]

@@ -248,14 +248,14 @@ pub async fn save_backup_settings(
 
 #[tauri::command]
 pub fn browse_backup_folder(start_dir: Option<String>) -> BrowseBackupFolderResult {
-    match folder_picker::browse_folder(start_dir.as_deref(), false) {
+    match folder_picker::browse_folder_with_error(start_dir.as_deref(), false) {
         Ok(result) => BrowseBackupFolderResult {
             path: result.path,
             error: None,
         },
         Err(error) => BrowseBackupFolderResult {
             path: None,
-            error: Some(error),
+            error: Some(error.to_string()),
         },
     }
 }

@@ -1008,10 +1008,14 @@ fn log_dir_path() -> PathBuf {
     static BASE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
     let base_dir = BASE_DIR.get_or_init(|| {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+        crate::paths::resolve_app_paths()
+            .map(|paths| paths.log_dir)
+            .unwrap_or_else(|_| {
+                std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+            })
     });
 
-    base_dir.join(LOG_DIR)
+    base_dir.clone()
 }
 
 fn info_log_path() -> PathBuf {

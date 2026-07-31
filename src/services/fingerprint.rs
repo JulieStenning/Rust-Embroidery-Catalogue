@@ -17,6 +17,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::config::BootstrapConfig;
+use crate::error::AppError;
 use crate::services::backfill;
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,7 +31,7 @@ pub struct FingerprintSummary {
 pub async fn run_fingerprint_backfill(
     pool: &SqlitePool,
     commit_every: i64,
-) -> Result<FingerprintSummary, String> {
+) -> Result<FingerprintSummary, AppError> {
     let commit_every = commit_every.clamp(1, 100_000);
 
     let mut processed: i64 = 0;
@@ -93,7 +94,7 @@ struct ProcessResult {
     was_missing: bool,
 }
 
-async fn select_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<FingerprintCandidate>, String> {
+async fn select_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<FingerprintCandidate>, AppError> {
     let rows = sqlx::query(
         "SELECT id, filepath
          FROM designs
@@ -105,15 +106,19 @@ async fn select_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<Fingerpr
     .bind(limit)
     .fetch_all(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to select fingerprint candidates: {e}")))?;
 
     let mut candidates = Vec::with_capacity(rows.len());
     for row in rows {
         candidates.push(FingerprintCandidate {
-            id: row.try_get::<i64, _>("id").map_err(|e| e.to_string())?,
+            id: row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read candidate id: {e}"))
+            })?,
             filepath: row
                 .try_get::<String, _>("filepath")
-                .map_err(|e| e.to_string())?,
+                .map_err(|e| {
+                    AppError::database(format!("failed to read candidate filepath: {e}"))
+                })?,
         });
     }
 
@@ -185,7 +190,7 @@ fn resolve_fingerprint_source_path(stored_filepath: &str) -> PathBuf {
 async fn process_one_design(
     pool: &SqlitePool,
     candidate: FingerprintCandidate,
-) -> Result<ProcessResult, String> {
+) -> Result<ProcessResult, AppError> {
     let source_path = resolve_fingerprint_source_path(&candidate.filepath);
     let source_display = source_path.to_string_lossy().to_string();
 
@@ -194,7 +199,7 @@ async fn process_one_design(
             .bind(candidate.id)
             .fetch_optional(pool)
             .await
-            .map_err(|e| e.to_string())?
+            .map_err(|e| AppError::database(format!("failed to read existing hash: {e}")))?
             .flatten();
 
     if current_hash.as_ref().map_or(false, |h| !h.is_empty()) {
@@ -203,7 +208,7 @@ async fn process_one_design(
                 .bind(candidate.id)
                 .fetch_optional(pool)
                 .await
-                .map_err(|e| e.to_string())?
+                .map_err(|e| AppError::database(format!("failed to read existing size: {e}")))?
                 .flatten();
 
         if current_size.map_or(false, |s| s > 0) {
@@ -218,7 +223,7 @@ async fn process_one_design(
                 .bind(candidate.id)
                 .execute(pool)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| AppError::database(format!("failed to mark missing design: {e}")))?;
 
             backfill::log_error(format!(
                 "Fingerprint: file missing on disk design_id={} stored_path={} resolved_path={}",
@@ -228,10 +233,10 @@ async fn process_one_design(
             return Ok(ProcessResult { was_missing: true });
         }
         Err(e) => {
-            return Err(format!(
-                "Failed to read file metadata for '{}': {}",
+            return Err(AppError::io(format!(
+                "failed to read file metadata for '{}': {}",
                 source_display, e
-            ));
+            )));
         }
     };
 
@@ -240,14 +245,14 @@ async fn process_one_design(
     let hash_needed = current_hash.as_ref().map_or(true, String::is_empty);
     let hash_string = if hash_needed {
         let mut file = fs::File::open(&source_path)
-            .map_err(|e| format!("Failed to open file for hashing '{}': {}", source_display, e))?;
+            .map_err(|e| AppError::io(format!("failed to open file for hashing '{}': {}", source_display, e)))?;
 
         let mut hasher = blake3::Hasher::new();
         let mut buffer = [0u8; 65536];
         loop {
             let bytes_read = file
                 .read(&mut buffer)
-                .map_err(|e| format!("Failed to hash file '{}': {}", source_display, e))?;
+                .map_err(|e| AppError::io(format!("failed to hash file '{}': {}", source_display, e)))?;
             if bytes_read == 0 {
                 break;
             }
@@ -266,14 +271,14 @@ async fn process_one_design(
             .bind(candidate.id)
             .execute(pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::database(format!("failed to update fingerprint data: {e}")))?;
     } else {
         sqlx::query("UPDATE designs SET file_size_bytes = ? WHERE id = ?")
             .bind(file_size)
             .bind(candidate.id)
             .execute(pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::database(format!("failed to update fingerprint size: {e}")))?;
     }
 
     Ok(ProcessResult { was_missing: false })
@@ -581,7 +586,7 @@ mod tests {
         };
         let res = process_one_design(&pool, candidate).await;
         assert!(res.is_err());
-        assert!(res.unwrap_err().contains("Failed to read file metadata"));
+        assert!(matches!(res.unwrap_err(), AppError::Io { .. }));
     }
 
     #[tokio::test]
@@ -605,7 +610,7 @@ mod tests {
         };
         let res = process_one_design(&pool, candidate).await;
         assert!(res.is_err());
-        assert!(res.unwrap_err().contains("Failed to open file for hashing"));
+        assert!(matches!(res.unwrap_err(), AppError::Io { .. }));
 
         let _ = fs::remove_dir(&dir);
     }
