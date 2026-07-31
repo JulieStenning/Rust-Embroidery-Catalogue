@@ -3,8 +3,8 @@ use crate::readers::embroidery_reader::EmbroideryReader;
 pub struct JefReader;
 
 impl EmbroideryReader for JefReader {
-    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
-        Ok(read_jef(data)?)
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
+        read_jef(data).map_err(|err| crate::error::AppError::parse(format!("JEF parse failed: {err}")))
     }
 }
 use binrw::{BinRead, BinReaderExt};

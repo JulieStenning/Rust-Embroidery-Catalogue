@@ -5,8 +5,8 @@ use crate::readers::embroidery_reader::EmbroideryReader;
 pub struct Vp3Reader;
 
 impl EmbroideryReader for Vp3Reader {
-    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
-        read_vp3(data)
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
+        read_vp3(data).map_err(|err| crate::error::AppError::parse(format!("VP3 parse failed: {err}")))
     }
 }
 

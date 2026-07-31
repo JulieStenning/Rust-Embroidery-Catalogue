@@ -3,8 +3,8 @@ use crate::readers::embroidery_reader::EmbroideryReader;
 pub struct ExpReader;
 
 impl EmbroideryReader for ExpReader {
-    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
-        Ok(read_exp(data)?)
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
+        read_exp(data).map_err(|err| crate::error::AppError::parse(format!("EXP parse failed: {err}")))
     }
 }
 use std::io::Cursor;

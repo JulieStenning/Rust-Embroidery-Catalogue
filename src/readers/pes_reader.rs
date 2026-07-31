@@ -688,8 +688,8 @@ pub fn read_pes(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 pub struct PesReader;
 
 impl EmbroideryReader for PesReader {
-    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
-        read_pes(data).map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
+        read_pes(data).map_err(|err| crate::error::AppError::parse(format!("PES parse failed: {err}")))
     }
 }
 

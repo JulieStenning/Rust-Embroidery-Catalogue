@@ -7,8 +7,8 @@ use crate::readers::embroidery_reader::EmbroideryReader;
 pub struct HusReader;
 
 impl EmbroideryReader for HusReader {
-    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
-        read_hus(data).map_err(|e| e.into())
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
+        read_hus(data).map_err(|err| crate::error::AppError::parse(format!("HUS parse failed: {err}")))
     }
 }
 

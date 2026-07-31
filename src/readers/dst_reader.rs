@@ -3,8 +3,8 @@ use crate::readers::embroidery_reader::EmbroideryReader;
 pub struct DstReader;
 
 impl EmbroideryReader for DstReader {
-    fn read(&self, data: &[u8]) -> Result<EmbPattern, Box<dyn std::error::Error>> {
-        Ok(read_dst(data)?)
+    fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
+        read_dst(data).map_err(|err| crate::error::AppError::parse(format!("DST parse failed: {err}")))
     }
 }
 use std::io::{Cursor, Seek, SeekFrom};
