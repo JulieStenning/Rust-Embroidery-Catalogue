@@ -1,4 +1,5 @@
 // Database migration helpers using SQLx
+use crate::error::AppError;
 use std::borrow::Cow;
 
 use sqlx::migrate::MigrateError;
@@ -7,7 +8,7 @@ use tokio::time::{sleep, Duration};
 
 /// Run all pending migrations from the `migrations/` directory.
 /// SQLx will track which migrations have been applied via the `_sqlx_migrations` table.
-pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::migrate::MigrateError> {
+pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
     const MAX_ATTEMPTS: u32 = 6;
     const RETRY_DELAY_MS: u64 = 750;
 
@@ -32,7 +33,11 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::migrate::Migr
                 );
                 sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
             }
-            Err(err) => return Err(err),
+            Err(err) => {
+                return Err(AppError::database(format!(
+                    "database migration failed: {err}"
+                )))
+            }
         }
     }
 

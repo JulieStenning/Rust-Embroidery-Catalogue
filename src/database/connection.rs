@@ -57,28 +57,33 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
 }
 
 /// Legacy convenience wrapper for code paths not yet migrated to `AppPaths`.
-/// Uses `BootstrapConfig::from_env()` to derive the database URL.
-/// Panics on failure (to match previous behaviour during incremental migration).
-pub async fn establish_connection_from_env() -> SqlitePool {
+/// Uses `BootstrapConfig::from_env()` to derive the database URL and returns
+/// a typed error instead of panicking.
+pub async fn establish_connection_from_env() -> Result<SqlitePool, ConnectionError> {
     let database_url = BootstrapConfig::from_env().database_url;
 
     let pool = SqlitePoolOptions::new()
         .max_connections(1)
         .connect(&database_url)
         .await
-        .unwrap_or_else(|e| panic!("Failed to connect to database '{}': {}", database_url, e));
+        .map_err(|e| {
+            ConnectionError::PoolConnect(format!(
+                "Failed to connect to database '{}': {}",
+                database_url, e
+            ))
+        })?;
 
     sqlx::query("PRAGMA busy_timeout = 30000")
         .execute(&pool)
         .await
-        .unwrap_or_else(|e| {
-            panic!(
+        .map_err(|e| {
+            ConnectionError::BusyTimeout(format!(
                 "Failed to set SQLite busy timeout for '{}': {}",
                 database_url, e
-            )
-        });
+            ))
+        })?;
 
-    pool
+    Ok(pool)
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +225,9 @@ mod tests {
         let prior = std::env::var("DATABASE_URL").ok();
         std::env::set_var("DATABASE_URL", &database_url);
 
-        let pool = establish_connection_from_env().await;
+        let pool = establish_connection_from_env()
+            .await
+            .expect("database connection should succeed");
 
         // Verify the pool is usable.
         let row: (i64,) = sqlx::query_as("SELECT 1")
@@ -242,12 +249,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
-    // ─── establish_connection_from_env (panic path) ──────────────────────────
+    // ─── establish_connection_from_env (error path) ─────────────────────────
 
     #[tokio::test]
-    #[should_panic(expected = "Failed to connect to database")]
-    async fn establish_connection_from_env_panics_on_invalid_path() {
-        let tmp = unique_tmp_dir("env-panic");
+    async fn establish_connection_from_env_returns_error_for_invalid_path() {
+        let tmp = unique_tmp_dir("env-error");
         // Do NOT create tmp — the parent directory is missing, so connect will fail.
         let database_path = tmp.join("nonexistent").join("db.db");
         let database_url = path_to_sqlite_abs_url(&database_path);
@@ -255,8 +261,7 @@ mod tests {
         let prior = std::env::var("DATABASE_URL").ok();
         std::env::set_var("DATABASE_URL", &database_url);
 
-        // This should panic.
-        let _pool = establish_connection_from_env().await;
+        let result = establish_connection_from_env().await;
 
         // Restore (only reached if the panic doesn't fire).
         if let Some(val) = prior {
@@ -264,5 +269,12 @@ mod tests {
         } else {
             std::env::remove_var("DATABASE_URL");
         }
+
+        assert!(result.is_err(), "expected an error for an invalid DB path");
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Failed to connect to database"),
+            "unexpected error: {err}"
+        );
     }
 }
