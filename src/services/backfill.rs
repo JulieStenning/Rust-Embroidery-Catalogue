@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 
@@ -1003,7 +1005,13 @@ fn resolve_f64_option(
 }
 
 fn log_dir_path() -> PathBuf {
-    Path::new(LOG_DIR).to_path_buf()
+    static BASE_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+    let base_dir = BASE_DIR.get_or_init(|| {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    });
+
+    base_dir.join(LOG_DIR)
 }
 
 fn info_log_path() -> PathBuf {
@@ -1016,7 +1024,10 @@ fn error_log_path() -> PathBuf {
 
 fn truncate_logs_for_new_run() -> Result<(), String> {
     let dir = log_dir_path();
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    if let Err(err) = fs::create_dir_all(&dir) {
+        return Err(format!("failed to create log dir {}: {err}", dir.display()));
+    }
+
     let info_path = info_log_path();
     let error_path = error_log_path();
 
@@ -1043,11 +1054,19 @@ fn append_log_line(path: &Path, line: &str) {
         return;
     }
 
-    let existing = fs::read_to_string(path).unwrap_or_default();
-    let mut content = existing;
-    content.push_str(line);
-    content.push('\n');
-    if let Err(err) = fs::write(path, content) {
+    let mut file = match fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("failed to open log file {}: {err}", path.display());
+            return;
+        }
+    };
+
+    if let Err(err) = writeln!(file, "{line}") {
         eprintln!("failed to append log line to {}: {err}", path.display());
     }
 }
@@ -1425,17 +1444,19 @@ mod tests {
 
     #[test]
     fn log_dir_path_returns_logs_directory() {
-        assert_eq!(log_dir_path(), Path::new("logs"));
+        let path = log_dir_path();
+        assert!(path.ends_with(LOG_DIR));
+        assert_eq!(path.file_name(), Some(std::ffi::OsStr::new(LOG_DIR)));
     }
 
     #[test]
     fn info_log_path_returns_correct_path() {
-        assert_eq!(info_log_path(), Path::new("logs").join("backfill_info.log"));
+        assert_eq!(info_log_path(), log_dir_path().join(INFO_LOG_FILE));
     }
 
     #[test]
     fn error_log_path_returns_correct_path() {
-        assert_eq!(error_log_path(), Path::new("logs").join("backfill_errors.log"));
+        assert_eq!(error_log_path(), log_dir_path().join(ERROR_LOG_FILE));
     }
 
     // ─────────────────────────────────────────
@@ -1988,7 +2009,7 @@ mod tests {
         // Check tail limit (take last 3 of 5 info lines)
         let tail = read_log_tail(&info_log_path(), "info", 3).unwrap();
         assert_eq!(tail.len(), 3);
-        assert!(tail[2].message.contains("line5"));
+        assert!(tail.last().unwrap().message.contains("line5"));
 
         // Check format: timestamp\ttmessage
         let content = std::fs::read_to_string(&info_log_path()).unwrap();

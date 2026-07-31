@@ -215,7 +215,7 @@ fn analyze_pattern_with_native_renderer(
     if preview_3d {
         settings = settings.with_three_d_style(three_d_style_from_profile_name(preview_3d_profile));
     }
-    let image_data = render_pattern_to_png(pattern, &settings);
+    let image_data = render_pattern_to_png(pattern, &settings).unwrap_or_default();
     let (width_mm, height_mm) = drawable_bounds_mm(pattern)
         .map(|(w, h)| (Some(w), Some(h)))
         .unwrap_or((None, None));

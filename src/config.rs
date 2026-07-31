@@ -1,4 +1,5 @@
 // Bootstrap configuration ownership (environment + startup defaults).
+use crate::error::AppError;
 use crate::paths::AppPaths;
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +60,7 @@ pub fn debug_bootstrap_config() -> BootstrapConfig {
 }
 
 /// Ensure the directory containing the SQLite database file exists.
-pub fn ensure_database_dir(database_url: &str) {
+pub fn ensure_database_dir(database_url: &str) -> Result<(), AppError> {
     let file_path = database_url
         .strip_prefix("sqlite:///")
         .or_else(|| database_url.strip_prefix("sqlite://"))
@@ -68,9 +69,13 @@ pub fn ensure_database_dir(database_url: &str) {
 
     if let Some(parent) = std::path::Path::new(file_path).parent() {
         if !parent.as_os_str().is_empty() {
-            let _ = std::fs::create_dir_all(parent);
+            std::fs::create_dir_all(parent).map_err(|err| {
+                AppError::io(format!("failed to create database directory {}: {err}", parent.display()))
+            })?;
         }
     }
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -224,7 +229,7 @@ mod tests {
         // Ensure the directory does not exist yet.
         assert!(!tmp.join("subdir").exists());
 
-        ensure_database_dir(&db_url);
+        ensure_database_dir(&db_url).unwrap();
 
         // After the call the directory should have been created.
         assert!(tmp.join("subdir").exists());
@@ -246,7 +251,7 @@ mod tests {
 
         assert!(!tmp.join("subdir").exists());
 
-        ensure_database_dir(&db_url);
+        ensure_database_dir(&db_url).unwrap();
 
         assert!(tmp.join("subdir").exists());
 
@@ -256,8 +261,8 @@ mod tests {
     #[test]
     fn ensure_database_dir_does_nothing_when_no_parent() {
         // A filename with no directory component should not panic or create anything.
-        ensure_database_dir("sqlite:catalogue.db");
-        ensure_database_dir("catalogue.db");
+        ensure_database_dir("sqlite:catalogue.db").unwrap();
+        ensure_database_dir("catalogue.db").unwrap();
         // If we get here without panicking the test passes.
     }
 }

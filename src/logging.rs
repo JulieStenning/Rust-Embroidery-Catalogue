@@ -2,6 +2,7 @@
 // Provides daily-rolling file output for release builds and
 // dual file+stdout output for debug builds (cargo tauri dev).
 
+use crate::error::AppError;
 use std::path::Path;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -19,8 +20,10 @@ pub struct LogGuard {
 ///
 /// NOTE: The caller is responsible for ensuring `log_dir` exists and points to the
 /// correct application log directory (e.g. via `paths::resolve_app_paths().log_dir`).
-pub fn init_logging(log_dir: &Path) -> LogGuard {
-    std::fs::create_dir_all(log_dir).ok();
+pub fn init_logging(log_dir: &Path) -> Result<LogGuard, AppError> {
+    std::fs::create_dir_all(log_dir).map_err(|err| {
+        AppError::io(format!("failed to create log dir {}: {err}", log_dir.display()))
+    })?;
 
     let file_appender = RollingFileAppender::new(Rotation::DAILY, log_dir, "app.log");
     let (non_blocking_file, file_guard) = tracing_appender::non_blocking(file_appender);
@@ -45,12 +48,15 @@ pub fn init_logging(log_dir: &Path) -> LogGuard {
             .with(filter)
             .with(file_layer)
             .with(stdout_layer)
-            .init();
+            .try_init()
+            .map_err(|err| {
+                AppError::invalid_input(format!("failed to initialize tracing subscriber: {err}"))
+            })?;
 
-        LogGuard {
+        Ok(LogGuard {
             _file_guard: file_guard,
             _stdout_guard: Some(stdout_guard),
-        }
+        })
     }
 
     #[cfg(not(debug_assertions))]
@@ -58,12 +64,15 @@ pub fn init_logging(log_dir: &Path) -> LogGuard {
         tracing_subscriber::registry()
             .with(filter)
             .with(file_layer)
-            .init();
+            .try_init()
+            .map_err(|err| {
+                AppError::invalid_input(format!("failed to initialize tracing subscriber: {err}"))
+            })?;
 
-        LogGuard {
+        Ok(LogGuard {
             _file_guard: file_guard,
             _stdout_guard: None,
-        }
+        })
     }
 }
 
@@ -106,7 +115,7 @@ mod tests {
         assert!(!log_dir.exists(), "Precondition: directory should not exist yet");
 
         // Act – initialise logging.
-        let guard = init_logging(&log_dir);
+        let guard = init_logging(&log_dir).unwrap();
 
         // Assert the directory was created.
         assert!(log_dir.exists(), "Log directory should exist after init");

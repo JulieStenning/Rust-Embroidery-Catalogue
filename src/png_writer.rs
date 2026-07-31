@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use image::ImageEncoder;
 #[cfg(test)]
 mod tests {
@@ -33,7 +34,7 @@ mod tests {
         });
         pattern.threadlist.push(EmbThread::new(0xFF0000)); // Red
         let settings = RenderSettings::default();
-        let png = render_pattern_to_png(&pattern, &settings);
+        let png = render_pattern_to_png(&pattern, &settings).unwrap();
         assert!(
             count_non_bg_pixels(&png, settings.background) > 0,
             "Should render visible line"
@@ -44,7 +45,7 @@ mod tests {
     fn renders_blank_for_no_stitches() {
         let pattern = EmbPattern::new();
         let settings = RenderSettings::default();
-        let png = render_pattern_to_png(&pattern, &settings);
+        let png = render_pattern_to_png(&pattern, &settings).unwrap();
         assert_eq!(
             count_non_bg_pixels(&png, settings.background),
             0,
@@ -66,7 +67,7 @@ mod tests {
             stitch_type: StitchType::Stitch,
         });
         let settings = RenderSettings::default();
-        let png = render_pattern_to_png(&pattern, &settings);
+        let png = render_pattern_to_png(&pattern, &settings).unwrap();
         // Should not be blank
         assert!(
             count_non_bg_pixels(&png, settings.background) > 0,
@@ -100,7 +101,7 @@ mod tests {
         pattern.threadlist.push(EmbThread::new(0xFF0000)); // Red
         pattern.threadlist.push(EmbThread::new(0x0000FF)); // Blue
         let settings = RenderSettings::default();
-        let png = render_pattern_to_png(&pattern, &settings);
+        let png = render_pattern_to_png(&pattern, &settings).unwrap();
         // Should not be blank
         assert!(
             count_non_bg_pixels(&png, settings.background) > 0,
@@ -140,7 +141,7 @@ mod tests {
         pattern.threadlist.push(EmbThread::new(0x0000FF));
 
         let settings = RenderSettings::default().with_preview_3d(false);
-        let png = render_pattern_to_png(&pattern, &settings);
+        let png = render_pattern_to_png(&pattern, &settings).unwrap();
         let img = image::load_from_memory(&png)
             .expect("decode png")
             .to_rgba8();
@@ -162,7 +163,7 @@ mod tests {
     fn does_not_panic_on_empty_pattern() {
         let pattern = EmbPattern::new();
         let settings = RenderSettings::default();
-        let _ = render_pattern_to_png(&pattern, &settings);
+        let _ = render_pattern_to_png(&pattern, &settings).unwrap();
     }
 
     #[test]
@@ -191,7 +192,7 @@ mod tests {
         pattern.threadlist.push(EmbThread::new(0x00AA00));
 
         let settings = RenderSettings::default();
-        let png = render_pattern_to_png(&pattern, &settings);
+        let png = render_pattern_to_png(&pattern, &settings).unwrap();
         let (width, height) = image_dimensions(&png);
 
         assert!(
@@ -223,8 +224,8 @@ mod tests {
         let settings_2d = RenderSettings::default().with_preview_3d(false);
         let settings_3d = RenderSettings::default().with_preview_3d(true);
 
-        let png_2d = render_pattern_to_png(&pattern, &settings_2d);
-        let png_3d = render_pattern_to_png(&pattern, &settings_3d);
+        let png_2d = render_pattern_to_png(&pattern, &settings_2d).unwrap();
+        let png_3d = render_pattern_to_png(&pattern, &settings_3d).unwrap();
 
         assert_ne!(png_2d, png_3d, "3D mode should generate a distinct image");
         assert!(
@@ -274,13 +275,15 @@ mod tests {
             &RenderSettings::default()
                 .with_preview_3d(true)
                 .with_three_d_style(soft_profile),
-        );
+        )
+        .unwrap();
         let punchy_png = render_pattern_to_png(
             &pattern,
             &RenderSettings::default()
                 .with_preview_3d(true)
                 .with_three_d_style(punchy_profile),
-        );
+        )
+        .unwrap();
 
         assert_ne!(
             soft_png, punchy_png,
@@ -507,7 +510,7 @@ fn draw_segment_3d(
 }
 
 /// Render an embroidery pattern to PNG bytes.
-pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) -> Vec<u8> {
+pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) -> Result<Vec<u8>, AppError> {
     let (min_x, min_y, max_x, max_y) = drawable_bounds(pattern).unwrap_or((0.0, 0.0, 1.0, 1.0));
     let width = (max_x - min_x).ceil() as u32 + 4;
     let height = (max_y - min_y).ceil() as u32 + 4;
@@ -561,6 +564,6 @@ pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) ->
     use image::codecs::png::PngEncoder;
     PngEncoder::new(&mut buf)
         .write_image(&img, img.width(), img.height(), image::ColorType::Rgba8)
-        .expect("PNG encoding failed");
-    buf
+        .map_err(|err| AppError::parse(format!("failed to encode PNG: {err}")))?;
+    Ok(buf)
 }

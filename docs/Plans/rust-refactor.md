@@ -133,6 +133,15 @@ Target modules:
 - `src/png_writer.rs`
 - `src/main.rs` (adapter-only cleanup)
 
+Phase 2 preflight checklist:
+- [x] Build completed successfully with `cargo build`.
+- [x] Full regression suite completed successfully with `cargo test`.
+- [x] Manual smoke test of the app was reviewed and approved.
+- [x] No unresolved issues from Phase 0 or Phase 1 remain that would block infrastructure refactoring.
+- [ ] Phase 2 changes will remain behavior-preserving and limited to startup/bootstrap/utility wiring.
+- [ ] Any new error handling in this phase will use the shared `AppError` boundary where practical.
+- [ ] Any new helper functions will be kept small and reusable rather than embedded inline in `main.rs`.
+
 Tasks:
 - Remove panic-prone startup/utility paths where feasible.
 - Keep `main.rs` thin: bootstrap + wiring only.

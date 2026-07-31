@@ -4,6 +4,7 @@
 //! part of the application derives paths from a single `AppPaths` struct
 //! returned by `resolve_app_paths()`.
 
+use crate::error::AppError;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -50,13 +51,14 @@ pub struct AppPaths {
 ///     - NO  → `ExecutionMode::Installed`, `data_root = platform app-data dir`.
 /// 3. Create all required directories under `data_root`.
 /// 4. Return `AppPaths`.
-pub fn resolve_app_paths() -> AppPaths {
+pub fn resolve_app_paths() -> Result<AppPaths, AppError> {
     let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .map_err(|err| AppError::io(format!("failed to resolve executable path: {err}")))?
+        .parent()
+        .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
 
-    resolve_paths_from_exe_dir(&exe_dir)
+    Ok(resolve_paths_from_exe_dir(&exe_dir))
 }
 
 /// Core path resolution logic, factored out for testability.
@@ -709,7 +711,7 @@ mod tests {
 
     #[test]
     fn resolve_app_paths_does_not_panic_and_smoke_checks() {
-        let app_paths = resolve_app_paths();
+        let app_paths = resolve_app_paths().unwrap();
 
         // Resolved to some valid mode
         assert!(
@@ -776,8 +778,8 @@ mod tests {
 
     #[test]
     fn resolve_app_paths_is_consistent() {
-        let a = resolve_app_paths();
-        let b = resolve_app_paths();
+        let a = resolve_app_paths().unwrap();
+        let b = resolve_app_paths().unwrap();
 
         assert_eq!(a.mode, b.mode, "ExecutionMode differs between calls");
         assert_eq!(a.data_root, b.data_root, "data_root differs between calls");

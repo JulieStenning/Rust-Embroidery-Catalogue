@@ -1,24 +1,30 @@
 // Disclaimer logic — track and update disclaimer acceptance via the settings table.
 // Uses SQLx for database access.
 
+use crate::error::AppError;
 use crate::settings::{get_setting, update_setting};
 use sqlx::SqliteConnection;
 
 /// Returns true if the user has already accepted the disclaimer for this installation.
-pub async fn is_disclaimer_accepted(conn: &mut SqliteConnection) -> bool {
+pub async fn is_disclaimer_accepted(conn: &mut SqliteConnection) -> Result<bool, AppError> {
     match get_setting(conn, "disclaimer_accepted").await {
-        Ok(Some(setting)) => setting.value.to_uppercase() == "TRUE",
-        _ => false,
+        Ok(Some(setting)) => Ok(setting.value.to_uppercase() == "TRUE"),
+        Ok(None) => Ok(false),
+        Err(err) => Err(AppError::database(format!("failed to read disclaimer status: {err}"))),
     }
 }
 
 /// Persists the disclaimer acceptance state in the settings table.
 /// Returns true if the update succeeded.
-pub async fn set_disclaimer_accepted(conn: &mut SqliteConnection, accepted: bool) -> bool {
+pub async fn set_disclaimer_accepted(
+    conn: &mut SqliteConnection,
+    accepted: bool,
+) -> Result<bool, AppError> {
     let value = if accepted { "TRUE" } else { "FALSE" };
     update_setting(conn, "disclaimer_accepted", value)
         .await
-        .is_ok()
+        .map(|_| true)
+        .map_err(|err| AppError::database(format!("failed to persist disclaimer status: {err}")))
 }
 
 #[cfg(test)]
@@ -63,42 +69,42 @@ mod tests {
     #[tokio::test]
     async fn test_is_accepted_returns_false_when_no_row_exists() {
         let mut conn = setup_test_conn().await;
-        assert!(!is_disclaimer_accepted(&mut conn).await);
+        assert!(!is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_is_accepted_returns_false_when_value_is_false() {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "FALSE").await;
-        assert!(!is_disclaimer_accepted(&mut conn).await);
+        assert!(!is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_is_accepted_returns_true_when_value_is_true() {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "TRUE").await;
-        assert!(is_disclaimer_accepted(&mut conn).await);
+        assert!(is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_is_accepted_case_insensitive() {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "True").await;
-        assert!(is_disclaimer_accepted(&mut conn).await);
+        assert!(is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_is_accepted_returns_false_for_arbitrary_text() {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "maybe").await;
-        assert!(!is_disclaimer_accepted(&mut conn).await);
+        assert!(!is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_is_accepted_returns_false_for_empty_string() {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "").await;
-        assert!(!is_disclaimer_accepted(&mut conn).await);
+        assert!(!is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     // -----------------------------------------------------------------------
@@ -110,7 +116,7 @@ mod tests {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "FALSE").await;
 
-        assert!(set_disclaimer_accepted(&mut conn, true).await);
+        assert!(set_disclaimer_accepted(&mut conn, true).await.unwrap());
 
         let row: (String,) = sqlx::query_as(
             "SELECT value FROM settings WHERE key = 'disclaimer_accepted'",
@@ -127,7 +133,7 @@ mod tests {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "TRUE").await;
 
-        assert!(set_disclaimer_accepted(&mut conn, false).await);
+        assert!(set_disclaimer_accepted(&mut conn, false).await.unwrap());
 
         let row: (String,) = sqlx::query_as(
             "SELECT value FROM settings WHERE key = 'disclaimer_accepted'",
@@ -145,12 +151,12 @@ mod tests {
         seed_disclaimer(&mut conn, "FALSE").await;
 
         // Start with FALSE
-        assert!(set_disclaimer_accepted(&mut conn, false).await);
-        assert!(!is_disclaimer_accepted(&mut conn).await);
+        assert!(set_disclaimer_accepted(&mut conn, false).await.unwrap());
+        assert!(!is_disclaimer_accepted(&mut conn).await.unwrap());
 
         // Overwrite to TRUE
-        assert!(set_disclaimer_accepted(&mut conn, true).await);
-        assert!(is_disclaimer_accepted(&mut conn).await);
+        assert!(set_disclaimer_accepted(&mut conn, true).await.unwrap());
+        assert!(is_disclaimer_accepted(&mut conn).await.unwrap());
     }
 
     #[tokio::test]
@@ -158,6 +164,6 @@ mod tests {
         let mut conn = setup_test_conn().await;
         seed_disclaimer(&mut conn, "FALSE").await;
 
-        assert!(set_disclaimer_accepted(&mut conn, true).await);
+        assert!(set_disclaimer_accepted(&mut conn, true).await.unwrap());
     }
 }

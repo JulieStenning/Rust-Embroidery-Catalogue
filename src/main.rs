@@ -77,19 +77,19 @@ fn get_app_status(state: State<'_, AppState>) -> AppStatus {
 #[tauri::command]
 async fn check_disclaimer(state: State<'_, AppState>) -> Result<bool, String> {
     let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
-    Ok(disclaimer::is_disclaimer_accepted(&mut conn).await)
+    disclaimer::is_disclaimer_accepted(&mut conn)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 /// Persist the user's disclaimer acceptance in the database.
 #[tauri::command]
 async fn accept_disclaimer(state: State<'_, AppState>) -> Result<(), String> {
     let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
-    let ok = disclaimer::set_disclaimer_accepted(&mut conn, true).await;
-    if ok {
-        Ok(())
-    } else {
-        Err("Failed to save disclaimer acceptance to the database.".to_string())
-    }
+    disclaimer::set_disclaimer_accepted(&mut conn, true)
+        .await
+        .map(|_| ())
+        .map_err(|err| format!("Failed to save disclaimer acceptance to the database: {err}"))
 }
 
 /// Return the disclaimer HTML text to the frontend.
@@ -102,7 +102,13 @@ fn get_disclaimer_text(state: State<'_, AppState>) -> Result<String, String> {
 
 fn main() {
     // ── Resolve paths (must be first — before logging and DB) ────────
-    let app_paths = paths::resolve_app_paths();
+    let app_paths = match paths::resolve_app_paths() {
+        Ok(paths) => paths,
+        Err(err) => {
+            eprintln!("Failed to resolve application paths: {err}");
+            std::process::exit(1);
+        }
+    };
     tracing::info!(
         "Embroidery Catalogue starting — mode={:?}, data_root={}",
         app_paths.mode,
@@ -110,7 +116,13 @@ fn main() {
     );
 
     // ── Logging ───────────────────────────────────────────────────────
-    let log_guard = logging::init_logging(&app_paths.log_dir);
+    let log_guard = match logging::init_logging(&app_paths.log_dir) {
+        Ok(guard) => guard,
+        Err(err) => {
+            eprintln!("Failed to initialize logging: {err}");
+            std::process::exit(1);
+        }
+    };
     tracing::info!("Logging initialised — log_dir={}", app_paths.log_dir.display());
 
     // Load .env file if present (best-effort; not required in production)
@@ -121,20 +133,22 @@ fn main() {
     tracing::info!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
 
     // Ensure the database directory exists before trying to connect
-    config::ensure_database_dir(&bootstrap_config.database_url);
+    if let Err(err) = config::ensure_database_dir(&bootstrap_config.database_url) {
+        eprintln!("Failed to create database directory: {err}");
+        std::process::exit(1);
+    }
 
     // Run async setup using Tauri's built-in Tokio runtime
     // This avoids creating a conflicting second runtime alongside Tauri's own
     let (pool, disclaimer_text) = tauri::async_runtime::block_on(async {
         // Establish the SQLite connection pool using resolved paths
-        let pool = database::connection::establish_connection(&app_paths)
-            .await
-            .unwrap_or_else(|e| {
-                panic!(
-                    "Failed to establish database connection: {}",
-                    e
-                )
-            });
+        let pool = match database::connection::establish_connection(&app_paths).await {
+            Ok(pool) => pool,
+            Err(err) => {
+                eprintln!("Failed to establish database connection: {err}");
+                std::process::exit(1);
+            }
+        };
 
         // NOTE: Migration runner is intentionally disabled.
         // Both the seed DB (src-tauri/resources/) and the development DB are
