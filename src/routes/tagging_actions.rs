@@ -193,6 +193,7 @@ fn is_truthy(raw: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::test_support::lock_env;
     use tauri::Manager;
     use sqlx::SqlitePool;
     use sqlx::sqlite::SqlitePoolOptions;
@@ -318,8 +319,9 @@ mod tests {
     }
 
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_get_tagging_actions_view_model() {
+        let _guard = lock_env();
+
         let pool = test_pool().await;
         let tmp = std::env::temp_dir().join("tagging-actions-test-vm");
         std::fs::create_dir_all(&tmp).ok();
@@ -375,8 +377,9 @@ mod tests {
     }
 
     #[tokio::test]
-    #[serial_test::serial]
     async fn test_backfills_and_logs() {
+        let _guard = lock_env();
+
         let pool = test_pool().await;
         let tmp = std::env::temp_dir().join("tagging-actions-test-backfill");
         std::fs::create_dir_all(&tmp).ok();

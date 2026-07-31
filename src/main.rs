@@ -364,6 +364,7 @@ fn load_dotenv_from_str(content: &str) {
 #[cfg(test)]
 mod tests {
 use super::*;
+use crate::utils::test_support::lock_env;
 use std::fs;
 use std::path::PathBuf;
 
@@ -548,6 +549,8 @@ use std::path::PathBuf;
 
     #[test]
     fn load_dotenv_handles_missing_file_gracefully() {
+        let _guard = lock_env();
+
         // Calling load_dotenv() when no .env file exists must not panic.
         // Use a temp dir with a non-existent .env to be safe.
         let tmp = std::env::temp_dir().join(format!(
@@ -568,6 +571,8 @@ use std::path::PathBuf;
 
     #[test]
     fn load_dotenv_reads_and_loads_from_file() {
+        let _guard = lock_env();
+
         let tmp = std::env::temp_dir().join(format!(
             "embroidery-main-test-file-{}",
             std::time::SystemTime::now()

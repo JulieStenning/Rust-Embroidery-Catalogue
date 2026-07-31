@@ -411,15 +411,10 @@ fn save_google_api_key_to_env(value: &str) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::logging::LogGuard;
+    use crate::utils::test_support::lock_env;
     use sqlx::sqlite::SqlitePoolOptions;
     use sqlx::SqlitePool;
     use std::sync::atomic::AtomicBool;
-    use std::sync::{Mutex, OnceLock};
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     // ─── Helper: create a settings table in an in-memory pool ──────────
 
@@ -691,8 +686,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
-        // Use the env lock to isolate from parallel tests that set GOOGLE_API_KEY
-        let _guard = env_lock().lock().unwrap();
+        let _guard = lock_env();
 
         // Use a temp directory without a `data/` child → Installed mode.
         let tmp = std::env::temp_dir().join(format!(
@@ -732,8 +726,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_settings_view_model_inner_has_portable_mode_defaults() {
-        // Use the env lock to isolate from parallel tests that set GOOGLE_API_KEY
-        let _guard = env_lock().lock().unwrap();
+        let _guard = lock_env();
 
         let tmp = std::env::temp_dir().join(format!(
             "settings-test-portable-{}",
@@ -760,8 +753,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_settings_view_model_inner_reflects_custom_settings() {
-        // Use the env lock to isolate from parallel tests that set GOOGLE_API_KEY
-        let _guard = env_lock().lock().unwrap();
+        let _guard = lock_env();
 
         let tmp = std::env::temp_dir().join(format!(
             "settings-test-custom-{}",
@@ -814,7 +806,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_settings_view_model_inner_reads_google_api_key_from_env() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = lock_env();
 
         let tmp = std::env::temp_dir().join(format!(
             "settings-test-gapi-{}",
@@ -878,7 +870,7 @@ mod tests {
 
     #[tokio::test]
     async fn save_settings_view_model_inner_persists_all_fields() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = lock_env();
 
         let tmp = std::env::temp_dir().join(format!(
             "settings-test-save-all-{}",
@@ -1114,7 +1106,7 @@ mod tests {
 
     #[test]
     fn save_google_api_key_updates_and_clears_env_file() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = lock_env();
 
         let original_dir = std::env::current_dir().expect("current dir available");
         let test_dir = std::env::temp_dir().join(format!(
