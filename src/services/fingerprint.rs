@@ -667,7 +667,7 @@ mod tests {
         let pool = make_test_pool().await;
         let temp_path = write_temp_file("mid_stop.pes", b"data");
 
-        for i in 1..=2 {
+        for i in 1..=50 {
             sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
                 .bind(i)
                 .bind(format!("mid_{}.pes", i))
