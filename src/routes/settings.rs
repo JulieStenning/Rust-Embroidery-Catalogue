@@ -67,11 +67,10 @@ pub struct BrowseDataRootResult {
     pub error: Option<String>,
 }
 
-#[tauri::command]
-pub async fn get_settings_view_model(
-    state: State<'_, AppState>,
+pub(crate) async fn get_settings_view_model_inner(
+    app_state: &AppState,
 ) -> Result<SettingsViewModel, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db.acquire().await.map_err(|e| e.to_string())?;
 
     let image_preference = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
         .await
@@ -108,14 +107,14 @@ pub async fn get_settings_view_model(
     let has_google_api_key = !google_api_key.trim().is_empty();
 
     // Derive paths and mode from the centrally resolved AppPaths in state
-    let data_root = state.paths.data_root.to_string_lossy().to_string();
-    let database_path = state.paths.database_path.to_string_lossy().to_string();
-    let log_folder = state.paths.log_dir.to_string_lossy().to_string();
-    let can_configure_data_root = match state.paths.mode {
+    let data_root = app_state.paths.data_root.to_string_lossy().to_string();
+    let database_path = app_state.paths.database_path.to_string_lossy().to_string();
+    let log_folder = app_state.paths.log_dir.to_string_lossy().to_string();
+    let can_configure_data_root = match app_state.paths.mode {
         ExecutionMode::Portable => false,
         ExecutionMode::Installed => true,
     };
-    let app_mode = match state.paths.mode {
+    let app_mode = match app_state.paths.mode {
         ExecutionMode::Portable => "portable".to_string(),
         ExecutionMode::Installed => "installed".to_string(),
     };
@@ -141,12 +140,18 @@ pub async fn get_settings_view_model(
 }
 
 #[tauri::command]
-pub async fn save_import_last_browse_folder(
+pub async fn get_settings_view_model(
     state: State<'_, AppState>,
+) -> Result<SettingsViewModel, String> {
+    get_settings_view_model_inner(&*state).await
+}
+
+pub(crate) async fn save_import_last_browse_folder_inner(
+    app_state: &AppState,
     path: String,
 ) -> Result<SaveImportBrowseFolderResult, String> {
     let normalized = path.trim().to_string();
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db.acquire().await.map_err(|e| e.to_string())?;
 
     upsert_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER, &normalized)
         .await
@@ -159,8 +164,15 @@ pub async fn save_import_last_browse_folder(
 }
 
 #[tauri::command]
-pub async fn save_settings_view_model(
+pub async fn save_import_last_browse_folder(
     state: State<'_, AppState>,
+    path: String,
+) -> Result<SaveImportBrowseFolderResult, String> {
+    save_import_last_browse_folder_inner(&*state, path).await
+}
+
+pub(crate) async fn save_settings_view_model_inner(
+    app_state: &AppState,
     request: SaveSettingsRequest,
 ) -> Result<SaveSettingsResult, String> {
     let image_preference = normalize_image_preference(&request.image_preference);
@@ -169,7 +181,7 @@ pub async fn save_settings_view_model(
     let import_commit_batch_size = normalize_optional_batch_size(&request.import_commit_batch_size);
     let ai_delay = normalize_optional_delay(&request.ai_delay);
 
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db.acquire().await.map_err(|e| e.to_string())?;
 
     upsert_setting(
         &mut conn,
@@ -214,6 +226,14 @@ pub async fn save_settings_view_model(
         saved: true,
         message: "Settings saved successfully.".to_string(),
     })
+}
+
+#[tauri::command]
+pub async fn save_settings_view_model(
+    state: State<'_, AppState>,
+    request: SaveSettingsRequest,
+) -> Result<SaveSettingsResult, String> {
+    save_settings_view_model_inner(&*state, request).await
 }
 
 #[tauri::command]
@@ -390,12 +410,72 @@ fn save_google_api_key_to_env(value: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::logging::LogGuard;
+    use sqlx::sqlite::SqlitePoolOptions;
+    use sqlx::SqlitePool;
+    use std::sync::atomic::AtomicBool;
     use std::sync::{Mutex, OnceLock};
 
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
     }
+
+    // ─── Helper: create a settings table in an in-memory pool ──────────
+
+    async fn setup_settings_table(pool: &SqlitePool) {
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                description TEXT NOT NULL
+            )",
+        )
+        .execute(pool)
+        .await
+        .expect("settings table should be created");
+    }
+
+    /// Create an in-memory SqlitePool with the settings table and a Pool-based
+    /// connection for direct queries.
+    async fn make_pool_and_table() -> SqlitePool {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite pool should connect");
+        setup_settings_table(&pool).await;
+        pool
+    }
+
+    // ─── AppState helpers (Portable / Installed) ───────────────────────
+
+    fn make_app_paths_installed(tmp_dir: &std::path::Path) -> crate::paths::AppPaths {
+        // Without a `data/` subdirectory under `tmp_dir`, resolve_paths_from_exe_dir
+        // uses Installed mode.
+        crate::paths::resolve_paths_from_exe_dir(tmp_dir)
+    }
+
+    fn make_app_paths_portable(tmp_dir: &std::path::Path) -> crate::paths::AppPaths {
+        // With a `data/` subdirectory, Portable mode is activated.
+        let data_dir = tmp_dir.join("data");
+        std::fs::create_dir_all(&data_dir).expect("test data dir should be created");
+        crate::paths::resolve_paths_from_exe_dir(tmp_dir)
+    }
+
+    fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
+        AppState {
+            db: pool,
+            paths,
+            disclaimer_text: String::new(),
+            log_guard: LogGuard::dummy_for_test(),
+            shutdown_requested: AtomicBool::new(false),
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Category A — Pure helper functions
+    // ════════════════════════════════════════════════════════════════════
 
     #[test]
     fn normalize_image_preference_whitelists_to_2d_or_3d() {
@@ -458,6 +538,139 @@ mod tests {
     }
 
     #[test]
+    fn bool_to_setting_returns_expected_strings() {
+        assert_eq!(bool_to_setting(true), "true");
+        assert_eq!(bool_to_setting(false), "false");
+    }
+
+    #[test]
+    fn default_for_key_returns_correct_defaults() {
+        assert_eq!(default_for_key(KEY_AI_TIER2_AUTO), "false");
+        assert_eq!(default_for_key(KEY_AI_TIER3_AUTO), "false");
+        assert_eq!(default_for_key(KEY_AI_BATCH_SIZE), "");
+        assert_eq!(default_for_key(KEY_AI_DELAY), "");
+        assert_eq!(default_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE), "");
+        assert_eq!(default_for_key(KEY_IMAGE_PREFERENCE), "2d");
+        assert_eq!(default_for_key(KEY_PREVIEW_3D_PROFILE), "balanced");
+        assert_eq!(default_for_key("unknown_key"), "");
+    }
+
+    #[test]
+    fn description_for_key_returns_correct_descriptions() {
+        assert!(description_for_key(KEY_AI_TIER2_AUTO).contains("Tier 2"));
+        assert!(description_for_key(KEY_AI_TIER3_AUTO).contains("Tier 3"));
+        assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("designs"));
+        assert!(description_for_key(KEY_AI_DELAY).contains("Gemini"));
+        assert!(description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE).contains("commit"));
+        assert!(description_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER).contains("picker"));
+        assert!(description_for_key(KEY_IMAGE_PREFERENCE).contains("preview"));
+        assert!(description_for_key(KEY_PREVIEW_3D_PROFILE).contains("3D"));
+        assert_eq!(description_for_key("unknown_key"), "");
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Category B — Async DB helper functions
+    // ════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn upsert_setting_inserts_new_row() {
+        let pool = make_pool_and_table().await;
+        let mut conn = pool.acquire().await.expect("connection should be acquired");
+
+        upsert_setting(&mut conn, "test.key", "test_value")
+            .await
+            .expect("upsert should succeed");
+
+        let row: (String, String) = sqlx::query_as(
+            "SELECT value, description FROM settings WHERE key = ?",
+        )
+        .bind("test.key")
+        .fetch_one(&mut *conn)
+        .await
+        .expect("row should exist");
+
+        assert_eq!(row.0, "test_value");
+        assert_eq!(row.1, description_for_key("test.key"));
+    }
+
+    #[tokio::test]
+    async fn upsert_setting_updates_existing_row() {
+        let pool = make_pool_and_table().await;
+        let mut conn = pool.acquire().await.expect("connection should be acquired");
+
+        upsert_setting(&mut conn, "test.key", "original")
+            .await
+            .expect("first upsert should succeed");
+        upsert_setting(&mut conn, "test.key", "updated")
+            .await
+            .expect("second upsert should succeed");
+
+        let (value, desc): (String, String) = sqlx::query_as(
+            "SELECT value, description FROM settings WHERE key = ?",
+        )
+        .bind("test.key")
+        .fetch_one(&mut *conn)
+        .await
+        .expect("row should exist");
+
+        assert_eq!(value, "updated");
+        // Description should remain the same (ON CONFLICT only updates value)
+        assert_eq!(desc, description_for_key("test.key"));
+    }
+
+    #[tokio::test]
+    async fn get_setting_with_default_returns_existing_value() {
+        let pool = make_pool_and_table().await;
+        let mut conn = pool.acquire().await.expect("connection should be acquired");
+
+        upsert_setting(&mut conn, KEY_IMAGE_PREFERENCE, "3d")
+            .await
+            .expect("upsert should succeed");
+
+        let result = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
+            .await
+            .expect("get should succeed");
+
+        assert_eq!(result, "3d");
+    }
+
+    #[tokio::test]
+    async fn get_setting_with_default_inserts_and_returns_fallback() {
+        let pool = make_pool_and_table().await;
+        let mut conn = pool.acquire().await.expect("connection should be acquired");
+
+        let result = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
+            .await
+            .expect("get should succeed");
+
+        assert_eq!(result, "2d"); // default_for_key(KEY_IMAGE_PREFERENCE)
+
+        // Verify the fallback was persisted
+        let (value,): (String,) = sqlx::query_as("SELECT value FROM settings WHERE key = ?")
+            .bind(KEY_IMAGE_PREFERENCE)
+            .fetch_one(&mut *conn)
+            .await
+            .expect("row should have been inserted");
+        assert_eq!(value, "2d");
+    }
+
+    #[tokio::test]
+    async fn get_setting_with_default_returns_empty_string_for_unknown_with_empty_default() {
+        let pool = make_pool_and_table().await;
+        let mut conn = pool.acquire().await.expect("connection should be acquired");
+
+        let result = get_setting_with_default(&mut conn, KEY_AI_BATCH_SIZE)
+            .await
+            .expect("get should succeed");
+
+        assert_eq!(result, ""); // default_for_key for KEY_AI_BATCH_SIZE is ""
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Category C — Tauri command inner functions
+    // ════════════════════════════════════════════════════════════════════
+
+    #[test]
     fn browse_data_root_returns_expected_fallback_shapes() {
         let with_start = browse_settings_data_root(Some("D:/catalogue".to_string()));
         assert!(with_start.path.is_none());
@@ -475,6 +688,429 @@ mod tests {
             .unwrap_or_default()
             .contains("(blank)"));
     }
+
+    #[tokio::test]
+    async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
+        // Use the env lock to isolate from parallel tests that set GOOGLE_API_KEY
+        let _guard = env_lock().lock().unwrap();
+
+        // Use a temp directory without a `data/` child → Installed mode.
+        let tmp = std::env::temp_dir().join(format!(
+            "settings-test-get-vm-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&tmp).ok();
+
+        let pool = make_pool_and_table().await;
+        let paths = make_app_paths_installed(&tmp);
+        let state = make_app_state(pool, paths);
+
+        let vm = get_settings_view_model_inner(&state)
+            .await
+            .expect("view model should be retrieved");
+
+        assert_eq!(vm.image_preference, "2d");
+        assert_eq!(vm.preview_3d_profile, "balanced");
+        assert!(!vm.ai_tier2_auto);
+        assert!(!vm.ai_tier3_auto);
+        assert_eq!(vm.ai_batch_size, "");
+        assert_eq!(vm.ai_delay, "");
+        assert_eq!(vm.import_commit_batch_size, "");
+        assert_eq!(vm.import_last_browse_folder, "");
+        assert_eq!(vm.google_api_key, "");
+        assert!(!vm.has_google_api_key);
+        assert!(vm.can_configure_data_root); // Installed → true
+        assert_eq!(vm.app_mode, "installed");
+        assert_eq!(vm.ai_tagging_help_url, "#/help");
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn get_settings_view_model_inner_has_portable_mode_defaults() {
+        // Use the env lock to isolate from parallel tests that set GOOGLE_API_KEY
+        let _guard = env_lock().lock().unwrap();
+
+        let tmp = std::env::temp_dir().join(format!(
+            "settings-test-portable-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&tmp).ok();
+
+        let pool = make_pool_and_table().await;
+        let paths = make_app_paths_portable(&tmp);
+        let state = make_app_state(pool, paths);
+
+        let vm = get_settings_view_model_inner(&state)
+            .await
+            .expect("view model should be retrieved");
+
+        assert!(!vm.can_configure_data_root); // Portable → false
+        assert_eq!(vm.app_mode, "portable");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn get_settings_view_model_inner_reflects_custom_settings() {
+        // Use the env lock to isolate from parallel tests that set GOOGLE_API_KEY
+        let _guard = env_lock().lock().unwrap();
+
+        let tmp = std::env::temp_dir().join(format!(
+            "settings-test-custom-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&tmp).ok();
+
+        let pool = make_pool_and_table().await;
+        let paths = make_app_paths_installed(&tmp);
+        let state = make_app_state(pool.clone(), paths);
+
+        // Pre-load some custom settings
+        let mut conn = pool.acquire().await.expect("connection");
+        upsert_setting(&mut conn, KEY_IMAGE_PREFERENCE, "3d")
+            .await
+            .expect("upsert");
+        upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, "soft")
+            .await
+            .expect("upsert");
+        upsert_setting(&mut conn, KEY_AI_TIER2_AUTO, "true")
+            .await
+            .expect("upsert");
+        upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, "50")
+            .await
+            .expect("upsert");
+        upsert_setting(&mut conn, KEY_AI_DELAY, "2.5")
+            .await
+            .expect("upsert");
+        upsert_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER, "D:/imports")
+            .await
+            .expect("upsert");
+        drop(conn);
+
+        let vm = get_settings_view_model_inner(&state)
+            .await
+            .expect("view model should be retrieved");
+
+        assert_eq!(vm.image_preference, "3d");
+        assert_eq!(vm.preview_3d_profile, "soft");
+        assert!(vm.ai_tier2_auto);
+        assert_eq!(vm.ai_batch_size, "50");
+        assert_eq!(vm.ai_delay, "2.5");
+        assert_eq!(vm.import_last_browse_folder, "D:/imports");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn get_settings_view_model_inner_reads_google_api_key_from_env() {
+        let _guard = env_lock().lock().unwrap();
+
+        let tmp = std::env::temp_dir().join(format!(
+            "settings-test-gapi-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&tmp).ok();
+
+        let pool = make_pool_and_table().await;
+        let paths = make_app_paths_installed(&tmp);
+        let state = make_app_state(pool, paths);
+
+        // Set the env var before calling
+        std::env::set_var("GOOGLE_API_KEY", "my-test-key");
+
+        let vm = get_settings_view_model_inner(&state)
+            .await
+            .expect("view model should be retrieved");
+        assert_eq!(vm.google_api_key, "my-test-key");
+        assert!(vm.has_google_api_key);
+
+        // Clean up env
+        std::env::remove_var("GOOGLE_API_KEY");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn save_import_last_browse_folder_inner_persists_and_trims() {
+        let tmp = std::env::temp_dir().join(format!(
+            "settings-test-save-last-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&tmp).ok();
+
+        let pool = make_pool_and_table().await;
+        let paths = make_app_paths_installed(&tmp);
+        let state = make_app_state(pool.clone(), paths);
+
+        let result = save_import_last_browse_folder_inner(&state, "  D:/my/folder  ".to_string())
+            .await
+            .expect("save should succeed");
+        assert!(result.saved);
+        assert_eq!(result.path, "D:/my/folder");
+
+        // Verify in DB
+        let mut conn = state.db.acquire().await.expect("connection");
+        let setting = crate::settings::get_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER)
+            .await
+            .expect("get setting")
+            .expect("setting should exist");
+        assert_eq!(setting.value, "D:/my/folder");
+        drop(conn);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn save_settings_view_model_inner_persists_all_fields() {
+        let _guard = env_lock().lock().unwrap();
+
+        let tmp = std::env::temp_dir().join(format!(
+            "settings-test-save-all-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&tmp).ok();
+
+        let pool = make_pool_and_table().await;
+        let paths = make_app_paths_installed(&tmp);
+
+        // Temporarily cd into tmp so save_google_api_key_to_env writes .env there
+        let original_dir = std::env::current_dir().expect("current dir");
+        std::env::set_current_dir(&tmp).expect("switch to tmp");
+
+        let state = make_app_state(pool, paths);
+
+        let request = SaveSettingsRequest {
+            image_preference: " 3D ".to_string(),
+            preview_3d_profile: "HIGH_CONTRAST".to_string(),
+            google_api_key: "env-key-abc".to_string(),
+            ai_tier2_auto: true,
+            ai_tier3_auto: false,
+            ai_batch_size: "  25  ".to_string(),
+            ai_delay: "  1.5  ".to_string(),
+            import_commit_batch_size: "  100  ".to_string(),
+            data_root: String::new(),
+        };
+
+        let result = save_settings_view_model_inner(&state, request)
+            .await
+            .expect("save should succeed");
+        assert!(result.saved);
+        assert_eq!(result.message, "Settings saved successfully.");
+
+        // Verify settings in DB
+        let mut conn = state.db.acquire().await.expect("connection");
+
+        async fn read_setting(conn: &mut SqliteConnection, key: &str) -> String {
+            crate::settings::get_setting(conn, key)
+                .await
+                .expect("get setting")
+                .expect("setting should exist")
+                .value
+        }
+
+        assert_eq!(
+            read_setting(&mut conn, KEY_IMAGE_PREFERENCE).await,
+            "3d"
+        );
+        assert_eq!(
+            read_setting(&mut conn, KEY_PREVIEW_3D_PROFILE).await,
+            "high-contrast"
+        );
+        assert_eq!(
+            read_setting(&mut conn, KEY_AI_TIER2_AUTO).await,
+            "true"
+        );
+        assert_eq!(
+            read_setting(&mut conn, KEY_AI_TIER3_AUTO).await,
+            "false"
+        );
+        assert_eq!(
+            read_setting(&mut conn, KEY_AI_BATCH_SIZE).await,
+            "25"
+        );
+        assert_eq!(
+            read_setting(&mut conn, KEY_AI_DELAY).await,
+            "1.5"
+        );
+        assert_eq!(
+            read_setting(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE).await,
+            "100"
+        );
+        drop(conn);
+
+        // Verify .env file was written
+        let env_content = std::fs::read_to_string(tmp.join(".env")).unwrap_or_default();
+        assert!(env_content.contains("GOOGLE_API_KEY=env-key-abc"));
+        assert_eq!(
+            std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+            "env-key-abc"
+        );
+
+        // Cleanup
+        std::env::set_current_dir(&original_dir).expect("restore dir");
+        std::env::remove_var("GOOGLE_API_KEY");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Category D — Type serialization round-trip tests
+    // ════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn settings_view_model_serializes_all_fields() {
+        let vm = SettingsViewModel {
+            image_preference: "2d".to_string(),
+            preview_3d_profile: "balanced".to_string(),
+            google_api_key: "".to_string(),
+            has_google_api_key: false,
+            ai_tier2_auto: false,
+            ai_tier3_auto: false,
+            ai_batch_size: "".to_string(),
+            ai_delay: "".to_string(),
+            import_commit_batch_size: "".to_string(),
+            import_last_browse_folder: "".to_string(),
+            can_configure_data_root: true,
+            data_root: "/data".to_string(),
+            database_path: "/data/db.sqlite".to_string(),
+            log_folder: "/data/logs".to_string(),
+            app_mode: "installed".to_string(),
+            ai_tagging_help_url: "#/help".to_string(),
+        };
+        let json = serde_json::to_value(&vm).expect("serialize");
+        let map = json.as_object().expect("should be object");
+        assert!(map.contains_key("image_preference"));
+        assert!(map.contains_key("preview_3d_profile"));
+        assert!(map.contains_key("google_api_key"));
+        assert!(map.contains_key("has_google_api_key"));
+        assert!(map.contains_key("ai_tier2_auto"));
+        assert!(map.contains_key("ai_tier3_auto"));
+        assert!(map.contains_key("ai_batch_size"));
+        assert!(map.contains_key("ai_delay"));
+        assert!(map.contains_key("import_commit_batch_size"));
+        assert!(map.contains_key("import_last_browse_folder"));
+        assert!(map.contains_key("can_configure_data_root"));
+        assert!(map.contains_key("data_root"));
+        assert!(map.contains_key("database_path"));
+        assert!(map.contains_key("log_folder"));
+        assert!(map.contains_key("app_mode"));
+        assert!(map.contains_key("ai_tagging_help_url"));
+        assert_eq!(map.len(), 16);
+    }
+
+    #[test]
+    fn save_settings_request_deserializes_all_fields() {
+        let json = serde_json::json!({
+            "image_preference": "3d",
+            "preview_3d_profile": "soft",
+            "google_api_key": "xyz",
+            "ai_tier2_auto": true,
+            "ai_tier3_auto": false,
+            "ai_batch_size": "10",
+            "ai_delay": "1.0",
+            "import_commit_batch_size": "5",
+            "data_root": "/custom"
+        });
+        let req: SaveSettingsRequest =
+            serde_json::from_value(json).expect("deserialize");
+        assert_eq!(req.image_preference, "3d");
+        assert_eq!(req.preview_3d_profile, "soft");
+        assert_eq!(req.google_api_key, "xyz");
+        assert!(req.ai_tier2_auto);
+        assert!(!req.ai_tier3_auto);
+        assert_eq!(req.ai_batch_size, "10");
+        assert_eq!(req.ai_delay, "1.0");
+        assert_eq!(req.import_commit_batch_size, "5");
+        assert_eq!(req.data_root, "/custom");
+    }
+
+    #[test]
+    fn save_settings_request_preview_3d_profile_defaults_to_empty() {
+        let json = serde_json::json!({
+            "image_preference": "2d",
+            "google_api_key": "",
+            "ai_tier2_auto": false,
+            "ai_tier3_auto": false,
+            "ai_batch_size": "",
+            "ai_delay": "",
+            "import_commit_batch_size": "",
+            "data_root": ""
+        });
+        let req: SaveSettingsRequest =
+            serde_json::from_value(json).expect("deserialize");
+        assert_eq!(req.preview_3d_profile, ""); // #[serde(default)]
+    }
+
+    #[test]
+    fn save_settings_result_serializes_correctly() {
+        let result = SaveSettingsResult {
+            saved: true,
+            message: "Done.".to_string(),
+        };
+        let json = serde_json::to_value(&result).expect("serialize");
+        let map = json.as_object().expect("should be object");
+        assert!(map.contains_key("saved"));
+        assert!(map.contains_key("message"));
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn save_import_browse_folder_result_serializes_correctly() {
+        let result = SaveImportBrowseFolderResult {
+            saved: true,
+            path: "D:/test".to_string(),
+        };
+        let json = serde_json::to_value(&result).expect("serialize");
+        let map = json.as_object().expect("should be object");
+        assert!(map.contains_key("saved"));
+        assert!(map.contains_key("path"));
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn browse_data_root_result_serializes_correctly() {
+        let with_path = BrowseDataRootResult {
+            path: Some("D:/data".to_string()),
+            error: None,
+        };
+        let json = serde_json::to_value(&with_path).expect("serialize");
+        let map = json.as_object().expect("should be object");
+        assert!(map.contains_key("path"));
+        assert!(map.contains_key("error"));
+        assert_eq!(map.len(), 2);
+        assert_eq!(map["path"], serde_json::json!("D:/data"));
+        assert_eq!(map["error"], serde_json::json!(null));
+
+        let none_path = BrowseDataRootResult {
+            path: None,
+            error: Some("failed".to_string()),
+        };
+        let json2 = serde_json::to_value(&none_path).expect("serialize");
+        assert_eq!(json2["path"], serde_json::json!(null));
+        assert_eq!(json2["error"], serde_json::json!("failed"));
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Existing env-file test (preserved)
+    // ════════════════════════════════════════════════════════════════════
 
     #[test]
     fn save_google_api_key_updates_and_clears_env_file() {
