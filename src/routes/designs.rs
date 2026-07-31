@@ -2468,14 +2468,6 @@ mod tests {
     use super::*;
     use serial_test::serial;
     use sqlx::sqlite::SqlitePoolOptions;
-    use std::sync::Once;
-
-    static INIT_LOG: Once = Once::new();
-    fn init_test_logging() {
-        INIT_LOG.call_once(|| {
-            let _ = tracing_subscriber::fmt().with_test_writer().try_init();
-        });
-    }
 
     async fn test_pool() -> SqlitePool {
         let pool = SqlitePoolOptions::new()
