@@ -8,7 +8,7 @@
     runDesignsBackup,
     runBothBackups,
     getSettingsViewModel
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
   let backupDbDestination = $state("");

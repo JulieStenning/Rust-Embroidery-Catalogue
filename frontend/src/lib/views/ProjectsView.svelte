@@ -8,7 +8,7 @@
     deleteProject,
     removeDesignFromProjectDetail,
     getProjectPrintView
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
   let { currentUiKind, projectDetailId, projectPrintId, navigateTo } = $props();

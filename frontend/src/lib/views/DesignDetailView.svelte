@@ -15,43 +15,15 @@
     openDesignInEditor,
     openDesignInExplorer,
     renderDesign3dPreview
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import TagSelectionModal from "../components/TagSelectionModal.svelte";
   import TechnicalDataGrid from "../components/TechnicalDataGrid.svelte";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
   import { addToast } from "../stores/toastStore.js";
-
-  /**
-   * @typedef {Object} DesignDetailItem
-   * @property {number} id
-   * @property {string} [filename]
-   * @property {string} [filepath]
-   * @property {string} [image_data_url]
-   * @property {string} [image_type]
-   * @property {string} [designer]
-   * @property {string} [source]
-   * @property {string} [hoop]
-   * @property {string} [date_added]
-   * @property {number} [width_mm]
-   * @property {number} [height_mm]
-   * @property {number} [stitch_count]
-   * @property {number} [color_count]
-   * @property {number} [color_change_count]
-   * @property {number|null} [rating]
-   * @property {boolean} [is_stitched]
-   * @property {string} [notes]
-   * @property {number|null} [designer_id]
-   * @property {number|null} [source_id]
-   * @property {boolean} [tags_checked]
-   * @property {Array<{id: number, description: string, tag_group?: string}>} [tags]
-   * @property {Array<{id: number, name: string}>} [designers]
-   * @property {Array<{id: number, name: string}>} [sources]
-   * @property {Array<{id: number, name: string}>} [projects]
-   * @property {Array<{id: number, name: string}>} [available_projects]
-   * @property {Array<{id: number, description: string, tag_group?: string}>} [all_tags]
-   */
+  /** @typedef {import("../types/ipc").DesignDetail} DesignDetailItem */
+  /** @typedef {import("../types/ipc").DesignTagDetail} DesignTagDetail */
 
   let { detailDesignId, detailBrowseIds = [], detailBrowseIndex = -1, navigateTo, onDesignDeleted = () => {} } = $props();
 
@@ -118,11 +90,11 @@
       }
       return [
         { label: "Hoop", value: item.hoop || "Unknown" },
-        { label: "Date Added", value: item.date_added || "Unknown" },
-        { label: "Dimensions", value: item.width_mm != null && item.height_mm != null ? `${item.width_mm} × ${item.height_mm} mm` : "?" },
-        { label: "Stitches", value: item.stitch_count ?? "?" },
-        { label: "Colours", value: item.color_count ?? "?" },
-        { label: "Colour Changes", value: item.color_change_count ?? "?" },
+        { label: "Date Added", value: item.dateAdded || "Unknown" },
+        { label: "Dimensions", value: item.widthMm != null && item.heightMm != null ? `${item.widthMm} × ${item.heightMm} mm` : "?" },
+        { label: "Stitches", value: item.stitchCount ?? "?" },
+        { label: "Colours", value: item.colorCount ?? "?" },
+        { label: "Colour Changes", value: item.colorChangeCount ?? "?" },
       ];
     })()
   );
@@ -144,8 +116,8 @@
         detailError = `Could not load design detail from Rust backend: ${result.error}`;
       }
       detailNotes = String(detailItem?.notes || "");
-      detailDesignerId = detailItem?.designer_id == null ? "" : String(detailItem.designer_id);
-      detailSourceId = detailItem?.source_id == null ? "" : String(detailItem.source_id);
+      detailDesignerId = detailItem?.designerId == null ? "" : String(detailItem.designerId);
+      detailSourceId = detailItem?.sourceId == null ? "" : String(detailItem.sourceId);
       previousDesignerId = detailDesignerId;
       previousSourceId = detailSourceId;
       detailTagSelection = Array.isArray(detailItem?.tags)
@@ -278,13 +250,13 @@
   async function toggleDetailStitched() {
     if (!detailItem?.id || detailSaving) return;
 
-    const newStitched = !detailItem?.is_stitched;
+    const newStitched = !detailItem?.isStitched;
     detailSaving = true;
     const result = await setDesignStitched(detailItem.id, newStitched);
     detailSaving = false;
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
-      designSessionStore.trackMutation(detailItem.id, { is_stitched: newStitched });
+      designSessionStore.trackMutation(detailItem.id, { isStitched: newStitched });
       await refreshDetailAfterAction();
     }
   }
@@ -292,7 +264,7 @@
   async function toggleDetailTagsChecked() {
     if (!detailItem?.id || detailSaving) return;
 
-    const newChecked = !detailItem?.tags_checked;
+    const newChecked = !detailItem?.tagsChecked;
     detailSaving = true;
     const result = await setDesignTagsChecked(detailItem.id, newChecked);
     detailSaving = false;
@@ -312,7 +284,7 @@
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       // Compute tag arrays from the selected tag IDs and the all_tags lookup
-      const allTags = Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : [];
+      const allTags = Array.isArray(detailItem?.allTags) ? detailItem.allTags : [];
       const selectedTags = allTags.filter(
         /** @param {{id: number, description: string, tag_group?: string}} t */ (t) =>
           detailTagSelection.includes(t.id)
@@ -347,7 +319,7 @@
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
       // Build updated project list from existing + the newly added project
-      const addedProject = (detailItem?.available_projects || []).find(
+      const addedProject = (detailItem?.availableProjects || []).find(
         /** @param {{id: number, name: string}} p */ (p) => p.id === projectId
       );
       const currentProjects = Array.isArray(detailItem?.projects)
@@ -416,8 +388,8 @@
       if (refreshedImage?.item?.data_url) {
         detailItem = {
           ...detailItem,
-          image_data_url: refreshedImage.item.data_url,
-          image_type: refreshedImage.item.image_type || detailItem.image_type,
+          imageDataUrl: refreshedImage.item.data_url,
+          imageType: refreshedImage.item.image_type || detailItem.imageType,
         };
       }
       await refreshDetailAfterAction();
@@ -576,9 +548,9 @@
         </details>
 
         <!-- Preview image -->
-        {#if detailItem.image_data_url}
+        {#if detailItem.imageDataUrl}
           <img
-            src={detailItem.image_data_url}
+            src={detailItem.imageDataUrl}
             alt={detailItem.filename || "Design preview"}
             class="w-full rounded border border-gray-200 bg-white p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
           />
@@ -591,7 +563,7 @@
           <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor</button>
           <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button>
           <button class="menu-button-primary text-xs px-2.5 py-1.5" onclick={renderDetail3dPreview} disabled={detailSaving}>
-            {detailItem.image_data_url ? (detailItem.image_type === "3d" ? "✓ 3D Preview" : "Render 3D Preview") : "Generate 3D Preview"}
+            {detailItem.imageDataUrl ? (detailItem.imageType === "3d" ? "✓ 3D Preview" : "Render 3D Preview") : "Generate 3D Preview"}
           </button>
         </div>
       </div>
@@ -681,14 +653,14 @@
 
           <!-- Stitched toggle -->
           <button
-            class="menu-button-toggle {detailItem.is_stitched
+            class="menu-button-toggle {detailItem.isStitched
               ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
               : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400'}"
             onclick={toggleDetailStitched}
             disabled={detailSaving}
-            title={detailItem.is_stitched ? 'Mark as not stitched' : 'Mark as stitched'}
+            title={detailItem.isStitched ? 'Mark as not stitched' : 'Mark as stitched'}
           >
-            {#if detailItem.is_stitched}
+            {#if detailItem.isStitched}
               <span aria-hidden="true">&#10003;</span> Stitched
             {:else}
               Mark as Stitched
@@ -698,14 +670,14 @@
           <!-- Verified toggle (only shown if tags exist) -->
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <button
-              class="menu-button-toggle {detailItem.tags_checked
+              class="menu-button-toggle {detailItem.tagsChecked
                 ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
                 : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
               onclick={toggleDetailTagsChecked}
               disabled={detailSaving}
-              title={detailItem.tags_checked ? 'Mark as unverified' : 'Mark as verified'}
+              title={detailItem.tagsChecked ? 'Mark as unverified' : 'Mark as verified'}
             >
-              {#if detailItem.tags_checked}
+              {#if detailItem.tagsChecked}
                 <span aria-hidden="true">&#10003;</span> Verified
               {:else}
                 <span aria-hidden="true">&#9888;</span> Verify
@@ -776,11 +748,11 @@
             <p class="text-xs text-gray-400 italic">Not assigned to any projects.</p>
           {/if}
 
-          {#if Array.isArray(detailItem.available_projects) && detailItem.available_projects.length > 0}
+          {#if Array.isArray(detailItem.availableProjects) && detailItem.availableProjects.length > 0}
             <div class="flex gap-2 pt-0.5">
               <select class="flex-1 border rounded px-2.5 py-1.5 text-sm bg-white" bind:value={detailProjectToAdd} disabled={detailSaving}>
                 <option value="">-- Select project to add --</option>
-                {#each detailItem.available_projects as project}
+                {#each detailItem.availableProjects as project}
                   <option value={String(project.id)}>{project.name}</option>
                 {/each}
               </select>
@@ -807,7 +779,7 @@
     id: detailItem.id,
     filename: detailItem.filename ?? '',
     filepath: detailItem.filepath ?? '',
-    dataUrl: detailItem.image_data_url ?? null,
+    dataUrl: detailItem.imageDataUrl ?? null,
   }] : []}
   open={detailDeleteModalOpen}
   onClose={closeDeleteModal}
@@ -816,7 +788,7 @@
 
 <TagSelectionModal
   designId={detailItem?.id ?? 0}
-  allTags={Array.isArray(detailItem?.all_tags) ? detailItem.all_tags : []}
+  allTags={Array.isArray(detailItem?.allTags) ? detailItem.allTags : []}
   selectedTagIds={detailTagSelection}
   open={browseBulkModalOpen}
   onClose={closeDetailTagModal}

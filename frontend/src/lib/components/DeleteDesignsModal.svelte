@@ -1,5 +1,5 @@
 <script>
-  import { bulkDeleteDesigns } from "../api/commandAdapter.js";
+  import { bulkDeleteDesigns } from "../api/commandAdapter";
 
   /**
    * Shared unified deletion modal used by both the Browse page and the Design Detail page.

@@ -1,4 +1,33 @@
 import { invoke } from "@tauri-apps/api/core";
+import type {
+  AdapterAppStatusResponse,
+  AdapterBrowseDataRootResponse,
+  AdapterItemResponse,
+  AdapterListResponse,
+  AdapterMutationResponse,
+  AdapterSaveSettingsResponse,
+  AdapterSettingsViewModelResponse,
+  AppStatus,
+  BrowseDesignPreview,
+  BrowseDesignSummaryWire,
+  BrowseTagOption,
+  DesignCommandResult,
+  DesignDetail,
+  DesignDetailWire,
+  DesignImageData,
+  ProjectListItem,
+  SaveSettingsRequest,
+  SearchPayload,
+  SettingsViewModel,
+  UpdateDesignMetadataRequest,
+} from "../types/ipc";
+import { mapDesignDetailFromWire } from "../types/ipc";
+
+type LooseRecord = Record<string, unknown>;
+
+function invokeLoose<T = any>(command: string, args?: Record<string, unknown>): Promise<T> {
+  return invoke(command, args) as Promise<T>;
+}
 
 const MOCK_DESIGNS = [
   {
@@ -58,7 +87,7 @@ const MOCK_HOOPS = [
  * @param {number} index
  * @param {{ useSeedTags?: boolean }} [options]
  */
-function normalizeBrowseItem(raw, index, options = {}) {
+function normalizeBrowseItem(raw: any, index: number, options: { useSeedTags?: boolean } = {}): BrowseDesignSummaryWire {
   const { useSeedTags = false } = options;
   const id = Number(raw?.id ?? index + 1);
   const filename = String(raw?.filename || raw?.name || `design-${id}.pes`);
@@ -88,13 +117,13 @@ function normalizeBrowseItem(raw, index, options = {}) {
           : [],
     image_tags: Array.isArray(raw?.image_tags) ? raw.image_tags.map(String) : [],
     stitching_tags: Array.isArray(raw?.stitching_tags) ? raw.stitching_tags.map(String) : [],
-    hoop: raw?.hoop ?? null,
+    hoop: raw?.hoop == null ? null : String(raw.hoop),
     rating:
       raw?.rating == null || Number.isNaN(Number(raw.rating))
         ? null
         : Math.max(0, Math.min(5, Number(raw.rating))),
     is_stitched: Boolean(raw?.is_stitched),
-    tags_checked: raw?.tags_checked ?? seed % 4 !== 0,
+    tags_checked: Boolean(raw?.tags_checked ?? seed % 4 !== 0),
   };
 }
 
@@ -103,9 +132,9 @@ function normalizeBrowseItem(raw, index, options = {}) {
  * Falls back to local mock data while command migration is in progress.
  * @param {import("../types").SearchPayload} [payload]
  */
-export async function getBrowseDesigns(payload) {
+export async function getBrowseDesigns(payload?: SearchPayload): Promise<AdapterListResponse<BrowseDesignSummaryWire>> {
   try {
-    const designs = await invoke("get_designs", { payload });
+    const designs = await invokeLoose<BrowseDesignSummaryWire[]>("get_designs", { payload });
     if (Array.isArray(designs)) {
       return { items: designs.map((item, index) => normalizeBrowseItem(item, index)), source: "rust" };
     }
@@ -124,7 +153,7 @@ export async function getBrowseDesigns(payload) {
  * Falls back to mock data while detail command migration is in progress.
  * @param {number | string} designId
  */
-export async function getDesignDetail(designId) {
+export async function getDesignDetail(designId: number | string): Promise<AdapterItemResponse<DesignDetail>> {
   const normalizedId = Number(designId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return { item: null, source: "mock", error: `Invalid design id: ${designId}` };
@@ -132,22 +161,22 @@ export async function getDesignDetail(designId) {
 
   let invokeError = null;
   try {
-    const detail = await invoke("get_design_detail", {
+    const detail = await invokeLoose<DesignDetailWire | null>("get_design_detail", {
       designId: normalizedId,
     });
     if (detail && typeof detail === "object") {
-      return { item: detail, source: "rust" };
+      return { item: mapDesignDetailFromWire(detail), source: "rust" };
     }
   } catch (error) {
     invokeError = error;
   }
 
   try {
-    const detail = await invoke("get_design_detail", {
+    const detail = await invokeLoose<DesignDetailWire | null>("get_design_detail", {
       designId: normalizedId,
     });
     if (detail && typeof detail === "object") {
-      return { item: detail, source: "rust" };
+      return { item: mapDesignDetailFromWire(detail), source: "rust" };
     }
   } catch (error) {
     invokeError = invokeError || error;
@@ -164,19 +193,37 @@ export async function getDesignDetail(designId) {
     const matchedHoop = MOCK_HOOPS.find((hoop) => hoop.name === fallback.hoop) || null;
 
     return {
-      item: {
+      item: mapDesignDetailFromWire({
         id: fallback.id,
         filename: fallback.filename,
         filepath: `C:/mock/${fallback.filename}`,
+        image_type: null,
+        image_data_url: null,
+        width_mm: null,
+        height_mm: null,
+        stitch_count: null,
+        color_count: null,
+        color_change_count: null,
         designer: fallback.designer,
+        designer_id: null,
         source: fallback.source,
+        source_id: null,
         hoop: fallback.hoop,
         hoop_id: matchedHoop ? matchedHoop.id : null,
+        is_stitched: Boolean(fallback.is_stitched),
+        tags_checked: Boolean(fallback.tags_checked),
         hoops: MOCK_HOOPS,
         notes: "Mock detail while Rust route migration continues.",
         rating: null,
+        tagging_tier: null,
         date_added: null,
-      },
+        tags: [],
+        projects: [],
+        available_projects: [],
+        all_tags: [],
+        designers: [],
+        sources: [],
+      }),
       source: "mock",
       error: String(invokeError),
     };
@@ -190,19 +237,37 @@ export async function getDesignDetail(designId) {
   const matchedHoop = MOCK_HOOPS.find((hoop) => hoop.name === fallback.hoop) || null;
 
   return {
-    item: {
+    item: mapDesignDetailFromWire({
       id: fallback.id,
       filename: fallback.filename,
       filepath: `C:/mock/${fallback.filename}`,
+      image_type: null,
+      image_data_url: null,
+      width_mm: null,
+      height_mm: null,
+      stitch_count: null,
+      color_count: null,
+      color_change_count: null,
       designer: fallback.designer,
+      designer_id: null,
       source: fallback.source,
+      source_id: null,
       hoop: fallback.hoop,
       hoop_id: matchedHoop ? matchedHoop.id : null,
+      is_stitched: Boolean(fallback.is_stitched),
+      tags_checked: Boolean(fallback.tags_checked),
       hoops: MOCK_HOOPS,
       notes: "Mock detail while Rust route migration continues.",
       rating: null,
+      tagging_tier: null,
       date_added: null,
-    },
+      tags: [],
+      projects: [],
+      available_projects: [],
+      all_tags: [],
+      designers: [],
+      sources: [],
+    }),
     source: "mock",
   };
 }
@@ -210,14 +275,14 @@ export async function getDesignDetail(designId) {
 /**
  * @param {number | string} designId
  */
-export async function getDesignImageDataUrl(designId) {
+export async function getDesignImageDataUrl(designId: number | string): Promise<AdapterItemResponse<DesignImageData>> {
   const normalizedId = Number(designId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return { item: null, source: "mock" };
   }
 
   try {
-    const image = await invoke("get_design_image_data_url", { designId: normalizedId });
+    const image = await invokeLoose<DesignImageData | null>("get_design_image_data_url", { designId: normalizedId });
     if (image && typeof image === "object") {
       return { item: image, source: "rust" };
     }
@@ -232,11 +297,11 @@ export async function getDesignImageDataUrl(designId) {
  * @param {number | string} designId
  * @param {Record<string, any>} request
  */
-export async function updateDesignMetadata(designId, request) {
+export async function updateDesignMetadata(designId: number | string, request: UpdateDesignMetadataRequest): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("update_design_metadata", {
+    const result = await invokeLoose<DesignCommandResult>("update_design_metadata", {
       designId: normalizedId,
       request,
     });
@@ -261,11 +326,11 @@ export async function updateDesignMetadata(designId, request) {
  * @param {number | string} designId
  * @param {number | null} rating
  */
-export async function setDesignRating(designId, rating) {
+export async function setDesignRating(designId: number | string, rating: number | null): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("set_design_rating", {
+    const result = await invokeLoose<DesignCommandResult>("set_design_rating", {
       designId: normalizedId,
       request: { rating: rating == null ? null : Number(rating) },
     });
@@ -290,11 +355,11 @@ export async function setDesignRating(designId, rating) {
  * @param {number | string} designId
  * @param {boolean} isStitched
  */
-export async function setDesignStitched(designId, isStitched) {
+export async function setDesignStitched(designId: number | string, isStitched: boolean): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("set_design_stitched", {
+    const result = await invokeLoose<DesignCommandResult>("set_design_stitched", {
       designId: normalizedId,
       request: { is_stitched: Boolean(isStitched) },
     });
@@ -319,11 +384,11 @@ export async function setDesignStitched(designId, isStitched) {
  * @param {number | string} designId
  * @param {boolean} tagsChecked
  */
-export async function setDesignTagsChecked(designId, tagsChecked) {
+export async function setDesignTagsChecked(designId: number | string, tagsChecked: boolean): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("set_design_tags_checked", {
+    const result = await invokeLoose<DesignCommandResult>("set_design_tags_checked", {
       designId: normalizedId,
       request: { tags_checked: Boolean(tagsChecked) },
     });
@@ -348,14 +413,14 @@ export async function setDesignTagsChecked(designId, tagsChecked) {
  * @param {number | string} designId
  * @param {Array<number | string>} tagIds
  */
-export async function setDesignTags(designId, tagIds) {
+export async function setDesignTags(designId: number | string, tagIds: Array<number | string>): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedTagIds = Array.isArray(tagIds)
     ? Array.from(new Set(tagIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
     : [];
 
   try {
-    const result = await invoke("set_design_tags", {
+    const result = await invokeLoose<DesignCommandResult>("set_design_tags", {
       designId: normalizedId,
       request: { tag_ids: normalizedTagIds },
     });
@@ -380,12 +445,12 @@ export async function setDesignTags(designId, tagIds) {
  * @param {number | string} designId
  * @param {number | string} tagId
  */
-export async function removeDesignTag(designId, tagId) {
+export async function removeDesignTag(designId: number | string, tagId: number | string): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedTagId = Number(tagId);
 
   try {
-    const result = await invoke("remove_design_tag", {
+    const result = await invokeLoose<DesignCommandResult>("remove_design_tag", {
       designId: normalizedId,
       tagId: normalizedTagId,
     });
@@ -410,12 +475,12 @@ export async function removeDesignTag(designId, tagId) {
  * @param {number | string} designId
  * @param {number | string} projectId
  */
-export async function addDesignToProject(designId, projectId) {
+export async function addDesignToProject(designId: number | string, projectId: number | string): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedProjectId = Number(projectId);
 
   try {
-    const result = await invoke("add_design_to_project", {
+    const result = await invokeLoose<DesignCommandResult>("add_design_to_project", {
       designId: normalizedId,
       request: { project_id: normalizedProjectId },
     });
@@ -440,12 +505,12 @@ export async function addDesignToProject(designId, projectId) {
  * @param {number | string} designId
  * @param {number | string} projectId
  */
-export async function removeDesignFromProject(designId, projectId) {
+export async function removeDesignFromProject(designId: number | string, projectId: number | string): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedProjectId = Number(projectId);
 
   try {
-    const result = await invoke("remove_design_from_project", {
+    const result = await invokeLoose<DesignCommandResult>("remove_design_from_project", {
       designId: normalizedId,
       projectId: normalizedProjectId,
     });
@@ -496,7 +561,7 @@ export async function bulkDeleteDesigns(designIds, deleteFiles = false) {
   }
 
   try {
-    const result = await invoke("bulk_delete_designs", {
+    const result = await invokeLoose("bulk_delete_designs", {
       request: {
         design_ids: ids,
         delete_files: Boolean(deleteFiles),
@@ -527,7 +592,7 @@ export async function openDesignInEditor(designId) {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("open_design_in_editor", {
+    const result = await invokeLoose("open_design_in_editor", {
       designId: normalizedId,
     });
     return {
@@ -554,7 +619,7 @@ export async function openDesignInExplorer(designId) {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("open_design_in_explorer", {
+    const result = await invokeLoose("open_design_in_explorer", {
       designId: normalizedId,
     });
     return {
@@ -581,7 +646,7 @@ export async function renderDesign3dPreview(designId) {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invoke("render_design_3d_preview", {
+    const result = await invokeLoose("render_design_3d_preview", {
       designId: normalizedId,
     });
     return {
@@ -629,7 +694,7 @@ export async function previewImportFromRoots(rootPaths) {
   }
 
   try {
-    const preview = await invoke("preview_bulk_import", {
+    const preview = await invokeLoose("preview_bulk_import", {
       request: {
         root_path: normalizedRoots[0],
         root_paths: normalizedRoots,
@@ -676,7 +741,7 @@ export async function previewImportFromRoot(rootPath) {
  */
 export async function browseImportFolder(startDir = "") {
   try {
-    const result = await invoke("browse_import_folder", {
+    const result = await invokeLoose("browse_import_folder", {
       request: {
         start_dir: String(startDir || "").trim() || null,
         allow_multi: true,
@@ -724,7 +789,7 @@ export async function precheckImportWire(confirmWire) {
   }
 
   try {
-    const precheck = await invoke("precheck_bulk_import_wire", {
+    const precheck = await invokeLoose("precheck_bulk_import_wire", {
       confirmWire: wire,
     });
 
@@ -772,7 +837,7 @@ export async function runPrecheckAction({
   }
 
   try {
-    const actionResult = await invoke("precheck_bulk_import_action_wire", {
+    const actionResult = await invokeLoose("precheck_bulk_import_action_wire", {
       request: {
         context_token: normalizedToken,
         action: normalizedAction,
@@ -814,7 +879,7 @@ export async function runPrecheckAction({
  */
 export async function requestStopBulkImport() {
   try {
-    const result = await invoke("request_stop_bulk_import");
+    const result = await invokeLoose("request_stop_bulk_import");
     return {
       source: "rust",
       stopRequested: Boolean(result?.stop_requested),
@@ -850,7 +915,7 @@ export async function bulkVerifyDesigns(designIds) {
   }
 
   try {
-    const result = await invoke("bulk_verify_designs", { designIds: normalizedIds });
+    const result = await invokeLoose("bulk_verify_designs", { designIds: normalizedIds });
     return {
       source: "rust",
       requested_count: Number(result?.requested_count ?? normalizedIds.length),
@@ -868,9 +933,9 @@ export async function bulkVerifyDesigns(designIds) {
   }
 }
 
-export async function getBrowseProjects() {
+export async function getBrowseProjects(): Promise<AdapterListResponse<ProjectListItem>> {
   try {
-    const projects = await invoke("get_projects_for_browse");
+    const projects = await invokeLoose<ProjectListItem[]>("get_projects_for_browse");
     if (Array.isArray(projects)) {
       return { items: projects, source: "rust" };
     }
@@ -898,7 +963,7 @@ export async function getProjectsList() {
   });
 
   try {
-    const projects = await Promise.race([invoke("get_projects_list"), timeoutPromise]);
+    const projects = await Promise.race([invokeLoose("get_projects_list"), timeoutPromise]);
     if (Array.isArray(projects)) {
       return { items: projects, source: "rust" };
     }
@@ -925,7 +990,7 @@ export async function createProject(name, description) {
   };
 
   try {
-    const result = await invoke("create_project", { request: payload });
+    const result = await invokeLoose("create_project", { request: payload });
     return {
       source: "rust",
       persisted: true,
@@ -953,7 +1018,7 @@ export async function getProjectDetail(projectId) {
   }
 
   try {
-    const detail = await invoke("get_project_detail", { projectId: normalizedProjectId });
+    const detail = await invokeLoose("get_project_detail", { projectId: normalizedProjectId });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
     }
@@ -981,7 +1046,7 @@ export async function updateProject(projectId, name, description) {
   };
 
   try {
-    const result = await invoke("update_project", {
+    const result = await invokeLoose("update_project", {
       projectId: normalizedProjectId,
       request: payload,
     });
@@ -1009,7 +1074,7 @@ export async function deleteProject(projectId) {
   const normalizedProjectId = Number(projectId);
 
   try {
-    const result = await invoke("delete_project", { projectId: normalizedProjectId });
+    const result = await invokeLoose("delete_project", { projectId: normalizedProjectId });
     return {
       source: "rust",
       persisted: true,
@@ -1036,7 +1101,7 @@ export async function removeDesignFromProjectDetail(projectId, designId) {
   const normalizedDesignId = Number(designId);
 
   try {
-    const result = await invoke("remove_design_from_project_detail", {
+    const result = await invokeLoose("remove_design_from_project_detail", {
       projectId: normalizedProjectId,
       designId: normalizedDesignId,
     });
@@ -1069,7 +1134,7 @@ export async function getProjectPrintView(projectId) {
   }
 
   try {
-    const view = await invoke("get_project_print_view", { projectId: normalizedProjectId });
+    const view = await invokeLoose("get_project_print_view", { projectId: normalizedProjectId });
     if (view && typeof view === "object") {
       return { item: view, source: "rust" };
     }
@@ -1107,7 +1172,7 @@ export async function bulkAddDesignsToProject(projectId, designIds) {
   }
 
   try {
-    const result = await invoke("bulk_add_designs_to_project", {
+    const result = await invokeLoose("bulk_add_designs_to_project", {
       projectId: normalizedProjectId,
       designIds: normalizedIds,
     });
@@ -1135,9 +1200,9 @@ export async function bulkAddDesignsToProject(projectId, designIds) {
  * Load tag options for browse filters and bulk-tag modal.
  * Falls back to tag names derived from mock designs while migration is in progress.
  */
-export async function getBrowseTags() {
+export async function getBrowseTags(): Promise<AdapterListResponse<BrowseTagOption>> {
   try {
-    const tags = await invoke("get_tags_for_browse");
+    const tags = await invokeLoose<BrowseTagOption[]>("get_tags_for_browse");
     if (Array.isArray(tags)) {
       return {
         items: tags.map((tag) => ({
@@ -1187,7 +1252,7 @@ export async function bulkSetTagsForDesigns(designIds, tagIds) {
   }
 
   try {
-    const result = await invoke("bulk_set_tags_for_designs", {
+    const result = await invokeLoose("bulk_set_tags_for_designs", {
       designIds: normalizedDesignIds,
       tagIds: normalizedTagIds,
     });
@@ -1213,7 +1278,7 @@ export async function bulkSetTagsForDesigns(designIds, tagIds) {
  * Falls back to empty previews if unavailable.
  * @param {Array<number | string>} designIds
  */
-export async function getBrowseDesignPreviews(designIds) {
+export async function getBrowseDesignPreviews(designIds: Array<number | string>): Promise<AdapterListResponse<BrowseDesignPreview>> {
   const normalizedIds = Array.isArray(designIds)
     ? Array.from(new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
     : [];
@@ -1223,7 +1288,7 @@ export async function getBrowseDesignPreviews(designIds) {
   }
 
   try {
-    const previews = await invoke("get_design_previews_for_browse", { designIds: normalizedIds });
+    const previews = await invokeLoose<BrowseDesignPreview[]>("get_design_previews_for_browse", { designIds: normalizedIds });
     if (Array.isArray(previews)) {
       return {
         items: previews.map((item) => ({
@@ -1245,7 +1310,7 @@ export async function getBrowseDesignPreviews(designIds) {
 
 export async function getAboutDocuments() {
   try {
-    const docs = await invoke("get_about_documents");
+    const docs = await invokeLoose("get_about_documents");
     if (Array.isArray(docs)) {
       return {
         source: "rust",
@@ -1321,7 +1386,7 @@ export async function getAboutDocument(slug) {
   }
 
   try {
-    const item = await invoke("get_about_document", { slug: normalizedSlug });
+    const item = await invokeLoose("get_about_document", { slug: normalizedSlug });
     if (item && typeof item === "object") {
       return {
         source: "rust",
@@ -1352,9 +1417,9 @@ export async function getAboutDocument(slug) {
 /**
  * Load settings from Rust backend.
  */
-export async function getSettingsViewModel() {
+export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelResponse> {
   try {
-    const model = await invoke("get_settings_view_model");
+    const model = await invokeLoose<SettingsViewModel>("get_settings_view_model");
     if (model && typeof model === "object") {
       return { model, source: "rust" };
     }
@@ -1366,6 +1431,7 @@ export async function getSettingsViewModel() {
     source: "mock",
     model: {
       image_preference: "2d",
+      preview_3d_profile: "balanced",
       google_api_key: "",
       has_google_api_key: false,
       ai_tier2_auto: false,
@@ -1376,6 +1442,7 @@ export async function getSettingsViewModel() {
       import_last_browse_folder: "",
       can_configure_data_root: false,
       data_root: "",
+      database_path: "",
       log_folder: "",
       app_mode: "development",
       ai_tagging_help_url: "#/help",
@@ -1387,9 +1454,9 @@ export async function getSettingsViewModel() {
  * Save settings via Rust backend.
  * @param {Record<string, any>} request
  */
-export async function saveSettings(request) {
+export async function saveSettings(request: SaveSettingsRequest): Promise<AdapterSaveSettingsResponse> {
   try {
-    const result = await invoke("save_settings_view_model", { request });
+    const result = await invokeLoose<{ saved: boolean; message: string }>("save_settings_view_model", { request });
     return {
       source: "rust",
       saved: Boolean(result?.saved),
@@ -1412,7 +1479,7 @@ export async function saveSettings(request) {
  */
 export async function saveImportLastBrowseFolder(path) {
   try {
-    const result = await invoke("save_import_last_browse_folder", { path: String(path || "") });
+    const result = await invokeLoose("save_import_last_browse_folder", { path: String(path || "") });
     return {
       source: "rust",
       saved: Boolean(result?.saved),
@@ -1435,9 +1502,9 @@ export async function saveImportLastBrowseFolder(path) {
  * Open settings data-root folder picker when available.
  * @param {string} startDir
  */
-export async function browseSettingsDataRoot(startDir) {
+export async function browseSettingsDataRoot(startDir: string): Promise<AdapterBrowseDataRootResponse> {
   try {
-    const result = await invoke("browse_settings_data_root", { startDir: startDir });
+    const result = await invokeLoose<{ path?: string | null; error?: string | null }>("browse_settings_data_root", { startDir: startDir });
     return {
       source: "rust",
       path: result?.path ? String(result.path) : null,
@@ -1455,7 +1522,7 @@ export async function browseSettingsDataRoot(startDir) {
 
 export async function getTaggingActionsViewModel() {
   try {
-    const model = await invoke("get_tagging_actions_view_model");
+    const model = await invokeLoose("get_tagging_actions_view_model");
     return {
       source: "rust",
       model: {
@@ -1494,7 +1561,7 @@ export async function getTaggingActionsViewModel() {
  */
 export async function runUnifiedBackfill(request) {
   try {
-    const result = await invoke("run_unified_backfill", { request });
+    const result = await invokeLoose("run_unified_backfill", { request });
     return {
       source: "rust",
       processed: Number(result?.processed ?? 0),
@@ -1519,7 +1586,7 @@ export async function runUnifiedBackfill(request) {
 
 export async function stopUnifiedBackfill() {
   try {
-    const result = await invoke("stop_unified_backfill");
+    const result = await invokeLoose("stop_unified_backfill");
     return {
       source: "rust",
       status: String(result?.status || "stopping"),
@@ -1538,7 +1605,7 @@ export async function stopUnifiedBackfill() {
  */
 export async function getBackfillLogEntries(limit = 20) {
   try {
-    const entries = await invoke("get_backfill_log_entries", { limit: Number(limit) });
+    const entries = await invokeLoose("get_backfill_log_entries", { limit: Number(limit) });
     if (Array.isArray(entries)) {
       return {
         source: "rust",
@@ -1566,7 +1633,7 @@ export async function getBackfillLogEntries(limit = 20) {
  */
 export async function runStitchingBackfill({ clearExistingStitching = false, batchSize = 100 } = {}) {
   try {
-    const result = await invoke("run_stitching_backfill", {
+    const result = await invokeLoose("run_stitching_backfill", {
       clear_existing_stitching: Boolean(clearExistingStitching),
       batch_size: Number(batchSize),
     });
@@ -1591,7 +1658,7 @@ export async function runStitchingBackfill({ clearExistingStitching = false, bat
 
 export async function getBackupViewModel() {
   try {
-    const model = await invoke("get_backup_view_model");
+    const model = await invokeLoose("get_backup_view_model");
     return {
       source: "rust",
       model: {
@@ -1621,7 +1688,7 @@ export async function getBackupViewModel() {
  */
 export async function saveBackupSettings({ dbDestination, designsDestination }) {
   try {
-    const result = await invoke("save_backup_settings", {
+    const result = await invokeLoose("save_backup_settings", {
       request: {
         db_destination: String(dbDestination || ""),
         designs_destination: String(designsDestination || ""),
@@ -1652,7 +1719,7 @@ export async function saveBackupSettings({ dbDestination, designsDestination }) 
  */
 export async function browseBackupFolder(startDir = "") {
   try {
-    const result = await invoke("browse_backup_folder", {
+    const result = await invokeLoose("browse_backup_folder", {
       startDir: String(startDir || "") || null,
     });
 
@@ -1672,7 +1739,7 @@ export async function browseBackupFolder(startDir = "") {
 
 export async function runDatabaseBackup() {
   try {
-    const result = await invoke("run_database_backup");
+    const result = await invokeLoose("run_database_backup");
     return {
       source: "rust",
       success: Boolean(result?.success),
@@ -1695,7 +1762,7 @@ export async function runDatabaseBackup() {
 
 export async function runDesignsBackup() {
   try {
-    const result = await invoke("run_designs_backup");
+    const result = await invokeLoose("run_designs_backup");
     return {
       source: "rust",
       success: Boolean(result?.success),
@@ -1726,7 +1793,7 @@ export async function runDesignsBackup() {
 
 export async function runBothBackups() {
   try {
-    const result = await invoke("run_both_backups");
+    const result = await invokeLoose("run_both_backups");
     return {
       source: "rust",
       database: result?.database || null,
@@ -1744,7 +1811,7 @@ export async function runBothBackups() {
 
 export async function scanOrphans() {
   try {
-    const result = await invoke("scan_orphans");
+    const result = await invokeLoose("scan_orphans");
     return {
       source: "rust",
       checked: Number(result?.checked ?? 0),
@@ -1768,7 +1835,7 @@ export async function getOrphansPage({ page = 1, pageSize = 100 } = {}) {
   const normalizedPageSize = Math.max(1, Number(pageSize) || 100);
 
   try {
-    const result = await invoke("get_orphans_page", {
+    const result = await invokeLoose("get_orphans_page", {
       request: {
         page: normalizedPage,
         page_size: normalizedPageSize,
@@ -1813,7 +1880,7 @@ export async function deleteOrphans(designIds) {
     : [];
 
   try {
-    const result = await invoke("delete_orphans", {
+    const result = await invokeLoose("delete_orphans", {
       request: {
         design_ids: ids,
       },
@@ -1836,7 +1903,7 @@ export async function deleteOrphans(designIds) {
 
 export async function deleteAllOrphans() {
   try {
-    const result = await invoke("delete_all_orphans");
+    const result = await invokeLoose("delete_all_orphans");
     return {
       source: "rust",
       persisted: true,
@@ -1857,7 +1924,7 @@ export async function deleteAllOrphans() {
  */
 export async function browseOrphanPath(filepath) {
   try {
-    const result = await invoke("browse_orphan_path", {
+    const result = await invokeLoose("browse_orphan_path", {
       filepath: String(filepath || ""),
     });
 
@@ -1878,7 +1945,7 @@ export async function browseOrphanPath(filepath) {
 
 export async function listDesigners() {
   try {
-    const items = await invoke("list_designers");
+    const items = await invokeLoose("list_designers");
     if (Array.isArray(items)) {
       return {
         source: "rust",
@@ -1908,7 +1975,7 @@ export async function listDesigners() {
  */
 export async function createDesigner(name) {
   try {
-    const item = await invoke("create_designer", { request: { name } });
+    const item = await invokeLoose("create_designer", { request: { name } });
     return {
       source: "rust",
       persisted: true,
@@ -1929,7 +1996,7 @@ export async function createDesigner(name) {
  */
 export async function updateDesigner(designerId, name) {
   try {
-    const item = await invoke("update_designer", {
+    const item = await invokeLoose("update_designer", {
       request: {
         designer_id: Number(designerId),
         name,
@@ -1954,7 +2021,7 @@ export async function updateDesigner(designerId, name) {
  */
 export async function deleteDesigner(designerId) {
   try {
-    await invoke("delete_designer", { designerId: Number(designerId) });
+    await invokeLoose("delete_designer", { designerId: Number(designerId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -1963,7 +2030,7 @@ export async function deleteDesigner(designerId) {
 
 export async function listSources() {
   try {
-    const items = await invoke("list_sources");
+    const items = await invokeLoose("list_sources");
     if (Array.isArray(items)) {
       return {
         source: "rust",
@@ -1993,7 +2060,7 @@ export async function listSources() {
  */
 export async function createSource(name) {
   try {
-    const item = await invoke("create_source", { request: { name } });
+    const item = await invokeLoose("create_source", { request: { name } });
     return {
       source: "rust",
       persisted: true,
@@ -2014,7 +2081,7 @@ export async function createSource(name) {
  */
 export async function updateSource(sourceId, name) {
   try {
-    const item = await invoke("update_source", {
+    const item = await invokeLoose("update_source", {
       request: {
         source_id: Number(sourceId),
         name,
@@ -2039,7 +2106,7 @@ export async function updateSource(sourceId, name) {
  */
 export async function deleteSource(sourceId) {
   try {
-    await invoke("delete_source", { sourceId: Number(sourceId) });
+    await invokeLoose("delete_source", { sourceId: Number(sourceId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -2048,7 +2115,7 @@ export async function deleteSource(sourceId) {
 
 export async function listTags() {
   try {
-    const items = await invoke("list_tags");
+    const items = await invokeLoose("list_tags");
     if (Array.isArray(items)) {
       return {
         source: "rust",
@@ -2080,7 +2147,7 @@ export async function listTags() {
  */
 export async function createTag(description, tagGroup) {
   try {
-    const item = await invoke("create_tag", {
+    const item = await invokeLoose("create_tag", {
       request: {
         description,
         tag_group: tagGroup,
@@ -2106,7 +2173,7 @@ export async function createTag(description, tagGroup) {
  */
 export async function setTagGroup(tagId, tagGroup) {
   try {
-    const item = await invoke("set_tag_group", {
+    const item = await invokeLoose("set_tag_group", {
       request: { tag_id: Number(tagId), tag_group: tagGroup },
     });
     return {
@@ -2128,7 +2195,7 @@ export async function setTagGroup(tagId, tagGroup) {
  */
 export async function deleteTag(tagId) {
   try {
-    await invoke("delete_tag", { tagId: Number(tagId) });
+    await invokeLoose("delete_tag", { tagId: Number(tagId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -2137,7 +2204,7 @@ export async function deleteTag(tagId) {
 
 export async function listHoops() {
   try {
-    const items = await invoke("list_hoops");
+    const items = await invokeLoose("list_hoops");
     if (Array.isArray(items)) {
       return {
         source: "rust",
@@ -2171,7 +2238,7 @@ export async function listHoops() {
  */
 export async function createHoop(name, maxWidthMm, maxHeightMm) {
   try {
-    const item = await invoke("create_hoop", {
+    const item = await invokeLoose("create_hoop", {
       request: {
         name,
         max_width_mm: Number(maxWidthMm),
@@ -2202,7 +2269,7 @@ export async function createHoop(name, maxWidthMm, maxHeightMm) {
  */
 export async function updateHoop(hoopId, name, maxWidthMm, maxHeightMm) {
   try {
-    const item = await invoke("update_hoop", {
+    const item = await invokeLoose("update_hoop", {
       request: {
         hoop_id: Number(hoopId),
         name,
@@ -2231,7 +2298,7 @@ export async function updateHoop(hoopId, name, maxWidthMm, maxHeightMm) {
  */
 export async function deleteHoop(hoopId) {
   try {
-    await invoke("delete_hoop", { hoopId: Number(hoopId) });
+    await invokeLoose("delete_hoop", { hoopId: Number(hoopId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };
@@ -2248,9 +2315,9 @@ export async function deleteHoop(hoopId) {
  *   error?: string
  * }>}
  */
-export async function getAppStatus() {
+export async function getAppStatus(): Promise<AdapterAppStatusResponse> {
   try {
-    const status = await invoke("get_app_status");
+    const status = await invokeLoose<AppStatus>("get_app_status");
     if (status && typeof status === "object") {
       return {
         source: "rust",
@@ -2272,3 +2339,4 @@ export async function getAppStatus() {
     error: "get_app_status command not available.",
   };
 }
+

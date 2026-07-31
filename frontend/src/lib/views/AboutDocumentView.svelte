@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { getAboutDocument } from "../api/commandAdapter.js";
+  import { getAboutDocument } from "../api/commandAdapter";
 
   let { slug } = $props();
 

@@ -27,7 +27,7 @@
     bulkAddDesignsToProject,
     bulkSetTagsForDesigns,
     bulkDeleteDesigns
-  } from "./api/commandAdapter.js";
+  } from "./api/commandAdapter";
   import DeleteDesignsModal from "./components/DeleteDesignsModal.svelte";
   import HelpView from "./views/HelpView.svelte";
   import AboutView from "./views/AboutView.svelte";
@@ -47,6 +47,13 @@
   import { splitTagsByGroup } from "./utils/tagHelpers.js";
   import { designSessionStore } from "./stores/designSessionStore.js";
   import { addToast } from "./stores/toastStore.js";
+
+  /** @typedef {import("./types/ipc").BrowseDesignCard} BrowseDesignCard */
+  /** @typedef {import("./types/ipc").BrowseDesignSummaryWire} BrowseDesignSummaryWire */
+  /** @typedef {import("./types/ipc").BrowseTagOption} BrowseTagOption */
+  /** @typedef {import("./types/ipc").ProjectListItem} ProjectListItem */
+  /** @typedef {import("./types/ipc").SearchPayload} SearchPayload */
+  /** @typedef {import("./types/ipc").MutationPatch} MutationPatch */
 
   const ORDERED_ROUTE_HINTS = [
     "#/designs",
@@ -150,17 +157,17 @@
   let aboutDocumentSlug = $derived(parseAboutDocumentSlug(currentRoute));
 
   // Browse state
-  /** @type {any[]} */
+  /** @type {BrowseDesignCard[]} */
   let browseItems = $state([]);
   let browseSource = $state("mock");
   let browseLoading = $state(false);
   let browseHasLoaded = $state(false);
   let browseError = $state("");
-  /** @type {any[]} */
+  /** @type {ProjectListItem[]} */
   let browseProjects = $state([]);
   let browseProjectsSource = $state("mock");
   let browseProjectsLoaded = $state(false);
-  /** @type {any[]} */
+  /** @type {BrowseTagOption[]} */
   let browseTagOptions = $state([]);
   let browseTagsSource = $state("mock");
   let browsePreviewsSource = $state("mock");
@@ -559,7 +566,7 @@
       source: String(item.source || ""),
       hoop: String(item.hoop || ""),
       rating: item.rating == null ? null : Number(item.rating),
-      is_stitched: Boolean(item.is_stitched),
+      isStitched: Boolean(item.is_stitched),
       tagsChecked: Boolean(item.tags_checked),
       projects,
       imageTags,
@@ -570,7 +577,7 @@
     };
   }
 
-  /** @param {any} left @param {any} right @param {string} sortBy @param {string} sortDir */
+  /** @param {BrowseDesignCard} left @param {BrowseDesignCard} right @param {string} sortBy @param {string} sortDir */
   function compareBrowseItems(left, right, sortBy, sortDir) {
     const directionMultiplier = sortDir === "desc" ? -1 : 1;
 
@@ -583,8 +590,8 @@
     }
 
     if (sortBy === "stitched") {
-      const stitchedLeft = left.is_stitched ? 1 : 0;
-      const stitchedRight = right.is_stitched ? 1 : 0;
+      const stitchedLeft = left.isStitched ? 1 : 0;
+      const stitchedRight = right.isStitched ? 1 : 0;
       if (stitchedLeft !== stitchedRight) {
         return (stitchedLeft - stitchedRight) * directionMultiplier;
       }
@@ -655,6 +662,7 @@
           : "all"
       );
 
+      /** @type {SearchPayload} */
       const payload = {
         q: browseFilters.q,
         search_file_name: browseFilters.searchFilename,
@@ -818,7 +826,7 @@
    * Apply accumulated session patches to the browse item list.
    * Patches individual card data in-place so only affected cards re-render.
    * Also invalidates cached previews for patched designs.
-   * @param {Record<number, import("./stores/designSessionStore.js").MutationPatch>} patches
+  * @param {Record<number, MutationPatch>} patches
    */
   function applyPatchesToBrowse(patches) {
     let changed = false;
@@ -912,9 +920,9 @@
 
       const stitchedVal = String(browseFilters.stitched || "").trim();
       if (stitchedVal === "yes") {
-        filtered = filtered.filter((item) => item.is_stitched);
+        filtered = filtered.filter((item) => item.isStitched);
       } else if (stitchedVal === "no") {
-        filtered = filtered.filter((item) => !item.is_stitched);
+        filtered = filtered.filter((item) => !item.isStitched);
       }
 
       if (browseFilters.unverifiedOnly) {

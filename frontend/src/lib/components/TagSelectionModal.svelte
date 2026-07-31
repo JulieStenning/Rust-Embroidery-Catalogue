@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { createTag, setDesignTags } from "../api/commandAdapter.js";
+  import { createTag, setDesignTags } from "../api/commandAdapter";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
 

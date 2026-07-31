@@ -1,26 +1,9 @@
 import { writable, get } from "svelte/store";
+import type { MutationPatch } from "../types/ipc";
 
 // ---------------------------------------------------------------------------
 // Types (mirrored in index.d.ts for wider usage, but self-contained here)
 // ---------------------------------------------------------------------------
-
-/**
- * A partial subset of BrowseDesignSummary fields that can be mutated
- * during a DesignDetails session and subsequently patched into the
- * browse card grid.
- */
-export interface MutationPatch {
-  designer?: string;
-  source?: string;
-  hoop?: string | null;
-  projects?: string[];
-  tags?: string[];
-  imageTags?: string[];
-  stitchingTags?: string[];
-  rating?: number | null;
-  is_stitched?: boolean;
-  tagsChecked?: boolean;
-}
 
 export interface DesignSessionState {
   /** Set of design IDs modified during the current session. */

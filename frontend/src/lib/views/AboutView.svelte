@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { getAboutDocuments } from "../api/commandAdapter.js";
+  import { getAboutDocuments } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
   /** @type {any[]} */

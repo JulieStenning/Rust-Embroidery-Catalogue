@@ -7,7 +7,7 @@
     browseOrphanPath,
     openDesignInEditor,
     scanOrphans
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import Pagination from "../components/Pagination.svelte";
   import { addToast } from "../stores/toastStore.js";
 

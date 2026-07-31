@@ -10,7 +10,7 @@
     browseImportFolder,
     saveImportLastBrowseFolder,
     getSettingsViewModel
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
@@ -71,7 +71,7 @@
     settingsLoading = true;
     try {
       const result = await getSettingsViewModel();
-      const model = result?.model || {};
+      const model = result.model;
       settingsImagePreference = model?.image_preference === "3d" ? "3d" : "2d";
       settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
       settingsHasGoogleApiKey = Boolean(model?.google_api_key && String(model.google_api_key).trim().length > 0);

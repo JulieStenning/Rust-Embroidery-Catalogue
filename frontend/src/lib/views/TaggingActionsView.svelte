@@ -6,7 +6,7 @@
     stopUnifiedBackfill,
     getBackfillLogEntries,
     runStitchingBackfill
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
   let taggingActionsLoaded = $state(false);

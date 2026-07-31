@@ -4,8 +4,11 @@
     getSettingsViewModel,
     saveSettings,
     browseSettingsDataRoot
-  } from "../api/commandAdapter.js";
+  } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+
+  /** @typedef {import("../types/ipc").SettingsViewModel} SettingsViewModel */
+  /** @typedef {import("../types/ipc").SaveSettingsRequest} SaveSettingsRequest */
 
   let settingsLoading = $state(false);
   let settingsLoaded = $state(false);
@@ -32,7 +35,7 @@
     settingsApiKeyRevealed = !settingsApiKeyRevealed;
   }
 
-  /** @param {Record<string, any>} model */
+  /** @param {Partial<SettingsViewModel>} [model] */
   function applySettingsModel(model = {}) {
     settingsImagePreference = model?.image_preference === "3d" ? "3d" : "2d";
     settingsGoogleApiKey = String(model?.google_api_key || "");
@@ -56,7 +59,7 @@
     settingsLoading = true;
     try {
       const result = await getSettingsViewModel();
-      applySettingsModel(result.model || {});
+      applySettingsModel(result.model);
       settingsLoaded = true;
     } catch (error) {
       addToast(`Could not load settings: ${error}`, "error");
@@ -71,7 +74,8 @@
     settingsSaveState = "saving";
 
     try {
-      const result = await saveSettings({
+      /** @type {SaveSettingsRequest} */
+      const request = {
         image_preference: settingsImagePreference,
         google_api_key: settingsGoogleApiKey,
         ai_tier2_auto: settingsAiTier2Auto,
@@ -80,7 +84,9 @@
         ai_delay: settingsAiDelay,
         import_commit_batch_size: settingsImportCommitBatchSize,
         data_root: settingsDataRoot,
-      });
+      };
+
+      const result = await saveSettings(request);
 
       if (result.saved) {
         settingsSaveState = "saved";

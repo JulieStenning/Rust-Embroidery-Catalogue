@@ -1,6 +1,8 @@
 <script>
   import { onMount, untrack } from "svelte";
-  import { getDesignDetail } from "../api/commandAdapter.js";
+  import { getDesignDetail } from "../api/commandAdapter";
+
+  /** @typedef {import("../types/ipc").DesignDetail} DesignItem */
 
   let { printDesignId, navigateTo } = $props();
 
@@ -9,26 +11,6 @@
   /** @type {DesignItem | null} */
   let detailItem = $state(null);
   let detailSource = $state("mock");
-
-  /**
-   * @typedef {Object} DesignItem
-   * @property {string} filename
-   * @property {string} [image_data_url]
-   * @property {string} [filepath]
-   * @property {string} [designer]
-   * @property {string} [source]
-   * @property {string} [hoop]
-   * @property {number} [width_mm]
-   * @property {number} [height_mm]
-   * @property {number} [stitch_count]
-   * @property {number} [color_count]
-   * @property {number} [color_change_count]
-   * @property {string} [date_added]
-   * @property {number} [rating]
-   * @property {boolean} [is_stitched]
-   * @property {string} [notes]
-   * @property {Array<{description: string}>} [tags]
-   */
 
   /** @param {number | null} designId */
   async function loadDesignDetail(designId) {
@@ -98,24 +80,24 @@
     {:else}
       <div class="space-y-4">
         <h2 class="text-2xl font-bold text-gray-800">{detailItem.filename}</h2>
-        {#if detailItem.image_data_url}
-          <img src={detailItem.image_data_url} alt={detailItem.filename} class="w-full max-h-[32rem] object-contain border rounded p-2 bg-gray-50 shadow-sm" />
+        {#if detailItem.imageDataUrl}
+          <img src={detailItem.imageDataUrl} alt={detailItem.filename} class="w-full max-h-[32rem] object-contain border rounded p-2 bg-gray-50 shadow-sm" />
         {/if}
         <div class="grid sm:grid-cols-2 gap-3 text-sm">
           <div class="p-2 bg-gray-50 rounded border"><strong>File:</strong> <span class="break-all font-mono text-xs">{detailItem.filepath || "Unknown"}</span></div>
           <div class="p-2 bg-gray-50 rounded border"><strong>Designer:</strong> {detailItem.designer || "Unknown"}</div>
           <div class="p-2 bg-gray-50 rounded border"><strong>Source:</strong> {detailItem.source || "Unknown"}</div>
           <div class="p-2 bg-gray-50 rounded border"><strong>Hoop:</strong> {detailItem.hoop || "Unknown"}</div>
-          <div class="p-2 bg-gray-50 rounded border"><strong>Dimensions:</strong> {detailItem.width_mm ?? "?"} x {detailItem.height_mm ?? "?"} mm</div>
-          <div class="p-2 bg-gray-50 rounded border"><strong>Stitches:</strong> {detailItem.stitch_count ?? "?"}</div>
-          <div class="p-2 bg-gray-50 rounded border"><strong>Colours:</strong> {detailItem.color_count ?? "?"}</div>
-          <div class="p-2 bg-gray-50 rounded border"><strong>Colour changes:</strong> {detailItem.color_change_count ?? "?"}</div>
-          <div class="p-2 bg-gray-50 rounded border"><strong>Added:</strong> {detailItem.date_added || "Unknown"}</div>
+          <div class="p-2 bg-gray-50 rounded border"><strong>Dimensions:</strong> {detailItem.widthMm ?? "?"} x {detailItem.heightMm ?? "?"} mm</div>
+          <div class="p-2 bg-gray-50 rounded border"><strong>Stitches:</strong> {detailItem.stitchCount ?? "?"}</div>
+          <div class="p-2 bg-gray-50 rounded border"><strong>Colours:</strong> {detailItem.colorCount ?? "?"}</div>
+          <div class="p-2 bg-gray-50 rounded border"><strong>Colour changes:</strong> {detailItem.colorChangeCount ?? "?"}</div>
+          <div class="p-2 bg-gray-50 rounded border"><strong>Added:</strong> {detailItem.dateAdded || "Unknown"}</div>
         </div>
         {#if detailItem.rating}
           <div class="p-2 bg-gray-50 rounded border text-sm"><strong>Rating:</strong> <span class="text-yellow-500 font-bold">{ratingToStars(detailItem.rating)}</span></div>
         {/if}
-        {#if detailItem.is_stitched}
+        {#if detailItem.isStitched}
           <div class="p-2 bg-gray-50 rounded border text-sm"><strong>Stitched:</strong> Yes</div>
         {/if}
         {#if detailItem.notes}
