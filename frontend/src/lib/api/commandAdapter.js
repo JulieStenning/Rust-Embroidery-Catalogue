@@ -618,7 +618,11 @@ export async function previewImportFromRoots(rootPaths) {
         discovered_count: 0,
         selected_count: 0,
         folder_count: 0,
+        scanned_files: [],
         resolved_assignments: [],
+        missing_root: false,
+        no_supported_files: false,
+        invalid_root: true,
       },
       message: "Enter at least one folder path to preview import.",
     };
@@ -644,12 +648,16 @@ export async function previewImportFromRoots(rootPaths) {
     return {
       source: "mock",
       preview: {
-        discovered_count: 3,
+        discovered_count: 0,
         selected_count: 0,
-        folder_count: 1,
+        folder_count: normalizedRoots.length,
+        scanned_files: [],
         resolved_assignments: [],
+        missing_root: false,
+        no_supported_files: true,
+        invalid_root: false,
       },
-      message: "Rust preview command not fully wired yet, showing mock counts.",
+      message: `Rust preview command failed: ${error}`,
     };
   }
 }

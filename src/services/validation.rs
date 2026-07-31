@@ -4,17 +4,44 @@
 pub enum ValidationError {
     EmptyPath,
     NotAbsolute,
+    PathDoesNotExist,
+    NotADirectory,
     OutsideBasePath,
     DoesNotExist,
 }
 
+/// Validate that a path is non-empty and absolute.
+///
+/// Existence is intentionally NOT checked here to preserve the original
+/// contract used by callers that only need shape validation. Use
+/// `validate_directory` when existence is required.
 pub fn validate_path(path: &str) -> Result<(), ValidationError> {
     if path.trim().is_empty() {
         return Err(ValidationError::EmptyPath);
     }
 
-    if !std::path::Path::new(path).is_absolute() {
+    let path_obj = std::path::Path::new(path);
+    if !path_obj.is_absolute() {
         return Err(ValidationError::NotAbsolute);
+    }
+
+    Ok(())
+}
+
+/// Validate that a path is a non-empty absolute directory that exists on disk.
+///
+/// Returns `PathDoesNotExist` when the path does not exist on disk, and
+/// `NotADirectory` when the path exists but is not a directory.
+pub fn validate_directory(path: &str) -> Result<(), ValidationError> {
+    validate_path(path)?;
+
+    let path_obj = std::path::Path::new(path);
+    if !path_obj.exists() {
+        return Err(ValidationError::PathDoesNotExist);
+    }
+
+    if !path_obj.is_dir() {
+        return Err(ValidationError::NotADirectory);
     }
 
     Ok(())
@@ -58,6 +85,39 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let temp_path_str = temp_dir.to_str().unwrap();
         assert_eq!(validate_path(temp_path_str), Ok(()));
+    }
+
+    #[test]
+    fn test_validate_path_does_not_exist() {
+        // validate_path intentionally does NOT check existence (shape only).
+        let missing = std::env::temp_dir().join("rec-validation-does-not-exist");
+        let missing_str = missing.to_str().unwrap();
+        // An absolute but non-existent path is still "valid" for shape validation.
+        assert_eq!(validate_path(missing_str), Ok(()));
+        // validate_directory DOES check existence.
+        assert_eq!(
+            validate_directory(missing_str),
+            Err(ValidationError::PathDoesNotExist)
+        );
+    }
+
+    #[test]
+    fn test_validate_directory_rejects_file_path() {
+        let file = std::env::temp_dir().join("rec-validation-file-check.txt");
+        let _ = std::fs::write(&file, b"test");
+        let file_str = file.to_str().unwrap();
+        assert_eq!(
+            validate_directory(file_str),
+            Err(ValidationError::NotADirectory)
+        );
+        let _ = std::fs::remove_file(file);
+    }
+
+    #[test]
+    fn test_validate_directory_accepts_directory() {
+        let dir = std::env::temp_dir();
+        let dir_str = dir.to_str().unwrap();
+        assert_eq!(validate_directory(dir_str), Ok(()));
     }
 
     #[test]

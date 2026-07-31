@@ -26,6 +26,7 @@
   let importRootPaths = $state([]);
   let importPreview = $state(/** @type {Record<string, any> | null} */ (null));
   let importPreviewSource = $state("mock");
+  let importPreviewMessage = $state("");
   let importPrecheck = $state(/** @type {Record<string, any> | null} */ (null));
   let importPrecheckSource = $state("mock");
   let importPrecheckMessage = $state("Run precheck after selecting files.");
@@ -557,6 +558,7 @@
       const result = await previewImportFromRoots(getActiveImportRoots());
       importPreview = result.preview || null;
       importPreviewSource = result.source || "mock";
+      importPreviewMessage = deriveImportPreviewMessage(result?.preview);
       importSelectedFiles = Array.isArray(importPreview?.scanned_files)
         ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
         : [];
@@ -571,6 +573,7 @@
       addToast(`Import preview failed: ${error}`, "error");
       importPreview = null;
       importPreviewSource = "mock";
+      importPreviewMessage = `Import preview failed: ${error}`;
       importSelectedFiles = [];
       importPerFolderAssignmentByPath = {};
       importPrecheck = null;
@@ -579,6 +582,25 @@
     } finally {
       importLoading = false;
     }
+  }
+
+  /**
+   * Build a user-facing explanation for an empty preview based on the
+   * diagnostics returned by the Rust backend (or mock fallback).
+   * @param {Record<string, any> | null | undefined} preview
+   */
+  function deriveImportPreviewMessage(preview) {
+    if (!preview) return "";
+    if (preview?.invalid_root) {
+      return "Enter at least one folder path to preview import.";
+    }
+    if (preview?.missing_root) {
+      return "The selected folder(s) could not be found on disk. Check that the path is correct and the drive is available.";
+    }
+    if (preview?.no_supported_files) {
+      return "No supported embroidery files (JEF, PES, HUS, DST, EXP, VP3) were found in the selected folder(s).";
+    }
+    return "";
   }
 
   /** @param {number|null} index @param {string} path */
@@ -717,6 +739,7 @@
     importRootPaths = [];
     importPreview = null;
     importPreviewSource = "mock";
+    importPreviewMessage = "";
     importPrecheck = null;
     importPrecheckSource = "mock";
     importPrecheckMessage = "Run precheck after selecting files.";
@@ -1082,7 +1105,15 @@
             {/each}
           </div>
         {:else}
-          <p class="text-sm text-gray-600 italic">No supported files discovered in this preview.</p>
+          <div class="border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded text-sm space-y-2">
+            <p class="font-semibold text-amber-900">No supported files discovered in this preview.</p>
+            {#if importPreviewMessage}
+              <p class="text-amber-900">{importPreviewMessage}</p>
+            {/if}
+            <button type="button" class="menu-button-secondary ui-action-button text-xs" onclick={() => navigateTo("#/import/step1")}>
+              Back to Step 1
+            </button>
+          </div>
         {/if}
       </div>
     {:else}

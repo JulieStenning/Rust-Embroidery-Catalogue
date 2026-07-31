@@ -24,6 +24,33 @@ if not exist "target\debug\embroidery-catalogue.exe" (
     goto :fail
 )
 
+REM -----------------------------------------------------------------------
+REM Sync the developer database from the project root into the debug output
+REM tree so the exe always finds Data\Database\EmbroideryCatalogue.db next
+REM to itself.  (cargo clean wipes target\debug, so this runs every launch.)
+REM -----------------------------------------------------------------------
+echo [Rust App] Syncing development database...
+
+if not exist "Data\Database\EmbroideryCatalogue.db" (
+    echo ERROR: Data\Database\EmbroideryCatalogue.db was not found at the project root.
+    echo The app cannot start without its database.
+    goto :fail
+)
+
+if not exist "target\debug\Data\Database" mkdir "target\debug\Data\Database"
+if errorlevel 1 (
+    echo ERROR: Could not create target\debug\Data\Database.
+    goto :fail
+)
+
+copy /Y "Data\Database\EmbroideryCatalogue.db" "target\debug\Data\Database\EmbroideryCatalogue.db" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy database to target\debug\Data\Database\EmbroideryCatalogue.db.
+    goto :fail
+)
+
+echo [Rust App] Database copied to target\debug\Data\Database\EmbroideryCatalogue.db
+
 if /I not "%RUST_APP_SKIP_DEV_SERVER%"=="1" (
     call :ensure_dev_server
     if errorlevel 1 goto :fail

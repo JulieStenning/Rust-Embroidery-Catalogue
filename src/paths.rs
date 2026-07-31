@@ -15,7 +15,7 @@ pub const DATABASE_FILENAME: &str = "EmbroideryCatalogue.db";
 /// Whether the application is running in Portable (SD card / USB) or Installed mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ExecutionMode {
-    /// Running from an SD card / USB stick — `./data/` exists next to the exe.
+    /// Running from an SD card / USB stick — `./Data/` exists next to the exe.
     Portable,
     /// Standard OS install — data lives under `%APPDATA%` (or platform equivalent).
     Installed,
@@ -43,8 +43,10 @@ pub struct AppPaths {
 /// Detection algorithm:
 /// 1. Determine the directory containing the running executable via
 ///    `std::env::current_exe()` → `.parent()`.
-/// 2. Check if `<exe_dir>/data/` exists as a directory.
-///     - YES → `ExecutionMode::Portable`, `data_root = <exe_dir>/data/`.
+/// 2. Check if `<exe_dir>/Data/` exists as a directory (canonical case; a
+///    legacy lowercase `data/` folder is also accepted so existing
+///    deployments on case-sensitive filesystems keep working).
+///     - YES → `ExecutionMode::Portable`, `data_root = <exe_dir>/Data/`.
 ///     - NO  → `ExecutionMode::Installed`, `data_root = platform app-data dir`.
 /// 3. Create all required directories under `data_root`.
 /// 4. Return `AppPaths`.
@@ -61,10 +63,14 @@ pub fn resolve_app_paths() -> AppPaths {
 ///
 /// Given a directory path that represents the "executable directory",
 /// determines the execution mode and builds the full `AppPaths`.
+///
+/// The canonical data folder name is `Data/`; a legacy lowercase `data/`
+/// folder is also accepted so existing deployments on case-sensitive
+/// filesystems keep working.
 pub fn resolve_paths_from_exe_dir(exe_dir: &Path) -> AppPaths {
-    let (mode, data_root) = if exe_dir.join("data").is_dir() {
+    let (mode, data_root) = if let Some(data_dir) = find_local_data_dir(exe_dir) {
         // Portable / SD Card mode — data is next to the executable
-        (ExecutionMode::Portable, exe_dir.join("data"))
+        (ExecutionMode::Portable, data_dir)
     } else {
         // Installed mode — use platform-specific app data directory
         (ExecutionMode::Installed, platform_data_root())
@@ -103,6 +109,24 @@ pub fn resolve_paths_from_exe_dir(exe_dir: &Path) -> AppPaths {
         thumbnail_cache_dir,
         log_dir,
     }
+}
+
+/// Locate the data directory next to the executable.
+///
+/// The canonical folder name is `Data/`; a legacy lowercase `data/` folder is
+/// also accepted so existing deployments on case-sensitive filesystems keep
+/// working. The directory name is matched case-insensitively and the path
+/// returned reflects the actual case on disk, so round-tripping through the
+/// filesystem (e.g. `cargo clean` + copy) is always correct.
+fn find_local_data_dir(exe_dir: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(exe_dir).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if name.to_string_lossy().eq_ignore_ascii_case("data") {
+            return Some(entry.path());
+        }
+    }
+    None
 }
 
 /// Attempt to copy the bundled seed database to `database_path`.
@@ -303,16 +327,36 @@ mod tests {
 
     #[cfg(not(target_os = "windows"))]
     #[test]
-    fn portable_mode_is_case_sensitive_on_case_sensitive_fs() {
-        // On Linux/macOS "Data" != "data" (case-sensitive filesystem)
-        let tmp = tmp_dir("portable_mode_with_wrong_case");
+    fn portable_mode_with_canonical_data_case_on_case_sensitive_fs() {
+        // On Linux/macOS "Data" != "data" (case-sensitive filesystem).
+        // "Data" is the canonical folder name and must be detected.
+        let tmp = tmp_dir("portable_mode_with_canonical_data");
         fs::create_dir_all(tmp.join("exe").join("Data")).expect("create exe/Data");
         fs::create_dir_all(tmp.join("exe").join("other")).expect("create exe/other");
 
         let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
 
-        // "Data" is not "data" — should be Installed
-        assert_eq!(app_paths.mode, ExecutionMode::Installed);
+        // "Data" (canonical case) → Portable
+        assert_eq!(app_paths.mode, ExecutionMode::Portable);
+        assert_eq!(app_paths.data_root, tmp.join("exe").join("Data"));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn portable_mode_with_lowercase_data_on_case_sensitive_fs() {
+        // On Linux/macOS "Data" != "data" (case-sensitive filesystem).
+        // The legacy lowercase "data" folder is still accepted.
+        let tmp = tmp_dir("portable_mode_with_lowercase_data");
+        fs::create_dir_all(tmp.join("exe").join("data")).expect("create exe/data");
+        fs::create_dir_all(tmp.join("exe").join("other")).expect("create exe/other");
+
+        let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
+
+        // "data" (legacy case) → Portable
+        assert_eq!(app_paths.mode, ExecutionMode::Portable);
+        assert_eq!(app_paths.data_root, tmp.join("exe").join("data"));
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -328,6 +372,41 @@ mod tests {
         let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
 
         assert_eq!(app_paths.mode, ExecutionMode::Portable);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn portable_mode_detected_with_canonical_data_case() {
+        // The canonical data folder is `Data/` (matching the runtime layout
+        // `Data/Database/EmbroideryCatalogue.db`).
+        let tmp = tmp_dir("portable_mode_with_data_caps");
+        fs::create_dir_all(tmp.join("exe").join("Data")).expect("create exe/Data");
+
+        let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
+
+        assert_eq!(app_paths.mode, ExecutionMode::Portable);
+        assert_eq!(app_paths.data_root, tmp.join("exe").join("Data"));
+        assert_eq!(
+            app_paths.database_dir,
+            tmp.join("exe").join("Data").join("Database")
+        );
+        assert!(app_paths.database_dir.exists());
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn legacy_lowercase_data_dir_still_detected() {
+        // On case-sensitive filesystems an existing `data/` folder must still
+        // resolve to Portable mode rather than falling back to Installed.
+        let tmp = tmp_dir("portable_mode_legacy_lowercase");
+        fs::create_dir_all(tmp.join("exe").join("data")).expect("create exe/data");
+
+        let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
+
+        assert_eq!(app_paths.mode, ExecutionMode::Portable);
+        assert_eq!(app_paths.data_root, tmp.join("exe").join("data"));
 
         let _ = fs::remove_dir_all(&tmp);
     }

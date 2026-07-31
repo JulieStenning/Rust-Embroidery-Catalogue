@@ -26,6 +26,10 @@ pub struct ScannedFile {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScanResult {
     pub files: Vec<ScannedFile>,
+    /// True when the root path did not exist or was not a directory.
+    pub missing_root: bool,
+    /// True when the root path existed but no supported embroidery files were found.
+    pub no_supported_files: bool,
 }
 
 fn normalize_extension(extension: &str) -> String {
@@ -122,7 +126,11 @@ pub fn is_supported_extension(extension: &str) -> bool {
 pub fn scan(input: &ScanInput) -> ScanResult {
     let root_path = PathBuf::from(&input.root_path);
     if !root_path.exists() || !root_path.is_dir() {
-        return ScanResult { files: Vec::new() };
+        return ScanResult {
+            files: Vec::new(),
+            missing_root: true,
+            no_supported_files: false,
+        };
     }
 
     let mut dedup: HashMap<String, ScannedFile> = HashMap::new();
@@ -135,7 +143,12 @@ pub fn scan(input: &ScanInput) -> ScanResult {
             .cmp(&right.full_path.to_ascii_lowercase())
     });
 
-    ScanResult { files }
+    let no_supported_files = files.is_empty();
+    ScanResult {
+        files,
+        missing_root: false,
+        no_supported_files,
+    }
 }
 
 #[cfg(test)]
@@ -240,6 +253,65 @@ mod tests {
         });
 
         assert!(result.files.is_empty());
+        assert!(result.missing_root, "missing root should be flagged");
+        assert!(!result.no_supported_files, "missing root is not a no-files-found case");
+    }
+
+    #[test]
+    fn scan_flags_no_supported_files_for_empty_directory() {
+        let root = unique_temp_dir("scan-no-files");
+        fs::create_dir_all(&root).expect("root should be created");
+
+        let result = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+        });
+
+        assert!(result.files.is_empty());
+        assert!(!result.missing_root, "root exists so missing_root must be false");
+        assert!(
+            result.no_supported_files,
+            "existing directory with zero supported files should set no_supported_files"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn scan_flags_no_supported_files_for_directory_with_only_ignored_extensions() {
+        let root = unique_temp_dir("scan-unsupported-only");
+        fs::create_dir_all(&root).expect("root should be created");
+        create_file(&root.join("notes.txt"));
+        create_file(&root.join("image.png"));
+
+        let result = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+        });
+
+        assert!(result.files.is_empty());
+        assert!(!result.missing_root);
+        assert!(
+            result.no_supported_files,
+            "directory with only non-embroidery files should set no_supported_files"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn scan_with_found_files_clears_no_supported_files_flag() {
+        let root = unique_temp_dir("scan-has-files");
+        fs::create_dir_all(&root).expect("root should be created");
+        create_file(&root.join("design.pes"));
+
+        let result = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+        });
+
+        assert_eq!(result.files.len(), 1);
+        assert!(!result.missing_root);
+        assert!(!result.no_supported_files);
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

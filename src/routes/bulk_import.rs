@@ -116,6 +116,12 @@ pub struct BulkImportPreview {
     pub folder_count: usize,
     pub scanned_files: Vec<scanning::ScannedFile>,
     pub resolved_assignments: Vec<ResolvedFolderAssignmentWire>,
+    /// True if any selected root path did not exist on disk or was not a directory.
+    pub missing_root: bool,
+    /// True if any selected root string was empty or relative (shape-invalid).
+    pub invalid_root: bool,
+    /// True if all selected roots existed but no supported embroidery files were found.
+    pub no_supported_files: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -2005,13 +2011,25 @@ fn preview_bulk_import_wire_with_pool(
     }
 
     let mut scanned_files = Vec::new();
+    let mut missing_root = false;
+    let mut root_had_any_existing_dir = false;
     for root_path in &wire.root_paths {
         let scan_input = scanning::ScanInput {
             root_path: root_path.clone(),
         };
         let scan_result = scanning::scan(&scan_input);
+        missing_root = missing_root || scan_result.missing_root;
+        root_had_any_existing_dir = root_had_any_existing_dir || !scan_result.missing_root;
         scanned_files.extend(scan_result.files);
     }
+    // Empty-path / relative-path roots were already rejected above by
+    // validation::validate_path. Any arrival here means roots were absolute
+    // and non-empty. So invalid_root is always false in this function.
+    let invalid_root = false;
+    // If every selected root was missing, the user needs to know the path is
+    // wrong. If at least one root existed but zero files were found, they need
+    // to know no supported embroidery extensions were discovered.
+    let no_supported_files = scanned_files.is_empty() && root_had_any_existing_dir;
 
     scanned_files.sort_by(|left, right| {
         left.full_path
@@ -2073,6 +2091,9 @@ fn preview_bulk_import_wire_with_pool(
         folder_count: wire.root_paths.len(),
         scanned_files,
         resolved_assignments,
+        missing_root,
+        invalid_root,
+        no_supported_files,
     })
 }
 
