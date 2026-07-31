@@ -152,6 +152,8 @@ Exit criteria:
 - `main.rs` complexity reduced (wiring vs logic separation improved).
 
 ## Phase 3: Database Layer
+Status: complete
+
 Target modules:
 - `src/database/connection.rs`
 - `src/database/migrations.rs`
@@ -168,6 +170,8 @@ Exit criteria:
 - Transaction and migration behavior documented in code comments where non-obvious.
 
 ## Phase 4: Reader Core and Contract
+Status: complete
+
 Target modules:
 - `src/readers/embroidery_reader.rs`
 - `src/readers/mod.rs`
@@ -183,6 +187,8 @@ Exit criteria:
 - No DB or route coupling introduced in reader core.
 
 ## Phase 5: Reader Implementations (Format-by-Format)
+Status: complete
+
 Target modules (ordered by risk/size):
 1. `src/readers/pes_reader.rs`
 2. `src/readers/hus_reader.rs`
@@ -202,6 +208,8 @@ Exit criteria (per file):
 - Any parser behavior change is explicitly documented and approved before merge.
 
 ## Phase 6: Service Layer (Foundational Services First)
+Status: complete
+
 Target modules:
 - `src/services/validation.rs`
 - `src/services/folder_picker.rs`
@@ -220,6 +228,8 @@ Exit criteria:
 - Throughput-sensitive paths avoid unnecessary full-collection buffering.
 
 ## Phase 7: Service Layer (High-Complexity Services)
+Status: complete
+
 Target modules:
 - `src/services/backfill.rs`
 - `src/services/auto_tagging.rs`
@@ -272,7 +282,7 @@ Exit criteria:
 - Verification evidence: `cargo test --bin embroidery-catalogue` -> 877 passed, 0 failed.
 
 ## Phase 9: Final Hardening and Cleanup
-Status: ready to begin
+Status: complete
 
 Target modules:
 - all touched modules
