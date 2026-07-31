@@ -1075,6 +1075,7 @@ fn read_log_tail(path: &Path, level: &str, limit: usize) -> Result<Vec<BackfillL
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     async fn make_test_pool() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:")
@@ -1119,6 +1120,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
@@ -1944,6 +1946,7 @@ mod tests {
     // race conditions from parallel execution sharing the same log files.
 
     #[tokio::test]
+    #[serial]
     async fn log_files_round_trip() {
         // Clean up first
         let _ = std::fs::remove_dir_all("logs");
@@ -2071,6 +2074,7 @@ mod tests {
     // ─────────────────────────────────────────
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_retag_all_tags_everything() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
@@ -2106,6 +2110,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_retag_all_unverified_skips_verified() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await; // design 2 is tags_checked=1 and has an image tag
@@ -2140,6 +2145,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_stop_signal_detected_by_summary() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
@@ -2183,6 +2189,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_combined_actions() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
@@ -2230,6 +2237,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_no_actions_enabled_processes_zero() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
@@ -2277,6 +2285,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_stitching_clear_existing_removes_from_unverified() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
@@ -2326,6 +2335,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn run_unified_backfill_no_actions_defaults_to_tag_untagged() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
