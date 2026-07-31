@@ -5,6 +5,7 @@
 pub mod config;
 pub mod database;
 pub mod disclaimer;
+pub mod error;
 pub mod logging;
 pub mod models;
 pub mod paths;

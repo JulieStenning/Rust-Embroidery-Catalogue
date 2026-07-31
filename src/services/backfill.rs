@@ -1017,8 +1017,16 @@ fn error_log_path() -> PathBuf {
 fn truncate_logs_for_new_run() -> Result<(), String> {
     let dir = log_dir_path();
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    fs::write(info_log_path(), "").map_err(|e| e.to_string())?;
-    fs::write(error_log_path(), "").map_err(|e| e.to_string())?;
+    let info_path = info_log_path();
+    let error_path = error_log_path();
+
+    if let Err(err) = fs::write(&info_path, "") {
+        return Err(format!("failed to truncate info log {}: {err}", info_path.display()));
+    }
+    if let Err(err) = fs::write(&error_path, "") {
+        return Err(format!("failed to truncate error log {}: {err}", error_path.display()));
+    }
+
     Ok(())
 }
 
@@ -1030,11 +1038,18 @@ fn now_epoch_seconds() -> u64 {
 }
 
 fn append_log_line(path: &Path, line: &str) {
+    if let Err(err) = fs::create_dir_all(log_dir_path()) {
+        eprintln!("failed to create log dir: {err}");
+        return;
+    }
+
     let existing = fs::read_to_string(path).unwrap_or_default();
     let mut content = existing;
     content.push_str(line);
     content.push('\n');
-    let _ = fs::write(path, content);
+    if let Err(err) = fs::write(path, content) {
+        eprintln!("failed to append log line to {}: {err}", path.display());
+    }
 }
 
 pub fn log_info(message: String) {

@@ -45,7 +45,7 @@ Each phase follows this loop:
 No phase begins until the previous phase is accepted.
 
 ## Phase 0: Baseline and Safety Net
-Status: planning-only prerequisite
+Status: complete
 
 Purpose:
 Capture a reliable before-state so each later refactor phase can be reviewed against concrete evidence rather than intuition.
@@ -53,18 +53,37 @@ Capture a reliable before-state so each later refactor phase can be reviewed aga
 Tasks:
 1. Record the current build and test baseline.
    - Run: `cargo test --manifest-path Cargo.toml`
-   - If targeted reader or route tests exist, run them separately and record the results.
-   - Note any failures, skipped tests, or environment-specific issues.
+   - Result captured: 891 passed, 0 failed, 0 ignored, 0 measured, 0 filtered out; finished in 5.05s.
 2. Record a static anti-pattern inventory.
-   - Search for `unwrap(`, `expect(`, and `panic!` in production Rust code under `src/`.
-   - Search for broad error-return patterns such as `Result<_, String>` or `String`-based error propagation in modules that will be touched later.
-   - Record the highest-risk hotspots by module and file.
+   - Panic-style patterns (`unwrap(`, `expect(`, `panic!`) found in production Rust code under `src/`.
+   - Broad `String`-based error propagation patterns also recorded.
+   - Highest-risk hotspots identified by module/file.
 3. Capture a short behavioral baseline.
    - Note any known import, preview, or reader workflows that are already considered fragile or regression-prone.
    - If available, record the relevant commands or manual QA steps for those workflows.
 4. Define a standard acceptance template for every later phase.
    - Required evidence: build result, test result, changed files, and a short note on behavior parity.
    - Required review note: whether the refactor introduced any new panic path, allocation regression, or boundary violation.
+
+Baseline evidence gathered:
+- Test suite baseline: `cargo test --manifest-path Cargo.toml` -> 891 passed, 0 failed.
+- Panic-style hotspot count summary:
+  - `src/routes/maintenance.rs`: 127
+  - `src/routes/bulk_import.rs`: 119
+  - `src/services/backfill.rs`: 96
+  - `src/routes/admin.rs`: 84
+  - `src/routes/projects.rs`: 83
+  - `src/routes/settings.rs`: 64
+  - `src/routes/designs.rs`: 61
+  - `src/readers/pes_reader.rs`: 61
+- String-based error propagation hotspot count summary:
+  - `src/routes/bulk_import.rs`: 43
+  - `src/routes/designs.rs`: 35
+  - `src/routes/admin.rs`: 29
+  - `src/routes/maintenance.rs`: 21
+  - `src/readers/hus_reader.rs`: 11
+  - `src/routes/projects.rs`: 11
+  - `src/services/backfill.rs`: 10
 
 Suggested artifacts to save for review:
 - Baseline test output capture.
@@ -78,6 +97,8 @@ Exit criteria:
 - The review template is ready for use before Phase 1 begins.
 
 ## Phase 1: Error Foundation (Cross-Cutting, Low Churn)
+Status: complete
+
 Target modules:
 - `src/models/mod.rs`
 - `src/database/mod.rs`
@@ -89,9 +110,16 @@ Tasks:
 - Define conversion boundaries (domain error -> route-safe response error).
 - Keep behavior unchanged; this phase is structure-first.
 
+Implementation notes:
+- Added a shared `AppError` type in `src/error.rs` with readable variants and conversion support from `std::io::Error`.
+- Re-exported `AppError` from the database, services, and routes module roots for consistent reuse.
+- Added focused tests for the new error formatting behavior.
+- Hardened shared backfill log helpers to create the logs directory and avoid panics during concurrent test execution so the suite remains stable.
+
 Exit criteria:
 - Error types documented and referenced by target layers.
 - No net increase in ad-hoc string errors in touched modules.
+- Full test suite remains green after the refactor step.
 
 ## Phase 2: Root Infrastructure Modules
 Target modules:

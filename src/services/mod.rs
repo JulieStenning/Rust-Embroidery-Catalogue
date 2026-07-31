@@ -11,3 +11,5 @@ pub mod scanning;
 pub mod stitch_identifier;
 pub mod tagging;
 pub mod validation;
+
+pub use crate::error::AppError;

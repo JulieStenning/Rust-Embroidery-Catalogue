@@ -9,3 +9,5 @@ pub mod maintenance;
 pub mod projects;
 pub mod settings;
 pub mod tagging_actions;
+
+pub use crate::error::AppError;
