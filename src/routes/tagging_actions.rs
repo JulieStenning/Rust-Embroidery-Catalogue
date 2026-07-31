@@ -1,7 +1,4 @@
-use crate::services::auto_tagging;
-use crate::services::backfill;
-use crate::services::fingerprint;
-use crate::settings;
+use crate::services::{auto_tagging, backfill, fingerprint, maintenance};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
@@ -172,28 +169,13 @@ async fn get_setting_with_default(
     conn: &mut SqliteConnection,
     key: &str,
 ) -> Result<String, sqlx::Error> {
-    let current = settings::get_setting(conn, key).await?;
-    if let Some(setting) = current {
-        return Ok(setting.value);
-    }
-
-    let fallback = "".to_string();
-    sqlx::query(
-        "INSERT INTO settings (key, value, description) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    )
-    .bind(key)
-    .bind(&fallback)
-    .bind("Tagging actions default")
-    .execute(conn)
-    .await?;
-    Ok(fallback)
+    maintenance::get_setting_with_default(conn, key)
+        .await
+        .map_err(|error| sqlx::Error::Protocol(error.to_string()))
 }
 
 fn is_truthy(raw: &str) -> bool {
-    matches!(
-        raw.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "on"
-    )
+    maintenance::is_truthy(raw)
 }
 
 #[cfg(test)]
@@ -309,7 +291,7 @@ mod tests {
         assert_eq!(val, "");
 
         // Verify it was inserted
-        let inserted = settings::get_setting(&mut conn, "test.new_key").await.unwrap().unwrap();
+        let inserted = crate::settings::get_setting(&mut conn, "test.new_key").await.unwrap().unwrap();
         assert_eq!(inserted.value, "");
 
         // 2. Key exists, should return it

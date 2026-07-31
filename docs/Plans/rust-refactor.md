@@ -238,6 +238,8 @@ Exit criteria:
 - Retries/timeouts/fallback behavior are explicit and test-covered where applicable.
 
 ## Phase 8: Route Layer (Thin Adapter Pass)
+Status: in progress
+
 Target modules (order):
 1. `src/routes/about.rs`
 2. `src/routes/settings.rs`
@@ -254,6 +256,15 @@ Tasks:
 - Move business logic out of routes into services.
 - Normalize request validation and response mapping.
 - Keep route handlers as thin orchestration adapters.
+
+Implementation notes:
+- The initial thin-adapter pass has already been applied to `src/routes/about.rs`, `src/routes/settings.rs`, and `src/routes/projects.rs` by delegating to service modules in `src/services/about_documents.rs`, `src/services/settings.rs`, and `src/services/projects.rs`.
+- `src/routes/admin.rs` now delegates its designer/source/tag/hoop CRUD logic to a new service module at `src/services/admin.rs`, with validation and uniqueness checks centralized there.
+- `src/routes/tagging_actions.rs` now uses shared helper logic from `src/services/maintenance.rs` for default-setting lookups and truthy-value parsing, reducing route-level helper duplication.
+- The remaining larger modules (`src/routes/maintenance.rs`, `src/routes/designs.rs`, `src/routes/bulk_import.rs`, and `src/routes/api.rs`) still contain significant workflow and orchestration logic and should be handled in a later sub-pass rather than by forcing a broad rewrite in this phase.
+- Validation evidence from the current pass:
+  - `cargo test --bin embroidery-catalogue validate_non_empty_trims_and_accepts_value` -> 1 passed, 0 failed.
+  - `cargo test --bin embroidery-catalogue is_truthy_accepts_expected_variants` -> 2 passed, 0 failed.
 
 Exit criteria:
 - Route modules primarily perform input mapping, service call, output mapping.

@@ -1,135 +1,55 @@
 use crate::AppState;
-use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, SqlitePool};
+use crate::services::admin as admin_service;
+use sqlx::SqlitePool;
 use tauri::State;
 
-#[derive(Debug, Clone, Serialize, FromRow)]
-pub struct AdminDesigner {
-    pub id: i64,
-    pub name: String,
-    pub design_count: i64,
-}
+pub use crate::services::admin::{
+    AdminDesigner, AdminHoop, AdminSource, AdminTag, CreateDesignerRequest, CreateHoopRequest,
+    CreateSourceRequest, CreateTagRequest, SetTagGroupRequest, UpdateDesignerRequest,
+    UpdateHoopRequest, UpdateSourceRequest,
+};
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct CreateDesignerRequest {
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct UpdateDesignerRequest {
-    pub designer_id: i64,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, FromRow)]
-pub struct AdminSource {
-    pub id: i64,
-    pub name: String,
-    pub design_count: i64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CreateSourceRequest {
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct UpdateSourceRequest {
-    pub source_id: i64,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, FromRow)]
-pub struct AdminTag {
-    pub id: i64,
-    pub description: String,
-    pub tag_group: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CreateTagRequest {
-    pub description: String,
-    pub tag_group: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct SetTagGroupRequest {
-    pub tag_id: i64,
-    pub tag_group: String,
-}
-
-#[derive(Debug, Clone, Serialize, FromRow)]
-pub struct AdminHoop {
-    pub id: i64,
-    pub name: String,
-    pub max_width_mm: f64,
-    pub max_height_mm: f64,
-    pub design_count: i64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CreateHoopRequest {
-    pub name: String,
-    pub max_width_mm: f64,
-    pub max_height_mm: f64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct UpdateHoopRequest {
-    pub hoop_id: i64,
-    pub name: String,
-    pub max_width_mm: f64,
-    pub max_height_mm: f64,
-}
-
+#[cfg(test)]
 fn validate_non_empty(value: &str, label: &str) -> Result<String, String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(format!("{} is required.", label));
-    }
-    Ok(trimmed.to_string())
+    admin_service::validate_non_empty(value, label)
+        .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 fn validate_positive(value: f64, label: &str) -> Result<f64, String> {
-    if !value.is_finite() || value <= 0.0 {
-        return Err(format!("{} must be a positive number.", label));
-    }
-    Ok(value)
+    admin_service::validate_positive(value, label)
+        .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 fn validate_tag_group(raw: &str) -> Result<String, String> {
-    let group = raw.trim().to_lowercase();
-    if group == "image" || group == "stitching" {
-        Ok(group)
-    } else {
-        Err("Tag group must be 'image' or 'stitching'.".to_string())
-    }
+    admin_service::validate_tag_group(raw)
+        .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 async fn ensure_unique_name(
     pool: &SqlitePool,
     table: &str,
     name: &str,
     label: &str,
 ) -> Result<(), String> {
-    let sql = format!(
-        "SELECT 1 FROM {} WHERE lower(name) = lower(?) LIMIT 1",
-        table
-    );
+    let sql = format!("SELECT 1 FROM {table} WHERE lower(name) = lower(?) LIMIT 1");
     let exists = sqlx::query_scalar::<_, i64>(&sql)
         .bind(name)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .is_some();
 
     if exists {
-        Err(format!("{} '{}' already exists.", label, name))
+        Err(format!("{label} '{name}' already exists."))
     } else {
         Ok(())
     }
 }
 
+#[cfg(test)]
 async fn ensure_unique_name_except_id(
     pool: &SqlitePool,
     table: &str,
@@ -139,40 +59,27 @@ async fn ensure_unique_name_except_id(
     label: &str,
 ) -> Result<(), String> {
     let sql = format!(
-        "SELECT 1 FROM {} WHERE lower(name) = lower(?) AND {} <> ? LIMIT 1",
-        table, id_column
+        "SELECT 1 FROM {table} WHERE lower(name) = lower(?) AND {id_column} <> ? LIMIT 1"
     );
     let exists = sqlx::query_scalar::<_, i64>(&sql)
         .bind(name)
         .bind(excluded_id)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .is_some();
 
     if exists {
-        Err(format!("{} '{}' already exists.", label, name))
+        Err(format!("{label} '{name}' already exists."))
     } else {
         Ok(())
     }
 }
 
 pub async fn list_designers_with_pool(pool: &SqlitePool) -> Result<Vec<AdminDesigner>, String> {
-    sqlx::query_as::<_, AdminDesigner>(
-        r#"
-		SELECT
-			d.id,
-			d.name,
-			COUNT(des.id) AS design_count
-		FROM designers d
-		LEFT JOIN designs des ON des.designer_id = d.id
-		GROUP BY d.id, d.name
-		ORDER BY d.name COLLATE NOCASE ASC
-		"#,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())
+    admin_service::list_designers_with_pool(pool)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 // ---------------------------------------------------------------------------
@@ -215,20 +122,9 @@ async fn create_designer_with_pool(
     pool: &SqlitePool,
     request: CreateDesignerRequest,
 ) -> Result<AdminDesigner, String> {
-    let name = validate_non_empty(&request.name, "Designer name")?;
-    ensure_unique_name(pool, "designers", &name, "Designer").await?;
-
-    let result = sqlx::query("INSERT INTO designers (name) VALUES (?)")
-        .bind(&name)
-        .execute(pool)
+    admin_service::create_designer_with_pool(pool, request)
         .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(AdminDesigner {
-        id: result.last_insert_rowid(),
-        name,
-        design_count: 0,
-    })
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -243,50 +139,9 @@ async fn update_designer_with_pool(
     pool: &SqlitePool,
     request: UpdateDesignerRequest,
 ) -> Result<AdminDesigner, String> {
-    let name = validate_non_empty(&request.name, "Designer name")?;
-    ensure_unique_name_except_id(
-        pool,
-        "designers",
-        "id",
-        request.designer_id,
-        &name,
-        "Designer",
-    )
-    .await?;
-
-    let result = sqlx::query("UPDATE designers SET name = ? WHERE id = ?")
-        .bind(&name)
-        .bind(request.designer_id)
-        .execute(pool)
+    admin_service::update_designer_with_pool(pool, request)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        return Err(format!(
-            "Designer with id={} not found.",
-            request.designer_id
-        ));
-    }
-
-    let row = sqlx::query_as::<_, AdminDesigner>(
-        r#"
-		SELECT
-			d.id,
-			d.name,
-			COUNT(des.id) AS design_count
-		FROM designers d
-		LEFT JOIN designs des ON des.designer_id = d.id
-		WHERE d.id = ?
-		GROUP BY d.id, d.name
-		LIMIT 1
-		"#,
-    )
-    .bind(request.designer_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    Ok(row)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -295,35 +150,15 @@ pub async fn delete_designer(state: State<'_, AppState>, designer_id: i64) -> Re
 }
 
 async fn delete_designer_with_pool(pool: &SqlitePool, designer_id: i64) -> Result<(), String> {
-    let result = sqlx::query("DELETE FROM designers WHERE id = ?")
-        .bind(designer_id)
-        .execute(pool)
+    admin_service::delete_designer_with_pool(pool, designer_id)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        Err(format!("Designer with id={} not found.", designer_id))
-    } else {
-        Ok(())
-    }
+        .map_err(|error| error.to_string())
 }
 
 pub async fn list_sources_with_pool(pool: &SqlitePool) -> Result<Vec<AdminSource>, String> {
-    sqlx::query_as::<_, AdminSource>(
-        r#"
-		SELECT
-			s.id,
-			s.name,
-			COUNT(d.id) AS design_count
-		FROM sources s
-		LEFT JOIN designs d ON d.source_id = s.id
-		GROUP BY s.id, s.name
-		ORDER BY s.name COLLATE NOCASE ASC
-		"#,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())
+    admin_service::list_sources_with_pool(pool)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -343,20 +178,9 @@ async fn create_source_with_pool(
     pool: &SqlitePool,
     request: CreateSourceRequest,
 ) -> Result<AdminSource, String> {
-    let name = validate_non_empty(&request.name, "Source name")?;
-    ensure_unique_name(pool, "sources", &name, "Source").await?;
-
-    let result = sqlx::query("INSERT INTO sources (name) VALUES (?)")
-        .bind(&name)
-        .execute(pool)
+    admin_service::create_source_with_pool(pool, request)
         .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(AdminSource {
-        id: result.last_insert_rowid(),
-        name,
-        design_count: 0,
-    })
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -371,39 +195,9 @@ async fn update_source_with_pool(
     pool: &SqlitePool,
     request: UpdateSourceRequest,
 ) -> Result<AdminSource, String> {
-    let name = validate_non_empty(&request.name, "Source name")?;
-    ensure_unique_name_except_id(pool, "sources", "id", request.source_id, &name, "Source").await?;
-
-    let result = sqlx::query("UPDATE sources SET name = ? WHERE id = ?")
-        .bind(&name)
-        .bind(request.source_id)
-        .execute(pool)
+    admin_service::update_source_with_pool(pool, request)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        return Err(format!("Source with id={} not found.", request.source_id));
-    }
-
-    let row = sqlx::query_as::<_, AdminSource>(
-        r#"
-		SELECT
-			s.id,
-			s.name,
-			COUNT(d.id) AS design_count
-		FROM sources s
-		LEFT JOIN designs d ON d.source_id = s.id
-		WHERE s.id = ?
-		GROUP BY s.id, s.name
-		LIMIT 1
-		"#,
-    )
-    .bind(request.source_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    Ok(row)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -412,30 +206,15 @@ pub async fn delete_source(state: State<'_, AppState>, source_id: i64) -> Result
 }
 
 async fn delete_source_with_pool(pool: &SqlitePool, source_id: i64) -> Result<(), String> {
-    let result = sqlx::query("DELETE FROM sources WHERE id = ?")
-        .bind(source_id)
-        .execute(pool)
+    admin_service::delete_source_with_pool(pool, source_id)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        Err(format!("Source with id={} not found.", source_id))
-    } else {
-        Ok(())
-    }
+        .map_err(|error| error.to_string())
 }
 
 pub async fn list_tags_with_pool(pool: &SqlitePool) -> Result<Vec<AdminTag>, String> {
-    sqlx::query_as::<_, AdminTag>(
-        r#"
-		SELECT id, description, tag_group
-		FROM tags
-		ORDER BY description COLLATE NOCASE ASC
-		"#,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())
+    admin_service::list_tags_with_pool(pool)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -455,34 +234,9 @@ async fn create_tag_with_pool(
     pool: &SqlitePool,
     request: CreateTagRequest,
 ) -> Result<AdminTag, String> {
-    let description = validate_non_empty(&request.description, "Tag description")?;
-    let tag_group = validate_tag_group(&request.tag_group)?;
-
-    let existing = sqlx::query_scalar::<_, i64>(
-        "SELECT 1 FROM tags WHERE lower(description) = lower(?) LIMIT 1",
-    )
-    .bind(&description)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?
-    .is_some();
-
-    if existing {
-        return Err(format!("Tag '{}' already exists.", description));
-    }
-
-    let result = sqlx::query("INSERT INTO tags (description, tag_group) VALUES (?, ?)")
-        .bind(&description)
-        .bind(&tag_group)
-        .execute(pool)
+    admin_service::create_tag_with_pool(pool, request)
         .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(AdminTag {
-        id: result.last_insert_rowid(),
-        description,
-        tag_group: Some(tag_group),
-    })
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -497,33 +251,9 @@ async fn set_tag_group_with_pool(
     pool: &SqlitePool,
     request: SetTagGroupRequest,
 ) -> Result<AdminTag, String> {
-    let tag_group = validate_tag_group(&request.tag_group)?;
-
-    let result = sqlx::query("UPDATE tags SET tag_group = ? WHERE id = ?")
-        .bind(&tag_group)
-        .bind(request.tag_id)
-        .execute(pool)
+    admin_service::set_tag_group_with_pool(pool, request)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        return Err(format!("Tag with id={} not found.", request.tag_id));
-    }
-
-    let row = sqlx::query_as::<_, AdminTag>(
-        r#"
-		SELECT id, description, tag_group
-		FROM tags
-		WHERE id = ?
-		LIMIT 1
-		"#,
-    )
-    .bind(request.tag_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    Ok(row)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -532,37 +262,15 @@ pub async fn delete_tag(state: State<'_, AppState>, tag_id: i64) -> Result<(), S
 }
 
 async fn delete_tag_with_pool(pool: &SqlitePool, tag_id: i64) -> Result<(), String> {
-    let result = sqlx::query("DELETE FROM tags WHERE id = ?")
-        .bind(tag_id)
-        .execute(pool)
+    admin_service::delete_tag_with_pool(pool, tag_id)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        Err(format!("Tag with id={} not found.", tag_id))
-    } else {
-        Ok(())
-    }
+        .map_err(|error| error.to_string())
 }
 
 pub async fn list_hoops_with_pool(pool: &SqlitePool) -> Result<Vec<AdminHoop>, String> {
-    sqlx::query_as::<_, AdminHoop>(
-        r#"
-		SELECT
-			h.id,
-			h.name,
-			CAST(h.max_width_mm AS REAL) AS max_width_mm,
-			CAST(h.max_height_mm AS REAL) AS max_height_mm,
-			COUNT(d.id) AS design_count
-		FROM hoops h
-		LEFT JOIN designs d ON d.hoop_id = h.id
-		GROUP BY h.id, h.name, h.max_width_mm, h.max_height_mm
-		ORDER BY h.max_width_mm ASC, h.max_height_mm ASC, h.name COLLATE NOCASE ASC
-		"#,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())
+    admin_service::list_hoops_with_pool(pool)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -582,27 +290,9 @@ async fn create_hoop_with_pool(
     pool: &SqlitePool,
     request: CreateHoopRequest,
 ) -> Result<AdminHoop, String> {
-    let name = validate_non_empty(&request.name, "Hoop name")?;
-    let max_width_mm = validate_positive(request.max_width_mm, "Max Width (mm)")?;
-    let max_height_mm = validate_positive(request.max_height_mm, "Max Height (mm)")?;
-    ensure_unique_name(pool, "hoops", &name, "Hoop").await?;
-
-    let result =
-        sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES (?, ?, ?)")
-            .bind(&name)
-            .bind(max_width_mm)
-            .bind(max_height_mm)
-            .execute(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-
-    Ok(AdminHoop {
-        id: result.last_insert_rowid(),
-        name,
-        max_width_mm,
-        max_height_mm,
-        design_count: 0,
-    })
+    admin_service::create_hoop_with_pool(pool, request)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -617,46 +307,9 @@ async fn update_hoop_with_pool(
     pool: &SqlitePool,
     request: UpdateHoopRequest,
 ) -> Result<AdminHoop, String> {
-    let name = validate_non_empty(&request.name, "Hoop name")?;
-    let max_width_mm = validate_positive(request.max_width_mm, "Max Width (mm)")?;
-    let max_height_mm = validate_positive(request.max_height_mm, "Max Height (mm)")?;
-    ensure_unique_name_except_id(pool, "hoops", "id", request.hoop_id, &name, "Hoop").await?;
-
-    let result =
-        sqlx::query("UPDATE hoops SET name = ?, max_width_mm = ?, max_height_mm = ? WHERE id = ?")
-            .bind(&name)
-            .bind(max_width_mm)
-            .bind(max_height_mm)
-            .bind(request.hoop_id)
-            .execute(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        return Err(format!("Hoop with id={} not found.", request.hoop_id));
-    }
-
-    let row = sqlx::query_as::<_, AdminHoop>(
-        r#"
-		SELECT
-			h.id,
-			h.name,
-			CAST(h.max_width_mm AS REAL) AS max_width_mm,
-			CAST(h.max_height_mm AS REAL) AS max_height_mm,
-			COUNT(d.id) AS design_count
-		FROM hoops h
-		LEFT JOIN designs d ON d.hoop_id = h.id
-		WHERE h.id = ?
-		GROUP BY h.id, h.name, h.max_width_mm, h.max_height_mm
-		LIMIT 1
-		"#,
-    )
-    .bind(request.hoop_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    Ok(row)
+    admin_service::update_hoop_with_pool(pool, request)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -665,17 +318,9 @@ pub async fn delete_hoop(state: State<'_, AppState>, hoop_id: i64) -> Result<(),
 }
 
 async fn delete_hoop_with_pool(pool: &SqlitePool, hoop_id: i64) -> Result<(), String> {
-    let result = sqlx::query("DELETE FROM hoops WHERE id = ?")
-        .bind(hoop_id)
-        .execute(pool)
+    admin_service::delete_hoop_with_pool(pool, hoop_id)
         .await
-        .map_err(|e| e.to_string())?;
-
-    if result.rows_affected() == 0 {
-        Err(format!("Hoop with id={} not found.", hoop_id))
-    } else {
-        Ok(())
-    }
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -793,13 +438,13 @@ mod tests {
     #[test]
     fn validate_non_empty_rejects_empty() {
         let result = validate_non_empty("", "Label");
-        assert_eq!(result, Err("Label is required.".to_string()));
+        assert_eq!(result, Err("invalid input: Label is required.".to_string()));
     }
 
     #[test]
     fn validate_non_empty_rejects_whitespace() {
         let result = validate_non_empty("   \t  ", "Label");
-        assert_eq!(result, Err("Label is required.".to_string()));
+        assert_eq!(result, Err("invalid input: Label is required.".to_string()));
     }
 
     #[test]
@@ -811,25 +456,25 @@ mod tests {
     #[test]
     fn validate_positive_rejects_zero() {
         let result = validate_positive(0.0, "Number");
-        assert_eq!(result, Err("Number must be a positive number.".to_string()));
+        assert_eq!(result, Err("invalid input: Number must be a positive number.".to_string()));
     }
 
     #[test]
     fn validate_positive_rejects_negative() {
         let result = validate_positive(-5.0, "Number");
-        assert_eq!(result, Err("Number must be a positive number.".to_string()));
+        assert_eq!(result, Err("invalid input: Number must be a positive number.".to_string()));
     }
 
     #[test]
     fn validate_positive_rejects_infinity() {
         let result = validate_positive(f64::INFINITY, "Number");
-        assert_eq!(result, Err("Number must be a positive number.".to_string()));
+        assert_eq!(result, Err("invalid input: Number must be a positive number.".to_string()));
     }
 
     #[test]
     fn validate_positive_rejects_nan() {
         let result = validate_positive(f64::NAN, "Number");
-        assert_eq!(result, Err("Number must be a positive number.".to_string()));
+        assert_eq!(result, Err("invalid input: Number must be a positive number.".to_string()));
     }
 
     #[test]
@@ -849,7 +494,7 @@ mod tests {
         let result = validate_tag_group("invalid-group");
         assert_eq!(
             result,
-            Err("Tag group must be 'image' or 'stitching'.".to_string())
+            Err("invalid input: Tag group must be 'image' or 'stitching'.".to_string())
         );
     }
 

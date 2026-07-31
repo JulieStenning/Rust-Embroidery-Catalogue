@@ -1,142 +1,17 @@
-use crate::paths::ExecutionMode;
-use crate::settings;
 use crate::AppState;
-use serde::{Deserialize, Serialize};
-use sqlx::SqliteConnection;
-use std::path::Path;
+use crate::services::settings::{
+    self,
+    BrowseDataRootResult, SaveImportBrowseFolderResult, SaveSettingsRequest,
+    SaveSettingsResult, SettingsViewModel,
+};
 use tauri::State;
-
-const KEY_AI_TIER2_AUTO: &str = "ai.tier2_auto";
-const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
-const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
-const KEY_AI_DELAY: &str = "ai.delay";
-const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
-const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
-const KEY_IMAGE_PREFERENCE: &str = "image.preference";
-const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SettingsViewModel {
-    pub image_preference: String,
-    pub preview_3d_profile: String,
-    pub google_api_key: String,
-    pub has_google_api_key: bool,
-    pub ai_tier2_auto: bool,
-    pub ai_tier3_auto: bool,
-    pub ai_batch_size: String,
-    pub ai_delay: String,
-    pub import_commit_batch_size: String,
-    pub import_last_browse_folder: String,
-    pub can_configure_data_root: bool,
-    pub data_root: String,
-    pub database_path: String,
-    pub log_folder: String,
-    pub app_mode: String,
-    pub ai_tagging_help_url: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct SaveSettingsRequest {
-    pub image_preference: String,
-    #[serde(default)]
-    pub preview_3d_profile: String,
-    pub google_api_key: String,
-    pub ai_tier2_auto: bool,
-    pub ai_tier3_auto: bool,
-    pub ai_batch_size: String,
-    pub ai_delay: String,
-    pub import_commit_batch_size: String,
-    pub data_root: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SaveSettingsResult {
-    pub saved: bool,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SaveImportBrowseFolderResult {
-    pub saved: bool,
-    pub path: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct BrowseDataRootResult {
-    pub path: Option<String>,
-    pub error: Option<String>,
-}
 
 pub(crate) async fn get_settings_view_model_inner(
     app_state: &AppState,
 ) -> Result<SettingsViewModel, String> {
-    let mut conn = app_state.db.acquire().await.map_err(|e| e.to_string())?;
-
-    let image_preference = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
+    settings::get_settings_view_model_inner(app_state)
         .await
-        .map_err(|e| e.to_string())?;
-    let preview_3d_profile = get_setting_with_default(&mut conn, KEY_PREVIEW_3D_PROFILE)
-        .await
-        .map_err(|e| e.to_string())?;
-    let ai_tier2_auto = is_truthy(
-        &get_setting_with_default(&mut conn, KEY_AI_TIER2_AUTO)
-            .await
-            .map_err(|e| e.to_string())?,
-    );
-    let ai_tier3_auto = is_truthy(
-        &get_setting_with_default(&mut conn, KEY_AI_TIER3_AUTO)
-            .await
-            .map_err(|e| e.to_string())?,
-    );
-    let ai_batch_size = get_setting_with_default(&mut conn, KEY_AI_BATCH_SIZE)
-        .await
-        .map_err(|e| e.to_string())?;
-    let ai_delay = get_setting_with_default(&mut conn, KEY_AI_DELAY)
-        .await
-        .map_err(|e| e.to_string())?;
-    let import_commit_batch_size =
-        get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
-            .await
-            .map_err(|e| e.to_string())?;
-    let import_last_browse_folder =
-        get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER)
-            .await
-            .map_err(|e| e.to_string())?;
-
-    let google_api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
-    let has_google_api_key = !google_api_key.trim().is_empty();
-
-    // Derive paths and mode from the centrally resolved AppPaths in state
-    let data_root = app_state.paths.data_root.to_string_lossy().to_string();
-    let database_path = app_state.paths.database_path.to_string_lossy().to_string();
-    let log_folder = app_state.paths.log_dir.to_string_lossy().to_string();
-    let can_configure_data_root = match app_state.paths.mode {
-        ExecutionMode::Portable => false,
-        ExecutionMode::Installed => true,
-    };
-    let app_mode = match app_state.paths.mode {
-        ExecutionMode::Portable => "portable".to_string(),
-        ExecutionMode::Installed => "installed".to_string(),
-    };
-
-    Ok(SettingsViewModel {
-        image_preference,
-        preview_3d_profile,
-        google_api_key,
-        has_google_api_key,
-        ai_tier2_auto,
-        ai_tier3_auto,
-        ai_batch_size,
-        ai_delay,
-        import_commit_batch_size,
-        import_last_browse_folder,
-        can_configure_data_root,
-        data_root,
-        database_path,
-        log_folder,
-        app_mode,
-        ai_tagging_help_url: "#/help".to_string(),
-    })
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -150,17 +25,9 @@ pub(crate) async fn save_import_last_browse_folder_inner(
     app_state: &AppState,
     path: String,
 ) -> Result<SaveImportBrowseFolderResult, String> {
-    let normalized = path.trim().to_string();
-    let mut conn = app_state.db.acquire().await.map_err(|e| e.to_string())?;
-
-    upsert_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER, &normalized)
+    settings::save_import_last_browse_folder_inner(app_state, path)
         .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(SaveImportBrowseFolderResult {
-        saved: true,
-        path: normalized,
-    })
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -175,57 +42,9 @@ pub(crate) async fn save_settings_view_model_inner(
     app_state: &AppState,
     request: SaveSettingsRequest,
 ) -> Result<SaveSettingsResult, String> {
-    let image_preference = normalize_image_preference(&request.image_preference);
-    let preview_3d_profile = normalize_preview_3d_profile(&request.preview_3d_profile);
-    let ai_batch_size = normalize_optional_batch_size(&request.ai_batch_size);
-    let import_commit_batch_size = normalize_optional_batch_size(&request.import_commit_batch_size);
-    let ai_delay = normalize_optional_delay(&request.ai_delay);
-
-    let mut conn = app_state.db.acquire().await.map_err(|e| e.to_string())?;
-
-    upsert_setting(
-        &mut conn,
-        KEY_AI_TIER2_AUTO,
-        bool_to_setting(request.ai_tier2_auto),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    upsert_setting(
-        &mut conn,
-        KEY_AI_TIER3_AUTO,
-        bool_to_setting(request.ai_tier3_auto),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, &ai_batch_size)
+    settings::save_settings_view_model_inner(app_state, request)
         .await
-        .map_err(|e| e.to_string())?;
-    upsert_setting(&mut conn, KEY_AI_DELAY, &ai_delay)
-        .await
-        .map_err(|e| e.to_string())?;
-    upsert_setting(
-        &mut conn,
-        KEY_IMPORT_COMMIT_BATCH_SIZE,
-        &import_commit_batch_size,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    upsert_setting(&mut conn, KEY_IMAGE_PREFERENCE, &image_preference)
-        .await
-        .map_err(|e| e.to_string())?;
-    upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, &preview_3d_profile)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    save_google_api_key_to_env(&request.google_api_key)?;
-
-    // Data-root persistence is intentionally deferred until desktop mode support is fully wired.
-    let _ = request.data_root;
-
-    Ok(SaveSettingsResult {
-        saved: true,
-        message: "Settings saved successfully.".to_string(),
-    })
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -238,173 +57,7 @@ pub async fn save_settings_view_model(
 
 #[tauri::command]
 pub fn browse_settings_data_root(start_dir: Option<String>) -> BrowseDataRootResult {
-    let from = start_dir.unwrap_or_default();
-    BrowseDataRootResult {
-        path: None,
-        error: Some(format!(
-            "Folder picker is not wired yet in this build. Please enter the path manually. Start directory was: {}",
-            if from.trim().is_empty() { "(blank)" } else { from.trim() }
-        )),
-    }
-}
-
-async fn get_setting_with_default(
-    conn: &mut SqliteConnection,
-    key: &str,
-) -> Result<String, sqlx::Error> {
-    let current = settings::get_setting(conn, key).await?;
-    if let Some(setting) = current {
-        return Ok(setting.value);
-    }
-
-    let fallback = default_for_key(key).to_string();
-    upsert_setting(conn, key, &fallback).await?;
-    Ok(fallback)
-}
-
-async fn upsert_setting(
-    conn: &mut SqliteConnection,
-    key: &str,
-    value: &str,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        "INSERT INTO settings (key, value, description) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    )
-    .bind(key)
-    .bind(value)
-    .bind(description_for_key(key))
-    .execute(conn)
-    .await?;
-    Ok(())
-}
-
-fn default_for_key(key: &str) -> &'static str {
-    match key {
-        KEY_AI_TIER2_AUTO => "false",
-        KEY_AI_TIER3_AUTO => "false",
-        KEY_AI_BATCH_SIZE => "",
-        KEY_AI_DELAY => "",
-        KEY_IMPORT_COMMIT_BATCH_SIZE => "",
-        KEY_IMAGE_PREFERENCE => "2d",
-        KEY_PREVIEW_3D_PROFILE => "balanced",
-        _ => "",
-    }
-}
-
-fn description_for_key(key: &str) -> &'static str {
-    match key {
-        KEY_AI_TIER2_AUTO => "Run Tier 2 (Gemini text AI) automatically during import when a Google API key is present.",
-        KEY_AI_TIER3_AUTO => "Run Tier 3 (Gemini vision AI) automatically during import when a Google API key is present.",
-        KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
-        KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds).",
-        KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
-        KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
-        KEY_IMAGE_PREFERENCE => "Preferred preview image type for import-created previews: 2d or 3d.",
-        KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
-        _ => "",
-    }
-}
-
-fn normalize_image_preference(raw: &str) -> String {
-    let value = raw.trim().to_ascii_lowercase();
-    if value == "3d" {
-        "3d".to_string()
-    } else {
-        "2d".to_string()
-    }
-}
-
-fn normalize_preview_3d_profile(raw: &str) -> String {
-    let value = raw.trim().to_ascii_lowercase();
-    match value.as_str() {
-        "soft" => "soft".to_string(),
-        "high-contrast" | "high_contrast" | "highcontrast" => "high-contrast".to_string(),
-        _ => "balanced".to_string(),
-    }
-}
-
-fn normalize_optional_batch_size(raw: &str) -> String {
-    let value = raw.trim();
-    if value.is_empty() {
-        return "".to_string();
-    }
-
-    match value.parse::<i64>() {
-        Ok(parsed) => parsed.clamp(1, 10_000).to_string(),
-        Err(_) => "".to_string(),
-    }
-}
-
-fn normalize_optional_delay(raw: &str) -> String {
-    let value = raw.trim();
-    if value.is_empty() {
-        return "".to_string();
-    }
-
-    match value.parse::<f64>() {
-        Ok(parsed) if parsed >= 0.0 => {
-            if (parsed.fract() - 0.0).abs() < f64::EPSILON {
-                format!("{:.1}", parsed)
-            } else {
-                parsed.to_string()
-            }
-        }
-        _ => "".to_string(),
-    }
-}
-
-fn bool_to_setting(value: bool) -> &'static str {
-    if value {
-        "true"
-    } else {
-        "false"
-    }
-}
-
-fn is_truthy(raw: &str) -> bool {
-    matches!(
-        raw.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "y" | "accepted"
-    )
-}
-
-fn save_google_api_key_to_env(value: &str) -> Result<(), String> {
-    let env_path = Path::new(".env");
-    let existing = std::fs::read_to_string(env_path).unwrap_or_default();
-
-    let mut lines = Vec::new();
-    let mut replaced = false;
-
-    for line in existing.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("GOOGLE_API_KEY=") {
-            if !value.trim().is_empty() {
-                lines.push(format!("GOOGLE_API_KEY={}", value.trim()));
-            }
-            replaced = true;
-        } else {
-            lines.push(line.to_string());
-        }
-    }
-
-    if !replaced && !value.trim().is_empty() {
-        lines.push(format!("GOOGLE_API_KEY={}", value.trim()));
-    }
-
-    let mut output = lines.join("\n");
-    if !output.is_empty() {
-        output.push('\n');
-    }
-
-    std::fs::write(env_path, output).map_err(|e| format!("Failed to update .env: {}", e))?;
-
-    if value.trim().is_empty() {
-        std::env::remove_var("GOOGLE_API_KEY");
-    } else {
-        std::env::set_var("GOOGLE_API_KEY", value.trim());
-    }
-
-    Ok(())
+    settings::browse_settings_data_root(start_dir)
 }
 
 #[cfg(test)]
@@ -413,7 +66,7 @@ mod tests {
     use crate::logging::LogGuard;
     use crate::utils::test_support::lock_env;
     use sqlx::sqlite::SqlitePoolOptions;
-    use sqlx::SqlitePool;
+    use sqlx::{SqliteConnection, SqlitePool};
     use std::sync::atomic::AtomicBool;
 
     // ─── Helper: create a settings table in an in-memory pool ──────────
@@ -474,93 +127,93 @@ mod tests {
 
     #[test]
     fn normalize_image_preference_whitelists_to_2d_or_3d() {
-        assert_eq!(normalize_image_preference("3d"), "3d");
-        assert_eq!(normalize_image_preference(" 3D "), "3d");
-        assert_eq!(normalize_image_preference("2d"), "2d");
-        assert_eq!(normalize_image_preference("unexpected"), "2d");
-        assert_eq!(normalize_image_preference(""), "2d");
+        assert_eq!(settings::normalize_image_preference("3d"), "3d");
+        assert_eq!(settings::normalize_image_preference(" 3D "), "3d");
+        assert_eq!(settings::normalize_image_preference("2d"), "2d");
+        assert_eq!(settings::normalize_image_preference("unexpected"), "2d");
+        assert_eq!(settings::normalize_image_preference(""), "2d");
     }
 
     #[test]
     fn normalize_preview_3d_profile_whitelists_supported_profiles() {
-        assert_eq!(normalize_preview_3d_profile("soft"), "soft");
-        assert_eq!(normalize_preview_3d_profile("  SOFT "), "soft");
-        assert_eq!(normalize_preview_3d_profile("balanced"), "balanced");
+        assert_eq!(settings::normalize_preview_3d_profile("soft"), "soft");
+        assert_eq!(settings::normalize_preview_3d_profile("  SOFT "), "soft");
+        assert_eq!(settings::normalize_preview_3d_profile("balanced"), "balanced");
         assert_eq!(
-            normalize_preview_3d_profile("high-contrast"),
+            settings::normalize_preview_3d_profile("high-contrast"),
             "high-contrast"
         );
         assert_eq!(
-            normalize_preview_3d_profile("HIGH_CONTRAST"),
+            settings::normalize_preview_3d_profile("HIGH_CONTRAST"),
             "high-contrast"
         );
-        assert_eq!(normalize_preview_3d_profile("other"), "balanced");
+        assert_eq!(settings::normalize_preview_3d_profile("other"), "balanced");
     }
 
     #[test]
     fn normalize_optional_batch_size_clamps_and_rejects_invalid() {
-        assert_eq!(normalize_optional_batch_size(""), "");
-        assert_eq!(normalize_optional_batch_size("abc"), "");
-        assert_eq!(normalize_optional_batch_size("0"), "1");
-        assert_eq!(normalize_optional_batch_size("1"), "1");
-        assert_eq!(normalize_optional_batch_size("10001"), "10000");
-        assert_eq!(normalize_optional_batch_size("  42  "), "42");
+        assert_eq!(settings::normalize_optional_batch_size(""), "");
+        assert_eq!(settings::normalize_optional_batch_size("abc"), "");
+        assert_eq!(settings::normalize_optional_batch_size("0"), "1");
+        assert_eq!(settings::normalize_optional_batch_size("1"), "1");
+        assert_eq!(settings::normalize_optional_batch_size("10001"), "10000");
+        assert_eq!(settings::normalize_optional_batch_size("  42  "), "42");
     }
 
     #[test]
     fn normalize_optional_delay_handles_blank_invalid_and_whole_numbers() {
-        assert_eq!(normalize_optional_delay(""), "");
-        assert_eq!(normalize_optional_delay("nope"), "");
-        assert_eq!(normalize_optional_delay("-1"), "");
-        assert_eq!(normalize_optional_delay("0"), "0.0");
-        assert_eq!(normalize_optional_delay("6"), "6.0");
-        assert_eq!(normalize_optional_delay("6.5"), "6.5");
-        assert_eq!(normalize_optional_delay(" 2.25 "), "2.25");
+        assert_eq!(settings::normalize_optional_delay(""), "");
+        assert_eq!(settings::normalize_optional_delay("nope"), "");
+        assert_eq!(settings::normalize_optional_delay("-1"), "");
+        assert_eq!(settings::normalize_optional_delay("0"), "0.0");
+        assert_eq!(settings::normalize_optional_delay("6"), "6.0");
+        assert_eq!(settings::normalize_optional_delay("6.5"), "6.5");
+        assert_eq!(settings::normalize_optional_delay(" 2.25 "), "2.25");
     }
 
     #[test]
     fn truthy_parser_matches_expected_legacy_values() {
-        assert!(is_truthy("1"));
-        assert!(is_truthy("true"));
-        assert!(is_truthy("YES"));
-        assert!(is_truthy(" y "));
-        assert!(is_truthy("accepted"));
+        assert!(settings::is_truthy("1"));
+        assert!(settings::is_truthy("true"));
+        assert!(settings::is_truthy("YES"));
+        assert!(settings::is_truthy(" y "));
+        assert!(settings::is_truthy("accepted"));
 
-        assert!(!is_truthy("0"));
-        assert!(!is_truthy("false"));
-        assert!(!is_truthy(""));
-        assert!(!is_truthy("maybe"));
+        assert!(!settings::is_truthy("0"));
+        assert!(!settings::is_truthy("false"));
+        assert!(!settings::is_truthy(""));
+        assert!(!settings::is_truthy("maybe"));
     }
 
     #[test]
     fn bool_to_setting_returns_expected_strings() {
-        assert_eq!(bool_to_setting(true), "true");
-        assert_eq!(bool_to_setting(false), "false");
+        assert_eq!(settings::bool_to_setting(true), "true");
+        assert_eq!(settings::bool_to_setting(false), "false");
     }
 
     #[test]
     fn default_for_key_returns_correct_defaults() {
-        assert_eq!(default_for_key(KEY_AI_TIER2_AUTO), "false");
-        assert_eq!(default_for_key(KEY_AI_TIER3_AUTO), "false");
-        assert_eq!(default_for_key(KEY_AI_BATCH_SIZE), "");
-        assert_eq!(default_for_key(KEY_AI_DELAY), "");
-        assert_eq!(default_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE), "");
-        assert_eq!(default_for_key(KEY_IMAGE_PREFERENCE), "2d");
-        assert_eq!(default_for_key(KEY_PREVIEW_3D_PROFILE), "balanced");
-        assert_eq!(default_for_key("unknown_key"), "");
+        assert_eq!(settings::default_for_key(settings::KEY_AI_TIER2_AUTO), "false");
+        assert_eq!(settings::default_for_key(settings::KEY_AI_TIER3_AUTO), "false");
+        assert_eq!(settings::default_for_key(settings::KEY_AI_BATCH_SIZE), "");
+        assert_eq!(settings::default_for_key(settings::KEY_AI_DELAY), "");
+        assert_eq!(settings::default_for_key(settings::KEY_IMPORT_COMMIT_BATCH_SIZE), "");
+        assert_eq!(settings::default_for_key(settings::KEY_IMAGE_PREFERENCE), "2d");
+        assert_eq!(settings::default_for_key(settings::KEY_PREVIEW_3D_PROFILE), "balanced");
+        assert_eq!(settings::default_for_key("unknown_key"), "");
     }
 
     #[test]
     fn description_for_key_returns_correct_descriptions() {
-        assert!(description_for_key(KEY_AI_TIER2_AUTO).contains("Tier 2"));
-        assert!(description_for_key(KEY_AI_TIER3_AUTO).contains("Tier 3"));
-        assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("designs"));
-        assert!(description_for_key(KEY_AI_DELAY).contains("Gemini"));
-        assert!(description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE).contains("commit"));
-        assert!(description_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER).contains("picker"));
-        assert!(description_for_key(KEY_IMAGE_PREFERENCE).contains("preview"));
-        assert!(description_for_key(KEY_PREVIEW_3D_PROFILE).contains("3D"));
-        assert_eq!(description_for_key("unknown_key"), "");
+        assert!(settings::description_for_key(settings::KEY_AI_TIER2_AUTO).contains("Tier 2"));
+        assert!(settings::description_for_key(settings::KEY_AI_TIER3_AUTO).contains("Tier 3"));
+        assert!(settings::description_for_key(settings::KEY_AI_BATCH_SIZE).contains("designs"));
+        assert!(settings::description_for_key(settings::KEY_AI_DELAY).contains("Gemini"));
+        assert!(settings::description_for_key(settings::KEY_IMPORT_COMMIT_BATCH_SIZE).contains("commit"));
+        assert!(settings::description_for_key(settings::KEY_IMPORT_LAST_BROWSE_FOLDER).contains("picker"));
+        assert!(settings::description_for_key(settings::KEY_IMAGE_PREFERENCE).contains("preview"));
+        assert!(settings::description_for_key(settings::KEY_PREVIEW_3D_PROFILE).contains("3D"));
+        assert_eq!(settings::description_for_key("unknown_key"), "");
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -572,7 +225,7 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        upsert_setting(&mut conn, "test.key", "test_value")
+        settings::upsert_setting(&mut conn, "test.key", "test_value")
             .await
             .expect("upsert should succeed");
 
@@ -585,7 +238,7 @@ mod tests {
         .expect("row should exist");
 
         assert_eq!(row.0, "test_value");
-        assert_eq!(row.1, description_for_key("test.key"));
+        assert_eq!(row.1, settings::description_for_key("test.key"));
     }
 
     #[tokio::test]
@@ -593,10 +246,10 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        upsert_setting(&mut conn, "test.key", "original")
+        settings::upsert_setting(&mut conn, "test.key", "original")
             .await
             .expect("first upsert should succeed");
-        upsert_setting(&mut conn, "test.key", "updated")
+        settings::upsert_setting(&mut conn, "test.key", "updated")
             .await
             .expect("second upsert should succeed");
 
@@ -610,7 +263,7 @@ mod tests {
 
         assert_eq!(value, "updated");
         // Description should remain the same (ON CONFLICT only updates value)
-        assert_eq!(desc, description_for_key("test.key"));
+        assert_eq!(desc, settings::description_for_key("test.key"));
     }
 
     #[tokio::test]
@@ -618,11 +271,11 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        upsert_setting(&mut conn, KEY_IMAGE_PREFERENCE, "3d")
+        settings::upsert_setting(&mut conn, settings::KEY_IMAGE_PREFERENCE, "3d")
             .await
             .expect("upsert should succeed");
 
-        let result = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
+        let result = settings::get_setting_with_default(&mut conn, settings::KEY_IMAGE_PREFERENCE)
             .await
             .expect("get should succeed");
 
@@ -634,7 +287,7 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        let result = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE)
+        let result = settings::get_setting_with_default(&mut conn, settings::KEY_IMAGE_PREFERENCE)
             .await
             .expect("get should succeed");
 
@@ -642,7 +295,7 @@ mod tests {
 
         // Verify the fallback was persisted
         let (value,): (String,) = sqlx::query_as("SELECT value FROM settings WHERE key = ?")
-            .bind(KEY_IMAGE_PREFERENCE)
+            .bind(settings::KEY_IMAGE_PREFERENCE)
             .fetch_one(&mut *conn)
             .await
             .expect("row should have been inserted");
@@ -654,7 +307,7 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        let result = get_setting_with_default(&mut conn, KEY_AI_BATCH_SIZE)
+        let result = settings::get_setting_with_default(&mut conn, settings::KEY_AI_BATCH_SIZE)
             .await
             .expect("get should succeed");
 
@@ -667,7 +320,7 @@ mod tests {
 
     #[test]
     fn browse_data_root_returns_expected_fallback_shapes() {
-        let with_start = browse_settings_data_root(Some("D:/catalogue".to_string()));
+        let with_start = settings::browse_settings_data_root(Some("D:/catalogue".to_string()));
         assert!(with_start.path.is_none());
         assert!(with_start
             .error
@@ -675,7 +328,7 @@ mod tests {
             .unwrap_or_default()
             .contains("D:/catalogue"));
 
-        let without_start = browse_settings_data_root(None);
+        let without_start = settings::browse_settings_data_root(None);
         assert!(without_start.path.is_none());
         assert!(without_start
             .error
@@ -770,22 +423,22 @@ mod tests {
 
         // Pre-load some custom settings
         let mut conn = pool.acquire().await.expect("connection");
-        upsert_setting(&mut conn, KEY_IMAGE_PREFERENCE, "3d")
+        settings::upsert_setting(&mut conn, settings::KEY_IMAGE_PREFERENCE, "3d")
             .await
             .expect("upsert");
-        upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, "soft")
+        settings::upsert_setting(&mut conn, settings::KEY_PREVIEW_3D_PROFILE, "soft")
             .await
             .expect("upsert");
-        upsert_setting(&mut conn, KEY_AI_TIER2_AUTO, "true")
+        settings::upsert_setting(&mut conn, settings::KEY_AI_TIER2_AUTO, "true")
             .await
             .expect("upsert");
-        upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, "50")
+        settings::upsert_setting(&mut conn, settings::KEY_AI_BATCH_SIZE, "50")
             .await
             .expect("upsert");
-        upsert_setting(&mut conn, KEY_AI_DELAY, "2.5")
+        settings::upsert_setting(&mut conn, settings::KEY_AI_DELAY, "2.5")
             .await
             .expect("upsert");
-        upsert_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER, "D:/imports")
+        settings::upsert_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER, "D:/imports")
             .await
             .expect("upsert");
         drop(conn);
@@ -858,7 +511,7 @@ mod tests {
 
         // Verify in DB
         let mut conn = state.db.acquire().await.expect("connection");
-        let setting = crate::settings::get_setting(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER)
+        let setting = crate::settings::get_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER)
             .await
             .expect("get setting")
             .expect("setting should exist");
@@ -920,31 +573,31 @@ mod tests {
         }
 
         assert_eq!(
-            read_setting(&mut conn, KEY_IMAGE_PREFERENCE).await,
+            read_setting(&mut conn, settings::KEY_IMAGE_PREFERENCE).await,
             "3d"
         );
         assert_eq!(
-            read_setting(&mut conn, KEY_PREVIEW_3D_PROFILE).await,
+            read_setting(&mut conn, settings::KEY_PREVIEW_3D_PROFILE).await,
             "high-contrast"
         );
         assert_eq!(
-            read_setting(&mut conn, KEY_AI_TIER2_AUTO).await,
+            read_setting(&mut conn, settings::KEY_AI_TIER2_AUTO).await,
             "true"
         );
         assert_eq!(
-            read_setting(&mut conn, KEY_AI_TIER3_AUTO).await,
+            read_setting(&mut conn, settings::KEY_AI_TIER3_AUTO).await,
             "false"
         );
         assert_eq!(
-            read_setting(&mut conn, KEY_AI_BATCH_SIZE).await,
+            read_setting(&mut conn, settings::KEY_AI_BATCH_SIZE).await,
             "25"
         );
         assert_eq!(
-            read_setting(&mut conn, KEY_AI_DELAY).await,
+            read_setting(&mut conn, settings::KEY_AI_DELAY).await,
             "1.5"
         );
         assert_eq!(
-            read_setting(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE).await,
+            read_setting(&mut conn, settings::KEY_IMPORT_COMMIT_BATCH_SIZE).await,
             "100"
         );
         drop(conn);
@@ -1120,7 +773,7 @@ mod tests {
         std::fs::create_dir_all(&test_dir).expect("test dir should be created");
         std::env::set_current_dir(&test_dir).expect("should switch into test dir");
 
-        let write_result = save_google_api_key_to_env("test-key-123");
+        let write_result = settings::save_google_api_key_to_env("test-key-123");
         assert!(write_result.is_ok());
         let written = std::fs::read_to_string(test_dir.join(".env")).expect(".env should exist");
         assert!(written.contains("GOOGLE_API_KEY=test-key-123"));
@@ -1129,7 +782,7 @@ mod tests {
             "test-key-123"
         );
 
-        let clear_result = save_google_api_key_to_env("");
+        let clear_result = settings::save_google_api_key_to_env("");
         assert!(clear_result.is_ok());
         let cleared =
             std::fs::read_to_string(test_dir.join(".env")).expect(".env should still exist");

@@ -23,6 +23,7 @@ const DEFAULT_VISION_DELAY_SECONDS: f64 = 2.0;
 const DEFAULT_BATCH_SIZE: i64 = 100;
 const DEFAULT_COMMIT_EVERY: i64 = 100;
 const DEFAULT_WORKERS: i64 = 4;
+#[cfg(test)]
 const LOG_DIR: &str = "logs";
 const ERROR_LOG_FILE: &str = "backfill_errors.log";
 const INFO_LOG_FILE: &str = "backfill_info.log";
