@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
 use crate::services::stitch_identifier;
 use crate::services::tagging;
@@ -130,7 +131,7 @@ pub async fn run_unified_backfill(
     pool: &SqlitePool,
     request: UnifiedBackfillRequest,
     has_api_key: bool,
-) -> Result<UnifiedBackfillSummary, String> {
+) -> Result<UnifiedBackfillSummary, AppError> {
     clear_stop_signal();
     truncate_logs_for_new_run()?;
 
@@ -374,10 +375,9 @@ pub async fn run_unified_backfill(
     if let Some(fp_action) = actions.fingerprinting {
         if fp_action.enabled.unwrap_or(true) {
             actions_run.push("fingerprinting".to_string());
-            let fp_summary =
-                crate::services::fingerprint::run_fingerprint_backfill(pool, commit_every)
-                    .await
-                    .map_err(|e| format!("Fingerprint backfill failed: {}", e))?;
+            let fp_summary = crate::services::fingerprint::run_fingerprint_backfill(pool, commit_every)
+                .await
+                .map_err(|e| AppError::database(format!("Fingerprint backfill failed: {e}")))?;
             processed += fp_summary.processed;
             errors += fp_summary.errors;
             if fp_summary.stopped {
@@ -414,8 +414,8 @@ pub async fn get_backfill_log_entries(
     let bounded = limit.clamp(1, 200) as usize;
     let mut entries = Vec::new();
 
-    entries.extend(read_log_tail(&info_log_path(), "info", bounded)?);
-    entries.extend(read_log_tail(&error_log_path(), "error", bounded)?);
+    entries.extend(read_log_tail(&info_log_path(), "info", bounded).map_err(|e| e.to_string())?);
+    entries.extend(read_log_tail(&error_log_path(), "error", bounded).map_err(|e| e.to_string())?);
 
     if entries.len() > bounded {
         entries = entries[entries.len() - bounded..].to_vec();
@@ -452,18 +452,18 @@ fn normalize_tiers(raw: Option<&[i64]>, has_api_key: bool) -> HashSet<i64> {
     tiers
 }
 
-async fn get_image_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, String> {
+async fn get_image_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, AppError> {
     let rows = sqlx::query(
 		"SELECT id, description FROM tags WHERE lower(COALESCE(tag_group, '')) = 'image' ORDER BY description COLLATE NOCASE",
 	)
 	.fetch_all(pool)
 	.await
-	.map_err(|e| e.to_string())?;
+	.map_err(|e| AppError::database(format!("failed to load image tag lookup: {e}")))?;
 
     let mut map = HashMap::new();
     for row in rows {
-        let tag_id: i64 = row.try_get("id").map_err(|e| e.to_string())?;
-        let description: String = row.try_get("description").map_err(|e| e.to_string())?;
+        let tag_id: i64 = row.try_get("id").map_err(|e| AppError::database(format!("failed to read tag id: {e}")))?;
+        let description: String = row.try_get("description").map_err(|e| AppError::database(format!("failed to read tag description: {e}")))?;
         map.insert(description, tag_id);
     }
 
@@ -474,7 +474,7 @@ async fn select_tagging_design_ids(
     pool: &SqlitePool,
     mode: &str,
     limit: i64,
-) -> Result<Vec<i64>, String> {
+) -> Result<Vec<i64>, AppError> {
     let sql = match mode {
         TAG_ACTION_RETAG_ALL => "SELECT id FROM designs ORDER BY id ASC LIMIT ?",
         TAG_ACTION_RETAG_ALL_UNVERIFIED => {
@@ -498,11 +498,11 @@ async fn select_tagging_design_ids(
         .bind(limit)
         .fetch_all(pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::database(format!("failed to select tagging design ids: {e}")))?;
 
     let mut ids = Vec::with_capacity(rows.len());
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| e.to_string())?);
+        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read tagging design id: {e}")))?);
     }
     Ok(ids)
 }
@@ -517,20 +517,20 @@ async fn apply_tagging_tiers(
     tier3_enabled: bool,
     tier2_delay_seconds: f64,
     tier3_delay_seconds: f64,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let row = sqlx::query("SELECT filename, filepath, image_data FROM designs WHERE id = ?")
         .bind(design_id)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::database(format!("failed to read design row for tagging: {e}")))?;
 
     let Some(row) = row else {
         return Ok(());
     };
 
-    let filename: String = row.try_get("filename").map_err(|e| e.to_string())?;
-    let filepath: String = row.try_get("filepath").map_err(|e| e.to_string())?;
-    let image_data: Option<Vec<u8>> = row.try_get("image_data").map_err(|e| e.to_string())?;
+    let filename: String = row.try_get("filename").map_err(|e| AppError::database(format!("failed to read filename: {e}")))?;
+    let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let image_data: Option<Vec<u8>> = row.try_get("image_data").map_err(|e| AppError::database(format!("failed to read image data: {e}")))?;
 
     if tier1_enabled {
         let tier1 = tagging::suggest_tier1_descriptions(&filename, &filepath, valid_descriptions);
@@ -622,7 +622,7 @@ async fn apply_image_tags_and_tier(
     image_tag_map: &HashMap<String, i64>,
     descriptions: Vec<String>,
     tier: i64,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if descriptions.is_empty() {
         return Ok(());
     }
@@ -635,7 +635,7 @@ async fn apply_image_tags_and_tier(
     .bind(design_id)
     .execute(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
 
     for description in descriptions {
         if let Some(tag_id) = image_tag_map.get(&description) {
@@ -644,7 +644,7 @@ async fn apply_image_tags_and_tier(
                 .bind(*tag_id)
                 .execute(pool)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| AppError::database(format!("failed to insert image tag: {e}")))?;
         }
     }
 
@@ -653,12 +653,12 @@ async fn apply_image_tags_and_tier(
         .bind(design_id)
         .execute(pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::database(format!("failed to update tagging tier: {e}")))?;
 
     Ok(())
 }
 
-async fn clear_unverified_stitching_tags(pool: &SqlitePool) -> Result<Vec<i64>, String> {
+async fn clear_unverified_stitching_tags(pool: &SqlitePool) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query(
         "SELECT DISTINCT dt.design_id AS id
 		 FROM design_tags dt
@@ -669,7 +669,7 @@ async fn clear_unverified_stitching_tags(pool: &SqlitePool) -> Result<Vec<i64>, 
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to load unverified stitching tag candidates: {e}")))?;
 
     sqlx::query(
         "DELETE FROM design_tags
@@ -678,11 +678,11 @@ async fn clear_unverified_stitching_tags(pool: &SqlitePool) -> Result<Vec<i64>, 
     )
     .execute(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to clear unverified stitching tags: {e}")))?;
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| e.to_string())?);
+        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read stitching-design id: {e}")))?);
     }
     Ok(ids)
 }
@@ -690,7 +690,7 @@ async fn clear_unverified_stitching_tags(pool: &SqlitePool) -> Result<Vec<i64>, 
 async fn select_stitching_candidates(
     pool: &SqlitePool,
     limit: i64,
-) -> Result<Vec<StitchingCandidate>, String> {
+) -> Result<Vec<StitchingCandidate>, AppError> {
     let rows = sqlx::query(
         "SELECT d.id, d.filename, d.filepath
 		 FROM designs d
@@ -706,18 +706,18 @@ async fn select_stitching_candidates(
     .bind(limit)
     .fetch_all(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to select stitching candidates: {e}")))?;
 
     let mut candidates = Vec::new();
     for row in rows {
         candidates.push(StitchingCandidate {
-            id: row.try_get::<i64, _>("id").map_err(|e| e.to_string())?,
+            id: row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read stitching candidate id: {e}")))?,
             filename: row
                 .try_get::<String, _>("filename")
-                .map_err(|e| e.to_string())?,
+                .map_err(|e| AppError::database(format!("failed to read stitching filename: {e}")))?,
             filepath: row
                 .try_get::<String, _>("filepath")
-                .map_err(|e| e.to_string())?,
+                .map_err(|e| AppError::database(format!("failed to read stitching filepath: {e}")))?,
         });
     }
     Ok(candidates)
@@ -730,7 +730,7 @@ struct StitchingCandidate {
     filepath: String,
 }
 
-async fn get_stitching_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, String> {
+async fn get_stitching_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, AppError> {
     let rows = sqlx::query(
         "SELECT id, description
 		 FROM tags
@@ -738,20 +738,20 @@ async fn get_stitching_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to load stitching tag lookup: {e}")))?;
 
     let mut map = HashMap::new();
     for row in rows {
-        let tag_id = row.try_get::<i64, _>("id").map_err(|e| e.to_string())?;
+        let tag_id = row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read stitching tag id: {e}")))?;
         let description = row
             .try_get::<String, _>("description")
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::database(format!("failed to read stitching tag description: {e}")))?;
         map.insert(description, tag_id);
     }
     Ok(map)
 }
 
-async fn get_default_stitching_tag_id(pool: &SqlitePool) -> Result<Option<i64>, String> {
+async fn get_default_stitching_tag_id(pool: &SqlitePool) -> Result<Option<i64>, AppError> {
     let row = sqlx::query(
 		"SELECT id
 		 FROM tags
@@ -761,7 +761,7 @@ async fn get_default_stitching_tag_id(pool: &SqlitePool) -> Result<Option<i64>, 
 	)
 	.fetch_optional(pool)
 	.await
-	.map_err(|e| e.to_string())?;
+	.map_err(|e| AppError::database(format!("failed to read default stitching tag id: {e}")))?;
 
     Ok(row.and_then(|record| record.try_get::<i64, _>("id").ok()))
 }
@@ -770,7 +770,7 @@ async fn apply_stitching_tags(
     pool: &SqlitePool,
     design_id: i64,
     tag_ids: &[i64],
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     sqlx::query(
         "DELETE FROM design_tags
 		 WHERE design_id = ?
@@ -779,7 +779,7 @@ async fn apply_stitching_tags(
     .bind(design_id)
     .execute(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to clear unverified stitching tags: {e}")))?;
 
     for tag_id in tag_ids {
         sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
@@ -787,7 +787,7 @@ async fn apply_stitching_tags(
             .bind(*tag_id)
             .execute(pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::database(format!("failed to insert stitching tag: {e}")))?;
     }
 
     Ok(())
@@ -799,7 +799,7 @@ async fn select_image_candidates(
     upgrade_2d_to_3d: bool,
     preview_3d: bool,
     limit: i64,
-) -> Result<Vec<i64>, String> {
+) -> Result<Vec<i64>, AppError> {
     let sql = if redo {
         "SELECT id FROM designs ORDER BY id ASC LIMIT ?"
     } else if upgrade_2d_to_3d && preview_3d {
@@ -812,16 +812,16 @@ async fn select_image_candidates(
         .bind(limit)
         .fetch_all(pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::database(format!("failed to select image candidates: {e}")))?;
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| e.to_string())?);
+        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read image candidate id: {e}")))?);
     }
     Ok(ids)
 }
 
-async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), String> {
+async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
     sqlx::query(
         "UPDATE designs
 		 SET image_data = NULL,
@@ -833,7 +833,7 @@ async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), Str
     .bind(design_id)
     .execute(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to clear image fields: {e}")))?;
     Ok(())
 }
 
@@ -842,18 +842,18 @@ async fn generate_and_store_preview(
     design_id: i64,
     preview_3d: bool,
     preview_3d_profile: &str,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
         .bind(design_id)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::database(format!("failed to read filepath for preview: {e}")))?;
 
     let Some(row) = row else {
         return Ok(());
     };
 
-    let filepath: String = row.try_get("filepath").map_err(|e| e.to_string())?;
+    let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let result = generate_preview(&ImageGenerationRequest {
         file_path: filepath,
         preview_3d,
@@ -861,7 +861,7 @@ async fn generate_and_store_preview(
     });
 
     if let Some(error) = result.error {
-        return Err(error);
+        return Err(AppError::invalid_input(error));
     }
 
     sqlx::query(
@@ -885,12 +885,12 @@ async fn generate_and_store_preview(
     .bind(design_id)
     .execute(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to store generated preview: {e}")))?;
 
     Ok(())
 }
 
-async fn select_color_count_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<i64>, String> {
+async fn select_color_count_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query(
         "SELECT id
 		 FROM designs
@@ -901,27 +901,27 @@ async fn select_color_count_candidates(pool: &SqlitePool, limit: i64) -> Result<
     .bind(limit)
     .fetch_all(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to select image candidates: {e}")))?;
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| e.to_string())?);
+        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read image candidate id: {e}")))?);
     }
     Ok(ids)
 }
 
-async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(), String> {
+async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
     let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
         .bind(design_id)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::database(format!("failed to read filepath for color counts: {e}")))?;
 
     let Some(row) = row else {
         return Ok(());
     };
 
-    let filepath: String = row.try_get("filepath").map_err(|e| e.to_string())?;
+    let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let result = generate_preview(&ImageGenerationRequest {
         file_path: filepath,
         preview_3d: false,
@@ -929,7 +929,7 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
     });
 
     if let Some(error) = result.error {
-        return Err(error);
+        return Err(AppError::invalid_input(error));
     }
 
     sqlx::query(
@@ -945,39 +945,39 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
     .bind(design_id)
     .execute(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| AppError::database(format!("failed to update color counts: {e}")))?;
 
     Ok(())
 }
 
-async fn get_i64_setting(pool: &SqlitePool, key: &str) -> Result<Option<i64>, String> {
+async fn get_i64_setting(pool: &SqlitePool, key: &str) -> Result<Option<i64>, AppError> {
     let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")
         .bind(key)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| AppError::database(format!("failed to read integer setting {key}: {e}")))?
         .and_then(|row| row.try_get::<String, _>("value").ok());
 
     Ok(value.and_then(|raw| raw.trim().parse::<i64>().ok()))
 }
 
-async fn get_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, String> {
+async fn get_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, AppError> {
     let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")
         .bind(key)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| AppError::database(format!("failed to read float setting {key}: {e}")))?
         .and_then(|row| row.try_get::<String, _>("value").ok());
 
     Ok(value.and_then(|raw| raw.trim().parse::<f64>().ok()))
 }
 
-async fn get_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<String>, String> {
+async fn get_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<String>, AppError> {
     let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")
         .bind(key)
         .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| AppError::database(format!("failed to read string setting {key}: {e}")))?
         .and_then(|row| row.try_get::<String, _>("value").ok())
         .map(|raw| raw.trim().to_ascii_lowercase());
 
@@ -1026,20 +1026,20 @@ fn error_log_path() -> PathBuf {
     log_dir_path().join(ERROR_LOG_FILE)
 }
 
-fn truncate_logs_for_new_run() -> Result<(), String> {
+fn truncate_logs_for_new_run() -> Result<(), AppError> {
     let dir = log_dir_path();
     if let Err(err) = fs::create_dir_all(&dir) {
-        return Err(format!("failed to create log dir {}: {err}", dir.display()));
+        return Err(AppError::io(format!("failed to create log dir {}: {err}", dir.display())));
     }
 
     let info_path = info_log_path();
     let error_path = error_log_path();
 
     if let Err(err) = fs::write(&info_path, "") {
-        return Err(format!("failed to truncate info log {}: {err}", info_path.display()));
+        return Err(AppError::io(format!("failed to truncate info log {}: {err}", info_path.display())));
     }
     if let Err(err) = fs::write(&error_path, "") {
-        return Err(format!("failed to truncate error log {}: {err}", error_path.display()));
+        return Err(AppError::io(format!("failed to truncate error log {}: {err}", error_path.display())));
     }
 
     Ok(())
@@ -1089,11 +1089,11 @@ pub fn log_error(message: String) {
     );
 }
 
-fn read_log_tail(path: &Path, level: &str, limit: usize) -> Result<Vec<BackfillLogEntry>, String> {
+fn read_log_tail(path: &Path, level: &str, limit: usize) -> Result<Vec<BackfillLogEntry>, AppError> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let text = fs::read_to_string(path).map_err(|e| AppError::io(format!("failed to read log file {}: {e}", path.display())))?;
     let mut lines = text
         .lines()
         .filter(|line| !line.trim().is_empty())

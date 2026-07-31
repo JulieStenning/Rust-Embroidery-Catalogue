@@ -90,7 +90,9 @@ pub async fn run_unified_backfill(
     let has_api_key = std::env::var("GOOGLE_API_KEY")
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false);
-    backfill::run_unified_backfill(&state.db, request, has_api_key).await
+    backfill::run_unified_backfill(&state.db, request, has_api_key)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -130,7 +132,9 @@ pub async fn run_stitching_backfill(
         delay_seconds: None,
         vision_delay_seconds: None,
     };
-    backfill::run_unified_backfill(&state.db, request, false).await
+    backfill::run_unified_backfill(&state.db, request, false)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
