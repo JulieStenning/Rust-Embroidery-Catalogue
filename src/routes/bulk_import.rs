@@ -258,6 +258,20 @@ fn bulk_import_context_store() -> &'static Mutex<HashMap<String, StoredBulkImpor
     BULK_IMPORT_CONTEXT_STORE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+fn with_bulk_import_context_store<T, F>(mut f: F) -> Result<T, String>
+where
+    F: FnMut(&mut HashMap<String, StoredBulkImportContext>) -> T,
+{
+    let store = bulk_import_context_store();
+    match store.lock() {
+        Ok(mut guard) => Ok(f(&mut guard)),
+        Err(poisoned) => {
+            tracing::warn!("bulk import context store mutex poisoned; recovering");
+            Ok(f(&mut poisoned.into_inner()))
+        }
+    }
+}
+
 fn current_timestamp_millis() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1400,9 +1414,12 @@ fn persist_bulk_import_confirm_if_initialized(
 }
 
 fn clear_bulk_import_context_store_internal(reason: &str) -> BulkImportContextStoreResetResult {
-    let mut store = bulk_import_context_store().lock().unwrap();
-    let cleared_context_count = store.len();
-    store.clear();
+    let cleared_context_count = with_bulk_import_context_store(|store| {
+        let count = store.len();
+        store.clear();
+        count
+    })
+    .unwrap_or_default();
 
     let reset_at_millis = current_timestamp_millis() as u64;
     BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS.store(reset_at_millis, Ordering::Relaxed);
@@ -1410,7 +1427,7 @@ fn clear_bulk_import_context_store_internal(reason: &str) -> BulkImportContextSt
 
     BulkImportContextStoreResetResult {
         cleared_context_count,
-        active_context_count: store.len(),
+        active_context_count: 0,
         reset_count,
         reset_at_millis,
         reason: reason.to_string(),
@@ -1423,31 +1440,36 @@ pub fn reset_bulk_import_context_store_for_startup() -> BulkImportContextStoreRe
 
 pub fn store_bulk_import_context(confirm_wire: BulkImportConfirmWire) -> String {
     let (token, sequence) = next_bulk_import_context_token();
-    let mut store = bulk_import_context_store().lock().unwrap();
-    prune_bulk_import_context_store(&mut store);
-    let mut stored_wire = canonicalize_bulk_import_confirm_wire(confirm_wire);
-    stored_wire.context_token = Some(token.clone());
-    store.insert(
-        token.clone(),
-        StoredBulkImportContext {
-            confirm_wire: stored_wire,
-            created_at_millis: current_timestamp_millis(),
-            sequence,
-        },
-    );
+    let _ = with_bulk_import_context_store(|store| {
+        prune_bulk_import_context_store(store);
+        let mut stored_wire = canonicalize_bulk_import_confirm_wire(confirm_wire.clone());
+        stored_wire.context_token = Some(token.clone());
+        store.insert(
+            token.clone(),
+            StoredBulkImportContext {
+                confirm_wire: stored_wire,
+                created_at_millis: current_timestamp_millis(),
+                sequence,
+            },
+        );
+    });
     token
 }
 
 pub fn take_bulk_import_context(token: &str) -> Option<BulkImportConfirmWire> {
-    let mut store = bulk_import_context_store().lock().unwrap();
-    prune_bulk_import_context_store(&mut store);
-    store.remove(token).map(|context| context.confirm_wire)
+    with_bulk_import_context_store(|store| {
+        prune_bulk_import_context_store(store);
+        store.remove(token).map(|context| context.confirm_wire)
+    })
+    .unwrap_or_default()
 }
 
 pub fn get_bulk_import_context(token: &str) -> Option<BulkImportConfirmWire> {
-    let mut store = bulk_import_context_store().lock().unwrap();
-    prune_bulk_import_context_store(&mut store);
-    store.get(token).map(|context| context.confirm_wire.clone())
+    with_bulk_import_context_store(|store| {
+        prune_bulk_import_context_store(store);
+        store.get(token).map(|context| context.confirm_wire.clone())
+    })
+    .unwrap_or_default()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1475,12 +1497,15 @@ pub struct BulkImportStopResult {
 
 #[tauri::command]
 pub fn debug_bulk_import_context_store() -> Result<BulkImportContextStoreSummary, String> {
-    let mut store = bulk_import_context_store().lock().unwrap();
-    prune_bulk_import_context_store(&mut store);
+    let active_context_count = with_bulk_import_context_store(|store| {
+        prune_bulk_import_context_store(store);
+        store.len()
+    })
+    .unwrap_or_default();
     let last_reset_at_millis = BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS.load(Ordering::Relaxed);
 
     Ok(BulkImportContextStoreSummary {
-        active_context_count: store.len(),
+        active_context_count,
         max_entries: BULK_IMPORT_CONTEXT_MAX_ENTRIES,
         ttl_seconds: BULK_IMPORT_CONTEXT_TTL.as_secs(),
         reset_count: BULK_IMPORT_CONTEXT_RESET_COUNTER.load(Ordering::Relaxed),

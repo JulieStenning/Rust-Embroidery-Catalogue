@@ -238,7 +238,7 @@ Exit criteria:
 - Retries/timeouts/fallback behavior are explicit and test-covered where applicable.
 
 ## Phase 8: Route Layer (Thin Adapter Pass)
-Status: in progress
+Status: complete
 
 Target modules (order):
 1. `src/routes/about.rs`
@@ -269,8 +269,11 @@ Implementation notes:
 Exit criteria:
 - Route modules primarily perform input mapping, service call, output mapping.
 - Heavy logic concentrated in service/domain modules.
+- Verification evidence: `cargo test --bin embroidery-catalogue` -> 877 passed, 0 failed.
 
 ## Phase 9: Final Hardening and Cleanup
+Status: ready to begin
+
 Target modules:
 - all touched modules
 
