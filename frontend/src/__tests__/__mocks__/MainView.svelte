@@ -1,0 +1,1 @@
+<div data-testid="main-view">Main View</div>
