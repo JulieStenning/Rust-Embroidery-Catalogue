@@ -56,3 +56,4 @@ copy portable files for Julie.bat
 examples/gen_jef_fixture.rs
 coverage/
 temp
+vitest-coverage-confirm.txt
