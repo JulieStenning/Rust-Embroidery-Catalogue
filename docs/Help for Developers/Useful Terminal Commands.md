@@ -1,4 +1,4 @@
-Checking Coverage 
+Checking Coverage
 
 Backend
 cargo llvm-cov --manifest-path Cargo.toml
@@ -16,3 +16,4 @@ cargo llvm-cov test --manifest-path Cargo.toml --open FILENAME
 Svelte
 npx vitest run --coverage
 npx vitest --coverage --ui
+npm test
