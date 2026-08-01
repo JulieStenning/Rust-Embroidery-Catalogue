@@ -51,3 +51,4 @@ Do not generate raw sample code or implementation blocks unless explicitly asked
 ## Provide information
 State the coverage for the test file once all tests have passed. Use the form
 npx vitest run [path/to/module.test.ts] --coverage
+e.g. npx vitest run frontend/src/lib/views/__tests__/ImportView.test.ts --coverage
