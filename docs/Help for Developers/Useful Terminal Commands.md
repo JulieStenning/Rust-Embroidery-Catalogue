@@ -17,3 +17,4 @@ Svelte
 npx vitest run --coverage
 npx vitest --coverage --ui
 npm test
+npx vitest run ModuleName.test.ts --coverage
