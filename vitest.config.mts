@@ -20,5 +20,9 @@ export default defineConfig({
     globals: true,
     include: ["frontend/src/**/*.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
+    coverage: {
+      provider: "istanbul",
+      reporter: ["text"],
+    },
   },
 });
