@@ -12,6 +12,7 @@
 
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
+use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -37,6 +38,10 @@ pub async fn run_fingerprint_backfill(
     let mut processed: i64 = 0;
     let mut errors: i64 = 0;
     let mut missing_files: i64 = 0;
+    // Rows whose fingerprinting fails mid-run must not be re-selected in the
+    // same run, otherwise the loop would re-process them forever. They remain
+    // candidates for a future run so transient failures can be retried.
+    let mut failed_ids: HashSet<i64> = HashSet::new();
 
     loop {
         if backfill::is_stop_requested() {
@@ -45,7 +50,7 @@ pub async fn run_fingerprint_backfill(
 
         // Always fetch from the front of the remaining candidate set.
         // This avoids skipping rows as prior candidates are updated.
-        let batch = select_candidates(pool, commit_every).await?;
+        let batch = select_candidates(pool, commit_every, &failed_ids).await?;
         if batch.is_empty() {
             break;
         }
@@ -66,6 +71,7 @@ pub async fn run_fingerprint_backfill(
                 }
                 Err(err_msg) => {
                     errors += 1;
+                    failed_ids.insert(design_id);
                     backfill::log_error(format!(
                         "Fingerprint backfill failed design_id={} error={}",
                         design_id, err_msg
@@ -94,19 +100,33 @@ struct ProcessResult {
     was_missing: bool,
 }
 
-async fn select_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<FingerprintCandidate>, AppError> {
-    let rows = sqlx::query(
+async fn select_candidates(
+    pool: &SqlitePool,
+    limit: i64,
+    exclude_ids: &HashSet<i64>,
+) -> Result<Vec<FingerprintCandidate>, AppError> {
+    let mut sql = String::from(
         "SELECT id, filepath
          FROM designs
-         WHERE file_size_bytes IS NULL
-            OR file_hash_blake3 IS NULL
-         ORDER BY id ASC
-         LIMIT ?",
-    )
-    .bind(limit)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to select fingerprint candidates: {e}")))?;
+         WHERE (file_size_bytes IS NULL
+            OR file_hash_blake3 IS NULL)",
+    );
+    if !exclude_ids.is_empty() {
+        let placeholders = vec!["?"; exclude_ids.len()].join(", ");
+        sql.push_str(&format!(" AND id NOT IN ({})", placeholders));
+    }
+    sql.push_str(" ORDER BY id ASC LIMIT ?");
+
+    let mut query = sqlx::query(&sql);
+    for id in exclude_ids {
+        query = query.bind(*id);
+    }
+    query = query.bind(limit);
+
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to select fingerprint candidates: {e}")))?;
 
     let mut candidates = Vec::with_capacity(rows.len());
     for row in rows {
@@ -534,7 +554,7 @@ mod tests {
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
             .expect("memory db");
-        let res = select_candidates(&pool, 10).await;
+        let res = select_candidates(&pool, 10, &std::collections::HashSet::new()).await;
         assert!(res.is_err());
     }
 
@@ -564,7 +584,7 @@ mod tests {
             .await
             .expect("insert");
 
-        let res = select_candidates(&pool, 10).await;
+        let res = select_candidates(&pool, 10, &std::collections::HashSet::new()).await;
         assert!(res.is_err());
     }
 
@@ -574,19 +594,45 @@ mod tests {
         backfill::clear_stop_signal();
 
         let pool = make_test_pool().await;
+        // We need fs::metadata to fail with a real (non-NotFound) IO error.
+        // A plain missing path is handled as a "missing file" sentinel and
+        // returns Ok, so it cannot be used here.
+        let blocker = write_temp_file("metadata_blocker.pes", b"x");
+        let bad_path = {
+            #[cfg(windows)]
+            {
+                // '<' and '>' are invalid characters in Windows file names.
+                // The OS rejects the whole path with ERROR_INVALID_NAME
+                // (io::ErrorKind::InvalidInput) before any missing-file
+                // logic can kick in. Note that a file used as an intermediate
+                // directory component does NOT work on Windows: the path is
+                // resolved against the file and the trailing component simply
+                // becomes ERROR_PATH_NOT_FOUND (io::ErrorKind::NotFound).
+                blocker.with_file_name("bad<>.pes")
+            }
+            #[cfg(not(windows))]
+            {
+                // A regular file used as a directory component yields ENOTDIR
+                // (io::ErrorKind::NotADirectory) on Unix-likes.
+                blocker.join("child.pes")
+            }
+        };
+
         sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (1, 'invalid.pes', ?)")
-            .bind("invalid\0path")
+            .bind(bad_path.to_string_lossy().to_string())
             .execute(&pool)
             .await
             .expect("insert");
 
         let candidate = FingerprintCandidate {
             id: 1,
-            filepath: "invalid\0path".to_string(),
+            filepath: bad_path.to_string_lossy().to_string(),
         };
         let res = process_one_design(&pool, candidate).await;
         assert!(res.is_err());
         assert!(matches!(res.unwrap_err(), AppError::Io { .. }));
+
+        let _ = fs::remove_file(&blocker);
     }
 
     #[tokio::test]
@@ -712,22 +758,23 @@ mod tests {
         backfill::clear_stop_signal();
 
         let pool = make_test_pool().await;
+        // A directory path passes fs::metadata but fails fs::File::open, so
+        // process_one_design returns an AppError::Io, which the backfill loop
+        // counts as a per-design error instead of aborting the whole run.
+        let dir = std::env::temp_dir().join("fingerprint_test_dir_backfill");
+        fs::create_dir_all(&dir).expect("create dir");
+
         sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (1, 'error.pes', ?)")
-            .bind("invalid\0path")
+            .bind(dir.to_string_lossy().to_string())
             .execute(&pool)
             .await
             .unwrap();
-
-        tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-            backfill::stop_requested_store(true);
-        });
 
         let summary = run_fingerprint_backfill(&pool, 10).await.unwrap();
         assert!(summary.processed >= 1);
         assert!(summary.errors >= 1);
 
-        backfill::clear_stop_signal();
+        let _ = fs::remove_dir(&dir);
     }
 
     #[tokio::test]
