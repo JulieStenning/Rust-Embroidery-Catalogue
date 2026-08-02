@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/svelte";
+import { render, screen, waitFor, within } from "@testing-library/svelte";
+import userEvent from "@testing-library/user-event";
 import DesignDetailView from "../DesignDetailView.svelte";
 
 // Mock the command adapter module — this prevents real Tauri `invoke` calls
@@ -24,6 +25,18 @@ const adapterMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
+
+// Mock the toast store — every interaction handler calls addToast().
+const toastMock = vi.hoisted(() => ({ addToast: vi.fn() }));
+vi.mock("../../stores/toastStore", () => toastMock);
+
+// Mock the design session store — mutation handlers call trackMutation().
+const sessionMock = vi.hoisted(() => ({
+  designSessionStore: {
+    trackMutation: vi.fn(),
+  },
+}));
+vi.mock("../../stores/designSessionStore", () => sessionMock);
 
 // ---------------------------------------------------------------------------
 // Fixture: a fully-populated DesignDetail returned by the mocked adapter
@@ -90,6 +103,14 @@ const renderDetail = (props = {}) =>
     },
   });
 
+/** Type-guard helper so querySelector results can be passed to user-event/within. */
+function element(value: Element | null | undefined, message?: string): HTMLElement {
+  if (!value) {
+    throw new Error(message ?? "Expected element to exist.");
+  }
+  return value as HTMLElement;
+}
+
 describe("DesignDetailView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -97,7 +118,7 @@ describe("DesignDetailView", () => {
     adapterMocks.getDesignDetail.mockResolvedValue(detailResponse());
     adapterMocks.getDesignImageDataUrl.mockResolvedValue({
       source: "rust",
-      item: null,
+      item: { data_url: "data:image/png;base64,refreshed3d", image_type: "3d" },
     });
     adapterMocks.updateDesignMetadata.mockResolvedValue({
       source: "rust",
@@ -362,6 +383,536 @@ describe("DesignDetailView", () => {
 
       const nextButton = screen.getByTitle("Next design");
       expect(nextButton).toBeDisabled();
+    });
+  });
+
+  describe("star rating interactions", () => {
+    it("calls setDesignRating with the clicked score", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "3 stars" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignRating).toHaveBeenCalledWith(42, 3);
+      });
+      expect(toastMock.addToast).toHaveBeenCalledWith("Rating updated.", "success");
+    });
+
+    it("clears the rating when the active star is clicked", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "4 stars" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignRating).toHaveBeenCalledWith(42, null);
+      });
+    });
+
+    it("clears the rating via the Clear button", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignRating).toHaveBeenCalledWith(42, null);
+      });
+    });
+  });
+
+  describe("status toggle interactions", () => {
+    it("toggles the stitched state off", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Stitched/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignStitched).toHaveBeenCalledWith(42, false);
+      });
+    });
+
+    it("marks a design as verified", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Verify/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignTagsChecked).toHaveBeenCalledWith(42, true);
+      });
+    });
+  });
+
+  describe("tag interactions", () => {
+    it("opens the tag selection modal via Choose tags...", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Choose tags/ }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("dialog", { name: "Choose tags for this design" })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("removes a tag via its × button and tracks the mutation", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Floral")).toBeInTheDocument();
+      });
+
+      const floralPill = element(
+        screen.getByText("Floral").closest("span.group"),
+        "Expected the Floral pill to exist."
+      );
+      const user = userEvent.setup();
+      await user.click(within(floralPill).getByTitle("Remove tag"));
+
+      await waitFor(() => {
+        expect(adapterMocks.removeDesignTag).toHaveBeenCalledWith(42, 11);
+      });
+      expect(toastMock.addToast).toHaveBeenCalledWith("Tag removed.", "success");
+      expect(sessionMock.designSessionStore.trackMutation).toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({ tags: expect.any(Array) })
+      );
+      // Optimistic UI removes the tag pill from the DOM immediately.
+      await waitFor(() => {
+        expect(screen.queryByText("Floral")).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("designer & source auto-save", () => {
+    it("auto-saves when the designer is cleared to None", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.selectOptions(screen.getByLabelText("Designer"), "");
+
+      await waitFor(() => {
+        expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
+          designer_id: null,
+          source_id: 3,
+        });
+      });
+      expect(toastMock.addToast).toHaveBeenCalledWith("Designer updated", "success");
+    });
+
+    it("switches to a second designer from the dropdown", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          designers: [
+            { id: 7, name: "Rose Studio" },
+            { id: 8, name: "Lily Studio" },
+          ],
+        })
+      );
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Lily Studio")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.selectOptions(screen.getByLabelText("Designer"), "8");
+
+      await waitFor(() => {
+        expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
+          designer_id: 8,
+          source_id: 3,
+        });
+      });
+    });
+
+    it("reverts the designer dropdown when the save fails", async () => {
+      adapterMocks.updateDesignMetadata.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Failed to update designer",
+      });
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const designerSelect = screen.getByLabelText("Designer") as HTMLSelectElement;
+      const user = userEvent.setup();
+      await user.selectOptions(designerSelect, "");
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Failed to update designer",
+          "error"
+        );
+      });
+      // The dropdown must revert to the previously known-good value.
+      expect(designerSelect.value).toBe("7");
+    });
+
+    it("auto-saves when the source is cleared to None", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.selectOptions(screen.getByLabelText("Source"), "");
+
+      await waitFor(() => {
+        expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
+          designer_id: 7,
+          source_id: null,
+        });
+      });
+      expect(toastMock.addToast).toHaveBeenCalledWith("Source updated", "success");
+    });
+  });
+
+  describe("notes editing", () => {
+    it("saves updated notes via the Save Notes button", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const notesTextarea = screen.getByPlaceholderText(
+        "Add notes about this design..."
+      );
+      const user = userEvent.setup();
+      await user.clear(notesTextarea);
+      await user.type(notesTextarea, "New notes added in test.");
+
+      await user.click(screen.getByRole("button", { name: "Save Notes" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
+          notes: "New notes added in test.",
+          designer_id: 7,
+          source_id: 3,
+        });
+      });
+    });
+
+    it("disables Save Notes when the notes are unchanged", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("button", { name: "Save Notes" })).toBeDisabled();
+    });
+  });
+
+  describe("project management", () => {
+    it("adds the design to a selected project", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const projectsSection = element(
+        screen.getByText("Projects").closest(".route-card"),
+        "Expected the Projects card to exist."
+      );
+      const projectSelect = within(projectsSection).getByRole("combobox");
+
+      const user = userEvent.setup();
+      await user.selectOptions(projectSelect, "2");
+      await user.click(within(projectsSection).getByRole("button", { name: "Add" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.addDesignToProject).toHaveBeenCalledWith(42, 2);
+      });
+    });
+
+    it("removes the design from a project via its × button", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getAllByText("Wedding Collection").length).toBeGreaterThan(0);
+      });
+
+      const projectsSection = element(
+        screen.getByText("Projects").closest(".route-card"),
+        "Expected the Projects card to exist."
+      );
+      const user = userEvent.setup();
+      await user.click(within(projectsSection).getByTitle("Remove from project"));
+
+      await waitFor(() => {
+        expect(adapterMocks.removeDesignFromProject).toHaveBeenCalledWith(42, 1);
+      });
+    });
+
+    it("disables the Add button while no project is selected", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const projectsSection = element(
+        screen.getByText("Projects").closest(".route-card"),
+        "Expected the Projects card to exist."
+      );
+      expect(
+        within(projectsSection).getByRole("button", { name: "Add" })
+      ).toBeDisabled();
+    });
+  });
+
+  describe("action buttons", () => {
+    it("opens the design in the platform editor", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Open in Editor")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Open in Editor/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.openDesignInEditor).toHaveBeenCalledWith(42);
+      });
+    });
+
+    it("shows the design in the file explorer", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Show in Explorer")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Show in Explorer/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.openDesignInExplorer).toHaveBeenCalledWith(42);
+      });
+    });
+
+    it("renders a 3D preview then refreshes the image data URL", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Generate 3D Preview" })
+        ).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Generate 3D Preview" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42);
+      });
+      await waitFor(() => {
+        expect(adapterMocks.getDesignImageDataUrl).toHaveBeenCalledWith(42);
+      });
+    });
+
+    it("labels the 3D button with a check when the image is already 3D", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          imageDataUrl: "data:image/png;base64,abc",
+          imageType: "3d",
+        })
+      );
+
+      renderDetail();
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "✓ 3D Preview" })
+        ).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("navigation interactions", () => {
+    it("navigates back to the browse view", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Back to Browse/ }));
+
+      expect(navigateTo).toHaveBeenCalledWith("#/designs");
+    });
+
+    it("navigates to the previous browse design", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ detailBrowseIndex: 1, navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTitle("Previous design"));
+
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/41");
+    });
+
+    it("navigates to the next browse design", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ detailBrowseIndex: 1, navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTitle("Next design"));
+
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/43");
+    });
+
+    it("opens the print view for the current design", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Print" }));
+
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/42/print");
+    });
+  });
+
+  describe("delete flow", () => {
+    it("opens the delete confirmation modal", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Delete design")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Delete design" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("heading", { name: "Delete selected design?" })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("confirms deletion, notifies the parent and navigates to browse", async () => {
+      const navigateTo = vi.fn();
+      const onDesignDeleted = vi.fn();
+      renderDetail({ navigateTo, onDesignDeleted });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Delete design" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Delete 1 design" })
+        ).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: "Delete 1 design" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.bulkDeleteDesigns).toHaveBeenCalledWith([42], false);
+      });
+      expect(onDesignDeleted).toHaveBeenCalled();
+      expect(navigateTo).toHaveBeenCalledWith("#/designs");
+    });
+
+    it("shows an error toast and does not navigate when deletion fails", async () => {
+      const navigateTo = vi.fn();
+      adapterMocks.bulkDeleteDesigns.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        deleted_count: 0,
+        files_trashed: 0,
+        errors: ["Permission denied"],
+      });
+
+      renderDetail({ navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Delete design" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Delete 1 design" })
+        ).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: "Delete 1 design" }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Permission denied",
+          "error"
+        );
+      });
+      expect(navigateTo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("filepath and preview rendering", () => {
+    it("shows the 'No preview image saved yet.' placeholder when no data URL exists", async () => {
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText("No preview image saved yet.")).toBeInTheDocument();
+      });
+    });
+
+    it("renders the preview image from the data URL", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({ imageDataUrl: "data:image/png;base64,abc" })
+      );
+
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByAltText("rose-border-01.pes")).toBeInTheDocument();
+      });
+      expect(screen.getByAltText("rose-border-01.pes").getAttribute("src")).toBe(
+        "data:image/png;base64,abc"
+      );
+    });
+
+    it("renders the collapsible file path details", async () => {
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText("C:/designs/rose-border-01.pes")).toBeInTheDocument();
+      });
+      expect(screen.getByText("Show file path")).toBeInTheDocument();
     });
   });
 });
