@@ -44,7 +44,6 @@ const scannedFiles = [
 const settingsResponse = (o: Record<string, unknown> = {}) => ({
   source: "rust",
   model: {
-    image_preference: "2d",
     preview_3d_profile: "balanced",
     google_api_key: "",
     has_google_api_key: false,
@@ -1000,7 +999,6 @@ describe("ImportView precheck flow", () => {
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Review Hoops" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
-    expect(screen.getByLabelText("2D - Fast flat preview")).toBeDisabled();
   });
 });
 
@@ -1014,8 +1012,6 @@ describe("ImportView step 3 actions", () => {
 
     expect(screen.getByText("Before You Import")).toBeInTheDocument();
     expect(screen.getByText("Google AI tagging is not configured")).toBeInTheDocument();
-    expect(screen.getByText("Image Preview Preference")).toBeInTheDocument();
-    expect(screen.getByText("(Saved setting: 2D)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Hoops" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Tags" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Sources" })).toBeInTheDocument();
@@ -1067,7 +1063,6 @@ describe("ImportView step 3 actions", () => {
       contextToken: "tok-123",
       action: "review_hoops",
       confirmSkipHoops: false,
-      imagePreferenceOverride: "2d",
     });
   });
 
@@ -1193,26 +1188,10 @@ describe("ImportView step 3 actions", () => {
         contextToken: "tok-123",
         action: "import_now",
         confirmSkipHoops: true,
-        imagePreferenceOverride: "2d",
       })
     );
   });
 
-  it("uses the selected image preference override when importing", async () => {
-    adapterMocks.getSettingsViewModel.mockResolvedValue(
-      settingsResponse({ image_preference: "3d" })
-    );
-    const { container } = renderHarness("#/import");
-    await gotoStep3(container);
-
-    expect(screen.getByText("(Saved setting: 3D)")).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-
-    await waitFor(() => expect(adapterMocks.runPrecheckAction).toHaveBeenCalled());
-    expect(adapterMocks.runPrecheckAction).toHaveBeenCalledWith(
-      expect.objectContaining({ imagePreferenceOverride: "3d" })
-    );
-  });
 });
 
 // ---------------------------------------------------------------------------

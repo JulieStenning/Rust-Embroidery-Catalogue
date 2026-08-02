@@ -15,7 +15,6 @@
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
-  let settingsImagePreference = $state("2d");
   let settingsHelpUrl = $state("#/help");
   let settingsHasGoogleApiKey = $state(false);
   let settingsLoaded = $state(false);
@@ -30,7 +29,6 @@
   let importPrecheck = $state(/** @type {Record<string, any> | null} */ (null));
   let importPrecheckSource = $state("mock");
   let importPrecheckMessage = $state("Run precheck after selecting files.");
-  let importStep3ImagePreference = $state("2d");
   /** @type {string[]} */
   let importSelectedFiles = $state([]);
   let importContextToken = $state("");
@@ -72,7 +70,6 @@
     try {
       const result = await getSettingsViewModel();
       const model = result.model;
-      settingsImagePreference = model?.image_preference === "3d" ? "3d" : "2d";
       settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
       settingsHasGoogleApiKey = Boolean(model?.google_api_key && String(model.google_api_key).trim().length > 0);
       settingsLoaded = true;
@@ -414,7 +411,6 @@
       importPrecheck = result.precheck || null;
       importPrecheckSource = result.source || "mock";
       importPrecheckMessage = result.message || "Precheck complete.";
-      importStep3ImagePreference = settingsImagePreference === "3d" ? "3d" : "2d";
       importContextToken = String(importPrecheck?.context_token || "");
       navigateTo(importPrecheck ? "#/import/step3" : "#/import/step2");
     } catch (error) {
@@ -462,7 +458,6 @@
         contextToken: importContextToken,
         action,
         confirmSkipHoops,
-        imagePreferenceOverride: importStep3ImagePreference,
       });
 
       const actionResult = result.actionResult || null;
@@ -743,7 +738,6 @@
     importPrecheck = null;
     importPrecheckSource = "mock";
     importPrecheckMessage = "Run precheck after selecting files.";
-    importStep3ImagePreference = "2d";
     importSelectedFiles = [];
     importContextToken = "";
     importActionMessage = "";
@@ -1154,25 +1148,6 @@
             </p>
           </div>
         {/if}
-
-        <div class="ui-section-shell border rounded p-4 bg-white space-y-3 shadow-sm">
-          <p class="font-semibold text-gray-800 text-sm">Image Preview Preference</p>
-          <p class="ui-help-note text-xs text-gray-500">
-            Choose how preview images are generated for this import. 2D is faster (flat render), 3D is slower but shows stitch simulation.
-            Your saved setting is shown below; you can override it for this session.
-          </p>
-          <div class="flex flex-wrap items-center gap-4 text-sm pt-1">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="radio" class="ui-radio accent-indigo-600" name="import-step3-image-preference" value="2d" bind:group={importStep3ImagePreference} disabled={importActionLoading || !importContextToken} />
-              <span class="font-semibold">2D - Fast flat preview</span>
-            </label>
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="radio" class="ui-radio accent-indigo-600" name="import-step3-image-preference" value="3d" bind:group={importStep3ImagePreference} disabled={importActionLoading || !importContextToken} />
-              <span class="font-semibold">3D - Detailed stitch simulation</span>
-            </label>
-            <span class="text-xs text-gray-400">(Saved setting: {settingsImagePreference === "3d" ? "3D" : "2D"})</span>
-          </div>
-        </div>
 
         {#if importPrecheck.is_first_import}
           <div class="ui-section-shell import-folder-card border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded space-y-2 text-sm">

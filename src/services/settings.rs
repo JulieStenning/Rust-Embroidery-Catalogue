@@ -12,12 +12,10 @@ pub const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 pub const KEY_AI_DELAY: &str = "ai.delay";
 pub const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
-pub const KEY_IMAGE_PREFERENCE: &str = "image.preference";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SettingsViewModel {
-    pub image_preference: String,
     pub preview_3d_profile: String,
     pub google_api_key: String,
     pub has_google_api_key: bool,
@@ -37,7 +35,6 @@ pub struct SettingsViewModel {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SaveSettingsRequest {
-    pub image_preference: String,
     #[serde(default)]
     pub preview_3d_profile: String,
     pub google_api_key: String,
@@ -76,7 +73,6 @@ pub(crate) async fn get_settings_view_model_inner(
         .await
         .map_err(|e| AppError::database(e.to_string()))?;
 
-    let image_preference = get_setting_with_default(&mut conn, KEY_IMAGE_PREFERENCE).await?;
     let preview_3d_profile = get_setting_with_default(&mut conn, KEY_PREVIEW_3D_PROFILE).await?;
     let ai_tier2_auto = is_truthy(
         &get_setting_with_default(&mut conn, KEY_AI_TIER2_AUTO).await?,
@@ -107,7 +103,6 @@ pub(crate) async fn get_settings_view_model_inner(
     };
 
     Ok(SettingsViewModel {
-        image_preference,
         preview_3d_profile,
         google_api_key,
         has_google_api_key,
@@ -149,7 +144,6 @@ pub(crate) async fn save_settings_view_model_inner(
     app_state: &AppState,
     request: SaveSettingsRequest,
 ) -> Result<SaveSettingsResult, AppError> {
-    let image_preference = normalize_image_preference(&request.image_preference);
     let preview_3d_profile = normalize_preview_3d_profile(&request.preview_3d_profile);
     let ai_batch_size = normalize_optional_batch_size(&request.ai_batch_size);
     let import_commit_batch_size = normalize_optional_batch_size(&request.import_commit_batch_size);
@@ -166,7 +160,6 @@ pub(crate) async fn save_settings_view_model_inner(
     upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, &ai_batch_size).await?;
     upsert_setting(&mut conn, KEY_AI_DELAY, &ai_delay).await?;
     upsert_setting(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE, &import_commit_batch_size).await?;
-    upsert_setting(&mut conn, KEY_IMAGE_PREFERENCE, &image_preference).await?;
     upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, &preview_3d_profile).await?;
 
     save_google_api_key_to_env(&request.google_api_key)?;
@@ -230,7 +223,6 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_BATCH_SIZE => "",
         KEY_AI_DELAY => "",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "",
-        KEY_IMAGE_PREFERENCE => "2d",
         KEY_PREVIEW_3D_PROFILE => "balanced",
         _ => "",
     }
@@ -244,18 +236,8 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds).",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
-        KEY_IMAGE_PREFERENCE => "Preferred preview image type for import-created previews: 2d or 3d.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
         _ => "",
-    }
-}
-
-pub(crate) fn normalize_image_preference(raw: &str) -> String {
-    let value = raw.trim().to_ascii_lowercase();
-    if value == "3d" {
-        "3d".to_string()
-    } else {
-        "2d".to_string()
     }
 }
 
@@ -358,11 +340,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn normalize_image_preference_whitelists_to_2d_or_3d() {
-        assert_eq!(normalize_image_preference("3d"), "3d");
-        assert_eq!(normalize_image_preference(" 3D "), "3d");
-        assert_eq!(normalize_image_preference("2d"), "2d");
-        assert_eq!(normalize_image_preference("unexpected"), "2d");
-        assert_eq!(normalize_image_preference(""), "2d");
+    fn normalize_preview_3d_profile_whitelists_supported_profiles() {
+        assert_eq!(normalize_preview_3d_profile("soft"), "soft");
+        assert_eq!(normalize_preview_3d_profile("  SOFT "), "soft");
+        assert_eq!(normalize_preview_3d_profile("balanced"), "balanced");
+        assert_eq!(
+            normalize_preview_3d_profile("high-contrast"),
+            "high-contrast"
+        );
+        assert_eq!(
+            normalize_preview_3d_profile("HIGH_CONTRAST"),
+            "high-contrast"
+        );
+        assert_eq!(normalize_preview_3d_profile("other"), "balanced");
     }
 }

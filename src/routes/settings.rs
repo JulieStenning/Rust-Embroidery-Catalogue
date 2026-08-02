@@ -126,15 +126,6 @@ mod tests {
     // ════════════════════════════════════════════════════════════════════
 
     #[test]
-    fn normalize_image_preference_whitelists_to_2d_or_3d() {
-        assert_eq!(settings::normalize_image_preference("3d"), "3d");
-        assert_eq!(settings::normalize_image_preference(" 3D "), "3d");
-        assert_eq!(settings::normalize_image_preference("2d"), "2d");
-        assert_eq!(settings::normalize_image_preference("unexpected"), "2d");
-        assert_eq!(settings::normalize_image_preference(""), "2d");
-    }
-
-    #[test]
     fn normalize_preview_3d_profile_whitelists_supported_profiles() {
         assert_eq!(settings::normalize_preview_3d_profile("soft"), "soft");
         assert_eq!(settings::normalize_preview_3d_profile("  SOFT "), "soft");
@@ -198,7 +189,6 @@ mod tests {
         assert_eq!(settings::default_for_key(settings::KEY_AI_BATCH_SIZE), "");
         assert_eq!(settings::default_for_key(settings::KEY_AI_DELAY), "");
         assert_eq!(settings::default_for_key(settings::KEY_IMPORT_COMMIT_BATCH_SIZE), "");
-        assert_eq!(settings::default_for_key(settings::KEY_IMAGE_PREFERENCE), "2d");
         assert_eq!(settings::default_for_key(settings::KEY_PREVIEW_3D_PROFILE), "balanced");
         assert_eq!(settings::default_for_key("unknown_key"), "");
     }
@@ -211,7 +201,6 @@ mod tests {
         assert!(settings::description_for_key(settings::KEY_AI_DELAY).contains("Gemini"));
         assert!(settings::description_for_key(settings::KEY_IMPORT_COMMIT_BATCH_SIZE).contains("commit"));
         assert!(settings::description_for_key(settings::KEY_IMPORT_LAST_BROWSE_FOLDER).contains("picker"));
-        assert!(settings::description_for_key(settings::KEY_IMAGE_PREFERENCE).contains("preview"));
         assert!(settings::description_for_key(settings::KEY_PREVIEW_3D_PROFILE).contains("3D"));
         assert_eq!(settings::description_for_key("unknown_key"), "");
     }
@@ -271,15 +260,15 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        settings::upsert_setting(&mut conn, settings::KEY_IMAGE_PREFERENCE, "3d")
+        settings::upsert_setting(&mut conn, "test.key", "custom_value")
             .await
             .expect("upsert should succeed");
 
-        let result = settings::get_setting_with_default(&mut conn, settings::KEY_IMAGE_PREFERENCE)
+        let result = settings::get_setting_with_default(&mut conn, "test.key")
             .await
             .expect("get should succeed");
 
-        assert_eq!(result, "3d");
+        assert_eq!(result, "custom_value");
     }
 
     #[tokio::test]
@@ -287,19 +276,19 @@ mod tests {
         let pool = make_pool_and_table().await;
         let mut conn = pool.acquire().await.expect("connection should be acquired");
 
-        let result = settings::get_setting_with_default(&mut conn, settings::KEY_IMAGE_PREFERENCE)
+        let result = settings::get_setting_with_default(&mut conn, settings::KEY_PREVIEW_3D_PROFILE)
             .await
             .expect("get should succeed");
 
-        assert_eq!(result, "2d"); // default_for_key(KEY_IMAGE_PREFERENCE)
+        assert_eq!(result, "balanced"); // default_for_key(KEY_PREVIEW_3D_PROFILE)
 
         // Verify the fallback was persisted
         let (value,): (String,) = sqlx::query_as("SELECT value FROM settings WHERE key = ?")
-            .bind(settings::KEY_IMAGE_PREFERENCE)
+            .bind(settings::KEY_PREVIEW_3D_PROFILE)
             .fetch_one(&mut *conn)
             .await
             .expect("row should have been inserted");
-        assert_eq!(value, "2d");
+        assert_eq!(value, "balanced");
     }
 
     #[tokio::test]
@@ -359,7 +348,6 @@ mod tests {
             .await
             .expect("view model should be retrieved");
 
-        assert_eq!(vm.image_preference, "2d");
         assert_eq!(vm.preview_3d_profile, "balanced");
         assert!(!vm.ai_tier2_auto);
         assert!(!vm.ai_tier3_auto);
@@ -423,9 +411,6 @@ mod tests {
 
         // Pre-load some custom settings
         let mut conn = pool.acquire().await.expect("connection");
-        settings::upsert_setting(&mut conn, settings::KEY_IMAGE_PREFERENCE, "3d")
-            .await
-            .expect("upsert");
         settings::upsert_setting(&mut conn, settings::KEY_PREVIEW_3D_PROFILE, "soft")
             .await
             .expect("upsert");
@@ -447,7 +432,6 @@ mod tests {
             .await
             .expect("view model should be retrieved");
 
-        assert_eq!(vm.image_preference, "3d");
         assert_eq!(vm.preview_3d_profile, "soft");
         assert!(vm.ai_tier2_auto);
         assert_eq!(vm.ai_batch_size, "50");
@@ -544,7 +528,6 @@ mod tests {
         let state = make_app_state(pool, paths);
 
         let request = SaveSettingsRequest {
-            image_preference: " 3D ".to_string(),
             preview_3d_profile: "HIGH_CONTRAST".to_string(),
             google_api_key: "env-key-abc".to_string(),
             ai_tier2_auto: true,
@@ -572,10 +555,6 @@ mod tests {
                 .value
         }
 
-        assert_eq!(
-            read_setting(&mut conn, settings::KEY_IMAGE_PREFERENCE).await,
-            "3d"
-        );
         assert_eq!(
             read_setting(&mut conn, settings::KEY_PREVIEW_3D_PROFILE).await,
             "high-contrast"
@@ -623,7 +602,6 @@ mod tests {
     #[test]
     fn settings_view_model_serializes_all_fields() {
         let vm = SettingsViewModel {
-            image_preference: "2d".to_string(),
             preview_3d_profile: "balanced".to_string(),
             google_api_key: "".to_string(),
             has_google_api_key: false,
@@ -642,7 +620,6 @@ mod tests {
         };
         let json = serde_json::to_value(&vm).expect("serialize");
         let map = json.as_object().expect("should be object");
-        assert!(map.contains_key("image_preference"));
         assert!(map.contains_key("preview_3d_profile"));
         assert!(map.contains_key("google_api_key"));
         assert!(map.contains_key("has_google_api_key"));
@@ -658,13 +635,12 @@ mod tests {
         assert!(map.contains_key("log_folder"));
         assert!(map.contains_key("app_mode"));
         assert!(map.contains_key("ai_tagging_help_url"));
-        assert_eq!(map.len(), 16);
+        assert_eq!(map.len(), 15);
     }
 
     #[test]
     fn save_settings_request_deserializes_all_fields() {
         let json = serde_json::json!({
-            "image_preference": "3d",
             "preview_3d_profile": "soft",
             "google_api_key": "xyz",
             "ai_tier2_auto": true,
@@ -676,7 +652,6 @@ mod tests {
         });
         let req: SaveSettingsRequest =
             serde_json::from_value(json).expect("deserialize");
-        assert_eq!(req.image_preference, "3d");
         assert_eq!(req.preview_3d_profile, "soft");
         assert_eq!(req.google_api_key, "xyz");
         assert!(req.ai_tier2_auto);
@@ -690,7 +665,6 @@ mod tests {
     #[test]
     fn save_settings_request_preview_3d_profile_defaults_to_empty() {
         let json = serde_json::json!({
-            "image_preference": "2d",
             "google_api_key": "",
             "ai_tier2_auto": false,
             "ai_tier3_auto": false,

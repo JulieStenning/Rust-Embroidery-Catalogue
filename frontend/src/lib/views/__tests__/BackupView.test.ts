@@ -39,7 +39,6 @@ const backupResponse = (model: Record<string, unknown>) => ({
 const settingsResponse = (dataRoot = "") => ({
   source: "rust",
   model: {
-    image_preference: "2d",
     preview_3d_profile: "balanced",
     google_api_key: "",
     has_google_api_key: false,

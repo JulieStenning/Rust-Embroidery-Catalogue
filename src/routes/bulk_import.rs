@@ -199,8 +199,6 @@ pub struct BulkImportPrecheckActionRequest {
     pub action: BulkImportPrecheckActionWire,
     #[serde(default)]
     pub confirm_skip_hoops: bool,
-    #[serde(default)]
-    pub image_preference_override: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -376,17 +374,6 @@ fn normalize_import_commit_batch_size(raw_value: Option<&str>) -> usize {
     }
 }
 
-fn normalize_import_image_preference_override(raw_value: Option<&str>) -> Option<bool> {
-    match raw_value
-        .map(str::trim)
-        .map(str::to_ascii_lowercase)
-        .as_deref()
-    {
-        Some("2d") => Some(false),
-        Some("3d") => Some(true),
-        _ => None,
-    }
-}
 
 async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, String> {
     let raw_batch_size: Option<String> =
@@ -1034,18 +1021,14 @@ async fn persist_bulk_import_confirm_wire(
     pool: &SqlitePool,
     confirm_wire: &BulkImportConfirmWire,
     context_token: Option<&str>,
-    image_preference_override: Option<&str>,
 ) -> Result<usize, String> {
     if !confirm_wire.wire.create_on_import {
         return Ok(0);
     }
 
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
-    let preview_3d = match normalize_import_image_preference_override(image_preference_override) {
-        Some(value) => value,
-        None => load_import_preview_3d_if_initialized(pool).await?,
-    };
-    let preview_3d_profile = load_import_preview_3d_profile_if_initialized(pool).await?;
+    let preview_3d = false;
+    let preview_3d_profile = "balanced".to_string();
     let commit_batch_size = load_import_commit_batch_size(pool).await?;
     let tag_catalog = load_tag_catalog(pool).await?;
     let valid_descriptions: HashSet<String> = tag_catalog
@@ -1397,14 +1380,12 @@ async fn persist_bulk_import_confirm_wire(
 fn persist_bulk_import_confirm_if_initialized(
     confirm_wire: &BulkImportConfirmWire,
     context_token: Option<&str>,
-    image_preference_override: Option<&str>,
 ) -> Result<usize, String> {
     match get_bulk_import_db_pool() {
         Some(pool) => tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
             confirm_wire,
             context_token,
-            image_preference_override,
         )),
         None => {
             tracing::warn!("Bulk import DB pool not initialized; skipping persistence step.");
@@ -1735,12 +1716,8 @@ pub async fn precheck_bulk_import_action_wire(
                 });
             }
 
-            let image_preference_override = request.image_preference_override.clone();
             let confirm_result = tauri::async_runtime::spawn_blocking(move || {
-                do_confirm_bulk_import_wire_internal(
-                    context_token,
-                    image_preference_override.as_deref(),
-                )
+                do_confirm_bulk_import_wire_internal(context_token)
             })
             .await
             .map_err(|error| format!("Import task failed to join: {error}"))??;
@@ -1760,12 +1737,11 @@ pub async fn precheck_bulk_import_action_wire(
 pub fn do_confirm_bulk_import_wire(
     context_token: String,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
-    do_confirm_bulk_import_wire_internal(context_token, None)
+    do_confirm_bulk_import_wire_internal(context_token)
 }
 
 fn do_confirm_bulk_import_wire_internal(
     context_token: String,
-    image_preference_override: Option<&str>,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
     let confirm_wire = take_bulk_import_context(&context_token)
         .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
@@ -1773,7 +1749,6 @@ fn do_confirm_bulk_import_wire_internal(
     let persisted_design_count = persist_bulk_import_confirm_if_initialized(
         &confirm_wire,
         Some(&context_token),
-        image_preference_override,
     )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
@@ -1787,7 +1762,6 @@ pub fn execute_bulk_import_confirm_wire(
     let persisted_design_count = persist_bulk_import_confirm_if_initialized(
         &confirm_wire,
         confirm_wire.context_token.as_deref(),
-        None,
     )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
@@ -2250,11 +2224,6 @@ mod tests {
         .await
         .expect("failed to create sources table");
 
-        sqlx::query("INSERT INTO settings (key, value, description) VALUES ('image.preference', '2d', 'test preference')")
-            .execute(&pool)
-            .await
-            .expect("failed to seed image preference");
-
         sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Alphabets', 'image'), ('Flowers', 'image'), ('Monogram', 'image'), ('Line Outline', 'stitching')")
             .execute(&pool)
             .await
@@ -2321,7 +2290,6 @@ mod tests {
             &pool,
             &confirm_wire,
             None,
-            None,
         ))
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
@@ -2360,7 +2328,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn persist_bulk_import_confirm_wire_auto_backend_3d_pref_falls_back_safely_without_python() {
+    fn persist_bulk_import_confirm_wire_auto_backend_falls_back_safely_without_python() {
         let previous_db_url = std::env::var("DATABASE_URL").ok();
         let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-auto3d-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
         std::fs::create_dir_all(&tmp_db_dir).ok();
@@ -2379,13 +2347,6 @@ mod tests {
         );
 
         let pool = tauri::async_runtime::block_on(import_test_pool());
-        tauri::async_runtime::block_on(async {
-            sqlx::query("UPDATE settings SET value = '3d' WHERE key = 'image.preference'")
-                .execute(&pool)
-                .await
-        })
-        .expect("failed to update image preference to 3d");
-
         let confirm_wire = BulkImportConfirmWire {
             wire: BulkImportWire {
                 root_paths: vec![FIXTURES_DIR.to_string()],
@@ -2402,7 +2363,6 @@ mod tests {
         let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
             &confirm_wire,
-            None,
             None,
         ))
         .expect("persist should succeed even when python path is unavailable");
@@ -2421,7 +2381,7 @@ mod tests {
         .expect("expected persisted design row");
 
         assert!(row.0.map(|bytes| !bytes.is_empty()).unwrap_or(false));
-        assert_eq!(row.1.as_deref(), Some("3d"));
+        assert_eq!(row.1.as_deref(), Some("2d"));
         assert!(row.2.unwrap_or_default() > 0.0);
         assert!(row.3.unwrap_or_default() > 0.0);
 
@@ -2492,7 +2452,6 @@ mod tests {
             &pool,
             &confirm_wire,
             None,
-            None,
         ))
         .expect("persist should succeed for .hus even when preview generation fails");
         assert_eq!(persisted, 1);
@@ -2533,24 +2492,6 @@ mod tests {
         assert_eq!(
             normalize_import_commit_batch_size(Some("1000000")),
             MAX_IMPORT_COMMIT_BATCH_SIZE
-        );
-    }
-
-    #[test]
-    fn normalize_import_image_preference_override_accepts_only_2d_or_3d() {
-        assert_eq!(normalize_import_image_preference_override(None), None);
-        assert_eq!(normalize_import_image_preference_override(Some("")), None);
-        assert_eq!(
-            normalize_import_image_preference_override(Some("2d")),
-            Some(false)
-        );
-        assert_eq!(
-            normalize_import_image_preference_override(Some(" 3D ")),
-            Some(true)
-        );
-        assert_eq!(
-            normalize_import_image_preference_override(Some("unexpected")),
-            None
         );
     }
 
@@ -2609,7 +2550,6 @@ mod tests {
         let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
             &confirm_wire,
-            None,
             None,
         ))
         .expect("persist should succeed");
@@ -2682,7 +2622,6 @@ mod tests {
             &pool,
             &confirm_wire,
             None,
-            None,
         ))
         .expect("persist should succeed");
         assert_eq!(persisted, 1);
@@ -2711,68 +2650,6 @@ mod tests {
             !stitching_tags.is_empty(),
             "expected at least one stitching tag assignment"
         );
-        if let Some(url) = previous_db_url {
-            std::env::set_var("DATABASE_URL", url);
-        } else {
-            std::env::remove_var("DATABASE_URL");
-        }
-    }
-
-    #[test]
-    #[serial]
-    fn persist_bulk_import_confirm_wire_honors_image_preference_override_for_session() {
-        let previous_db_url = std::env::var("DATABASE_URL").ok();
-        let tmp_db_dir = std::env::temp_dir().join(format!("bi-test-pref-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
-        std::fs::create_dir_all(&tmp_db_dir).ok();
-        std::env::set_var("DATABASE_URL", format!("sqlite:{}/test.db", tmp_db_dir.display()));
-        let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
-        assert!(fixture.exists(), "expected Bean.pes fixture to exist");
-
-        let previous_backend = std::env::var("IMPORT_IMAGE_BACKEND").ok();
-        std::env::set_var("IMPORT_IMAGE_BACKEND", "native");
-
-        let pool = tauri::async_runtime::block_on(import_test_pool());
-        let confirm_wire = BulkImportConfirmWire {
-            wire: BulkImportWire {
-                root_paths: vec![FIXTURES_DIR.to_string()],
-                global_designer_id: None,
-                global_source_id: None,
-                per_folder_assignments: Vec::new(),
-                selected_files: vec![fixture.to_string_lossy().to_string()],
-                create_on_import: true,
-            },
-            context_token: None,
-            canonical_confirm: true,
-        };
-
-        let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
-            &pool,
-            &confirm_wire,
-            None,
-            Some("3d"),
-        ))
-        .expect("persist should succeed with explicit session override");
-        assert_eq!(persisted, 1);
-
-        let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
-
-        let image_type = tauri::async_runtime::block_on(async {
-            sqlx::query_scalar::<_, Option<String>>(
-                "SELECT image_type FROM designs WHERE filepath = ? LIMIT 1",
-            )
-            .bind(stored_filepath)
-            .fetch_one(&pool)
-            .await
-        })
-        .expect("expected persisted design row");
-
-        assert_eq!(image_type.as_deref(), Some("3d"));
-
-        if let Some(value) = previous_backend {
-            std::env::set_var("IMPORT_IMAGE_BACKEND", value);
-        } else {
-            std::env::remove_var("IMPORT_IMAGE_BACKEND");
-        }
         if let Some(url) = previous_db_url {
             std::env::set_var("DATABASE_URL", url);
         } else {
@@ -3166,7 +3043,6 @@ mod tests {
                 context_token: precheck.context_token.clone(),
                 action: BulkImportPrecheckActionWire::ReviewTags,
                 confirm_skip_hoops: false,
-                image_preference_override: None,
             },
         ))
         .expect("review action should succeed");
@@ -3201,7 +3077,6 @@ mod tests {
                 context_token: precheck.context_token.clone(),
                 action: BulkImportPrecheckActionWire::Cancel,
                 confirm_skip_hoops: false,
-                image_preference_override: None,
             },
         ))
         .expect("cancel action should succeed");
@@ -3233,7 +3108,6 @@ mod tests {
                 context_token: precheck.context_token.clone(),
                 action: BulkImportPrecheckActionWire::ImportNow,
                 confirm_skip_hoops: false,
-                image_preference_override: None,
             },
         ))
         .expect("import-now action should succeed");
@@ -3850,7 +3724,6 @@ mod tests {
                 context_token: precheck.context_token.clone(),
                 action: BulkImportPrecheckActionWire::ReviewHoops,
                 confirm_skip_hoops: false,
-                image_preference_override: None,
             },
         ))
         .expect("review hoops action should succeed");
@@ -3887,7 +3760,6 @@ mod tests {
                 context_token: precheck.context_token.clone(),
                 action: BulkImportPrecheckActionWire::ReviewSources,
                 confirm_skip_hoops: false,
-                image_preference_override: None,
             },
         ))
         .expect("review sources action should succeed");
@@ -3923,7 +3795,6 @@ mod tests {
                 context_token: precheck.context_token.clone(),
                 action: BulkImportPrecheckActionWire::ReviewDesigners,
                 confirm_skip_hoops: false,
-                image_preference_override: None,
             },
         ))
         .expect("review designers action should succeed");
@@ -4060,7 +3931,7 @@ mod tests {
             canonical_confirm: true,
         };
 
-        let result = persist_bulk_import_confirm_if_initialized(&confirm_wire, None, None);
+        let result = persist_bulk_import_confirm_if_initialized(&confirm_wire, None);
         assert_eq!(result, Ok(0));
     }
 
@@ -4410,102 +4281,4 @@ mod tests {
         );
     }
 
-    #[test]
-    #[serial]
-    fn load_import_preview_3d_if_initialized_direct() {
-        let pool = tauri::async_runtime::block_on(import_test_pool());
-        // Default preference is '2d'
-        let is_3d = tauri::async_runtime::block_on(load_import_preview_3d_if_initialized(&pool))
-            .expect("preview 3d check should succeed");
-        assert!(!is_3d, "expected 2d preview when preference is '2d'");
-
-        // Change preference to 3d
-        tauri::async_runtime::block_on(async {
-            sqlx::query("UPDATE settings SET value = '3d' WHERE key = 'image.preference'")
-                .execute(&pool)
-                .await
-        })
-        .expect("failed to update preference to 3d");
-
-        let is_3d_now = tauri::async_runtime::block_on(load_import_preview_3d_if_initialized(&pool))
-            .expect("preview 3d check should succeed");
-        assert!(is_3d_now, "expected 3d preview when preference is '3d'");
-    }
-
-    #[test]
-    #[serial]
-    fn load_import_preview_3d_profile_if_initialized_direct() {
-        let pool = tauri::async_runtime::block_on(import_test_pool());
-
-        // Default (no profile setting) should return "balanced"
-        let profile = tauri::async_runtime::block_on(load_import_preview_3d_profile_if_initialized(&pool))
-            .expect("profile should load");
-        assert_eq!(profile, "balanced");
-
-        // Set to "soft"
-        tauri::async_runtime::block_on(async {
-            sqlx::query(
-                "INSERT INTO settings (key, value, description) VALUES ('image.preview_3d_profile', 'soft', 'test profile') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            )
-            .execute(&pool)
-            .await
-        })
-        .expect("failed to set 3d profile");
-
-        let profile_soft = tauri::async_runtime::block_on(load_import_preview_3d_profile_if_initialized(&pool))
-            .expect("profile should load");
-        assert_eq!(profile_soft, "soft");
-
-        // Set to "high-contrast" variant
-        tauri::async_runtime::block_on(async {
-            sqlx::query("UPDATE settings SET value = 'high_contrast' WHERE key = 'image.preview_3d_profile'")
-                .execute(&pool)
-                .await
-        })
-        .expect("failed to set high_contrast profile");
-
-        let profile_hc = tauri::async_runtime::block_on(load_import_preview_3d_profile_if_initialized(&pool))
-            .expect("profile should load");
-        assert_eq!(profile_hc, "high-contrast");
-    }
-}
-
-async fn load_import_preview_3d_if_initialized(pool: &SqlitePool) -> Result<bool, String> {
-    let image_preference: Option<String> =
-        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'image.preference' LIMIT 1")
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-
-    Ok(!matches!(
-        image_preference
-            .as_deref()
-            .map(str::trim)
-            .map(str::to_ascii_lowercase)
-            .as_deref(),
-        Some("2d")
-    ))
-}
-
-async fn load_import_preview_3d_profile_if_initialized(
-    pool: &SqlitePool,
-) -> Result<String, String> {
-    let profile: Option<String> = sqlx::query_scalar(
-        "SELECT value FROM settings WHERE key = 'image.preview_3d_profile' LIMIT 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let normalized = profile
-        .as_deref()
-        .map(str::trim)
-        .map(str::to_ascii_lowercase)
-        .unwrap_or_else(|| "balanced".to_string());
-
-    Ok(match normalized.as_str() {
-        "soft" => "soft".to_string(),
-        "high-contrast" | "high_contrast" | "highcontrast" => "high-contrast".to_string(),
-        _ => "balanced".to_string(),
-    })
 }

@@ -179,7 +179,6 @@ export interface DesignCommandResult {
 }
 
 export interface SettingsViewModel {
-  image_preference: string;
   preview_3d_profile: string;
   google_api_key: string;
   has_google_api_key: boolean;
@@ -198,7 +197,6 @@ export interface SettingsViewModel {
 }
 
 export interface SaveSettingsRequest {
-  image_preference: string;
   preview_3d_profile?: string;
   google_api_key: string;
   ai_tier2_auto: boolean;

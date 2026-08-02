@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
@@ -23,6 +24,13 @@ export default defineConfig({
     coverage: {
       provider: "istanbul",
       reporter: ["text"],
+      // Needed on Windows: vitest's isIncluded() uses a case-sensitive
+      // startsWith() against the project root, but Vite transform IDs keep
+      // the real drive letter ("D:/...") while the root is normalized to
+      // lowercase ("d:/..."). That makes every file look "external" and
+      // nothing gets instrumented. allowExternal: true skips that check.
+      allowExternal: true,
+      exclude: ["frontend/src/**/*.test.ts"],
     },
   },
 });

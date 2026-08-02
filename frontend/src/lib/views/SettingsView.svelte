@@ -14,7 +14,6 @@
   let settingsLoaded = $state(false);
   let settingsSaveState = $state("idle"); // "idle" | "saving" | "saved" | "error"
 
-  let settingsImagePreference = $state("2d");
   let settingsGoogleApiKey = $state("");
   let settingsApiKeyRevealed = $state(false);
   let settingsAiTier2Auto = $state(false);
@@ -37,7 +36,6 @@
 
   /** @param {Partial<SettingsViewModel>} [model] */
   function applySettingsModel(model = {}) {
-    settingsImagePreference = model?.image_preference === "3d" ? "3d" : "2d";
     settingsGoogleApiKey = String(model?.google_api_key || "");
     settingsAiTier2Auto = Boolean(model?.ai_tier2_auto);
     settingsAiTier3Auto = Boolean(model?.ai_tier3_auto);
@@ -76,7 +74,6 @@
     try {
       /** @type {SaveSettingsRequest} */
       const request = {
-        image_preference: settingsImagePreference,
         google_api_key: settingsGoogleApiKey,
         ai_tier2_auto: settingsAiTier2Auto,
         ai_tier3_auto: settingsAiTier3Auto,
@@ -130,51 +127,6 @@
     {/if}
 
     <form class="settings-card settings-form bg-white rounded shadow p-6 space-y-5" onsubmit={saveSettingsFromBackend}>
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700 mb-1">Image preview preference</h2>
-        <p class="text-sm text-gray-600 mb-3">
-          Choose whether new imports generate <strong>2D</strong> (fast flat preview) or
-          <strong>3D</strong> (detailed stitch-simulated preview) images by default.
-          You can override this per import session on the precheck page.
-          3D rendering is slower but produces more realistic previews.
-        </p>
-
-        <div class="space-y-2">
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="radio"
-              name="settings-image-preference"
-              value="2d"
-              checked={settingsImagePreference === "2d"}
-              class="text-indigo-600 focus:ring-indigo-500"
-              onchange={() => {
-                settingsImagePreference = "2d";
-              }}
-            />
-            <strong>2D</strong> — Fast flat preview (default, recommended for bulk imports)
-          </label>
-
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="radio"
-              name="settings-image-preference"
-              value="3d"
-              checked={settingsImagePreference === "3d"}
-              class="text-indigo-600 focus:ring-indigo-500"
-              onchange={() => {
-                settingsImagePreference = "3d";
-              }}
-            />
-            <strong>3D</strong> — Detailed stitch-simulated preview (slower, more realistic)
-          </label>
-        </div>
-
-        <p class="mt-2 text-xs text-gray-500">
-          Current setting: <strong>{settingsImagePreference === "3d" ? "3D" : "2D"}</strong>.
-          This affects the import pipeline only. Existing designs keep their current image type.
-        </p>
-      </div>
-
       <div>
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
         <p class="text-sm text-gray-600">

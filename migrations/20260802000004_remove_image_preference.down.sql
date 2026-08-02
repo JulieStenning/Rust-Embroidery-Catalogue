@@ -1,0 +1,1 @@
+INSERT INTO settings (key, value, description) VALUES ('image.preference', '2d', 'Preferred preview image type for import-created previews: 2d or 3d.');

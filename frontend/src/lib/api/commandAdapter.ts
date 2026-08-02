@@ -860,18 +860,15 @@ export async function precheckImportWire(confirmWire: Record<string, unknown> | 
  * @param {string} options.contextToken
  * @param {string} options.action
  * @param {boolean} [options.confirmSkipHoops]
- * @param {string | null} [options.imagePreferenceOverride]
  */
 export async function runPrecheckAction({
   contextToken,
   action,
   confirmSkipHoops = false,
-  imagePreferenceOverride = null,
 }: {
   contextToken: string;
   action: string;
   confirmSkipHoops?: boolean;
-  imagePreferenceOverride?: string | null;
 }): Promise<AdapterImportPrecheckActionResponse> {
   const normalizedToken = String(contextToken || "").trim();
   const normalizedAction = String(action || "").trim();
@@ -897,10 +894,6 @@ export async function runPrecheckAction({
         context_token: normalizedToken,
         action: normalizedAction,
         confirm_skip_hoops: Boolean(confirmSkipHoops),
-        image_preference_override:
-          typeof imagePreferenceOverride === "string" && imagePreferenceOverride.trim()
-            ? imagePreferenceOverride.trim().toLowerCase()
-            : null,
       },
     });
 
@@ -1484,9 +1477,8 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
 
   return {
     source: "mock",
-    model: {
-      image_preference: "2d",
-      preview_3d_profile: "balanced",
+      model: {
+        preview_3d_profile: "balanced",
       google_api_key: "",
       has_google_api_key: false,
       ai_tier2_auto: false,
