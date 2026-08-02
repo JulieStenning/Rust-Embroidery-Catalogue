@@ -1,56 +1,21 @@
-# Custom Instruction Rule: Embroidery Catalogue System Prompt
+# Svelte Component & Unit Testing Guidelines (Vitest + @testing-library/svelte)
 
-## Role & Context
-You are an expert AI developer assistant specializing in Rust desktop application development, modern frontend frameworks, and computational geometry/textile arts. You are helping develop **Embroidery Catalogue**, a local, offline desktop tool for cataloguing and browsing digital embroidery designs.
+When creating or modifying test files in the Svelte frontend, strictly adhere to the following rules:
 
-## Technical Stack
-* **Backend:** Rust
-* **Desktop Framework:** Tauri (v2)
-* **Frontend:** Svelte 5 / TypeScript
-* **Database:** Local SQLite database for storing metadata, tags, and file references.
-* **Core Logic:** Interfacing with embroidery file formats (reading binary metadata, stitches, and properties from formats like `.jef`, `.pes`, `.hus`, `.vp3`, etc.).
-* **AI Integration:** Google Gemini API for Tier 2 (text analysis) and Tier 3 (vision analysis) automated metadata/tag suggestions.
+## 1. Component Rendering & Props
+- **Nested `props` Object:** Always wrap component props in a nested `props` key: `render(Component, { props: { propName: value } })`. Never pass props top-level inside the `render` options parameter.
+- **Render Cleanup:** Rely on `@testing-library/svelte` automatic cleanup between tests. Do not add explicit `cleanup()` calls in `afterEach` hooks.
 
-## Core Philosophy & Constraints
-* **Local & Offline First:** The app runs entirely locally. Original embroidery files are never moved or modified; the app only reads them to extract metadata and cache local preview thumbnails.
-* **Performance:** Priority on high-performance binary file parsing and thumbnail caching in Rust.
-* **Separation of Concerns:** Clean separation between Rust backend (IPC/commands) and Svelte frontend components.
+## 2. Tauri IPC & Native Module Mocking
+- **Mock Native Invokes:** Tests run in `jsdom` without the Rust runtime. Always mock `@tauri-apps/api/core` (`invoke`) or path modules using `vi.mock(...)` at the top of test files.
+- **Typed Mock Payloads:** Ensure mocked `invoke` responses return data matching backend Rust structs/DTOs (e.g., returning valid arrays for design objects, tags, or settings).
 
-## Svelte 5 Component Syntax Rule (CRITICAL)
-When referencing Svelte view modules in code, documentation, or responses, always use `@` directly in front of the module name **without quotes** so VS Code can parse file paths correctly. 
+## 3. Asynchronous Updates & State Flushing
+- **Svelte Reactive Updates:** When asserting DOM changes after triggering an event or updating store state, use `await tick()` from `svelte` or `await screen.findBy*` queries to wait for Svelte DOM reconciliation.
+- **User Interactions:** Use `@testing-library/user-event` with `await` for user interactions (clicking, typing, modal triggers) rather than raw `fireEvent`.
 
-**Correct Example:** `@DesignDetailView.svelte`
-**Incorrect Example:** `'@DesignDetailView.svelte'`
+## 4. Querying & Accessibility
+- **Accessible Queries First:** Prefer semantic queries (`getByRole`, `getByLabelText`, `getByText`) over CSS selectors or `data-testid` attributes.
 
-### Module Reference List:
-@AboutDocumentView.svelte
-@AboutView.svelte
-@App.svelte
-@BackupView.svelte
-@DeleteDesignsModal.svelte
-@DesignDetailView.svelte
-@DesignPrintView.svelte
-@DisclaimerView.svelte
-@HelpView.svelte
-@ImportView.svelte
-@Inspector.svelte
-@MainView.svelte
-@Notice.svelte
-@OrphansView.svelte
-@Pagination.svelte
-@ProjectsView.svelte
-@SelectionHeader.svelte
-@SettingsView.svelte
-@TaggingActionsView.svelte
-@TagSelectionModal.svelte
-@TechnicalDataGrid.svelte
-
-## Response Style Constraint
-Do not generate raw sample code or implementation blocks unless explicitly asked. The user utilizes IDE agents (Cline) to generate the actual implementation code.
-
-<!--
-## Provide information
-State the coverage for the test file once all tests have passed. Use the form
-npx vitest run [path/to/module.test.ts] --coverage
-e.g. npx vitest run frontend/src/lib/views/__tests__/ImportView.test.ts --coverage
--->
+## 5. Store & State Isolation
+- **Prevent Cross-Contamination:** If a test modifies global Svelte stores (e.g., selected design IDs, filter state, modal visibility), explicitly reset store values in `beforeEach` or `afterEach` hooks.
