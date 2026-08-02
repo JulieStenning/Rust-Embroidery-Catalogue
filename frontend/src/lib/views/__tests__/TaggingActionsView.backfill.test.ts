@@ -81,8 +81,6 @@ describe("TaggingActionsView run unified backfill", () => {
         run_tier3: false,
         run_images: false,
         image_redo: false,
-        upgrade_2d_to_3d: false,
-        use_preview_3d: true,
         run_color_counts: false,
         commit_every: 100,
         batch_size: 100,
@@ -109,11 +107,6 @@ describe("TaggingActionsView run unified backfill", () => {
     await user.click(screen.getByRole("checkbox", { name: /Image generation/ }));
     await user.click(screen.getByRole("checkbox", { name: /Regenerate images/ }));
     await user.click(
-      screen.getByRole("checkbox", { name: /Upgrade 2D previews/ })
-    );
-    // Uncheck "use 3D renderer" so use_preview_3d becomes false.
-    await user.click(screen.getByRole("checkbox", { name: /3D renderer/ }));
-    await user.click(
       screen.getByRole("checkbox", { name: /Recalculate colour/ })
     );
     await user.click(
@@ -127,8 +120,6 @@ describe("TaggingActionsView run unified backfill", () => {
         run_tier3: true,
         run_images: true,
         image_redo: true,
-        upgrade_2d_to_3d: true,
-        use_preview_3d: false,
         run_color_counts: true,
         commit_every: 100,
         batch_size: 100,

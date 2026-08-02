@@ -34,7 +34,6 @@ pub struct UnifiedBackfillRequest {
     pub batch_size: Option<i64>,
     pub commit_every: Option<i64>,
     pub workers: Option<i64>,
-    pub preview_3d: Option<bool>,
     pub delay_seconds: Option<f64>,
     pub vision_delay_seconds: Option<f64>,
 }
@@ -64,8 +63,6 @@ pub struct StitchingActionOptions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ImageActionOptions {
     pub redo: Option<bool>,
-    pub upgrade_2d_to_3d: Option<bool>,
-    pub preview_3d: Option<bool>,
     pub enabled: Option<bool>,
 }
 
@@ -312,18 +309,9 @@ pub async fn run_unified_backfill(
     if let Some(images_action) = actions.images {
         if images_action.enabled.unwrap_or(true) {
             actions_run.push("images".to_string());
-            let preview_3d = images_action
-                .preview_3d
-                .or(request.preview_3d)
-                .unwrap_or(true);
-            let preview_3d_profile = get_string_setting(pool, "image.preview_3d_profile")
-                .await?
-                .unwrap_or_else(|| "balanced".to_string());
             let image_candidates = select_image_candidates(
                 pool,
                 images_action.redo.unwrap_or(false),
-                images_action.upgrade_2d_to_3d.unwrap_or(false),
-                preview_3d,
                 batch_size,
             )
             .await?;
@@ -338,10 +326,7 @@ pub async fn run_unified_backfill(
                     let _ = clear_image_fields(pool, design_id).await;
                 }
 
-                if let Err(error) =
-                    generate_and_store_preview(pool, design_id, preview_3d, &preview_3d_profile)
-                        .await
-                {
+                if let Err(error) = generate_and_store_preview(pool, design_id).await {
                     errors += 1;
                     log_error(format!(
                         "Image action failed design_id={} error={}",
@@ -797,14 +782,10 @@ async fn apply_stitching_tags(
 async fn select_image_candidates(
     pool: &SqlitePool,
     redo: bool,
-    upgrade_2d_to_3d: bool,
-    preview_3d: bool,
     limit: i64,
 ) -> Result<Vec<i64>, AppError> {
     let sql = if redo {
         "SELECT id FROM designs ORDER BY id ASC LIMIT ?"
-    } else if upgrade_2d_to_3d && preview_3d {
-        "SELECT id FROM designs WHERE lower(COALESCE(image_type, '')) = '2d' OR image_type IS NULL ORDER BY id ASC LIMIT ?"
     } else {
         "SELECT id FROM designs WHERE image_data IS NULL ORDER BY id ASC LIMIT ?"
     };
@@ -841,8 +822,6 @@ async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), App
 async fn generate_and_store_preview(
     pool: &SqlitePool,
     design_id: i64,
-    preview_3d: bool,
-    preview_3d_profile: &str,
 ) -> Result<(), AppError> {
     let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
         .bind(design_id)
@@ -857,8 +836,8 @@ async fn generate_and_store_preview(
     let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let result = generate_preview(&ImageGenerationRequest {
         file_path: filepath,
-        preview_3d,
-        preview_3d_profile: Some(preview_3d_profile.to_string()),
+        preview_3d: false,
+        preview_3d_profile: None,
     });
 
     if let Some(error) = result.error {
@@ -971,18 +950,6 @@ async fn get_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, Ap
         .and_then(|row| row.try_get::<String, _>("value").ok());
 
     Ok(value.and_then(|raw| raw.trim().parse::<f64>().ok()))
-}
-
-async fn get_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<String>, AppError> {
-    let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")
-        .bind(key)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| AppError::database(format!("failed to read string setting {key}: {e}")))?
-        .and_then(|row| row.try_get::<String, _>("value").ok())
-        .map(|raw| raw.trim().to_ascii_lowercase());
-
-    Ok(value)
 }
 
 fn resolve_i64_option(
@@ -1181,7 +1148,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -1465,7 +1431,7 @@ mod tests {
     }
 
     // ─────────────────────────────────────────
-    // DB helper: get_i64_setting / get_f64_setting / get_string_setting
+    // DB helper: get_i64_setting / get_f64_setting
     // ─────────────────────────────────────────
 
     async fn seed_setting(pool: &SqlitePool, key: &str, value: &str) {
@@ -1516,22 +1482,6 @@ mod tests {
         let pool = make_test_pool().await;
         seed_setting(&pool, "bad", "abc").await;
         assert_eq!(get_f64_setting(&pool, "bad").await.unwrap(), None);
-    }
-
-    #[tokio::test]
-    async fn get_string_setting_returns_lowercased_value() {
-        let pool = make_test_pool().await;
-        seed_setting(&pool, "image.preview_3d_profile", "BaLanCed").await;
-        assert_eq!(
-            get_string_setting(&pool, "image.preview_3d_profile").await.unwrap(),
-            Some("balanced".to_string())
-        );
-    }
-
-    #[tokio::test]
-    async fn get_string_setting_returns_none_when_missing() {
-        let pool = make_test_pool().await;
-        assert_eq!(get_string_setting(&pool, "missing").await.unwrap(), None);
     }
 
     // ─────────────────────────────────────────
@@ -1898,7 +1848,7 @@ mod tests {
         seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
         seed_design_with_image(&pool, 2, None, None).await;
 
-        let ids = select_image_candidates(&pool, false, false, false, 100).await.unwrap();
+        let ids = select_image_candidates(&pool, false, 100).await.unwrap();
         assert_eq!(ids, vec![2]);
     }
 
@@ -1908,21 +1858,8 @@ mod tests {
         seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
         seed_design_with_image(&pool, 2, None, None).await;
 
-        let ids = select_image_candidates(&pool, true, false, false, 100).await.unwrap();
+        let ids = select_image_candidates(&pool, true, 100).await.unwrap();
         assert_eq!(ids.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn select_image_candidates_upgrade_2d_to_3d_picks_2d_types() {
-        let pool = make_test_pool().await;
-        seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
-        seed_design_with_image(&pool, 2, Some(b"fake_png"), Some("3d")).await;
-        seed_design_with_image(&pool, 3, None, None).await;
-
-        let ids = select_image_candidates(&pool, false, true, true, 100).await.unwrap();
-        assert!(ids.contains(&1));
-        assert!(ids.contains(&3)); // NULL also matches OR image_type IS NULL
-        assert!(!ids.contains(&2));
     }
 
     // ─────────────────────────────────────────
@@ -2137,7 +2074,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -2173,7 +2109,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -2215,7 +2150,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -2262,7 +2196,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -2298,8 +2231,6 @@ mod tests {
                     }),
                     images: Some(ImageActionOptions {
                         redo: Some(false),
-                        upgrade_2d_to_3d: Some(false),
-                        preview_3d: Some(false),
                         enabled: Some(false),
                     }),
                     color_counts: Some(ColorCountsActionOptions {
@@ -2312,7 +2243,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -2358,7 +2288,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },
@@ -2388,7 +2317,6 @@ mod tests {
                 batch_size: Some(100),
                 commit_every: Some(100),
                 workers: Some(1),
-                preview_3d: Some(false),
                 delay_seconds: Some(0.0),
                 vision_delay_seconds: Some(0.0),
             },

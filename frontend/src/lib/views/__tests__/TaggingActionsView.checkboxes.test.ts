@@ -90,29 +90,19 @@ describe("TaggingActionsView checkbox interactions", () => {
     expect(clearExisting).toBeChecked();
   });
 
-  it("toggles the image option checkboxes", async () => {
+  it("toggles the image redo checkbox", async () => {
     render(TaggingActionsView);
 
     await screen.findByRole("checkbox", { name: /Image generation/ });
     const imageRedo = screen.getByRole("checkbox", {
       name: /Regenerate images/,
     });
-    const upgrade2d = screen.getByRole("checkbox", {
-      name: /Upgrade 2D previews/,
-    });
-    const use3d = screen.getByRole("checkbox", { name: /3D renderer/ });
 
-    expect(use3d).toBeChecked();
+    expect(imageRedo).not.toBeChecked();
 
     const user = userEvent.setup();
     await user.click(imageRedo);
     expect(imageRedo).toBeChecked();
-
-    await user.click(upgrade2d);
-    expect(upgrade2d).toBeChecked();
-
-    await user.click(use3d);
-    expect(use3d).not.toBeChecked();
   });
 
   it("toggles the colour count checkbox", async () => {

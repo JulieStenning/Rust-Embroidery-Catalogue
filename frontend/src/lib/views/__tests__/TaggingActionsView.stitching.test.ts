@@ -75,7 +75,6 @@ describe("TaggingActionsView run stitching backfill", () => {
         workers: 4,
         clear_existing: false,
         image_redo: false,
-        use_preview_3d: true,
       });
     });
     await waitFor(() => {

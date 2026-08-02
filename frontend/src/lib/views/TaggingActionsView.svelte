@@ -25,8 +25,6 @@
   let taggingClearExistingStitching = $state(false);
   let taggingRunImages = $state(false);
   let taggingImageRedo = $state(false);
-  let taggingUpgrade2dTo3d = $state(false);
-  let taggingUsePreview3d = $state(true);
   let taggingRunColorCounts = $state(false);
   /** @type {{processed: number, errors: number, stopped: boolean, actions: string[], error?: string} | null} */
   let taggingLastSummary = $state(null);
@@ -75,7 +73,6 @@
           workers: taggingWorkersValue,
           clear_existing: taggingClearExistingStitching,
           image_redo: taggingImageRedo,
-          use_preview_3d: taggingUsePreview3d,
         });
         const result = await runStitchingBackfill(stitchingOptions);
         if (result?.error) {
@@ -93,8 +90,6 @@
           run_tier3: taggingRunTier3,
           run_images: taggingRunImages,
           image_redo: taggingImageRedo,
-          upgrade_2d_to_3d: taggingUpgrade2dTo3d,
-          use_preview_3d: taggingUsePreview3d,
           run_color_counts: taggingRunColorCounts,
           commit_every: taggingCommitValue,
           batch_size: taggingBatchValue,
@@ -211,7 +206,7 @@
           <input type="checkbox" bind:checked={taggingRunImages} class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
           <div>
             <span class="font-semibold">Image generation / regeneration</span>
-            <p class="text-gray-500 text-xs mt-0.5">Generate flat preview images. Can be combined with upgrade to 3D and 2D/3D regeneration.</p>
+            <p class="text-gray-500 text-xs mt-0.5">Generate preview images.</p>
           </div>
         </label>
 
@@ -219,14 +214,6 @@
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" bind:checked={taggingImageRedo} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
             <span>Regenerate images for all designs, not just those without images</span>
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={taggingUpgrade2dTo3d} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>Upgrade 2D previews to 3D stitch-simulated previews</span>
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={taggingUsePreview3d} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>When generating stitching preview images, use 3D renderer (slower, more accurate). Uncheck for fast 2D</span>
           </label>
         </div>
       </div>

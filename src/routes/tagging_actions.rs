@@ -125,7 +125,6 @@ pub async fn run_stitching_backfill(
         batch_size,
         commit_every: Some(100),
         workers: Some(1),
-        preview_3d: Some(true),
         delay_seconds: None,
         vision_delay_seconds: None,
     };
@@ -387,7 +386,6 @@ mod tests {
             batch_size: None,
             commit_every: None,
             workers: None,
-            preview_3d: None,
             delay_seconds: None,
             vision_delay_seconds: None,
         };

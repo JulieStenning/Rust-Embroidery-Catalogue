@@ -148,12 +148,6 @@ describe("TaggingActionsView initial render", () => {
       screen.getByRole("checkbox", { name: /Regenerate images/ })
     ).not.toBeChecked();
     expect(
-      screen.getByRole("checkbox", { name: /Upgrade 2D previews/ })
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: /3D renderer/ })
-    ).toBeChecked();
-    expect(
       screen.getByRole("checkbox", { name: /Recalculate colour/ })
     ).not.toBeChecked();
   });
