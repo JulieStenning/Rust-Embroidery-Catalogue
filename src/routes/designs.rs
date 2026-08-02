@@ -260,6 +260,11 @@ pub struct Render3dPreviewResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct RenderPreviewRequest {
+    pub preview_3d: bool,
+}
+
 fn round_mm_to_i64(value: Option<f64>) -> Option<i64> {
     value.map(|v| v.round() as i64)
 }
@@ -676,20 +681,25 @@ async fn open_design_in_explorer_with_pool(
 async fn render_design_3d_preview_with_pool(
     pool: &SqlitePool,
     design_id: i64,
+    preview_3d: bool,
 ) -> Result<Render3dPreviewResult, String> {
     let filepath = get_design_filepath(pool, design_id).await?;
     let full_path = resolve_design_full_path(&filepath);
 
     if !full_path.is_file() {
-        return Err("Design file not found on disk for 3D rendering.".to_string());
+        return Err("Design file not found on disk for preview rendering.".to_string());
     }
 
-    let preview_3d_profile: Option<String> = sqlx::query_scalar(
-        "SELECT value FROM settings WHERE key = 'image.preview_3d_profile' LIMIT 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    let preview_3d_profile: Option<String> = if preview_3d {
+        sqlx::query_scalar(
+            "SELECT value FROM settings WHERE key = 'image.preview_3d_profile' LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?
+    } else {
+        None
+    };
 
     let preview_3d_profile = preview_3d_profile
         .as_deref()
@@ -704,7 +714,7 @@ async fn render_design_3d_preview_with_pool(
 
     let generation_result = generate_preview(&ImageGenerationRequest {
         file_path: full_path.to_string_lossy().to_string(),
-        preview_3d: true,
+        preview_3d,
         preview_3d_profile: Some(preview_3d_profile),
     });
 
@@ -715,7 +725,7 @@ async fn render_design_3d_preview_with_pool(
     let image_type = generation_result
         .image_type
         .clone()
-        .or_else(|| Some("3d".to_string()));
+        .or_else(|| Some(if preview_3d { "3d" } else { "2d" }.to_string()));
     let width_mm = round_mm_to_i64(generation_result.width_mm);
     let height_mm = round_mm_to_i64(generation_result.height_mm);
 
@@ -734,6 +744,8 @@ async fn render_design_3d_preview_with_pool(
 	.await
 	.map_err(|e| e.to_string())?;
 
+    let preview_label = if preview_3d { "3D" } else { "2D" };
+
     Ok(Render3dPreviewResult {
         design_id,
         image_type,
@@ -743,7 +755,7 @@ async fn render_design_3d_preview_with_pool(
         color_count: generation_result.color_count,
         color_change_count: generation_result.color_change_count,
         backend: generation_result.backend,
-        message: "3D preview rendered and saved.".to_string(),
+        message: format!("{preview_label} preview rendered and saved."),
     })
 }
 
@@ -2459,8 +2471,10 @@ pub async fn open_design_in_explorer(
 pub async fn render_design_3d_preview(
     state: State<'_, AppState>,
     design_id: i64,
+    request: Option<RenderPreviewRequest>,
 ) -> Result<Render3dPreviewResult, String> {
-    render_design_3d_preview_with_pool(&state.db, design_id).await
+    let preview_3d = request.map(|r| r.preview_3d).unwrap_or(true);
+    render_design_3d_preview_with_pool(&state.db, design_id, preview_3d).await
 }
 
 #[cfg(test)]
@@ -2777,7 +2791,18 @@ mod tests {
     async fn render_design_3d_preview_returns_error_when_source_file_is_missing() {
         let pool = test_pool().await;
 
-        let result = render_design_3d_preview_with_pool(&pool, 1).await;
+        let result = render_design_3d_preview_with_pool(&pool, 1, true).await;
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected missing file error")
+            .contains("not found on disk"));
+    }
+
+    #[tokio::test]
+    async fn render_design_2d_preview_returns_error_when_source_file_is_missing() {
+        let pool = test_pool().await;
+
+        let result = render_design_3d_preview_with_pool(&pool, 1, false).await;
         assert!(result.is_err());
         assert!(result
             .expect_err("expected missing file error")

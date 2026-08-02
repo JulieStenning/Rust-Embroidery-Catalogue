@@ -681,27 +681,30 @@ export async function openDesignInExplorer(designId: number | string) {
 }
 
 /**
+ * Generate a 2D or 3D preview for a design.
  * @param {number | string} designId
+ * @param {boolean} [preview3d=true] - Whether to generate a 3D preview (true) or 2D (false).
  */
-export async function renderDesign3dPreview(designId: number | string) {
+export async function renderDesign3dPreview(designId: number | string, preview3d = true) {
   const normalizedId = Number(designId);
 
   try {
     const result = await invokeLoose("render_design_3d_preview", {
       designId: normalizedId,
+      request: { preview_3d: Boolean(preview3d) },
     });
     return {
       source: "rust",
       persisted: true,
       result,
-      message: String(result?.message || "3D preview rendered."),
+      message: String(result?.message || "Preview rendered."),
     };
   } catch (error) {
     return {
       source: "mock",
       persisted: false,
       result: null,
-      message: `Could not render 3D preview: ${error}`,
+      message: `Could not render preview: ${error}`,
       error: String(error),
     };
   }

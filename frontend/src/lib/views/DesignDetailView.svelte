@@ -286,14 +286,14 @@
       // Compute tag arrays from the selected tag IDs and the all_tags lookup
       const allTags = Array.isArray(detailItem?.allTags) ? detailItem.allTags : [];
       const selectedTags = allTags.filter(
-        /** @param {{id: number, description: string, tag_group?: string}} t */ (t) =>
+        /** @param {{id: number, description: string, tag_group: string | null}} t */ (t) =>
           detailTagSelection.includes(t.id)
       );
       const imageTags = selectedTags
-        .filter(/** @param {{tag_group?: string}} t */ (t) => t.tag_group === "image")
+        .filter(/** @param {{tag_group: string | null}} t */ (t) => t.tag_group === "image")
         .map(/** @param {{description: string}} t */ (t) => t.description);
       const stitchingTags = selectedTags
-        .filter(/** @param {{tag_group?: string}} t */ (t) => t.tag_group === "stitching")
+        .filter(/** @param {{tag_group: string | null}} t */ (t) => t.tag_group === "stitching")
         .map(/** @param {{description: string}} t */ (t) => t.description);
       const allTagDescriptions = selectedTags.map(/** @param {{description: string}} t */ (t) => t.description);
 
@@ -376,11 +376,12 @@
     addToast(result.message, (!result.persisted || !result?.result?.success) ? "error" : "success");
   }
 
-  async function renderDetail3dPreview() {
+  async function renderDetailPreview() {
     if (!detailItem?.id || detailSaving) return;
 
+    const currentIs3d = detailItem.imageType === "3d";
     detailSaving = true;
-    const result = await renderDesign3dPreview(detailItem.id);
+    const result = await renderDesign3dPreview(detailItem.id, !currentIs3d);
     detailSaving = false;
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
@@ -562,8 +563,8 @@
         <div class="flex flex-wrap gap-2 pt-1">
           <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor</button>
           <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button>
-          <button class="menu-button-primary text-xs px-2.5 py-1.5" onclick={renderDetail3dPreview} disabled={detailSaving}>
-            {detailItem.imageDataUrl ? (detailItem.imageType === "3d" ? "✓ 3D Preview" : "Render 3D Preview") : "Generate 3D Preview"}
+          <button class="menu-button-primary text-xs px-2.5 py-1.5" onclick={renderDetailPreview} disabled={detailSaving}>
+            {detailItem.imageType === "3d" ? "Generate 2D Preview" : "Generate 3D Preview"}
           </button>
         </div>
       </div>

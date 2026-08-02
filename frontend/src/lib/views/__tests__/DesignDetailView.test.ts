@@ -717,7 +717,7 @@ describe("DesignDetailView", () => {
       });
     });
 
-    it("renders a 3D preview then refreshes the image data URL", async () => {
+    it("generates a 3D preview for a design with no existing image", async () => {
       renderDetail();
       await waitFor(() => {
         expect(
@@ -729,14 +729,14 @@ describe("DesignDetailView", () => {
       await user.click(screen.getByRole("button", { name: "Generate 3D Preview" }));
 
       await waitFor(() => {
-        expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42);
+        expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42, true);
       });
       await waitFor(() => {
         expect(adapterMocks.getDesignImageDataUrl).toHaveBeenCalledWith(42);
       });
     });
 
-    it("labels the 3D button with a check when the image is already 3D", async () => {
+    it("labels the button as Generate 2D Preview when the image is already 3D", async () => {
       adapterMocks.getDesignDetail.mockResolvedValue(
         detailResponse({
           imageDataUrl: "data:image/png;base64,abc",
@@ -747,8 +747,38 @@ describe("DesignDetailView", () => {
       renderDetail();
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: "✓ 3D Preview" })
+          screen.getByRole("button", { name: "Generate 2D Preview" })
         ).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Generate 2D Preview" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42, false);
+      });
+    });
+
+    it("labels the button as Generate 3D Preview when the image is already 2D", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          imageDataUrl: "data:image/png;base64,abc",
+          imageType: "2d",
+        })
+      );
+
+      renderDetail();
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Generate 3D Preview" })
+        ).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Generate 3D Preview" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42, true);
       });
     });
   });
