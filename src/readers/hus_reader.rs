@@ -579,6 +579,84 @@ mod tests {
         );
     }
 
+    #[test]
+    fn read_hus_zero_colors_produces_empty_threadlist() {
+        // Minimal 42-byte header, zero stitches, zero colors.
+        // All compressed-section offsets point at the end of the header,
+        // so all three compressed chunks are empty.
+        let mut buf = vec![0u8; 42];
+        // number_of_stitches (4 bytes at offset 4) = 0 (already zero)
+        // number_of_colors (4 bytes at offset 8) = 0 (already zero)
+        // command_offset (4 bytes at offset 20)
+        buf[20..24].copy_from_slice(&42u32.to_le_bytes());
+        // x_offset (4 bytes at offset 24)
+        buf[24..28].copy_from_slice(&42u32.to_le_bytes());
+        // y_offset (4 bytes at offset 28)
+        buf[28..32].copy_from_slice(&42u32.to_le_bytes());
+
+        let pattern = read_hus(&buf).expect("zero-stitch HUS should parse");
+
+        assert!(
+            pattern.threadlist.is_empty(),
+            "zero colors should produce an empty threadlist"
+        );
+        assert_eq!(
+            pattern.count_stitch_commands(StitchType::End),
+            1,
+            "should still append the terminal End marker"
+        );
+    }
+
+    #[test]
+    fn read_hus_color_index_out_of_range_defaults_to_black() {
+        // 42-byte header + 1 colour index (2 bytes) = 44 bytes total.
+        let mut buf = vec![0u8; 44];
+        // number_of_stitches = 0
+        buf[4..8].copy_from_slice(&0u32.to_le_bytes());
+        // number_of_colors = 1
+        buf[8..12].copy_from_slice(&1u32.to_le_bytes());
+        // command_offset = x_offset = y_offset = 44 (no compressed data)
+        buf[20..24].copy_from_slice(&44u32.to_le_bytes());
+        buf[24..28].copy_from_slice(&44u32.to_le_bytes());
+        buf[28..32].copy_from_slice(&44u32.to_le_bytes());
+        // Colour index 50 is beyond the 29-entry built-in palette.
+        buf[42..44].copy_from_slice(&50u16.to_le_bytes());
+
+        let pattern = read_hus(&buf).expect("HUS with out-of-range colour index should parse");
+
+        assert_eq!(pattern.threadlist.len(), 1);
+        assert_eq!(
+            pattern.threadlist[0].color, 0x000000,
+            "out-of-range palette index should fall back to black"
+        );
+    }
+
+    #[test]
+    fn read_hus_declared_stitches_exceed_available_data() {
+        // number_of_stitches claims 100, but there is no compressed data at all.
+        // The min() guard must clamp the parsed count to what is actually
+        // available instead of indexing out of bounds.
+        let mut buf = vec![0u8; 42];
+        // number_of_stitches = 100
+        buf[4..8].copy_from_slice(&100u32.to_le_bytes());
+        // number_of_colors = 0
+        buf[8..12].copy_from_slice(&0u32.to_le_bytes());
+        // All offsets point to the end of the header → empty compressed chunks.
+        buf[20..24].copy_from_slice(&42u32.to_le_bytes());
+        buf[24..28].copy_from_slice(&42u32.to_le_bytes());
+        buf[28..32].copy_from_slice(&42u32.to_le_bytes());
+
+        let pattern = read_hus(&buf).expect("HUS with over-declared stitch count should parse");
+
+        // No stitch data available → zero stitches parsed, no out-of-bounds panic.
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+        assert_eq!(
+            pattern.count_stitch_commands(StitchType::End),
+            1,
+            "should still append the terminal End marker"
+        );
+    }
+
     // ── apply_hus_command tests ────────────────────────────────────────
 
     #[test]
@@ -648,6 +726,30 @@ mod tests {
         assert!(keep_parsing, "unknown command should not halt parsing");
         // No stitch should have been added
         assert!(pattern.stitches.is_empty(), "no stitch for unknown command");
+    }
+
+    #[test]
+    fn hus_stitch_i8_boundaries() {
+        // Verify coordinate accumulation at the i8 extremes.
+        // In HUS decoding, x is used directly and y is negated.
+        let mut pattern = EmbPattern::new();
+
+        // Stitch 1: (+127, +127)
+        assert!(apply_hus_command(&mut pattern, 0x80, 127.0, 127.0));
+        // Stitch 2: (-128, -128)
+        assert!(apply_hus_command(&mut pattern, 0x80, -128.0, -128.0));
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches.len(), 2);
+        assert_eq!(stitches[0].x, 127.0);
+        assert_eq!(stitches[0].y, 127.0);
+        // Accumulated position after both stitches: 127 + (-128) = -1
+        assert_eq!(stitches[1].x, -1.0);
+        assert_eq!(stitches[1].y, -1.0);
     }
 
     // ── parse_color tests ──────────────────────────────────────────────
@@ -739,6 +841,32 @@ mod tests {
         let (value, len) = h.lookup(0x0000).expect("lookup for low bit");
         assert_eq!(value, 0, "first symbol index");
         assert_eq!(len, 1, "bit length");
+    }
+
+    #[test]
+    fn huffman_max_table_width() {
+        // 16-bit table width is the maximum supported by the builder.
+        let h = Huffman::with_lengths(vec![16]).expect("16-width should be accepted");
+        assert_eq!(h.table_width, 16);
+
+        // A single symbol at bit length 16 produces a 1-entry table because
+        // the lookup shift is 0 (16 - table_width), so index 0 is the only
+        // valid slot.
+        let table = h.table.as_ref().expect("table should be built");
+        assert_eq!(table.len(), 1);
+
+        // Lookup at index 0 returns symbol 0 with length 16.
+        let (value, len) = h.lookup(0x0000).expect("lookup at index 0 should succeed");
+        assert_eq!(value, 0);
+        assert_eq!(len, 16);
+
+        // An incomplete Huffman table (Kraft sum < 1) only fills the slots it
+        // has; higher indices are out of bounds and must fail gracefully with
+        // a checked-index error rather than panicking.
+        assert!(
+            h.lookup(0xFFFF).is_err(),
+            "lookup beyond table bounds should error safely"
+        );
     }
 
     #[test]

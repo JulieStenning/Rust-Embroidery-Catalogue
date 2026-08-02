@@ -545,4 +545,111 @@ mod tests {
         assert_eq!(last_stitch.x, 17.0);
         assert_eq!(last_stitch.y, 3.0);
     }
+
+    #[test]
+    fn test_read_jef_empty_data_returns_error() {
+        let data: &[u8] = &[];
+        let result = read_jef(data);
+        assert!(result.is_err(), "empty data should fail header parsing");
+    }
+
+    #[test]
+    fn test_read_jef_truncated_header() {
+        // Fewer than the 116-byte fixed header.
+        let data: Vec<u8> = vec![0u8; 50];
+        let result = read_jef(&data);
+        assert!(result.is_err(), "truncated header should fail binrw parse");
+    }
+
+    #[test]
+    fn test_read_jef_truncated_mid_stitch() {
+        // Valid 116-byte header with no colors, then one complete stitch (2 bytes)
+        // and one truncated stitch (only 1 byte of the pair).
+        let stitch_offset: u32 = 116;
+        let mut data = Vec::with_capacity(120);
+
+        data.extend_from_slice(&stitch_offset.to_le_bytes());
+        data.extend_from_slice(&[0u8; 20]);
+        data.extend_from_slice(&0u32.to_le_bytes());
+        data.extend_from_slice(&[0u8; 88]);
+
+        // Complete stitch: dx=5, dy=10
+        data.push(0x05);
+        data.push(0xF6);
+        // Truncated stitch: only 1 byte present.
+        data.push(0xFD);
+
+        let pattern = read_jef(&data).expect("should handle truncated JEF stitch data");
+
+        // The one complete stitch should have been retained.
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 1);
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches[0].x, 5.0);
+        assert_eq!(stitches[0].y, 10.0);
+
+        // End marker appended at the last decoded position (5, 10).
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+        let end = pattern
+            .stitches
+            .last()
+            .expect("expected End marker");
+        assert_eq!(end.x, 5.0);
+        assert_eq!(end.y, 10.0);
+    }
+
+    #[test]
+    fn test_signed8_jef_boundaries() {
+        // signed8 maps an unsigned byte to the signed range [-128, 127].
+        assert_eq!(signed8(0), 0);
+        assert_eq!(signed8(127), 127);
+        assert_eq!(signed8(128), -128);
+        assert_eq!(signed8(129), -127);
+        assert_eq!(signed8(255), -1);
+    }
+
+    #[test]
+    fn test_read_jef_stitch_signed8_extremes() {
+        // The byte 0x80 is reserved as the control-command escape, so regular
+        // stitch deltas are limited to signed8 range minus 0x80:
+        //   max   = +127 (0x7F)
+        //   min   = -127 (0x81)
+        //
+        // Valid 116-byte header with no colors, two stitches at signed8 extremes.
+        let stitch_offset: u32 = 116;
+        let mut data = Vec::with_capacity(124);
+
+        data.extend_from_slice(&stitch_offset.to_le_bytes());
+        data.extend_from_slice(&[0u8; 20]);
+        data.extend_from_slice(&0u32.to_le_bytes());
+        data.extend_from_slice(&[0u8; 88]);
+
+        // Stitch 1: dx = signed8(0x7F) = +127, dy = -signed8(0xFF) = -(-1) = +1
+        data.push(0x7F);
+        data.push(0xFF);
+        // Stitch 2: dx = signed8(0x81) = -127, dy = -signed8(0x00) = 0
+        data.push(0x81);
+        data.push(0x00);
+
+        let pattern = read_jef(&data).expect("should parse signed8 extreme JEF stitches");
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches.len(), 2);
+        // Stitch 1 ends at (127, 1)
+        assert_eq!(stitches[0].x, 127.0);
+        assert_eq!(stitches[0].y, 1.0);
+        // Stitch 2 accumulates to (0, 1)
+        assert_eq!(stitches[1].x, 0.0);
+        assert_eq!(stitches[1].y, 1.0);
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+    }
 }

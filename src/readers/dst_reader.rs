@@ -430,4 +430,66 @@ mod tests {
         assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 2);
         assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
     }
+
+    #[test]
+    fn test_decode_dx_maximum_values() {
+        // Maximum dx = +81 +27 +9 +3 +1 = +121
+        // b2 bit2=1 (0x04), b1 bit2=1 + bit0=1 (0x05), b0 bit2=1 + bit0=1 (0x05)
+        assert_eq!(decode_dx(0x05, 0x05, 0x04), 121.0);
+
+        // Minimum dx = -81 -27 -9 -3 -1 = -121
+        // b2 bit3=1 (0x08), b1 bit3=1 + bit1=1 (0x0A), b0 bit3=1 + bit1=1 (0x0A)
+        assert_eq!(decode_dx(0x0A, 0x0A, 0x08), -121.0);
+    }
+
+    #[test]
+    fn test_decode_dy_maximum_values() {
+        // Maximum dy = +121 (internal sum -121 negated)
+        // b2 bit4=1 (0x10), b1 bit4=1 + bit6=1 (0x50), b0 bit4=1 + bit6=1 (0x50)
+        assert_eq!(decode_dy(0x50, 0x50, 0x10), 121.0);
+
+        // Minimum dy = -121 (internal sum +121 negated)
+        // b2 bit5=1 (0x20), b1 bit5=1 + bit7=1 (0xA0), b0 bit5=1 + bit7=1 (0xA0)
+        assert_eq!(decode_dy(0xA0, 0xA0, 0x20), -121.0);
+    }
+
+    #[test]
+    fn test_read_dst_truncated_mid_stitch_record() {
+        // Build a valid header + two full stitches, then truncate mid-record
+        // on the third stitch (only 2 of the required 3 bytes present).
+        let mut data = vec![0u8; 512];
+
+        // Stitch 1: dx=+1, dy=+1 -> b0=0x81
+        data.push(0x81);
+        data.push(0x00);
+        data.push(0x00);
+
+        // Stitch 2: dx=+1, dy=+1 -> b0=0x81
+        data.push(0x81);
+        data.push(0x00);
+        data.push(0x00);
+
+        // Truncated third stitch — only 2 of 3 bytes.
+        data.push(0x81);
+        data.push(0x00);
+        // NOTE: third byte omitted → read_exact fails, loop breaks gracefully.
+
+        let pattern = read_dst(&data).expect("should handle truncated DST gracefully");
+
+        // The two complete stitches should have been retained.
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 2);
+
+        // End marker appended at the last decoded position.
+        // Each 0x81 stitch decodes as dx=+1, dy=-1 (bit7 of b0 contributes
+        // +1 to the dy sum, which DST then negates), so after two stitches
+        // the position is (2, -2).
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+        let end = pattern
+            .stitches
+            .iter()
+            .find(|s| s.stitch_type == StitchType::End)
+            .expect("expected End marker");
+        assert_eq!(end.x, 2.0);
+        assert_eq!(end.y, -2.0);
+    }
 }

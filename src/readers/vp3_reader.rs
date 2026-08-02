@@ -249,6 +249,180 @@ mod tests {
         assert_eq!(cursor.position() as usize, bytes.len());
     }
 
+    /// Build a minimal VP3 header with the given number of colour blocks.
+    /// All strings are empty and all seek regions are zero-filled.
+    fn build_minimal_vp3_header(count_colors: u16) -> Vec<u8> {
+        let mut buf = Vec::new();
+        // Magic: %vsm%\0
+        buf.extend_from_slice(b"%vsm%\0");
+        // Header string (empty)
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        // 7-byte seek
+        buf.extend_from_slice(&[0u8; 7]);
+        // Comments string (empty)
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        // 32-byte seek
+        buf.extend_from_slice(&[0u8; 32]);
+        // center_x = 0, center_y = 0
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        // 27-byte seek
+        buf.extend_from_slice(&[0u8; 27]);
+        // String (empty)
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        // 24-byte seek
+        buf.extend_from_slice(&[0u8; 24]);
+        // String (empty)
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        // count_colors
+        buf.extend_from_slice(&count_colors.to_be_bytes());
+        buf
+    }
+
+    #[test]
+    fn vp3_read_rejects_invalid_magic() {
+        let data = b"XXXXXX";
+        let result = read_vp3(data);
+        assert!(result.is_err(), "invalid magic should produce an error");
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("invalid file signature"),
+            "expected signature error, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn vp3_read_truncated_header_errors() {
+        // Valid magic but far fewer bytes than the full header requires.
+        let mut data = b"%vsm%\0".to_vec();
+        data.extend_from_slice(&[0u8; 20]);
+        let result = read_vp3(&data);
+        assert!(result.is_err(), "truncated header should produce an error");
+    }
+
+    #[test]
+    fn vp3_read_zero_color_blocks_parses_empty_pattern() {
+        let buf = build_minimal_vp3_header(0);
+        let pattern = read_vp3(&buf).expect("zero-color VP3 should parse");
+
+        assert!(pattern.threadlist.is_empty());
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+        let end = pattern.stitches.last().expect("expected End marker");
+        assert_eq!(end.x, 0.0);
+        assert_eq!(end.y, 0.0);
+    }
+
+    #[test]
+    fn vp3_read_truncated_mid_color_block_does_not_panic() {
+        // Build a valid single-color-block VP3, then truncate the stitch bytes
+        // partway through the declared stitch_byte_length.
+        let mut buf = build_minimal_vp3_header(1);
+
+        // 3-byte bytescheck
+        buf.extend_from_slice(&[0, 0, 0]);
+        // distance_to_next_block_050 = 40 → block_end = 121 + 40 = 161
+        buf.extend_from_slice(&40i32.to_be_bytes());
+        // start_position_x = 0, start_position_y = 0
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        // Thread: zero colors, no transition, empty strings (10 bytes)
+        buf.push(0x00); // colors = 0
+        buf.push(0x00); // transition
+        buf.push(0x00); // thread_type
+        buf.push(0x00); // weight
+        buf.extend_from_slice(&0u16.to_be_bytes()); // catalog length 0
+        buf.extend_from_slice(&0u16.to_be_bytes()); // description length 0
+        buf.extend_from_slice(&0u16.to_be_bytes()); // brand length 0
+        // 15-byte seek + 3-byte bytescheck
+        buf.extend_from_slice(&[0u8; 15]);
+        buf.extend_from_slice(&[0, 0, 0]);
+        // Stitch bytes: declared length 4, but only 2 bytes present.
+        buf.push(0x00);
+        buf.push(0x01);
+
+        let pattern = read_vp3(&buf).expect("truncated VP3 color block should parse gracefully");
+
+        // The partial stitch byte was decoded and the End marker appended.
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 1);
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+    }
+
+    #[test]
+    fn vp3_block_negative_stitch_byte_length_errors() {
+        // distance_to_next_block_050 = 0 makes block_end_position fall behind
+        // the position where stitch data begins, so stitch_byte_length is
+        // negative and the parser must reject the file.
+        let mut buf = build_minimal_vp3_header(1);
+
+        // 3-byte bytescheck
+        buf.extend_from_slice(&[0, 0, 0]);
+        // distance = 0 → block_end = position after reading distance (121)
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        // start_position_x = 0, start_position_y = 0
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        buf.extend_from_slice(&0i32.to_be_bytes());
+        // Thread: zero colors, no transition, empty strings (10 bytes)
+        buf.push(0x00); // colors = 0
+        buf.push(0x00); // transition
+        buf.push(0x00); // thread_type
+        buf.push(0x00); // weight
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        buf.extend_from_slice(&0u16.to_be_bytes());
+        // 15-byte seek + 3-byte bytescheck
+        buf.extend_from_slice(&[0u8; 15]);
+        buf.extend_from_slice(&[0, 0, 0]);
+
+        let result = read_vp3(&buf);
+        assert!(result.is_err(), "negative stitch length should error");
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("Negative stitch_byte_length"),
+            "expected negative length error, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn vp3_thread_zero_colors_defaults_to_black() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&[
+            0x00, 0x00, // zero colors, no transition
+            0x05, 0x28, // thread type, weight
+            0x00, 0x01, b'a', 0x00, 0x01, b'b', 0x00, 0x01, b'c',
+        ]);
+
+        let mut cursor = Cursor::new(bytes.as_slice());
+        let thread = vp3_read_thread(&mut cursor).expect("thread with zero colors should parse");
+
+        assert_eq!(thread.color, 0x000000, "zero-color thread should default to black");
+        assert_eq!(thread.catalog_number.as_deref(), Some("a"));
+        assert_eq!(thread.description.as_deref(), Some("b"));
+        assert_eq!(thread.brand.as_deref(), Some("c"));
+        assert_eq!(cursor.position() as usize, bytes.len());
+    }
+
+    #[test]
+    fn vp3_thread_empty_strings_parse() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&[
+            0x01, 0x00, // one color, no transition
+            0x11, 0x22, 0x33, 0x00, 0x00, 0x00, // color + parts + zero-length payload
+            0x05, 0x28, // thread type, weight
+            0x00, 0x00, // catalog: empty string
+            0x00, 0x00, // description: empty string
+            0x00, 0x00, // brand: empty string
+        ]);
+
+        let mut cursor = Cursor::new(bytes.as_slice());
+        let thread = vp3_read_thread(&mut cursor).expect("thread with empty strings should parse");
+
+        assert_eq!(thread.color, 0x112233);
+        assert_eq!(thread.catalog_number.as_deref(), Some(""));
+        assert_eq!(thread.description.as_deref(), Some(""));
+        assert_eq!(thread.brand.as_deref(), Some(""));
+        assert_eq!(cursor.position() as usize, bytes.len());
+    }
+
     #[test]
     fn vp3_long_form_stitches_are_preserved() {
         let mut pattern = EmbPattern::new();

@@ -461,4 +461,92 @@ mod tests {
             assert_eq!(last.y, 0.0);
         }
     }
+
+    #[test]
+    fn test_signed8_boundary_values() {
+        // signed8 maps an unsigned byte to the signed range [-128, 127].
+        assert_eq!(signed8(0), 0);
+        assert_eq!(signed8(127), 127);
+        assert_eq!(signed8(128), -128);
+        assert_eq!(signed8(129), -127);
+        assert_eq!(signed8(255), -1);
+    }
+
+    #[test]
+    fn test_read_exp_truncated_after_control_prefix() {
+        // A control command (0x80 0x04) with its 2 extra delta bytes missing
+        // should break out of the loop gracefully instead of panicking.
+        let data = vec![0x80, 0x04];
+
+        let pattern = read_exp(&data).expect("should handle truncated control command");
+
+        // No jump should have been emitted because the delta bytes were missing.
+        assert_eq!(pattern.count_stitch_commands(StitchType::Jump), 0);
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 0);
+
+        // End marker appended at origin.
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+        let end = pattern
+            .stitches
+            .last()
+            .expect("expected End marker");
+        assert_eq!(end.x, 0.0);
+        assert_eq!(end.y, 0.0);
+    }
+
+    #[test]
+    fn test_read_exp_truncated_mid_stitch() {
+        // One full 2-byte stitch, then only 1 byte of a second stitch.
+        let data = vec![0x05, 0xF6, 0xFD];
+
+        let pattern = read_exp(&data).expect("should handle truncated stitch data");
+
+        // Only the first complete stitch should have been parsed.
+        assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 1);
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches[0].x, 5.0);
+        assert_eq!(stitches[0].y, 10.0);
+
+        // End marker appended at the last decoded position (5, 10).
+        let end = pattern
+            .stitches
+            .last()
+            .expect("expected End marker");
+        assert_eq!(end.x, 5.0);
+        assert_eq!(end.y, 10.0);
+    }
+
+    #[test]
+    fn test_read_exp_stitch_signed8_extremes() {
+        // The byte 0x80 is reserved as the control-command escape, so regular
+        // stitch deltas are limited to signed8 range minus 0x80:
+        //   max   = +127 (0x7F)
+        //   min   = -127 (0x81)
+        //
+        // Stitch 1: dx = signed8(0x7F) = +127, dy = -signed8(0xFF) = -(-1) = +1
+        // Stitch 2: dx = signed8(0x81) = -127, dy = -signed8(0x00) = 0
+        let data = vec![0x7F, 0xFF, 0x81, 0x00];
+
+        let pattern = read_exp(&data).expect("should parse signed8 extreme stitches");
+
+        let stitches: Vec<_> = pattern
+            .stitches
+            .iter()
+            .filter(|s| s.stitch_type == StitchType::Stitch)
+            .collect();
+        assert_eq!(stitches.len(), 2);
+        // Stitch 1 ends at (127, 1)
+        assert_eq!(stitches[0].x, 127.0);
+        assert_eq!(stitches[0].y, 1.0);
+        // Stitch 2 accumulates to (0, 1)
+        assert_eq!(stitches[1].x, 0.0);
+        assert_eq!(stitches[1].y, 1.0);
+
+        assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
+    }
 }
