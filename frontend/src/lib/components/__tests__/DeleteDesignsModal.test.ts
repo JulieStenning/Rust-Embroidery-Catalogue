@@ -50,20 +50,20 @@ describe("DeleteDesignsModal", () => {
 
   describe("rendering", () => {
     it("renders nothing when open is false", () => {
-      render(DeleteDesignsModal, { designIds: [1, 2], open: false });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], open: false } });
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("renders the dialog when open is true", () => {
-      render(DeleteDesignsModal, { designIds: [1], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true } });
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
       expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
     });
 
     it("uses a singular heading for one design", () => {
-      render(DeleteDesignsModal, { designIds: [7], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [7], open: true } });
 
       expect(
         screen.getByRole("heading", { name: "Delete selected design?" })
@@ -71,7 +71,7 @@ describe("DeleteDesignsModal", () => {
     });
 
     it("uses a plural heading for multiple designs", () => {
-      render(DeleteDesignsModal, { designIds: [1, 2, 3], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2, 3], open: true } });
 
       expect(
         screen.getByRole("heading", { name: "Delete selected designs?" })
@@ -79,13 +79,13 @@ describe("DeleteDesignsModal", () => {
     });
 
     it("shows the singular selected-count message", () => {
-      render(DeleteDesignsModal, { designIds: [5], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [5], open: true } });
 
       expect(screen.getByText("1 design selected.")).toBeInTheDocument();
     });
 
     it("shows the plural selected-count message", () => {
-      render(DeleteDesignsModal, { designIds: [5, 6], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [5, 6], open: true } });
 
       expect(screen.getByText("2 designs selected.")).toBeInTheDocument();
     });
@@ -94,9 +94,11 @@ describe("DeleteDesignsModal", () => {
   describe("preview visibility", () => {
     it("hides the collapsible preview for a single design", () => {
       render(DeleteDesignsModal, {
-        designIds: [1],
-        previewItems: [{ id: 1, filename: "flower.jef", filepath: "C:\\flower.jef" }],
-        open: true,
+        props: {
+          designIds: [1],
+          previewItems: [{ id: 1, filename: "flower.jef", filepath: "C:\\flower.jef" }],
+          open: true,
+        },
       });
 
       expect(screen.queryByText(/Review selected designs/)).not.toBeInTheDocument();
@@ -104,12 +106,14 @@ describe("DeleteDesignsModal", () => {
 
     it("shows the collapsible preview and count for multiple designs", () => {
       render(DeleteDesignsModal, {
-        designIds: [1, 2],
-        previewItems: [
-          { id: 1, filename: "flower.jef", filepath: "C:\\flower.jef" },
-          { id: 2, filename: "heart.pes", filepath: "C:\\heart.pes" },
-        ],
-        open: true,
+        props: {
+          designIds: [1, 2],
+          previewItems: [
+            { id: 1, filename: "flower.jef", filepath: "C:\\flower.jef" },
+            { id: 2, filename: "heart.pes", filepath: "C:\\heart.pes" },
+          ],
+          open: true,
+        },
       });
 
       expect(screen.getByText(/Review selected designs \(2\)/)).toBeInTheDocument();
@@ -118,7 +122,7 @@ describe("DeleteDesignsModal", () => {
 
   describe("file action radio", () => {
     it("defaults to keeping files on disk and hides the recycle-bin warning", () => {
-      render(DeleteDesignsModal, { designIds: [1], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true } });
 
       const radios = screen.getAllByRole("radio");
       expect(radios).toHaveLength(2);
@@ -130,7 +134,7 @@ describe("DeleteDesignsModal", () => {
     });
 
     it("checks the recycle-bin option and shows the warning when selected", async () => {
-      render(DeleteDesignsModal, { designIds: [1], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true } });
 
       const radios = screen.getAllByRole("radio");
       await fireEvent.click(radios[1]);
@@ -143,7 +147,7 @@ describe("DeleteDesignsModal", () => {
     });
 
     it("hides the warning again when switching back to keep-files", async () => {
-      render(DeleteDesignsModal, { designIds: [1], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true } });
 
       const radios = screen.getAllByRole("radio");
       await fireEvent.click(radios[1]);
@@ -163,7 +167,7 @@ describe("DeleteDesignsModal", () => {
   describe("cancel", () => {
     it("calls onClose when Cancel is clicked", async () => {
       const onClose = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -172,7 +176,7 @@ describe("DeleteDesignsModal", () => {
 
     it("resets the deleteFile state when cancelled", async () => {
       const onClose = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.click(screen.getAllByRole("radio")[1]);
       expect(
@@ -191,7 +195,7 @@ describe("DeleteDesignsModal", () => {
   describe("backdrop", () => {
     it("calls onClose when the backdrop is clicked", async () => {
       const onClose = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.click(screen.getByLabelText("Close delete confirmation"));
 
@@ -202,7 +206,7 @@ describe("DeleteDesignsModal", () => {
       const { promise, resolve } = deferred<typeof successResult>();
       mockedBulkDeleteDesigns.mockReturnValue(promise);
       const onClose = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
       await fireEvent.click(screen.getByLabelText("Close delete confirmation"));
@@ -215,7 +219,7 @@ describe("DeleteDesignsModal", () => {
   describe("keyboard", () => {
     it("closes the modal when Escape is pressed", async () => {
       const onClose = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 
@@ -226,7 +230,7 @@ describe("DeleteDesignsModal", () => {
       const { promise, resolve } = deferred<typeof successResult>();
       mockedBulkDeleteDesigns.mockReturnValue(promise);
       const onClose = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
       await fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
@@ -238,13 +242,13 @@ describe("DeleteDesignsModal", () => {
 
   describe("delete button", () => {
     it("is disabled when no designs are selected", () => {
-      render(DeleteDesignsModal, { designIds: [], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [], open: true } });
 
       expect(screen.getByRole("button", { name: "Delete 0 designs" })).toBeDisabled();
     });
 
     it("is enabled when designs are selected", () => {
-      render(DeleteDesignsModal, { designIds: [1], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true } });
 
       expect(screen.getByRole("button", { name: "Delete 1 design" })).toBeEnabled();
     });
@@ -252,7 +256,7 @@ describe("DeleteDesignsModal", () => {
     it("is disabled and shows 'Deleting...' while a deletion is in progress", async () => {
       const { promise, resolve } = deferred<typeof successResult>();
       mockedBulkDeleteDesigns.mockReturnValue(promise);
-      render(DeleteDesignsModal, { designIds: [1, 2], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], open: true } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 2 designs" }));
 
@@ -265,7 +269,7 @@ describe("DeleteDesignsModal", () => {
 
   describe("confirmDelete", () => {
     it("calls bulkDeleteDesigns with the design ids and deleteFiles=false by default", async () => {
-      render(DeleteDesignsModal, { designIds: [1, 2], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], open: true } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 2 designs" }));
 
@@ -273,7 +277,7 @@ describe("DeleteDesignsModal", () => {
     });
 
     it("calls bulkDeleteDesigns with deleteFiles=true when recycle-bin is selected", async () => {
-      render(DeleteDesignsModal, { designIds: [42], open: true });
+      render(DeleteDesignsModal, { props: { designIds: [42], open: true } });
 
       await fireEvent.click(screen.getAllByRole("radio")[1]);
       await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
@@ -283,7 +287,7 @@ describe("DeleteDesignsModal", () => {
 
     it("passes the persisted result to onDeleted", async () => {
       const onDeleted = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1, 2], open: true, onDeleted });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], open: true, onDeleted } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 2 designs" }));
 
@@ -301,7 +305,7 @@ describe("DeleteDesignsModal", () => {
         errors: [],
       });
       const onDeleted = vi.fn();
-      render(DeleteDesignsModal, { designIds: [9], open: true, onDeleted });
+      render(DeleteDesignsModal, { props: { designIds: [9], open: true, onDeleted } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
 
@@ -319,7 +323,7 @@ describe("DeleteDesignsModal", () => {
     it("does not call onClose after a successful deletion", async () => {
       const onClose = vi.fn();
       const onDeleted = vi.fn();
-      render(DeleteDesignsModal, { designIds: [1], open: true, onClose, onDeleted });
+      render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose, onDeleted } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
 
@@ -332,7 +336,7 @@ describe("DeleteDesignsModal", () => {
     it("calls onDeleted with an error result when bulkDeleteDesigns throws", async () => {
       mockedBulkDeleteDesigns.mockRejectedValue(new Error("backend unreachable"));
       const onDeleted = vi.fn();
-      render(DeleteDesignsModal, { designIds: [5], open: true, onDeleted });
+      render(DeleteDesignsModal, { props: { designIds: [5], open: true, onDeleted } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
 
@@ -365,7 +369,7 @@ describe("DeleteDesignsModal", () => {
     ];
 
     it("shows filenames and filepaths for each preview item", () => {
-      render(DeleteDesignsModal, { designIds: [1, 2], previewItems, open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], previewItems, open: true } });
 
       expect(screen.getByText("flower.jef")).toBeInTheDocument();
       expect(screen.getByText("C:\\designs\\flower.jef")).toBeInTheDocument();
@@ -374,14 +378,14 @@ describe("DeleteDesignsModal", () => {
     });
 
     it("shows a thumbnail image for preview items with a dataUrl", () => {
-      render(DeleteDesignsModal, { designIds: [1, 2], previewItems, open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], previewItems, open: true } });
 
       const img = screen.getByAltText("flower.jef");
       expect(img).toHaveAttribute("src", "data:image/png;base64,Zm9v");
     });
 
     it("shows a placeholder for preview items without a dataUrl", () => {
-      render(DeleteDesignsModal, { designIds: [1, 2], previewItems, open: true });
+      render(DeleteDesignsModal, { props: { designIds: [1, 2], previewItems, open: true } });
 
       expect(screen.getByText("?")).toBeInTheDocument();
     });

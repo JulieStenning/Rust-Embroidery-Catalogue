@@ -154,9 +154,7 @@ function renderHarness(initialRoute = "#/import") {
   const onNavigate = vi.fn();
   const onImportCompleted = vi.fn();
   const view = render(ImportTestHarness, {
-    initialRoute,
-    onImportCompleted,
-    onNavigate,
+    props: { initialRoute, onImportCompleted, onNavigate },
   });
   return { onNavigate, onImportCompleted, container: view.container };
 }
@@ -170,9 +168,7 @@ function renderStatic(route: string) {
   const navigateTo = vi.fn();
   const onImportCompleted = vi.fn();
   const view = render(ImportView, {
-    currentRoute: route,
-    navigateTo,
-    onImportCompleted,
+    props: { currentRoute: route, navigateTo, onImportCompleted },
   });
   return { navigateTo, onImportCompleted, view, container: view.container };
 }

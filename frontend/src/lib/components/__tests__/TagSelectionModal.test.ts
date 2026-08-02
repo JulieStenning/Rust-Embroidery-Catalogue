@@ -60,7 +60,7 @@ function deferred<T>() {
 }
 
 async function renderModal(props: any) {
-  const result = render(TagSelectionModal, props);
+  const result = render(TagSelectionModal, { props });
   await tick();
   return result;
 }

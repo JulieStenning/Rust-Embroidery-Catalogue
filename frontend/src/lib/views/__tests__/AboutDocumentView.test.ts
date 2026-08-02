@@ -37,7 +37,7 @@ describe("AboutDocumentView", () => {
       // Keep promise pending so it stays in loading state
       adapterMock.getAboutDocument.mockReturnValue(new Promise(() => {}));
 
-      render(AboutDocumentView, { slug: "licence" });
+      render(AboutDocumentView, { props: { slug: "licence" } });
 
       expect(screen.getByText("Loading document...")).toBeInTheDocument();
       expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
@@ -58,7 +58,7 @@ describe("AboutDocumentView", () => {
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      const { container } = render(AboutDocumentView, { slug: "licence" });
+      const { container } = render(AboutDocumentView, { props: { slug: "licence" } });
 
       await waitFor(() => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
@@ -79,7 +79,7 @@ describe("AboutDocumentView", () => {
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      const { container } = render(AboutDocumentView, { slug: "disclaimer" });
+      const { container } = render(AboutDocumentView, { props: { slug: "disclaimer" } });
 
       await waitFor(() => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
@@ -100,7 +100,7 @@ describe("AboutDocumentView", () => {
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      const { container } = render(AboutDocumentView, { slug: "privacy" });
+      const { container } = render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
@@ -123,7 +123,7 @@ describe("AboutDocumentView", () => {
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      render(AboutDocumentView, { slug: "licence" });
+      render(AboutDocumentView, { props: { slug: "licence" } });
 
       await waitFor(() => {
         expect(screen.getByText("Document content is unavailable.")).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe("AboutDocumentView", () => {
         item: null,
       });
 
-      render(AboutDocumentView, { slug: "licence" });
+      render(AboutDocumentView, { props: { slug: "licence" } });
 
       await waitFor(() => {
         expect(screen.getByText("Database error reading licence.")).toBeInTheDocument();
@@ -147,7 +147,7 @@ describe("AboutDocumentView", () => {
     it("renders fallback error message when the getAboutDocument promise rejects", async () => {
       adapterMock.getAboutDocument.mockRejectedValue(new Error("Connection refused"));
 
-      render(AboutDocumentView, { slug: "licence" });
+      render(AboutDocumentView, { props: { slug: "licence" } });
 
       await waitFor(() => {
         expect(screen.getByText("Could not load document: Error: Connection refused")).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe("AboutDocumentView", () => {
       });
 
       // Render with first slug. This calls loadAboutDocumentView("first") in onMount.
-      const { rerender } = render(AboutDocumentView, { slug: "first" });
+      const { rerender } = render(AboutDocumentView, { props: { slug: "first" } });
 
       // Change slug to "second". This updates the reactive `slug` prop to "second",
       // but does not auto-trigger loadAboutDocumentView since it only runs onMount.
@@ -205,7 +205,7 @@ describe("AboutDocumentView", () => {
     });
 
     it("does not trigger loader or request when slug is empty", async () => {
-      render(AboutDocumentView, { slug: "" });
+      render(AboutDocumentView, { props: { slug: "" } });
 
       expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
       expect(screen.getByText("Document content is unavailable.")).toBeInTheDocument();
