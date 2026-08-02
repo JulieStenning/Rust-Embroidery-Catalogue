@@ -1,3 +1,30 @@
+/**
+ * COVERAGE NOTE
+ * -------------
+ * MainView.svelte is a 3,000+ line application shell that embeds routing,
+ * data fetching, client-side filtering/sorting, admin CRUD, pagination,
+ * preview loading, and bulk operations within a single component scope.
+ *
+ * Because all business logic resides in private, non-exported functions
+ * (normalizeHash, parseQueryWithOr, compareBrowseItems, normalizeCardItem,
+ * applyPatchesToBrowse, etc.) and state is managed via tightly-coupled
+ * $state/$derived runes inside the component, individual units cannot be
+ * tested in isolation with vitest + jsdom.
+ *
+ * Meaningful coverage improvement requires architectural refactoring:
+ *   - Extract the hash router into a separate module
+ *   - Decompose Browse into its own view-level sub-component
+ *   - Move card normalization & search parsing into utility modules
+ *   - Elevate each admin entity CRUD into dedicated sub-components
+ *
+ * The tests in this file provide integration-level coverage of every
+ * primary route destination, the core browse CRUD lifecycle (load,
+ * filter, search, sort, paginate, select, bulk-delete, bulk-verify),
+ * and admin CRUD for all four entity types. Edge-case coverage for
+ * internal functions is deferred to the component-level spec or future
+ * refactoring that enables isolated unit testing.
+ */
+
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/svelte";
