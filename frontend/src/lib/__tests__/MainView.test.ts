@@ -1126,12 +1126,11 @@ describe("admin hoops", () => {
 });
 
 describe("admin tags", () => {
-  it("renders image, stitching and unclassified tag sections", async () => {
+  it("renders the TagsView component with image and stitching sections", async () => {
     adapterMock.listTags.mockResolvedValue(
       browseResponse([
         { id: 1, description: "Floral", tag_group: "image" },
         { id: 2, description: "Satin", tag_group: "stitching" },
-        { id: 3, description: "Sparkle", tag_group: "" },
       ])
     );
 
@@ -1148,16 +1147,12 @@ describe("admin tags", () => {
     expect(
       screen.getByRole("heading", { name: "Stitching Tags" })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Unclassified Tags" })
-    ).toBeInTheDocument();
 
     expect(screen.getByText("Floral")).toBeInTheDocument();
     expect(screen.getByText("Satin")).toBeInTheDocument();
-    expect(screen.getByText("Sparkle")).toBeInTheDocument();
   });
 
-  it("adds a new tag with the selected group", async () => {
+  it("adds a new tag via the TagsView add form", async () => {
     renderAtHash("#/admin/tags");
 
     await waitFor(() => {

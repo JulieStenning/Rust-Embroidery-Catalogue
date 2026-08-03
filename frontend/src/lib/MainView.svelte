@@ -15,10 +15,6 @@
     createSource,
     updateSource,
     deleteSource as removeSource,
-    listTags,
-    createTag,
-    setTagGroup as updateTagGroup,
-    deleteTag as removeTag,
     listHoops,
     createHoop,
     updateHoop,
@@ -40,6 +36,7 @@
   import DesignDetailView from "./views/DesignDetailView.svelte";
   import DesignPrintView from "./views/DesignPrintView.svelte";
   import ImportView from "./views/ImportView.svelte";
+  import TagsView from "./views/TagsView.svelte";
 
   import Pagination from "./components/Pagination.svelte";
   import SelectionHeader from "./components/SelectionHeader.svelte";
@@ -54,7 +51,6 @@
   /** @typedef {import("./types/ipc").ProjectListItem} ProjectListItem */
   /** @typedef {import("./types/ipc").SearchPayload} SearchPayload */
   /** @typedef {import("./types/ipc").MutationPatch} MutationPatch */
-  /** @typedef {import("./types/ipc").AdminTagSummary} AdminTagSummary */
   /** @typedef {{ persisted: boolean, deleted_count: number, files_trashed: number, errors?: string[] }} BulkDeleteResult */
   /** @typedef {{ q: string, allWords: string, exactPhrase: string, anyWords: string, noneWords: string, filename: string, designerFilters: string[], imageTagFilters: string[], stitchingTagFilters: string[], hoop: string, sourceFilters: string[], rating: string, stitched: string, unverifiedOnly: boolean, searchFilename: boolean, searchTags: boolean, searchFolder: boolean, sortBy: string, sortDir: string }} BrowseFilterState */
   /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: string[] | string, folder?: string, date_added?: string }} BrowseCardInput */
@@ -65,7 +61,6 @@
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
   /** @typedef {{ id: number, name: string, maxWidthMm: number, maxHeightMm: number, designCount: number }} HoopRow */
-  /** @typedef {{ id: number, description: string, tagGroup: string }} TagRow */
 
   const ORDERED_ROUTE_HINTS = [
     "#/designs",
@@ -336,18 +331,6 @@
   let editingHoopHeight = $state(0);
   /** @type {number | null} */
   let pendingDeleteHoopId = $state(null);
-
-  /** @type {TagRow[]} */
-  let imageTags = $state([]);
-  /** @type {TagRow[]} */
-  let stitchingTags = $state([]);
-  /** @type {TagRow[]} */
-  let unclassifiedTags = $state([]);
-  let newTagDescription = $state("");
-  let newTagGroup = $state("image");
-  let adminImageTagsOpen = $state(true);
-  let adminStitchingTagsOpen = $state(true);
-  let adminTagsPanelStateLoaded = $state(false);
 
   let adminLoading = $state(false);
 
@@ -1410,16 +1393,6 @@
         const result = await listDesigners();
         const items = getResponseItems(result);
         designers = items.map((d) => ({ id: Number(d.id), name: String(d.name || ""), designCount: Number(d.design_count || 0) }));
-      } else if (adminIsTagsRoute) {
-        const result = await listTags();
-        const rawTags = /** @type {AdminTagSummary[]} */ (getResponseItems(result));
-        const mappedTags = rawTags.map((t) => ({ id: Number(t.id), description: String(t.description || ""), tagGroup: String(t.tag_group || "") }));
-
-        const groups = splitTagsByGroup(mappedTags);
-        imageTags = groups.image;
-        stitchingTags = groups.stitching;
-        unclassifiedTags = groups.unclassified;
-        adminTagsPanelStateLoaded = true;
       } else if (adminIsSourcesRoute) {
         const result = await listSources();
         const items = getResponseItems(result);
@@ -1691,63 +1664,6 @@
     newHoopHeight = 0;
   }
 
-  /** @param {SubmitEvent} event */
-  async function addTag(event) {
-    event.preventDefault();
-    const desc = newTagDescription.trim();
-    if (!desc) return;
-
-    const result = await createTag(desc, newTagGroup);
-    if (!result?.persisted) {
-      addToast(`Could not add tag: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
-
-    newTagDescription = "";
-    addToast("Tag added.", "success");
-    await loadAdminDataForCurrentRoute(true);
-  }
-
-  /** @param {number} id */
-  async function deleteTag(id) {
-    const result = await removeTag(id);
-    if (!result?.persisted) {
-      addToast(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
-    addToast("Tag deleted.", "success");
-    await loadAdminDataForCurrentRoute(true);
-  }
-
-  /** @param {number} id @param {string | null} group */
-  async function setTagGroup(id, group) {
-    const result = await updateTagGroup(id, group || null);
-    if (!result?.persisted) {
-      addToast(`Could not set tag group: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
-    addToast("Tag updated.", "success");
-    await loadAdminDataForCurrentRoute(true);
-  }
-
-  /** @param {string} panel @param {Event} event */
-  function handleAdminTagPanelToggle(panel, event) {
-    const detailsNode = /** @type {HTMLDetailsElement | null} */ (event?.currentTarget);
-    const isOpen = Boolean(detailsNode?.open);
-    if (panel === "image") {
-      adminImageTagsOpen = isOpen;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("admin.tags.collapsible.image", isOpen ? "open" : "closed");
-      }
-    }
-    if (panel === "stitching") {
-      adminStitchingTagsOpen = isOpen;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("admin.tags.collapsible.stitching", isOpen ? "open" : "closed");
-      }
-    }
-  }
-
   /** @param {HTMLElement} node */
   function portalToBody(node) {
     if (typeof document === "undefined") return {};
@@ -1848,19 +1764,6 @@
       untrack(() => {
         loadAdminDataForCurrentRoute();
       });
-    }
-  });
-
-  $effect(() => {
-    if (currentRoute !== "#/admin/tags" || adminTagsPanelStateLoaded || typeof window === "undefined") return;
-
-    const imageSavedState = window.localStorage.getItem("admin.tags.collapsible.image");
-    const stitchingSavedState = window.localStorage.getItem("admin.tags.collapsible.stitching");
-    if (imageSavedState === "open" || imageSavedState === "closed") {
-      adminImageTagsOpen = imageSavedState === "open";
-    }
-    if (stitchingSavedState === "open" || stitchingSavedState === "closed") {
-      adminStitchingTagsOpen = stitchingSavedState === "open";
     }
   });
 
@@ -2427,159 +2330,7 @@
           </table>
         </div>
       {:else if adminIsTagsRoute}
-        <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800">Manage Tags</h1>
-        <p class="text-sm text-gray-500">
-          Use Image tags for subject categories and Stitching tags for technique or style.
-        </p>
-
-        <div class="admin-card bg-white rounded shadow p-5 max-w-3xl border">
-          <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new tag</h2>
-          <form class="flex flex-wrap gap-3 items-end" onsubmit={addTag}>
-            <div>
-              <label for="admin-tag-description" class="block text-xs font-semibold text-gray-650 mb-1">Description</label>
-              <input
-                id="admin-tag-description"
-                type="text"
-                bind:value={newTagDescription}
-                required
-                placeholder="e.g. Animals, Cross stitch..."
-                class="admin-input border rounded px-3 py-2 text-sm w-56 font-sans"
-              />
-            </div>
-            <div>
-              <label for="admin-tag-group" class="block text-xs font-semibold text-gray-650 mb-1">Group</label>
-              <select id="admin-tag-group" bind:value={newTagGroup} class="admin-input border rounded px-3 py-2 text-sm bg-white font-sans">
-                <option value="image">Image</option>
-                <option value="stitching">Stitching</option>
-              </select>
-            </div>
-            <button type="submit" class="menu-button-primary text-sm py-2">Add</button>
-          </form>
-        </div>
-
-        <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border" open={adminImageTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("image", event)}>
-          <summary class="bg-green-50 border-b border-green-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none">
-            <svg class={`h-4 w-4 text-green-700 transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
-            </svg>
-            <h2 class="text-sm font-bold text-green-800 tracking-wide">Image Tags</h2>
-          </summary>
-          <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
-              <tr>
-                <th class="px-4 py-2.5">Description</th>
-                <th class="px-4 py-2.5">Group</th>
-                <th class="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              {#if imageTags.length === 0}
-                <tr><td colspan="3" class="px-4 py-3 text-gray-400 italic">No image tags yet.</td></tr>
-              {:else}
-                {#each imageTags as tag}
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-2 font-medium">{tag.description}</td>
-                    <td class="px-4 py-2">
-                      <select
-                        value={tag.tagGroup}
-                        class="admin-input border rounded px-2.5 py-1 text-xs bg-white"
-                        onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
-                      >
-                        <option value="">Unclassified</option>
-                        <option value="image">Image</option>
-                        <option value="stitching">Stitching</option>
-                      </select>
-                    </td>
-                    <td class="px-4 py-2 text-right">
-                      <button type="button" class="text-red-400 hover:text-red-650 hover:underline text-xs font-semibold" onclick={() => deleteTag(tag.id)}>Delete</button>
-                    </td>
-                  </tr>
-                {/each}
-              {/if}
-            </tbody>
-          </table>
-        </details>
-
-        <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border" open={adminStitchingTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}>
-          <summary class="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none">
-            <svg class={`h-4 w-4 text-blue-700 transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
-            </svg>
-            <h2 class="text-sm font-bold text-blue-800 tracking-wide">Stitching Tags</h2>
-          </summary>
-          <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
-              <tr>
-                <th class="px-4 py-2.5">Description</th>
-                <th class="px-4 py-2.5">Group</th>
-                <th class="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              {#if stitchingTags.length === 0}
-                <tr><td colspan="3" class="px-4 py-3 text-gray-400 italic">No stitching tags yet.</td></tr>
-              {:else}
-                {#each stitchingTags as tag}
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-2 font-medium">{tag.description}</td>
-                    <td class="px-4 py-2">
-                      <select
-                        value={tag.tagGroup}
-                        class="admin-input border rounded px-2.5 py-1 text-xs bg-white"
-                        onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
-                      >
-                        <option value="">Unclassified</option>
-                        <option value="image">Image</option>
-                        <option value="stitching">Stitching</option>
-                      </select>
-                    </td>
-                    <td class="px-4 py-2 text-right">
-                      <button type="button" class="text-red-400 hover:text-red-650 hover:underline text-xs font-semibold" onclick={() => deleteTag(tag.id)}>Delete</button>
-                    </td>
-                  </tr>
-                {/each}
-              {/if}
-            </tbody>
-          </table>
-        </details>
-
-        {#if unclassifiedTags.length > 0}
-          <div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border">
-            <div class="bg-amber-50 border-b border-amber-200 px-4 py-2.5">
-              <h2 class="text-sm font-bold text-amber-800 tracking-wide">Unclassified Tags</h2>
-            </div>
-            <table class="w-full text-sm text-left">
-              <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
-                <tr>
-                  <th class="px-4 py-2.5">Description</th>
-                  <th class="px-4 py-2.5">Group</th>
-                  <th class="px-4 py-2.5"></th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                {#each unclassifiedTags as tag}
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-2 font-medium">{tag.description}</td>
-                    <td class="px-4 py-2">
-                      <select
-                        value={tag.tagGroup}
-                        class="admin-input border rounded px-2.5 py-1 text-xs bg-white"
-                        onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
-                      >
-                        <option value="">Unclassified</option>
-                        <option value="image">Image</option>
-                        <option value="stitching">Stitching</option>
-                      </select>
-                    </td>
-                    <td class="px-4 py-2 text-right">
-                      <button type="button" class="text-red-400 hover:text-red-655 hover:underline text-xs font-semibold" onclick={() => deleteTag(tag.id)}>Delete</button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
+        <TagsView />
       {:else if adminIsSourcesRoute}
         <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Sources</h1>
         <p class="text-sm text-gray-500">
