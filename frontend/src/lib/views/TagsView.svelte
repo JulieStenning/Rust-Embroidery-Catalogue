@@ -1,16 +1,12 @@
 <script>
   import { onMount } from "svelte";
-  import {
-    listTags,
-    createTag,
-    setTagGroup as updateTagGroup,
-    deleteTag as removeTag,
-  } from "../api/commandAdapter";
+  import { listTags, createTag } from "../api/commandAdapter";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { addToast } from "../stores/toastStore.js";
+  import TagTable from "../components/TagTable.svelte";
 
   /** @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary */
-  /** @typedef {{ id: number, description: string, tagGroup: string }} TagRow */
+  /** @typedef {{ id: number, description: string, tag_group: string, design_count: number }} TagRow */
 
   /** @type {TagRow[]} */
   let imageTags = $state([]);
@@ -43,7 +39,8 @@
       const mappedTags = rawTags.map((t) => ({
         id: Number(t.id),
         description: String(t.description || ""),
-        tagGroup: String(t.tag_group || ""),
+        tag_group: String(t.tag_group || ""),
+        design_count: Number(t.design_count ?? 0),
       }));
 
       const groups = splitTagsByGroup(mappedTags);
@@ -71,28 +68,6 @@
 
     newTagDescription = "";
     addToast("Tag added.", "success");
-    await loadTags(true);
-  }
-
-  /** @param {number} id */
-  async function deleteTag(id) {
-    const result = await removeTag(id);
-    if (!result?.persisted) {
-      addToast(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
-    addToast("Tag deleted.", "success");
-    await loadTags(true);
-  }
-
-  /** @param {number} id @param {string | null} group */
-  async function setTagGroup(id, group) {
-    const result = await updateTagGroup(id, group || null);
-    if (!result?.persisted) {
-      addToast(`Could not set tag group: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
-    addToast("Tag updated.", "success");
     await loadTags(true);
   }
 
@@ -168,39 +143,7 @@
       </svg>
       <h2 class="text-sm font-bold text-green-800 tracking-wide">Image Tags</h2>
     </summary>
-    <table class="w-full text-sm text-left">
-      <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
-        <tr>
-          <th class="px-4 py-2.5">Description</th>
-          <th class="px-4 py-2.5">Group</th>
-          <th class="px-4 py-2.5"></th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {#if imageTags.length === 0}
-          <tr><td colspan="3" class="px-4 py-3 text-gray-400 italic">No image tags yet.</td></tr>
-        {:else}
-          {#each imageTags as tag}
-            <tr class="hover:bg-gray-50">
-              <td class="px-4 py-2 font-medium">{tag.description}</td>
-              <td class="px-4 py-2">
-                <select
-                  value={tag.tagGroup}
-                  class="admin-input border rounded px-2.5 py-1 text-xs bg-white"
-                  onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
-                >
-                  <option value="image">Image</option>
-                  <option value="stitching">Stitching</option>
-                </select>
-              </td>
-              <td class="px-4 py-2 text-right">
-                <button type="button" class="text-red-400 hover:text-red-650 hover:underline text-xs font-semibold" onclick={() => deleteTag(tag.id)}>Delete</button>
-              </td>
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
+    <TagTable tags={imageTags} group="image" onRefresh={loadTags} />
   </details>
 
   <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border" open={adminStitchingTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}>
@@ -210,38 +153,6 @@
       </svg>
       <h2 class="text-sm font-bold text-blue-800 tracking-wide">Stitching Tags</h2>
     </summary>
-    <table class="w-full text-sm text-left">
-      <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
-        <tr>
-          <th class="px-4 py-2.5">Description</th>
-          <th class="px-4 py-2.5">Group</th>
-          <th class="px-4 py-2.5"></th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {#if stitchingTags.length === 0}
-          <tr><td colspan="3" class="px-4 py-3 text-gray-400 italic">No stitching tags yet.</td></tr>
-        {:else}
-          {#each stitchingTags as tag}
-            <tr class="hover:bg-gray-50">
-              <td class="px-4 py-2 font-medium">{tag.description}</td>
-              <td class="px-4 py-2">
-                <select
-                  value={tag.tagGroup}
-                  class="admin-input border rounded px-2.5 py-1 text-xs bg-white"
-                  onchange={(event) => setTagGroup(tag.id, event.currentTarget.value)}
-                >
-                  <option value="image">Image</option>
-                  <option value="stitching">Stitching</option>
-                </select>
-              </td>
-              <td class="px-4 py-2 text-right">
-                <button type="button" class="text-red-400 hover:text-red-650 hover:underline text-xs font-semibold" onclick={() => deleteTag(tag.id)}>Delete</button>
-              </td>
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
+    <TagTable tags={stitchingTags} group="stitching" onRefresh={loadTags} />
   </details>
 </section>

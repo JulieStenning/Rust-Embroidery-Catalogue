@@ -595,6 +595,7 @@ export interface AdminTagSummary {
   id: number;
   description: string;
   tag_group: string;
+  design_count: number;
 }
 
 export interface AdminHoopSummary {

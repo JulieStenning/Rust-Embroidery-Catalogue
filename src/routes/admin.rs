@@ -6,7 +6,7 @@ use tauri::State;
 pub use crate::services::admin::{
     AdminDesigner, AdminHoop, AdminSource, AdminTag, CreateDesignerRequest, CreateHoopRequest,
     CreateSourceRequest, CreateTagRequest, SetTagGroupRequest, UpdateDesignerRequest,
-    UpdateHoopRequest, UpdateSourceRequest,
+    UpdateHoopRequest, UpdateSourceRequest, UpdateTagRequest,
 };
 
 #[cfg(test)]
@@ -257,6 +257,23 @@ async fn set_tag_group_with_pool(
 }
 
 #[tauri::command]
+pub async fn update_tag(
+    state: State<'_, AppState>,
+    request: UpdateTagRequest,
+) -> Result<AdminTag, String> {
+    update_tag_with_pool(&state.db, request).await
+}
+
+async fn update_tag_with_pool(
+    pool: &SqlitePool,
+    request: UpdateTagRequest,
+) -> Result<AdminTag, String> {
+    admin_service::update_tag_with_pool(pool, request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn delete_tag(state: State<'_, AppState>, tag_id: i64) -> Result<(), String> {
     delete_tag_with_pool(&state.db, tag_id).await
 }
@@ -327,6 +344,7 @@ async fn delete_hoop_with_pool(pool: &SqlitePool, hoop_id: i64) -> Result<(), St
 mod tests {
     use super::*;
     use sqlx::sqlite::SqlitePoolOptions;
+    use sqlx::Row;
 
     async fn test_pool() -> SqlitePool {
         let pool = SqlitePoolOptions::new()
@@ -401,6 +419,19 @@ mod tests {
         .execute(&pool)
         .await
         .expect("failed to create designs table");
+
+        sqlx::query(
+            r#"
+			CREATE TABLE design_tags (
+				design_id INTEGER NOT NULL REFERENCES designs(id) ON DELETE CASCADE,
+				tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+				PRIMARY KEY (design_id, tag_id)
+			);
+			"#,
+        )
+        .execute(&pool)
+        .await
+        .expect("failed to create design_tags table");
 
         sqlx::query("CREATE UNIQUE INDEX ux_designers_name_ci ON designers (lower(name));")
             .execute(&pool)
@@ -1740,6 +1771,203 @@ mod tests {
         assert!(result
             .expect_err("expected invalid width error")
             .contains("must be a positive number"));
+    }
+
+    // ========================================================================
+    // update_tag (rename) tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn update_tag_success() {
+        let pool = test_pool().await;
+
+        let created = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "Old Tag".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected tag to be created");
+
+        let updated = update_tag_with_pool(
+            &pool,
+            UpdateTagRequest {
+                tag_id: created.id,
+                description: "New Tag".to_string(),
+            },
+        )
+        .await
+        .expect("expected tag to be updated");
+
+        assert_eq!(updated.id, created.id);
+        assert_eq!(updated.description, "New Tag");
+        assert_eq!(updated.tag_group, Some("image".to_string()));
+        assert_eq!(updated.design_count, 0);
+    }
+
+    #[tokio::test]
+    async fn update_tag_not_found() {
+        let pool = test_pool().await;
+
+        let result = update_tag_with_pool(
+            &pool,
+            UpdateTagRequest {
+                tag_id: 999,
+                description: "Ghost".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected not-found error")
+            .contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn update_tag_empty_description() {
+        let pool = test_pool().await;
+
+        let created = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "Valid".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected tag to be created");
+
+        let result = update_tag_with_pool(
+            &pool,
+            UpdateTagRequest {
+                tag_id: created.id,
+                description: "   ".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected empty description error")
+            .contains("Tag description is required"));
+    }
+
+    #[tokio::test]
+    async fn update_tag_duplicate_description() {
+        let pool = test_pool().await;
+
+        let _first = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "First".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected first tag to be created");
+
+        let second = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "Second".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected second tag to be created");
+
+        let result = update_tag_with_pool(
+            &pool,
+            UpdateTagRequest {
+                tag_id: second.id,
+                description: "First".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected duplicate description error")
+            .contains("already exists"));
+    }
+
+    #[tokio::test]
+    async fn update_tag_case_insensitive_duplicate() {
+        let pool = test_pool().await;
+
+        let _first = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "Case Tag".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected first tag to be created");
+
+        let second = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "Other Tag".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected second tag to be created");
+
+        let result = update_tag_with_pool(
+            &pool,
+            UpdateTagRequest {
+                tag_id: second.id,
+                description: "case tag".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected case-insensitive duplicate error")
+            .contains("already exists"));
+    }
+
+    #[tokio::test]
+    async fn list_tags_counts_design_usage() {
+        let pool = test_pool().await;
+
+        let tag = create_tag_with_pool(
+            &pool,
+            CreateTagRequest {
+                description: "Counted".to_string(),
+                tag_group: "image".to_string(),
+            },
+        )
+        .await
+        .expect("expected tag to be created");
+
+        // Insert a design and link it to the tag
+        let design = sqlx::query("INSERT INTO designs (filename, filepath) VALUES (?, ?) RETURNING id")
+            .bind("counted.dst")
+            .bind("/path/counted.dst")
+            .fetch_one(&pool)
+            .await
+            .expect("expected design to be inserted");
+
+        let design_id: i64 = design.get("id");
+
+        sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+            .bind(design_id)
+            .bind(tag.id)
+            .execute(&pool)
+            .await
+            .expect("expected design-tag association to be inserted");
+
+        let result = list_tags_with_pool(&pool).await.expect("expected tags");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].description, "Counted");
+        assert_eq!(result[0].design_count, 1);
     }
 
     // ========================================================================

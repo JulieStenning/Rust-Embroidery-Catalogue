@@ -256,6 +256,7 @@ fn main() {
             routes::admin::delete_source,
             routes::admin::list_tags,
             routes::admin::create_tag,
+            routes::admin::update_tag,
             routes::admin::set_tag_group,
             routes::admin::delete_tag,
             routes::admin::list_hoops,

@@ -110,6 +110,7 @@ const adapterMock = vi.hoisted(() => ({
   listTags: vi.fn(),
   createTag: vi.fn(),
   setTagGroup: vi.fn(),
+  updateTag: vi.fn(),
   deleteTag: vi.fn(),
   listHoops: vi.fn(),
   createHoop: vi.fn(),
@@ -327,6 +328,10 @@ beforeEach(() => {
   adapterMock.setTagGroup.mockResolvedValue({
     ...persisted,
     item: { id: 1, description: "Floral", tag_group: "stitching" },
+  });
+  adapterMock.updateTag.mockResolvedValue({
+    ...persisted,
+    item: { id: 1, description: "Renamed", tag_group: "image" },
   });
   adapterMock.deleteTag.mockResolvedValue(persisted);
   adapterMock.createHoop.mockResolvedValue({

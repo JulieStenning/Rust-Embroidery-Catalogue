@@ -9,7 +9,7 @@ import TagsView from "../TagsView.svelte";
 const adapterMocks = vi.hoisted(() => ({
   listTags: vi.fn(),
   createTag: vi.fn(),
-  setTagGroup: vi.fn(),
+  updateTag: vi.fn(),
   deleteTag: vi.fn(),
 }));
 
@@ -29,7 +29,7 @@ describe("TagsView", () => {
     toastMock.addToast.mockResolvedValue(undefined);
     adapterMocks.listTags.mockResolvedValue(listResponse([]));
     adapterMocks.createTag.mockResolvedValue({ persisted: true });
-    adapterMocks.setTagGroup.mockResolvedValue({ persisted: true });
+    adapterMocks.updateTag.mockResolvedValue({ persisted: true });
     adapterMocks.deleteTag.mockResolvedValue({ persisted: true });
   });
 
@@ -44,8 +44,8 @@ describe("TagsView", () => {
   it("renders image and stitching tag sections with group-split tags", async () => {
     adapterMocks.listTags.mockResolvedValue(
       listResponse([
-        { id: 1, description: "Floral", tag_group: "image" },
-        { id: 2, description: "Satin", tag_group: "stitching" },
+        { id: 1, description: "Floral", tag_group: "image", design_count: 2 },
+        { id: 2, description: "Satin", tag_group: "stitching", design_count: 0 },
       ])
     );
 
@@ -67,9 +67,9 @@ describe("TagsView", () => {
   it("does NOT render an Unclassified Tags section", async () => {
     adapterMocks.listTags.mockResolvedValue(
       listResponse([
-        { id: 1, description: "Floral", tag_group: "image" },
-        { id: 2, description: "Satin", tag_group: "stitching" },
-        { id: 3, description: "Sparkle", tag_group: "" },
+        { id: 1, description: "Floral", tag_group: "image", design_count: 0 },
+        { id: 2, description: "Satin", tag_group: "stitching", design_count: 0 },
+        { id: 3, description: "Sparkle", tag_group: "", design_count: 0 },
       ])
     );
 
@@ -92,6 +92,20 @@ describe("TagsView", () => {
 
     expect(await screen.findByText("No image tags yet.")).toBeInTheDocument();
     expect(screen.getByText("No stitching tags yet.")).toBeInTheDocument();
+  });
+
+  it("shows used-by counts for each tag", async () => {
+    adapterMocks.listTags.mockResolvedValue(
+      listResponse([
+        { id: 1, description: "Floral", tag_group: "image", design_count: 4 },
+      ])
+    );
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(screen.getByText("4")).toBeInTheDocument();
+    });
   });
 
   it("adds a new tag with the default image group", async () => {
@@ -127,9 +141,9 @@ describe("TagsView", () => {
     });
   });
 
-  it("deletes a tag from the table", async () => {
+  it("deletes a tag from the table after confirmation", async () => {
     adapterMocks.listTags.mockResolvedValue(
-      listResponse([{ id: 7, description: "Floral", tag_group: "image" }])
+      listResponse([{ id: 7, description: "Floral", tag_group: "image", design_count: 0 }])
     );
 
     render(TagsView);
@@ -141,32 +155,65 @@ describe("TagsView", () => {
     const deleteButton = screen.getAllByRole("button", { name: "Delete" })[0];
     await fireEvent.click(deleteButton);
 
+    // No deletion until the user confirms.
+    expect(adapterMocks.deleteTag).not.toHaveBeenCalled();
+
+    const confirmButton = screen.getByRole("button", { name: "Confirm delete" });
+    await fireEvent.click(confirmButton);
+
     await waitFor(() => {
       expect(adapterMocks.deleteTag).toHaveBeenCalledWith(7);
     });
   });
 
-  it("reassigns a tag group via the row dropdown", async () => {
+  it("renames a tag via inline edit", async () => {
     adapterMocks.listTags.mockResolvedValue(
-      listResponse([{ id: 3, description: "Satin", tag_group: "stitching" }])
+      listResponse([{ id: 5, description: "Old", tag_group: "image", design_count: 0 }])
     );
 
     render(TagsView);
 
     await waitFor(() => {
-      expect(screen.getByText("Satin")).toBeInTheDocument();
+      expect(screen.getByText("Old")).toBeInTheDocument();
     });
 
-    const stitchingHeading = screen.getByRole("heading", { name: "Stitching Tags" });
-    const detailsNode = stitchingHeading.closest("details");
-    const rowSelect = detailsNode?.querySelector<HTMLSelectElement>("select");
-    expect(rowSelect).not.toBeNull();
+    const editButton = screen.getAllByRole("button", { name: "Edit" })[0];
+    await fireEvent.click(editButton);
 
-    await fireEvent.change(rowSelect!, { target: { value: "image" } });
+    const input = screen.getByDisplayValue("Old");
+    await fireEvent.input(input, { target: { value: "New Name" } });
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    await fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(adapterMocks.setTagGroup).toHaveBeenCalledWith(3, "image");
+      expect(adapterMocks.updateTag).toHaveBeenCalledWith(5, "New Name");
     });
+  });
+
+  it("cancels an inline edit without saving", async () => {
+    adapterMocks.listTags.mockResolvedValue(
+      listResponse([{ id: 5, description: "Old", tag_group: "image", design_count: 0 }])
+    );
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(screen.getByText("Old")).toBeInTheDocument();
+    });
+
+    const editButton = screen.getAllByRole("button", { name: "Edit" })[0];
+    await fireEvent.click(editButton);
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(saveButton).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(adapterMocks.updateTag).not.toHaveBeenCalled();
+    });
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
   it("persists collapsible panel state to localStorage on toggle", async () => {

@@ -43,12 +43,19 @@ pub struct AdminTag {
     pub id: i64,
     pub description: String,
     pub tag_group: Option<String>,
+    pub design_count: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateTagRequest {
     pub description: String,
     pub tag_group: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateTagRequest {
+    pub tag_id: i64,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -339,9 +346,15 @@ pub async fn delete_source_with_pool(pool: &SqlitePool, source_id: i64) -> Resul
 pub async fn list_tags_with_pool(pool: &SqlitePool) -> Result<Vec<AdminTag>, AppError> {
     sqlx::query_as::<_, AdminTag>(
         r#"
-		SELECT id, description, tag_group
-		FROM tags
-		ORDER BY description COLLATE NOCASE ASC
+		SELECT
+			t.id,
+			t.description,
+			t.tag_group,
+			COUNT(dt.design_id) AS design_count
+		FROM tags t
+		LEFT JOIN design_tags dt ON dt.tag_id = t.id
+		GROUP BY t.id, t.description, t.tag_group
+		ORDER BY t.description COLLATE NOCASE ASC
 		"#,
     )
     .fetch_all(pool)
@@ -380,7 +393,61 @@ pub async fn create_tag_with_pool(
         id: result.last_insert_rowid(),
         description,
         tag_group: Some(tag_group),
+        design_count: 0,
     })
+}
+
+pub async fn update_tag_with_pool(
+    pool: &SqlitePool,
+    request: UpdateTagRequest,
+) -> Result<AdminTag, AppError> {
+    let description = validate_non_empty(&request.description, "Tag description")?;
+
+    let existing = sqlx::query_scalar::<_, i64>(
+        "SELECT 1 FROM tags WHERE lower(description) = lower(?) AND id <> ? LIMIT 1",
+    )
+    .bind(&description)
+    .bind(request.tag_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::database(e.to_string()))?
+    .is_some();
+
+    if existing {
+        return Err(AppError::invalid_input(format!("Tag '{description}' already exists.")));
+    }
+
+    let result = sqlx::query("UPDATE tags SET description = ? WHERE id = ?")
+        .bind(&description)
+        .bind(request.tag_id)
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::database(e.to_string()))?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::not_found("tag", Some(request.tag_id.to_string())));
+    }
+
+    let row = sqlx::query_as::<_, AdminTag>(
+        r#"
+		SELECT
+			t.id,
+			t.description,
+			t.tag_group,
+			COUNT(dt.design_id) AS design_count
+		FROM tags t
+		LEFT JOIN design_tags dt ON dt.tag_id = t.id
+		WHERE t.id = ?
+		GROUP BY t.id, t.description, t.tag_group
+		LIMIT 1
+		"#,
+    )
+    .bind(request.tag_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::database(e.to_string()))?;
+
+    Ok(row)
 }
 
 pub async fn set_tag_group_with_pool(
@@ -402,9 +469,15 @@ pub async fn set_tag_group_with_pool(
 
     let row = sqlx::query_as::<_, AdminTag>(
         r#"
-		SELECT id, description, tag_group
-		FROM tags
-		WHERE id = ?
+		SELECT
+			t.id,
+			t.description,
+			t.tag_group,
+			COUNT(dt.design_id) AS design_count
+		FROM tags t
+		LEFT JOIN design_tags dt ON dt.tag_id = t.id
+		WHERE t.id = ?
+		GROUP BY t.id, t.description, t.tag_group
 		LIMIT 1
 		"#,
     )

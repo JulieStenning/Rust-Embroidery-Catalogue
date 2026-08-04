@@ -2173,6 +2173,7 @@ export async function listTags(): Promise<AdapterListResponse<AdminTagSummary>> 
           id: Number(item?.id),
           description: String(item?.description || ""),
           tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+          design_count: Number(item?.design_count ?? 0),
         })),
       };
     }
@@ -2183,10 +2184,10 @@ export async function listTags(): Promise<AdapterListResponse<AdminTagSummary>> 
   return {
     source: "mock",
     items: [
-      { id: 1, description: "Animals", tag_group: "image" },
-      { id: 2, description: "Flowers", tag_group: "image" },
-      { id: 3, description: "Cross Stitch", tag_group: "stitching" },
-      { id: 4, description: "Holiday", tag_group: "" },
+      { id: 1, description: "Animals", tag_group: "image", design_count: 3 },
+      { id: 2, description: "Flowers", tag_group: "image", design_count: 5 },
+      { id: 3, description: "Cross Stitch", tag_group: "stitching", design_count: 0 },
+      { id: 4, description: "Holiday", tag_group: "", design_count: 1 },
     ],
   };
 }
@@ -2210,6 +2211,7 @@ export async function createTag(description: string, tagGroup: string | null): P
         id: Number(item?.id),
         description: String(item?.description || ""),
         tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+        design_count: Number(item?.design_count ?? 0),
       },
     };
   } catch (error) {
@@ -2233,6 +2235,34 @@ export async function setTagGroup(tagId: number | string, tagGroup: string | nul
         id: Number(item?.id),
         description: String(item?.description || ""),
         tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+        design_count: Number(item?.design_count ?? 0),
+      },
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
+ * @param {number | string} tagId
+ * @param {string} description
+ */
+export async function updateTag(tagId: number | string, description: string): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
+  try {
+    const item = await invokeLoose<AdminTagSummary>("update_tag", {
+      request: {
+        tag_id: Number(tagId),
+        description,
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: {
+        id: Number(item?.id),
+        description: String(item?.description || ""),
+        tag_group: item?.tag_group == null ? "" : String(item.tag_group),
+        design_count: Number(item?.design_count ?? 0),
       },
     };
   } catch (error) {
