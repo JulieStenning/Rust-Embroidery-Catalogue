@@ -60,6 +60,7 @@ import type {
   TaggingActionsViewModel,
   UnifiedBackfillRequest,
   UnifiedBackfillResult,
+  UnifiedBackfillWireRequest,
   UpdateDesignMetadataRequest,
 } from "../types/ipc";
 import { mapDesignDetailFromWire } from "../types/ipc";
@@ -1599,11 +1600,46 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
 }
 
 /**
- * @param {Record<string, any>} request
+ * Translate the flat view-model from the Tagging Actions screen into the
+ * nested `actions` descriptor the Rust `backfill::UnifiedBackfillRequest`
+ * expects. Tagging, image generation and colour counts are independent
+ * activities: each section is only included when its checkbox was enabled, so
+ * an "image generation only" run never triggers tagging and vice versa.
+ *
+ * @param {UnifiedBackfillRequest} request
+ */
+function buildUnifiedBackfillWireRequest(request: UnifiedBackfillRequest): UnifiedBackfillWireRequest {
+  const runTagging = Boolean(request.run_tier2) || Boolean(request.run_tier3);
+  const actionMode = request.action_mode === "tag_all" ? "retag_all" : "tag_untagged";
+
+  const tiers = [1];
+  if (request.run_tier2) tiers.push(2);
+  if (request.run_tier3) tiers.push(3);
+
+  return {
+    actions: {
+      tagging: runTagging ? { action: actionMode, tiers, enabled: true } : null,
+      stitching: null,
+      images: request.run_images ? { enabled: true, redo: Boolean(request.image_redo) } : null,
+      color_counts: request.run_color_counts ? { enabled: true } : null,
+      fingerprinting: null,
+    },
+    batch_size: Number(request.batch_size ?? 100),
+    commit_every: Number(request.commit_every ?? 100),
+    workers: Number(request.workers ?? 4),
+  };
+}
+
+/**
+ * Run the unified backfill. The view-model is translated to the nested wire
+ * shape expected by the Rust `run_unified_backfill` Tauri command.
+ *
+ * @param {UnifiedBackfillRequest} request
  */
 export async function runUnifiedBackfill(request: UnifiedBackfillRequest): Promise<UnifiedBackfillResult> {
   try {
-    const result = await invokeLoose<UnifiedBackfillResult>("run_unified_backfill", { request });
+    const wireRequest = buildUnifiedBackfillWireRequest(request);
+    const result = await invokeLoose<UnifiedBackfillResult>("run_unified_backfill", { request: wireRequest });
     return {
       source: "rust",
       processed: Number(result?.processed ?? 0),
@@ -1671,13 +1707,13 @@ export async function getBackfillLogEntries(limit = 20): Promise<AdapterBackfill
 }
 
 /**
- * @param {{ clearExistingStitching?: boolean, batchSize?: number }} [options]
+ * @param {RunStitchingBackfillOptions} [options]
  */
-export async function runStitchingBackfill({ clearExistingStitching = false, batchSize = 100 }: RunStitchingBackfillOptions = {}): Promise<UnifiedBackfillResult> {
+export async function runStitchingBackfill({ clear_existing = false, batch_size = 100 }: RunStitchingBackfillOptions = {}): Promise<UnifiedBackfillResult> {
   try {
     const result = await invokeLoose<UnifiedBackfillResult>("run_stitching_backfill", {
-      clear_existing_stitching: Boolean(clearExistingStitching),
-      batch_size: Number(batchSize),
+      clear_existing_stitching: Boolean(clear_existing),
+      batch_size: Number(batch_size),
     });
     return {
       source: "rust",

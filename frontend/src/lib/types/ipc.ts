@@ -449,8 +449,58 @@ export interface AdapterTaggingActionsViewModelResponse {
   error?: string;
 }
 
+/**
+ * Flat view-model describing the options the Tagging Actions screen passes to
+ * the command adapter. The adapter translates this into the nested wire shape
+ * expected by the Rust `run_unified_backfill` command (see
+ * `UnifiedBackfillWireRequest`).
+ */
 export interface UnifiedBackfillRequest {
-  [key: string]: unknown;
+  action_mode: string;
+  run_tier2: boolean;
+  run_tier3: boolean;
+  run_images: boolean;
+  image_redo: boolean;
+  run_color_counts: boolean;
+  commit_every: number;
+  batch_size: number;
+  workers: number;
+}
+
+/**
+ * Nested wire shape matching the Rust `backfill::UnifiedBackfillRequest` +
+ * `backfill::UnifiedBackfillActions` structs exactly. Serde field names are
+ * snake_case, and optional sections are represented via null when disabled.
+ */
+export interface UnifiedBackfillActionsWire {
+  tagging?: {
+    action?: string;
+    tiers?: number[];
+    enabled?: boolean;
+  } | null;
+  stitching?: {
+    clear_existing_stitching?: boolean;
+    enabled?: boolean;
+  } | null;
+  images?: {
+    redo?: boolean;
+    enabled?: boolean;
+  } | null;
+  color_counts?: {
+    enabled?: boolean;
+  } | null;
+  fingerprinting?: {
+    enabled?: boolean;
+  } | null;
+}
+
+export interface UnifiedBackfillWireRequest {
+  actions?: UnifiedBackfillActionsWire | null;
+  batch_size?: number | null;
+  commit_every?: number | null;
+  workers?: number | null;
+  delay_seconds?: number | null;
+  vision_delay_seconds?: number | null;
 }
 
 export interface UnifiedBackfillResult {
@@ -482,8 +532,11 @@ export interface AdapterBackfillLogEntriesResponse {
 }
 
 export interface RunStitchingBackfillOptions {
-  clearExistingStitching?: boolean;
-  batchSize?: number;
+  commit_every?: number;
+  batch_size?: number;
+  workers?: number;
+  clear_existing?: boolean;
+  image_redo?: boolean;
 }
 
 export interface BackupViewModel {
