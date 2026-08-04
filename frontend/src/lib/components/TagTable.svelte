@@ -1,6 +1,7 @@
 <script>
   import { deleteTag as removeTag, updateTag } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { tagChangeStore } from "../stores/tagChangeStore.js";
 
   /**
    * @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary
@@ -31,8 +32,9 @@
     editingTagDescription = "";
   }
 
-  /** @param {number} id */
-  async function saveEdit(id) {
+  /** @param {TagRow} tag */
+  async function saveEdit(tag) {
+    const id = Number(tag?.id);
     const description = editingTagDescription.trim();
     if (!description) {
       addToast("Enter a tag name.", "error");
@@ -48,6 +50,7 @@
     cancelEdit();
     addToast("Tag updated.", "success");
     await onRefresh(true);
+    tagChangeStore.flagTagRenamed(Number(tag?.design_count) > 0);
   }
 
   /**
@@ -81,6 +84,7 @@
     pendingDeleteTagId = null;
     addToast("Tag deleted.", "success");
     await onRefresh(true);
+    tagChangeStore.flagTagDeleted();
   }
 
   const sortedTags = $derived(
@@ -122,7 +126,7 @@
                 <button
                   type="button"
                   class="text-indigo-650 hover:underline text-xs font-semibold"
-                  onclick={() => saveEdit(tag.id)}
+                  onclick={() => saveEdit(tag)}
                 >
                   Save
                 </button>

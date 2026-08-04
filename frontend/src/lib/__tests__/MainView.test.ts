@@ -136,6 +136,17 @@ const sessionMock = vi.hoisted(() => ({
 }));
 vi.mock("../stores/designSessionStore", () => sessionMock);
 
+// Mock the tag change store — MainView consumes flags on route entry.
+const tagChangeMock = vi.hoisted(() => ({
+  tagChangeStore: {
+    consumeFlags: vi.fn(() => ({ tagsNeedRefresh: false, designsNeedRefresh: false })),
+    flagTagDeleted: vi.fn(),
+    flagTagRenamed: vi.fn(),
+    subscribe: vi.fn(),
+  },
+}));
+vi.mock("../stores/tagChangeStore", () => tagChangeMock);
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -1174,5 +1185,76 @@ describe("admin tags", () => {
     await waitFor(() => {
       expect(adapterMock.createTag).toHaveBeenCalledWith("Bees", "image");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browse refresh triggered by tag admin mutations
+// ---------------------------------------------------------------------------
+describe("browse refresh from tag changes", () => {
+  it("reloads only the tag options when a tag was renamed without designs", async () => {
+    adapterMock.getBrowseDesigns.mockResolvedValue(browseResponse([wireCard()]));
+    adapterMock.getBrowseTags.mockResolvedValue(
+      browseResponse([{ id: 1, description: "Renamed", tag_group: "image" }])
+    );
+
+    tagChangeMock.tagChangeStore.consumeFlags.mockReturnValue({
+      tagsNeedRefresh: true,
+      designsNeedRefresh: false,
+    });
+
+    renderAtHash("#/designs");
+
+    await waitFor(() => {
+      expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+    });
+
+    expect(tagChangeMock.tagChangeStore.consumeFlags).toHaveBeenCalled();
+    // Tags were reloaded (additional call beyond the initial load) but
+    // designs were not re-fetched.
+    expect(adapterMock.getBrowseTags.mock.calls.length).toBeGreaterThan(1);
+    expect(adapterMock.getBrowseDesigns).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads tag options and design cards when a tag was deleted", async () => {
+    adapterMock.getBrowseDesigns.mockResolvedValue(browseResponse([wireCard()]));
+    adapterMock.getBrowseTags.mockResolvedValue(
+      browseResponse([{ id: 2, description: "Survivor", tag_group: "image" }])
+    );
+
+    tagChangeMock.tagChangeStore.consumeFlags.mockReturnValue({
+      tagsNeedRefresh: true,
+      designsNeedRefresh: true,
+    });
+
+    renderAtHash("#/designs");
+
+    await waitFor(() => {
+      expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+    });
+
+    expect(tagChangeMock.tagChangeStore.consumeFlags).toHaveBeenCalled();
+    // Both tags and designs must be reloaded.
+    expect(adapterMock.getBrowseTags.mock.calls.length).toBeGreaterThan(1);
+    expect(adapterMock.getBrowseDesigns.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("does not reload anything extra when no tag changes are flagged", async () => {
+    adapterMock.getBrowseDesigns.mockResolvedValue(browseResponse([wireCard()]));
+
+    tagChangeMock.tagChangeStore.consumeFlags.mockReturnValue({
+      tagsNeedRefresh: false,
+      designsNeedRefresh: false,
+    });
+
+    renderAtHash("#/designs");
+
+    await waitFor(() => {
+      expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+    });
+
+    // Exactly one initial load of designs, and tags loaded only from the
+    // browseTags.length === 0 effect (single call).
+    expect(adapterMock.getBrowseDesigns).toHaveBeenCalledTimes(1);
   });
 });

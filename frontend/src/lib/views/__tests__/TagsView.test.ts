@@ -19,6 +19,17 @@ vi.mock("../../api/commandAdapter", () => adapterMocks);
 const toastMock = vi.hoisted(() => ({ addToast: vi.fn() }));
 vi.mock("../../stores/toastStore.js", () => toastMock);
 
+// Mock the tag change store — TagTable flags tag mutations here.
+const tagChangeMock = vi.hoisted(() => ({
+  tagChangeStore: {
+    flagTagDeleted: vi.fn(),
+    flagTagRenamed: vi.fn(),
+    consumeFlags: vi.fn(() => ({ tagsNeedRefresh: false, designsNeedRefresh: false })),
+    subscribe: vi.fn(),
+  },
+}));
+vi.mock("../../stores/tagChangeStore.js", () => tagChangeMock);
+
 /** Wraps items in an AdapterListResponse. */
 const listResponse = (items: unknown[] = []) => ({ source: "rust", items });
 
@@ -164,6 +175,9 @@ describe("TagsView", () => {
     await waitFor(() => {
       expect(adapterMocks.deleteTag).toHaveBeenCalledWith(7);
     });
+
+    // The tag-change store must be flagged so the browse page refreshes.
+    expect(tagChangeMock.tagChangeStore.flagTagDeleted).toHaveBeenCalledTimes(1);
   });
 
   it("renames a tag via inline edit", async () => {
@@ -189,6 +203,37 @@ describe("TagsView", () => {
     await waitFor(() => {
       expect(adapterMocks.updateTag).toHaveBeenCalledWith(5, "New Name");
     });
+
+    // Tag has no designs, so only the tag filter options need refreshing.
+    expect(tagChangeMock.tagChangeStore.flagTagRenamed).toHaveBeenCalledWith(false);
+  });
+
+  it("flags the tag-change store with hasDesigns=true when renaming a used tag", async () => {
+    adapterMocks.listTags.mockResolvedValue(
+      listResponse([{ id: 5, description: "Old", tag_group: "image", design_count: 3 }])
+    );
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(screen.getByText("Old")).toBeInTheDocument();
+    });
+
+    const editButton = screen.getAllByRole("button", { name: "Edit" })[0];
+    await fireEvent.click(editButton);
+
+    const input = screen.getByDisplayValue("Old");
+    await fireEvent.input(input, { target: { value: "New Name" } });
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    await fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(adapterMocks.updateTag).toHaveBeenCalledWith(5, "New Name");
+    });
+
+    // Tag is used by designs, so cards must be refreshed as well.
+    expect(tagChangeMock.tagChangeStore.flagTagRenamed).toHaveBeenCalledWith(true);
   });
 
   it("cancels an inline edit without saving", async () => {

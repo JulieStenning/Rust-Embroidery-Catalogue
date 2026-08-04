@@ -43,6 +43,7 @@
   import { SvelteSet } from "svelte/reactivity";
   import { splitTagsByGroup } from "./utils/tagHelpers.js";
   import { designSessionStore } from "./stores/designSessionStore.js";
+  import { tagChangeStore } from "./stores/tagChangeStore.js";
   import { addToast } from "./stores/toastStore.js";
 
   /** @typedef {import("./types/ipc").BrowseDesignCard} BrowseDesignCard */
@@ -1688,6 +1689,21 @@
       if (Object.keys(patches).length > 0) {
         untrack(() => {
           applyPatchesToBrowse(patches);
+        });
+      }
+
+      // Refresh browse data affected by tag admin mutations.
+      // Deleted tags (or renamed tags used by designs) require a full card
+      // reload; otherwise only the tag filter options need updating.
+      const tagChanges = tagChangeStore.consumeFlags();
+      if (tagChanges.designsNeedRefresh) {
+        untrack(() => {
+          loadBrowseItems(true);
+          loadBrowseTags();
+        });
+      } else if (tagChanges.tagsNeedRefresh) {
+        untrack(() => {
+          loadBrowseTags();
         });
       }
 
