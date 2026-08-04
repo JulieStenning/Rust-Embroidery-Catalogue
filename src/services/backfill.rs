@@ -834,8 +834,9 @@ async fn generate_and_store_preview(
     };
 
     let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let resolved_path = resolve_stored_design_path(&filepath);
     let result = generate_preview(&ImageGenerationRequest {
-        file_path: filepath,
+        file_path: resolved_path.to_string_lossy().to_string(),
         preview_3d: false,
         preview_3d_profile: None,
     });
@@ -870,6 +871,45 @@ async fn generate_and_store_preview(
     Ok(())
 }
 
+/// Convert a stored DB filepath (e.g. "/MachineEmbroideryDesigns/foo/bar.pes")
+/// into an absolute on-disk path under the resolved designs base directory.
+///
+/// Handles:
+/// - `/MachineEmbroideryDesigns/...` (canonical stored form with leading slash)
+/// - `MachineEmbroideryDesigns/...` (no leading slash)
+/// - Bare relative paths → joined under the designs base directory
+/// - Truly absolute paths → returned as-is (e.g. legacy absolute filepaths)
+fn resolve_stored_design_path(stored_filepath: &str) -> PathBuf {
+    let designs_base = crate::paths::resolve_app_paths()
+        .map(|paths| paths.embroidery_designs_dir)
+        .unwrap_or_else(|_| PathBuf::from("MachineEmbroideryDesigns"));
+
+    let normalized = stored_filepath.trim().replace('\\', "/");
+    if normalized.is_empty() {
+        return designs_base;
+    }
+
+    let cleaned = normalized.trim_start_matches('/');
+    let cleaned_lower = cleaned.to_ascii_lowercase();
+    if cleaned_lower == "machineembroiderydesigns"
+        || cleaned_lower.starts_with("machineembroiderydesigns/")
+    {
+        // "/MachineEmbroideryDesigns/..." → "<data_root>/MachineEmbroideryDesigns/..."
+        let data_root = designs_base
+            .parent()
+            .map(|value| value.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        return data_root.join(cleaned);
+    }
+
+    let candidate = PathBuf::from(&normalized);
+    if candidate.is_absolute() {
+        return candidate;
+    }
+
+    designs_base.join(cleaned)
+}
+
 async fn select_color_count_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query(
         "SELECT id
@@ -902,8 +942,9 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
     };
 
     let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let resolved_path = resolve_stored_design_path(&filepath);
     let result = generate_preview(&ImageGenerationRequest {
-        file_path: filepath,
+        file_path: resolved_path.to_string_lossy().to_string(),
         preview_3d: false,
         preview_3d_profile: None,
     });
