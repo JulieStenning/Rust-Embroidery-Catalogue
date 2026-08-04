@@ -132,6 +132,15 @@ fn main() {
     let bootstrap_config = config::BootstrapConfig::from_app_paths(&app_paths);
     tracing::info!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
 
+    // Export the resolved database URL as DATABASE_URL so that legacy
+    // path-derivation helpers (bulk_import, designs, fingerprint, maintenance)
+    // which read BootstrapConfig::from_env() agree with the startup connection
+    // path. Without this they fall back to the relative default
+    // "sqlite:data/database/EmbroideryCatalogue.db", resolving design paths
+    // against the project root (./data) instead of the resolved AppPaths data
+    // root (e.g. target\debug\Data).
+    std::env::set_var("DATABASE_URL", &bootstrap_config.database_url);
+
     // Ensure the database directory exists before trying to connect
     if let Err(err) = config::ensure_database_dir(&bootstrap_config.database_url) {
         eprintln!("Failed to create database directory: {err}");
