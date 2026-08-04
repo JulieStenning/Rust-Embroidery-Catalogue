@@ -8,11 +8,11 @@
    * (single-design context).
    *
    * @type {{
-   *   designIds: number[],
-   *   previewItems: Array<{id: number, filename: string, filepath: string, dataUrl?: string|null}>,
-   *   open: boolean,
-   *   onClose: () => void,
-   *   onDeleted: (result: any) => void
+   *   designIds?: number[],
+   *   previewItems?: Array<{id: number, filename: string, filepath: string, dataUrl?: string|null}>,
+   *   open?: boolean,
+   *   onClose?: () => void,
+   *   onDeleted?: (result: any) => void
    * }}
    */
   let { designIds = [], previewItems = [], open = false, onClose = () => {}, onDeleted = () => {} } = $props();
