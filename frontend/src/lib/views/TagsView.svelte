@@ -6,7 +6,7 @@
   import TagTable from "../components/TagTable.svelte";
 
   /** @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary */
-  /** @typedef {{ id: number, description: string, tag_group: string, design_count: number }} TagRow */
+  /** @typedef {{ id: number, description: string, tag_group: string, design_count: number, is_system?: boolean }} TagRow */
 
   /** @type {TagRow[]} */
   let imageTags = $state([]);
@@ -35,12 +35,20 @@
     tagsLoading = true;
     try {
       const result = await listTags();
+      if (result?.error) {
+        addToast(`Failed to load tags: ${result.error}`, "error");
+        imageTags = [];
+        stitchingTags = [];
+        adminTagsPanelStateLoaded = true;
+        return;
+      }
       const rawTags = /** @type {AdminTagSummary[]} */ (getResponseItems(result));
       const mappedTags = rawTags.map((t) => ({
         id: Number(t.id),
         description: String(t.description || ""),
         tag_group: String(t.tag_group || ""),
         design_count: Number(t.design_count ?? 0),
+        is_system: Boolean(t.is_system ?? false),
       }));
 
       const groups = splitTagsByGroup(mappedTags);

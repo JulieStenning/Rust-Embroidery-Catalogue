@@ -382,7 +382,8 @@ mod tests {
 			CREATE TABLE tags (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				description VARCHAR(255) NOT NULL UNIQUE,
-				tag_group VARCHAR(20)
+				tag_group VARCHAR(20),
+				is_system BOOLEAN NOT NULL DEFAULT 0
 			);
 			"#,
         )
@@ -1827,6 +1828,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn update_tag_rejects_system_tag() {
+        let pool = test_pool().await;
+
+        // Insert a system-defined stitching tag directly (as the migration does).
+        let system_tag = sqlx::query(
+            "INSERT INTO tags (description, tag_group, is_system) VALUES (?, ?, ?) RETURNING id",
+        )
+        .bind("Cross Stitch")
+        .bind("stitching")
+        .bind(1_i64)
+        .fetch_one(&pool)
+        .await
+        .expect("expected system tag to be inserted");
+        let system_tag_id: i64 = system_tag.get("id");
+
+        let result = update_tag_with_pool(
+            &pool,
+            UpdateTagRequest {
+                tag_id: system_tag_id,
+                description: "Renamed".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected system tag rejection error")
+            .contains("System tags cannot be modified or deleted."));
+    }
+
+    #[tokio::test]
     async fn update_tag_empty_description() {
         let pool = test_pool().await;
 
@@ -2023,6 +2055,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn set_tag_group_rejects_system_tag() {
+        let pool = test_pool().await;
+
+        // Insert a system-defined stitching tag directly (as the migration does).
+        let system_tag = sqlx::query(
+            "INSERT INTO tags (description, tag_group, is_system) VALUES (?, ?, ?) RETURNING id",
+        )
+        .bind("Applique")
+        .bind("stitching")
+        .bind(1_i64)
+        .fetch_one(&pool)
+        .await
+        .expect("expected system tag to be inserted");
+        let system_tag_id: i64 = system_tag.get("id");
+
+        let result = set_tag_group_with_pool(
+            &pool,
+            SetTagGroupRequest {
+                tag_id: system_tag_id,
+                tag_group: "image".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected system tag rejection error")
+            .contains("System tags cannot be modified or deleted."));
+    }
+
+    #[tokio::test]
     async fn set_tag_group_rejects_invalid_group() {
         let pool = test_pool().await;
 
@@ -2156,6 +2219,40 @@ mod tests {
         assert!(result
             .expect_err("expected not-found error")
             .contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn delete_tag_rejects_system_tag() {
+        let pool = test_pool().await;
+
+        // Insert a system-defined stitching tag directly (as the migration does).
+        let system_tag = sqlx::query(
+            "INSERT INTO tags (description, tag_group, is_system) VALUES (?, ?, ?) RETURNING id",
+        )
+        .bind("Lace")
+        .bind("stitching")
+        .bind(1_i64)
+        .fetch_one(&pool)
+        .await
+        .expect("expected system tag to be inserted");
+        let system_tag_id: i64 = system_tag.get("id");
+
+        let result = delete_tag_with_pool(&pool, system_tag_id).await;
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected system tag rejection error")
+            .contains("System tags cannot be modified or deleted."));
+
+        // The system tag must still exist.
+        let still_exists = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM tags WHERE id = ?",
+        )
+        .bind(system_tag_id)
+        .fetch_one(&pool)
+        .await
+        .expect("expected tag existence query");
+        assert_eq!(still_exists, 1, "system tag must not be deleted");
     }
 
     // --- Hoop ---

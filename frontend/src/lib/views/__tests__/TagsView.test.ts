@@ -261,6 +261,59 @@ describe("TagsView", () => {
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
+  it("locks edit/delete for system stitching tags with no badge", async () => {
+    adapterMocks.listTags.mockResolvedValue(
+      listResponse([
+        { id: 1, description: "Cross Stitch", tag_group: "stitching", design_count: 2, is_system: true },
+        { id: 2, description: "Custom Stitch", tag_group: "stitching", design_count: 0, is_system: false },
+        { id: 3, description: "Floral", tag_group: "image", design_count: 1, is_system: false },
+      ])
+    );
+
+    render(TagsView);
+
+    // No "System" badge is rendered next to the tag name.
+    await waitFor(() => {
+      expect(screen.getByText("Cross Stitch")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("System")).not.toBeInTheDocument();
+
+    // The system tag row shows "Locked" instead of Edit/Delete.
+    expect(screen.getByText("Locked")).toBeInTheDocument();
+
+    // The custom stitching tag keeps full CRUD actions.
+    expect(screen.getAllByRole("button", { name: "Edit" }).length).toBe(2); // image + custom stitching
+    expect(screen.getAllByRole("button", { name: "Delete" }).length).toBe(2);
+
+    // No Edit or Delete button should exist within the system tag row.
+    const crossStitchRow = screen.getByText("Cross Stitch").closest("tr");
+    expect(crossStitchRow).not.toBeNull();
+    expect(crossStitchRow!.querySelectorAll("button").length).toBe(0);
+    expect(
+      screen.queryByRole("button", { name: "Confirm delete" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps full CRUD actions for image tags even when is_system is truthy", async () => {
+    adapterMocks.listTags.mockResolvedValue(
+      listResponse([
+        { id: 10, description: "Special Image", tag_group: "image", design_count: 0, is_system: true },
+      ])
+    );
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(screen.getByText("Special Image")).toBeInTheDocument();
+    });
+
+    // Image tags never show the System/Locked state regardless of is_system.
+    expect(screen.queryByText("System")).not.toBeInTheDocument();
+    expect(screen.queryByText("Locked")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" }).length).toBe(1);
+    expect(screen.getAllByRole("button", { name: "Delete" }).length).toBe(1);
+  });
+
   it("persists collapsible panel state to localStorage on toggle", async () => {
     render(TagsView);
 

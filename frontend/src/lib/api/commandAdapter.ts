@@ -1260,23 +1260,15 @@ export async function getBrowseTags(): Promise<AdapterListResponse<BrowseTagOpti
           id: Number(tag?.id),
           description: String(tag?.description || ""),
           tag_group: tag?.tag_group == null ? null : String(tag.tag_group),
+          is_system: tag?.is_system == null ? false : Boolean(tag.is_system),
         })),
         source: "rust",
       };
     }
+    return { items: [], source: "rust", error: "get_tags_for_browse returned an unexpected payload." };
   } catch (error) {
-    console.info("get_tags_for_browse unavailable, using mock tag options.", error);
+    return { items: [], source: "mock", error: String(error) };
   }
-
-  const fromMock = Array.from(new Set(MOCK_DESIGNS.flatMap((item) => item.tags || []))).map(
-    (description, index) => ({
-      id: index + 1,
-      description,
-      tag_group: null,
-    })
-  );
-
-  return { items: fromMock, source: "mock" };
 }
 
 /**
@@ -2174,22 +2166,22 @@ export async function listTags(): Promise<AdapterListResponse<AdminTagSummary>> 
           description: String(item?.description || ""),
           tag_group: item?.tag_group == null ? "" : String(item.tag_group),
           design_count: Number(item?.design_count ?? 0),
+          is_system: Boolean(item?.is_system ?? false),
         })),
       };
     }
+    return {
+      source: "rust",
+      items: [],
+      error: "list_tags returned an unexpected payload.",
+    };
   } catch (error) {
-    console.info("list_tags unavailable, using mock tags.", error);
+    return {
+      source: "mock",
+      items: [],
+      error: String(error),
+    };
   }
-
-  return {
-    source: "mock",
-    items: [
-      { id: 1, description: "Animals", tag_group: "image", design_count: 3 },
-      { id: 2, description: "Flowers", tag_group: "image", design_count: 5 },
-      { id: 3, description: "Cross Stitch", tag_group: "stitching", design_count: 0 },
-      { id: 4, description: "Holiday", tag_group: "", design_count: 1 },
-    ],
-  };
 }
 
 /**
@@ -2212,6 +2204,7 @@ export async function createTag(description: string, tagGroup: string | null): P
         description: String(item?.description || ""),
         tag_group: item?.tag_group == null ? "" : String(item.tag_group),
         design_count: Number(item?.design_count ?? 0),
+        is_system: Boolean(item?.is_system ?? false),
       },
     };
   } catch (error) {
@@ -2236,6 +2229,7 @@ export async function setTagGroup(tagId: number | string, tagGroup: string | nul
         description: String(item?.description || ""),
         tag_group: item?.tag_group == null ? "" : String(item.tag_group),
         design_count: Number(item?.design_count ?? 0),
+        is_system: Boolean(item?.is_system ?? false),
       },
     };
   } catch (error) {
@@ -2263,6 +2257,7 @@ export async function updateTag(tagId: number | string, description: string): Pr
         description: String(item?.description || ""),
         tag_group: item?.tag_group == null ? "" : String(item.tag_group),
         design_count: Number(item?.design_count ?? 0),
+        is_system: Boolean(item?.is_system ?? false),
       },
     };
   } catch (error) {

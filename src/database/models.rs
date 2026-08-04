@@ -39,6 +39,7 @@ pub struct Tag {
     pub id: Option<i64>,
     pub description: String,
     pub tag_group: Option<String>,
+    pub is_system: bool,
 }
 
 /// A design record.

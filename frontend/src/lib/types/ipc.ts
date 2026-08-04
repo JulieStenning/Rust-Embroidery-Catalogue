@@ -73,6 +73,7 @@ export interface BrowseTagOption {
   id: number;
   description: string;
   tag_group: string | null;
+  is_system: boolean | null;
 }
 
 export interface DesignLookupOption {
@@ -596,6 +597,7 @@ export interface AdminTagSummary {
   description: string;
   tag_group: string;
   design_count: number;
+  is_system: boolean;
 }
 
 export interface AdminHoopSummary {

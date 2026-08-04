@@ -5,7 +5,7 @@
 
   /**
    * @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary
-   * @typedef {{ id: number, description: string, design_count: number }} TagRow
+   * @typedef {{ id: number, description: string, design_count: number, is_system?: boolean }} TagRow
    */
 
   /** @type {{ tags: TagRow[], group: string, onRefresh: (force?: boolean) => Promise<void> }} */
@@ -17,11 +17,16 @@
   /** @type {number | null} */
   let pendingDeleteTagId = $state(null);
 
+  /** Whether this row represents a protected system-defined tag. */
+  const isSystemTag = $derived(
+    (/** @type {TagRow} */ tag) => group === "stitching" && Boolean(tag?.is_system)
+  );
+
   /**
    * @param {TagRow} tag
    */
   function beginEdit(tag) {
-    if (!tag) return;
+    if (!tag || isSystemTag(tag)) return;
     pendingDeleteTagId = null;
     editingTagId = Number(tag.id);
     editingTagDescription = String(tag.description || "");
@@ -34,6 +39,10 @@
 
   /** @param {TagRow} tag */
   async function saveEdit(tag) {
+    if (isSystemTag(tag)) {
+      addToast("System tags cannot be modified.", "error");
+      return;
+    }
     const id = Number(tag?.id);
     const description = editingTagDescription.trim();
     if (!description) {
@@ -57,7 +66,10 @@
    * @param {TagRow} tag
    */
   function requestDelete(tag) {
-    if (!tag) return;
+    if (!tag || isSystemTag(tag)) {
+      addToast("System tags cannot be deleted.", "error");
+      return;
+    }
     cancelEdit();
     pendingDeleteTagId = Number(tag.id);
     if (Number(tag.design_count) > 0) {
@@ -152,6 +164,8 @@
                 >
                   Cancel
                 </button>
+              {:else if isSystemTag(tag)}
+                <span class="text-xs text-gray-300 select-none" title="System tags cannot be edited or deleted.">Locked</span>
               {:else}
                 <button
                   type="button"

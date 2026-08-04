@@ -44,6 +44,7 @@ pub struct AdminTag {
     pub description: String,
     pub tag_group: Option<String>,
     pub design_count: i64,
+    pub is_system: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -350,10 +351,11 @@ pub async fn list_tags_with_pool(pool: &SqlitePool) -> Result<Vec<AdminTag>, App
 			t.id,
 			t.description,
 			t.tag_group,
-			COUNT(dt.design_id) AS design_count
+			COUNT(dt.design_id) AS design_count,
+			t.is_system AS is_system
 		FROM tags t
 		LEFT JOIN design_tags dt ON dt.tag_id = t.id
-		GROUP BY t.id, t.description, t.tag_group
+		GROUP BY t.id, t.description, t.tag_group, t.is_system
 		ORDER BY t.description COLLATE NOCASE ASC
 		"#,
     )
@@ -394,7 +396,28 @@ pub async fn create_tag_with_pool(
         description,
         tag_group: Some(tag_group),
         design_count: 0,
+        is_system: false,
     })
+}
+
+/// Fetch the `is_system` flag for a tag and reject requests to modify or delete
+/// system-defined tags. Returns `NotFound` if the tag does not exist.
+async fn ensure_tag_not_system(pool: &SqlitePool, tag_id: i64) -> Result<(), AppError> {
+    let is_system = sqlx::query_scalar::<_, bool>(
+        "SELECT is_system FROM tags WHERE id = ? LIMIT 1",
+    )
+    .bind(tag_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::database(e.to_string()))?;
+
+    match is_system {
+        None => Err(AppError::not_found("tag", Some(tag_id.to_string()))),
+        Some(true) => Err(AppError::invalid_input(
+            "System tags cannot be modified or deleted.".to_string(),
+        )),
+        Some(false) => Ok(()),
+    }
 }
 
 pub async fn update_tag_with_pool(
@@ -402,6 +425,8 @@ pub async fn update_tag_with_pool(
     request: UpdateTagRequest,
 ) -> Result<AdminTag, AppError> {
     let description = validate_non_empty(&request.description, "Tag description")?;
+
+    ensure_tag_not_system(pool, request.tag_id).await?;
 
     let existing = sqlx::query_scalar::<_, i64>(
         "SELECT 1 FROM tags WHERE lower(description) = lower(?) AND id <> ? LIMIT 1",
@@ -434,11 +459,12 @@ pub async fn update_tag_with_pool(
 			t.id,
 			t.description,
 			t.tag_group,
-			COUNT(dt.design_id) AS design_count
+			COUNT(dt.design_id) AS design_count,
+			t.is_system AS is_system
 		FROM tags t
 		LEFT JOIN design_tags dt ON dt.tag_id = t.id
 		WHERE t.id = ?
-		GROUP BY t.id, t.description, t.tag_group
+		GROUP BY t.id, t.description, t.tag_group, t.is_system
 		LIMIT 1
 		"#,
     )
@@ -455,6 +481,8 @@ pub async fn set_tag_group_with_pool(
     request: SetTagGroupRequest,
 ) -> Result<AdminTag, AppError> {
     let tag_group = validate_tag_group(&request.tag_group)?;
+
+    ensure_tag_not_system(pool, request.tag_id).await?;
 
     let result = sqlx::query("UPDATE tags SET tag_group = ? WHERE id = ?")
         .bind(&tag_group)
@@ -473,11 +501,12 @@ pub async fn set_tag_group_with_pool(
 			t.id,
 			t.description,
 			t.tag_group,
-			COUNT(dt.design_id) AS design_count
+			COUNT(dt.design_id) AS design_count,
+			t.is_system AS is_system
 		FROM tags t
 		LEFT JOIN design_tags dt ON dt.tag_id = t.id
 		WHERE t.id = ?
-		GROUP BY t.id, t.description, t.tag_group
+		GROUP BY t.id, t.description, t.tag_group, t.is_system
 		LIMIT 1
 		"#,
     )
@@ -490,6 +519,8 @@ pub async fn set_tag_group_with_pool(
 }
 
 pub async fn delete_tag_with_pool(pool: &SqlitePool, tag_id: i64) -> Result<(), AppError> {
+    ensure_tag_not_system(pool, tag_id).await?;
+
     let result = sqlx::query("DELETE FROM tags WHERE id = ?")
         .bind(tag_id)
         .execute(pool)
