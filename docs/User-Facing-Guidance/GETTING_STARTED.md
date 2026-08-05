@@ -1,8 +1,9 @@
-# Getting Started — Embroidery Catalogue (Local Use)
+# Getting Started — Embroidery Catalogue (Rust / Tauri build)
 
 This guide explains how to run the Embroidery Catalogue directly from the repository
-on a Windows PC.  It is intended for first-time users with no prior knowledge of the
-project.
+on a Windows PC.  It is intended for contributors and developers who want to build and
+run the app from source.  If you are an end user, use the release installer or the
+portable executable instead (see **Next steps** at the bottom of this guide).
 
 ---
 
@@ -11,36 +12,72 @@ project.
 | Requirement | Details |
 |---|---|
 | Operating system | **Windows 10 or Windows 11** |
-| Python version | **Python 3.12** |
+| Rust toolchain | **Rust (stable)** — installed via <https://rustup.rs> |
+| Tauri CLI | Installed via `cargo install tauri-cli --locked` (Step 3) |
+| Node.js | **Node.js 18+** (with `npm`) for the Svelte frontend — installed via <https://nodejs.org/> |
 | Internet access | Only for the first-time dependency install |
 
 ---
 
-## Step 1 — Install Python 3.12
+## Step 1 — Install Rust
 
-1. Open a browser and go to <https://www.python.org/downloads/>.
-2. Download and run the **Python 3.12** installer for Windows.
-3. On the first installer screen, tick **"Add Python to PATH"** before clicking *Install Now*.
-4. After installation, open a **Command Prompt** and check the version:
+1. Open a browser and go to <https://rustup.rs>.
+2. Download and run **rustup-init.exe** for Windows (x86_64).
+3. Choose the default installation profile when prompted.
+4. Open a **new** Command Prompt and check the version:
 
    ```bat
-   py --version
+   cargo --version
    ```
 
-   The output should start with `Python 3.12`.
+   The output should be `cargo 1.x.y` (any stable version).
 
 ---
 
-## Step 2 — Get the repository
+## Step 2 — Install Node.js
+
+1. Go to <https://nodejs.org/> and download the **LTS** installer for Windows.
+2. Run the installer (keep the default options, including adding `npm` to PATH).
+3. Open a **new** Command Prompt and check the version:
+
+   ```bat
+   node --version
+   npm --version
+   ```
+
+   Both should print a version number.
+
+---
+
+## Step 3 — Install the Tauri CLI
+
+From a Command Prompt, run:
+
+```bat
+cargo install tauri-cli --locked
+```
+
+Check it is available:
+
+```bat
+cargo tauri -V
+```
+
+> The `start-rust-app.bat` launcher also checks for the Tauri CLI and tells you to
+> install it if it is missing.
+
+---
+
+## Step 4 — Get the repository
 
 Clone (or download and unzip) the repository to a folder on your PC, for example
-`C:\Projects\Embroidery-Catalogue`.
+`C:\Projects\Rust-Embroidery-Catalogue`.
 
 If you have Git installed:
 
 ```bat
-git clone https://github.com/JulieStenning/Embroidery-Catalogue.git
-cd Embroidery-Catalogue
+git clone https://github.com/juliestenning/rust-embroidery-catalogue.git
+cd rust-embroidery-catalogue
 ```
 
 Otherwise, download the ZIP from GitHub (*Code → Download ZIP*), extract it, and
@@ -48,41 +85,19 @@ open a Command Prompt in the extracted folder.
 
 ---
 
-## Step 3 — Create a virtual environment
+## Step 5 — Install frontend dependencies
 
-From the project root folder, run:
-
-```bat
-py -3.12 -m venv .venv
-```
-
-This creates an isolated Python environment in a folder called `.venv`.
-
----
-
-## Step 4 — Activate the virtual environment
+The Svelte frontend needs its npm packages installed before the app can build:
 
 ```bat
-.venv\Scripts\activate
-```
-
-Your Command Prompt prompt should now start with `(.venv)`.
-
----
-
-## Step 5 — Install the application and its dependencies
-
-```bat
-pip install -r requirements.txt
-```
-
-Or, if you also want the developer test tools:
-
-```bat
-pip install -e ".[dev]"
+cd frontend
+npm install
+cd ..
 ```
 
 This step requires an internet connection.  It may take a minute or two.
+(`start-rust-app.bat` also runs `npm install` automatically on first launch if
+`frontend\node_modules` is missing.)
 
 ---
 
@@ -92,7 +107,7 @@ The application works without any configuration file.  You only need a Google AP
 you want to use optional AI-assisted auto-tagging.
 
 The easiest way to add the key is via **Admin → Settings** in the app.  You can also
-place it in a `.env` file in the project root alongside `start.bat`:
+place it in a `.env` file in the repository root (where the launcher scripts live):
 
 ```
 GOOGLE_API_KEY=AIzaSy_your_actual_key_here
@@ -107,32 +122,46 @@ See [AI_TAGGING.md](AI_TAGGING.md) for full details, including cost/quota inform
 
 ## Step 7 — Start the application
 
-Double-click **`start.bat`** in the project root, or run it from the Command Prompt:
+From the project root, double-click **`start-rust-app.bat`** or run it from the
+Command Prompt:
 
 ```bat
-start.bat
+start-rust-app.bat
 ```
 
-`start.bat` will:
+`start-rust-app.bat` will:
 
-1. Detect your `.venv` virtual environment.
-2. Create the managed `data\database\` and `data\MachineEmbroideryDesigns\` folders if they do not already exist.
-3. Apply any pending database migrations automatically.
-4. Open your browser at <http://localhost:8003>.
-5. Start the web server in the background.
+1. Check that `cargo` and the Tauri CLI are available.
+2. Install frontend dependencies (`npm install` in `frontend\`) if they are missing.
+3. Start the Vite dev server on port **5173** in a separate window.
+4. Check that `Data\Database\EmbroideryCatalogue.db` exists at the project root and
+   copy it into `target\debug\Data\Database\`.
+5. Launch the app via `cargo tauri dev --no-watch` — a **desktop window** opens.
 
-> **First run only:** The first time you start the app, a new SQLite database file is
-> created at `data\database\catalogue_dev.db`. All your catalogue data is stored there.
+> The Rust app is a desktop application (Tauri/WebView2).  It does **not** open a web
+> browser or use a localhost web address.
+
+> **First run only:**  The first time you start the app, the developer database
+> `Data\Database\EmbroideryCatalogue.db` is copied into the debug output tree and used
+> as the catalogue database.  All your catalogue data is stored there.
 
 Once you open a design's detail page, you can use **Open in Editor** to launch the file
 with the normal Windows default app, or **Show in Explorer** to reveal it in File Explorer.
+
+### Alternative launch scripts
+
+| Script | Purpose |
+|---|---|
+| `start-rust-app.bat` | Recommended — builds and launches the app in dev mode (`cargo tauri dev`) |
+| `start-rust-debug-exe.bat` | Builds (`cargo tauri build --debug --no-bundle`) and launches the debug EXE |
+| `start-rust-app-no-build.bat` | Launches a prebuilt `target\debug\embroidery-catalogue.exe` without building |
 
 ---
 
 ## Step 8 — Stop the application
 
-Press **Ctrl+C** in the Command Prompt window where `start.bat` is running, or close
-that window or run stop.bat.
+Close the app window.  For dev mode, you can also press **Ctrl+C** in the Command Prompt
+window where `start-rust-app.bat` is running, or close that window.
 
 ---
 
@@ -146,8 +175,8 @@ that window or run stop.bat.
 4. Click **Continue**. If this is your first-ever import into an empty catalogue, the app will ask
    you to complete **first import actions** before importing. This includes hoops, tags, sources,
    and designers. On later imports, these review actions remain optional.
-5. Confirm the import. The selected files are copied into `data\MachineEmbroideryDesigns\` and
-   added to the catalogue database.
+5. Confirm the import. The selected files are copied into the managed storage folder
+   (`MachineEmbroideryDesigns`) and added to the catalogue database.
 
 See [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) for the full first import actions workflow.
 
@@ -157,11 +186,12 @@ See [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) for the full first import
 
 | File or folder | Purpose |
 |---|---|
-| `data\database\catalogue_dev.db` | Your development catalogue database (all designs, tags, projects) |
-| `data\database\catalogue.db` | Production/portable database (used on portable device) |
-| `data\MachineEmbroideryDesigns\` | Managed storage for imported embroidery files |
+| `Data\Database\EmbroideryCatalogue.db` (project root) | Developer database source — copied into the debug tree by the launcher scripts |
+| `target\debug\Data\` | Data root in dev mode (database, designs, thumbnails, logs) |
+| `target\debug\Data\MachineEmbroideryDesigns\` | Managed storage for imported embroidery files in dev mode |
+| `%APPDATA%\EmbroideryCatalogue\` | Data root in installed mode (release installer) |
 
-> **Back up the whole `data\` folder regularly.** See [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
+> **Back up the whole `Data\` folder regularly.** See [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
 > for instructions.
 
 ---
@@ -170,13 +200,18 @@ See [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) for the full first import
 
 After pulling new changes from the repository:
 
-1. Re-run `start.bat`.  Database migrations are applied automatically on startup.
-2. If new Python packages have been added to `requirements.txt`, reinstall them:
+1. Re-run `start-rust-app.bat`.  The launcher re-syncs the developer database and
+   rebuilds the app as needed.
+2. If frontend dependencies have changed, reinstall them:
 
    ```bat
-   .venv\Scripts\activate
-   pip install -r requirements.txt
+   cd frontend
+   npm install
+   cd ..
    ```
+
+3. If Rust crates have been added to `Cargo.toml`, they are downloaded automatically
+   when the launcher builds the app (an internet connection is required).
 
 ---
 
@@ -187,21 +222,18 @@ Any variables you set override the built-in defaults.
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:///…/data/database/catalogue_dev.db` | Database location |
-| `APP_PORT` | `8003` | Port the web server listens on |
 | `GOOGLE_API_KEY` | *(not set)* | Enables AI auto-tagging (see [AI_TAGGING.md](AI_TAGGING.md)) |
 
-Imported design files are stored automatically under `data\MachineEmbroideryDesigns`.
+Imported design files are stored automatically under the managed `MachineEmbroideryDesigns`
+folder in the active data root.
 
 ---
 
 ## Next steps
 
-- [../USB_DEPLOYMENT.md](../USB_DEPLOYMENT.md) — copy the app to a USB stick or SD card so it
-  runs on any Windows PC without Python installed.
+- [App Installer.md](App Installer.md) — run the release installer or use portable mode on a USB stick / SD card.
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — back up and restore your catalogue database.
 - [AI_TAGGING.md](AI_TAGGING.md) — enable optional AI-powered design tagging.
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) — first-import and later-import precheck review flow.
 - [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — fix common problems.
-- [../CODE_SIGNING.md](../CODE_SIGNING.md) — optional Windows signing notes for future releases.
 - [../COMMERCIAL.md](../COMMERCIAL.md) — paid Windows installer build for non-technical users.

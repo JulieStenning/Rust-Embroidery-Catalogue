@@ -14,19 +14,18 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 **Before First Update (One-Time Preparation)**
 - Confirm update policy.
 - Define release types (hotfix, minor, major) and expected migration scope per type using docs/policies/releases/release-types-and-migration-scope.md.
-- Decide digital signing policy for external tester releases and production releases.
 - Define rollback promise (what versions and recovery paths you will support).
 - Output: written policy note linked from this SOP.
-- Prepare release ownership using release-evidence-template.md
+- Prepare release ownership using [release-evidence-template.md](../proformas/releases/release-evidence-template.md)
 - Assign a default Release Owner and a backup Verifier.
-- Confirm both can access build scripts, signing tools, and release publishing.
+- Confirm both can access build scripts and release publishing.
 - Output: named owner/verifier roster.
 - Prepare version discipline.
-- Verify version synchronization process between pyproject.toml and installer/EmbroideryCatalogue.iss.
+- Verify version synchronization process between Cargo.toml, tauri.conf.json, and src-tauri/tauri.conf.json.
 - Decide final installer naming convention and checksum recording location.
 - Output: version-sync and artifact naming standard.
 - Prepare release evidence templates.
-- Use [release-evidence-template.md](../proformas/releases/release-evidence-template.md) for release evidence capture: version values, test summary, migration results, checksum, signing verification, and release URL.
+- Use [release-evidence-template.md](../proformas/releases/release-evidence-template.md) for release evidence capture: version values, test summary, migration results, checksum, and release URL.
 - Use docs/proformas/releases/rollback-incident-template.md for rollback incident handling: issue type, severity, affected versions, user action, and owner.
 - Output: reusable templates in docs/proformas/releases ready before first update.
 - Run one full rehearsal.
@@ -34,7 +33,7 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Existing-data machine (realistic catalogue content).
 - Clean Windows profile/machine.
 - Custom data-root scenario.
-- Validate backup restore process from docs/BACKUP_RESTORE.md during rehearsal.
+- Validate backup restore process from docs/User-Facing-Guidance/BACKUP_RESTORE.md during rehearsal.
 - Output: rehearsal report with timings and friction points.
 - Define first-release readiness gates.
 - Mark ready only when all are true:
@@ -48,7 +47,7 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Item A1 - Assign release roles.
 - Select one Release Owner responsible for execution and one Verifier responsible for independent checks.
 - Record names and date in the release working note.
-- Confirm both people have access to signing assets, build tools, and release publishing permissions.
+- Confirm both people have access to build tools and release publishing permissions.
 - Output: named owner/verifier and shared working note link.
 - Item A2 - Confirm release baseline.
 - Validate repository state is clean and on the intended commit/tag.
@@ -59,17 +58,17 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Create release note sections for Changes, Migration impact, Backup reminder, Known issues, Rollback path.
 - Populate only confirmed items; mark unknowns as pending.
 - Output: draft notes with placeholders completed.
-- Item A4 - Update version in both version sources.
-- Edit pyproject.toml and installer/EmbroideryCatalogue.iss to the same version value.
-- Re-open both files and visually re-verify exact string match.
+- Item A4 - Update version in all version sources.
+- Edit Cargo.toml, tauri.conf.json, and src-tauri/tauri.conf.json to the same version value.
+- Re-open all three files and visually re-verify exact string match.
 - Output: synchronized version values committed in one change set.
 - Item A5 - Gate A1 pass/fail decision.
-- Pass when versions match exactly in both files.
+- Pass when versions match exactly in all three files.
 - Fail when any mismatch appears including prefix/suffix formatting differences.
 - Stop condition: no build activity until corrected.
-- Evidence: capture two file snippets in release note evidence section.
+- Evidence: capture snippets from each version source in release note evidence section.
 - Item B1 - Run release safety tests.
-- Execute database/bootstrap and core route/service tests used as release gates.
+- Execute `cargo test` covering database/bootstrap and core route/service tests used as release gates.
 - Review test output for regressions, intermittent failures, and skipped tests.
 - If a failure is known non-release-impacting, require explicit verifier sign-off.
 - Output: test summary with pass/fail counts and any accepted exceptions.
@@ -79,23 +78,23 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Stop condition: block release and open a remediation issue.
 - Evidence: attach test command list and output summary.
 - Item B3 - Migration validation prep.
-- Identify current Alembic head revision and prior released revision.
-- Prepare two test databases: stamped existing DB and unstamped legacy-like DB.
-- Confirm startup bootstrap path can run against both scenarios.
+- Identify current SQLx migration head and prior released migration in the migrations/ directory.
+- Prepare two test databases: a migrated DB with the _sqlx_migrations tracking table and an unstamped legacy-like DB.
+- Confirm startup bootstrap path (src/database/connection.rs + src/database/migrations.rs) can run against both scenarios.
 - Output: migration scenario matrix with expected outcomes.
 - Item B4 - Gate B2 pass/fail decision.
-- Pass when both stamped and unstamped scenarios reach head without startup failure.
-- Fail on revision mismatch, upgrade crash, or bootstrap exception.
+- Pass when both tracking-table and unstamped scenarios reach the latest migration without startup failure.
+- Fail on migration mismatch, upgrade crash, or bootstrap exception.
 - Stop condition: release blocked pending migration fix.
 - Evidence: scenario results and startup log excerpts.
 - Item C1 - Build installer artifact.
-- Run desktop build script and confirm installer output location.
-- Ensure build includes required bundled resources, especially data/tags.csv.
+- Run build-rust-release.bat (cargo tauri build) and confirm installer output location under target/release/bundle/.
+- Ensure build includes required bundled resources, especially src-tauri/resources/EmbroideryCatalogue.db (seed database with starter tags).
 - Output: candidate installer artifact path and build timestamp.
 - Item C2 - Gate C1 pass/fail decision.
 - Pass when installer exists and build has no unresolved error.
 - Fail when artifact missing or build completed with critical errors.
-- Stop condition: no signing/publishing before successful rebuild.
+- Stop condition: no publishing before successful rebuild.
 - Evidence: build log reference and artifact filename.
 - Item C3 - Integrity checksum generation.
 - Produce SHA256 checksum from final installer file only.
@@ -106,15 +105,6 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Fail when checksum is missing, stale, or mismatched to artifact.
 - Stop condition: publishing blocked.
 - Evidence: checksum line and verifier initials.
-- Item C5 - Sign artifact when policy requires.
-- Run signing process and verify digital signature trust chain.
-- If signing is optional for this release type, record explicit waiver decision.
-- Output: signed installer or signed waiver note.
-- Item C6 - Gate C3 pass/fail decision.
-- Pass when signature verifies or waiver is policy-compliant.
-- Fail when required signature is invalid or missing.
-- Stop condition: block external distribution.
-- Evidence: signature verification result.
 - Item D1 - Existing-user upgrade scenario test.
 - Install currently delivered build on test machine with representative existing catalogue data.
 - Apply candidate installer update without deleting data.
@@ -156,7 +146,7 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Stop condition: return release to draft/unpublished state.
 - Evidence: final release page review by verifier.
 - Item E3 - Monitor first 24-48 hours.
-- Track user reports and logs for startup errors, migration failures, and trust/signing warnings.
+- Track user reports and logs for startup errors, migration failures, and trust warnings.
 - Classify incidents by severity and frequency.
 - Escalate immediately when repeated critical pattern appears.
 - Output: monitoring summary and triage decisions.
@@ -182,15 +172,16 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Output: SOP revision changelog entry.
 
 **Relevant files**
-- d:/My Software Development/Embroidery Catalogue/pyproject.toml - primary app version value.
-- d:/My Software Development/Embroidery Catalogue/installer/EmbroideryCatalogue.iss - installer version and packaging metadata.
-- d:/My Software Development/Embroidery Catalogue/build_desktop.bat - desktop build entrypoint.
-- d:/My Software Development/Embroidery Catalogue/src/database.py - startup bootstrap and migration behavior.
-- d:/My Software Development/Embroidery Catalogue/alembic/env.py - migration runtime setup.
-- d:/My Software Development/Embroidery Catalogue/docs/CODE_SIGNING.md - signing procedure and verification.
-- d:/My Software Development/Embroidery Catalogue/docs/BACKUP_RESTORE.md - backup and restore process.
-- d:/My Software Development/Embroidery Catalogue/docs/TROUBLESHOOTING.md - triage references for release issues.
-- d:/My Software Development/Embroidery Catalogue/README.md - contributor-facing release process context.
+- Cargo.toml - primary app version value.
+- tauri.conf.json - Tauri bundle version and packaging metadata.
+- src-tauri/tauri.conf.json - Tauri bundle version used by `cargo tauri build`.
+- build-rust-release.bat - release build entrypoint (cargo tauri build).
+- src/database/connection.rs - startup bootstrap and database connection behavior.
+- src/database/migrations.rs - SQLx migration runtime.
+- migrations/ - SQLx migration files (.up.sql/.down.sql).
+- docs/User-Facing-Guidance/BACKUP_RESTORE.md - backup and restore process.
+- docs/TROUBLESHOOTING.md - triage references for release issues.
+- README.md - contributor-facing release process context.
 
 **Verification**
 - Dry-run this SOP end-to-end once before first production update.
@@ -206,5 +197,4 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 
 **Further Considerations**
 - Add pre-build automated version-sync check to reduce human error.
-- Define mandatory digital signing policy for all external tester drops.
 - Set a rotating verifier schedule so release quality checks remain independent.
