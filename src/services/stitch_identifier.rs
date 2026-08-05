@@ -157,7 +157,7 @@ impl<'a> StitchIdentifier<'a> {
         let block_stitches = split_into_color_blocks(self.pattern);
         let mut block_analyses = Vec::new();
 
-        for (i, stitches) in block_stitches.iter().enumerate() {
+        for (_i, stitches) in block_stitches.iter().enumerate() {
             let stitch_count = stitches
                 .iter()
                 .filter(|s| s.stitch_type == StitchType::Stitch)
@@ -179,7 +179,13 @@ impl<'a> StitchIdentifier<'a> {
 
             // Run block-level analysis
             let block_scores = block_identifier.get_detailed_analysis();
-            block_analyses.push((i, stitches.clone(), block_scores.clone(), stitch_count));
+            // Store the ANALYSES position (block_analyses.len()-1), not the raw
+            // block index `i` from the initial enumerate(). Small blocks (stitch
+            // count < 6) are skipped above, so `i` can exceed block_analyses.len()
+            // and would cause an out-of-bounds panic later when the collected
+            // indices are used to index block_analyses.
+            let analyses_index = block_analyses.len();
+            block_analyses.push((analyses_index, stitches.clone(), block_scores.clone(), stitch_count));
 
             // Now split the block into islands based on jumps/trims/stops
             let islands = split_block_into_islands(stitches);
