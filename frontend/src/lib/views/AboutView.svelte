@@ -37,8 +37,8 @@
         <p class="ui-section-label font-semibold text-gray-850">What this app is</p>
         <p class="text-gray-600">
           Embroidery Catalogue is a local, offline tool for cataloguing and browsing an embroidery
-          design collection. It supports a broad range of pyembroidery-readable embroidery formats,
-          including <code>.jef</code>, <code>.pes</code>, <code>.hus</code>, <code>.vp3</code>,
+          design collection. It reads a broad range of embroidery formats directly via built-in
+          readers, including <code>.jef</code>, <code>.pes</code>, <code>.hus</code>, <code>.vp3</code>,
           <code>.dst</code>, <code>.exp</code>, <code>.sew</code>, <code>.u01</code>, and many more,
           with limited support for <code>.art</code>. It stores all data in a local database file — no
           internet connection is required for normal use.

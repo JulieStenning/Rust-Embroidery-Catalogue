@@ -117,7 +117,7 @@ describe("AboutView", () => {
       expect(
         screen.getByText(
           normalizedText(
-            "Embroidery Catalogue is a local, offline tool for cataloguing and browsing an embroidery design collection. It supports a broad range of pyembroidery-readable embroidery formats, including .jef, .pes, .hus, .vp3, .dst, .exp, .sew, .u01, and many more, with limited support for .art. It stores all data in a local database file — no internet connection is required for normal use."
+            "Embroidery Catalogue is a local, offline tool for cataloguing and browsing an embroidery design collection. It reads a broad range of embroidery formats directly via built-in readers, including .jef, .pes, .hus, .vp3, .dst, .exp, .sew, .u01, and many more, with limited support for .art. It stores all data in a local database file — no internet connection is required for normal use."
           )
         )
       ).toBeInTheDocument();

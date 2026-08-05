@@ -6,8 +6,9 @@ This document lists the embroidery file formats supported by the Embroidery Cata
 
 ## Standard import formats
 
-These formats are read via `pyembroidery`.  Dimensions, hoop suggestion, and stitch
-preview are available for all of them where the file contains the necessary data.
+These formats are read by the application's built-in Rust readers.  Dimensions, hoop
+suggestion, and stitch preview are available for all of them where the file contains
+the necessary data.
 
 | Extension | Notes |
 |-----------|-------|
