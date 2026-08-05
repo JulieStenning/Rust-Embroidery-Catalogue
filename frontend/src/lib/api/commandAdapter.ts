@@ -2290,6 +2290,30 @@ export async function deleteSource(sourceId: number | string): Promise<AdapterPe
   }
 }
 
+/**
+ * Check whether the user has completed or skipped the initial setup wizard.
+ */
+export async function checkInitialSetup(): Promise<boolean> {
+  try {
+    const result = await invokeLoose<boolean>("check_initial_setup");
+    return Boolean(result);
+  } catch (error) {
+    console.info("check_initial_setup failed.", error);
+    return true; // Default to true on error — do not block the app.
+  }
+}
+
+/**
+ * Persist that the user has completed or skipped the initial setup wizard.
+ */
+export async function completeInitialSetup(): Promise<void> {
+  try {
+    await invokeLoose<void>("complete_initial_setup");
+  } catch (error) {
+    console.error("complete_initial_setup failed:", error);
+  }
+}
+
 export async function listTags(): Promise<AdapterListResponse<AdminTagSummary>> {
   try {
     const items = await invokeLoose<AdminTagSummary[]>("list_tags");

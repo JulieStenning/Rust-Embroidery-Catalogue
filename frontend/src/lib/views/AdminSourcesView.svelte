@@ -10,6 +10,10 @@
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
 
+  /** When embedded (true), the standalone page title/description are hidden
+   *  because the wrapping context provides the heading. */
+  let { embedded = false } = $props();
+
   /** @type {AdminEntityRow[]} */
   let sources = $state([]);
   let newSourceName = $state("");
@@ -134,10 +138,12 @@
   });
 </script>
 
-<h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Sources</h1>
-<p class="text-sm text-gray-500">
-  Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
-</p>
+{#if !embedded}
+  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Sources</h1>
+  <p class="text-sm text-gray-500">
+    Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
+  </p>
+{/if}
 
 <div class="admin-card bg-white rounded shadow p-5 max-w-xl border mt-2">
   <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new source</h2>

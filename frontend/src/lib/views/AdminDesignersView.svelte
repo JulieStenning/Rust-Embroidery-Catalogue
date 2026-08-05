@@ -10,6 +10,10 @@
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
 
+  /** When embedded (true), the standalone page title/description are hidden
+   *  because the wrapping context provides the heading. */
+  let { embedded = false } = $props();
+
   /** @type {AdminEntityRow[]} */
   let designers = $state([]);
   let newDesignerName = $state("");
@@ -134,10 +138,12 @@
   });
 </script>
 
-<div class="space-y-1 font-sans">
-  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800">Manage Designers</h1>
-  <p class="text-gray-600 text-sm">Designers are the creators or brands of embroidery designs.</p>
-</div>
+{#if !embedded}
+  <div class="space-y-1 font-sans">
+    <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800">Manage Designers</h1>
+    <p class="text-gray-600 text-sm">Designers are the creators or brands of embroidery designs.</p>
+  </div>
+{/if}
 
 <div class="admin-card bg-white rounded shadow p-5 max-w-xl border mt-2">
   <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new designer</h2>

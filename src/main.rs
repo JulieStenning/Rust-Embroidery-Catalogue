@@ -6,6 +6,7 @@ pub mod config;
 pub mod database;
 pub mod disclaimer;
 pub mod error;
+pub mod initial_setup;
 pub mod logging;
 pub mod models;
 pub mod paths;
@@ -98,6 +99,25 @@ async fn accept_disclaimer(state: State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 fn get_disclaimer_text(state: State<'_, AppState>) -> Result<String, String> {
     Ok(state.disclaimer_text.clone())
+}
+
+/// Check whether the initial setup wizard has been completed or skipped.
+#[tauri::command]
+async fn check_initial_setup(state: State<'_, AppState>) -> Result<bool, String> {
+    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    initial_setup::is_initial_setup_completed(&mut conn)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// Persist that the user has completed or skipped the initial setup wizard.
+#[tauri::command]
+async fn complete_initial_setup(state: State<'_, AppState>) -> Result<(), String> {
+    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    initial_setup::set_initial_setup_completed(&mut conn, true)
+        .await
+        .map(|_| ())
+        .map_err(|err| format!("Failed to save initial setup status to the database: {err}"))
 }
 
 // ─── Application entry point ──────────────────────────────────────────────────
@@ -287,6 +307,8 @@ fn main() {
             check_disclaimer,
             accept_disclaimer,
             get_disclaimer_text,
+            check_initial_setup,
+            complete_initial_setup,
             routes::about::get_about_documents,
             routes::about::get_about_document,
             routes::designs::get_designs,

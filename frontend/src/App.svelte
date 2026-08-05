@@ -2,9 +2,11 @@
   import { onDestroy, onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import DisclaimerView from "./lib/DisclaimerView.svelte";
+  import InitialSetupView from "./lib/InitialSetupView.svelte";
   import MainView from "./lib/MainView.svelte";
   import ToastContainer from "./lib/components/ToastContainer.svelte";
   import { initDbMaintenanceEvents } from "./lib/services/dbMaintenanceEvents";
+  import { checkInitialSetup } from "./lib/api/commandAdapter";
 
   /** Cleanup function returned by initDbMaintenanceEvents(), if subscribed. */
   let stopDbMaintenanceEvents = $state(() => {});
@@ -13,6 +15,8 @@
   let loading = $state(true);
   /** Whether the disclaimer has been accepted */
   let disclaimerAccepted = $state(false);
+  /** Whether the initial setup wizard has been completed or skipped */
+  let initialSetupCompleted = $state(false);
   /** Error message if the check fails */
   let checkError = $state("");
 
@@ -29,12 +33,14 @@
     // so route-level frontend smoke tests can run.
     if (!hasTauriInvoke()) {
       disclaimerAccepted = true;
+      initialSetupCompleted = true;
       loading = false;
       return;
     }
 
     try {
       disclaimerAccepted = await invoke("check_disclaimer");
+      initialSetupCompleted = await checkInitialSetup();
     } catch (e) {
       checkError = `Could not verify disclaimer status: ${e}`;
       console.error("check_disclaimer failed:", e);
@@ -46,6 +52,15 @@
   /** Called by DisclaimerView once the user has accepted */
   function onDisclaimerAccepted() {
     disclaimerAccepted = true;
+  }
+
+  /** Called by InitialSetupView once the user has finished or skipped setup.
+   *  Route to the Bulk Import page first, since there are no designs yet. */
+  function onInitialSetupCompleted() {
+    if (typeof window !== "undefined") {
+      window.location.hash = "#/import";
+    }
+    initialSetupCompleted = true;
   }
 
   // Subscribe to database maintenance lifecycle events as early as possible
@@ -91,6 +106,10 @@
 {:else if !disclaimerAccepted}
   <!-- Disclaimer must be accepted before the main app loads -->
   <DisclaimerView {onDisclaimerAccepted} />
+
+{:else if !initialSetupCompleted}
+  <!-- Initial setup wizard (designers & sources) -->
+  <InitialSetupView {onInitialSetupCompleted} />
 
 {:else}
   <!-- Main application -->
