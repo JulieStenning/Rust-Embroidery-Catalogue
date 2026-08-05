@@ -1,4 +1,5 @@
 use crate::config::BootstrapConfig;
+use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::folder_picker;
 use crate::settings;
 use crate::AppState;
@@ -165,6 +166,10 @@ pub async fn delete_orphans(
     let pool = &state.db;
     let deleted = delete_design_ids_with_pool(pool, &request.design_ids).await?;
 
+    // Reclaim freelist pages asynchronously after the orphan delete commits,
+    // so the UI never blocks on database file compaction.
+    schedule_incremental_vacuum(state.db.clone());
+
     Ok(DeleteOrphansResult { deleted })
 }
 
@@ -175,6 +180,10 @@ pub async fn delete_all_orphans(state: State<'_, AppState>) -> Result<DeleteOrph
 
     let orphan_ids = find_orphan_ids_with_pool(pool, &base_path).await?;
     let deleted = delete_design_ids_with_pool(pool, &orphan_ids).await?;
+
+    // Reclaim freelist pages asynchronously after the orphan delete commits,
+    // so the UI never blocks on database file compaction.
+    schedule_incremental_vacuum(state.db.clone());
 
     Ok(DeleteOrphansResult { deleted })
 }

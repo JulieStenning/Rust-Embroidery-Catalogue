@@ -3,6 +3,7 @@ pub mod about_documents;
 pub mod admin;
 pub mod auto_tagging;
 pub mod backfill;
+pub mod compaction;
 pub mod fingerprint;
 pub mod folder_picker;
 pub mod gemini_client;

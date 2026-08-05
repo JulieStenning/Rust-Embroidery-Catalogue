@@ -43,15 +43,7 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
             ))
         })?;
 
-    sqlx::query("PRAGMA busy_timeout = 30000")
-        .execute(&pool)
-        .await
-        .map_err(|e| {
-            ConnectionError::BusyTimeout(format!(
-                "Failed to set SQLite busy timeout for '{}': {}",
-                database_url, e
-            ))
-        })?;
+    configure_pragmas(&pool, &database_url).await?;
 
     Ok(pool)
 }
@@ -73,8 +65,33 @@ pub async fn establish_connection_from_env() -> Result<SqlitePool, ConnectionErr
             ))
         })?;
 
+    configure_pragmas(&pool, &database_url).await?;
+
+    Ok(pool)
+}
+
+/// Apply the standard SQLite PRAGMA configuration on a freshly opened
+/// connection:
+///  - `busy_timeout = 30000` — wait up to 30s for a busy database.
+///  - `foreign_keys = ON` — SQLite defaults FK enforcement off per connection;
+///    the app relies on `ON DELETE CASCADE` for `design_tags`/`project_designs`.
+///  - `auto_vacuum = INCREMENTAL` — enables freelist page reclamation via
+///    `PRAGMA incremental_vacuum(N)` (see `services::compaction`).
+///
+/// NOTE: `PRAGMA auto_vacuum` only takes effect for a *freshly created*
+/// database file. On an existing database the mode can only be changed by
+/// running a one-off full `VACUUM` after setting the PRAGMA.
+///
+/// The application never creates a brand-new database at runtime — it
+/// always opens a copy of the shipped seed DB (`src-tauri/resources/`),
+/// which has already been converted to incremental auto-vacuum mode (see
+/// `scripts/convert_auto_vacuum.py`). The same one-off conversion was
+/// applied to the developer DB at `Data/Database/`. The startup PRAGMA
+/// below is therefore a harmless no-op on those pre-converted files; it is
+/// retained so the connection configuration is explicit and defensive.
+async fn configure_pragmas(pool: &sqlx::SqlitePool, database_url: &str) -> Result<(), ConnectionError> {
     sqlx::query("PRAGMA busy_timeout = 30000")
-        .execute(&pool)
+        .execute(pool)
         .await
         .map_err(|e| {
             ConnectionError::BusyTimeout(format!(
@@ -83,7 +100,58 @@ pub async fn establish_connection_from_env() -> Result<SqlitePool, ConnectionErr
             ))
         })?;
 
-    Ok(pool)
+    sqlx::query("PRAGMA foreign_keys = ON")
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            ConnectionError::BusyTimeout(format!(
+                "Failed to enable foreign keys for '{}': {}",
+                database_url, e
+            ))
+        })?;
+
+    sqlx::query("PRAGMA auto_vacuum = INCREMENTAL")
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            ConnectionError::BusyTimeout(format!(
+                "Failed to set auto_vacuum = INCREMENTAL for '{}': {}",
+                database_url, e
+            ))
+        })?;
+
+    match read_auto_vacuum_mode(pool).await {
+        Ok(mode) => {
+            tracing::info!(
+                "SQLite PRAGMA configuration complete — database={}, auto_vacuum={}, foreign_keys=ON, busy_timeout=30000",
+                database_url, mode
+            );
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Configured SQLite PRAGMAs but could not read auto_vacuum mode for '{}': {}",
+                database_url, e
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Read the current `auto_vacuum` mode (0 = NONE, 1 = FULL, 2 = INCREMENTAL)
+/// using the `pragma_auto_vacuum` table-valued function so it is fetchable
+/// under SQLx.
+async fn read_auto_vacuum_mode(pool: &sqlx::SqlitePool) -> Result<i64, ConnectionError> {
+    let (mode,): (i64,) = sqlx::query_as("SELECT auto_vacuum FROM pragma_auto_vacuum")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| {
+            ConnectionError::BusyTimeout(format!(
+                "Failed to read auto_vacuum mode: {}",
+                e
+            ))
+        })?;
+    Ok(mode)
 }
 
 // ---------------------------------------------------------------------------

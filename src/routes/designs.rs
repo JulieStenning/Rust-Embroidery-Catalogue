@@ -1,4 +1,5 @@
 use crate::config::BootstrapConfig;
+use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -2557,6 +2558,9 @@ pub async fn delete_design(
         "design_id": design_id,
         "fields": { "_deleted": true }
     }));
+    // Reclaim freelist pages asynchronously after the delete commits, so the
+    // UI never blocks on database file compaction.
+    schedule_incremental_vacuum(state.db.clone());
     Ok(result)
 }
 
@@ -2574,6 +2578,9 @@ pub async fn bulk_delete_designs(
             "fields": { "_deleted": true }
         }));
     }
+    // Reclaim freelist pages asynchronously after the bulk delete commits, so
+    // the UI never blocks on database file compaction.
+    schedule_incremental_vacuum(state.db.clone());
     Ok(result)
 }
 
