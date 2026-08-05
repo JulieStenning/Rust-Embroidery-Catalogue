@@ -3,12 +3,16 @@
   import {
     getSettingsViewModel,
     saveSettings,
-    browseSettingsDataRoot
+    browseSettingsDataRoot,
+    getDbStats,
+    compactDatabase
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
   /** @typedef {import("../types/ipc").SettingsViewModel} SettingsViewModel */
   /** @typedef {import("../types/ipc").SaveSettingsRequest} SaveSettingsRequest */
+  /** @typedef {import("../types/ipc").DbStats} DbStats */
+  /** @typedef {import("../types/ipc").CompactResult} CompactResult */
 
   let settingsLoading = $state(false);
   let settingsLoaded = $state(false);
@@ -22,6 +26,9 @@
   let settingsAiDelay = $state("");
   let settingsImportCommitBatchSize = $state("");
   let settingsDbIdleCheckIntervalSecs = $state("1800");
+  let dbStats = $state(/** @type {DbStats | null} */ (null));
+  let isCompacting = $state(false);
+
   let settingsCanConfigureDataRoot = $state(false);
   let settingsDataRoot = $state("");
   let settingsDatabasePath = $state("");
@@ -50,6 +57,54 @@
     settingsLogFolder = String(model?.log_folder || "");
     settingsAppMode = String(model?.app_mode || "development");
     settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
+  }
+
+  /** @param {number} bytes */
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    return `${value.toFixed(value >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  }
+
+  async function loadDbStats() {
+    try {
+      const result = await getDbStats();
+      if (result.stats) {
+        dbStats = result.stats;
+      }
+    } catch (error) {
+      console.info("Could not load database stats.", error);
+    }
+  }
+
+  async function runManualCompaction() {
+    if (isCompacting) return;
+    isCompacting = true;
+    try {
+      const result = await compactDatabase();
+      if (result.result) {
+        const { file_size_before, file_size_after, pages_reclaimed } = result.result;
+        const before = formatBytes(file_size_before);
+        const after = formatBytes(file_size_after);
+        addToast(
+          `Database compacted — ${pages_reclaimed.toLocaleString()} pages reclaimed (${before} → ${after})`,
+          "success"
+        );
+        await loadDbStats();
+      } else {
+        addToast(result.error || "Could not compact database.", "error");
+      }
+    } catch (error) {
+      addToast(`Could not compact database: ${error}`, "error");
+    } finally {
+      isCompacting = false;
+    }
   }
 
   async function loadSettingsFromBackend(force = false) {
@@ -116,6 +171,7 @@
 
   onMount(() => {
     loadSettingsFromBackend();
+    loadDbStats();
   });
 </script>
 
@@ -280,6 +336,42 @@
           How often the app checks for database fragmentation (default 1800 = 30 minutes).
           When free space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without pausing the app.
           Minimum 5 seconds (for testing).
+        </p>
+      </div>
+
+      <div class="border-t pt-4 space-y-3">
+        <h2 class="text-sm font-semibold text-gray-700 mb-1">Database Maintenance</h2>
+        <p class="text-sm text-gray-600">
+          The catalogue database can grow as designs are added, edited and removed. This shows current storage
+          usage and lets you compact the database to reclaim unused space. Your embroidery files are never modified.
+        </p>
+
+        {#if dbStats}
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="bg-gray-50 border rounded p-3">
+              <p class="text-xs font-semibold text-gray-500 uppercase">Database size</p>
+              <p class="text-lg font-bold text-gray-800">{formatBytes(dbStats.file_size_bytes)}</p>
+            </div>
+            <div class="bg-gray-50 border rounded p-3">
+              <p class="text-xs font-semibold text-gray-500 uppercase">Recoverable</p>
+              <p class="text-lg font-bold text-emerald-600">{formatBytes(dbStats.reclaimable_bytes)}</p>
+            </div>
+          </div>
+        {:else}
+          <p class="text-xs text-gray-500 italic">Database statistics unavailable.</p>
+        {/if}
+
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          onclick={runManualCompaction}
+          disabled={isCompacting}
+        >
+          {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
+        </button>
+        <p class="text-xs text-gray-500">
+          Runs a full database optimisation (VACUUM + PRAGMA optimize). This may take a moment for large
+          databases and requires sufficient free disk space.
         </p>
       </div>
 

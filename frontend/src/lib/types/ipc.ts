@@ -220,6 +220,35 @@ export interface BrowseDataRootResult {
   error: string | null;
 }
 
+export interface DbStats {
+  file_size_bytes: number;
+  page_count: number;
+  freelist_count: number;
+  page_size: number;
+  free_ratio: number;
+  reclaimable_bytes: number;
+}
+
+export interface CompactResult {
+  file_size_before: number;
+  file_size_after: number;
+  pages_reclaimed: number;
+  duration_ms: number;
+}
+
+export interface AdapterDbStatsResponse {
+  source: string;
+  stats: DbStats | null;
+  error?: string;
+}
+
+export interface AdapterCompactResponse {
+  source: string;
+  result: CompactResult | null;
+  message: string;
+  error?: string;
+}
+
 export interface AppStatus {
   execution_mode: "portable" | "installed";
   data_root: string;

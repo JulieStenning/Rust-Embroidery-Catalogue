@@ -1,16 +1,18 @@
 use crate::config::BootstrapConfig;
 use crate::services::compaction::schedule_incremental_vacuum;
+use crate::services::db_health;
 use crate::services::folder_picker;
 use crate::settings;
 use crate::AppState;
+use fs4::available_space;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, QueryBuilder, Sqlite, SqliteConnection, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::State;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use tauri::{Emitter, State};
 
 const KEY_BACKUP_DATABASE_DESTINATION: &str = "backup.database_destination";
 const KEY_BACKUP_DESIGNS_DESTINATION: &str = "backup.designs_destination";
@@ -137,6 +139,142 @@ struct FileSnapshot {
 #[tauri::command]
 pub fn maintenance_scaffold_enabled() -> bool {
     true
+}
+
+// ─── Database statistics & manual compaction ─────────────────────────────────
+
+/// Storage metrics for the catalogue database, for the Settings UI.
+#[derive(Debug, Clone, Serialize)]
+pub struct DbStats {
+    pub file_size_bytes: u64,
+    pub page_count: i64,
+    pub freelist_count: i64,
+    pub page_size: i64,
+    pub free_ratio: f64,
+    pub reclaimable_bytes: u64,
+}
+
+/// Result of a successful manual `VACUUM` + `PRAGMA optimize` run.
+#[derive(Debug, Clone, Serialize)]
+pub struct CompactResult {
+    pub file_size_before: u64,
+    pub file_size_after: u64,
+    pub pages_reclaimed: u64,
+    pub duration_ms: u64,
+}
+
+/// Read the live database path from the bootstrap config.
+fn database_path_from_bootstrap() -> PathBuf {
+    let config = BootstrapConfig::from_env();
+    PathBuf::from(strip_sqlite_prefix(&config.database_url))
+}
+
+/// Return current storage metrics for the database: file size on disk plus
+/// SQLite page/freelist counts and the recoverable freelist size.
+#[tauri::command]
+pub async fn get_db_stats(state: State<'_, AppState>) -> Result<DbStats, String> {
+    let db_path = database_path_from_bootstrap();
+
+    let file_size_bytes = fs::metadata(&db_path)
+        .map_err(|e| format!("Failed to read database metadata: {e}"))?
+        .len();
+
+    let snapshot = db_health::get_freelist_metrics(&state.db).await?;
+
+    Ok(DbStats {
+        file_size_bytes,
+        page_count: snapshot.page_count,
+        freelist_count: snapshot.freelist_count,
+        page_size: snapshot.page_size,
+        free_ratio: snapshot.free_ratio(),
+        reclaimable_bytes: snapshot.reclaimable_bytes(),
+    })
+}
+
+/// Manually compact the database: run a full `VACUUM` followed by
+/// `PRAGMA optimize`, guarded by a disk-space safety check.
+#[tauri::command]
+pub async fn compact_database(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<CompactResult, String> {
+    let started = Instant::now();
+    let db_path = database_path_from_bootstrap();
+
+    let file_size_before = fs::metadata(&db_path)
+        .map_err(|e| format!("Failed to read database metadata: {e}"))?
+        .len();
+
+    // Determine the parent directory to check disk space.
+    let parent_dir = db_path
+        .parent()
+        .filter(|p| p.as_os_str().len() > 0)
+        .unwrap_or_else(|| Path::new("."));
+    let check_dir = if parent_dir.exists() {
+        parent_dir.to_path_buf()
+    } else {
+        nearest_existing_folder(&db_path, Path::new(".")).to_path_buf()
+    };
+
+    let available = available_space(&check_dir)
+        .map_err(|e| format!("Failed to query available disk space: {e}"))?;
+
+    tracing::info!(
+        "Manual DB compaction — file_size_before={}, free_space_on_volume={}",
+        file_size_before,
+        available
+    );
+
+    // Safety check: VACUUM needs headroom for its temporary rewrite.
+    if available < file_size_before {
+        let msg = format!(
+            "Insufficient disk space to compact the database. Need at least {} bytes free but only {} are available.",
+            file_size_before, available
+        );
+        tracing::warn!("{}", msg);
+        let _ = app_handle.emit(
+            db_health::EVENT_MAINTENANCE_FINISHED,
+            serde_json::json!({ "error": msg }),
+        );
+        return Err(msg);
+    }
+
+    // Run the full VACUUM (blocking rewrite) then PRAGMA optimize.
+    sqlx::query("VACUUM")
+        .execute(&state.db)
+        .await
+        .map_err(|e| format!("VACUUM failed: {e}"))?;
+
+    sqlx::query("PRAGMA optimize")
+        .execute(&state.db)
+        .await
+        .map_err(|e| format!("PRAGMA optimize failed: {e}"))?;
+
+    let duration_ms = started.elapsed().as_millis() as u64;
+
+    // Re-measure the freelist delta for reporting.
+    let snapshot = db_health::get_freelist_metrics(&state.db).await?;
+    let file_size_after = fs::metadata(&db_path)
+        .map(|m| m.len())
+        .unwrap_or(file_size_before);
+    let pages_reclaimed = snapshot.freelist_count.max(0) as u64;
+
+    let result = CompactResult {
+        file_size_before,
+        file_size_after,
+        pages_reclaimed,
+        duration_ms,
+    };
+
+    tracing::info!(
+        "Manual DB compaction complete — file_size_after={}, duration_ms={}",
+        file_size_after,
+        duration_ms
+    );
+
+    let _ = app_handle.emit(db_health::EVENT_MAINTENANCE_FINISHED, &result);
+
+    Ok(result)
 }
 
 #[tauri::command]

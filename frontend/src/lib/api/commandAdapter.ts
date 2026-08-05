@@ -25,6 +25,8 @@ import type {
   AdapterTaggingActionsViewModelResponse,
   AdapterAppStatusResponse,
   AdapterBrowseDataRootResponse,
+  AdapterCompactResponse,
+  AdapterDbStatsResponse,
   AdapterItemResponse,
   AdapterListResponse,
   AdapterMutationResponse,
@@ -40,7 +42,9 @@ import type {
   BrowseDesignPreview,
   BrowseDesignSummaryWire,
   BrowseTagOption,
+  CompactResult,
   DatabaseBackupResult,
+  DbStats,
   DesignCommandResult,
   DesignDetail,
   DesignDetailWire,
@@ -1521,6 +1525,7 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
       log_folder: "",
       app_mode: "development",
       ai_tagging_help_url: "#/help",
+      db_idle_check_interval_secs: "1800",
     },
   };
 }
@@ -1932,6 +1937,68 @@ export async function scanOrphans(): Promise<AdapterScanOrphansResponse> {
       source: "mock",
       checked: 0,
       found: 0,
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * Fetch the catalogue database storage metrics from the Rust backend
+ * (file size on disk, page/freelist counts, recoverable freelist size).
+ */
+export async function getDbStats(): Promise<AdapterDbStatsResponse> {
+  try {
+    const result = await invokeLoose<DbStats>("get_db_stats");
+    return {
+      source: "rust",
+      stats: {
+        file_size_bytes: Number(result?.file_size_bytes ?? 0),
+        page_count: Number(result?.page_count ?? 0),
+        freelist_count: Number(result?.freelist_count ?? 0),
+        page_size: Number(result?.page_size ?? 0),
+        free_ratio: Number(result?.free_ratio ?? 0),
+        reclaimable_bytes: Number(result?.reclaimable_bytes ?? 0),
+      },
+    };
+  } catch (error) {
+    console.info("get_db_stats unavailable, using zero stats.", error);
+    return {
+      source: "mock",
+      stats: {
+        file_size_bytes: 0,
+        page_count: 0,
+        freelist_count: 0,
+        page_size: 0,
+        free_ratio: 0,
+        reclaimable_bytes: 0,
+      },
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * Manually compact & optimise the catalogue database (full VACUUM +
+ * PRAGMA optimize). Errors are returned in the adapter envelope.
+ */
+export async function compactDatabase(): Promise<AdapterCompactResponse> {
+  try {
+    const result = await invokeLoose<CompactResult>("compact_database");
+    return {
+      source: "rust",
+      result: {
+        file_size_before: Number(result?.file_size_before ?? 0),
+        file_size_after: Number(result?.file_size_after ?? 0),
+        pages_reclaimed: Number(result?.pages_reclaimed ?? 0),
+        duration_ms: Number(result?.duration_ms ?? 0),
+      },
+      message: "Database compacted successfully.",
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      result: null,
+      message: String(error),
       error: String(error),
     };
   }

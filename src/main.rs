@@ -230,24 +230,14 @@ fn main() {
                     std::sync::atomic::AtomicBool::new(false),
                 );
 
-                // Startup health check (fire-and-forget; logged, never fatal).
-                // Each spawned task gets its own clones of the shared handles.
-                let startup_pool = pool.clone();
-                let startup_maintenance = maintenance_flag.clone();
-                let startup_shutdown = shutdown_flag.clone();
-                let startup_handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(err) = services::db_health::check_and_schedule_maintenance(
-                        startup_pool,
-                        startup_maintenance,
-                        startup_shutdown,
-                        startup_handle,
-                    )
-                    .await
-                    {
-                        tracing::warn!("Startup DB health check failed: {}", err);
-                    }
-                });
+                // NOTE: The immediate startup health check is NOT spawned here.
+                // The single-connection pool (max_connections=1) is shared with
+                // `check_disclaimer` and the initial UI queries, so running a
+                // health check at this exact moment can starve the disclaimer
+                // request and cause "pool timed out waiting for an open
+                // connection". The startup check is instead launched from the
+                // app run loop (see below) after a short delay so first-launch
+                // queries complete first.
 
                 // Idle interval task.
                 let idle_pool = pool.clone();
@@ -378,6 +368,8 @@ fn main() {
             routes::maintenance::run_database_backup,
             routes::maintenance::run_designs_backup,
             routes::maintenance::run_both_backups,
+            routes::maintenance::get_db_stats,
+            routes::maintenance::compact_database,
             routes::maintenance::scan_orphans,
             routes::maintenance::get_orphans_page,
             routes::maintenance::delete_orphans,
@@ -387,6 +379,36 @@ fn main() {
         // tauri::generate_context!() reads tauri.conf.json from the project root
         .build(tauri::generate_context!())
         .expect("Error while building the Embroidery Catalogue application");
+
+    {
+        // Startup database health check (fire-and-forget; logged, never fatal).
+        // Spawned after the Tauri app is fully running and after a short delay
+        // so the disclaimer check and initial UI queries have used the shared
+        // single-connection pool first — preventing the "pool timed out
+        // waiting for an open connection" error.
+        let state = app.state::<AppState>();
+        let pool = state.db.clone();
+        let maintenance_flag = std::sync::Arc::new(
+            std::sync::atomic::AtomicBool::new(false),
+        );
+        let shutdown_flag = std::sync::Arc::new(
+            std::sync::atomic::AtomicBool::new(false),
+        );
+        let startup_handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if let Err(err) = services::db_health::check_and_schedule_maintenance(
+                pool,
+                maintenance_flag,
+                shutdown_flag,
+                startup_handle,
+            )
+            .await
+            {
+                tracing::warn!("Startup DB health check failed: {}", err);
+            }
+        });
+    }
 
     app.run(|app_handle, event| {
         match event {

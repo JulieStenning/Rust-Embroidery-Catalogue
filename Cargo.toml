@@ -20,6 +20,7 @@ tauri = { version = "2", features = [] }
 base64 = "0.22"
 rfd = "0.14"
 trash = "3"
+fs4 = { version = "0.13", features = ["sync"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
