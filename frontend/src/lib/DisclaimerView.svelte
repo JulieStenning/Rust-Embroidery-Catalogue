@@ -14,6 +14,21 @@
   let loadingText = $state(true);
   /** Error message shown to the user */
   let error = $state("");
+  /** Whether the user has scrolled to the bottom of the disclaimer text */
+  let hasScrolledToBottom = $state(false);
+
+  /**
+   * Reference to the scrollable disclaimer container, bound via `bind:this`.
+   * @type {HTMLElement | null}
+   */
+  let disclaimerContainer = $state(null);
+
+  /**
+   * Tolerance (in px) used when checking whether the user has reached the
+   * bottom of the scrollable area. Absorbs DPI scaling, sub-pixel rendering,
+   * and minor zooming inconsistencies across operating systems.
+   */
+  const SCROLL_TOLERANCE_PX = 8;
 
   /** Load the disclaimer text via Tauri command on mount */
   async function loadDisclaimer() {
@@ -27,9 +42,19 @@
     }
   }
 
+  /** Check whether the user has reached the bottom of the scrollable disclaimer container. */
+  function handleScroll() {
+    const el = disclaimerContainer;
+    if (!el) return;
+
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_TOLERANCE_PX) {
+      hasScrolledToBottom = true;
+    }
+  }
+
   /** Handle the Accept button click */
   async function accept() {
-    if (!checked || accepting) return;
+    if (!checked || !hasScrolledToBottom || accepting) return;
     accepting = true;
     error = "";
     try {
@@ -46,6 +71,21 @@
   // Load disclaimer text when the component first mounts
   $effect(() => {
     loadDisclaimer();
+  });
+
+  // Once the disclaimer text has finished loading and the container is bound,
+  // mark acceptance-ready automatically when no scrolling is needed (short
+  // content or a large viewport). Also re-run the bottom-threshold check in
+  // case the user is already at the bottom after a re-render.
+  $effect(() => {
+    if (!loadingText && disclaimerContainer) {
+      const el = disclaimerContainer;
+      if (el.scrollHeight <= el.clientHeight) {
+        hasScrolledToBottom = true;
+      } else if (el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_TOLERANCE_PX) {
+        hasScrolledToBottom = true;
+      }
+    }
   });
 </script>
 
@@ -66,7 +106,11 @@
     </p>
 
     <!-- Disclaimer content -->
-    <div class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto">
+    <div
+      bind:this={disclaimerContainer}
+      onscroll={handleScroll}
+      class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto"
+    >
       {#if loadingText}
         <p class="text-gray-400 italic">Loading disclaimer…</p>
       {:else}
@@ -87,16 +131,24 @@
       <input
         type="checkbox"
         bind:checked
-        class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        disabled={!hasScrolledToBottom || loadingText}
+        class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed"
       />
       <span>I have read and accept the disclaimer above.</span>
     </label>
+
+    <!-- Helper text — shown until the user has scrolled to the bottom -->
+    {#if !hasScrolledToBottom && !loadingText}
+      <p class="text-xs text-gray-400" data-testid="scroll-hint">
+        Please scroll to the end of the disclaimer to enable acceptance.
+      </p>
+    {/if}
 
     <!-- Accept button -->
     <div class="flex gap-3">
       <button
         onclick={accept}
-        disabled={!checked || accepting || loadingText}
+        disabled={!hasScrolledToBottom || !checked || accepting || loadingText}
         class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
                hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
                disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
