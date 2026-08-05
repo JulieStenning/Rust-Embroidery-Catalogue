@@ -58,3 +58,4 @@ coverage/
 temp
 vitest-coverage-confirm.txt
 Deepseek Key.txt
+copy_database.bat
