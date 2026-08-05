@@ -6,8 +6,6 @@ node_modules/
 
 # --- Python specific ---
 __pycache__/
-*.py[cod]
-*$py.class
 venv/
 .venv/
 env/
@@ -23,7 +21,6 @@ Thumbs.db
 # --- Data specific ---
 data/
 beta testing cline.txt
-decode_exp_stitches.py
 rust.csv
 preview.png
 settings.csv
