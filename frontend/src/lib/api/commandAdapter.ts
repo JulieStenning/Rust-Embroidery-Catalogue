@@ -16,6 +16,7 @@ import type {
   AdapterProjectDetailResponse,
   AdapterProjectListResponse,
   AdapterProjectMutationResponse,
+  AdapterReparseDesignResponse,
   AdapterRunBothBackupsResponse,
   AdapterSaveBackupSettingsResponse,
   AdapterScanOrphansResponse,
@@ -52,6 +53,7 @@ import type {
   ProjectListItem,
   ProjectSummary,
   RemoveProjectDesignResult,
+  ReparseDesignResultWire,
   RunStitchingBackfillOptions,
   SaveBackupSettingsRequest,
   SaveSettingsRequest,
@@ -63,7 +65,7 @@ import type {
   UnifiedBackfillWireRequest,
   UpdateDesignMetadataRequest,
 } from "../types/ipc";
-import { mapDesignDetailFromWire } from "../types/ipc";
+import { mapDesignDetailFromWire, mapReparseDesignFromWire } from "../types/ipc";
 
 type LooseRecord = Record<string, unknown>;
 
@@ -706,6 +708,36 @@ export async function renderDesign3dPreview(designId: number | string, preview3d
       persisted: false,
       result: null,
       message: `Could not render preview: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * Re-read the design file from disk and recalculate its technical metadata
+ * (dimensions, stitch count, colour counts, recommended hoop).
+ *
+ * @param {number | string} designId
+ */
+export async function reparseDesignFile(designId: number | string): Promise<AdapterReparseDesignResponse> {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invokeLoose<ReparseDesignResultWire>("reparse_design_file", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result: result && typeof result === "object" ? mapReparseDesignFromWire(result) : null,
+      message: String(result?.message || "Design metadata recalculated."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not recalculate metadata: ${error}`,
       error: String(error),
     };
   }

@@ -265,6 +265,19 @@ pub struct RenderPreviewRequest {
     pub preview_3d: bool,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ReparseDesignResult {
+    pub design_id: i64,
+    pub width_mm: Option<i64>,
+    pub height_mm: Option<i64>,
+    pub stitch_count: Option<i64>,
+    pub color_count: Option<i64>,
+    pub color_change_count: Option<i64>,
+    pub hoop_id: Option<i64>,
+    pub hoop: Option<String>,
+    pub message: String,
+}
+
 fn round_mm_to_i64(value: Option<f64>) -> Option<i64> {
     value.map(|v| v.round() as i64)
 }
@@ -756,6 +769,119 @@ async fn render_design_3d_preview_with_pool(
         color_change_count: generation_result.color_change_count,
         backend: generation_result.backend,
         message: format!("{preview_label} preview rendered and saved."),
+    })
+}
+
+/// Select the smallest hoop that fits the given design dimensions, trying
+/// both orientations.  Mirrors the recommendation logic used during bulk
+/// import so recalculated dimensions yield a consistent "Recommended hoop".
+async fn recommend_hoop_for_design(
+    pool: &SqlitePool,
+    width_mm: Option<i64>,
+    height_mm: Option<i64>,
+) -> Result<Option<i64>, String> {
+    let (Some(width_mm), Some(height_mm)) = (width_mm, height_mm) else {
+        return Ok(None);
+    };
+
+    let hoop_id = sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT h.id
+            FROM hoops h
+            WHERE
+                (
+                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                )
+                OR (
+                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                )
+            ORDER BY
+                (CAST(h.max_width_mm AS REAL) * CAST(h.max_height_mm AS REAL)) ASC,
+                CAST(h.max_width_mm AS REAL) ASC,
+                CAST(h.max_height_mm AS REAL) ASC,
+                h.name COLLATE NOCASE ASC
+            LIMIT 1
+            "#,
+    )
+    .bind(width_mm)
+    .bind(height_mm)
+    .bind(height_mm)
+    .bind(width_mm)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(hoop_id)
+}
+
+/// Re-read the binary design file from disk and refresh the stored technical
+/// metadata (dimensions, stitch count, colour counts, recommended hoop).
+///
+/// The original file is never modified — it is only read to extract fresh
+/// parameters.  Returns the updated values so the UI can refresh instantly.
+async fn reparse_design_file_with_pool(
+    pool: &SqlitePool,
+    design_id: i64,
+) -> Result<ReparseDesignResult, String> {
+    let filepath = get_design_filepath(pool, design_id).await?;
+    let full_path = resolve_design_full_path(&filepath);
+
+    if !full_path.is_file() {
+        return Err("Design file not found on disk for metadata recalculation.".to_string());
+    }
+
+    let generation_result = generate_preview(&ImageGenerationRequest {
+        file_path: full_path.to_string_lossy().to_string(),
+        preview_3d: false,
+        preview_3d_profile: None,
+    });
+
+    if let Some(error) = generation_result.error {
+        return Err(format!(
+            "Could not re-parse the design file: {}",
+            error
+        ));
+    }
+
+    let width_mm = round_mm_to_i64(generation_result.width_mm);
+    let height_mm = round_mm_to_i64(generation_result.height_mm);
+    let hoop_id = recommend_hoop_for_design(pool, width_mm, height_mm).await?;
+
+    sqlx::query(
+        "UPDATE designs SET width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, hoop_id = ? WHERE id = ?",
+    )
+    .bind(width_mm)
+    .bind(height_mm)
+    .bind(generation_result.stitch_count)
+    .bind(generation_result.color_count)
+    .bind(generation_result.color_change_count)
+    .bind(hoop_id)
+    .bind(design_id)
+    .execute(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let hoop = match hoop_id {
+        Some(id) => sqlx::query_scalar::<_, String>("SELECT name FROM hoops WHERE id = ? LIMIT 1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?,
+        None => None,
+    };
+
+    Ok(ReparseDesignResult {
+        design_id,
+        width_mm,
+        height_mm,
+        stitch_count: generation_result.stitch_count,
+        color_count: generation_result.color_count,
+        color_change_count: generation_result.color_change_count,
+        hoop_id,
+        hoop,
+        message: "Design metadata recalculated from file.".to_string(),
     })
 }
 
@@ -2475,6 +2601,20 @@ pub async fn render_design_3d_preview(
 ) -> Result<Render3dPreviewResult, String> {
     let preview_3d = request.map(|r| r.preview_3d).unwrap_or(true);
     render_design_3d_preview_with_pool(&state.db, design_id, preview_3d).await
+}
+
+#[tauri::command]
+pub async fn reparse_design_file(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    design_id: i64,
+) -> Result<ReparseDesignResult, String> {
+    let result = reparse_design_file_with_pool(&state.db, design_id).await?;
+    let _ = app_handle.emit("design:mutated", json!({
+        "design_id": design_id,
+        "fields": {}
+    }));
+    Ok(result)
 }
 
 #[cfg(test)]

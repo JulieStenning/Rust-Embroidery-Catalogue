@@ -22,6 +22,7 @@ const adapterMocks = vi.hoisted(() => ({
   openDesignInEditor: vi.fn(),
   openDesignInExplorer: vi.fn(),
   renderDesign3dPreview: vi.fn(),
+  reparseDesignFile: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -192,6 +193,22 @@ describe("DesignDetailView", () => {
       persisted: true,
       result: { success: true },
       message: "3D preview rendered.",
+    });
+    adapterMocks.reparseDesignFile.mockResolvedValue({
+      source: "rust",
+      persisted: true,
+      result: {
+        designId: 42,
+        widthMm: 150,
+        heightMm: 100,
+        stitchCount: 12345,
+        colorCount: 6,
+        colorChangeCount: 15,
+        hoopId: 2,
+        hoop: "Hoop B",
+        message: "Design metadata recalculated from file.",
+      },
+      message: "Design metadata recalculated from file.",
     });
   });
 
@@ -780,6 +797,110 @@ describe("DesignDetailView", () => {
       await waitFor(() => {
         expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42, true);
       });
+    });
+  });
+
+  describe("recalculate from file", () => {
+    it("calls reparseDesignFile and updates the technical data grid", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      // Initial values from the fixture
+      expect(screen.getByText("120 × 80 mm")).toBeInTheDocument();
+      expect(screen.getByText("10000")).toBeInTheDocument();
+      expect(screen.getByText("5")).toBeInTheDocument();
+      expect(screen.getByText("12")).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Recalculate From File/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.reparseDesignFile).toHaveBeenCalledWith(42);
+      });
+
+      // The reactive technical grid updates instantly with fresh values
+      await waitFor(() => {
+        expect(screen.getByText("150 × 100 mm")).toBeInTheDocument();
+      });
+      expect(screen.getByText("12345")).toBeInTheDocument();
+      expect(screen.getByText("6")).toBeInTheDocument();
+      expect(screen.getByText("15")).toBeInTheDocument();
+      expect(screen.getByText("Hoop B")).toBeInTheDocument();
+
+      // The toast surfaced the success message
+      expect(toastMock.addToast).toHaveBeenCalledWith(
+        "Design metadata recalculated from file.",
+        "success"
+      );
+    });
+
+    it("tracks the hoop mutation for browse card sync", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Recalculate From File/ }));
+
+      await waitFor(() => {
+        expect(sessionMock.designSessionStore.trackMutation).toHaveBeenCalledWith(
+          42,
+          { hoop: "Hoop B" }
+        );
+      });
+    });
+
+    it("shows an error toast when recalculation fails and keeps old values", async () => {
+      adapterMocks.reparseDesignFile.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        result: null,
+        message: "Could not recalculate metadata: Design file not found on disk.",
+      });
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Recalculate From File/ }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Could not recalculate metadata: Design file not found on disk.",
+          "error"
+        );
+      });
+
+      // The original technical values remain untouched
+      expect(screen.getByText("120 × 80 mm")).toBeInTheDocument();
+      expect(screen.getByText("10000")).toBeInTheDocument();
+      expect(screen.getByText("5")).toBeInTheDocument();
+      expect(screen.getByText("12")).toBeInTheDocument();
+      expect(screen.getByText("Hoop A")).toBeInTheDocument();
+    });
+
+    it("disables the button while a recalculation is in flight", async () => {
+      // Never resolve — the button stays disabled and shows Recalculating…
+      adapterMocks.reparseDesignFile.mockReturnValue(new Promise(() => {}));
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const button = screen.getByRole("button", { name: /Recalculate From File/ });
+      const user = userEvent.setup();
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /Recalculating/ })).toBeDisabled();
+      });
+      expect(adapterMocks.reparseDesignFile).toHaveBeenCalledWith(42);
     });
   });
 

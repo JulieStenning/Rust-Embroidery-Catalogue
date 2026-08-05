@@ -236,6 +236,38 @@ export interface DesignImageData {
   data_url: string | null;
 }
 
+export interface ReparseDesignResultWire {
+  design_id: number;
+  width_mm: number | null;
+  height_mm: number | null;
+  stitch_count: number | null;
+  color_count: number | null;
+  color_change_count: number | null;
+  hoop_id: number | null;
+  hoop: string | null;
+  message: string;
+}
+
+export interface ReparseDesignResult {
+  designId: number;
+  widthMm: number | null;
+  heightMm: number | null;
+  stitchCount: number | null;
+  colorCount: number | null;
+  colorChangeCount: number | null;
+  hoopId: number | null;
+  hoop: string | null;
+  message: string;
+}
+
+export interface AdapterReparseDesignResponse {
+  source: string;
+  persisted: boolean;
+  result: ReparseDesignResult | null;
+  message: string;
+  error?: string;
+}
+
 export interface AdapterListResponse<TItem> {
   source: string;
   items: TItem[];
@@ -669,6 +701,20 @@ export interface AdapterPersistedResponse {
 
 export interface AdapterPersistedItemResponse<TItem> extends AdapterPersistedResponse {
   item?: TItem;
+}
+
+export function mapReparseDesignFromWire(wire: ReparseDesignResultWire): ReparseDesignResult {
+  return {
+    designId: Number(wire.design_id),
+    widthMm: wire.width_mm ?? null,
+    heightMm: wire.height_mm ?? null,
+    stitchCount: wire.stitch_count ?? null,
+    colorCount: wire.color_count ?? null,
+    colorChangeCount: wire.color_change_count ?? null,
+    hoopId: wire.hoop_id ?? null,
+    hoop: wire.hoop ?? null,
+    message: String(wire.message || ""),
+  };
 }
 
 export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {

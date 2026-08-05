@@ -244,6 +244,7 @@ fn main() {
             routes::designs::open_design_in_editor,
             routes::designs::open_design_in_explorer,
             routes::designs::render_design_3d_preview,
+            routes::designs::reparse_design_file,
             routes::projects::get_projects_list,
             routes::projects::create_project,
             routes::projects::get_project_detail,

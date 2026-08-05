@@ -14,7 +14,8 @@
     bulkDeleteDesigns,
     openDesignInEditor,
     openDesignInExplorer,
-    renderDesign3dPreview
+    renderDesign3dPreview,
+    reparseDesignFile
   } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import TagSelectionModal from "../components/TagSelectionModal.svelte";
@@ -30,6 +31,7 @@
   let detailLoading = $state(false);
   let detailError = $state("");
   let detailSaving = $state(false);
+  let detailReparsing = $state(false);
   /** @type {DesignDetailItem | null} */
   let detailItem = $state(null);
 
@@ -397,6 +399,32 @@
     }
   }
 
+  async function recalculateFromFile() {
+    if (!detailItem?.id || detailSaving || detailReparsing) return;
+
+    detailReparsing = true;
+    const result = await reparseDesignFile(detailItem.id);
+    detailReparsing = false;
+
+    addToast(result.message, result.persisted ? "success" : "error");
+    if (result.persisted && result.result) {
+      const r = result.result;
+      detailItem = {
+        ...detailItem,
+        widthMm: r.widthMm,
+        heightMm: r.heightMm,
+        stitchCount: r.stitchCount,
+        colorCount: r.colorCount,
+        colorChangeCount: r.colorChangeCount,
+        hoopId: r.hoopId,
+        hoop: r.hoop,
+      };
+      designSessionStore.trackMutation(detailItem.id, {
+        hoop: r.hoop,
+      });
+    }
+  }
+
   function openDetailPrintView() {
     if (!detailItem?.id) return;
     navigateTo(`#/designs/${detailItem.id}/print`);
@@ -602,7 +630,22 @@
         <!-- ZONE B: Read-Only Technical Facts            -->
         <!-- ============================================ -->
         <div class="route-card space-y-1.5">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Technical Data</h3>
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Technical Data</h3>
+            <button
+              class="menu-button-primary text-xs px-2.5 py-1"
+              onclick={recalculateFromFile}
+              disabled={detailSaving || detailReparsing}
+              title="Re-read the file on disk and recalculate technical metadata"
+            >
+              {#if detailReparsing}
+                <span class="inline-block animate-spin mr-1" aria-hidden="true">&#9696;</span>
+                Recalculating…
+              {:else}
+                <span aria-hidden="true" class="mr-1">&#10227;</span> Recalculate From File
+              {/if}
+            </button>
+          </div>
           <TechnicalDataGrid items={technicalItems} />
         </div>
 
