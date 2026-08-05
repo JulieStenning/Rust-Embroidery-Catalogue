@@ -468,6 +468,7 @@ mod tests {
             disclaimer_text: String::new(),
             log_guard: LogGuard::dummy_for_test(),
             shutdown_requested: AtomicBool::new(false),
+            maintenance_running: AtomicBool::new(false),
         }
     }
 

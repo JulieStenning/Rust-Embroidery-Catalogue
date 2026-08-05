@@ -195,6 +195,7 @@ export interface SettingsViewModel {
   log_folder: string;
   app_mode: string;
   ai_tagging_help_url: string;
+  db_idle_check_interval_secs: string;
 }
 
 export interface SaveSettingsRequest {
@@ -206,6 +207,7 @@ export interface SaveSettingsRequest {
   ai_delay: string;
   import_commit_batch_size: string;
   data_root: string;
+  db_idle_check_interval_secs?: string;
 }
 
 export interface SaveSettingsResult {

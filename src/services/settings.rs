@@ -13,6 +13,7 @@ pub const KEY_AI_DELAY: &str = "ai.delay";
 pub const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
+pub const KEY_DB_IDLE_CHECK_INTERVAL_SECS: &str = "db.idle_check_interval_secs";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SettingsViewModel {
@@ -31,6 +32,7 @@ pub struct SettingsViewModel {
     pub log_folder: String,
     pub app_mode: String,
     pub ai_tagging_help_url: String,
+    pub db_idle_check_interval_secs: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -44,6 +46,8 @@ pub struct SaveSettingsRequest {
     pub ai_delay: String,
     pub import_commit_batch_size: String,
     pub data_root: String,
+    #[serde(default)]
+    pub db_idle_check_interval_secs: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -86,6 +90,8 @@ pub(crate) async fn get_settings_view_model_inner(
         get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE).await?;
     let import_last_browse_folder =
         get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER).await?;
+    let db_idle_check_interval_secs =
+        get_setting_with_default(&mut conn, KEY_DB_IDLE_CHECK_INTERVAL_SECS).await?;
 
     let google_api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
     let has_google_api_key = !google_api_key.trim().is_empty();
@@ -118,6 +124,7 @@ pub(crate) async fn get_settings_view_model_inner(
         log_folder,
         app_mode,
         ai_tagging_help_url: "#/help".to_string(),
+        db_idle_check_interval_secs,
     })
 }
 
@@ -161,6 +168,12 @@ pub(crate) async fn save_settings_view_model_inner(
     upsert_setting(&mut conn, KEY_AI_DELAY, &ai_delay).await?;
     upsert_setting(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE, &import_commit_batch_size).await?;
     upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, &preview_3d_profile).await?;
+    upsert_setting(
+        &mut conn,
+        KEY_DB_IDLE_CHECK_INTERVAL_SECS,
+        &normalize_idle_check_interval(&request.db_idle_check_interval_secs),
+    )
+    .await?;
 
     save_google_api_key_to_env(&request.google_api_key)?;
 
@@ -224,6 +237,8 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_DELAY => "",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "",
         KEY_PREVIEW_3D_PROFILE => "balanced",
+        // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
+        KEY_DB_IDLE_CHECK_INTERVAL_SECS => "1800",
         _ => "",
     }
 }
@@ -237,7 +252,16 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
+        KEY_DB_IDLE_CHECK_INTERVAL_SECS => "Interval in seconds between automatic database fragmentation checks (default 1800).",
         _ => "",
+    }
+}
+
+pub(crate) fn normalize_idle_check_interval(raw: &str) -> String {
+    let value = raw.trim();
+    match value.parse::<u64>() {
+        Ok(parsed) => parsed.clamp(5, 86_400).to_string(),
+        Err(_) => crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.to_string(),
     }
 }
 

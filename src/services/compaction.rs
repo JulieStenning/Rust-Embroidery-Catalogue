@@ -166,6 +166,15 @@ async fn read_page_count(pool: &SqlitePool) -> Result<i64, String> {
     Ok(count)
 }
 
+/// Read the SQLite page size in bytes (typically 4096).
+pub async fn read_page_size(pool: &SqlitePool) -> Result<i64, String> {
+    let (size,): (i64,) = sqlx::query_as("SELECT page_size FROM pragma_page_size")
+        .fetch_one(pool)
+        .await
+        .map_err(|err| format!("Failed to read page_size: {err}"))?;
+    Ok(size)
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

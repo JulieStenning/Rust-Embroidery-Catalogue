@@ -21,6 +21,7 @@
   let settingsAiBatchSize = $state("");
   let settingsAiDelay = $state("");
   let settingsImportCommitBatchSize = $state("");
+  let settingsDbIdleCheckIntervalSecs = $state("1800");
   let settingsCanConfigureDataRoot = $state(false);
   let settingsDataRoot = $state("");
   let settingsDatabasePath = $state("");
@@ -42,6 +43,7 @@
     settingsAiBatchSize = String(model?.ai_batch_size || "");
     settingsAiDelay = String(model?.ai_delay || "");
     settingsImportCommitBatchSize = String(model?.import_commit_batch_size || "");
+    settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
     settingsDatabasePath = String(model?.database_path || "");
@@ -81,6 +83,7 @@
         ai_delay: settingsAiDelay,
         import_commit_batch_size: settingsImportCommitBatchSize,
         data_root: settingsDataRoot,
+        db_idle_check_interval_secs: settingsDbIdleCheckIntervalSecs,
       };
 
       const result = await saveSettings(request);
@@ -258,6 +261,25 @@
           Controls how many designs are written or tag-updated before each database commit during import.
           Leave blank to use the default batch size of 10.
           Lower values reduce rollback size on failure; higher values reduce commit overhead.
+        </p>
+      </div>
+
+      <div>
+        <label for="settings-db-idle-check-interval" class="block text-sm font-semibold text-gray-700 mb-1">
+          Database health check interval (seconds)
+        </label>
+        <input
+          id="settings-db-idle-check-interval"
+          type="number"
+          min="5"
+          bind:value={settingsDbIdleCheckIntervalSecs}
+          placeholder="e.g. 1800"
+          class="settings-input border rounded px-3 py-2 text-sm w-48"
+        />
+        <p class="mt-1 text-xs text-gray-500">
+          How often the app checks for database fragmentation (default 1800 = 30 minutes).
+          When free space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without pausing the app.
+          Minimum 5 seconds (for testing).
         </p>
       </div>
 

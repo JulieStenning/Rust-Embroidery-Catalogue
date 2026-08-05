@@ -37,6 +37,8 @@ pub struct AppState {
     pub log_guard: logging::LogGuard,
     /// Flag signalled when the app is shutting down; background tasks can check it.
     pub shutdown_requested: AtomicBool,
+    /// Atomic guard preventing overlapping incremental-vacuum maintenance runs.
+    pub maintenance_running: AtomicBool,
 }
 
 // ─── AppStatus (exposed to frontend) ──────────────────────────────────────────
@@ -185,6 +187,7 @@ fn main() {
         disclaimer_text,
         log_guard,
         shutdown_requested: AtomicBool::new(false),
+        maintenance_running: AtomicBool::new(false),
     };
 
     // Launch a lightweight background backfill for orphan fingerprint data
@@ -212,6 +215,80 @@ fn main() {
         .manage(app_state)
         .setup(|app| {
             routes::bulk_import::initialize_bulk_import_app_handle(app.handle().clone());
+
+            // ── Database health monitor: startup check + idle interval ──────
+            // Reads the configured idle interval from the DB (default 1800s),
+            // runs an immediate fragmentation check on startup, then checks on
+            // an idle timer. All compaction is fire-and-forget and non-blocking.
+            {
+                let state = app.state::<AppState>();
+                let pool = state.db.clone();
+                let maintenance_flag = std::sync::Arc::new(
+                    std::sync::atomic::AtomicBool::new(false),
+                );
+                let shutdown_flag = std::sync::Arc::new(
+                    std::sync::atomic::AtomicBool::new(false),
+                );
+
+                // Startup health check (fire-and-forget; logged, never fatal).
+                // Each spawned task gets its own clones of the shared handles.
+                let startup_pool = pool.clone();
+                let startup_maintenance = maintenance_flag.clone();
+                let startup_shutdown = shutdown_flag.clone();
+                let startup_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(err) = services::db_health::check_and_schedule_maintenance(
+                        startup_pool,
+                        startup_maintenance,
+                        startup_shutdown,
+                        startup_handle,
+                    )
+                    .await
+                    {
+                        tracing::warn!("Startup DB health check failed: {}", err);
+                    }
+                });
+
+                // Idle interval task.
+                let idle_pool = pool.clone();
+                let idle_maintenance = maintenance_flag.clone();
+                let idle_shutdown = shutdown_flag.clone();
+                let idle_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Start with the default, then pick up the persisted value
+                    // from the settings table on each tick so Settings UI
+                    // changes take effect without restart.
+                    let mut interval_secs =
+                        services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS;
+
+                    loop {
+                        // Re-read the persisted interval each cycle.
+                        if let Ok(secs) = read_idle_interval_from_db(&idle_pool).await {
+                            interval_secs = secs;
+                        }
+                        let mut interval =
+                            tokio::time::interval(std::time::Duration::from_secs(interval_secs));
+                        interval.tick().await; // consume the first immediate tick
+                        interval.tick().await; // wait for the first real interval
+
+                        if idle_shutdown.load(std::sync::atomic::Ordering::SeqCst) {
+                            break;
+                        }
+
+                        if let Err(err) = services::db_health::check_and_schedule_maintenance(
+                            idle_pool.clone(),
+                            idle_maintenance.clone(),
+                            idle_shutdown.clone(),
+                            idle_handle.clone(),
+                        )
+                        .await
+                        {
+                            tracing::warn!("Idle DB health check failed: {}", err);
+                        }
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -343,6 +420,26 @@ fn main() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Read the persisted idle-check interval (seconds) from the settings table.
+/// Returns the default on missing/invalid values or DB errors, so the idle
+/// monitor never fails due to a transient read failure.
+async fn read_idle_interval_from_db(pool: &SqlitePool) -> Result<u64, String> {
+    let row = sqlx::query_as::<_, (String,)>(
+        "SELECT value FROM settings WHERE key = 'db.idle_check_interval_secs' LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    match row {
+        Some((value,)) => value
+            .trim()
+            .parse::<u64>()
+            .map_err(|e| format!("Invalid idle interval '{}': {}", value.trim(), e)),
+        None => Ok(services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS),
+    }
+}
 
 /// Load environment variables from a `.env` file if one exists.
 fn load_dotenv() {

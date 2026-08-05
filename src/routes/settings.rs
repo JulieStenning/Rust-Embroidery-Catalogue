@@ -118,6 +118,7 @@ mod tests {
             disclaimer_text: String::new(),
             log_guard: LogGuard::dummy_for_test(),
             shutdown_requested: AtomicBool::new(false),
+            maintenance_running: AtomicBool::new(false),
         }
     }
 
@@ -536,6 +537,7 @@ mod tests {
             ai_delay: "  1.5  ".to_string(),
             import_commit_batch_size: "  100  ".to_string(),
             data_root: String::new(),
+            db_idle_check_interval_secs: "1800".to_string(),
         };
 
         let result = save_settings_view_model_inner(&state, request)
@@ -617,6 +619,7 @@ mod tests {
             log_folder: "/data/logs".to_string(),
             app_mode: "installed".to_string(),
             ai_tagging_help_url: "#/help".to_string(),
+            db_idle_check_interval_secs: "1800".to_string(),
         };
         let json = serde_json::to_value(&vm).expect("serialize");
         let map = json.as_object().expect("should be object");
@@ -635,7 +638,8 @@ mod tests {
         assert!(map.contains_key("log_folder"));
         assert!(map.contains_key("app_mode"));
         assert!(map.contains_key("ai_tagging_help_url"));
-        assert_eq!(map.len(), 15);
+        assert!(map.contains_key("db_idle_check_interval_secs"));
+        assert_eq!(map.len(), 16);
     }
 
     #[test]

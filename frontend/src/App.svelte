@@ -1,8 +1,13 @@
 <script>
+  import { onDestroy, onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import DisclaimerView from "./lib/DisclaimerView.svelte";
   import MainView from "./lib/MainView.svelte";
   import ToastContainer from "./lib/components/ToastContainer.svelte";
+  import { initDbMaintenanceEvents } from "./lib/services/dbMaintenanceEvents";
+
+  /** Cleanup function returned by initDbMaintenanceEvents(), if subscribed. */
+  let stopDbMaintenanceEvents = $state(() => {});
 
   /** Whether the disclaimer check has completed */
   let loading = $state(true);
@@ -42,6 +47,18 @@
   function onDisclaimerAccepted() {
     disclaimerAccepted = true;
   }
+
+  // Subscribe to database maintenance lifecycle events as early as possible
+  // (so the completion toast is shown even if ToastContainer mounts later).
+  onMount(() => {
+    initDbMaintenanceEvents().then((stop) => {
+      stopDbMaintenanceEvents = stop;
+    });
+  });
+
+  onDestroy(() => {
+    stopDbMaintenanceEvents();
+  });
 
   // Run the check when the component first mounts
   $effect(() => {
