@@ -370,7 +370,7 @@ fn external_launches_disabled() -> bool {
         }
     }
 
-    std::env::var("PYTEST_CURRENT_TEST").is_ok()
+    false
 }
 
 fn strip_sqlite_prefix(database_url: &str) -> &str {
@@ -2849,33 +2849,10 @@ mod tests {
     #[serial]
     fn external_launches_disabled_returns_false_when_env_var_absent() {
         let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
-        let prior_pytest = std::env::var("PYTEST_CURRENT_TEST").ok();
         std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
-        std::env::remove_var("PYTEST_CURRENT_TEST");
         assert!(!external_launches_disabled());
         if let Some(val) = prior {
             std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
-        }
-        if let Some(val) = prior_pytest {
-            std::env::set_var("PYTEST_CURRENT_TEST", val);
-        }
-    }
-
-    #[test]
-    #[serial]
-    fn external_launches_disabled_returns_true_when_pytest_env_is_set() {
-        let prior = std::env::var("PYTEST_CURRENT_TEST").ok();
-        let prior_disable = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
-        std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
-        std::env::set_var("PYTEST_CURRENT_TEST", "test_something.py::test_func");
-        assert!(external_launches_disabled());
-        if let Some(val) = prior_disable {
-            std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
-        }
-        if let Some(val) = prior {
-            std::env::set_var("PYTEST_CURRENT_TEST", val);
-        } else {
-            std::env::remove_var("PYTEST_CURRENT_TEST");
         }
     }
 
@@ -3416,9 +3393,7 @@ mod tests {
         let pool = test_pool().await;
         // Set disable to false so it proceeds past the suppressed check
         let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
-        let prior_pytest = std::env::var("PYTEST_CURRENT_TEST").ok();
         std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
-        std::env::remove_var("PYTEST_CURRENT_TEST");
 
         let result = open_design_in_editor_with_pool(&pool, 1).await;
         assert!(result.is_ok());
@@ -3429,9 +3404,6 @@ mod tests {
 
         if let Some(val) = prior {
             std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
-        }
-        if let Some(val) = prior_pytest {
-            std::env::set_var("PYTEST_CURRENT_TEST", val);
         }
     }
 
