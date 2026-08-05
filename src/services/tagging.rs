@@ -1,32 +1,38 @@
+// Tier 1 keyword tagging — generic token-overlap matcher driven by the live tag catalogue.
+//
+// Design
+// ------
+// 1. Tokenise the filename stem and filepath into lowercase alphanumeric words.
+// 2. For every tag description in the live `valid_descriptions` catalogue (loaded
+//    from the database at import time):
+//       a. Normalise the description and split it into meaningful tokens.
+//       b. If **any single** meaningful token of the tag appears in the path tokens
+//          — in singular or plural form (powered by `Inflector`) — assign the tag.
+// 3. A small built-in synonym map bridges aliases inflection can never derive
+//    (kitten → Cats, puppy → Dogs, xmas → Christmas, floral → Flowers,
+//    baby → Children & Toys).
+//
+// This is fully generic: any user-created tag is automatically matched as long as
+// its words overlap with the file path, with no code or config changes required.
+
+use inflector::Inflector;
 use std::collections::HashSet;
 
-// Targeted alias map to bridge common filename keywords to canonical tag descriptions.
-const KEYWORD_MAP: [(&str, &str); 24] = [
-    ("alphabet", "Alphabets"),
-    ("monogram", "Monogram"),
-    ("cat", "Cats"),
+// ─── Synonym map — only genuinely undecidable aliases ────────────────────
+//
+// Words that inflection can *never* derive from a tag description (e.g.
+// "kitten" from "Cats", "floral" from "Flowers").  Everything else is handled
+// generically by singular ↔ plural token overlap.
+
+const SYNONYM_MAP: [(&str, &str); 5] = [
     ("kitten", "Cats"),
-    ("dog", "Dogs"),
     ("puppy", "Dogs"),
-    ("horse", "Horses"),
-    ("bird", "Birds"),
-    ("butterfly", "Butterflies and Insects"),
-    ("christmas", "Christmas"),
     ("xmas", "Christmas"),
-    ("easter", "Easter"),
-    ("halloween", "Halloween"),
-    ("flower", "Flowers"),
     ("floral", "Flowers"),
-    ("wedding", "Wedding"),
-    ("valentine", "Valentine's Day"),
-    ("mother", "Mother's Day"),
-    ("father", "Father's Day"),
-    ("baby", "Babies"),
-    ("angel", "Angels"),
-    ("fantasy", "Fantasy"),
-    ("nautical", "Nautical"),
-    ("transport", "Transport"),
+    ("baby", "Children & Toys"),
 ];
+
+// ─── Normalisation ───────────────────────────────────────────────────────
 
 fn normalize_text(value: &str) -> String {
     value
@@ -44,61 +50,64 @@ fn normalize_text(value: &str) -> String {
 fn tokenize(value: &str) -> HashSet<String> {
     normalize_text(value)
         .split_whitespace()
-        .filter(|part| !part.is_empty())
         .map(String::from)
         .collect()
 }
 
-fn singularize(token: &str) -> Option<String> {
-    if token.len() > 3 && token.ends_with('s') {
-        return Some(token.trim_end_matches('s').to_string());
-    }
-
-    None
-}
-
-fn pluralize(token: &str) -> Option<String> {
-    if token.len() > 2 && !token.ends_with('s') {
-        return Some(format!("{}s", token));
-    }
-
-    None
-}
-
-fn token_matches(token: &str, tokens: &HashSet<String>) -> bool {
-    if tokens.contains(token) {
-        return true;
-    }
-
-    if singularize(token)
-        .map(|singular| tokens.contains(&singular))
-        .unwrap_or(false)
-    {
-        return true;
-    }
-
-    pluralize(token)
-        .map(|plural| tokens.contains(&plural))
-        .unwrap_or(false)
-}
-
-fn description_matches_text(description: &str, haystack: &str, tokens: &HashSet<String>) -> bool {
-    let _ = haystack;
-    let normalized_description = normalize_text(description);
-    let description_tokens: Vec<&str> = normalized_description
+/// Significant tokens: tokens longer than 2 characters, used for tag-description
+/// token matching to avoid matches on noise words like "of", "a", "&", "an".
+fn significant_tokens(value: &str) -> Vec<String> {
+    normalize_text(value)
         .split_whitespace()
         .filter(|part| part.len() > 2)
-        .collect();
-
-    if description_tokens.is_empty() {
-        return false;
-    }
-
-    description_tokens
-        .iter()
-        .all(|token| token_matches(token, tokens))
+        .map(String::from)
+        .collect()
 }
 
+// ─── Inflector helpers ───────────────────────────────────────────────────
+
+fn singular_form(token: &str) -> String {
+    // Inflector's to_singular() works on the entire token; for tokens that are
+    // already singular it returns the same token, so this is always safe to call.
+    token.to_singular()
+}
+
+fn plural_form(token: &str) -> String {
+    token.to_plural()
+}
+
+fn token_matches_in_path(token: &str, path_tokens: &HashSet<String>) -> bool {
+    if path_tokens.contains(token) {
+        return true;
+    }
+
+    // Try singular-matching: the tag token is plural ("butterflies") and we
+    // check whether its singular ("butterfly") appears in the path.
+    let singular = singular_form(token);
+    if singular != token && path_tokens.contains(&singular) {
+        return true;
+    }
+
+    // Try plural-matching: the tag token is singular ("butterfly") and we
+    // check whether its plural ("butterflies") appears in the path.
+    let plural = plural_form(token);
+    if plural != token && path_tokens.contains(&plural) {
+        return true;
+    }
+
+    false
+}
+
+// ─── Primary matching logic ──────────────────────────────────────────────
+
+/// Given a filename, full filepath, and the set of valid tag descriptions from
+/// the database, return the sorted list of descriptions that match.
+///
+/// Matching is **any-token OR**: if **any single** significant token of a tag
+/// description appears in the path (in singular or plural form), the tag is
+/// assigned.  This correctly handles compound tags like "Borders & Frames"
+/// (folder "Borders" or "Frame" both match) and supports any user-created tag
+/// automatically.
 pub fn suggest_tier1_descriptions(
     filename: &str,
     filepath: &str,
@@ -113,32 +122,49 @@ pub fn suggest_tier1_descriptions(
         .and_then(|stem| stem.to_str())
         .unwrap_or(filename);
     let combined = format!("{} {}", filename_stem, filepath);
-    let normalized_haystack = normalize_text(&combined);
-    let tokens = tokenize(&combined);
+    let path_tokens = tokenize(&combined);
+    if path_tokens.is_empty() {
+        return Vec::new();
+    }
 
     let mut matched = HashSet::new();
 
-    for (keyword, description) in KEYWORD_MAP {
+    // ── Synonym-map pass (tiny, genuinely undecidable aliases only) ──
+    for (synonym, description) in SYNONYM_MAP {
         if !valid_descriptions.contains(description) {
             continue;
         }
-
-        let keyword_matches = if keyword.contains('_') {
-            keyword
-                .split('_')
-                .filter(|part| !part.is_empty())
-                .all(|part| token_matches(part, &tokens))
-        } else {
-            token_matches(keyword, &tokens)
-        };
-
-        if keyword_matches {
+        // Check the synonym itself, its singular, and its plural against the
+        // path tokens — folder names may be plural ("Kittens") while the
+        // synonym is singular ("kitten"), and vice versa.
+        let synonym_singular = singular_form(synonym);
+        let synonym_plural = plural_form(synonym);
+        if path_tokens.contains(synonym)
+            || path_tokens.contains(&synonym_singular)
+            || path_tokens.contains(&synonym_plural)
+        {
             matched.insert(description.to_string());
         }
     }
 
+    // ── Generic token-overlap pass ────────────────────────────────────
     for description in valid_descriptions {
-        if description_matches_text(description, &normalized_haystack, &tokens) {
+        if matched.contains(description) {
+            continue; // already assigned via synonym map
+        }
+
+        let tag_tokens = significant_tokens(description);
+        if tag_tokens.is_empty() {
+            continue;
+        }
+
+        // OR: match if any single significant token of the tag overlaps with
+        // the path tokens (singular ↔ plural aware).
+        let any_token_matches = tag_tokens
+            .iter()
+            .any(|token| token_matches_in_path(token, &path_tokens));
+
+        if any_token_matches {
             matched.insert(description.clone());
         }
     }
@@ -152,34 +178,192 @@ pub fn suggest_tier1_descriptions(
 mod tests {
     use super::*;
 
+    // ─── unit helpers ───────────────────────────────────────────────────
+
     #[test]
-    fn suggest_tier1_matches_alias_keyword() {
-        let valid = HashSet::from(["Alphabets".to_string(), "Flowers".to_string()]);
-        let matched = suggest_tier1_descriptions("my_alphabet_design.pes", "", &valid);
-        assert!(matched.contains(&"Alphabets".to_string()));
+    fn normalize_text_replaces_punctuation_with_spaces() {
+        let result = normalize_text("Borders & Frames");
+        assert_eq!(result, "borders   frames");
     }
 
     #[test]
-    fn suggest_tier1_uses_folder_tokens() {
-        let valid = HashSet::from(["Alphabets".to_string()]);
-        let matched = suggest_tier1_descriptions(
-            "17147.hus",
-            "C:/imports/Alphabets/Font Pack/17147.hus",
-            &valid,
+    fn significant_tokens_filters_short_words() {
+        let tokens = significant_tokens("a big cat and a dog");
+        assert_eq!(tokens, vec!["big", "cat", "and", "dog"]);
+    }
+
+    // ─── inflector sanity ──────────────────────────────────────────────
+
+    #[test]
+    fn inflector_singular_handles_butterflies() {
+        assert_eq!(singular_form("butterflies"), "butterfly");
+    }
+
+    #[test]
+    fn inflector_singular_handles_babies() {
+        assert_eq!(singular_form("babies"), "baby");
+    }
+
+    #[test]
+    fn inflector_singular_handles_monograms() {
+        assert_eq!(singular_form("monograms"), "monogram");
+    }
+
+    #[test]
+    fn inflector_plural_handles_butterfly() {
+        assert_eq!(plural_form("butterfly"), "butterflies");
+    }
+
+    #[test]
+    fn inflector_plural_handles_fairy() {
+        assert_eq!(plural_form("fairy"), "fairies");
+    }
+
+    // ─── suggest_tier1_descriptions ────────────────────────────────────
+
+    #[test]
+    fn suggest_tier1_compound_tag_borders() {
+        let valid = HashSet::from(["Borders & Frames".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Borders/somefile.pes", &valid);
+        assert!(
+            matched.contains(&"Borders & Frames".to_string()),
+            "folder 'Borders' should match 'Borders & Frames' via token overlap: {:?}",
+            matched
         );
-        assert!(matched.contains(&"Alphabets".to_string()));
+    }
+
+    #[test]
+    fn suggest_tier1_compound_tag_frame() {
+        let valid = HashSet::from(["Borders & Frames".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Frame/design.pes", &valid);
+        assert!(
+            matched.contains(&"Borders & Frames".to_string()),
+            "folder 'Frame' should match 'Borders & Frames' via inflected token overlap: {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_compound_tag_angels() {
+        let valid = HashSet::from(["Angels & Fairies".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Angels/design.pes", &valid);
+        assert!(
+            matched.contains(&"Angels & Fairies".to_string()),
+            "folder 'Angels' should match 'Angels & Fairies': {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_compound_tag_fairies() {
+        let valid = HashSet::from(["Angels & Fairies".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Fairies/design.pes", &valid);
+        assert!(
+            matched.contains(&"Angels & Fairies".to_string()),
+            "folder 'Fairies' should match 'Angels & Fairies' via inflection: {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_compound_tag_alphabet_monogram() {
+        let valid = HashSet::from(["Alphabets & Monograms".to_string()]);
+        let matched =
+            suggest_tier1_descriptions("", "C:/imports/Monogram/design.pes", &valid);
+        assert!(
+            matched.contains(&"Alphabets & Monograms".to_string()),
+            "folder 'Monogram' should match 'Alphabets & Monograms' via inflection (no synonym needed): {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_compound_tag_butterfly_folder() {
+        let valid = HashSet::from(["Butterflies & Insects".to_string()]);
+        let matched =
+            suggest_tier1_descriptions("", "C:/imports/Butterfly/design.pes", &valid);
+        assert!(
+            matched.contains(&"Butterflies & Insects".to_string()),
+            "folder 'Butterfly' should match 'Butterflies & Insects': {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_compound_tag_butterfly_filename() {
+        let valid = HashSet::from(["Butterflies & Insects".to_string()]);
+        let matched =
+            suggest_tier1_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
+        assert!(
+            matched.contains(&"Butterflies & Insects".to_string()),
+            "filename 'Pretty Butterflies.pes' should match 'Butterflies & Insects': {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_user_created_tag() {
+        // Proves the matcher is generic: a custom tag "My Rabbit Tag" should
+        // be matched when the folder contains "Rabbits" (inflected to "rabbit").
+        let valid = HashSet::from(["My Rabbit Tag".to_string(), "Borders & Frames".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Rabbits/design.pes", &valid);
+        assert!(
+            matched.contains(&"My Rabbit Tag".to_string()),
+            "custom user tag 'My Rabbit Tag' should match folder 'Rabbits' via inflection: {:?}",
+            matched
+        );
+        // Also ensure the unrelated tag is NOT matched
+        assert!(!matched.contains(&"Borders & Frames".to_string()));
+    }
+
+    #[test]
+    fn suggest_tier1_synonym_kitten_cats() {
+        let valid = HashSet::from(["Cats".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Kittens/design.pes", &valid);
+        assert!(matched.contains(&"Cats".to_string()));
+    }
+
+    #[test]
+    fn suggest_tier1_synonym_floral_flowers() {
+        let valid = HashSet::from(["Flowers".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Floral/design.pes", &valid);
+        // "floral" → synonym map → "Flowers"
+        assert!(matched.contains(&"Flowers".to_string()));
     }
 
     #[test]
     fn suggest_tier1_does_not_match_cat_inside_catalogue() {
+        // Regression: a folder called "Crests" must never be confused with "Cats".
+        // Token-based matching ensures this: "crests" ≠ "cat" / "cats".
         let valid = HashSet::from(["Cats".to_string(), "Crests".to_string()]);
         let matched = suggest_tier1_descriptions(
-			"17147.hus",
-			"D:/My Software Development/Rust-Embroidery-Catalogue/data/MachineEmbroideryDesigns/Amazing Designs - 1033 Crests/17147.hus",
-			&valid,
-		);
+            "17147.hus",
+            "D:/My Software Development/Rust-Embroidery-Catalogue/data/MachineEmbroideryDesigns/Amazing Designs - 1033 Crests/17147.hus",
+            &valid,
+        );
 
         assert!(matched.contains(&"Crests".to_string()));
         assert!(!matched.contains(&"Cats".to_string()));
+    }
+
+    #[test]
+    fn suggest_tier1_empty_catalogue_returns_empty() {
+        let valid = HashSet::new();
+        let matched = suggest_tier1_descriptions("flower.pes", "C:/imports/flowers/", &valid);
+        assert!(matched.is_empty());
+    }
+
+    #[test]
+    fn suggest_tier1_matches_from_filename_stem() {
+        let valid = HashSet::from(["Flowers".to_string()]);
+        let matched = suggest_tier1_descriptions("Flower Design.pes", "C:/imports/", &valid);
+        assert!(matched.contains(&"Flowers".to_string()));
+    }
+
+    #[test]
+    fn suggest_tier1_synonym_baby_children() {
+        let valid = HashSet::from(["Children & Toys".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/baby/shirts/design.pes", &valid);
+        assert!(matched.contains(&"Children & Toys".to_string()));
     }
 }

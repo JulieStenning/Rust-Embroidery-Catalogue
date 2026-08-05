@@ -23,6 +23,7 @@ trash = "3"
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+Inflector = "0.11"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
