@@ -69,7 +69,7 @@ These rules apply to view-level tests using `@testing-library/svelte` + `vitest`
 
 ### 1. Flush Svelte's reactive chain with `tick()`, not polling
 
-After any `fireEvent` that changes `$state` (dropdown changes, checkbox clicks, etc.), flush Svelte's pending reactive updates before querying the DOM:
+After any `fireEvent` that **synchronously** changes `$state` (dropdown changes, checkbox clicks, etc.), flush Svelte's pending reactive updates before querying the DOM:
 
 ```typescript
 import { tick } from "svelte";
@@ -80,6 +80,8 @@ const cards = screen.getAllByRole("article");      // ← synchronous, DOM is se
 ```
 
 **Never** use `await new Promise((resolve) => setTimeout(resolve))` — it's non-deterministic and slow. **Avoid** `waitFor(() => screen.getAllByRole(...))` — the polling loop fights Svelte's microtask queue.
+
+> **Scope of this rule:** `tick()` flushes **synchronous** reactive updates. It does **not** replace `waitFor` for flows that trigger an **async** data fetch (e.g. a filter change that calls `loadItems()` and re-renders only after the (mocked) promise resolves) — those still need `waitFor` per Rule #3. It also does not replace the one-time effect-gate in a `settle()` helper, where `waitFor(() => expect(adapter).toHaveBeenCalled())` waits for the first `$effect` invocation before a `tick()` settles the DOM.
 
 ### 2. Scope `getByText` with `within()` when text appears in multiple DOM regions
 
