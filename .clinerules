@@ -63,6 +63,75 @@ When making changes to Svelte components or Rust backend files:
 
 ---
 
+## 🧪 Svelte 5 View Testing Rules
+
+These rules apply to view-level tests using `@testing-library/svelte` + `vitest`.
+
+### 1. Flush Svelte's reactive chain with `tick()`, not polling
+
+After any `fireEvent` that changes `$state` (dropdown changes, checkbox clicks, etc.), flush Svelte's pending reactive updates before querying the DOM:
+
+```typescript
+import { tick } from "svelte";
+
+await fireEvent.change(select, { target: { value: "some-value" } });
+await tick();                                     // ← flush Svelte's reactive chain
+const cards = screen.getAllByRole("article");      // ← synchronous, DOM is settled
+```
+
+**Never** use `await new Promise((resolve) => setTimeout(resolve))` — it's non-deterministic and slow. **Avoid** `waitFor(() => screen.getAllByRole(...))` — the polling loop fights Svelte's microtask queue.
+
+### 2. Scope `getByText` with `within()` when text appears in multiple DOM regions
+
+Mock components and `<details>` panels can cause the same text to render in multiple places (filter panels, card details, modals). Use `within()` to restrict the query:
+
+```typescript
+const dialog = screen.getByRole("dialog");
+const checkbox = within(dialog).getByText("Tag Name").closest("label")?.querySelector("input");
+```
+
+Or use a unique CSS selector:
+
+```typescript
+const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
+within(dropdown).getByText("Project Name");
+```
+
+### 3. Prefer direct mock assertions over `waitFor` for synchronous side-effects
+
+When a mocked function resolves immediately (returns `{ persisted: true, ... }`), callbacks like `addToast` are fired synchronously inside the handler. Assert directly:
+
+```typescript
+await fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+expect(toastMock.addToast).toHaveBeenCalledWith("Success", "success");
+```
+
+Only use `waitFor` when the side-effect is genuinely asynchronous (e.g., rejected promises, `loadItems` reloads).
+
+### 4. Choose fixture data that proves state changes
+
+When testing sort or filter behaviour, use data where the **default** order differs from the **expected** order after the change. This proves the state change actually happened rather than relying on coincidental ordering:
+
+```typescript
+// Good: name-asc (alpha, zeta) ≠ rating-asc (zeta(2), alpha(5))
+design({ filename: "zeta.pes", rating: 2 }),
+design({ filename: "alpha.pes", rating: 5 }),
+```
+
+### 5. Mock components should expose `data-testid` and `data-*` attributes
+
+Tiny Svelte stub components for child views should render a root element with `data-testid` and relevant `data-*` attributes so tests can assert on props without mounting the real component:
+
+```svelte
+<div data-testid="delete-designs-modal" data-open={String(open)} data-design-count={String(designIds.length)}>
+  {#if open}
+    <button onclick={() => onDeleted({ persisted: true, ... })}>Confirm delete</button>
+  {/if}
+</div>
+```
+
+---
+
 ## 📝 File Writing Rules (Critical for Windows CMD)
 
 ### A) `write_to_file` XML Tag Nesting — THE #1 cause of failures
