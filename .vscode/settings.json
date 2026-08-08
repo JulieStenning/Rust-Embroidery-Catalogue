@@ -1,4 +1,10 @@
 {
   "vitest.rootConfig": "vitest.config.mts",
-  "testing.automaticallyOpenPeekView": "never"
+  "testing.automaticallyOpenPeekView": "never",
+  "chat.tools.terminal.autoApprove": {
+    "/^Set-Location 'D:\\\\My Software Development\\\\Rust-Embroidery-Catalogue'; node -e \"const \\{invoke\\}=require\\('@tauri-apps/api/core'\\); console\\.log\\(typeof invoke\\);\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
 }

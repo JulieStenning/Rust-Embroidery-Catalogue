@@ -9,6 +9,15 @@ import App from "../App.svelte";
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
+// Mock the Tauri event API. App.svelte subscribes to db-maintenance events via
+// initDbMaintenanceEvents → @tauri-apps/api/event "listen", which calls into
+// window.__TAURI_INTERNALS__ under the hood. Provide a no-op listen so the
+// listener lifecycle doesn't throw in the test environment.
+const listenMock = vi.hoisted(() => vi.fn(() => Promise.resolve(() => {})));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: listenMock,
+}));
+
 // Mock the child views so App's gating logic can be tested in isolation.
 // Each stub is a real (tiny) Svelte component so it renders like a normal view.
 vi.mock("../lib/DisclaimerView.svelte", async () => {
@@ -143,7 +152,13 @@ describe("App.svelte", () => {
 
   it("transitions to the main app when the user accepts the disclaimer", async () => {
     installTauriBridge();
-    invokeMock.mockResolvedValue(false);
+    // check_disclaimer → false (disclaimer still required)
+    // check_initial_setup → true (setup already complete, so we go straight
+    // to the main app once the disclaimer is accepted).
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "check_initial_setup") return Promise.resolve(true);
+      return Promise.resolve(false);
+    });
 
     render(App);
 

@@ -74,7 +74,26 @@ import { mapDesignDetailFromWire, mapReparseDesignFromWire } from "../types/ipc"
 type LooseRecord = Record<string, unknown>;
 
 function invokeLoose<T = any>(command: string, args?: Record<string, unknown>): Promise<T> {
-  return invoke(command, args) as Promise<T>;
+  try {
+    const result = args === undefined ? invoke(command) : invoke(command, args);
+
+    if (result && typeof (result as PromiseLike<T>).then === "function") {
+      return new Promise<T>((resolve, reject) => {
+        try {
+          (result as PromiseLike<T>).then(
+            (value) => resolve(value as T),
+            (reason) => reject(reason),
+          );
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+
+    return Promise.resolve(result as T);
+  } catch (error) {
+    return Promise.reject(error);
+  }
 }
 
 const MOCK_DESIGNS = [
@@ -1041,8 +1060,8 @@ export async function getBrowseProjects(): Promise<AdapterListResponse<ProjectLi
   };
 }
 
-export async function getProjectsList(): Promise<AdapterProjectListResponse> {
-  const REQUEST_TIMEOUT_MS = 15000;
+export async function getProjectsList(requestTimeoutMs = 15000): Promise<AdapterProjectListResponse> {
+  const REQUEST_TIMEOUT_MS = requestTimeoutMs;
 
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
@@ -2008,8 +2027,8 @@ export async function compactDatabase(): Promise<AdapterCompactResponse> {
  * @param {{ page?: number, pageSize?: number }} [options]
  */
 export async function getOrphansPage({ page = 1, pageSize = 100 }: { page?: number; pageSize?: number } = {}): Promise<AdapterOrphansPageResponse> {
-  const normalizedPage = Math.max(1, Number(page) || 1);
-  const normalizedPageSize = Math.max(1, Number(pageSize) || 100);
+  const normalizedPage = Number.isFinite(Number(page)) && Number(page) > 0 ? Number(page) : 1;
+  const normalizedPageSize = Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Number(pageSize) : 1;
 
   try {
     const result = await invokeLoose<AdapterOrphansPageResponse>("get_orphans_page", {

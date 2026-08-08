@@ -61,6 +61,7 @@
   /** @type {BrowseTagOption[]} */
   let browseTagOptions = $state([]);
   let browseTagsSource = $state("mock");
+  let browseTagsLoaded = $state(false);
   let browsePreviewsSource = $state("mock");
   let browseImageTagOptions = $derived(
     (() => {
@@ -445,6 +446,7 @@
       browseSource = getResponseSource(result);
       browseHasLoaded = true;
     } catch (error) {
+      browseHasLoaded = true;
       browseItems = [];
       browseSource = "mock";
       browseError = `Could not load designs: ${error}`;
@@ -462,6 +464,8 @@
       browseTagOptions = [];
       browseTagsSource = "mock";
       console.info("Could not load browse tags list", error);
+    } finally {
+      browseTagsLoaded = true;
     }
   }
 
@@ -1175,7 +1179,7 @@
   });
 
   $effect(() => {
-    if (browseTagOptions.length === 0) {
+    if (!browseTagsLoaded) {
       untrack(() => {
         loadBrowseTags();
       });

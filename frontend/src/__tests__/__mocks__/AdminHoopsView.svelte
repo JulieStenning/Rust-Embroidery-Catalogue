@@ -1,0 +1,1 @@
+<div data-testid="admin-hoops-view">Admin Hoops View</div>
