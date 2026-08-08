@@ -41,6 +41,34 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 - **Performance-Focused I/O:** Use buffered readers (`BufReader`) and streaming/lazy parsing logic where possible to avoid loading huge design buffers into memory at once.
 - **Automated Verification:** You **MUST** run `cargo check` or `cargo test` after editing any Rust code to ensure the borrow checker is completely satisfied and the project compiles before asking for user feedback.
 
+### 📏 Test File Separation Rule
+
+Any Rust source file whose total line count exceeds **500 lines** (production plus embedded test code) MUST have its `#[cfg(test)]` module(s) extracted into a separate sibling file.
+
+**Mechanism**
+- Move the body of `#[cfg(test)] mod tests { … }` into `<basename>_tests.rs` (e.g. `bulk_import_tests.rs`).
+- Replace the embedded block with a `#[path]` module declaration:
+  ```rust
+  #[cfg(test)]
+  #[path = "bulk_import_tests.rs"]
+  mod tests;
+  ```
+- The `#[path]` attribute keeps the test module inside the same crate, so `use super::*;` continues to grant access to all private items.
+
+**Scope**
+- Only the `#[cfg(test)] mod tests` body is moved. Tiny `#[cfg(test)]` helper functions and constants scattered in production code may stay in place if they are small.
+- Goal: **functional production code** in each file should be clearly separated from test infrastructure, and no single file should exceed 500 lines.
+
+**Edge cases**
+- **Tail-block layout** (most common): the test module is at the end of the file and no production code follows it. Extraction keeps only the production head.
+- **Interleaved layout** (e.g. `designs.rs`, which had three `#[cfg(test)]` modules between production segments): merge the module bodies into one `_tests.rs` file as nested `mod` blocks. Production segments are concatenated in order.
+- **Top-module layout** (e.g. `png_writer.rs`, where `mod tests` sits at the top): extract the body into the test file, keep the imports followed by the production code that follows the module close.
+
+**Verification**
+- **MUST** run `cargo check` immediately after extraction.
+- **MUST** run `cargo test <module>` to confirm all tests pass through the `#[path]` indirection.
+- `rustfmt --edition 2024` must be applied to the new test file.
+
 ---
 
 ## 🎨 Frontend & TypeScript Coding Standards
