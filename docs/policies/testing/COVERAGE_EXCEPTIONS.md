@@ -10,6 +10,15 @@ This file tracks modules, frontend components, and backend logic where test cove
 
 | Module / File Path | Approx. Coverage | Date Accepted | Reason / Rationale |
 | :--- | :--- | :--- | :--- |
+| src/services/projects.rs | 31.40% | 2026-08-08 | [PENDING REVIEW] |
+| src/services/db_health.rs | 42.59% | 2026-08-08 | [PENDING REVIEW] |
+| src/main.rs | 56.20% | 2026-08-08 | [PENDING REVIEW] |
+| src/readers/embroidery_reader.rs | 62.50% | 2026-08-08 | [PENDING REVIEW] |
+| src/routes/designs.rs | 67.56% | 2026-08-08 | [PENDING REVIEW] |
+| src/services/about_documents.rs | 73.47% | 2026-08-08 | [PENDING REVIEW] |
+| src/routes/maintenance.rs | 74.27% | 2026-08-08 | [PENDING REVIEW] |
+| src/readers/vp3_reader.rs | 74.32% | 2026-08-08 | [PENDING REVIEW] |
+| src/error.rs | 75.38% | 2026-08-08 | [PENDING REVIEW] |
 
 ---
 
