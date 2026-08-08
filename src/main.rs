@@ -879,4 +879,98 @@ use std::path::PathBuf;
         assert_eq!(map.get("embroidery_dir").and_then(|v| v.as_str()), Some("D:/data/MachineEmbroideryDesigns"));
         assert_eq!(map.get("database_path").and_then(|v| v.as_str()), Some("D:/data/Database/EmbroideryCatalogue.db"));
     }
+
+    // ─── read_idle_interval_from_db ──────────────────────────────────────────
+
+    /// Create an in-memory pool with (optionally) a settings table.
+    async fn interval_test_pool(with_settings_table: bool) -> SqlitePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("failed to create in-memory pool");
+
+        if with_settings_table {
+            sqlx::query(
+                "CREATE TABLE settings (
+                    key VARCHAR(100) PRIMARY KEY NOT NULL,
+                    value TEXT NOT NULL
+                )",
+            )
+            .execute(&pool)
+            .await
+            .expect("create settings table");
+        }
+
+        pool
+    }
+
+    #[tokio::test]
+    async fn read_idle_interval_defaults_when_no_setting_row() {
+        let pool = interval_test_pool(true).await;
+
+        let interval = read_idle_interval_from_db(&pool)
+            .await
+            .expect("missing row should fall back to default");
+
+        assert_eq!(
+            interval,
+            services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS,
+            "missing setting should fall back to the default idle interval"
+        );
+    }
+
+    #[tokio::test]
+    async fn read_idle_interval_parses_valid_value() {
+        let pool = interval_test_pool(true).await;
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('db.idle_check_interval_secs', '7200')")
+            .execute(&pool)
+            .await
+            .expect("insert idle interval setting");
+
+        let interval = read_idle_interval_from_db(&pool)
+            .await
+            .expect("valid numeric value should parse");
+
+        assert_eq!(interval, 7200);
+    }
+
+    #[tokio::test]
+    async fn read_idle_interval_trims_whitespace_around_value() {
+        let pool = interval_test_pool(true).await;
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('db.idle_check_interval_secs', '  3600  ')")
+            .execute(&pool)
+            .await
+            .expect("insert idle interval setting");
+
+        let interval = read_idle_interval_from_db(&pool)
+            .await
+            .expect("whitespace-trimmed numeric value should parse");
+
+        assert_eq!(interval, 3600);
+    }
+
+    #[tokio::test]
+    async fn read_idle_interval_returns_error_for_invalid_number() {
+        let pool = interval_test_pool(true).await;
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('db.idle_check_interval_secs', 'not-a-number')")
+            .execute(&pool)
+            .await
+            .expect("insert idle interval setting");
+
+        let result = read_idle_interval_from_db(&pool).await;
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("Invalid idle interval"),
+            "error should describe the parse failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn read_idle_interval_returns_error_when_settings_table_missing() {
+        let pool = interval_test_pool(false).await;
+
+        let result = read_idle_interval_from_db(&pool).await;
+        assert!(result.is_err(), "missing settings table should surface an error");
+    }
 }
