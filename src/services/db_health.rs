@@ -366,4 +366,110 @@ mod tests {
         };
         assert_eq!(snapshot.reclaimable_bytes(), 0);
     }
+
+    // ─── get_freelist_metrics ───────────────────────────────────────────────
+
+    /// Create an in-memory pool, mirroring the production setup used by the
+    /// compaction service tests.
+    async fn test_pool() -> SqlitePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("failed to create in-memory pool");
+
+        sqlx::query("PRAGMA auto_vacuum = INCREMENTAL")
+            .execute(&pool)
+            .await
+            .expect("set auto_vacuum");
+
+        sqlx::query(
+            "CREATE TABLE items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                payload TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("create items table");
+
+        pool
+    }
+
+    #[tokio::test]
+    async fn get_freelist_metrics_returns_valid_snapshot_on_fresh_pool() {
+        let pool = test_pool().await;
+
+        let snapshot = get_freelist_metrics(&pool)
+            .await
+            .expect("metrics should be readable");
+
+        assert!(snapshot.page_count > 0, "fresh DB has at least one page");
+        assert_eq!(snapshot.freelist_count, 0, "fresh DB has no free pages");
+        assert!(
+            snapshot.page_size > 0,
+            "page_size must be a positive number of bytes"
+        );
+        // 4096 is the common default; assert it is a sane power of two ≥ 512.
+        let size = snapshot.page_size;
+        let is_power_of_two = size > 0 && (size & (size - 1)) == 0;
+        assert!(
+            size >= 512 && is_power_of_two,
+            "page_size should be a power of two ≥ 512, got {}",
+            size
+        );
+    }
+
+    #[tokio::test]
+    async fn get_freelist_metrics_reflects_deleted_pages() {
+        let pool = test_pool().await;
+
+        // Insert large rows so each row occupies roughly one page, then delete
+        // them all — this leaves pages on the SQLite freelist.
+        let filler = "x".repeat(2048);
+        for i in 0..200 {
+            sqlx::query("INSERT INTO items (payload) VALUES (?)")
+                .bind(format!("item-{i}-{filler}"))
+                .execute(&pool)
+                .await
+                .expect("insert item");
+        }
+        sqlx::query("DELETE FROM items")
+            .execute(&pool)
+            .await
+            .expect("delete all items");
+
+        let snapshot = get_freelist_metrics(&pool)
+            .await
+            .expect("metrics should be readable");
+
+        assert!(
+            snapshot.freelist_count > 0,
+            "expected freelist pages after bulk delete, got {}",
+            snapshot.freelist_count
+        );
+        assert!(snapshot.free_ratio() > 0.0);
+        assert!(
+            snapshot.reclaimable_bytes() > 0,
+            "reclaimable bytes should reflect the freelist"
+        );
+        // Sanity: reclaimable bytes ≈ freelist × page size.
+        assert_eq!(
+            snapshot.reclaimable_bytes(),
+            (snapshot.freelist_count as u64).saturating_mul(snapshot.page_size as u64)
+        );
+    }
+
+    #[tokio::test]
+    async fn get_freelist_metrics_returns_error_when_connection_closed() {
+        let pool = test_pool().await;
+        pool.close().await;
+
+        let result = get_freelist_metrics(&pool).await;
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("page_count"),
+            "error should mention the failing pragma"
+        );
+    }
 }
