@@ -32,13 +32,12 @@ This file tracks modules, frontend components, and backend logic where test cove
 
 | Module / File Path                     | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Reason / Rationale |
 | :------------------------------------- | :-------------- | :------------------ | :------------------------- | :--------- | :----------------- |
-| src/lib/views/BrowseView.svelte        | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED]           |
-| src/lib/views/DesignDetailView.svelte  | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED]           |
-| src/lib/views/ImportView.svelte        | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [PRIOR RUN]          |
-| src/lib/views/ImportView.svelte        | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED]           |
-| src/lib/views/OrphansView.svelte       | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [PENDING REVIEW]   |
-| src/lib/views/ProjectsView.svelte      | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [PENDING REVIEW]   |
-| src/lib/views/TagsView.svelte          | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [PENDING REVIEW]   |
+| src/lib/views/BrowseView.svelte        | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED]         |
+| src/lib/views/DesignDetailView.svelte  | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED]         |
+| src/lib/views/ImportView.svelte        | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED]         |
+| src/lib/views/OrphansView.svelte       | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [ACCEPTED]         |
+| src/lib/views/ProjectsView.svelte      | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [ACCEPTED]         |
+| src/lib/views/TagsView.svelte          | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [ACCEPTED]         |
 
 ---
 
