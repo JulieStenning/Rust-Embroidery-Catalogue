@@ -144,6 +144,30 @@ describe("AboutDocumentView", () => {
       expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
     });
 
+    it("renders not-found fallback when getAboutDocument returns an empty payload", async () => {
+      adapterMock.getAboutDocument.mockResolvedValue({ item: null });
+
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await waitFor(() => {
+        expect(screen.getByText("Document not found.")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
+      expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
+    });
+
+    it("renders not-found fallback when getAboutDocument resolves to null", async () => {
+      adapterMock.getAboutDocument.mockResolvedValue(null);
+
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await waitFor(() => {
+        expect(screen.getByText("Document not found.")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
+      expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
+    });
+
     it("renders fallback error message when the getAboutDocument promise rejects", async () => {
       adapterMock.getAboutDocument.mockRejectedValue(new Error("Connection refused"));
 
@@ -152,6 +176,63 @@ describe("AboutDocumentView", () => {
       await waitFor(() => {
         expect(screen.getByText("Could not load document: Error: Connection refused")).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("shouldRenderAsHtml fallback branches", () => {
+    it("renders as HTML when slug is missing but filename ends with .html", async () => {
+      const mockDoc = {
+        title: "Privacy",
+        description: "Privacy details.",
+        filename: "privacy.html",
+        document_text: "<p>We do not track you.</p>",
+      };
+      adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
+
+      const { container } = render(AboutDocumentView, { props: { slug: "privacy" } });
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
+      });
+
+      const div = element(container.querySelector("div.text-sm.text-gray-700.bg-gray-50"));
+      expect(div.innerHTML).toContain("<p>We do not track you.</p>");
+      expect(container.querySelector("pre")).not.toBeInTheDocument();
+    });
+
+    it("renders as plain text when filename is missing", async () => {
+      const mockDoc = {
+        slug: "licence",
+        title: "Licence",
+        description: "The licence terms.",
+        document_text: "Copyright (c) 2026 Rust Embroidery Catalogue Developers",
+      };
+      adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
+
+      const { container } = render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
+      });
+
+      const pre = element(container.querySelector("pre"));
+      expect(pre).toHaveTextContent("Copyright (c) 2026 Rust Embroidery Catalogue Developers");
+      expect(pre).toHaveClass("whitespace-pre-wrap", "font-mono");
+    });
+  });
+
+  describe("whitespace-only slug handling", () => {
+    it("renders document-not-found error when slug is whitespace-only", async () => {
+      render(AboutDocumentView, { props: { slug: "   " } });
+
+      // The onMount guard `if (slug)` passes because "   " is truthy,
+      // so loadAboutDocumentView("   ") runs and its internal guard
+      // normalizes the slug to "" and sets the not-found error.
+      await waitFor(() => {
+        expect(screen.getByText("Document not found.")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
+      expect(adapterMock.getAboutDocument).not.toHaveBeenCalled();
     });
   });
 
