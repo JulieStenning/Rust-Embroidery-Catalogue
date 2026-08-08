@@ -54,6 +54,7 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
   mod tests;
   ```
 - The `#[path]` attribute keeps the test module inside the same crate, so `use super::*;` continues to grant access to all private items.
+- `scripts/batch_extract.ps1` is a reusable template for this process; adapt its `$jobs` array for new files and run the verification steps below.
 
 **Scope**
 - Only the `#[cfg(test)] mod tests` body is moved. Tiny `#[cfg(test)]` helper functions and constants scattered in production code may stay in place if they are small.
