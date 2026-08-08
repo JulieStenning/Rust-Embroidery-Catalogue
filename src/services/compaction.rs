@@ -345,4 +345,49 @@ mod tests {
             "scheduled task should have reclaimed the freelist"
         );
     }
+
+    #[tokio::test]
+    async fn read_page_size_returns_default_4096() {
+        let pool = test_pool().await;
+
+        // SQLite's default page size is 4096 bytes; the in-memory pool uses
+        // the default (the test setup only sets auto_vacuum).
+        let size = read_page_size(&pool).await.expect("read page size");
+        assert_eq!(
+            size, 4096,
+            "expected default SQLite page size, got {size}"
+        );
+    }
+
+    #[tokio::test]
+    async fn incremental_vacuum_clamps_max_pages_to_one() {
+        let pool = test_pool().await;
+
+        // Build a modest freelist that fits within the 25-step session cap
+        // (each step reclaims at most 1 page once max_pages is clamped to 1).
+        let freelist_before = populate_and_delete(&pool, 20, 2048).await;
+        assert!(
+            freelist_before > 0 && freelist_before <= 25,
+            "expected a modest freelist within the step cap, got {freelist_before}"
+        );
+
+        // max_pages = 0 must be clamped to 1 by `max(1)`; the freelist gets
+        // fully reclaimed in ≤ 25 steps without tripping the session cap.
+        let reclaimed = run_incremental_vacuum(&pool, 0)
+            .await
+            .expect("incremental vacuum should succeed");
+
+        assert!(
+            reclaimed > 0,
+            "expected at least one page reclaimed after clamp, got {reclaimed}"
+        );
+
+        let freelist_after = read_freelist_count(&pool)
+            .await
+            .expect("read freelist after");
+        assert_eq!(
+            freelist_after, 0,
+            "incremental vacuum should empty the freelist entirely"
+        );
+    }
 }
