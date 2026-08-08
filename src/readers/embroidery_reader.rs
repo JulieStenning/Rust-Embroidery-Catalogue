@@ -69,7 +69,7 @@ pub trait EmbroideryReader {
 // ---------------------------------------------------------------------------
 #[cfg(test)]
 mod reader_conformance_tests {
-    use super::EmbroideryReader;
+    use super::{EmbroideryReader, ReadReport};
     use crate::readers::{DstReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader};
 
     /// Generate a dedicated sub-module with contract tests for a single reader.
@@ -160,4 +160,96 @@ mod reader_conformance_tests {
         // Valid signature followed by a cut-off header.
         &b"%vsm%\0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"[..]
     );
+
+    // ─── ReadReport constructors ─────────────────────────────────────────
+
+    use crate::models::EmbPattern;
+
+    #[test]
+    fn success_constructor_populates_pattern_only() {
+        let pattern = EmbPattern::new();
+        let report = ReadReport::success(pattern.clone());
+
+        assert!(report.pattern.is_some());
+        assert_eq!(report.pattern.as_ref().unwrap(), &pattern);
+        assert!(report.warnings.is_empty());
+        assert!(report.error.is_none());
+    }
+
+    #[test]
+    fn warning_constructor_populates_warning() {
+        let pattern = EmbPattern::new();
+        let report = ReadReport::warning(pattern.clone(), "non-fatal issue");
+
+        assert!(report.pattern.is_some());
+        assert_eq!(report.pattern.as_ref().unwrap(), &pattern);
+        assert_eq!(report.warnings.len(), 1);
+        assert_eq!(report.warnings[0], "non-fatal issue");
+        assert!(report.error.is_none());
+    }
+
+    #[test]
+    fn failure_constructor_populates_error_only() {
+        let report = ReadReport::failure("fatal error");
+
+        assert!(report.pattern.is_none());
+        assert!(report.warnings.is_empty());
+        assert_eq!(report.error.as_deref(), Some("fatal error"));
+    }
+
+    // ─── EmbroideryReader::read() default trait implementation ───────────
+
+    /// A mock reader that always returns a fixed `ReadReport`, used to test
+    /// the trait's default `read()` method in isolation from any concrete
+    /// binary parser.
+    struct MockReader {
+        report: ReadReport,
+    }
+
+    impl EmbroideryReader for MockReader {
+        // Override only read_with_report; the default read() delegates to it.
+        fn read_with_report(&self, _data: &[u8]) -> ReadReport {
+            self.report.clone()
+        }
+    }
+
+    #[test]
+    fn read_default_returns_pattern_when_report_succeeds() {
+        let pattern = EmbPattern::new();
+        let reader = MockReader {
+            report: ReadReport::success(pattern.clone()),
+        };
+
+        let result = reader.read(&[0x00]);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), pattern);
+    }
+
+    #[test]
+    fn read_default_returns_error_when_report_has_error() {
+        let reader = MockReader {
+            report: ReadReport::failure("corrupt data"),
+        };
+
+        let result = reader.read(&[0x01]);
+        let err = result.expect_err("should be an error");
+        assert!(err.to_string().contains("corrupt data"));
+    }
+
+    #[test]
+    fn read_default_returns_parse_error_when_report_has_neither() {
+        // A malformed report with neither a pattern nor an error must still
+        // surface a descriptive parse error rather than panicking.
+        let reader = MockReader {
+            report: ReadReport {
+                pattern: None,
+                warnings: Vec::new(),
+                error: None,
+            },
+        };
+
+        let result = reader.read(&[0x02]);
+        let err = result.expect_err("should be an error");
+        assert!(err.to_string().contains("no pattern"));
+    }
 }
