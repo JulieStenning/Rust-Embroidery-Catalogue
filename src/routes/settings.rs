@@ -331,6 +331,11 @@ mod tests {
     async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
         let _guard = lock_env();
 
+        // Isolate GOOGLE_API_KEY so ambient process state (.env / real env)
+        // cannot leak into this default-value assertion.
+        let prev_google_api_key = std::env::var("GOOGLE_API_KEY").ok();
+        std::env::remove_var("GOOGLE_API_KEY");
+
         // Use a temp directory without a `data/` child → Installed mode.
         let tmp = std::env::temp_dir().join(format!(
             "settings-test-get-vm-{}",
@@ -361,6 +366,11 @@ mod tests {
         assert!(vm.can_configure_data_root); // Installed → true
         assert_eq!(vm.app_mode, "installed");
         assert_eq!(vm.ai_tagging_help_url, "#/help");
+
+        // Restore the ambient GOOGLE_API_KEY (if any) for other tests.
+        if let Some(google_api_key) = prev_google_api_key {
+            std::env::set_var("GOOGLE_API_KEY", google_api_key);
+        }
 
         // Cleanup
         let _ = std::fs::remove_dir_all(&tmp);

@@ -1208,6 +1208,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn stop_state_transitions_are_stable() {
         clear_stop_signal();
         let first = request_stop();
@@ -1426,12 +1427,14 @@ mod tests {
     // ─────────────────────────────────────────
 
     #[test]
+    #[serial]
     fn is_stop_requested_initial_state_false() {
         clear_stop_signal();
         assert!(!is_stop_requested());
     }
 
     #[test]
+    #[serial]
     fn stop_requested_store_true_and_false() {
         clear_stop_signal();
         stop_requested_store(true);
@@ -2166,6 +2169,13 @@ mod tests {
     async fn run_unified_backfill_stop_signal_detected_by_summary() {
         let pool = make_test_pool().await;
         seed_basic(&pool).await;
+
+        // Guard against a leaked stop flag from parallel tests that share the
+        // process-wide STOP_REQUESTED AtomicBool. `run_unified_backfill` also
+        // clears it, but only synchronously at the start of the async fn — a
+        // concurrent test could re-set it after the clear but before the
+        // processing loop reads it, causing `processed` to undercount.
+        clear_stop_signal();
 
         // After run_unified_backfill completes, it checks STOP_REQUESTED.
         // We request a stop BEFORE the call, but the function clears the flag
