@@ -1248,6 +1248,7 @@ fn cleanup_empty_directories(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use sqlx::sqlite::SqlitePoolOptions;
     use sqlx::{Connection, Executor, SqliteConnection};
     use std::time::Duration;
@@ -2418,6 +2419,99 @@ mod tests {
         assert_eq!(result.found, 0);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    // ─── external_launches_disabled ──────────────────────────────────────────
+
+    #[test]
+    #[serial]
+    fn external_launches_disabled_returns_true_when_env_var_is_truthy() {
+        let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+        std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", "true");
+        assert!(external_launches_disabled());
+        if let Some(val) = prior {
+            std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
+        } else {
+            std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn external_launches_disabled_returns_false_when_env_var_is_falsy() {
+        let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+        std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", "false");
+        assert!(!external_launches_disabled());
+        if let Some(val) = prior {
+            std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
+        } else {
+            std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn external_launches_disabled_returns_false_when_env_var_absent() {
+        let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+        std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
+        assert!(!external_launches_disabled());
+        if let Some(val) = prior {
+            std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
+        }
+    }
+
+    // ─── derive_* source path helpers ─────────────────────────────────────────
+
+    #[test]
+    #[serial]
+    fn derive_database_source_path_strips_sqlite_prefix() {
+        let prior = std::env::var("DATABASE_URL").ok();
+        std::env::set_var("DATABASE_URL", "sqlite:/tmp/test_data/Database/catalogue.db");
+
+        let result = derive_database_source_path();
+        assert_eq!(result, PathBuf::from("/tmp/test_data/Database/catalogue.db"));
+
+        if let Some(val) = prior {
+            std::env::set_var("DATABASE_URL", val);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn derive_data_root_path_strips_database_folder() {
+        let prior = std::env::var("DATABASE_URL").ok();
+        std::env::set_var("DATABASE_URL", "sqlite:/tmp/test_root/Database/catalogue.db");
+
+        // The parent contains "Database", so the returned root is its parent.
+        let result = derive_data_root_path();
+        assert_eq!(result, PathBuf::from("/tmp/test_root"));
+
+        if let Some(val) = prior {
+            std::env::set_var("DATABASE_URL", val);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn derive_designs_source_path_appends_machine_embroidery_designs() {
+        let prior = std::env::var("DATABASE_URL").ok();
+        std::env::set_var("DATABASE_URL", "sqlite:/tmp/test_root/Database/catalogue.db");
+
+        let result = derive_designs_source_path();
+        assert_eq!(
+            result,
+            PathBuf::from("/tmp/test_root/MachineEmbroideryDesigns")
+        );
+
+        if let Some(val) = prior {
+            std::env::set_var("DATABASE_URL", val);
+        } else {
+            std::env::remove_var("DATABASE_URL");
+        }
     }
 }
 
