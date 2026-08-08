@@ -2379,4 +2379,142 @@ mod tests {
         assert!(summary.actions.contains(&"tagging".to_string()));
         assert!(summary.processed >= 2);
     }
+
+    // ─────────────────────────────────────────
+    // resolve_stored_design_path
+    // ─────────────────────────────────────────
+    //
+    // Pure path-resolution logic that normalises stored DB filepaths into
+    // absolute on-disk locations. Every branch is testable without any real
+    // design files on disk.
+
+    #[test]
+    fn resolve_path_empty_refers_to_designs_base() {
+        let result = resolve_stored_design_path("");
+        assert!(
+            result.ends_with("MachineEmbroideryDesigns"),
+            "got {}",
+            result.display()
+        );
+    }
+
+    #[test]
+    fn resolve_path_whitespace_refers_to_designs_base() {
+        let result = resolve_stored_design_path("   ");
+        assert!(
+            result.ends_with("MachineEmbroideryDesigns"),
+            "got {}",
+            result.display()
+        );
+    }
+
+    #[test]
+    fn resolve_path_canonical_machine_designs_prefix() {
+        let result = resolve_stored_design_path("/MachineEmbroideryDesigns/foo/bar.pes");
+        let joined = result.to_string_lossy().replace('\\', "/");
+        assert!(
+            joined.ends_with("/MachineEmbroideryDesigns/foo/bar.pes"),
+            "got {joined}"
+        );
+    }
+
+    #[test]
+    fn resolve_path_machine_designs_without_leading_slash() {
+        let result = resolve_stored_design_path("MachineEmbroideryDesigns/foo/bar.pes");
+        let joined = result.to_string_lossy().replace('\\', "/");
+        assert!(
+            joined.ends_with("/MachineEmbroideryDesigns/foo/bar.pes"),
+            "got {joined}"
+        );
+    }
+
+    #[test]
+    fn resolve_path_bare_relative_joins_under_designs_base() {
+        let result = resolve_stored_design_path("foo/bar.pes");
+        let joined = result.to_string_lossy().replace('\\', "/");
+        assert!(
+            joined.ends_with("/MachineEmbroideryDesigns/foo/bar.pes"),
+            "got {joined}"
+        );
+    }
+
+    #[test]
+    fn resolve_path_backslashes_normalized_to_forwards() {
+        let result = resolve_stored_design_path(r"foo\bar.pes");
+        let joined = result.to_string_lossy().replace('\\', "/");
+        assert!(
+            joined.ends_with("/MachineEmbroideryDesigns/foo/bar.pes"),
+            "got {joined}"
+        );
+    }
+
+    #[test]
+    fn resolve_path_absolute_returned_as_is() {
+        let absolute = std::env::current_dir()
+            .expect("current dir")
+            .join("some_legacy_file.pes");
+        let result = resolve_stored_design_path(&absolute.to_string_lossy());
+        assert!(result.is_absolute(), "got {:?}", result);
+    }
+
+    // ─────────────────────────────────────────
+    // get_backfill_log_entries
+    // ─────────────────────────────────────────
+    //
+    // The public log-readback API. These are #[serial] because they share the
+    // process-wide log files with the other serial backfill tests.
+
+    #[tokio::test]
+    #[serial]
+    async fn get_backfill_log_entries_combines_info_and_error() {
+        let _ = std::fs::remove_dir_all("logs");
+        truncate_logs_for_new_run().unwrap();
+        log_info("i-line".to_string());
+        log_error("e-line".to_string());
+
+        let entries = get_backfill_log_entries(&make_test_pool().await, 10)
+            .await
+            .unwrap();
+        let levels: Vec<&str> = entries.iter().map(|e| e.level.as_str()).collect();
+        assert!(levels.contains(&"info"));
+        assert!(levels.contains(&"error"));
+
+        let messages: Vec<String> = entries.iter().map(|e| e.message.clone()).collect();
+        assert!(messages.iter().any(|m| m.contains("i-line")));
+        assert!(messages.iter().any(|m| m.contains("e-line")));
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn get_backfill_log_entries_respects_limit_clamp() {
+        let _ = std::fs::remove_dir_all("logs");
+        truncate_logs_for_new_run().unwrap();
+        for i in 0..5 {
+            log_info(format!("line{i}"));
+        }
+
+        // limit 0 clamps to 1 → only the last info entry is returned
+        let small = get_backfill_log_entries(&make_test_pool().await, 0)
+            .await
+            .unwrap();
+        assert_eq!(small.len(), 1, "expected clamped to 1, got {}", small.len());
+
+        // limit 500 clamps to 200 → all 5 info entries are returned
+        let large = get_backfill_log_entries(&make_test_pool().await, 500)
+            .await
+            .unwrap();
+        assert_eq!(large.len(), 5, "expected all 5, got {}", large.len());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn get_backfill_log_entries_empty_when_no_logs() {
+        let _ = std::fs::remove_dir_all("logs");
+        truncate_logs_for_new_run().unwrap();
+
+        let entries = get_backfill_log_entries(&make_test_pool().await, 10)
+            .await
+            .unwrap();
+        assert!(entries.is_empty());
+    }
 }
