@@ -1,4 +1,6 @@
 <script>
+  import { deleteResultHolder } from "./deleteResultHolder.js";
+
   let {
     designIds = [],
     previewItems = [],
@@ -13,7 +15,7 @@
     <span data-testid="delete-preview-item">{item.filename}</span>
   {/each}
   {#if open}
-    <button type="button" onclick={() => onDeleted({ persisted: true, deleted_count: designIds.length, files_trashed: 0, errors: [] })}>Confirm delete</button>
+    <button type="button" onclick={() => onDeleted(deleteResultHolder.value ?? { persisted: true, deleted_count: designIds.length, files_trashed: 0, errors: [] })}>Confirm delete</button>
     <button type="button" onclick={() => onClose()}>Cancel delete</button>
   {/if}
 </div>

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
 import { tick } from "svelte";
 import BrowseView from "../BrowseView.svelte";
+import { deleteResultHolder } from "./__mocks__/deleteResultHolder.js";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls from running.
@@ -1365,6 +1366,68 @@ describe("BrowseView", () => {
       expect(screen.queryByText("1 design selected")).not.toBeInTheDocument();
       expect(modal).toHaveAttribute("data-open", "false");
     });
+
+    it("includes the file-trash count in the delete success toast", async () => {
+      deleteResultHolder.value = { persisted: true, deleted_count: 2, files_trashed: 1, errors: [] };
+
+      try {
+        await selectItems(2);
+        await fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
+        const modal = screen.getByTestId("delete-designs-modal");
+        await fireEvent.click(within(modal).getByRole("button", { name: "Confirm delete" }));
+
+        await waitFor(() => {
+          expect(toastMock.addToast).toHaveBeenCalledWith(
+            "2 design(s) deleted from catalogue. 1 source file(s) moved to recycle bin.",
+            "success"
+          );
+        });
+        expect(screen.queryByText("2 designs selected")).not.toBeInTheDocument();
+      } finally {
+        deleteResultHolder.value = null;
+      }
+    });
+
+    it("includes file-warning count and console.warn when the delete has errors", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      deleteResultHolder.value = { persisted: true, deleted_count: 1, files_trashed: 0, errors: ["file locked"] };
+
+      try {
+        await selectItems(1);
+        await fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
+        const modal = screen.getByTestId("delete-designs-modal");
+        await fireEvent.click(within(modal).getByRole("button", { name: "Confirm delete" }));
+
+        await waitFor(() => {
+          expect(toastMock.addToast).toHaveBeenCalledWith(
+            "1 design(s) deleted from catalogue. (1 file warning(s) — see console for details)",
+            "success"
+          );
+        });
+        expect(warnSpy).toHaveBeenCalledWith("Bulk delete file warnings:", ["file locked"]);
+      } finally {
+        deleteResultHolder.value = null;
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("shows an error toast when the delete fails to persist", async () => {
+      deleteResultHolder.value = { persisted: false, deleted_count: 0, files_trashed: 0, errors: ["permission denied"] };
+
+      try {
+        await selectItems(1);
+        await fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
+        const modal = screen.getByTestId("delete-designs-modal");
+        await fireEvent.click(within(modal).getByRole("button", { name: "Confirm delete" }));
+
+        await waitFor(() => {
+          expect(toastMock.addToast).toHaveBeenCalledWith("permission denied", "error");
+        });
+        expect(screen.queryByText("1 design selected")).not.toBeInTheDocument();
+      } finally {
+        deleteResultHolder.value = null;
+      }
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -2004,6 +2067,103 @@ describe("BrowseView", () => {
         expect(screen.getByText("rose.pes")).toBeInTheDocument();
       });
       expect(screen.queryByText("leaf.pes")).not.toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Normalization edge cases
+  // -------------------------------------------------------------------------
+
+  describe("normalizeCardItem edge cases", () => {
+    it("handles projects provided as a comma-separated string", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "rose.pes", projects: "Wedding, Autumn" })])
+      );
+
+      renderBrowse();
+      await settle();
+
+      expect(screen.getByText("rose.pes")).toBeInTheDocument();
+      // Projects are split on "," and trimmed → joined back with ", "
+      expect(screen.getByText("Wedding, Autumn")).toBeInTheDocument();
+    });
+
+    it("handles project_names as an array when projects is absent", async () => {
+      const item = design({ id: 1, filename: "rose.pes" });
+      delete item.projects;
+      item.project_names = ["Holiday"];
+      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([item]));
+
+      renderBrowse();
+      await settle();
+
+      expect(screen.getByText("Holiday")).toBeInTheDocument();
+    });
+
+    it("handles project_names as a comma-separated string when projects is absent", async () => {
+      const item = design({ id: 1, filename: "rose.pes" });
+      delete item.projects;
+      item.project_names = "Spring, Summer";
+      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([item]));
+
+      renderBrowse();
+      await settle();
+
+      expect(screen.getByText("Spring, Summer")).toBeInTheDocument();
+    });
+
+    it("uses the explicit folder field over the filepath-derived folder", async () => {
+      // The explicit `folder` field differs from what extractFolder would
+      // derive from filepath, proving the folder branch wins (folder-asc sort:
+      // Alpha folder → a.pes must come before Zeta folder → b.pes).
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({ id: 1, filename: "a.pes", filepath: "C:/designs/Zeta/a.pes", folder: "Alpha" }),
+          design({ id: 2, filename: "b.pes", filepath: "C:/designs/Alpha/b.pes", folder: "Zeta" }),
+        ])
+      );
+
+      renderBrowse();
+      await settle();
+
+      const sort = screen.getByText("Sort by:").closest("label")?.querySelector("select") as HTMLSelectElement;
+      await fireEvent.change(sort, { target: { value: "folder" } });
+      await tick();
+
+      const cards = screen.getAllByRole("article");
+      expect(cards[0]).toHaveTextContent("a.pes");
+      expect(cards[1]).toHaveTextContent("b.pes");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updateBrowseFilter: empty-q immediate reload
+  // -------------------------------------------------------------------------
+
+  describe("updateBrowseFilter q-empty reload", () => {
+    it("auto-reloads when the q filter is cleared", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "rose.pes" })])
+      );
+
+      renderBrowse();
+      await settle();
+
+      // Initial load.
+      expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(1);
+
+      const q = screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus');
+
+      // Typing a query does NOT auto-apply (only submit does).
+      await fireEvent.input(q, { target: { value: "rose" } });
+      await tick();
+      expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(1);
+
+      // Clearing q triggers the `(key === "q" && !value)` branch → auto-reload.
+      await fireEvent.input(q, { target: { value: "" } });
+      await waitFor(() => {
+        expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(2);
+      });
     });
   });
 });

@@ -521,6 +521,40 @@ describe("DesignDetailView", () => {
         expect(screen.queryByText("Floral")).not.toBeInTheDocument();
       });
     });
+
+    it("rolls back the optimistic tag removal when the backend rejects", async () => {
+      adapterMocks.removeDesignTag.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Tag is in use by another design.",
+      });
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Floral")).toBeInTheDocument();
+      });
+
+      const floralPill = element(
+        screen.getByText("Floral").closest("span.group"),
+        "Expected the Floral pill to exist."
+      );
+      const user = userEvent.setup();
+      await user.click(within(floralPill).getByTitle("Remove tag"));
+
+      // Error toast surfaced.
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Tag is in use by another design.",
+          "error"
+        );
+      });
+
+      // The tag is restored after refreshDetailAfterAction re-fetches.
+      await waitFor(() => {
+        expect(screen.getByText("Floral")).toBeInTheDocument();
+      });
+    });
   });
 
   describe("designer & source auto-save", () => {
@@ -611,6 +645,33 @@ describe("DesignDetailView", () => {
         });
       });
       expect(toastMock.addToast).toHaveBeenCalledWith("Source updated", "success");
+    });
+
+    it("reverts the source dropdown when the save fails", async () => {
+      adapterMocks.updateDesignMetadata.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Failed to update source",
+      });
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const sourceSelect = screen.getByLabelText("Source") as HTMLSelectElement;
+      const user = userEvent.setup();
+      await user.selectOptions(sourceSelect, "");
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Failed to update source",
+          "error"
+        );
+      });
+      // The dropdown must revert to the previously known-good value.
+      expect(sourceSelect.value).toBe("3");
     });
   });
 
@@ -797,6 +858,58 @@ describe("DesignDetailView", () => {
       await waitFor(() => {
         expect(adapterMocks.renderDesign3dPreview).toHaveBeenCalledWith(42, true);
       });
+    });
+
+    it("shows an error toast when the file explorer launch fails", async () => {
+      adapterMocks.openDesignInExplorer.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        result: { success: false },
+        message: "Explorer unavailable.",
+      });
+
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("Show in Explorer")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Show in Explorer/ }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Explorer unavailable.",
+          "error"
+        );
+      });
+    });
+
+    it("shows an error toast when the 3D preview generation fails", async () => {
+      adapterMocks.renderDesign3dPreview.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        result: { success: false },
+        message: "3D renderer failed.",
+      });
+
+      renderDetail();
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Generate 3D Preview" })
+        ).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Generate 3D Preview" }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "3D renderer failed.",
+          "error"
+        );
+      });
+      // The image refresh must NOT be triggered on failure.
+      expect(adapterMocks.getDesignImageDataUrl).not.toHaveBeenCalled();
     });
   });
 
