@@ -3806,4 +3806,214 @@ mod tests {
     }
 
     // ─── generate_preview is external — just document the gap ─────────────
+
+    // ─── push_general_search_clause ──────────────────────────────────────
+
+    #[test]
+    fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+        let tokens = vec![GeneralSearchToken {
+            text: "rose".to_string(),
+            phrase: false,
+            exclude: false,
+            is_extension: false,
+        }];
+        let groups = vec![tokens];
+
+        push_general_search_clause(&mut builder, true, true, true, &groups);
+
+        let sql = builder.sql();
+        assert!(sql.contains("LOWER(d.filename) LIKE"));
+        assert!(sql.contains("design_tags"));
+        assert!(sql.contains("LOWER(tags.description) LIKE"));
+        assert!(sql.contains("LOWER(d.filepath) LIKE"));
+        // The bind values are stored as parameters, so count the `?` placeholders.
+        assert!(sql.matches("LIKE ").count() >= 3);
+    }
+
+    #[test]
+    fn push_general_search_clause_with_exclusion_adds_not() {
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+        let tokens = vec![GeneralSearchToken {
+            text: "applique".to_string(),
+            phrase: false,
+            exclude: true,
+            is_extension: false,
+        }];
+        let groups = vec![tokens];
+
+        push_general_search_clause(&mut builder, true, false, false, &groups);
+
+        let sql = builder.sql();
+        assert!(sql.contains("NOT ("));
+        assert!(sql.contains("LOWER(d.filename) LIKE"));
+        assert!(sql.contains(")"));
+    }
+
+    #[test]
+    fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+        let group_a = vec![GeneralSearchToken {
+            text: "rose".to_string(),
+            phrase: false,
+            exclude: false,
+            is_extension: false,
+        }];
+        let group_b = vec![GeneralSearchToken {
+            text: "hus".to_string(),
+            phrase: false,
+            exclude: false,
+            is_extension: true,
+        }];
+        let groups = vec![group_a, group_b];
+
+        push_general_search_clause(&mut builder, true, false, false, &groups);
+
+        let sql = builder.sql();
+        assert!(sql.contains(" OR "));
+        // Each group adds a LIKE placeholder for the file search.
+        assert!(sql.matches("LOWER(d.filename) LIKE").count() >= 2);
+    }
+
+    #[test]
+    fn push_general_search_clause_empty_groups_is_noop() {
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+        let original = builder.sql().to_string();
+        push_general_search_clause(&mut builder, true, true, true, &[]);
+        assert_eq!(builder.sql(), original);
+    }
+
+    #[test]
+    fn push_general_search_clause_and_between_tokens_within_group() {
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+        let tokens = vec![
+            GeneralSearchToken {
+                text: "rose".to_string(),
+                phrase: false,
+                exclude: false,
+                is_extension: false,
+            },
+            GeneralSearchToken {
+                text: "satin".to_string(),
+                phrase: false,
+                exclude: false,
+                is_extension: false,
+            },
+        ];
+        let groups = vec![tokens];
+
+        push_general_search_clause(&mut builder, true, false, false, &groups);
+
+        let sql = builder.sql();
+        assert!(sql.contains(" AND "));
+        assert!(sql.matches("LOWER(d.filename) LIKE").count() >= 2);
+    }
+
+    // ─── recommend_hoop_for_design ───────────────────────────────────────
+
+    #[tokio::test]
+    async fn recommend_hoop_selects_smallest_fitting_hoop() {
+        let pool = test_pool().await;
+        sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES ('Small', 50, 40)")
+            .execute(&pool)
+            .await
+            .expect("insert small hoop");
+        sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES ('Large', 200, 200)")
+            .execute(&pool)
+            .await
+            .expect("insert large hoop");
+
+        let result = recommend_hoop_for_design(&pool, Some(40), Some(35))
+            .await
+            .expect("hoop recommendation should succeed");
+
+        // Small (50x40) fits 40x35; should be chosen over Large (200x200)
+        assert!(result.is_some());
+        let name = sqlx::query_scalar::<_, String>("SELECT name FROM hoops WHERE id = ?")
+            .bind(result.unwrap())
+            .fetch_one(&pool)
+            .await
+            .expect("hoop name query");
+        assert_eq!(name, "Small");
+    }
+
+    #[tokio::test]
+    async fn recommend_hoop_tries_rotated_orientation() {
+        let pool = test_pool().await;
+        // 60 wide x 30 tall: fits Small (50x40) rotated (40 wide x 50 tall needed)
+        // Actually design 60x30 -> needs 60 wide. Little (70x20) won't fit.
+        // To prove rotation: insert hoop that fits when the design is rotated 90°.
+        // Design 60x30 -> rotated 30x60. Need a hoop >= 30 wide, >= 60 tall.
+        sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES ('Tall', 30, 70)")
+            .execute(&pool)
+            .await
+            .expect("insert tall hoop");
+
+        let result = recommend_hoop_for_design(&pool, Some(60), Some(30))
+            .await
+            .expect("hoop recommendation should succeed");
+
+        // Only Tall (30x70) fits either orientation: width=60 fails (30<60),
+        // but rotated width=30,height=60 → 30>=30 and 70>=60 passes.
+        assert!(result.is_some());
+        let name = sqlx::query_scalar::<_, String>("SELECT name FROM hoops WHERE id = ?")
+            .bind(result.unwrap())
+            .fetch_one(&pool)
+            .await
+            .expect("hoop name query");
+        assert_eq!(name, "Tall");
+    }
+
+    #[tokio::test]
+    async fn recommend_hoop_returns_none_when_no_hoop_fits() {
+        let pool = test_pool().await;
+        sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES ('Tiny', 5, 5)")
+            .execute(&pool)
+            .await
+            .expect("insert tiny hoop");
+
+        // Use dimensions larger than ALL seeded hoops (Hoop A is 126x126),
+        // so no hoop fits in either orientation.
+        let result = recommend_hoop_for_design(&pool, Some(300), Some(300))
+            .await
+            .expect("hoop recommendation should succeed");
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn recommend_hoop_returns_none_when_dimensions_missing() {
+        let pool = test_pool().await;
+        let result = recommend_hoop_for_design(&pool, None, Some(10))
+            .await
+            .expect("hoop recommendation should succeed");
+        assert!(result.is_none());
+
+        let result = recommend_hoop_for_design(&pool, Some(10), None)
+            .await
+            .expect("hoop recommendation should succeed");
+        assert!(result.is_none());
+    }
+
+    // ─── normalize_windows_explorer_target (Windows-only) ────────────────
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn normalize_windows_explorer_target_strips_verbatim_unc_prefix() {
+        let result = normalize_windows_explorer_target(&PathBuf::from(r"\\?\UNC\server\share\file.pes"));
+        assert_eq!(result.to_string_lossy(), r"\\server\share\file.pes");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn normalize_windows_explorer_target_strips_verbatim_local_prefix() {
+        let result = normalize_windows_explorer_target(&PathBuf::from(r"\\?\C:\data\file.pes"));
+        assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn normalize_windows_explorer_target_converts_forward_slashes() {
+        let result = normalize_windows_explorer_target(&PathBuf::from("C:/data/file.pes"));
+        assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
+    }
 }
