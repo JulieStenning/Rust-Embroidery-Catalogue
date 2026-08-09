@@ -5,9 +5,11 @@ import MainView from "../lib/MainView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock normalizeHash as a passthrough (minus query strings). The real
-// implementation normalizes unknown routes to "#/designs", which makes the
-// project-new and Route Not Found branches unreachable in tests. Keeping
-// the query-stripping behavior lets help-section scrolling work too.
+// implementation collapses unknown routes to "#/designs", which makes the
+// Route Not Found branch unreachable in tests (by design, unknown routes
+// land on the browse page in production). The "#/projects/new" route is
+// handled by the real normalizeHash, so it no longer needs mocking.
+// Keeping the query-stripping behavior lets help-section scrolling work too.
 // ---------------------------------------------------------------------------
 vi.mock("../lib/utils/routing.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/utils/routing.js")>();

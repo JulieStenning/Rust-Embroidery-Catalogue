@@ -113,6 +113,10 @@ export function normalizeHash(hashString) {
     }
   }
 
+  if (path === "#/projects/new") {
+    return path;
+  }
+
   if (parseDesignDetailId(path) !== null) {
     return path;
   }
