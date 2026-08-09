@@ -8,36 +8,40 @@ This file tracks modules, frontend components, and backend logic where test cove
 
 ## Backend (Rust / Tauri)
 
-
-| Module / File Path               | Function Coverage | Line Coverage | Region Coverage | Date Accepted | Reason / Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| :------------------------------- | :---------------- | :------------ | :-------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| src/services/db_health.rs        | 80.00%            | ~65%          | ~65%            | 2026-08-08    | [ACCEPTED]                                                                                                                                                                      | src/main.rs                      | ~57%              | ~65%          | ~65%            | 2026-08-08    | [ACCEPTED] 
-| src/routes/designs.rs            | ~75%              | ~75%          | ~75%            | 2026-08-08    | [ACCEPTED] 
-| src/services/about_documents.rs  | 91.67%            | 73.33%        | 73.47%          | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-| src/routes/maintenance.rs        | ~65%              | ~75%          | ~78%            | 2026-08-08    | [ACCEPTED] 
-| src/readers/vp3_reader.rs        | 100%              | 75.21%        | 74.32%          | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-| src/error.rs                     | 80.00%            | 79.25%        | 75.38%          | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-| src/utils.rs                     | 75.00%            | 90.00%        | 84.62%          | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-| src/logging.rs                   | 75.00%            | 86.89%        | 86.52%          | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-| src/services/backfill.rs         | 79.42%            | 89.87%        | 87.47%          | 2026-08-08    | [ACCEPTED] 
-| src/services/maintenance.rs      | 66.67%            | 95.24%        | 89.33%          | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-| src/routes/tagging_actions.rs    | 67.39%            | 94.88%        | 91.67%          | 2026-08-08    | [ACCEPTED] 
-| src/routes/admin.rs              | 78.81%            | 94.25%        | 93.91%          | 2026-08-08    | [ACCEPTED] 
-| src/services/fingerprint.rs      | 68.92%            | 94.66%        | 94.00%          | 2026-08-08    | [ACCEPTED] 
-| src/routes/projects.rs           | 0%                | 0%            | 0%              | 2026-08-08    | [ACCEPTED]                                                                                                                                                                                                              |
+| Module / File Path               | Line % | Function % | Region % | Date       | Status             | Reason Accepted                                       |
+| :------------------------------- | :----- | :--------- | :------- | :--------- | :----------------- |:------------------------------------------------------|
+| src/database/migrations.rs       | 72.73% | 100.00%    | 80.00%   | 2026-08-08 | [ACCEPTED]         | OS/Filesystem                                         |
+| src/logging.rs                   | 86.89% | 75.00%     | 86.52%   | 2026-08-08 | [ACCEPTED]         |                                                       |
+| src/main.rs                      | 22.55% | 18.42%     | 21.85%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
+| src/routes/admin.rs              | 62.42% | 50.00%     | 60.79%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
+| src/routes/bulk_import.rs        | 82.62% | 71.84%     | 79.75%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
+| src/routes/designs.rs            | 51.18% | 32.39%     | 47.57%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
+| src/routes/maintenance.rs        | 43.72% | 34.85%     | 45.63%   | 2026-08-08 | [ACCEPTED]         | Thin glue + OS/Filesystem                             |
+| src/routes/projects.rs           | 0%     | 0%         | 0%       | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
+| src/routes/settings.rs           | 47.27% | 31.58%     | 40.00%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
+| src/routes/tagging_actions.rs    | 94.88% | 67.39%     | 91.67%   | 2026-08-08 | [ACCEPTED]         |                                                       |
+| src/services/about_documents.rs  | 73.33% | 91.67%     | 73.47%   | 2026-08-08 | [ACCEPTED]         |                                                       |
+| src/services/admin.rs            | 94.17% | 61.43%     | 82.07%   | 2026-08-08 | [ACCEPTED]         | Derive artifacts + high line coverage                 |
+| src/services/backfill.rs         | 78.67% | 56.52%     | 72.30%   | 2026-08-08 | [ACCEPTED]         | OS/Filesystem                                         |
+| src/services/db_health.rs        | 72.69% | 84.38%     | 68.85%   | 2026-08-08 | [ACCEPTED]         |                                                       |
+| src/services/fingerprint.rs      | 93.46% | 66.67%     | 91.84%   | 2026-08-08 | [ACCEPTED]         | OS/Filesystem                                         |
+| src/services/maintenance.rs      | 95.24% | 66.67%     | 89.33%   | 2026-08-08 | [ACCEPTED]         |                                                       |
+| src/services/projects.rs         | 96.61% | 75.61%     | 88.11%   | 2026-08-08 | [ACCEPTED]         | Derive artifacts + high line coverage                 |
+| src/services/settings.rs         | 95.90% | 76.92%     | 88.12%   | 2026-08-08 | [ACCEPTED]         | Derive artifacts + high line coverage + OS/Filesystem |
+| src/utils.rs                     | 90.00% | 75.00%     | 84.62%   | 2026-08-08 | [ACCEPTED]         | Dev tooling                                           |
 
 ---
 
 ## Frontend (@Svelte Modules)
 
-| Module / File Path                     | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Reason / Rationale |
-| :------------------------------------- | :-------------- | :------------------ | :------------------------- | :--------- | :----------------- |
-| src/lib/views/BrowseView.svelte        | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED]         |
-| src/lib/views/DesignDetailView.svelte  | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED]         |
-| src/lib/views/ImportView.svelte        | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED]         |
-| src/lib/views/OrphansView.svelte       | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [ACCEPTED]         |
-| src/lib/views/ProjectsView.svelte      | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [ACCEPTED]         |
-| src/lib/views/TagsView.svelte          | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [ACCEPTED]         |
+| Module / File Path                     | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Status             | Reason Accepted |
+| :------------------------------------- | :-------------- | :------------------ | :------------------------- | :--------- | :----------------- |:----------------|
+| src/lib/views/BrowseView.svelte        | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED]         |                 |
+| src/lib/views/DesignDetailView.svelte  | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED]         |                 |
+| src/lib/views/ImportView.svelte        | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED]         |                 |
+| src/lib/views/OrphansView.svelte       | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [ACCEPTED]         |                 |
+| src/lib/views/ProjectsView.svelte      | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [ACCEPTED]         |                 |
+| src/lib/views/TagsView.svelte          | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [ACCEPTED]         |                 |
 
 ---
 
