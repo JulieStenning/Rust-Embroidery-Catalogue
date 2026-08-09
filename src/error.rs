@@ -88,4 +88,41 @@ mod tests {
         let err = AppError::not_found("design", Some("42".to_string()));
         assert_eq!(err.to_string(), "design not found: 42");
     }
+
+    #[test]
+    fn app_error_not_found_formats_without_id() {
+        let err = AppError::not_found("design", None::<String>);
+        assert_eq!(err.to_string(), "design not found");
+    }
+
+    #[test]
+    fn app_error_database_display() {
+        let err = AppError::database("connection refused");
+        assert_eq!(err.to_string(), "database error: connection refused");
+    }
+
+    #[test]
+    fn app_error_io_display() {
+        let err = AppError::io("permission denied");
+        assert_eq!(err.to_string(), "i/o error: permission denied");
+    }
+
+    #[test]
+    fn app_error_parse_display() {
+        let err = AppError::parse("invalid header");
+        assert_eq!(err.to_string(), "parse error: invalid header");
+    }
+
+    #[test]
+    fn app_error_unsupported_display() {
+        let err = AppError::unsupported("format xyz");
+        assert_eq!(err.to_string(), "unsupported: format xyz");
+    }
+
+    #[test]
+    fn app_error_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let err: AppError = io_err.into();
+        assert_eq!(err, AppError::io("access denied"));
+    }
 }
