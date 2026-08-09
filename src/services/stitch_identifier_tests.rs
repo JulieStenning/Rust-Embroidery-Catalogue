@@ -136,7 +136,7 @@ fn identifies_metadata_priority_keyword() {
 }
 
 #[test]
-fn identifies_multi_block_mixed_types() {
+fn identifies_single_priority_type_for_multi_block_mixed_design() {
     let mut pattern = outline_pattern();
     // Color change
     pattern.stitches.push(Stitch {
@@ -168,8 +168,9 @@ fn identifies_multi_block_mixed_types() {
         Some(0.70),
     );
 
-    assert!(tags.contains(&"Line Outline".to_string()));
+    // Filled has higher priority than outline, so it wins alone.
     assert!(tags.contains(&"Filled".to_string()));
+    assert!(!tags.contains(&"Line Outline".to_string()));
 }
 
 #[test]
@@ -249,8 +250,146 @@ fn identifies_applique_geometric_matching() {
         Some(0.70),
     );
 
+    // Applique stops the chain - other type tags are not reported.
     assert!(tags.contains(&"Applique".to_string()));
+    assert!(!tags.contains(&"In The Hoop".to_string()));
+}
+
+/// A filled pattern whose filename contains an "ith" keyword. ITH must win
+/// because the priority chain stops at it before filled is considered.
+#[test]
+fn ith_keyword_beats_filled() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Filled".to_string(), "In The Hoop".to_string()]);
+
+    let tags = suggest_stitching_from_pattern(
+        &pattern,
+        "cartoon_ith_toy.pes",
+        "C:/imports/ith/cartoon_ith_toy.pes",
+        &valid,
+        Some(0.70),
+    );
+
     assert!(tags.contains(&"In The Hoop".to_string()));
+    assert!(!tags.contains(&"Filled".to_string()));
+}
+
+/// A filled pattern whose filename contains an "applique" keyword. Applique
+/// must win because the priority chain stops at it before filled is
+/// considered.
+#[test]
+fn applique_keyword_beats_filled() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Filled".to_string(), "Applique".to_string()]);
+
+    let tags = suggest_stitching_from_pattern(
+        &pattern,
+        "flower_applique.pes",
+        "C:/imports/applique/flower_applique.pes",
+        &valid,
+        Some(0.70),
+    );
+
+    assert!(tags.contains(&"Applique".to_string()));
+    assert!(!tags.contains(&"Filled".to_string()));
+}
+
+/// A dense uniform fill must be reported as Filled ONLY - not Satin or
+/// Outline. This is the core regression for the 53505.hus case.
+#[test]
+fn filled_suppresses_satin_and_outline() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from([
+        "Filled".to_string(),
+        "Line Outline".to_string(),
+        "Satin Stitch".to_string(),
+    ]);
+
+    let tags = suggest_stitching_from_pattern(
+        &pattern,
+        "dense-fill.pes",
+        "C:/imports/filled/dense-fill.pes",
+        &valid,
+        Some(0.70),
+    );
+
+    assert_eq!(tags, vec!["Filled".to_string()]);
+}
+
+/// Verifies the real 53505.hus fixture (a solid dense fill) is reported as
+/// Filled ONLY - the original regression that returned filled, outline and
+/// satin together. The test is skipped when the fixture file is absent so
+/// CI / fresh checkouts do not depend on a local Design folder.
+#[test]
+fn real_53505_hus_is_filled_only() {
+    let path = "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Tea Pot Houses Collection I/53505.hus";
+    if !std::path::Path::new(path).exists() {
+        eprintln!("SKIPPED: fixture file does not exist at {}", path);
+        return;
+    }
+
+    let valid = HashSet::from([
+        "Filled".to_string(),
+        "Line Outline".to_string(),
+        "Satin Stitch".to_string(),
+        "Cross Stitch".to_string(),
+    ]);
+
+    let tags = suggest_stitching_from_pattern_file(path, "53505.hus", path, &valid, Some(0.70));
+
+    assert!(tags.contains(&"Filled".to_string()));
+    assert!(!tags.contains(&"Line Outline".to_string()));
+    assert!(!tags.contains(&"Satin Stitch".to_string()));
+    assert!(!tags.contains(&"Cross Stitch".to_string()));
+}
+
+/// The other Tea Pot Houses Collection files must also be Filled - not Cross
+/// Stitch. Diagonal serpentine fills share the 45/135-degree angle signature
+/// with real cross-stitch, so this pins the stitch-length gate that separates
+/// them (fills use long rows; cross-stitch legs are short).
+#[test]
+fn tea_pot_houses_files_are_filled_not_cross_stitch() {
+    let base_dir =
+        "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Tea Pot Houses Collection I";
+    let files = [
+        "53500.hus",
+        "53503.hus",
+        "53504.hus",
+        "53509.hus",
+        "53513.hus",
+        "53515.hus",
+        "53518.hus",
+        "53519.hus",
+    ];
+
+    let valid = HashSet::from([
+        "Filled".to_string(),
+        "Line Outline".to_string(),
+        "Satin Stitch".to_string(),
+        "Cross Stitch".to_string(),
+    ]);
+
+    for file in files {
+        let path = format!("{}/{}", base_dir, file);
+        if !std::path::Path::new(&path).exists() {
+            eprintln!("SKIPPED: fixture file does not exist at {}", path);
+            continue;
+        }
+
+        let tags = suggest_stitching_from_pattern_file(&path, file, &path, &valid, Some(0.70));
+        assert!(
+            tags.contains(&"Filled".to_string()),
+            "{} should be Filled, got {:?}",
+            file,
+            tags
+        );
+        assert!(
+            !tags.contains(&"Cross Stitch".to_string()),
+            "{} should NOT be Cross Stitch, got {:?}",
+            file,
+            tags
+        );
+    }
 }
 
 #[test]

@@ -1,4 +1,4 @@
-﻿use crate::models::{EmbPattern, Stitch, StitchType};
+use crate::models::{EmbPattern, Stitch, StitchType};
 use crate::readers::{
     DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader,
 };
@@ -143,21 +143,142 @@ impl<'a> StitchIdentifier<'a> {
         }
     }
 
+    /// Classify the dominant stitch type for the design.
+    ///
+    /// A design is treated as having ONE primary stitch character. Stitch
+    /// types are checked in a priority chain, most specific first, and the
+    /// first confidently-matched type is returned alone. Lower-priority
+    /// types are never considered once a higher-priority one has matched.
+    ///
+    /// Signal is collected per colour block first so that dense regions are
+    /// not diluted by sharing the whole-pattern bounding box with sparse
+    /// regions. The priority chain then picks the single dominant type.
+    ///
+    /// Priority order:
+    ///   1. Lace      - keyword only (filename/folder)
+    ///   2. ITH       - keyword or whole-pattern geometry
+    ///   3. Applique  - keyword only, or two geometrically-matching outline
+    ///                  blocks (placement + tack-down)
+    ///   4. Cross Stitch - diagonal X signature
+    ///   5. Filled    - dense back-and-forth pattern
+    ///   6. Satin     - dense long parallel stitches
+    ///   7. Cutwork   - outline + satin + many trims
+    ///   8. Outline   - running stitch over a sparse area (fallback)
     fn identify_stitches(&self) -> Vec<String> {
-        let mut found = Vec::new();
+        // Fast keyword checks on the whole design (filename/folder).
+        if self.name_confidence("lace") >= 0.99 {
+            return vec!["lace".to_string()];
+        }
+        if self.name_confidence("ith") >= 0.99 || self.detect_ith() >= self.confidence_threshold {
+            return vec!["ith".to_string()];
+        }
+        if self.name_confidence("applique") >= 0.99 {
+            return vec!["applique".to_string()];
+        }
+        if self.name_confidence("cross_stitch") >= 0.99 {
+            return vec!["cross_stitch".to_string()];
+        }
 
-        // 1. Quick win: Prioritize metadata keywords.
-        for &stitch_type in &["ith", "applique", "cross_stitch", "lace"] {
-            if self.name_confidence(stitch_type) >= 0.99 {
-                found.push(stitch_type.to_string());
+        // Whole-pattern priority: if one detector clearly dominates on the
+        // whole design, it wins immediately. Multi-colour fill designs whose
+        // individual colour blocks are too fragmented to pass the threshold
+        // on their own (e.g. long-row teapot house fills) still read as one
+        // filled design from the aggregate.
+        let whole_filled = self.detect_filled(false);
+        let whole_satin = self.detect_satin(false);
+        let whole_outline = self.detect_outline();
+
+        let filled_effective_threshold = (self.confidence_threshold - 0.05).max(0.60);
+        let filled_confident = whole_filled >= filled_effective_threshold;
+
+        // Applique is detected by two geometrically-matching outline blocks
+        // (placement + tack-down). This must run BEFORE the whole-pattern
+        // priority gate - a genuine applique's placement/tack-down outlines
+        // are sparse and would otherwise be caught by the outline detector.
+        // BUT only consider it when the design is NOT confidently filled:
+        // in a dense fill, matching sparse blocks are just interior elements
+        // (windows, details), not applique layers.
+        if !filled_confident && self.detect_applique_from_block_geometry() {
+            return vec!["applique".to_string()];
+        }
+
+        let best = [
+            (whole_filled, "filled"),
+            (whole_satin, "satin"),
+            (whole_outline, "outline"),
+        ]
+        .into_iter()
+        .max_by(|a, b| a.0.total_cmp(&b.0));
+        if let Some((score, stitch_type)) = best {
+            // Whole-pattern filled systematically under-scores fragmented
+            // multi-colour fills (sparse interior holes dilute the density),
+            // so allow a small margin below the threshold when filled is the
+            // clearly-dominant detector. Satin/outline keep the strict bar.
+            let effective_threshold = if stitch_type == "filled" {
+                filled_effective_threshold
+            } else {
+                self.confidence_threshold
+            };
+            if score >= effective_threshold {
+                return vec![stitch_type.to_string()];
             }
         }
 
-        // 2. Split pattern into color blocks
-        let block_stitches = split_into_color_blocks(self.pattern);
-        let mut block_analyses = Vec::new();
+        // Collect which stitch types pass the threshold in ANY colour block.
+        // Note: applique is NOT included here - its whole-pattern heuristic
+        // false-positives on multi-colour dense designs (the path-repeat
+        // overlap proxy scores any multi-block design highly).
+        let mut collected: HashSet<String> = HashSet::new();
 
-        for (_i, stitches) in block_stitches.iter().enumerate() {
+        for block in split_into_color_blocks(self.pattern) {
+            let stitch_count = block
+                .iter()
+                .filter(|s| s.stitch_type == StitchType::Stitch)
+                .count();
+            if stitch_count < 6 {
+                continue;
+            }
+
+            let mut block_pattern = EmbPattern::new();
+            block_pattern.stitches = block.clone();
+
+            let block_identifier = StitchIdentifier::new(
+                &block_pattern,
+                &self.filename,
+                &self.folder_name,
+                self.confidence_threshold,
+            );
+
+            let block_scores = block_identifier.get_detailed_analysis();
+            for &stitch_type in &["cross_stitch", "cutwork", "filled", "outline", "satin"] {
+                if block_scores.get(stitch_type).copied().unwrap_or(0.0)
+                    >= self.confidence_threshold
+                {
+                    collected.insert(stitch_type.to_string());
+                }
+            }
+        }
+
+        // Priority chain over the collected types - first match wins alone.
+        for &stitch_type in &["cross_stitch", "filled", "satin", "cutwork", "outline"] {
+            if collected.contains(stitch_type) {
+                return vec![stitch_type.to_string()];
+            }
+        }
+
+        // Nothing conclusive - leave the design untagged.
+        Vec::new()
+    }
+
+    /// Detects an applique/ITH design where two (or more) colour blocks are
+    /// near-identical outline runs (placement + tack-down) layered on top of
+    /// each other. This is a separate signal from the whole-pattern
+    /// `detect_applique()` heuristic, which relies on path repetition.
+    fn detect_applique_from_block_geometry(&self) -> bool {
+        let block_stitches = split_into_color_blocks(self.pattern);
+        let mut blocks = Vec::new();
+
+        for stitches in block_stitches {
             let stitch_count = stitches
                 .iter()
                 .filter(|s| s.stitch_type == StitchType::Stitch)
@@ -166,7 +287,6 @@ impl<'a> StitchIdentifier<'a> {
                 continue;
             }
 
-            // Create a temporary EmbPattern for this block
             let mut block_pattern = EmbPattern::new();
             block_pattern.stitches = stitches.clone();
 
@@ -177,93 +297,16 @@ impl<'a> StitchIdentifier<'a> {
                 self.confidence_threshold,
             );
 
-            // Run block-level analysis
             let block_scores = block_identifier.get_detailed_analysis();
-            // Store the ANALYSES position (block_analyses.len()-1), not the raw
-            // block index `i` from the initial enumerate(). Small blocks (stitch
-            // count < 6) are skipped above, so `i` can exceed block_analyses.len()
-            // and would cause an out-of-bounds panic later when the collected
-            // indices are used to index block_analyses.
-            let analyses_index = block_analyses.len();
-            block_analyses.push((analyses_index, stitches.clone(), block_scores.clone(), stitch_count));
-
-            // Now split the block into islands based on jumps/trims/stops
-            let islands = split_block_into_islands(stitches);
-            let mut block_tags = Vec::new();
-
-            if islands.len() <= 1 {
-                let mut tags = Vec::new();
-                for &stitch_type in &[
-                    "cross_stitch",
-                    "cutwork",
-                    "filled",
-                    "lace",
-                    "outline",
-                    "satin",
-                ] {
-                    if block_scores.get(stitch_type).copied().unwrap_or(0.0)
-                        >= self.confidence_threshold
-                    {
-                        tags.push(stitch_type.to_string());
-                    }
-                }
-                apply_precedence_rules(&mut tags, &block_scores, self.confidence_threshold);
-                block_tags = tags;
-            } else {
-                for island_stitches in islands {
-                    let island_stitch_count = island_stitches
-                        .iter()
-                        .filter(|s| s.stitch_type == StitchType::Stitch)
-                        .count();
-                    if island_stitch_count < 6 {
-                        continue;
-                    }
-
-                    let mut island_pattern = EmbPattern::new();
-                    island_pattern.stitches = island_stitches;
-
-                    let island_identifier = StitchIdentifier::new(
-                        &island_pattern,
-                        &self.filename,
-                        &self.folder_name,
-                        self.confidence_threshold,
-                    );
-
-                    let island_scores = island_identifier.get_detailed_analysis();
-                    let mut island_tags = Vec::new();
-                    for &stitch_type in &[
-                        "cross_stitch",
-                        "cutwork",
-                        "filled",
-                        "lace",
-                        "outline",
-                        "satin",
-                    ] {
-                        if island_scores.get(stitch_type).copied().unwrap_or(0.0)
-                            >= self.confidence_threshold
-                        {
-                            island_tags.push(stitch_type.to_string());
-                        }
-                    }
-                    apply_precedence_rules(
-                        &mut island_tags,
-                        &island_scores,
-                        self.confidence_threshold,
-                    );
-                    block_tags.extend(island_tags);
-                }
-            }
-
-            found.extend(block_tags);
+            blocks.push((stitches, block_scores));
         }
 
-        // 3. Run Applique/ITH geometry-matching detection between all pairs of blocks
-        // We require at least TWO outline-like blocks (placement + tack-down) that match geometrically.
-        let mut has_applique = false;
-        for idx_a in 0..block_analyses.len() {
-            for idx_b in (idx_a + 1)..block_analyses.len() {
-                let (_, stitches_a, scores_a, _) = &block_analyses[idx_a];
-                let (_, stitches_b, scores_b, _) = &block_analyses[idx_b];
+        // Require at least TWO outline-like blocks (placement + tack-down)
+        // that match geometrically.
+        for idx_a in 0..blocks.len() {
+            for idx_b in (idx_a + 1)..blocks.len() {
+                let (stitches_a, scores_a) = &blocks[idx_a];
+                let (stitches_b, scores_b) = &blocks[idx_b];
 
                 if geometry_matches(stitches_a, stitches_b) {
                     let outline_a = scores_a.get("outline").copied().unwrap_or(0.0);
@@ -271,87 +314,13 @@ impl<'a> StitchIdentifier<'a> {
                     if outline_a >= self.confidence_threshold
                         && outline_b >= self.confidence_threshold
                     {
-                        has_applique = true;
-                        break;
+                        return true;
                     }
                 }
             }
-            if has_applique {
-                break;
-            }
         }
 
-        if has_applique {
-            if !found.contains(&"applique".to_string()) {
-                found.push("applique".to_string());
-            }
-            if !found.contains(&"ith".to_string()) {
-                found.push("ith".to_string());
-            }
-        }
-        // --- New Step: Demote Outlines that accent a Fill/Satin block ---
-        let mut has_substantial_fill_or_satin = false;
-        let mut outline_block_indices = Vec::new();
-        let mut filled_satin_block_indices = Vec::new();
-
-        // Identify which blocks contributed what scores
-        for (idx, _, scores, _) in &block_analyses {
-            let satin = scores.get("satin").copied().unwrap_or(0.0);
-            let filled = scores.get("filled").copied().unwrap_or(0.0);
-            let outline = scores.get("outline").copied().unwrap_or(0.0);
-
-            if (satin >= self.confidence_threshold || filled >= self.confidence_threshold)
-                && (satin > outline && filled > outline)
-            {
-                filled_satin_block_indices.push(idx);
-                has_substantial_fill_or_satin = true;
-            }
-            if outline >= self.confidence_threshold {
-                outline_block_indices.push(idx);
-            }
-        }
-
-        // If a design contains BOTH a heavy fill/satin and an outline, check their geometry
-        if has_substantial_fill_or_satin && !outline_block_indices.is_empty() {
-            let mut remove_outline_tag = false;
-
-            for &out_idx in &outline_block_indices {
-                for &fill_idx in &filled_satin_block_indices {
-                    let (_, stitches_out, _, _) = &block_analyses[*out_idx];
-                    let (_, stitches_fill, _, _) = &block_analyses[*fill_idx];
-
-                    // If the outline block's geometry tightly matches or frames the fill block,
-                    // it's an accent line, not a standalone "Line Outline" design.
-                    if geometry_matches(stitches_out, stitches_fill) {
-                        remove_outline_tag = true;
-                        break;
-                    }
-                }
-            }
-
-            if remove_outline_tag {
-                // Only strip the "outline" tag if it isn't an applique/ITH file
-                if !found.contains(&"applique".to_string()) {
-                    found.retain(|name| name != "outline");
-                }
-            }
-        }
-        // Apply global cleanup filters
-        if found.contains(&"lace".to_string()) {
-            found.retain(|name| name != "filled");
-        }
-
-        if found.contains(&"cross_stitch".to_string()) {
-            found.retain(|name| !matches!(name.as_str(), "applique" | "filled" | "satin"));
-        }
-
-        if found.contains(&"applique".to_string()) {
-            found.retain(|name| !matches!(name.as_str(), "satin" | "outline"));
-        }
-
-        found.sort();
-        found.dedup();
-        found
+        false
     }
 
     fn get_detailed_analysis(&self) -> HashMap<&'static str, f64> {
@@ -405,12 +374,21 @@ impl<'a> StitchIdentifier<'a> {
             return 0.0;
         }
 
+        // Cross-stitch is made of short individual legs (typically 1-5
+        // stitching units). A 45-degree serpentine FILL pattern also produces
+        // balanced slash/backslash angles, but its row stitches are far
+        // longer. Gate on average stitch length so long-diagonal fills are
+        // not mistaken for cross-stitch.
+        let lengths: Vec<f64> = self.vectors.iter().map(|v| v.length).collect();
+        let mean_len = lengths.iter().sum::<f64>() / (lengths.len() as f64);
+        if mean_len > 8.0 {
+            return name_conf;
+        }
+
         let balance = (slash.min(backslash) as f64) / ((slash.max(backslash)).max(1) as f64);
         let diagonal_ratio = (diagonal as f64) / (self.vectors.len() as f64);
         let cross_purity = (diagonal as f64) / ((diagonal + orthogonal).max(1) as f64);
 
-        let lengths: Vec<f64> = self.vectors.iter().map(|v| v.length).collect();
-        let mean_len = lengths.iter().sum::<f64>() / (lengths.len() as f64);
         let variance = lengths
             .iter()
             .map(|length| (length - mean_len) * (length - mean_len))
@@ -550,6 +528,21 @@ impl<'a> StitchIdentifier<'a> {
 
         let mut score = self.detect_satin_like_score();
         let density = self.stitch_density_score();
+        // Satin is a densely-worked stitch. Sparse running/perimeter designs
+        // (e.g. a logical outline) share the long, axis-aligned stitch
+        // signature but are NOT satin, so require a minimum density.
+        if density < 0.20 {
+            return 0.0;
+        }
+        // Satin legs are short column segments (typically 3-10 units). A
+        // dense serpentine FILL pattern also aligns its rows to a fixed
+        // angle, but the rows are much longer. Clamp on mean stitch length
+        // so long-row fills are not mistaken for satin.
+        let lengths: Vec<f64> = self.vectors.iter().map(|v| v.length).collect();
+        let mean_len = lengths.iter().sum::<f64>() / (lengths.len().max(1) as f64);
+        if mean_len > 20.0 {
+            return 0.0;
+        }
         let axis_ratio = self.geometric_angle_score();
         let turns = self.direction_change_score();
         let filled = self.detect_filled_like_score();
@@ -846,63 +839,6 @@ fn block_bounds(stitches: &[Stitch]) -> (f64, f64, f64, f64) {
     (min_x, min_y, max_x, max_y)
 }
 
-fn split_block_into_islands(stitches: &[Stitch]) -> Vec<Vec<Stitch>> {
-    let mut islands = Vec::new();
-    let mut current_island = Vec::new();
-
-    for stitch in stitches {
-        if stitch.stitch_type == StitchType::Jump
-            || stitch.stitch_type == StitchType::Trim
-            || stitch.stitch_type == StitchType::Stop
-        {
-            if !current_island.is_empty() {
-                islands.push(current_island);
-                current_island = Vec::new();
-            }
-        } else if stitch.stitch_type == StitchType::Stitch {
-            current_island.push(*stitch);
-        }
-    }
-    if !current_island.is_empty() {
-        islands.push(current_island);
-    }
-    islands
-}
-
-fn apply_precedence_rules(
-    tags: &mut Vec<String>,
-    scores: &HashMap<&'static str, f64>,
-    confidence_threshold: f64,
-) {
-    let satin_precedence_threshold = (confidence_threshold - 0.07).max(0.63);
-    let satin_score = scores.get("satin").copied().unwrap_or(0.0);
-    let outline_score = scores.get("outline").copied().unwrap_or(0.0);
-    if satin_score >= satin_precedence_threshold
-        && !tags.contains(&"lace".to_string())
-        && outline_score < 0.78
-    {
-        if !tags.contains(&"satin".to_string()) {
-            tags.push("satin".to_string());
-        }
-        tags.retain(|name| name != "outline");
-    }
-
-    if tags.is_empty()
-        && satin_score >= (confidence_threshold - 0.12).max(0.58)
-        && outline_score < 0.60
-    {
-        tags.push("satin".to_string());
-    }
-
-    if tags.is_empty()
-        && outline_score >= 0.48
-        && satin_score < 0.58
-        && confidence_threshold <= 0.75
-    {
-        tags.push("outline".to_string());
-    }
-}
-
 fn geometry_matches(block_a: &[Stitch], block_b: &[Stitch]) -> bool {
     let (min_xa, min_ya, max_xa, max_ya) = block_bounds(block_a);
     let (min_xb, min_yb, max_xb, max_yb) = block_bounds(block_b);
@@ -955,4 +891,3 @@ fn angle_close(a: f64, b: f64, tolerance: f64) -> bool {
 #[cfg(test)]
 #[path = "stitch_identifier_tests.rs"]
 mod tests;
-
