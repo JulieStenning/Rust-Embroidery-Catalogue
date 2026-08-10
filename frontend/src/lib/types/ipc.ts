@@ -542,7 +542,7 @@ export interface UnifiedBackfillActionsWire {
     enabled?: boolean;
   } | null;
   stitching?: {
-    clear_existing_stitching?: boolean;
+    clear_stitching_mode?: string;
     enabled?: boolean;
   } | null;
   images?: {
@@ -575,6 +575,8 @@ export interface UnifiedBackfillResult {
   commit_every?: number;
   batch_size?: number;
   workers?: number;
+  stitching_tag_count_before?: number;
+  stitching_tag_count_after?: number;
   error?: string;
 }
 
@@ -598,7 +600,7 @@ export interface RunStitchingBackfillOptions {
   commit_every?: number;
   batch_size?: number;
   workers?: number;
-  clear_existing?: boolean;
+  clear_stitching_mode?: string;
   image_redo?: boolean;
 }
 

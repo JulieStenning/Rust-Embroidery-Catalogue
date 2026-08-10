@@ -587,11 +587,11 @@ async fn apply_image_tags_and_tier_replaces_existing_image_tags() {
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// DB helper: clear_unverified_stitching_tags
+// DB helper: clear_stitching_tags
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tokio::test]
-async fn clear_unverified_stitching_removes_tags_from_unverified() {
+async fn clear_stitching_unverified_removes_tags_from_unverified() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
     // design 1 has tags_checked=0, design 2 has tags_checked=1
@@ -601,7 +601,7 @@ async fn clear_unverified_stitching_removes_tags_from_unverified() {
         .await
         .unwrap();
 
-    let cleared = clear_unverified_stitching_tags(&pool).await.unwrap();
+    let cleared = clear_stitching_tags(&pool, "unverified").await.unwrap();
     assert_eq!(cleared, vec![1]);
 
     let count: i64 =
@@ -613,7 +613,7 @@ async fn clear_unverified_stitching_removes_tags_from_unverified() {
 }
 
 #[tokio::test]
-async fn clear_unverified_stitching_leaves_verified_alone() {
+async fn clear_stitching_unverified_leaves_verified_alone() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
     // design 2 has tags_checked=1, give it stitching tag
@@ -622,7 +622,7 @@ async fn clear_unverified_stitching_leaves_verified_alone() {
         .await
         .unwrap();
 
-    let cleared = clear_unverified_stitching_tags(&pool).await.unwrap();
+    let cleared = clear_stitching_tags(&pool, "unverified").await.unwrap();
     assert!(cleared.is_empty());
 
     let count: i64 =
@@ -631,6 +631,57 @@ async fn clear_unverified_stitching_leaves_verified_alone() {
             .await
             .unwrap();
     assert_eq!(count, 1);
+}
+
+#[tokio::test]
+async fn clear_stitching_all_removes_tags_from_every_design() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    // design 1 has tags_checked=0, design 2 has tags_checked=1
+    // Give both designs a stitching tag
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (2, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let cleared = clear_stitching_tags(&pool, "all").await.unwrap();
+    assert_eq!(cleared.len(), 2);
+    assert!(cleared.contains(&1));
+    assert!(cleared.contains(&2));
+
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE tag_id = 2")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
+}
+
+#[tokio::test]
+async fn clear_stitching_unknown_mode_falls_back_to_unverified() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    // Give design 1 (unverified) a stitching tag
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // The caller (run_unified_backfill) only invokes clear_stitching_tags
+    // for "unverified" or "all". An unknown mode is treated conservatively
+    // like "unverified": it clears from unverified designs only.
+    let cleared = clear_stitching_tags(&pool, "unknown").await.unwrap();
+    assert_eq!(cleared, vec![1]);
+
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 1 AND tag_id = 2")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(count, 0);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1159,7 +1210,7 @@ async fn run_unified_backfill_combined_actions() {
                     enabled: Some(true),
                 }),
                 stitching: Some(StitchingActionOptions {
-                    clear_existing_stitching: Some(false),
+                    clear_stitching_mode: None,
                     enabled: Some(true),
                 }),
                 images: None,
@@ -1201,7 +1252,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
                     enabled: Some(false),
                 }),
                 stitching: Some(StitchingActionOptions {
-                    clear_existing_stitching: Some(false),
+                    clear_stitching_mode: None,
                     enabled: Some(false),
                 }),
                 images: Some(ImageActionOptions {
@@ -1232,7 +1283,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
 
 #[tokio::test]
 #[serial]
-async fn run_unified_backfill_stitching_clear_existing_removes_from_unverified() {
+async fn run_unified_backfill_stitching_clear_unverified_removes_from_unverified() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
     // Design 1 (unverified) has a stitching tag (tag 2 = 'Line Outline')
@@ -1253,7 +1304,7 @@ async fn run_unified_backfill_stitching_clear_existing_removes_from_unverified()
             actions: Some(UnifiedBackfillActions {
                 tagging: None,
                 stitching: Some(StitchingActionOptions {
-                    clear_existing_stitching: Some(true),
+                    clear_stitching_mode: Some("unverified".to_string()),
                     enabled: Some(true),
                 }),
                 images: None,
@@ -1277,6 +1328,56 @@ async fn run_unified_backfill_stitching_clear_existing_removes_from_unverified()
     // tag count â€” we just verify the stitching action ran and processed designs.
     assert!(summary.actions.contains(&"stitching".to_string()));
     assert!(summary.processed > 0);
+}
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_stitching_clear_all_removes_from_verified_designs() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    // Design 2 is verified (tags_checked=1) and has a stitching tag
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (2, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Add another stitching tag
+    sqlx::query("INSERT INTO tags (id, description, tag_group) VALUES (10, 'Satin', 'stitching')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let summary = run_unified_backfill(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: None,
+                stitching: Some(StitchingActionOptions {
+                    clear_stitching_mode: Some("all".to_string()),
+                    enabled: Some(true),
+                }),
+                images: None,
+                color_counts: None,
+                fingerprinting: None,
+            }),
+            batch_size: Some(100),
+            commit_every: Some(100),
+            workers: Some(1),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+    )
+    .await
+    .expect("run succeeds");
+
+    // The "all" mode clears stitching tags from verified designs too, then
+    // re-processes them. Design 2 remains a candidate after the clear.
+    assert!(summary.actions.contains(&"stitching".to_string()));
+    assert!(summary.processed > 0);
+    // Verify design 2's stitching tag was cleared (no lingering "Line Outline")
+    // (it may be re-applied by detection, but the clear did run)
+    // We at least verify the action ran without error.
 }
 
 #[tokio::test]

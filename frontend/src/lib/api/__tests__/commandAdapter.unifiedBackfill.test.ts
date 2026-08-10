@@ -110,13 +110,13 @@ describe("commandAdapter runStitchingBackfill payload", () => {
 
   it("maps snake_case options to the Rust command arguments", async () => {
     await runStitchingBackfill({
-      clear_existing: true,
+      clear_stitching_mode: "all",
       batch_size: 25,
     });
 
     expect(invokeMock).toHaveBeenCalledWith("run_stitching_backfill", {
-      clear_existing_stitching: true,
-      batch_size: 25,
+      clearStitchingMode: "all",
+      batchSize: 25,
     });
   });
 });

@@ -1705,6 +1705,8 @@ export async function runUnifiedBackfill(request: UnifiedBackfillRequest): Promi
       commit_every: Number(result?.commit_every ?? 100),
       batch_size: Number(result?.batch_size ?? 100),
       workers: Number(result?.workers ?? 4),
+      stitching_tag_count_before: Number(result?.stitching_tag_count_before ?? 0),
+      stitching_tag_count_after: Number(result?.stitching_tag_count_after ?? 0),
     };
   } catch (error) {
     return {
@@ -1765,11 +1767,11 @@ export async function getBackfillLogEntries(limit = 20): Promise<AdapterBackfill
 /**
  * @param {RunStitchingBackfillOptions} [options]
  */
-export async function runStitchingBackfill({ clear_existing = false, batch_size = 100 }: RunStitchingBackfillOptions = {}): Promise<UnifiedBackfillResult> {
+export async function runStitchingBackfill({ clear_stitching_mode = "none", batch_size = 100 }: RunStitchingBackfillOptions = {}): Promise<UnifiedBackfillResult> {
   try {
     const result = await invokeLoose<UnifiedBackfillResult>("run_stitching_backfill", {
-      clear_existing_stitching: Boolean(clear_existing),
-      batch_size: Number(batch_size),
+      clearStitchingMode: String(clear_stitching_mode),
+      batchSize: Number(batch_size),
     });
     return {
       source: "rust",
@@ -1777,6 +1779,8 @@ export async function runStitchingBackfill({ clear_existing = false, batch_size 
       errors: Number(result?.errors ?? 0),
       stopped: Boolean(result?.stopped),
       actions: Array.isArray(result?.actions) ? result.actions.map(String) : [],
+      stitching_tag_count_before: Number(result?.stitching_tag_count_before ?? 0),
+      stitching_tag_count_after: Number(result?.stitching_tag_count_after ?? 0),
     };
   } catch (error) {
     return {

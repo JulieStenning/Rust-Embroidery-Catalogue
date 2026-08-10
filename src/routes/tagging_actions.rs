@@ -108,14 +108,14 @@ pub async fn get_backfill_log_entries(
 #[tauri::command]
 pub async fn run_stitching_backfill(
     state: State<'_, AppState>,
-    clear_existing_stitching: Option<bool>,
+    clear_stitching_mode: Option<String>,
     batch_size: Option<i64>,
 ) -> Result<backfill::UnifiedBackfillSummary, String> {
     let request = backfill::UnifiedBackfillRequest {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: None,
             stitching: Some(backfill::StitchingActionOptions {
-                clear_existing_stitching,
+                clear_stitching_mode,
                 enabled: Some(true),
             }),
             images: None,
@@ -402,7 +402,10 @@ mod tests {
         assert!(logs.len() <= 5);
 
         // 4. Run stitching backfill
-        let summary_stitch = run_stitching_backfill(state.clone(), Some(true), Some(10)).await.unwrap();
+        let summary_stitch =
+            run_stitching_backfill(state.clone(), Some("unverified".to_string()), Some(10))
+                .await
+                .unwrap();
         assert_eq!(summary_stitch.processed, 0);
 
         // 5. Run fingerprint backfill

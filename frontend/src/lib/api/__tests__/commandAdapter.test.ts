@@ -2304,8 +2304,8 @@ describe("commandAdapter runStitchingBackfill additional cases", () => {
     await runStitchingBackfill();
 
     expect(invokeMock).toHaveBeenCalledWith("run_stitching_backfill", {
-      clear_existing_stitching: false,
-      batch_size: 100,
+      clearStitchingMode: "none",
+      batchSize: 100,
     });
   });
 
@@ -2317,7 +2317,7 @@ describe("commandAdapter runStitchingBackfill additional cases", () => {
       actions: ["stitching", "color_counts"],
     });
 
-    const result = await runStitchingBackfill({ clear_existing: true, batch_size: 10 });
+    const result = await runStitchingBackfill({ clear_stitching_mode: "unverified", batch_size: 10 });
 
     expect(result.source).toBe("rust");
     expect(result.processed).toBe(7);

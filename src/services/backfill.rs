@@ -56,7 +56,9 @@ pub struct TaggingActionOptions {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct StitchingActionOptions {
-    pub clear_existing_stitching: Option<bool>,
+    /// Values: "none", "unverified", or "all". Controls whether stitching
+    /// tags are cleared before re-detection and which designs are affected.
+    pub clear_stitching_mode: Option<String>,
     pub enabled: Option<bool>,
 }
 
@@ -85,6 +87,10 @@ pub struct UnifiedBackfillSummary {
     pub commit_every: i64,
     pub batch_size: i64,
     pub workers: i64,
+    /// Number of stitching-tag rows in `design_tags` before the run started.
+    pub stitching_tag_count_before: i64,
+    /// Number of stitching-tag rows in `design_tags` after the run finished.
+    pub stitching_tag_count_after: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -132,6 +138,7 @@ pub async fn run_unified_backfill(
 ) -> Result<UnifiedBackfillSummary, AppError> {
     clear_stop_signal();
     truncate_logs_for_new_run()?;
+    let stitching_tag_count_before = count_stitching_tags(pool).await?;
 
     let actions = request.actions.unwrap_or(UnifiedBackfillActions {
         tagging: Some(TaggingActionOptions {
@@ -248,12 +255,32 @@ pub async fn run_unified_backfill(
     if let Some(stitching_action) = actions.stitching {
         if stitching_action.enabled.unwrap_or(true) {
             actions_run.push("stitching".to_string());
-            if stitching_action.clear_existing_stitching.unwrap_or(false) {
-                let cleared = clear_unverified_stitching_tags(pool).await?;
+
+            let stitching_prior_count = count_stitching_tags(pool).await?;
+            log_info(format!(
+                "Stitching section: {} stitching tags existing before changes",
+                stitching_prior_count
+            ));
+
+            let clear_mode = stitching_action
+                .clear_stitching_mode
+                .as_deref()
+                .unwrap_or("none");
+            if clear_mode == "unverified" || clear_mode == "all" {
+                let cleared = clear_stitching_tags(pool, clear_mode).await?;
+                let cleared_count = cleared.len();
                 touched_design_ids.extend(cleared);
-                log_info("Cleared existing stitching tags for unverified designs".to_string());
+                let after_clear_count = count_stitching_tags(pool).await?;
+                log_info(format!(
+                    "After clear ({}): {} tags remaining, {} design ids cleared",
+                    clear_mode, after_clear_count, cleared_count
+                ));
             }
             let stitching_candidates = select_stitching_candidates(pool, batch_size).await?;
+            log_info(format!(
+                "{} stitching candidates selected for detection",
+                stitching_candidates.len()
+            ));
             let stitching_tag_lookup = get_stitching_tag_lookup(pool).await?;
             let valid_stitching_descriptions = stitching_tag_lookup
                 .keys()
@@ -267,8 +294,9 @@ pub async fn run_unified_backfill(
                 touched_design_ids.insert(candidate.id);
                 processed += 1;
 
+                let resolved_design_path = resolve_stored_design_path(&candidate.filepath);
                 let detected_descriptions = stitch_identifier::suggest_stitching_from_pattern_file(
-                    &candidate.filepath,
+                    &resolved_design_path.to_string_lossy(),
                     &candidate.filename,
                     &candidate.filepath,
                     &valid_stitching_descriptions,
@@ -303,6 +331,12 @@ pub async fn run_unified_backfill(
                     ));
                 }
             }
+
+            let stitching_final_count = count_stitching_tags(pool).await?;
+            log_info(format!(
+                "Stitching section complete: {} stitching tags after processing",
+                stitching_final_count
+            ));
         }
     }
 
@@ -382,6 +416,8 @@ pub async fn run_unified_backfill(
         processed, errors, stopped, actions_run
     ));
 
+    let stitching_tag_count_after = count_stitching_tags(pool).await?;
+
     Ok(UnifiedBackfillSummary {
         processed,
         errors,
@@ -390,6 +426,8 @@ pub async fn run_unified_backfill(
         commit_every,
         batch_size,
         workers,
+        stitching_tag_count_before,
+        stitching_tag_count_after,
     })
 }
 
@@ -644,27 +682,54 @@ async fn apply_image_tags_and_tier(
     Ok(())
 }
 
-async fn clear_unverified_stitching_tags(pool: &SqlitePool) -> Result<Vec<i64>, AppError> {
-    let rows = sqlx::query(
+async fn count_stitching_tags(pool: &SqlitePool) -> Result<i64, AppError> {
+    let count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)
+		 FROM design_tags dt
+		 JOIN tags t ON t.id = dt.tag_id
+		 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::database(format!("failed to count stitching tags: {e}")))?;
+    Ok(count)
+}
+
+async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>, AppError> {
+    // Determine which designs have stitching tags to clear.
+    let select_sql = if mode == "all" {
+        "SELECT DISTINCT dt.design_id AS id
+		 FROM design_tags dt
+		 JOIN tags t ON t.id = dt.tag_id
+		 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'"
+    } else {
         "SELECT DISTINCT dt.design_id AS id
 		 FROM design_tags dt
 		 JOIN designs d ON d.id = dt.design_id
 		 JOIN tags t ON t.id = dt.tag_id
 		 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'
-		   AND COALESCE(d.tags_checked, 0) = 0",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to load unverified stitching tag candidates: {e}")))?;
+		   AND COALESCE(d.tags_checked, 0) = 0"
+    };
 
-    sqlx::query(
+    let rows = sqlx::query(select_sql)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to load stitching tag candidates: {e}")))?;
+
+    // Delete stitching tags according to the chosen mode.
+    let delete_sql = if mode == "all" {
+        "DELETE FROM design_tags
+		 WHERE tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+    } else {
         "DELETE FROM design_tags
 		 WHERE design_id IN (SELECT id FROM designs WHERE COALESCE(tags_checked, 0) = 0)
-		   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to clear unverified stitching tags: {e}")))?;
+		   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+    };
+
+    sqlx::query(delete_sql)
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to clear stitching tags: {e}")))?;
 
     let mut ids = Vec::new();
     for row in rows {

@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
+import { setTaggingClearStitchingMode } from "../../stores/taggingActionsStore.js";
 import TaggingActionsView from "../TaggingActionsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,7 @@ const backfillResult = (overrides = {}) => ({
 describe("TaggingActionsView run stitching backfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setTaggingClearStitchingMode("none");
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
@@ -73,7 +75,7 @@ describe("TaggingActionsView run stitching backfill", () => {
         commit_every: 100,
         batch_size: 100,
         workers: 4,
-        clear_existing: false,
+        clear_stitching_mode: "none",
         image_redo: false,
       });
     });
@@ -85,7 +87,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     });
   });
 
-  it("passes clear_existing when clearing stitching tags is enabled", async () => {
+  it("passes clear_stitching_mode all when ALL designs radio is selected", async () => {
     render(TaggingActionsView);
     await waitFor(() => {
       expect(
@@ -98,7 +100,7 @@ describe("TaggingActionsView run stitching backfill", () => {
       screen.getByRole("checkbox", { name: /Stitching tag detection/ })
     );
     await user.click(
-      screen.getByRole("checkbox", { name: /Clear existing stitching tags/ })
+      screen.getByRole("radio", { name: /ALL designs/ })
     );
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -106,7 +108,7 @@ describe("TaggingActionsView run stitching backfill", () => {
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ clear_existing: true })
+        expect.objectContaining({ clear_stitching_mode: "all" })
       );
     });
   });

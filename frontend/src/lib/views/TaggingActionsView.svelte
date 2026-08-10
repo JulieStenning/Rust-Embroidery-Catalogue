@@ -8,6 +8,10 @@
     runStitchingBackfill
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import {
+    taggingClearStitchingMode,
+    setTaggingClearStitchingMode,
+  } from "../stores/taggingActionsStore.js";
 
   let taggingActionsLoaded = $state(false);
   let taggingActionsLoading = $state(false);
@@ -22,11 +26,10 @@
   let taggingRunTier2 = $state(false);
   let taggingRunTier3 = $state(false);
   let taggingRunStitching = $state(false);
-  let taggingClearExistingStitching = $state(false);
   let taggingRunImages = $state(false);
   let taggingImageRedo = $state(false);
   let taggingRunColorCounts = $state(false);
-  /** @type {{processed: number, errors: number, stopped: boolean, actions: string[], error?: string} | null} */
+  /** @type {{processed: number, errors: number, stopped: boolean, actions: string[], stitching_tag_count_before?: number, stitching_tag_count_after?: number, error?: string} | null} */
   let taggingLastSummary = $state(null);
   /** @type {Array<{level: string, message: string}>} */
   let taggingLogEntries = $state([]);
@@ -71,7 +74,7 @@
           commit_every: taggingCommitValue,
           batch_size: taggingBatchValue,
           workers: taggingWorkersValue,
-          clear_existing: taggingClearExistingStitching,
+          clear_stitching_mode: $taggingClearStitchingMode,
           image_redo: taggingImageRedo,
         });
         const result = await runStitchingBackfill(stitchingOptions);
@@ -194,9 +197,20 @@
         </label>
 
         <div class="ml-8 space-y-2 border-l-2 border-gray-100 pl-4">
+          <p class="text-xs font-medium text-gray-600">Clear stitching tags for:</p>
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={taggingClearExistingStitching} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>Clear existing stitching tags before re-running</span>
+            <input type="radio" name="clear-stitching-mode" value="unverified"
+                   checked={$taggingClearStitchingMode === "unverified"}
+                   onchange={() => { setTaggingClearStitchingMode("unverified"); }}
+                   class="rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Unverified designs</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="radio" name="clear-stitching-mode" value="all"
+                   checked={$taggingClearStitchingMode === "all"}
+                   onchange={() => { setTaggingClearStitchingMode("all"); }}
+                   class="rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>ALL designs</span>
           </label>
         </div>
       </div>
@@ -244,6 +258,9 @@
       <div class="bg-white rounded shadow p-4 space-y-1 text-sm">
         <p class="font-semibold text-gray-800">Last run summary</p>
         <p>Processed: <strong>{taggingLastSummary.processed ?? 0}</strong> &middot; Errors: <strong>{taggingLastSummary.errors ?? 0}</strong></p>
+        {#if taggingLastSummary.stitching_tag_count_before !== undefined}
+          <p>Stitching tags: <strong>{taggingLastSummary.stitching_tag_count_before}</strong> before &rarr; <strong>{taggingLastSummary.stitching_tag_count_after ?? 0}</strong> after</p>
+        {/if}
         {#if taggingLastSummary.stopped}
           <p class="text-amber-700 font-semibold">Stopped early</p>
         {/if}
