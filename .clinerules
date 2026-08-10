@@ -29,6 +29,23 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 ### 2. Tauri IPC Bridge
 - All backend functions exposed to the frontend must use Tauri commands returning a `Result<T, E>`.
 - The error type `E` must be a custom, descriptive, and serializable enum (e.g., using `thiserror` and `serde::Serialize`) so the frontend receives explicit error strings instead of generic panics.
+- **CamelCase Invoke Keys (CRITICAL):** Tauri v2 automatically maps camelCase JavaScript invoke keys to snake_case Rust command parameters. **All `invoke()` payload keys MUST use camelCase** matching the Rust parameter names. Passing snake_case keys will cause Tauri to silently drop them — the parameters arrive as `None` with **NO error** — leading to hours of debugging.
+  ```rust
+  // Rust command signature
+  fn run_stitching_backfill(
+      clear_stitching_mode: Option<String>,  // snake_case in Rust
+      batch_size: Option<i64>,
+  )
+  ```
+  ```typescript
+  // Correct JavaScript invoke — camelCase keys map to snake_case Rust params
+  invoke("run_stitching_backfill", {
+      clearStitchingMode: "all",   // camelCase → maps to clear_stitching_mode
+      batchSize: 100,              // camelCase → maps to batch_size
+  });
+  ```
+- **Adapter tests MUST assert exact camelCase keys:** Every `commandAdapter` test that mocks `invoke()` MUST assert the exact camelCase payload keys that Tauri expects to exchange with the Rust command. Tests pass with snake_case keys because the mock never performs Tauri deserialization — they only pass if they check the exact wire keys.
+- **Diagnose IPC failures first:** If a Rust command logs `Option<T>` parameters as `None` even though the frontend set them, check the invoke key casing in the adapter before anything else. This is the most common silent IPC failure in Tauri v2.
 
 ### 3. Frontend Isolation
 - Svelte components must **not** call `invoke()` directly. 
