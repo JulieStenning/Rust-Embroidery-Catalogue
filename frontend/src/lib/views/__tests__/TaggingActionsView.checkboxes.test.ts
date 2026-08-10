@@ -21,12 +21,19 @@ vi.mock("../../api/commandAdapter", () => adapterMocks);
 const toastMock = vi.hoisted(() => ({ addToast: vi.fn() }));
 vi.mock("../../stores/toastStore.js", () => toastMock);
 
-const viewModel = () => ({
+const viewModel = (overrides = {}) => ({
   source: "rust",
   model: {
-    has_google_api_key: false,
-    tier2_default: false,
-    tier3_default: false,
+    has_google_api_key: true,
+    ai_tier2_auto: false,
+    ai_tier3_auto: false,
+    ai_batch_size: "",
+    ai_delay: "",
+    import_commit_batch_size: "",
+    default_batch_size: 100,
+    default_commit_every: 100,
+    default_workers: 4,
+    ...overrides,
   },
 });
 
@@ -40,30 +47,58 @@ describe("TaggingActionsView checkbox interactions", () => {
     });
   });
 
-  it("toggles the action mode between tag_untagged and tag_all", async () => {
+  it("toggles the Tagging checkbox between unchecked and checked", async () => {
     render(TaggingActionsView);
 
     const taggingCheckbox = await screen.findByRole("checkbox", {
       name: /Tagging/,
     });
-    expect(taggingCheckbox).toBeChecked();
-
-    const user = userEvent.setup();
-    await user.click(taggingCheckbox);
     expect(taggingCheckbox).not.toBeChecked();
 
+    const user = userEvent.setup();
     await user.click(taggingCheckbox);
     expect(taggingCheckbox).toBeChecked();
+
+    await user.click(taggingCheckbox);
+    expect(taggingCheckbox).not.toBeChecked();
   });
 
-  it("toggles the AI tier checkboxes", async () => {
+  it("toggles the retag-all sub-checkbox when Tagging is enabled", async () => {
     render(TaggingActionsView);
 
-    const tier2 = await screen.findByRole("checkbox", { name: /Run Tier 2/ });
-    const tier3 = screen.getByRole("checkbox", { name: /Run Tier 3/ });
-    expect(tier2).not.toBeChecked();
+    const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
+    const retagAll = screen.getByRole("checkbox", {
+      name: /Re-tag designs that already have tags/,
+    });
+    // Sub-option is disabled until the parent is checked.
+    expect(retagAll).toBeDisabled();
 
     const user = userEvent.setup();
+    await user.click(tagging);
+    expect(retagAll).not.toBeDisabled();
+
+    await user.click(retagAll);
+    expect(retagAll).toBeChecked();
+
+    await user.click(retagAll);
+    expect(retagAll).not.toBeChecked();
+  });
+
+  it("toggles the AI tier checkboxes when Tagging is enabled and an API key is set", async () => {
+    render(TaggingActionsView);
+
+    const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
+    const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
+    const tier3 = screen.getByRole("checkbox", { name: /Run Tier 3/ });
+    expect(tier2).toBeDisabled();
+    expect(tier3).toBeDisabled();
+
+    const user = userEvent.setup();
+    await user.click(tagging);
+
+    expect(tier2).not.toBeDisabled();
+    expect(tier3).not.toBeDisabled();
+
     await user.click(tier2);
     expect(tier2).toBeChecked();
 
@@ -71,36 +106,65 @@ describe("TaggingActionsView checkbox interactions", () => {
     expect(tier3).toBeChecked();
   });
 
-  it("toggles the stitching and clear-existing-stitching checkboxes", async () => {
+  it("disables and unchecks Tier 2 and Tier 3 when no API key is set", async () => {
+    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(
+      viewModel({ has_google_api_key: false })
+    );
+    render(TaggingActionsView);
+
+    const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
+    const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
+    const tier3 = screen.getByRole("checkbox", { name: /Run Tier 3/ });
+    expect(tier2).toBeDisabled();
+    expect(tier3).toBeDisabled();
+    expect(tier2).not.toBeChecked();
+    expect(tier3).not.toBeChecked();
+
+    // Toggling Tagging on does not enable them without a key.
+    const user = userEvent.setup();
+    await user.click(tagging);
+    expect(tier2).toBeDisabled();
+    expect(tier3).toBeDisabled();
+  });
+
+  it("toggles the stitching and overwrite sub-checkboxes", async () => {
     render(TaggingActionsView);
 
     const stitching = await screen.findByRole("checkbox", {
       name: /Stitching tag detection/,
     });
-    const clearExisting = screen.getByRole("checkbox", {
-      name: /Clear existing stitching tags/,
+    const overwrite = screen.getByRole("checkbox", {
+      name: /Overwrite stitching tags on designs that have already been processed/,
     });
     expect(stitching).not.toBeChecked();
+    expect(overwrite).toBeDisabled();
 
     const user = userEvent.setup();
     await user.click(stitching);
     expect(stitching).toBeChecked();
+    expect(overwrite).not.toBeDisabled();
 
-    await user.click(clearExisting);
-    expect(clearExisting).toBeChecked();
+    await user.click(overwrite);
+    expect(overwrite).toBeChecked();
   });
 
-  it("toggles the image redo checkbox", async () => {
+  it("toggles the image redo sub-checkbox when Image generation is enabled", async () => {
     render(TaggingActionsView);
 
-    await screen.findByRole("checkbox", { name: /Image generation/ });
+    const images = await screen.findByRole("checkbox", {
+      name: /Image generation/,
+    });
     const imageRedo = screen.getByRole("checkbox", {
       name: /Regenerate images/,
     });
-
-    expect(imageRedo).not.toBeChecked();
+    expect(images).not.toBeChecked();
+    expect(imageRedo).toBeDisabled();
 
     const user = userEvent.setup();
+    await user.click(images);
+    expect(images).toBeChecked();
+    expect(imageRedo).not.toBeDisabled();
+
     await user.click(imageRedo);
     expect(imageRedo).toBeChecked();
   });

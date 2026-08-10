@@ -2,7 +2,6 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { setTaggingClearStitchingMode } from "../../stores/taggingActionsStore.js";
 import TaggingActionsView from "../TaggingActionsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -26,8 +25,14 @@ const viewModel = () => ({
   source: "rust",
   model: {
     has_google_api_key: false,
-    tier2_default: false,
-    tier3_default: false,
+    ai_tier2_auto: false,
+    ai_tier3_auto: false,
+    ai_batch_size: "",
+    ai_delay: "",
+    import_commit_batch_size: "",
+    default_batch_size: 100,
+    default_commit_every: 100,
+    default_workers: 4,
   },
 });
 
@@ -44,7 +49,6 @@ const backfillResult = (overrides = {}) => ({
 describe("TaggingActionsView run stitching backfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setTaggingClearStitchingMode("none");
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
@@ -54,13 +58,8 @@ describe("TaggingActionsView run stitching backfill", () => {
     adapterMocks.runStitchingBackfill.mockResolvedValue(backfillResult());
   });
 
-  it("calls runStitchingBackfill with the stitching options when enabled", async () => {
+  it("calls runStitchingBackfill with the default options when enabled", async () => {
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
     await user.click(
@@ -75,7 +74,7 @@ describe("TaggingActionsView run stitching backfill", () => {
         commit_every: 100,
         batch_size: 100,
         workers: 4,
-        clear_stitching_mode: "none",
+        clear_stitching_mode: "unverified",
         image_redo: false,
       });
     });
@@ -87,20 +86,17 @@ describe("TaggingActionsView run stitching backfill", () => {
     });
   });
 
-  it("passes clear_stitching_mode all when ALL designs radio is selected", async () => {
+  it("passes clear_stitching_mode all when overwrite is selected", async () => {
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
     await user.click(
       screen.getByRole("checkbox", { name: /Stitching tag detection/ })
     );
     await user.click(
-      screen.getByRole("radio", { name: /ALL designs/ })
+      screen.getByRole("checkbox", {
+        name: /Overwrite stitching tags on designs that have already been processed/,
+      })
     );
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -118,11 +114,6 @@ describe("TaggingActionsView run stitching backfill", () => {
       backfillResult({ error: "Malformed stitch data" })
     );
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
     await user.click(
@@ -142,16 +133,12 @@ describe("TaggingActionsView run stitching backfill", () => {
 
   it("runs both stitching and unified backfills when both are enabled", async () => {
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
     await user.click(
       screen.getByRole("checkbox", { name: /Stitching tag detection/ })
     );
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })

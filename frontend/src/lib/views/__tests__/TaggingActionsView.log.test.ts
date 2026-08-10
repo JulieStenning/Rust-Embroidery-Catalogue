@@ -24,8 +24,14 @@ const viewModel = () => ({
   source: "rust",
   model: {
     has_google_api_key: false,
-    tier2_default: false,
-    tier3_default: false,
+    ai_tier2_auto: false,
+    ai_tier3_auto: false,
+    ai_batch_size: "",
+    ai_delay: "",
+    import_commit_batch_size: "",
+    default_batch_size: 100,
+    default_commit_every: 100,
+    default_workers: 4,
   },
 });
 

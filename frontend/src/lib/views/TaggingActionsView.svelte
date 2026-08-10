@@ -1,42 +1,54 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import {
     getTaggingActionsViewModel,
     runUnifiedBackfill,
     stopUnifiedBackfill,
     getBackfillLogEntries,
-    runStitchingBackfill
+    runStitchingBackfill,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
-  import {
-    taggingClearStitchingMode,
-    setTaggingClearStitchingMode,
-  } from "../stores/taggingActionsStore.js";
 
   let taggingActionsLoaded = $state(false);
   let taggingActionsLoading = $state(false);
   let taggingRunInFlight = $state(false);
   let taggingHasGoogleApiKey = $state(false);
-  let taggingTier2Default = $state(false);
-  let taggingTier3Default = $state(false);
   let taggingBatchSize = $state("100");
   let taggingCommitEvery = $state("100");
   let taggingWorkers = $state("4");
-  let taggingActionMode = $state("tag_untagged");
-  let taggingRunTier2 = $state(false);
-  let taggingRunTier3 = $state(false);
+
+  // Top-level action toggles (all default unchecked for safety).
+  let taggingRunTagging = $state(false);
   let taggingRunStitching = $state(false);
   let taggingRunImages = $state(false);
-  let taggingImageRedo = $state(false);
   let taggingRunColorCounts = $state(false);
-  /** @type {{processed: number, errors: number, stopped: boolean, actions: string[], stitching_tag_count_before?: number, stitching_tag_count_after?: number, error?: string} | null} */
-  let taggingLastSummary = $state(null);
-  /** @type {Array<{level: string, message: string}>} */
-  let taggingLogEntries = $state([]);
+
+  // Sub-options / child controls (all default false, disabled until parent checked).
+  let taggingRetagAll = $state(false);
+  let taggingRunTier2 = $state(false);
+  let taggingRunTier3 = $state(false);
+  let taggingStitchingOverwrite = $state(false);
+  let taggingImageRedo = $state(false);
+
+  let taggingLastSummary = $state<{
+    processed: number;
+    errors: number;
+    stopped: boolean;
+    actions: string[];
+    stitching_tag_count_before?: number;
+    stitching_tag_count_after?: number;
+    error?: string;
+  } | null>(null);
+  let taggingLogEntries = $state<Array<{ level: string; message: string }>>([]);
 
   let taggingCommitValue = $derived(Math.max(1, Number.parseInt(taggingCommitEvery, 10) || 100));
   let taggingBatchValue = $derived(Math.max(1, Number.parseInt(taggingBatchSize, 10) || 100));
   let taggingWorkersValue = $derived(Math.max(1, Number.parseInt(taggingWorkers, 10) || 4));
+
+  // Run button is only enabled when at least one top-level action is selected.
+  let taggingAnyActionSelected = $derived(
+    taggingRunTagging || taggingRunStitching || taggingRunImages || taggingRunColorCounts,
+  );
 
   async function loadTaggingViewModel(force = false) {
     if (taggingActionsLoading && !force) return;
@@ -45,10 +57,8 @@
     taggingActionsLoading = true;
     try {
       const result = await getTaggingActionsViewModel();
-      const model = /** @type {any} */ (result?.model) || {};
+      const model = (result?.model as any) || {};
       taggingHasGoogleApiKey = Boolean(model?.has_google_api_key);
-      taggingTier2Default = Boolean(model?.tier2_default);
-      taggingTier3Default = Boolean(model?.tier3_default);
       taggingActionsLoaded = true;
       addToast(model?.has_google_api_key
         ? "API key detected. AI tagging actions are available."
@@ -74,7 +84,8 @@
           commit_every: taggingCommitValue,
           batch_size: taggingBatchValue,
           workers: taggingWorkersValue,
-          clear_stitching_mode: $taggingClearStitchingMode,
+          // "all" only when the user opted to overwrite previously processed designs.
+          clear_stitching_mode: taggingStitchingOverwrite ? "all" : "unverified",
           image_redo: taggingImageRedo,
         });
         const result = await runStitchingBackfill(stitchingOptions);
@@ -86,11 +97,11 @@
         addToast(`Stitching backfill complete.`, "success");
       }
 
-      if (taggingRunTier2 || taggingRunTier3 || taggingRunImages || taggingRunColorCounts) {
+      if (taggingRunTagging || taggingRunImages || taggingRunColorCounts) {
         const result = await runUnifiedBackfill({
-          action_mode: taggingActionMode,
-          run_tier2: taggingRunTier2,
-          run_tier3: taggingRunTier3,
+          action_mode: taggingRetagAll ? "tag_all" : "tag_untagged",
+          run_tier2: taggingHasGoogleApiKey && taggingRunTier2,
+          run_tier3: taggingHasGoogleApiKey && taggingRunTier3,
           run_images: taggingRunImages,
           image_redo: taggingImageRedo,
           run_color_counts: taggingRunColorCounts,
@@ -152,7 +163,7 @@
   </p>
 
   <div class="tagging-actions-layout max-w-3xl space-y-6">
-    <!-- Action Mode -->
+    <!-- API Key Status -->
     {#if !taggingHasGoogleApiKey}
       <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
         No Google API key is configured in Settings. AI tagging actions will be skipped. Keyword-only tagging (Tier 1) always runs.
@@ -167,55 +178,62 @@
       <h2 class="text-base font-semibold text-gray-800">Select actions</h2>
 
       <div class="space-y-3">
+        <!-- Tagging -->
         <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
-          <input type="checkbox" checked={taggingActionMode === "tag_untagged"} class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" onchange={() => { taggingActionMode = (taggingActionMode === "tag_untagged" ? "tag_all" : "tag_untagged"); }} />
+          <input type="checkbox" bind:checked={taggingRunTagging} class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
           <div>
             <span class="font-semibold">Tagging</span>
-            <p class="text-gray-500 text-xs mt-0.5">Run keyword matching (Tier 1) on designs. If no API key, Tier 2 and 3 are skipped.</p>
+            {#if taggingHasGoogleApiKey}
+              <p class="text-gray-500 text-xs mt-0.5">Run local keyword matching (Tier 1) and optional Gemini AI suggestions (Tiers 2 & 3).</p>
+            {:else}
+              <p class="text-gray-500 text-xs mt-0.5">Run local keyword matching (Tier 1) based on filenames and folder names.</p>
+            {/if}
           </div>
         </label>
 
         <div class="ml-8 space-y-2 border-l-2 border-gray-100 pl-4">
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={taggingRunTier2} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>Run <strong>Tier 2</strong> (Gemini text AI — suggest tags from filename)</span>
+            <input type="checkbox" bind:checked={taggingRetagAll} disabled={!taggingRunTagging} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Re-tag designs that already have tags (instead of only untagged designs)</span>
           </label>
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={taggingRunTier3} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>Run <strong>Tier 3</strong> (Gemini vision AI — suggest tags from preview image)</span>
+            <input type="checkbox" bind:checked={taggingRunTier2} disabled={!taggingRunTagging || !taggingHasGoogleApiKey} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Run <strong>Tier 2</strong> (Gemini text AI — suggest tags from filename){#if !taggingHasGoogleApiKey} <span class="text-xs font-medium text-gray-400 italic">(API Key Required)</span>{/if}</span>
           </label>
+          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" bind:checked={taggingRunTier3} disabled={!taggingRunTagging || !taggingHasGoogleApiKey} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Run <strong>Tier 3</strong> (Gemini vision AI — suggest tags from preview image){#if !taggingHasGoogleApiKey} <span class="text-xs font-medium text-gray-400 italic">(API Key Required)</span>{/if}</span>
+          </label>
+          {#if !taggingHasGoogleApiKey}
+            <p class="text-xs text-gray-400 italic mt-1">
+              Configure a Gemini API key in
+              <a href="#/admin/settings" class="text-indigo-600 underline font-medium">Settings</a>
+              to enable AI-powered tag suggestions.
+            </p>
+          {/if}
         </div>
       </div>
 
       <div class="space-y-3">
+        <!-- Stitching tag detection -->
         <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" bind:checked={taggingRunStitching} class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
           <div>
             <span class="font-semibold">Stitching tag detection</span>
-            <p class="text-gray-500 text-xs mt-0.5">Detect stitching region percentages from design files and assign stitching tags.</p>
+            <p class="text-gray-500 text-xs mt-0.5">Analyze stitch coverage area to tag designs (e.g., light fill, dense embroidery, outline).</p>
           </div>
         </label>
 
         <div class="ml-8 space-y-2 border-l-2 border-gray-100 pl-4">
-          <p class="text-xs font-medium text-gray-600">Clear stitching tags for:</p>
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="radio" name="clear-stitching-mode" value="unverified"
-                   checked={$taggingClearStitchingMode === "unverified"}
-                   onchange={() => { setTaggingClearStitchingMode("unverified"); }}
-                   class="rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>Unverified designs</span>
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="radio" name="clear-stitching-mode" value="all"
-                   checked={$taggingClearStitchingMode === "all"}
-                   onchange={() => { setTaggingClearStitchingMode("all"); }}
-                   class="rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span>ALL designs</span>
+            <input type="checkbox" bind:checked={taggingStitchingOverwrite} disabled={!taggingRunStitching} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Overwrite stitching tags on designs that have already been processed</span>
           </label>
         </div>
       </div>
 
       <div class="space-y-3">
+        <!-- Image generation / regeneration -->
         <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" bind:checked={taggingRunImages} class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
           <div>
@@ -226,18 +244,19 @@
 
         <div class="ml-8 space-y-2 border-l-2 border-gray-100 pl-4">
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={taggingImageRedo} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <input type="checkbox" bind:checked={taggingImageRedo} disabled={!taggingRunImages} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
             <span>Regenerate images for all designs, not just those without images</span>
           </label>
         </div>
       </div>
 
       <div class="space-y-3">
+        <!-- Recalculate colour / stitch counts -->
         <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" bind:checked={taggingRunColorCounts} class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
           <div>
             <span class="font-semibold">Recalculate colour / stitch counts</span>
-            <p class="text-gray-500 text-xs mt-0.5">Re-run stitch parsing to update colour count, stitch count, and colour change counts.</p>
+            <p class="text-gray-500 text-xs mt-0.5">Refresh thread colors, stitch totals, and color changes from the design files</p>
           </div>
         </label>
       </div>
@@ -245,7 +264,7 @@
 
     <!-- Run / Stop Buttons -->
     <div class="flex flex-wrap items-center gap-3">
-      <button class="menu-button-primary" onclick={runTaggingActions} disabled={taggingRunInFlight || taggingActionsLoading}>
+      <button class="menu-button-primary" onclick={runTaggingActions} disabled={taggingRunInFlight || taggingActionsLoading || !taggingAnyActionSelected}>
         {taggingRunInFlight ? "Running..." : "Run selected actions"}
       </button>
       <button class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50" onclick={requestTaggingStop} disabled={!taggingRunInFlight}>

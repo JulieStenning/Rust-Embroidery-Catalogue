@@ -25,8 +25,14 @@ const viewModel = (overrides = {}) => ({
   source: "rust",
   model: {
     has_google_api_key: false,
-    tier2_default: false,
-    tier3_default: false,
+    ai_tier2_auto: false,
+    ai_tier3_auto: false,
+    ai_batch_size: "",
+    ai_delay: "",
+    import_commit_batch_size: "",
+    default_batch_size: 100,
+    default_commit_every: 100,
+    default_workers: 4,
     ...overrides,
   },
 });
@@ -123,11 +129,34 @@ describe("TaggingActionsView initial render", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the default checkbox states", async () => {
+  it("renders all top-level action checkboxes unchecked by default", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("checkbox", { name: /Tagging/ })).toBeChecked();
+      expect(
+        screen.getByRole("checkbox", { name: /Tagging/ })
+      ).not.toBeChecked();
+    });
+    expect(
+      screen.getByRole("checkbox", { name: /Stitching tag detection/ })
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Image generation/ })
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Recalculate colour/ })
+    ).not.toBeChecked();
+  });
+
+  it("renders sub-option checkboxes unchecked by default", async () => {
+    render(TaggingActionsView);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("checkbox", {
+          name: /Re-tag designs that already have tags/,
+        })
+      ).not.toBeChecked();
     });
     expect(
       screen.getByRole("checkbox", { name: /Run Tier 2/ })
@@ -136,19 +165,12 @@ describe("TaggingActionsView initial render", () => {
       screen.getByRole("checkbox", { name: /Run Tier 3/ })
     ).not.toBeChecked();
     expect(
-      screen.getByRole("checkbox", { name: /Stitching tag detection/ })
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: /Clear existing stitching tags/ })
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: /Image generation/ })
+      screen.getByRole("checkbox", {
+        name: /Overwrite stitching tags on designs that have already been processed/,
+      })
     ).not.toBeChecked();
     expect(
       screen.getByRole("checkbox", { name: /Regenerate images/ })
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: /Recalculate colour/ })
     ).not.toBeChecked();
   });
 
@@ -163,14 +185,14 @@ describe("TaggingActionsView initial render", () => {
     ).toBeDisabled();
   });
 
-  it("disables the Stop button when no backfill is in flight", async () => {
+  it("disables the Run button when no top-level action is selected", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Run selected actions" })
+      ).toBeDisabled();
     });
-    expect(
-      screen.getByRole("button", { name: "Run selected actions" })
-    ).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
   });
 });

@@ -24,9 +24,15 @@ vi.mock("../../stores/toastStore.js", () => toastMock);
 const viewModel = () => ({
   source: "rust",
   model: {
-    has_google_api_key: false,
-    tier2_default: false,
-    tier3_default: false,
+    has_google_api_key: true,
+    ai_tier2_auto: false,
+    ai_tier3_auto: false,
+    ai_batch_size: "",
+    ai_delay: "",
+    import_commit_batch_size: "",
+    default_batch_size: 100,
+    default_commit_every: 100,
+    default_workers: 4,
   },
 });
 
@@ -40,25 +46,20 @@ describe("TaggingActionsView stop behaviour", () => {
     });
     adapterMocks.stopUnifiedBackfill.mockResolvedValue({
       source: "rust",
-      stopRequested: true,
-      message: "Stop requested.",
+      status: "stopping",
     });
   });
 
   /**
-   * Renders the view, enables Tier 2 and starts a never-resolving backfill
-   * so the Run button enters its in-flight state.
+   * Renders the view, enables Tagging + Tier 2 and starts a never-resolving
+   * backfill so the Run button enters its in-flight state.
    */
   async function startInFlightRun() {
     adapterMocks.runUnifiedBackfill.mockReturnValue(new Promise(() => {}));
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })

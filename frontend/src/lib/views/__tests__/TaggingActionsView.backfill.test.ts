@@ -24,9 +24,15 @@ vi.mock("../../stores/toastStore.js", () => toastMock);
 const viewModel = () => ({
   source: "rust",
   model: {
-    has_google_api_key: false,
-    tier2_default: false,
-    tier3_default: false,
+    has_google_api_key: true,
+    ai_tier2_auto: false,
+    ai_tier3_auto: false,
+    ai_batch_size: "",
+    ai_delay: "",
+    import_commit_batch_size: "",
+    default_batch_size: 100,
+    default_commit_every: 100,
+    default_workers: 4,
   },
 });
 
@@ -60,15 +66,11 @@ describe("TaggingActionsView run unified backfill", () => {
     adapterMocks.runStitchingBackfill.mockResolvedValue(backfillResult());
   });
 
-  it("calls runUnifiedBackfill with the default options when Tier 2 is enabled", async () => {
+  it("runs unified backfill when Tagging + Tier 2 are enabled with API key", async () => {
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -95,13 +97,9 @@ describe("TaggingActionsView run unified backfill", () => {
 
   it("builds the unified backfill payload from all enabled options", async () => {
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 3/ }));
     await user.click(screen.getByRole("checkbox", { name: /Image generation/ }));
@@ -128,18 +126,17 @@ describe("TaggingActionsView run unified backfill", () => {
     });
   });
 
-  it("passes the selected action mode to the unified backfill", async () => {
+  it("passes action_mode tag_all when retag-all is selected", async () => {
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
-    // Toggle off "Tagging" → action mode becomes "tag_all".
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: /Re-tag designs that already have tags/,
+      })
+    );
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
     );
@@ -151,31 +148,17 @@ describe("TaggingActionsView run unified backfill", () => {
     });
   });
 
-  it("does not run any backfill command when no sub-actions are selected", async () => {
+  it("does not run any backfill command when run button is disabled", async () => {
     render(TaggingActionsView);
+
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
+      ).toBeDisabled();
     });
 
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
-
-    await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith(
-        "Running selected actions...",
-        "info"
-      );
-    });
     expect(adapterMocks.runUnifiedBackfill).not.toHaveBeenCalled();
     expect(adapterMocks.runStitchingBackfill).not.toHaveBeenCalled();
-    // The log is still refreshed after the run completes (mount already loaded it once).
-    await waitFor(() => {
-      expect(adapterMocks.getBackfillLogEntries).toHaveBeenCalledTimes(2);
-    });
   });
 
   it("shows the last run summary with processed and error counts", async () => {
@@ -183,13 +166,9 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ processed: 12, errors: 2 })
     );
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -220,13 +199,9 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ processed: 5 })
     );
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -245,13 +220,9 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ processed: 3, stopped: true })
     );
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -271,13 +242,9 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ error: "Database is locked" })
     );
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -297,13 +264,9 @@ describe("TaggingActionsView run unified backfill", () => {
       new Error("backend unreachable")
     );
     render(TaggingActionsView);
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
-    });
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
     await user.click(
       screen.getByRole("button", { name: "Run selected actions" })
@@ -322,5 +285,54 @@ describe("TaggingActionsView run unified backfill", () => {
       ).not.toBeDisabled();
     });
     expect(screen.queryByText("Last run summary")).not.toBeInTheDocument();
+  });
+
+  it("runs only Tagging with Tier 1 when Tagging is checked without AI tiers", async () => {
+    render(TaggingActionsView);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Run selected actions" })
+    );
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
+        action_mode: "tag_untagged",
+        run_tier2: false,
+        run_tier3: false,
+        run_images: false,
+        image_redo: false,
+        run_color_counts: false,
+        commit_every: 100,
+        batch_size: 100,
+        workers: 4,
+      });
+    });
+  });
+
+  it("does not pass AI tiers when no API key is present even if checked", async () => {
+    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+      source: "rust",
+      model: {
+        ...viewModel().model,
+        has_google_api_key: false,
+      },
+    });
+    render(TaggingActionsView);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
+    const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
+    expect(tier2).toBeDisabled();
+    await user.click(
+      screen.getByRole("button", { name: "Run selected actions" })
+    );
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({ run_tier2: false, run_tier3: false })
+      );
+    });
   });
 });
