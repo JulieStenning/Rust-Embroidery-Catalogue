@@ -1131,7 +1131,7 @@
             <p class="ui-help-note text-amber-900">
               Depending on your saved settings, Tier 2 and/or Tier 3 may run during this import. Gemini usage may incur cost. Free-tier limits are approximately
               <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>.
-              A historical estimate from February 2026 found that Tier 3 on 4,000 images cost about <strong>$0.33 on the paid tier</strong>; actual pricing may have changed -
+              An historical estimate from February 2026 found that Tier 3 on 4,000 images cost about <strong>$0.33 on the paid tier</strong>; actual pricing may have changed -
               check <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener" class="underline hover:text-amber-800">ai.google.dev/pricing</a>.
             </p>
           </div>
