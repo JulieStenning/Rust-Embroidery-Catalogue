@@ -184,9 +184,20 @@ impl<'a> StitchIdentifier<'a> {
         // individual colour blocks are too fragmented to pass the threshold
         // on their own (e.g. long-row teapot house fills) still read as one
         // filled design from the aggregate.
-        let whole_filled = self.detect_filled(false);
-        let whole_satin = self.detect_satin(false);
-        let whole_outline = self.detect_outline();
+        //
+        // The fill/satin/outline detectors are computed on a FLATTENED,
+        // single-colour view of the design — stitch density does not depend
+        // on how many colours a region uses, so a multi-colour filled design
+        // should still be read as one filled region rather than being
+        // fragmented into per-colour blocks. The per-block fallback below
+        // still uses the original colour-split blocks and applique geometry
+        // still needs the separate colour layers.
+        let flattened = flatten_colors(self.pattern);
+        let flattened_identifier =
+            StitchIdentifier::new(&flattened, &self.filename, &self.folder_name, self.confidence_threshold);
+        let whole_filled = flattened_identifier.detect_filled(false);
+        let whole_satin = flattened_identifier.detect_satin(false);
+        let whole_outline = flattened_identifier.detect_outline();
 
         let filled_effective_threshold = (self.confidence_threshold - 0.05).max(0.60);
         let filled_confident = whole_filled >= filled_effective_threshold;
@@ -469,14 +480,14 @@ impl<'a> StitchIdentifier<'a> {
             base = base.max(0.72);
         }
 
-        if self.color_blocks_count() == 1 && density >= 0.29 && outline < 0.58 {
+        if self.pattern.count_color_changes() == 0 && density >= 0.29 && outline < 0.58 {
             let satin_score = self.detect_satin_like_score();
             if satin_score < 0.55 {
                 base = base.max((0.62 + 0.30 * density).min(1.0));
             }
         }
 
-        if self.color_blocks_count() == 1 && (0.20..=0.40).contains(&density) {
+        if self.pattern.count_color_changes() == 0 && (0.20..=0.40).contains(&density) {
             let satin_score = self.detect_satin_like_score();
             let axis_ratio = self.geometric_angle_score();
             let turns = self.direction_change_score();
@@ -534,36 +545,31 @@ impl<'a> StitchIdentifier<'a> {
         if density < 0.20 {
             return 0.0;
         }
-        // Satin legs are short column segments (typically 3-10 units). A
-        // dense serpentine FILL pattern also aligns its rows to a fixed
-        // angle, but the rows are much longer. Clamp on mean stitch length
-        // so long-row fills are not mistaken for satin.
-        let lengths: Vec<f64> = self.vectors.iter().map(|v| v.length).collect();
-        let mean_len = lengths.iter().sum::<f64>() / (lengths.len().max(1) as f64);
-        if mean_len > 20.0 {
+        // Satin's defining signature is the ZIGZAG: the leg direction flips
+        // between the two column edges on essentially every stitch, so the
+        // consecutive direction-change rate is very high. Long-row
+        // serpentine fills keep a constant direction within each row and
+        // only reverse at row ends, so they show a LOW change rate. Gate on
+        // the zigzag signature, NOT stitch length - real satin legs scale
+        // with the column width and routinely exceed the old 20-unit cap
+        // (e.g. wide satin motifs in the "Patterns" collections).
+        let turns = self.direction_change_score();
+        if turns < 0.50 {
             return 0.0;
         }
-        let axis_ratio = self.geometric_angle_score();
-        let turns = self.direction_change_score();
-        let filled = self.detect_filled_like_score();
-        let outline = self.detect_outline();
-
-        if self.color_blocks_count() == 1
-            && (0.20..=0.40).contains(&density)
-            && axis_ratio >= 0.93
-            && turns <= 0.40
-        {
-            score *= 0.78;
+        // Coarse sanity gate: legs far longer than any satin column are
+        // running jumps / outlines, not satin.
+        let lengths: Vec<f64> = self.vectors.iter().map(|v| v.length).collect();
+        let mean_len = lengths.iter().sum::<f64>() / (lengths.len().max(1) as f64);
+        if mean_len > 80.0 {
+            return 0.0;
         }
-
-        if self.color_blocks_count() > 1
-            && (0.20..=0.80).contains(&density)
-            && axis_ratio >= 0.80
-            && turns <= 0.25
-            && filled >= 0.65
-            && outline < 0.70
-        {
-            score *= 0.78;
+        // A strong zigzag (turns >= 0.60) is the most reliable satin signal.
+        // The generic satin-likeness score can under-rate diagonal columns
+        // (their legs avoid the 8 anchor angles), so give a direct boost
+        // that scales with how pure the zigzag is.
+        if turns >= 0.60 {
+            score = score.max(0.70 + 0.40 * (turns - 0.60));
         }
 
         score
@@ -785,6 +791,29 @@ fn stitch_bounds(pattern: &EmbPattern) -> (f64, f64, f64, f64) {
     }
 
     (min_x, min_y, max_x, max_y)
+}
+
+/// Returns a copy of the pattern with every `ColorChange` stitch converted
+/// to a `Jump`.
+///
+/// Fill/satin/outline density does not depend on the number of colours — a
+/// multi-colour fill is still one filled region. Analysing it on this
+/// colour-flattened view lets the density-based detectors read the design as
+/// a whole instead of fragmenting it into per-colour blocks that
+/// individually can't prove themselves.
+///
+/// `ColorChange` is REPLACED (not removed) so that `build_vectors` still
+/// treats the boundary as a needle move and does NOT synthesize a long
+/// stitch between disjoint colour regions (which would corrupt the geometry
+/// detectors and the running/density scoring).
+fn flatten_colors(pattern: &EmbPattern) -> EmbPattern {
+    let mut flattened = pattern.clone();
+    for stitch in &mut flattened.stitches {
+        if stitch.stitch_type == StitchType::ColorChange {
+            stitch.stitch_type = StitchType::Jump;
+        }
+    }
+    flattened
 }
 
 fn split_into_color_blocks(pattern: &EmbPattern) -> Vec<Vec<Stitch>> {

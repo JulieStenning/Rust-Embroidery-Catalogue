@@ -8,6 +8,41 @@
 use super::*;
 use crate::models::{EmbPattern, Stitch};
 
+/// A wide satin motif from the "Amazing Designs - Patterns" collection. Its
+/// legs (mean ~30 units) exceed the old 20-unit mean-length cap that was
+/// meant to separate satin from long-row fills - but it is unmistakably
+/// satin via its strong zigzag signature (consecutive direction-change rate
+/// is very high). This pins the regression that caused it to be mis-tagged
+/// as Line Outline. Skipped when the fixture is absent (CI / fresh
+/// checkouts do not depend on a local Design folder).
+#[test]
+fn real_10434_pes_is_satin_not_outline() {
+    let path = "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Patterns/10434.PES";
+    if !std::path::Path::new(path).exists() {
+        eprintln!("SKIPPED: fixture file does not exist at {}", path);
+        return;
+    }
+
+    let valid = HashSet::from([
+        "Filled".to_string(),
+        "Line Outline".to_string(),
+        "Satin Stitch".to_string(),
+    ]);
+
+    let tags = suggest_stitching_from_pattern_file(path, "10434.PES", path, &valid, Some(0.70));
+
+    assert!(
+        tags.contains(&"Satin Stitch".to_string()),
+        "10434.PES should be Satin Stitch, got {:?}",
+        tags
+    );
+    assert!(
+        !tags.contains(&"Line Outline".to_string()),
+        "10434.PES should NOT be Line Outline, got {:?}",
+        tags
+    );
+}
+
 fn filled_pattern() -> EmbPattern {
     let mut pattern = EmbPattern::new();
 
@@ -314,6 +349,40 @@ fn filled_suppresses_satin_and_outline() {
     );
 
     assert_eq!(tags, vec!["Filled".to_string()]);
+}
+
+/// A three-colour mailbox design. It reads visually as a filled design even
+/// though it has 3 colour blocks. Previously the per-colour fragmentation
+/// locked out the single-block fill boosts, so a sparse block could win the
+/// priority chain and tag the whole design "Line Outline". Identifying it on
+/// a colour-flattened view (stitch density does not depend on colour count)
+/// must tag it as Filled. Skipped when the fixture is absent.
+#[test]
+fn real_89343_hus_is_filled_not_outline() {
+    let path = "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Mailbox Collection I/89343.hus";
+    if !std::path::Path::new(path).exists() {
+        eprintln!("SKIPPED: fixture file does not exist at {}", path);
+        return;
+    }
+
+    let valid = HashSet::from([
+        "Filled".to_string(),
+        "Line Outline".to_string(),
+        "Satin Stitch".to_string(),
+    ]);
+
+    let tags = suggest_stitching_from_pattern_file(path, "89343.hus", path, &valid, Some(0.70));
+
+    assert!(
+        tags.contains(&"Filled".to_string()),
+        "89343.hus should be Filled, got {:?}",
+        tags
+    );
+    assert!(
+        !tags.contains(&"Line Outline".to_string()),
+        "89343.hus should NOT be Line Outline, got {:?}",
+        tags
+    );
 }
 
 /// Verifies the real 53505.hus fixture (a solid dense fill) is reported as
