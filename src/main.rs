@@ -50,21 +50,31 @@ pub struct AppStatus {
     pub data_root: String,
     pub embroidery_dir: String,
     pub database_path: String,
+    /// True when a previously-configured data root is no longer present on disk
+    /// (e.g. a portable drive letter changed). The frontend offers a recovery
+    /// dialog to reselect the location.
+    pub data_root_missing: bool,
 }
 
 /// Pure function to construct an `AppStatus` from `AppPaths`.
 /// Extracted for testability â€” this does not depend on Tauri state.
 fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
     let mode_str = match paths.mode {
-        paths::ExecutionMode::Portable => "portable".to_string(),
+        paths::ExecutionMode::Dev => "dev".to_string(),
         paths::ExecutionMode::Installed => "installed".to_string(),
     };
+
+    // Only Installed mode can have a configured-then-missing root; Dev mode
+    // always resolves to the project dev_data folder.
+    let data_root_missing = matches!(paths.mode, paths::ExecutionMode::Installed)
+        && paths::configured_data_root_missing().ok().flatten().unwrap_or(false);
 
     AppStatus {
         execution_mode: mode_str,
         data_root: paths.data_root.to_string_lossy().to_string(),
         embroidery_dir: paths.embroidery_designs_dir.to_string_lossy().to_string(),
         database_path: paths.database_path.to_string_lossy().to_string(),
+        data_root_missing,
     }
 }
 
@@ -72,6 +82,49 @@ fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
 #[tauri::command]
 fn get_app_status(state: State<'_, AppState>) -> AppStatus {
     app_status_from_paths(&state.paths)
+}
+
+/// Return the persisted, user-configured data root for Installed mode.
+///
+/// Returns `None` on first run (no config yet) or when running in a non-
+/// Installed mode. The frontend uses this to decide whether the setup wizard
+/// must prompt for a data location.
+#[tauri::command]
+fn get_configured_data_root() -> Result<Option<String>, String> {
+    match paths::read_bootstrap_data_root() {
+        Ok(Some(root)) => Ok(Some(root.to_string_lossy().to_string())),
+        Ok(None) => Ok(None),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+/// Persist the user-chosen data root for Installed mode.
+///
+/// The path must be absolute. This writes the tiny `config.json` under the
+/// platform app-data dir so the choice survives reinstalls.
+#[tauri::command]
+fn set_configured_data_root(data_root: String) -> Result<(), String> {
+    let trimmed = data_root.trim();
+    if trimmed.is_empty() {
+        return Err("Data root cannot be empty.".to_string());
+    }
+    let path = std::path::PathBuf::from(trimmed);
+    paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())
+}
+
+/// Open a native folder picker to choose the data root for Installed mode.
+///
+/// Follows the existing `browse_backup_folder`/`browse_import_folder` pattern
+/// using the `rfd` crate. Returns `Ok(None)` when the user cancels.
+#[tauri::command]
+fn browse_data_root_folder(start_dir: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = rfd::FileDialog::new()
+        .set_title("Choose a folder for your Embroidery Catalogue data");
+    if let Some(dir) = start_dir.filter(|d| !d.trim().is_empty()) {
+        dialog = dialog.set_directory(&dir);
+    }
+    let picked = dialog.pick_folder();
+    Ok(picked.map(|p| p.to_string_lossy().to_string()))
 }
 
 // â”€â”€â”€ Tauri Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -303,6 +356,9 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_status,
+            get_configured_data_root,
+            set_configured_data_root,
+            browse_data_root_folder,
             config::debug_bootstrap_config,
             check_disclaimer,
             accept_disclaimer,

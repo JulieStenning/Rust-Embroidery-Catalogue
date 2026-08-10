@@ -2368,21 +2368,22 @@ describe("commandAdapter initial setup & app status", () => {
     await expect(completeInitialSetup()).resolves.toBeUndefined();
   });
 
-  it("getAppStatus maps a portable status", async () => {
+  it("getAppStatus maps an installed status with the data_root_missing flag", async () => {
     invokeMock.mockResolvedValue(APP_STATUS);
 
     const result = await getAppStatus();
 
     expect(result.source).toBe("rust");
     expect(result.status).toEqual({
-      execution_mode: "portable",
+      execution_mode: "installed",
       data_root: "C:/data",
       embroidery_dir: "C:/data/embroidery",
       database_path: "C:/data/catalogue.db",
+      data_root_missing: false,
     });
   });
 
-  it("getAppStatus normalizes non-portable execution modes to installed", async () => {
+  it("getAppStatus normalizes unknown execution modes to installed", async () => {
     invokeMock.mockResolvedValue({ ...APP_STATUS, execution_mode: "weird" });
 
     const result = await getAppStatus();

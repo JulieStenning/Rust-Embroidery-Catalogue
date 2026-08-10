@@ -42,16 +42,33 @@ async fn make_pool_and_table() -> SqlitePool {
 // â”€â”€â”€ AppState helpers (Portable / Installed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn make_app_paths_installed(tmp_dir: &std::path::Path) -> crate::paths::AppPaths {
-    // Without a `data/` subdirectory under `tmp_dir`, resolve_paths_from_exe_dir
-    // uses Installed mode.
-    crate::paths::resolve_paths_from_exe_dir(tmp_dir)
+    // Build a sandboxed Installed-mode layout directly so tests do not touch
+    // the real platform app-data directory (or the project `dev_data` folder).
+    let data_root = tmp_dir.join("installed_data");
+    crate::paths::AppPaths {
+        mode: crate::paths::ExecutionMode::Installed,
+        data_root: data_root.clone(),
+        embroidery_designs_dir: data_root.join("MachineEmbroideryDesigns"),
+        database_dir: data_root.join("Database"),
+        database_path: data_root.join("Database").join(crate::paths::DATABASE_FILENAME),
+        thumbnail_cache_dir: data_root.join("thumbnails"),
+        log_dir: data_root.join("logs"),
+    }
 }
 
 fn make_app_paths_portable(tmp_dir: &std::path::Path) -> crate::paths::AppPaths {
-    // With a `data/` subdirectory, Portable mode is activated.
-    let data_dir = tmp_dir.join("data");
-    std::fs::create_dir_all(&data_dir).expect("test data dir should be created");
-    crate::paths::resolve_paths_from_exe_dir(tmp_dir)
+    // Build a sandboxed Portable-mode layout with data next to the "exe".
+    let data_root = tmp_dir.join("data");
+    std::fs::create_dir_all(&data_root).expect("test data dir should be created");
+    crate::paths::AppPaths {
+        mode: crate::paths::ExecutionMode::Installed,
+        data_root: data_root.clone(),
+        embroidery_designs_dir: data_root.join("MachineEmbroideryDesigns"),
+        database_dir: data_root.join("Database"),
+        database_path: data_root.join("Database").join(crate::paths::DATABASE_FILENAME),
+        thumbnail_cache_dir: data_root.join("thumbnails"),
+        log_dir: data_root.join("logs"),
+    }
 }
 
 fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
@@ -300,7 +317,7 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
     let prev_google_api_key = std::env::var("GOOGLE_API_KEY").ok();
     std::env::remove_var("GOOGLE_API_KEY");
 
-    // Use a temp directory without a `data/` child â†’ Installed mode.
+    // Helper builds a sandboxed Installed-mode AppPaths directly.
     let tmp = std::env::temp_dir().join(format!(
         "settings-test-get-vm-{}",
         std::time::SystemTime::now()
@@ -341,7 +358,7 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
 }
 
 #[tokio::test]
-async fn get_settings_view_model_inner_has_portable_mode_defaults() {
+async fn get_settings_view_model_inner_has_installed_mode_defaults() {
     let _guard = lock_env();
 
     let tmp = std::env::temp_dir().join(format!(
@@ -361,8 +378,8 @@ async fn get_settings_view_model_inner_has_portable_mode_defaults() {
         .await
         .expect("view model should be retrieved");
 
-    assert!(!vm.can_configure_data_root); // Portable â†’ false
-    assert_eq!(vm.app_mode, "portable");
+    assert!(vm.can_configure_data_root); // Installed â†’ true
+    assert_eq!(vm.app_mode, "installed");
 
     let _ = std::fs::remove_dir_all(&tmp);
 }

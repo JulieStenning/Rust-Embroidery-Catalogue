@@ -250,10 +250,11 @@ export interface AdapterCompactResponse {
 }
 
 export interface AppStatus {
-  execution_mode: "portable" | "installed";
+  execution_mode: "dev" | "installed";
   data_root: string;
   embroidery_dir: string;
   database_path: string;
+  data_root_missing: boolean;
 }
 
 export interface BrowseDesignPreview {

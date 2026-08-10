@@ -211,7 +211,7 @@ mod tests {
         std::fs::write(&database_path, []).expect("create empty db file");
 
         let paths = AppPaths {
-            mode: ExecutionMode::Portable,
+            mode: ExecutionMode::Installed,
             data_root: tmp.clone(),
             embroidery_designs_dir: tmp.join("MachineEmbroideryDesigns"),
             database_dir: database_dir.clone(),
@@ -247,7 +247,7 @@ mod tests {
         let database_path = tmp.join("Database").join("catalogue.db");
 
         let paths = AppPaths {
-            mode: ExecutionMode::Portable,
+            mode: ExecutionMode::Installed,
             data_root: tmp.clone(),
             embroidery_designs_dir: tmp.join("MachineEmbroideryDesigns"),
             database_dir: tmp.join("Database"),

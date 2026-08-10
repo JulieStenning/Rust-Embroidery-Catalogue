@@ -84,31 +84,10 @@ goto :wait_for_server
 
 :launch_tauri
 REM -----------------------------------------------------------------------
-REM Sync the developer database from the project root into the debug output
-REM tree so the exe always finds Data\Database\EmbroideryCatalogue.db next
-REM to itself.  (cargo clean wipes target\debug, so this runs every launch.)
+REM The debug build runs in Dev mode: it resolves data to <repo>/dev_data/
+REM and auto-seeds the database there from the bundled resource on first run.
+REM No manual database copy is needed.
 REM -----------------------------------------------------------------------
-echo [Rust App] Syncing development database...
-
-if not exist "Data\Database\EmbroideryCatalogue.db" (
-    echo ERROR: Data\Database\EmbroideryCatalogue.db was not found at the project root.
-    echo The app cannot start without its database.
-    goto :fail
-)
-
-if not exist "target\debug\Data\Database" mkdir "target\debug\Data\Database"
-if errorlevel 1 (
-    echo ERROR: Could not create target\debug\Data\Database.
-    goto :fail
-)
-
-copy /Y "Data\Database\EmbroideryCatalogue.db" "target\debug\Data\Database\EmbroideryCatalogue.db" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy database to target\debug\Data\Database\EmbroideryCatalogue.db.
-    goto :fail
-)
-
-echo [Rust App] Database copied to target\debug\Data\Database\EmbroideryCatalogue.db
 echo [Rust App] Launching Tauri dev app...
 cargo tauri dev --no-watch
 set "APP_EXIT=%ERRORLEVEL%"

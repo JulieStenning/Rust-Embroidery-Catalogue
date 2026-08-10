@@ -100,11 +100,11 @@ pub(crate) async fn get_settings_view_model_inner(
     let database_path = app_state.paths.database_path.to_string_lossy().to_string();
     let log_folder = app_state.paths.log_dir.to_string_lossy().to_string();
     let can_configure_data_root = match app_state.paths.mode {
-        ExecutionMode::Portable => false,
+        ExecutionMode::Dev => true,
         ExecutionMode::Installed => true,
     };
     let app_mode = match app_state.paths.mode {
-        ExecutionMode::Portable => "portable".to_string(),
+        ExecutionMode::Dev => "dev".to_string(),
         ExecutionMode::Installed => "installed".to_string(),
     };
 

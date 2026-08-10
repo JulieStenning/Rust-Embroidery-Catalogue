@@ -1,14 +1,24 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
+import { tick } from "svelte";
 import InitialSetupView from "../lib/InitialSetupView.svelte";
 
 // ---------------------------------------------------------------------------
-// Mock the command adapter so we control the completion of setup.
+// Mock the command adapter so we control all setup flows.
 // ---------------------------------------------------------------------------
 const completeInitialSetupMock = vi.hoisted(() => vi.fn());
+const getAppStatusMock = vi.hoisted(() => vi.fn());
+const getConfiguredDataRootMock = vi.hoisted(() => vi.fn());
+const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
+const browseDataRootFolderMock = vi.hoisted(() => vi.fn());
+
 vi.mock("../lib/api/commandAdapter", () => ({
   completeInitialSetup: completeInitialSetupMock,
+  getAppStatus: getAppStatusMock,
+  getConfiguredDataRoot: getConfiguredDataRootMock,
+  setConfiguredDataRoot: setConfiguredDataRootMock,
+  browseDataRootFolder: browseDataRootFolderMock,
 }));
 
 // Mock the embedded admin views so the wizard's step gating can be tested in
@@ -29,18 +39,79 @@ vi.mock("../lib/views/AdminSourcesView.svelte", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Default non-installed mode so the data step is hidden. */
+function mockDevMode() {
+  getAppStatusMock.mockResolvedValue({
+    source: "rust",
+    status: {
+      execution_mode: "dev",
+      data_root: "D:/dev_data",
+      embroidery_dir: "D:/dev_data/MachineEmbroideryDesigns",
+      database_path: "D:/dev_data/Database/EmbroideryCatalogue.db",
+      data_root_missing: false,
+    },
+  });
+}
+
+/** Installed mode with no persisted data root yet (first run). */
+function mockInstalledNoConfig() {
+  getAppStatusMock.mockResolvedValue({
+    source: "rust",
+    status: {
+      execution_mode: "installed",
+      data_root: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue",
+      embroidery_dir:
+        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns",
+      database_path:
+        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
+      data_root_missing: false,
+    },
+  });
+  getConfiguredDataRootMock.mockResolvedValue({ source: "rust", path: null });
+  setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+  browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+}
+
+/** Installed mode where the configured data root is no longer reachable. */
+function mockInstalledDataRootMissing() {
+  getAppStatusMock.mockResolvedValue({
+    source: "rust",
+    status: {
+      execution_mode: "installed",
+      data_root: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue",
+      embroidery_dir:
+        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns",
+      database_path:
+        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
+      data_root_missing: true,
+    },
+  });
+  getConfiguredDataRootMock.mockResolvedValue({
+    source: "rust",
+    path: "G:/OldPortableData",
+  });
+  setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+  browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe("InitialSetupView.svelte", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     completeInitialSetupMock.mockResolvedValue(undefined);
+    mockDevMode();
   });
 
-  it("renders the Designers step by default", () => {
+  it("renders the Designers step by default", async () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
+    await tick();
 
     expect(
       screen.getByText("Welcome to Embroidery Catalogue!")
@@ -73,9 +144,11 @@ describe("InitialSetupView.svelte", () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
+    await tick();
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
 
     expect(screen.getByText("Step 2 of 2 — Sources")).toBeInTheDocument();
     expect(screen.getByText("What are Sources?")).toBeInTheDocument();
@@ -96,12 +169,13 @@ describe("InitialSetupView.svelte", () => {
   it("completes setup and invokes the callback on the final step", async () => {
     const onInitialSetupCompleted = vi.fn();
     render(InitialSetupView, { props: { onInitialSetupCompleted } });
+    await tick();
 
     // Move from Designers to Sources.
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
 
-    // Finish setup on the Sources step.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    // Finish setup on the Sources step (the last step shows "Finish").
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
     await waitFor(() => {
@@ -120,11 +194,12 @@ describe("InitialSetupView.svelte", () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
+    await tick();
 
     // Move to the final step.
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
 
-    const finishButton = screen.getByRole("button", { name: "Continue →" });
+    const finishButton = screen.getByRole("button", { name: "Finish" });
     await fireEvent.click(finishButton);
 
     await waitFor(() => {
@@ -136,9 +211,8 @@ describe("InitialSetupView.svelte", () => {
     // Resolve the pending setup promise and confirm we return to normal state.
     resolveSetup?.();
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Continue →" })
-      ).toBeEnabled();
+      // Still on the final step, so the enabled button reads "Finish".
+      expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
     });
   });
 
@@ -150,6 +224,7 @@ describe("InitialSetupView.svelte", () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
+    await tick();
 
     // Move to the final step.
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
@@ -157,7 +232,7 @@ describe("InitialSetupView.svelte", () => {
     // Fire two clicks while the setup promise is still pending. The second
     // invocation must be ignored by the `finishing` guard so
     // completeInitialSetup is called exactly once.
-    const finishButton = screen.getByRole("button", { name: "Continue →" });
+    const finishButton = screen.getByRole("button", { name: "Finish" });
     await fireEvent.click(finishButton);
     await fireEvent.click(finishButton);
 
@@ -177,10 +252,11 @@ describe("InitialSetupView.svelte", () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
+    await tick();
 
     // Move to the final step and attempt to finish.
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     await waitFor(() => {
       expect(
@@ -190,22 +266,161 @@ describe("InitialSetupView.svelte", () => {
       ).toBeInTheDocument();
     });
     expect(consoleError).toHaveBeenCalledWith(
-      "complete_initial_setup failed:",
+      "initial setup failed:",
       expect.any(Error)
     );
-    expect(screen.getByText("Continue →")).toBeInTheDocument();
+    expect(screen.getByText("Finish")).toBeInTheDocument();
     expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
 
     consoleError.mockRestore();
   });
 
-  it("does not show an error message initially", () => {
+  it("does not show an error message initially", async () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
+    await tick();
 
     expect(
       screen.queryByText(/Failed to save setup status/)
     ).not.toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Installed-mode data location step
+  // -------------------------------------------------------------------------
+
+  it("shows a three-step wizard with a Data Location step in installed mode", async () => {
+    mockInstalledNoConfig();
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    // First step: Designers (Step 1 of 3)
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
+
+    // Continue to Sources (Step 2 of 3)
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
+
+    // Continue to Data Location (Step 3 of 3)
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    expect(screen.getByText("Step 3 of 3 — Data Location")).toBeInTheDocument();
+    expect(screen.getByTestId("data-root-input")).toBeInTheDocument();
+    expect(screen.getByTestId("data-root-browse")).toBeInTheDocument();
+  });
+
+  it("persists the data root before completing setup in installed mode", async () => {
+    mockInstalledNoConfig();
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    // Walk through all three steps.
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+
+    // Enter a data root and finish.
+    const input = screen.getByTestId("data-root-input");
+    await fireEvent.input(input, {
+      target: { value: "D:/EmbroideryCatalogue/Data" },
+    });
+    await tick();
+
+    const finishButton = screen.getByRole("button", { name: "Finish" });
+    await fireEvent.click(finishButton);
+
+    await waitFor(() => {
+      expect(setConfiguredDataRootMock).toHaveBeenCalledWith(
+        "D:/EmbroideryCatalogue/Data"
+      );
+    });
+    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates that a data root is provided in installed mode", async () => {
+    mockInstalledNoConfig();
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    // Walk through both non-data steps.
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+
+    // Leave the data root empty and attempt to finish.
+    const finishButton = screen.getByRole("button", { name: "Finish" });
+    await fireEvent.click(finishButton);
+
+    await tick();
+    expect(
+      screen.getByText("Please enter a data location or choose a folder.")
+    ).toBeInTheDocument();
+    expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
+    expect(completeInitialSetupMock).not.toHaveBeenCalled();
+  });
+
+  it("jumps to the data step and shows a recovery notice when the configured root is missing", async () => {
+    mockInstalledDataRootMissing();
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    // Because the configured root is unreachable, the wizard goes straight to
+    // the Data Location step (Step 3 of 3) and shows the recovery notice.
+    await waitFor(() => {
+      expect(screen.getByText("Step 3 of 3 — Data Location")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("data-root-missing-notice")).toBeInTheDocument();
+    expect(screen.getByTestId("data-root-input")).toHaveValue("G:/OldPortableData");
+  });
+
+  it("pre-fills an existing configured data root in installed mode", async () => {
+    getAppStatusMock.mockResolvedValue({
+      source: "rust",
+      status: {
+      execution_mode: "installed",
+      data_root: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue",
+      embroidery_dir: "",
+      database_path: "",
+      data_root_missing: false,
+    },
+    });
+    getConfiguredDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "D:/ExistingData",
+    });
+    setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+    browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    // Move to the data step.
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+
+    expect(screen.getByTestId("data-root-input")).toHaveValue("D:/ExistingData");
+    expect(
+      screen.getByText(/You already have a configured data location/)
+    ).toBeInTheDocument();
   });
 });

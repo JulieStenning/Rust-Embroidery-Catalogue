@@ -9,7 +9,11 @@
  * surface a short "complete" toast and keep any "started" handling minimal.
  */
 
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+// `UnlistenFn` is a type-only import (erased at build time). `listen` is
+// imported dynamically inside `initDbMaintenanceEvents()` so the module can
+// be code-split as a separate chunk, matching `ImportView.svelte`'s dynamic
+// import of `@tauri-apps/api/event`.
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   DB_MAINTENANCE_FINISHED,
   DB_MAINTENANCE_STARTED,
@@ -31,6 +35,8 @@ const COMPLETION_TOAST_DURATION_MS = 5000;
  * `onDestroy` of the root component).
  */
 export async function initDbMaintenanceEvents(): Promise<UnlistenFn> {
+  const { listen } = await import("@tauri-apps/api/event");
+
   // The "started" event fires before the toast container is mounted (on first
   // run the disclaimer may still be pending). We simply log it; the "finished"
   // toast is what the user sees.

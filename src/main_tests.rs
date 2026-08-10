@@ -251,9 +251,9 @@ fn load_dotenv_reads_and_loads_from_file() {
 // â”€â”€â”€ AppStatus struct â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[test]
-fn app_status_from_paths_serializes_portable_mode() {
+fn app_status_from_paths_serializes_installed_mode_backslash_variant() {
     let paths = paths::AppPaths {
-        mode: paths::ExecutionMode::Portable,
+        mode: paths::ExecutionMode::Installed,
         data_root: PathBuf::from("E:/portable/data"),
         embroidery_designs_dir: PathBuf::from("E:/portable/data/MachineEmbroideryDesigns"),
         database_dir: PathBuf::from("E:/portable/data/Database"),
@@ -264,7 +264,7 @@ fn app_status_from_paths_serializes_portable_mode() {
 
     let status = app_status_from_paths(&paths);
 
-    assert_eq!(status.execution_mode, "portable");
+    assert_eq!(status.execution_mode, "installed");
     assert_eq!(status.data_root, "E:/portable/data");
     assert_eq!(
         status.embroidery_dir,
@@ -273,6 +273,39 @@ fn app_status_from_paths_serializes_portable_mode() {
     assert_eq!(
         status.database_path,
         "E:/portable/data/Database/EmbroideryCatalogue.db"
+    );
+}
+
+#[test]
+fn app_status_from_paths_serializes_dev_mode() {
+    let paths = paths::AppPaths {
+        mode: paths::ExecutionMode::Dev,
+        data_root: PathBuf::from("D:/dev/rust-embroidery-catalogue/dev_data"),
+        embroidery_designs_dir: PathBuf::from(
+            "D:/dev/rust-embroidery-catalogue/dev_data/MachineEmbroideryDesigns",
+        ),
+        database_dir: PathBuf::from("D:/dev/rust-embroidery-catalogue/dev_data/Database"),
+        database_path: PathBuf::from(
+            "D:/dev/rust-embroidery-catalogue/dev_data/Database/EmbroideryCatalogue.db",
+        ),
+        thumbnail_cache_dir: PathBuf::from("D:/dev/rust-embroidery-catalogue/dev_data/thumbnails"),
+        log_dir: PathBuf::from("D:/dev/rust-embroidery-catalogue/dev_data/logs"),
+    };
+
+    let status = app_status_from_paths(&paths);
+
+    assert_eq!(status.execution_mode, "dev");
+    assert_eq!(
+        status.data_root,
+        "D:/dev/rust-embroidery-catalogue/dev_data"
+    );
+    assert_eq!(
+        status.embroidery_dir,
+        "D:/dev/rust-embroidery-catalogue/dev_data/MachineEmbroideryDesigns"
+    );
+    assert_eq!(
+        status.database_path,
+        "D:/dev/rust-embroidery-catalogue/dev_data/Database/EmbroideryCatalogue.db"
     );
 }
 
@@ -308,7 +341,7 @@ fn app_status_from_paths_handles_windows_backslash_paths() {
     // On Windows, to_string_lossy() on a PathBuf constructed from backslashes
     // yields backslashes. The frontend receives these raw values.
     let paths = paths::AppPaths {
-        mode: paths::ExecutionMode::Portable,
+        mode: paths::ExecutionMode::Installed,
         data_root: PathBuf::from("D:\\MyData"),
         embroidery_designs_dir: PathBuf::from("D:\\MyData\\MachineEmbroideryDesigns"),
         database_dir: PathBuf::from("D:\\MyData\\Database"),
@@ -333,8 +366,8 @@ fn app_status_from_paths_handles_windows_backslash_paths() {
         "Windows paths should retain backslashes"
     );
 
-    // The execution mode should still be portable.
-    assert_eq!(status.execution_mode, "portable");
+    // The execution mode should still be installed.
+    assert_eq!(status.execution_mode, "installed");
 }
 
 // â”€â”€â”€ AppStatus struct (serialization) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -346,6 +379,7 @@ fn app_status_serializes_correct_field_names() {
         data_root: "/some/data/root".to_string(),
         embroidery_dir: "/some/data/root/MachineEmbroideryDesigns".to_string(),
         database_path: "/some/data/root/Database/EmbroideryCatalogue.db".to_string(),
+        data_root_missing: false,
     };
 
     let json = serde_json::to_value(&status).expect("serialize AppStatus");
@@ -362,18 +396,20 @@ fn app_status_serializes_correct_field_names() {
         "missing 'embroidery_dir'"
     );
     assert!(map.contains_key("database_path"), "missing 'database_path'");
+    assert!(map.contains_key("data_root_missing"), "missing 'data_root_missing'");
 
-    // Exactly 4 fields â€” no extra, no missing
-    assert_eq!(map.len(), 4, "AppStatus should serialize exactly 4 fields");
+    // Exactly 5 fields â€” no extra, no missing
+    assert_eq!(map.len(), 5, "AppStatus should serialize exactly 5 fields");
 }
 
 #[test]
 fn app_status_serializes_correct_field_values() {
     let status = AppStatus {
-        execution_mode: "portable".to_string(),
+        execution_mode: "installed".to_string(),
         data_root: "D:/data".to_string(),
         embroidery_dir: "D:/data/MachineEmbroideryDesigns".to_string(),
         database_path: "D:/data/Database/EmbroideryCatalogue.db".to_string(),
+        data_root_missing: false,
     };
 
     let json = serde_json::to_value(&status).expect("serialize AppStatus");
@@ -381,7 +417,7 @@ fn app_status_serializes_correct_field_values() {
 
     assert_eq!(
         map.get("execution_mode").and_then(|v| v.as_str()),
-        Some("portable")
+        Some("installed")
     );
     assert_eq!(
         map.get("data_root").and_then(|v| v.as_str()),
@@ -496,4 +532,78 @@ async fn read_idle_interval_returns_error_when_settings_table_missing() {
         result.is_err(),
         "missing settings table should surface an error"
     );
+}
+
+// â”€â”€â”€ configured data root (Installed-mode bootstrap config) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//
+// These exercise the `get_configured_data_root` / `set_configured_data_root`
+// Tauri commands. They redirect APPDATA/HOME to a sandboxed temp dir (and
+// hold the shared env lock) so the real user config is never touched.
+
+/// Redirect APPDATA (or HOME on non-Windows) to a fresh temp dir, run `f`,
+/// then restore the original env var and clean up.
+fn with_sandboxed_app_data<F: FnOnce()>(f: F) {
+    #[cfg(target_os = "windows")]
+    let (var_name, original) = ("APPDATA", std::env::var("APPDATA").ok());
+    #[cfg(not(target_os = "windows"))]
+    let (var_name, original) = ("HOME", std::env::var("HOME").ok());
+
+    let sandbox = std::env::temp_dir().join(format!(
+        "embroidery-main-data-root-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::env::set_var(var_name, &sandbox);
+
+    f();
+
+    match original {
+        Some(val) => std::env::set_var(var_name, val),
+        None => std::env::remove_var(var_name),
+    }
+    let _ = fs::remove_dir_all(&sandbox);
+}
+
+#[test]
+fn get_configured_data_root_returns_none_on_first_run() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let result = get_configured_data_root().expect("read should succeed");
+        assert_eq!(result, None);
+    });
+}
+
+#[test]
+fn set_then_get_configured_data_root_roundtrips() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let chosen = "D:/EmbroideryCatalogue/Data".to_string();
+        set_configured_data_root(chosen.clone()).expect("write should succeed");
+
+        let read_back = get_configured_data_root()
+            .expect("read should succeed")
+            .expect("config should exist");
+        assert_eq!(read_back, chosen);
+    });
+}
+
+#[test]
+fn set_configured_data_root_rejects_empty_string() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let err = set_configured_data_root("   ".to_string()).expect_err("empty root should fail");
+        assert!(err.contains("cannot be empty"));
+    });
+}
+
+#[test]
+fn set_configured_data_root_rejects_relative_path() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let err = set_configured_data_root("relative/path".to_string())
+            .expect_err("relative root should fail");
+        assert!(err.contains("absolute"));
+    });
 }

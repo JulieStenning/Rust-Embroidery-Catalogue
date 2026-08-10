@@ -119,7 +119,7 @@ fn make_app_state(pool: SqlitePool) -> AppState {
     AppState {
         db: pool,
         paths: AppPaths {
-            mode: crate::paths::ExecutionMode::Portable,
+            mode: crate::paths::ExecutionMode::Installed,
             data_root: tmp_dir.clone(),
             embroidery_designs_dir: tmp_dir.join("MachineEmbroideryDesigns"),
             database_dir: tmp_dir.join("Database"),

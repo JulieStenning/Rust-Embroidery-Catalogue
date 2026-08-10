@@ -10,7 +10,9 @@ use serial_test::serial;
 use std::fs;
 use std::path::PathBuf;
 
-// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
 
 /// Create a temporary directory with a name derived from the test function.
 fn tmp_dir(test_name: &str) -> PathBuf {
@@ -24,202 +26,157 @@ fn tmp_dir(test_name: &str) -> PathBuf {
     ))
 }
 
-// â”€â”€â”€ DATABASE_FILENAME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// DATABASE_FILENAME
+// ---------------------------------------------------------------------------
 
 #[test]
 fn database_filename_is_correct() {
     assert_eq!(DATABASE_FILENAME, "EmbroideryCatalogue.db");
 }
 
-// â”€â”€â”€ ExecutionMode derives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// ExecutionMode derives
+// ---------------------------------------------------------------------------
 
 #[test]
 fn execution_mode_debug_fmt() {
-    assert_eq!(format!("{:?}", ExecutionMode::Portable), "Portable");
+    assert_eq!(format!("{:?}", ExecutionMode::Dev), "Dev");
     assert_eq!(format!("{:?}", ExecutionMode::Installed), "Installed");
 }
 
 #[test]
 fn execution_mode_clone() {
-    let a = ExecutionMode::Portable;
+    let a = ExecutionMode::Dev;
     let b = a;
     assert_eq!(a, b);
 }
 
 #[test]
 fn execution_mode_partial_eq() {
-    assert_eq!(ExecutionMode::Portable, ExecutionMode::Portable);
-    assert_ne!(ExecutionMode::Portable, ExecutionMode::Installed);
+    assert_eq!(ExecutionMode::Dev, ExecutionMode::Dev);
+    assert_eq!(ExecutionMode::Installed, ExecutionMode::Installed);
+    assert_ne!(ExecutionMode::Dev, ExecutionMode::Installed);
 }
 
 #[test]
 fn execution_mode_serialize() {
-    let portable = serde_json::to_value(ExecutionMode::Portable).unwrap();
-    assert_eq!(portable, serde_json::json!("Portable"));
+    let dev = serde_json::to_value(ExecutionMode::Dev).unwrap();
+    assert_eq!(dev, serde_json::json!("Dev"));
 
     let installed = serde_json::to_value(ExecutionMode::Installed).unwrap();
     assert_eq!(installed, serde_json::json!("Installed"));
 }
 
-// â”€â”€â”€ resolve_paths_from_exe_dir â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// resolve_paths_from_exe_dir
+// ---------------------------------------------------------------------------
 
+/// In debug builds, Dev mode is selected and data lives in
+/// `<project>/dev_data/`.
+#[cfg(debug_assertions)]
 #[test]
-fn portable_mode_when_data_dir_exists() {
-    let tmp = tmp_dir("portable_mode_when_data_dir_exists");
-    fs::create_dir_all(tmp.join("exe").join("data")).expect("create exe/data");
-    fs::create_dir_all(tmp.join("exe").join("other")).expect("create exe/other");
-
-    let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
-
-    assert_eq!(app_paths.mode, ExecutionMode::Portable);
-    assert_eq!(app_paths.data_root, tmp.join("exe").join("data"));
-    assert!(app_paths.data_root.exists());
-    assert_eq!(
-        app_paths.embroidery_designs_dir,
-        tmp.join("exe")
-            .join("data")
-            .join("MachineEmbroideryDesigns")
-    );
-    assert_eq!(
-        app_paths.database_dir,
-        tmp.join("exe").join("data").join("Database")
-    );
-    assert_eq!(
-        app_paths.database_path,
-        tmp.join("exe")
-            .join("data")
-            .join("Database")
-            .join(DATABASE_FILENAME)
-    );
-    assert_eq!(
-        app_paths.thumbnail_cache_dir,
-        tmp.join("exe").join("data").join("thumbnails")
-    );
-    assert_eq!(app_paths.log_dir, tmp.join("exe").join("data").join("logs"));
-    // All dirs created
-    assert!(app_paths.embroidery_designs_dir.exists());
-    assert!(app_paths.database_dir.exists());
-    assert!(app_paths.thumbnail_cache_dir.exists());
-    assert!(app_paths.log_dir.exists());
-
-    let _ = fs::remove_dir_all(&tmp);
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn portable_mode_with_canonical_data_case_on_case_sensitive_fs() {
-    // On Linux/macOS "Data" != "data" (case-sensitive filesystem).
-    // "Data" is the canonical folder name and must be detected.
-    let tmp = tmp_dir("portable_mode_with_canonical_data");
-    fs::create_dir_all(tmp.join("exe").join("Data")).expect("create exe/Data");
-    fs::create_dir_all(tmp.join("exe").join("other")).expect("create exe/other");
-
-    let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
-
-    // "Data" (canonical case) â†’ Portable
-    assert_eq!(app_paths.mode, ExecutionMode::Portable);
-    assert_eq!(app_paths.data_root, tmp.join("exe").join("Data"));
-
-    let _ = fs::remove_dir_all(&tmp);
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn portable_mode_with_lowercase_data_on_case_sensitive_fs() {
-    // On Linux/macOS "Data" != "data" (case-sensitive filesystem).
-    // The legacy lowercase "data" folder is still accepted.
-    let tmp = tmp_dir("portable_mode_with_lowercase_data");
-    fs::create_dir_all(tmp.join("exe").join("data")).expect("create exe/data");
-    fs::create_dir_all(tmp.join("exe").join("other")).expect("create exe/other");
-
-    let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
-
-    // "data" (legacy case) â†’ Portable
-    assert_eq!(app_paths.mode, ExecutionMode::Portable);
-    assert_eq!(app_paths.data_root, tmp.join("exe").join("data"));
-
-    let _ = fs::remove_dir_all(&tmp);
-}
-
-/// On Windows "Data" and "data" are the same directory, so we verify
-/// that the common case (all-lowercase "data") still works.
-#[cfg(target_os = "windows")]
-#[test]
-fn portable_mode_detected_on_windows() {
-    let tmp = tmp_dir("portable_mode_on_windows");
-    fs::create_dir_all(tmp.join("exe").join("data")).expect("create exe/data");
-
-    let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
-
-    assert_eq!(app_paths.mode, ExecutionMode::Portable);
-
-    let _ = fs::remove_dir_all(&tmp);
-}
-
-#[test]
-fn portable_mode_detected_with_canonical_data_case() {
-    // The canonical data folder is `Data/` (matching the runtime layout
-    // `Data/Database/EmbroideryCatalogue.db`).
-    let tmp = tmp_dir("portable_mode_with_data_caps");
-    fs::create_dir_all(tmp.join("exe").join("Data")).expect("create exe/Data");
-
-    let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
-
-    assert_eq!(app_paths.mode, ExecutionMode::Portable);
-    assert_eq!(app_paths.data_root, tmp.join("exe").join("Data"));
-    assert_eq!(
-        app_paths.database_dir,
-        tmp.join("exe").join("Data").join("Database")
-    );
-    assert!(app_paths.database_dir.exists());
-
-    let _ = fs::remove_dir_all(&tmp);
-}
-
-#[test]
-fn legacy_lowercase_data_dir_still_detected() {
-    // On case-sensitive filesystems an existing `data/` folder must still
-    // resolve to Portable mode rather than falling back to Installed.
-    let tmp = tmp_dir("portable_mode_legacy_lowercase");
-    fs::create_dir_all(tmp.join("exe").join("data")).expect("create exe/data");
-
-    let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
-
-    assert_eq!(app_paths.mode, ExecutionMode::Portable);
-    assert_eq!(app_paths.data_root, tmp.join("exe").join("data"));
-
-    let _ = fs::remove_dir_all(&tmp);
-}
-
-#[test]
-fn installed_mode_when_no_data_dir() {
-    let tmp = tmp_dir("installed_mode_when_no_data_dir");
+fn dev_mode_in_debug_builds() {
+    let tmp = tmp_dir("dev_mode_in_debug_builds");
     fs::create_dir_all(tmp.join("exe")).expect("create exe");
 
     let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
 
-    // When there's no "data" directory, should be Installed
-    assert_eq!(app_paths.mode, ExecutionMode::Installed);
-    // data_root should be the platform data root (not under tmp)
-    assert_ne!(app_paths.data_root, tmp.join("exe").join("data"));
+    assert_eq!(app_paths.mode, ExecutionMode::Dev);
+    assert_eq!(app_paths.data_root, dev_data_root());
+    // The project dev_data directory was created and seeded.
+    assert!(app_paths.data_root.exists());
+    assert!(app_paths.database_dir.exists());
+    assert_eq!(
+        app_paths.database_path,
+        dev_data_root()
+            .join("Database")
+            .join(DATABASE_FILENAME)
+    );
+}
+
+/// `dev_data_root()` resolves to `<CARGO_MANIFEST_DIR>/dev_data`.
+#[test]
+fn dev_data_root_resolves_to_project_dev_data() {
+    let root = dev_data_root();
+    assert_eq!(
+        root,
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("dev_data")
+    );
+    assert!(root.to_string_lossy().ends_with("dev_data"));
+}
+
+/// In release builds, Installed mode is used with the platform app-data root.
+/// APPDATA/HOME is redirected to a temp dir so the seeding step stays within
+/// the test sandbox.
+#[cfg(not(debug_assertions))]
+#[test]
+#[serial]
+fn installed_mode_when_release_build() {
+    let tmp = tmp_dir("installed_mode_when_release_build");
+    fs::create_dir_all(tmp.join("exe")).expect("create exe");
+
+    #[cfg(target_os = "windows")]
+    {
+        let original = std::env::var("APPDATA").ok();
+        std::env::set_var("APPDATA", tmp.join("fake_appdata"));
+        let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
+        assert_eq!(app_paths.mode, ExecutionMode::Installed);
+        assert!(app_paths.data_root.starts_with(&tmp.join("fake_appdata")));
+        match original {
+            Some(val) => std::env::set_var("APPDATA", val),
+            None => std::env::remove_var("APPDATA"),
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let original = std::env::var("HOME").ok();
+        std::env::set_var("HOME", tmp.join("fake_home"));
+        let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
+        assert_eq!(app_paths.mode, ExecutionMode::Installed);
+        assert!(app_paths.data_root.starts_with(&tmp.join("fake_home")));
+        match original {
+            Some(val) => std::env::set_var("HOME", val),
+            None => std::env::remove_var("HOME"),
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let original = std::env::var("HOME").ok();
+        std::env::set_var("HOME", tmp.join("fake_home"));
+        let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
+        assert_eq!(app_paths.mode, ExecutionMode::Installed);
+        assert!(app_paths.data_root.starts_with(&tmp.join("fake_home")));
+        match original {
+            Some(val) => std::env::set_var("HOME", val),
+            None => std::env::remove_var("HOME"),
+        }
+    }
 
     let _ = fs::remove_dir_all(&tmp);
 }
 
+/// A non-existent exe dir should not panic. Detection follows the build
+/// profile: debug -> Dev, release -> Installed.
 #[test]
 fn empty_exe_dir_does_not_panic() {
-    // An exe dir that doesn't exist on disk should not cause a panic
     let tmp = tmp_dir("empty_exe_dir");
     let nonexistent = tmp.join("nonexistent_exe_dir");
 
-    // This should not panic â€” will instantiate Installed mode
+    // This should not panic regardless of mode.
     let app_paths = resolve_paths_from_exe_dir(&nonexistent);
 
-    // Should not be Portable since the dir doesn't exist
+    #[cfg(debug_assertions)]
+    assert_eq!(
+        app_paths.mode,
+        ExecutionMode::Dev,
+        "empty exe dir in debug should resolve to Dev"
+    );
+    #[cfg(not(debug_assertions))]
     assert_eq!(
         app_paths.mode,
         ExecutionMode::Installed,
-        "non-existent directory should fall back to Installed mode"
+        "empty exe dir in release should resolve to Installed"
     );
 
     let _ = fs::remove_dir_all(&tmp);
@@ -230,20 +187,20 @@ fn resolve_paths_creates_all_directories() {
     let tmp = tmp_dir("resolve_paths_creates_all_dirs");
     fs::create_dir_all(tmp.join("exe")).expect("create exe");
 
-    // No data dir exists â†’ creates dirs under platform data root
+    // Resolve (Dev in debug, Installed in release) then verify all dirs exist.
     let app_paths = resolve_paths_from_exe_dir(&tmp.join("exe"));
 
-    // Verify directories exist
+    // Verify all directories exist
     assert!(app_paths.data_root.exists());
     assert!(app_paths.embroidery_designs_dir.exists());
     assert!(app_paths.database_dir.exists());
     assert!(app_paths.thumbnail_cache_dir.exists());
     assert!(app_paths.log_dir.exists());
-
-    let _ = fs::remove_dir_all(&tmp);
 }
 
-// â”€â”€â”€ platform_data_root â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// platform_data_root
+// ---------------------------------------------------------------------------
 
 #[test]
 fn platform_data_root_has_company_subdirectory() {
@@ -284,8 +241,13 @@ fn windows_platform_data_root_fallback_when_no_appdata() {
 
     let root = platform_data_root();
 
-    // Fallback is "."
-    assert_eq!(root, PathBuf::from("."));
+    // Fallback joins "EmbroideryCatalogue" under the base ("." when APPDATA
+    // is missing), so the last segment is always "EmbroideryCatalogue".
+    assert!(
+        root.to_string_lossy().ends_with("EmbroideryCatalogue"),
+        "expected fallback to end with 'EmbroideryCatalogue', got {}",
+        root.display()
+    );
 
     // Restore original
     if let Some(val) = original {
@@ -339,7 +301,11 @@ fn macos_platform_data_root_fallback_when_no_home() {
     std::env::remove_var("HOME");
 
     let root = platform_data_root();
-    assert_eq!(root, PathBuf::from("."));
+    assert!(
+        root.to_string_lossy().ends_with("EmbroideryCatalogue"),
+        "expected fallback to end with 'EmbroideryCatalogue', got {}",
+        root.display()
+    );
 
     if let Some(val) = original {
         std::env::set_var("HOME", val);
@@ -354,14 +320,20 @@ fn linux_platform_data_root_fallback_when_no_home() {
     std::env::remove_var("HOME");
 
     let root = platform_data_root();
-    assert_eq!(root, PathBuf::from("."));
+    assert!(
+        root.to_string_lossy().ends_with("EmbroideryCatalogue"),
+        "expected fallback to end with 'EmbroideryCatalogue', got {}",
+        root.display()
+    );
 
     if let Some(val) = original {
         std::env::set_var("HOME", val);
     }
 }
 
-// â”€â”€â”€ to_absolute â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// to_absolute
+// ---------------------------------------------------------------------------
 
 #[test]
 fn to_absolute_joins_relative_with_root() {
@@ -394,7 +366,9 @@ fn to_absolute_with_absolute_relative() {
     );
 }
 
-// â”€â”€â”€ to_relative â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// to_relative
+// ---------------------------------------------------------------------------
 
 #[test]
 fn to_relative_returns_ok_for_path_under_root() {
@@ -439,7 +413,7 @@ fn to_relative_with_nonexistent_path_falls_back_to_string_matching() {
     // Use wholly non-existent paths so canonicalize() fails for BOTH the
     // absolute and root paths, forcing the raw string-level fallback.
     // (On Windows an existing directory canonicalizes with a \\?\ prefix,
-    //  while a non-existent file path does not â€” causing a mismatch.)
+    //  while a non-existent file path does not - causing a mismatch.)
     #[cfg(target_os = "windows")]
     let root = PathBuf::from("C:/nonexistent-root");
     #[cfg(not(target_os = "windows"))]
@@ -482,14 +456,14 @@ fn to_relative_with_different_drive_letters_on_windows() {
     );
 }
 
-// â”€â”€â”€ resolve_app_paths (integration via current_exe) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// resolve_app_paths (integration via current_exe)
+// ---------------------------------------------------------------------------
 //
 // These tests call the real resolve_app_paths() which uses std::env::current_exe().
-// During `cargo test` the binary lives in target/debug/deps/<hash>/<exe>, and
-// there won't be a `data/` subdirectory alongside it, so it will always resolve
-// to Installed mode.  That is still valuable â€” we verify no panics, path
-// consistency, and that all subdirectories are created under the platform data
-// root without polluting any filesystem.
+// During `cargo test` the binary lives in target/debug/deps/<hash>/<exe>.
+// In a debug build it resolves to Dev mode and writes to `<project>/dev_data/`.
+// That validates the mechanism without polluting any user-visible location.
 
 #[test]
 fn resolve_app_paths_does_not_panic_and_smoke_checks() {
@@ -497,8 +471,8 @@ fn resolve_app_paths_does_not_panic_and_smoke_checks() {
 
     // Resolved to some valid mode
     assert!(
-        app_paths.mode == ExecutionMode::Portable || app_paths.mode == ExecutionMode::Installed,
-        "Expected Portable or Installed, got {:?}",
+        app_paths.mode == ExecutionMode::Dev || app_paths.mode == ExecutionMode::Installed,
+        "Expected Dev or Installed, got {:?}",
         app_paths.mode
     );
 
@@ -595,7 +569,9 @@ fn resolve_app_paths_is_consistent() {
     assert_eq!(a.log_dir, b.log_dir, "log_dir differs between calls");
 }
 
-// â”€â”€â”€ round-trip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ---------------------------------------------------------------------------
+// round-trip
+// ---------------------------------------------------------------------------
 
 #[test]
 fn relative_absolute_roundtrip_with_real_dirs() {
@@ -609,7 +585,7 @@ fn relative_absolute_roundtrip_with_real_dirs() {
     // Touch the file so canonicalize works
     fs::write(&absolute, b"test data").expect("write test file");
 
-    // Round-trip: relative â†’ absolute â†’ relative
+    // Round-trip: relative -> absolute -> relative
     let reconstructed_absolute = to_absolute(&original_relative, &root);
     assert_eq!(reconstructed_absolute, absolute);
 
@@ -617,4 +593,141 @@ fn relative_absolute_roundtrip_with_real_dirs() {
     assert_eq!(reconstructed_relative, original_relative);
 
     let _ = fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// bootstrap config (Installed mode)
+// ---------------------------------------------------------------------------
+//
+// These tests manipulate the platform app-data env var (APPDATA on Windows,
+// HOME on mac/linux) so the bootstrap config read from / written to a
+// sandboxed temp location without touching the real user's config.
+
+/// Redirect the platform app-data env var to a temp dir and return the
+/// previous value(s) so tests can restore them.
+fn with_sandboxed_app_data<F: FnOnce()>(f: F) {
+    #[cfg(target_os = "windows")]
+    let (var_name, original) = ("APPDATA", std::env::var("APPDATA").ok());
+    #[cfg(not(target_os = "windows"))]
+    let (var_name, original) = ("HOME", std::env::var("HOME").ok());
+
+    let sandbox = tmp_dir("sandbox_appdata");
+    std::env::set_var(var_name, &sandbox);
+
+    f();
+
+    match original {
+        Some(val) => std::env::set_var(var_name, val),
+        None => std::env::remove_var(var_name),
+    }
+    let _ = fs::remove_dir_all(&sandbox);
+}
+
+#[test]
+#[serial]
+fn read_bootstrap_data_root_returns_none_when_no_config() {
+    with_sandboxed_app_data(|| {
+        assert_eq!(read_bootstrap_data_root().unwrap(), None);
+    });
+}
+
+#[test]
+#[serial]
+fn write_then_read_bootstrap_data_root_roundtrips() {
+    with_sandboxed_app_data(|| {
+        let root = PathBuf::from("D:/EmbroideryCatalogue/Data");
+        write_bootstrap_data_root(&root).expect("write should succeed");
+
+        let read_back = read_bootstrap_data_root()
+            .expect("read should succeed")
+            .expect("config should exist");
+        assert_eq!(read_back, root);
+    });
+}
+
+#[test]
+#[serial]
+fn write_bootstrap_data_root_rejects_relative_path() {
+    with_sandboxed_app_data(|| {
+        let result = write_bootstrap_data_root(Path::new("relative/path"));
+        assert!(result.is_err());
+    });
+}
+
+#[test]
+#[serial]
+fn read_bootstrap_data_root_errors_on_malformed_config() {
+    with_sandboxed_app_data(|| {
+        // Write a malformed config directly.
+        let config_path = bootstrap_config_path();
+        fs::create_dir_all(config_path.parent().unwrap()).expect("create dir");
+        fs::write(&config_path, "{ not valid json").expect("write malformed config");
+
+        let result = read_bootstrap_data_root();
+        assert!(result.is_err());
+    });
+}
+
+#[test]
+#[serial]
+fn configured_data_root_missing_returns_none_when_no_config() {
+    with_sandboxed_app_data(|| {
+        assert_eq!(configured_data_root_missing().unwrap(), None);
+    });
+}
+
+#[test]
+#[serial]
+fn configured_data_root_missing_true_when_configured_path_absent() {
+    with_sandboxed_app_data(|| {
+        // Configure a root that does not exist on disk.
+        let missing = tmp_dir("configured_missing_root").join("Data");
+        write_bootstrap_data_root(&missing).expect("write config");
+
+        assert_eq!(configured_data_root_missing().unwrap(), Some(true));
+    });
+}
+
+#[test]
+#[serial]
+fn configured_data_root_missing_false_when_configured_path_exists() {
+    with_sandboxed_app_data(|| {
+        // Configure a root that exists on disk.
+        let existing = tmp_dir("configured_existing_root").join("Data");
+        fs::create_dir_all(&existing).expect("create data dir");
+        write_bootstrap_data_root(&existing).expect("write config");
+
+        assert_eq!(configured_data_root_missing().unwrap(), Some(false));
+    });
+}
+
+#[cfg(not(debug_assertions))]
+#[test]
+#[serial]
+fn platform_data_root_uses_configured_root_when_present() {
+    with_sandboxed_app_data(|| {
+        let chosen = PathBuf::from("E:/UserData");
+        write_bootstrap_data_root(&chosen).expect("write config");
+
+        let root = platform_data_root();
+        assert_eq!(root, chosen);
+        assert!(
+            !root.to_string_lossy().contains("EmbroideryCatalogue"),
+            "configured root should not be inside the app-data fallback"
+        );
+    });
+}
+
+#[cfg(not(debug_assertions))]
+#[test]
+#[serial]
+fn platform_data_root_falls_back_to_appdata_when_no_config() {
+    with_sandboxed_app_data(|| {
+        let root = platform_data_root();
+        assert!(
+            root.to_string_lossy().contains("EmbroideryCatalogue"),
+            "fallback should live under the app-data dir, got {}",
+            root.display()
+        );
+    });
 }

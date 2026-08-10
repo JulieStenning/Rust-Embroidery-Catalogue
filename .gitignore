@@ -20,6 +20,7 @@ Thumbs.db
 
 # --- Data specific ---
 data/
+/dev_data/
 beta testing cline.txt
 rust.csv
 preview.png

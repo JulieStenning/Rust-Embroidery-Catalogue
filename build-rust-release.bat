@@ -3,7 +3,6 @@ REM -----------------------------------------------------------------------
 REM build-rust-release.bat  —  Build the release installer for distribution
 REM
 REM Produces:
-REM   target/release/embroidery-catalogue.exe          — Portable EXE
 REM   target/release/bundle/msi/*.msi                   — Windows Installer
 REM   target/release/bundle/nsis/*-setup.exe            — NSIS Installer
 REM -----------------------------------------------------------------------
@@ -29,7 +28,6 @@ if %BUILD_EXIT% equ 0 (
     echo [Rust Build] Release build successful!
     echo.
     echo Output files:
-    echo   Portable EXE:     target\release\embroidery-catalogue.exe
     echo   MSI installer:    target\release\bundle\msi\
     echo   NSIS installer:   target\release\bundle\nsis\
 ) else (

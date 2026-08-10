@@ -2576,13 +2576,15 @@ export async function getAppStatus(): Promise<AdapterAppStatusResponse> {
   try {
     const status = await invokeLoose<AppStatus>("get_app_status");
     if (status && typeof status === "object") {
+      const mode = String(status.execution_mode || "");
       return {
         source: "rust",
         status: {
-          execution_mode: String(status.execution_mode) === "portable" ? "portable" : "installed",
+          execution_mode: mode === "dev" ? "dev" : "installed",
           data_root: String(status.data_root || ""),
           embroidery_dir: String(status.embroidery_dir || ""),
           database_path: String(status.database_path || ""),
+          data_root_missing: Boolean(status.data_root_missing),
         },
       };
     }
@@ -2595,5 +2597,87 @@ export async function getAppStatus(): Promise<AdapterAppStatusResponse> {
     status: null,
     error: "get_app_status command not available.",
   };
+}
+
+/**
+ * Fetch the persisted, user-configured data root for Installed mode.
+ *
+ * Returns `null` on first run (no config yet) so the setup wizard knows to
+ * prompt for a data location. In Portable/Dev mode this also returns `null`
+ * (there is no config to read).
+ *
+ * @returns {Promise<{ source: string, path: string | null, error?: string }>}
+ */
+export async function getConfiguredDataRoot(): Promise<{
+  source: string;
+  path: string | null;
+  error?: string;
+}> {
+  try {
+    const path = await invokeLoose<string | null>("get_configured_data_root");
+    return {
+      source: "rust",
+      path: path ? String(path) : null,
+    };
+  } catch (error) {
+    console.info("get_configured_data_root unavailable, returning null.", error);
+    return {
+      source: "mock",
+      path: null,
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * Persist the user's chosen data root for Installed mode.
+ *
+ * Writes the tiny `config.json` under the platform app-data dir so the choice
+ * survives reinstalls. The invoke key `dataRoot` maps to the Rust `data_root`.
+ *
+ * @param {string} dataRoot - Absolute path to the desired data root.
+ * @returns {Promise<{ source: string, persisted: boolean, error?: string }>}
+ */
+export async function setConfiguredDataRoot(dataRoot: string): Promise<{
+  source: string;
+  persisted: boolean;
+  error?: string;
+}> {
+  const normalized = String(dataRoot || "").trim();
+  if (!normalized) {
+    return { source: "mock", persisted: false, error: "Data root cannot be empty." };
+  }
+  try {
+    await invokeLoose("set_configured_data_root", { dataRoot: normalized });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    console.info("set_configured_data_root failed.", error);
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
+ * Open a native folder picker to choose the data root for Installed mode.
+ *
+ * @param {string} [startDir] - Optional starting directory for the picker.
+ * @returns {Promise<{ source: string, path: string | null, error?: string }>}
+ */
+export async function browseDataRootFolder(startDir = ""): Promise<{
+  source: string;
+  path: string | null;
+  error?: string;
+}> {
+  try {
+    const path = await invokeLoose<string | null>("browse_data_root_folder", {
+      startDir: String(startDir || "") || null,
+    });
+    return {
+      source: "rust",
+      path: path ? String(path) : null,
+    };
+  } catch (error) {
+    console.info("browse_data_root_folder failed.", error);
+    return { source: "mock", path: null, error: String(error) };
+  }
 }
 
