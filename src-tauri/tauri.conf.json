@@ -33,10 +33,6 @@
     "resources": [
       "resources/EmbroideryCatalogue.db"
     ],
-    "windows": {
-      "wix": {
-        "fragmentPaths": ["src-tauri/license-fragment.wxs"]
-      }
-    }
+    "licenseFile": "disclaimer.rtf"
   }
 }
