@@ -4,7 +4,6 @@
 
 pub mod config;
 pub mod database;
-pub mod disclaimer;
 pub mod error;
 pub mod initial_setup;
 pub mod logging;
@@ -32,8 +31,6 @@ pub struct AppState {
     pub db: SqlitePool,
     /// Resolved application paths (Portable vs Installed mode).
     pub paths: paths::AppPaths,
-    /// The disclaimer HTML text, embedded at compile time from DISCLAIMER.html.
-    pub disclaimer_text: String,
     /// Log guard â€” kept alive so log writes are flushed on app exit.
     pub log_guard: logging::LogGuard,
     /// Flag signalled when the app is shutting down; background tasks can check it.
@@ -129,31 +126,6 @@ fn browse_data_root_folder(start_dir: Option<String>) -> Result<Option<String>, 
 
 // â”€â”€â”€ Tauri Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// Check whether the disclaimer has already been accepted for this installation.
-#[tauri::command]
-async fn check_disclaimer(state: State<'_, AppState>) -> Result<bool, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
-    disclaimer::is_disclaimer_accepted(&mut conn)
-        .await
-        .map_err(|err| err.to_string())
-}
-
-/// Persist the user's disclaimer acceptance in the database.
-#[tauri::command]
-async fn accept_disclaimer(state: State<'_, AppState>) -> Result<(), String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
-    disclaimer::set_disclaimer_accepted(&mut conn, true)
-        .await
-        .map(|_| ())
-        .map_err(|err| format!("Failed to save disclaimer acceptance to the database: {err}"))
-}
-
-/// Return the disclaimer HTML text to the frontend.
-#[tauri::command]
-fn get_disclaimer_text(state: State<'_, AppState>) -> Result<String, String> {
-    Ok(state.disclaimer_text.clone())
-}
-
 /// Check whether the initial setup wizard has been completed or skipped.
 #[tauri::command]
 async fn check_initial_setup(state: State<'_, AppState>) -> Result<bool, String> {
@@ -224,7 +196,7 @@ fn main() {
 
     // Run async setup using Tauri's built-in Tokio runtime
     // This avoids creating a conflicting second runtime alongside Tauri's own
-    let (pool, disclaimer_text) = tauri::async_runtime::block_on(async {
+    let pool = tauri::async_runtime::block_on(async {
         // Establish the SQLite connection pool using resolved paths
         let pool = match database::connection::establish_connection(&app_paths).await {
             Ok(pool) => pool,
@@ -248,16 +220,12 @@ fn main() {
         // database::migrations::run_migrations(&pool).await
         //     .expect("Failed to run database migrations");
 
-        // Embed the disclaimer text at compile time from DISCLAIMER.html
-        let disclaimer_text = include_str!("../disclaimer.html").to_string();
-
-        (pool, disclaimer_text)
+        pool
     });
 
     let app_state = AppState {
         db: pool,
         paths: app_paths,
-        disclaimer_text,
         log_guard,
         shutdown_requested: AtomicBool::new(false),
         maintenance_running: AtomicBool::new(false),
@@ -305,12 +273,11 @@ fn main() {
 
                 // NOTE: The immediate startup health check is NOT spawned here.
                 // The single-connection pool (max_connections=1) is shared with
-                // `check_disclaimer` and the initial UI queries, so running a
-                // health check at this exact moment can starve the disclaimer
-                // request and cause "pool timed out waiting for an open
-                // connection". The startup check is instead launched from the
-                // app run loop (see below) after a short delay so first-launch
-                // queries complete first.
+                // the initial UI queries, so running a health check at this
+                // exact moment can starve a request and cause "pool timed out
+                // waiting for an open connection". The startup check is instead
+                // launched from the app run loop (see below) after a short
+                // delay so first-launch queries complete first.
 
                 // Idle interval task.
                 let idle_pool = pool.clone();
@@ -360,9 +327,6 @@ fn main() {
             set_configured_data_root,
             browse_data_root_folder,
             config::debug_bootstrap_config,
-            check_disclaimer,
-            accept_disclaimer,
-            get_disclaimer_text,
             check_initial_setup,
             complete_initial_setup,
             routes::about::get_about_documents,
@@ -461,9 +425,9 @@ fn main() {
     {
         // Startup database health check (fire-and-forget; logged, never fatal).
         // Spawned after the Tauri app is fully running and after a short delay
-        // so the disclaimer check and initial UI queries have used the shared
-        // single-connection pool first â€” preventing the "pool timed out
-        // waiting for an open connection" error.
+        // so the initial UI queries have used the shared single-connection
+        // pool first â€” preventing the "pool timed out waiting for an open
+        // connection" error.
         let state = app.state::<AppState>();
         let pool = state.db.clone();
         let maintenance_flag = std::sync::Arc::new(

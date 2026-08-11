@@ -203,15 +203,22 @@ fn resolve_paths_creates_all_directories() {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[serial]
 fn platform_data_root_has_company_subdirectory() {
-    let root = platform_data_root();
+    // Run in a sandboxed app-data dir with no config.json so the fallback is
+    // always checked, independent of any leftover config from previous tests
+    // or manual runs.
+    with_sandboxed_app_data(|| {
+        let root = platform_data_root();
 
-    // The root should always end with "EmbroideryCatalogue"
-    assert!(
-        root.to_string_lossy().contains("EmbroideryCatalogue"),
-        "Expected platform_data_root to contain 'EmbroideryCatalogue', got: {:?}",
-        root
-    );
+        // With no configured root, the fallback should always end with
+        // "EmbroideryCatalogue"
+        assert!(
+            root.to_string_lossy().contains("EmbroideryCatalogue"),
+            "Expected platform_data_root to contain 'EmbroideryCatalogue', got: {:?}",
+            root
+        );
+    });
 }
 
 #[cfg(target_os = "windows")]

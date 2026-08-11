@@ -4,27 +4,29 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/svelte";
 import App from "../App.svelte";
 
 // ---------------------------------------------------------------------------
-// Mock the Tauri invoke bridge — App.svelte calls invoke("check_disclaimer").
+// Mock the command adapter — the new App.svelte calls checkInitialSetup() from
+// ../lib/api/commandAdapter (no disclaimer gate).
 // ---------------------------------------------------------------------------
+const checkInitialSetupMock = vi.hoisted(() => vi.fn());
+vi.mock("../lib/api/commandAdapter", () => ({
+  checkInitialSetup: checkInitialSetupMock,
+}));
+
+// Mock the Tauri invoke bridge and event API so hasTauriInvoke()/listeners work.
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
-// Mock the Tauri event API. App.svelte subscribes to db-maintenance events via
-// initDbMaintenanceEvents → @tauri-apps/api/event "listen", which calls into
-// window.__TAURI_INTERNALS__ under the hood. Provide a no-op listen so the
-// listener lifecycle doesn't throw in the test environment.
 const listenMock = vi.hoisted(() => vi.fn(() => Promise.resolve(() => {})));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: listenMock,
 }));
 
-// Mock the child views so App's gating logic can be tested in isolation.
-// Each stub is a real (tiny) Svelte component so it renders like a normal view.
-vi.mock("../lib/DisclaimerView.svelte", async () => {
-  const { default: DisclaimerView } = await import(
-    "./__mocks__/DisclaimerView.svelte"
+// Mock child views so App's gating logic can be tested in isolation.
+vi.mock("../lib/InitialSetupView.svelte", async () => {
+  const { default: InitialSetupView } = await import(
+    "./__mocks__/InitialSetupView.svelte"
   );
-  return { default: DisclaimerView };
+  return { default: InitialSetupView };
 });
 
 vi.mock("../lib/MainView.svelte", async () => {
@@ -60,15 +62,16 @@ describe("App.svelte", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     removeTauriBridge();
+    checkInitialSetupMock.mockReset();
   });
 
   afterEach(() => {
     removeTauriBridge();
   });
 
-  it("shows the loading splash while check_disclaimer is pending", async () => {
+  it("shows the loading splash while check_initial_setup is pending", async () => {
     installTauriBridge();
-    invokeMock.mockReturnValue(new Promise(() => {}));
+    checkInitialSetupMock.mockReturnValue(new Promise(() => {}));
 
     render(App);
 
@@ -77,27 +80,26 @@ describe("App.svelte", () => {
         screen.getByText("Loading Embroidery Catalogue…")
       ).toBeInTheDocument();
     });
-    expect(invokeMock).toHaveBeenCalledWith("check_disclaimer");
+    expect(checkInitialSetupMock).toHaveBeenCalled();
     expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
   });
 
-  it("skips the disclaimer gate in plain browser mode (no Tauri bridge)", async () => {
+  it("skips the setup gate in plain browser mode (no Tauri bridge)", async () => {
     render(App);
 
     await waitFor(() => {
       expect(screen.getByTestId("main-view")).toBeInTheDocument();
     });
     expect(screen.getByTestId("toast-container")).toBeInTheDocument();
-    expect(screen.queryByTestId("disclaimer-view")).not.toBeInTheDocument();
-    expect(invokeMock).not.toHaveBeenCalled();
+    expect(checkInitialSetupMock).not.toHaveBeenCalled();
     expect(
       screen.queryByText("Loading Embroidery Catalogue…")
     ).not.toBeInTheDocument();
   });
 
-  it("renders the main app when the disclaimer has already been accepted", async () => {
+  it("renders the main app when initial setup is already completed", async () => {
     installTauriBridge();
-    invokeMock.mockResolvedValue(true);
+    checkInitialSetupMock.mockResolvedValue(true);
 
     render(App);
 
@@ -105,29 +107,29 @@ describe("App.svelte", () => {
       expect(screen.getByTestId("main-view")).toBeInTheDocument();
     });
     expect(screen.getByTestId("toast-container")).toBeInTheDocument();
-    expect(screen.queryByTestId("disclaimer-view")).not.toBeInTheDocument();
-    expect(invokeMock).toHaveBeenCalledWith("check_disclaimer");
+    expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
+    expect(checkInitialSetupMock).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the disclaimer view when acceptance is still required", async () => {
+  it("renders the setup wizard when setup is required", async () => {
     installTauriBridge();
-    invokeMock.mockResolvedValue(false);
+    checkInitialSetupMock.mockResolvedValue(false);
 
     render(App);
 
     await waitFor(() => {
-      expect(screen.getByTestId("disclaimer-view")).toBeInTheDocument();
+      expect(screen.getByTestId("initial-setup-view")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
     expect(screen.queryByTestId("toast-container")).not.toBeInTheDocument();
   });
 
-  it("renders the startup error state when check_disclaimer rejects", async () => {
+  it("renders the startup error state when check_initial_setup rejects", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
     installTauriBridge();
-    invokeMock.mockRejectedValue(new Error("db locked"));
+    checkInitialSetupMock.mockRejectedValue(new Error("db locked"));
 
     render(App);
 
@@ -135,43 +137,38 @@ describe("App.svelte", () => {
       expect(screen.getByText("Startup Error")).toBeInTheDocument();
     });
     expect(
-      screen.getByText("Could not verify disclaimer status: Error: db locked")
+      screen.getByText("Could not verify setup status: Error: db locked")
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Try restarting the application\./)
     ).toBeInTheDocument();
     expect(consoleError).toHaveBeenCalledWith(
-      "check_disclaimer failed:",
+      "check_initial_setup failed:",
       expect.any(Error)
     );
     expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("disclaimer-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
 
     consoleError.mockRestore();
   });
 
-  it("transitions to the main app when the user accepts the disclaimer", async () => {
+  it("transitions to the main app when the user accepts the initial setup", async () => {
     installTauriBridge();
-    // check_disclaimer → false (disclaimer still required)
-    // check_initial_setup → true (setup already complete, so we go straight
-    // to the main app once the disclaimer is accepted).
-    invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "check_initial_setup") return Promise.resolve(true);
-      return Promise.resolve(false);
-    });
+    checkInitialSetupMock.mockResolvedValue(false);
 
     render(App);
 
     await waitFor(() => {
-      expect(screen.getByTestId("disclaimer-view")).toBeInTheDocument();
+      expect(screen.getByTestId("initial-setup-view")).toBeInTheDocument();
     });
 
-    await fireEvent.click(screen.getByTestId("accept-disclaimer"));
+    // The mock stub exposes a "complete" button that calls onInitialSetupCompleted.
+    await fireEvent.click(screen.getByTestId("complete-initial-setup"));
 
     await waitFor(() => {
       expect(screen.getByTestId("main-view")).toBeInTheDocument();
     });
     expect(screen.getByTestId("toast-container")).toBeInTheDocument();
-    expect(screen.queryByTestId("disclaimer-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
   });
 });

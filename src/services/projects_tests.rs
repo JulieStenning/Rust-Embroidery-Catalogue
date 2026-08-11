@@ -127,7 +127,6 @@ fn make_app_state(pool: SqlitePool) -> AppState {
             thumbnail_cache_dir: tmp_dir.join("thumbnails"),
             log_dir: tmp_dir.join("logs"),
         },
-        disclaimer_text: String::new(),
         log_guard: LogGuard::dummy_for_test(),
         shutdown_requested: AtomicBool::new(false),
         maintenance_running: AtomicBool::new(false),

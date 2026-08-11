@@ -75,7 +75,6 @@ fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
     AppState {
         db: pool,
         paths,
-        disclaimer_text: String::new(),
         log_guard: LogGuard::dummy_for_test(),
         shutdown_requested: AtomicBool::new(false),
         maintenance_running: AtomicBool::new(false),

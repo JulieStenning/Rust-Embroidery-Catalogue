@@ -1,7 +1,5 @@
 <script>
   import { onDestroy, onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import DisclaimerView from "./lib/DisclaimerView.svelte";
   import InitialSetupView from "./lib/InitialSetupView.svelte";
   import MainView from "./lib/MainView.svelte";
   import ToastContainer from "./lib/components/ToastContainer.svelte";
@@ -11,10 +9,8 @@
   /** Cleanup function returned by initDbMaintenanceEvents(), if subscribed. */
   let stopDbMaintenanceEvents = $state(() => {});
 
-  /** Whether the disclaimer check has completed */
+  /** Whether the startup check has completed */
   let loading = $state(true);
-  /** Whether the disclaimer has been accepted */
-  let disclaimerAccepted = $state(false);
   /** Whether the initial setup wizard has been completed or skipped */
   let initialSetupCompleted = $state(false);
   /** Error message if the check fails */
@@ -28,30 +24,23 @@
   }
 
   /** Called once on mount to determine which view to show */
-  async function checkDisclaimer() {
-    // In plain browser dev mode there is no Tauri bridge. Skip disclaimer gate
+  async function checkStartup() {
+    // In plain browser dev mode there is no Tauri bridge. Skip the setup gate
     // so route-level frontend smoke tests can run.
     if (!hasTauriInvoke()) {
-      disclaimerAccepted = true;
       initialSetupCompleted = true;
       loading = false;
       return;
     }
 
     try {
-      disclaimerAccepted = await invoke("check_disclaimer");
       initialSetupCompleted = await checkInitialSetup();
     } catch (e) {
-      checkError = `Could not verify disclaimer status: ${e}`;
-      console.error("check_disclaimer failed:", e);
+      checkError = `Could not verify setup status: ${e}`;
+      console.error("check_initial_setup failed:", e);
     } finally {
       loading = false;
     }
-  }
-
-  /** Called by DisclaimerView once the user has accepted */
-  function onDisclaimerAccepted() {
-    disclaimerAccepted = true;
   }
 
   /** Called by InitialSetupView once the user has finished or skipped setup.
@@ -77,7 +66,7 @@
 
   // Run the check when the component first mounts
   $effect(() => {
-    checkDisclaimer();
+    checkStartup();
   });
 </script>
 
@@ -103,12 +92,8 @@
     </div>
   </div>
 
-{:else if !disclaimerAccepted}
-  <!-- Disclaimer must be accepted before the main app loads -->
-  <DisclaimerView {onDisclaimerAccepted} />
-
 {:else if !initialSetupCompleted}
-  <!-- Initial setup wizard (designers & sources) -->
+  <!-- Initial setup wizard (data location, designers & sources) -->
   <InitialSetupView {onInitialSetupCompleted} />
 
 {:else}

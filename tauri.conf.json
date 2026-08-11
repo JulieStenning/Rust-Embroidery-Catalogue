@@ -27,6 +27,11 @@
     "targets": "all",
     "icon": [
       "icons/app-icon.ico"
-    ]
+    ],
+    "windows": {
+      "wix": {
+        "fragmentPaths": ["src-tauri/license-fragment.wxs"]
+      }
+    }
   }
 }
