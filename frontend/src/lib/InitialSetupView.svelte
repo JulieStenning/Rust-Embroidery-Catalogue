@@ -7,16 +7,21 @@
     completeInitialSetup,
     getAppStatus,
     getConfiguredDataRoot,
+    restartApplication,
     setConfiguredDataRoot,
   } from "./api/commandAdapter";
 
   /** Callback prop — called when the user has finished or skipped setup */
   let { onInitialSetupCompleted } = $props();
 
-  /** 0 = Designers, 1 = Sources, 2 = Data Location (Installed only) */
+  /** The currently visible step (0-based) */
   let step = $state(0);
   let finishing = $state(false);
   let error = $state("");
+  /** Whether the restart confirmation dialog is showing */
+  let showRestartConfirm = $state(false);
+  /** Whether a restart is currently being launched */
+  let restarting = $state(false);
 
   /** Execution mode from Rust: "dev" | "installed" ("" if unknown) */
   let mode = $state("");
@@ -26,11 +31,31 @@
   let hasConfiguredDataRoot = $state(false);
   /** A previously-configured data root is no longer reachable (e.g. drive changed). */
   let dataRootMissing = $state(false);
-  /** Whether the Installed "Data Location" step is shown */
+  /** Whether the Installed "Data Location" step is shown at all. */
   let needsDataStep = $derived(mode === "installed");
-  let isLastStep = $derived(step === (needsDataStep ? 2 : 1));
+  /**
+   * Whether the Data Location step runs FIRST, before Designers/Sources.
+   * True on first run (no configured root yet) or when the configured root is
+   * unreachable — the user must set/repair the location before adding
+   * designers and sources so the required restart happens before those steps.
+   */
+  let dataStepFirst = $state(false);
 
-  const totalSteps = $derived(needsDataStep ? 3 : 2);
+  /** Whether the visible flow includes a leading Data Location step. */
+  const hasDataFirstFlow = $derived(needsDataStep && dataStepFirst);
+  /** Index of the Data Location step in the visible flow (`-1` when hidden). */
+  const dataStepIndex = $derived(hasDataFirstFlow ? 0 : -1);
+  /** Index of the Designers step in the visible flow. */
+  const designerStepIndex = $derived(hasDataFirstFlow ? 1 : 0);
+  /** Index of the Sources step in the visible flow. */
+  const sourceStepIndex = $derived(hasDataFirstFlow ? 2 : 1);
+  /** Total number of visible steps. */
+  const totalSteps = $derived(hasDataFirstFlow ? 3 : 2);
+
+  /** Is the current step the Data Location step? */
+  const isDataStep = $derived(needsDataStep && step === dataStepIndex);
+  /** Is the current step the last visible step? */
+  const isLastStep = $derived(step === (hasDataFirstFlow ? 2 : 1));
 
   const designersCopy = {
     question: "What are Designers?",
@@ -63,20 +88,32 @@
   };
 
   let activeCopy = $derived.by(() => {
-    if (step === 2) {
-      return { ...dataCopy, stepLabel: "Step 3 of 3 — Data Location" };
+    if (isDataStep) {
+      return {
+        ...dataCopy,
+        stepLabel: `Step ${dataStepIndex + 1} of ${totalSteps} — Data Location`,
+      };
     }
-    const stepNumber = step === 0 ? 1 : 2;
-    const base = step === 0 ? designersCopy : sourcesCopy;
+    if (step === designerStepIndex) {
+      return {
+        ...designersCopy,
+        stepLabel: `Step ${designerStepIndex + 1} of ${totalSteps} — Designers`,
+      };
+    }
     return {
-      ...base,
-      stepLabel: `Step ${stepNumber} of ${totalSteps} — ${step === 0 ? "Designers" : "Sources"}`,
+      ...sourcesCopy,
+      stepLabel: `Step ${sourceStepIndex + 1} of ${totalSteps} — Sources`,
     };
   });
 
-  /** Figure out the mode and pre-fill the data root on mount.
-   *  If the configured root is missing (e.g. a drive letter changed), jump
-   *  straight to the data-location step so the user can reselect it. */
+  /** Figure out the mode and decide the step order on mount.
+   *
+   *  - Installed + no configured root, or configured root unreachable:
+   *    Data Location runs FIRST (data-first), so the required restart
+   *    happens before designers/sources are added.
+   *  - Installed + valid configured root: skip the Data step entirely and
+   *    go straight to Designers → Sources.
+   *  - Dev/Portable mode: never show the Data step. */
   onMount(async () => {
     const statusRes = await getAppStatus();
     if (statusRes.status) {
@@ -84,28 +121,21 @@
       dataRootMissing = Boolean(statusRes.status.data_root_missing);
     }
 
-    if (mode === "installed") {
+    if (needsDataStep) {
       const rootRes = await getConfiguredDataRoot();
-      if (rootRes.path) {
+      const configuredPath = rootRes.path ? String(rootRes.path) : null;
+      if (configuredPath) {
         hasConfiguredDataRoot = true;
-        dataRootInput = rootRes.path;
+        dataRootInput = configuredPath;
       }
-      // A previously-configured location is no longer reachable: go straight
-      // to the Data Location step so the user can pick a new one.
-      if (dataRootMissing) {
-        step = 2;
-      }
+      const needsDataFirst = !configuredPath || dataRootMissing;
+      dataStepFirst = needsDataFirst;
+      step = 0; // Data Location when data-first, otherwise Designers.
+    } else {
+      dataStepFirst = false;
+      step = 0; // Designers
     }
   });
-
-  /** Advance to the next step, or finish setup on the last step. */
-  async function handleContinue() {
-    if (isLastStep) {
-      await finishSetup();
-    } else {
-      step = step + 1;
-    }
-  }
 
   /** Open a native folder picker for the data location. */
   async function handleBrowse() {
@@ -115,27 +145,73 @@
     }
   }
 
-  /** Persist the data root (Installed mode) then mark setup complete. */
+  /** Validate and persist the data location, then ask for a restart. */
+  async function saveDataRoot() {
+    if (finishing) return;
+    finishing = true;
+    error = "";
+    try {
+      const trimmed = dataRootInput.trim();
+      if (!trimmed) {
+        error = "Please enter a data location or choose a folder.";
+        finishing = false;
+        return;
+      }
+      const saved = await setConfiguredDataRoot(trimmed);
+      if (!saved.persisted) {
+        error = `Could not save the data location: ${saved.error || "unknown error"}.`;
+        finishing = false;
+        return;
+      }
+      // The data root is now persisted, but the running backend still points
+      // at the old location. A restart is required before designers/sources
+      // are added so they land in the correct database.
+      showRestartConfirm = true;
+    } catch (e) {
+      error = `Failed to save the data location: ${e}. Please try again.`;
+      console.error("initial setup data save failed:", e);
+    } finally {
+      finishing = false;
+    }
+  }
+
+  /** Launch the application restart after the user confirms. */
+  async function handleRestart() {
+    if (restarting) return;
+    restarting = true;
+    error = "";
+    const res = await restartApplication();
+    if (!res.restarted) {
+      error = `Could not restart the application: ${
+        res.error || "unknown error"
+      }. Please close and reopen it manually so your new data location takes effect.`;
+      restarting = false;
+      showRestartConfirm = false;
+      return;
+    }
+    // On success the process is relaunching; the window will close shortly.
+    // Nothing further to do here.
+  }
+
+  /** Advance through the visible steps, or finish on the last one. */
+  async function handleContinue() {
+    if (isDataStep) {
+      await saveDataRoot();
+      return;
+    }
+    if (isLastStep) {
+      await finishSetup();
+    } else {
+      step = step + 1;
+    }
+  }
+
+  /** Mark the wizard complete (only reached after the data step, if any). */
   async function finishSetup() {
     if (finishing) return;
     finishing = true;
     error = "";
     try {
-      // Persist the chosen data root first (only when it's configurable).
-      if (needsDataStep) {
-        const trimmed = dataRootInput.trim();
-        if (!trimmed) {
-          error = "Please enter a data location or choose a folder.";
-          finishing = false;
-          return;
-        }
-        const saved = await setConfiguredDataRoot(trimmed);
-        if (!saved.persisted) {
-          error = `Could not save the data location: ${saved.error || "unknown error"}.`;
-          finishing = false;
-          return;
-        }
-      }
       await completeInitialSetup();
       onInitialSetupCompleted();
     } catch (e) {
@@ -159,8 +235,13 @@
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
     <h1 class="ui-page-title text-2xl font-bold text-gray-800">Let's set up your catalogue</h1>
     <p class="text-sm text-gray-600">
-      Adding your frequent Designers and Sources now makes the Bulk Import tool faster and
-      easier to use. {needsDataStep ? "You can also choose where your data lives." : ""}
+      {#if hasDataFirstFlow}
+        First, choose where your data lives. Then you can add your frequent
+        Designers and Sources so the Bulk Import tool is faster and easier to use.
+      {:else}
+        Adding your frequent Designers and Sources now makes the Bulk Import tool faster and
+        easier to use.
+      {/if}
     </p>
 
     <!-- Step indicator -->
@@ -192,11 +273,7 @@
     {/if}
 
     <!-- Embedded admin view or data-location input for the active step -->
-    {#if step === 0}
-      <AdminDesignersView embedded={true} />
-    {:else if step === 1}
-      <AdminSourcesView embedded={true} />
-    {:else if step === 2}
+    {#if isDataStep}
       <div class="space-y-3">
         {#if dataRootMissing}
           <div
@@ -232,10 +309,15 @@
         </div>
         {#if hasConfiguredDataRoot}
           <p class="text-xs text-gray-500">
-            You already have a configured data location; you can keep it or change it.
+            Your previous data location was set; you can keep it or change it. If you
+            change it, the app will restart to use the new location.
           </p>
         {/if}
       </div>
+    {:else if step === designerStepIndex}
+      <AdminDesignersView embedded={true} />
+    {:else if step === sourceStepIndex}
+      <AdminSourcesView embedded={true} />
     {/if}
 
     <!-- Bottom buttons -->
@@ -258,3 +340,44 @@
     </div>
   </div>
 </div>
+
+<!-- Restart confirmation dialog -->
+{#if showRestartConfirm}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Restart required"
+    data-testid="restart-dialog"
+  >
+    <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+      <h2 class="text-lg font-bold text-gray-800">Restart required</h2>
+      <p class="text-sm text-gray-600">
+        Your new data location has been saved. Embroidery Catalogue needs to restart
+        so it can begin using <span class="font-medium text-gray-800">{dataRootInput}</span>.
+      </p>
+      {#if error}
+        <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm">
+          {error}
+        </div>
+      {/if}
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick={handleRestart}
+          disabled={restarting}
+          class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
+                 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
+                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          data-testid="restart-now"
+        >
+          {#if restarting}
+            Restarting…
+          {:else}
+            Restart now
+          {/if}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

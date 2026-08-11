@@ -2681,3 +2681,29 @@ export async function browseDataRootFolder(startDir = ""): Promise<{
   }
 }
 
+/**
+ * Ask the Rust backend to restart the application process.
+ *
+ * This is used after the initial-setup wizard relocates the data root so the
+ * new location takes effect immediately. The backend spawns a fresh copy of
+ * the executable (with the same args) and returns once it is launched.
+ *
+ * @returns {Promise<{ source: string, restarted: boolean, error?: string }>}
+ */
+export async function restartApplication(): Promise<{
+  source: string;
+  restarted: boolean;
+  error?: string;
+}> {
+  try {
+    const result = await invokeLoose<boolean>("restart_application");
+    return {
+      source: "rust",
+      restarted: Boolean(result),
+    };
+  } catch (error) {
+    console.info("restart_application failed.", error);
+    return { source: "mock", restarted: false, error: String(error) };
+  }
+}
+

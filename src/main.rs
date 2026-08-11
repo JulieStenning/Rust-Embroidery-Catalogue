@@ -124,6 +124,39 @@ fn browse_data_root_folder(start_dir: Option<String>) -> Result<Option<String>, 
     Ok(picked.map(|p| p.to_string_lossy().to_string()))
 }
 
+/// Restart the application process with the exact same command-line arguments
+/// it was started with. Used by the frontend after the initial-setup wizard
+/// relocates the data root so the new location takes effect immediately.
+///
+/// Returns `Ok(true)` if the restart was launched. A short delay is inserted
+/// so the current process has time to flush logs and close the DB connection
+/// pool cleanly before being replaced.
+#[tauri::command]
+fn restart_application() -> Result<bool, String> {
+    let current_exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    // Reuse the original arguments the app was started with so we relaunch
+    // with the same flags (if any) the user used.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    let mut cmd = std::process::Command::new(&current_exe);
+    cmd.args(&args);
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS so the new instance
+        // does not die with the old one.
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
+    }
+
+    let _child = cmd.spawn().map_err(|err| err.to_string())?;
+    // Give the old process a moment to write out logs / flush SQLite WAL.
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    Ok(true)
+}
+
 // â”€â”€â”€ Tauri Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Check whether the initial setup wizard has been completed or skipped.
@@ -326,6 +359,7 @@ fn main() {
             get_configured_data_root,
             set_configured_data_root,
             browse_data_root_folder,
+            restart_application,
             config::debug_bootstrap_config,
             check_initial_setup,
             complete_initial_setup,

@@ -12,6 +12,7 @@ const getAppStatusMock = vi.hoisted(() => vi.fn());
 const getConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const browseDataRootFolderMock = vi.hoisted(() => vi.fn());
+const restartApplicationMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/api/commandAdapter", () => ({
   completeInitialSetup: completeInitialSetupMock,
@@ -19,6 +20,7 @@ vi.mock("../lib/api/commandAdapter", () => ({
   getConfiguredDataRoot: getConfiguredDataRootMock,
   setConfiguredDataRoot: setConfiguredDataRootMock,
   browseDataRootFolder: browseDataRootFolderMock,
+  restartApplication: restartApplicationMock,
 }));
 
 // Mock the embedded admin views so the wizard's step gating can be tested in
@@ -56,7 +58,7 @@ function mockDevMode() {
   });
 }
 
-/** Installed mode with no persisted data root yet (first run). */
+/** Installed mode with no persisted data root yet (first run, data-first). */
 function mockInstalledNoConfig() {
   getAppStatusMock.mockResolvedValue({
     source: "rust",
@@ -73,9 +75,11 @@ function mockInstalledNoConfig() {
   getConfiguredDataRootMock.mockResolvedValue({ source: "rust", path: null });
   setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
   browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+  restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
 }
 
-/** Installed mode where the configured data root is no longer reachable. */
+/** Installed mode where the configured data root is no longer reachable
+ *  (data-first recovery flow). */
 function mockInstalledDataRootMissing() {
   getAppStatusMock.mockResolvedValue({
     source: "rust",
@@ -95,6 +99,31 @@ function mockInstalledDataRootMissing() {
   });
   setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
   browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+  restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
+}
+
+/** Installed mode where a valid configured data root already exists
+ *  (data step is skipped entirely — Designers → Sources). */
+function mockInstalledWithConfig() {
+  getAppStatusMock.mockResolvedValue({
+    source: "rust",
+    status: {
+      execution_mode: "installed",
+      data_root: "D:/ExistingData",
+      embroidery_dir:
+        "D:/ExistingData/MachineEmbroideryDesigns",
+      database_path:
+        "D:/ExistingData/Database/EmbroideryCatalogue.db",
+      data_root_missing: false,
+    },
+  });
+  getConfiguredDataRootMock.mockResolvedValue({
+    source: "rust",
+    path: "D:/ExistingData",
+  });
+  setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+  browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+  restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -104,8 +133,13 @@ describe("InitialSetupView.svelte", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     completeInitialSetupMock.mockResolvedValue(undefined);
+    restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
     mockDevMode();
   });
+
+  // -----------------------------------------------------------------------
+  // Dev mode — no data step, Designers → Sources
+  // -----------------------------------------------------------------------
 
   it("renders the Designers step by default", async () => {
     render(InitialSetupView, {
@@ -286,83 +320,137 @@ describe("InitialSetupView.svelte", () => {
     ).not.toBeInTheDocument();
   });
 
-  // -------------------------------------------------------------------------
-  // Installed-mode data location step
-  // -------------------------------------------------------------------------
+  // -----------------------------------------------------------------------
+  // Installed mode, first run — data root first, then restart
+  // -----------------------------------------------------------------------
 
-  it("shows a three-step wizard with a Data Location step in installed mode", async () => {
+  it("shows a three-step wizard with Data Location first on first run", async () => {
     mockInstalledNoConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
     await tick();
 
-    // First step: Designers (Step 1 of 3)
+    // First step is Data Location (Step 1 of 3).
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
-
-    // Continue to Sources (Step 2 of 3)
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
-    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
-
-    // Continue to Data Location (Step 3 of 3)
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
-    expect(screen.getByText("Step 3 of 3 — Data Location")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-input")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-browse")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
   });
 
-  it("persists the data root before completing setup in installed mode", async () => {
+  it("saves the data root then shows the restart confirmation on first run", async () => {
     mockInstalledNoConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
     await tick();
 
-    // Walk through all three steps.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+    });
 
-    // Enter a data root and finish.
+    // Enter a data root and continue.
     const input = screen.getByTestId("data-root-input");
     await fireEvent.input(input, {
       target: { value: "D:/EmbroideryCatalogue/Data" },
     });
     await tick();
 
-    const finishButton = screen.getByRole("button", { name: "Finish" });
-    await fireEvent.click(finishButton);
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
 
     await waitFor(() => {
       expect(setConfiguredDataRootMock).toHaveBeenCalledWith(
         "D:/EmbroideryCatalogue/Data"
       );
     });
-    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
+    // The restart confirmation dialog appears; the app must NOT advance to
+    // Designers until after restart.
+    expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
+    expect(completeInitialSetupMock).not.toHaveBeenCalled();
   });
 
-  it("validates that a data root is provided in installed mode", async () => {
+  it("launches the restart when the user confirms", async () => {
     mockInstalledNoConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
     await tick();
 
-    // Walk through both non-data steps.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId("data-root-input");
+    await fireEvent.input(input, {
+      target: { value: "D:/EmbroideryCatalogue/Data" },
+    });
     await tick();
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByTestId("restart-now"));
+    await waitFor(() => {
+      expect(restartApplicationMock).toHaveBeenCalledTimes(1);
+    });
+    expect(completeInitialSetupMock).not.toHaveBeenCalled();
+  });
+
+  it("shows an error and closes the dialog when restart fails", async () => {
+    mockInstalledNoConfig();
+    // Override AFTER the helper so the failure outcome actually takes effect.
+    restartApplicationMock.mockResolvedValue({
+      source: "rust",
+      restarted: false,
+      error: "spawn failed",
+    });
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
     await tick();
 
-    // Leave the data root empty and attempt to finish.
-    const finishButton = screen.getByRole("button", { name: "Finish" });
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId("data-root-input");
+    await fireEvent.input(input, {
+      target: { value: "D:/EmbroideryCatalogue/Data" },
+    });
+    await tick();
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
+    });
+    await fireEvent.click(screen.getByTestId("restart-now"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Could not restart the application.*spawn failed/)
+      ).toBeInTheDocument();
+    });
+    expect(restartApplicationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates that a data root is provided before continuing", async () => {
+    mockInstalledNoConfig();
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+    });
+
+    // Leave the data root empty and attempt to continue.
+    const finishButton = screen.getByRole("button", { name: "Continue →" });
     await fireEvent.click(finishButton);
 
     await tick();
@@ -381,46 +469,41 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     // Because the configured root is unreachable, the wizard goes straight to
-    // the Data Location step (Step 3 of 3) and shows the recovery notice.
+    // the Data Location step (Step 1 of 3) and shows the recovery notice.
     await waitFor(() => {
-      expect(screen.getByText("Step 3 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-missing-notice")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-input")).toHaveValue("G:/OldPortableData");
   });
 
-  it("pre-fills an existing configured data root in installed mode", async () => {
-    getAppStatusMock.mockResolvedValue({
-      source: "rust",
-      status: {
-      execution_mode: "installed",
-      data_root: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue",
-      embroidery_dir: "",
-      database_path: "",
-      data_root_missing: false,
-    },
-    });
-    getConfiguredDataRootMock.mockResolvedValue({
-      source: "rust",
-      path: "D:/ExistingData",
-    });
-    setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
-    browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
+  // -----------------------------------------------------------------------
+  // Installed mode with a valid configured root — skip the data step
+  // -----------------------------------------------------------------------
 
+  it("skips the data step when a valid configured data root already exists", async () => {
+    mockInstalledWithConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
     await tick();
 
-    // Move to the data step.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
+    // No Data Location step — the wizard starts directly at Designers.
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 2 — Designers")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("data-root-input")).not.toBeInTheDocument();
 
-    expect(screen.getByTestId("data-root-input")).toHaveValue("D:/ExistingData");
-    expect(
-      screen.getByText(/You already have a configured data location/)
-    ).toBeInTheDocument();
+    // And continues to Sources as the final step.
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    expect(screen.getByText("Step 2 of 2 — Sources")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
+
+    // Finishing does not touch the data root.
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+    expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
+    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
   });
 });
