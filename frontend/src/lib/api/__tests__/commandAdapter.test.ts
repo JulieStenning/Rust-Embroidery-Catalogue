@@ -1226,17 +1226,54 @@ describe("commandAdapter tags & previews", () => {
     expect(result).toEqual({ source: "mock", requested_count: 0, updated_count: 0, persisted: false });
   });
 
-  it("bulkSetTagsForDesigns deduplicates tag ids and maps Rust result", async () => {
+  it("bulkSetTagsForDesigns sends snake_case request fields for the Rust struct", async () => {
     invokeMock.mockResolvedValue({ requested_count: 2, updated_count: 2 });
 
-    const result = await bulkSetTagsForDesigns([1, 2], ["2", 2, 3]);
+    const result = await bulkSetTagsForDesigns([1, 2], ["2", 2, 3], [4, "4", 5]);
 
+    // Assert the EXACT wire payload Tauri expects (see .clinerules):
+    // top-level invoke keys are camelCase, but the nested `request` struct is
+    // deserialized by serde using snake_case field names.
     expect(invokeMock).toHaveBeenCalledWith("bulk_set_tags_for_designs", {
       designIds: [1, 2],
-      tagIds: [2, 3],
+      request: {
+        tags_to_add: [2, 3],
+        tags_to_remove: [4, 5],
+        clear_all_tags: false,
+      },
     });
     expect(result.source).toBe("rust");
     expect(result.updated_count).toBe(2);
+  });
+
+  it("bulkSetTagsForDesigns passes clearAllTags through", async () => {
+    invokeMock.mockResolvedValue({ requested_count: 1, updated_count: 1 });
+
+    await bulkSetTagsForDesigns([1], [], [], true);
+
+    expect(invokeMock).toHaveBeenCalledWith("bulk_set_tags_for_designs", {
+      designIds: [1],
+      request: {
+        tags_to_add: [],
+        tags_to_remove: [],
+        clear_all_tags: true,
+      },
+    });
+  });
+
+  it("bulkSetTagsForDesigns defaults to empty remove list and clearAllTags=false", async () => {
+    invokeMock.mockResolvedValue({ requested_count: 1, updated_count: 1 });
+
+    await bulkSetTagsForDesigns([1], [7]);
+
+    expect(invokeMock).toHaveBeenCalledWith("bulk_set_tags_for_designs", {
+      designIds: [1],
+      request: {
+        tags_to_add: [7],
+        tags_to_remove: [],
+        clear_all_tags: false,
+      },
+    });
   });
 
   it("bulkSetTagsForDesigns falls back to local full-verify mock on error", async () => {

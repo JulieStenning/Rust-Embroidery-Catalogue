@@ -227,6 +227,14 @@ pub struct SetDesignTagsRequest {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct BulkApplyTagsRequest {
+    pub tags_to_add: Vec<i64>,
+    pub tags_to_remove: Vec<i64>,
+    #[serde(default)]
+    pub clear_all_tags: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct SetDesignProjectRequest {
     pub project_id: i64,
 }
@@ -1942,11 +1950,10 @@ pub async fn bulk_add_designs_to_project(
     })
 }
 
-#[tauri::command]
-pub async fn bulk_set_tags_for_designs(
-    state: State<'_, AppState>,
-    design_ids: Vec<i64>,
-    tag_ids: Vec<i64>,
+async fn bulk_set_tags_for_designs_with_pool(
+    pool: &SqlitePool,
+    design_ids: &[i64],
+    request: BulkApplyTagsRequest,
 ) -> Result<BulkSetTagsResult, String> {
     if design_ids.is_empty() {
         return Ok(BulkSetTagsResult {
@@ -1955,17 +1962,61 @@ pub async fn bulk_set_tags_for_designs(
         });
     }
 
-    let mut tx = state.db.begin().await.map_err(|e| e.to_string())?;
+    // Deduplicate and validate all tag ids; add wins over remove when both
+    // reference the same tag.
+    let mut tags_to_add = Vec::<i64>::new();
+    for id in request.tags_to_add {
+        if id <= 0 {
+            return Err("Tag id values must be positive integers.".to_string());
+        }
+        if !tags_to_add.contains(&id) {
+            tags_to_add.push(id);
+        }
+    }
+
+    let mut tags_to_remove = Vec::<i64>::new();
+    for id in request.tags_to_remove {
+        if id <= 0 {
+            return Err("Tag id values must be positive integers.".to_string());
+        }
+        if !tags_to_remove.contains(&id) {
+            tags_to_remove.push(id);
+        }
+    }
+
+    for tag_id in tags_to_add.iter().chain(tags_to_remove.iter()) {
+        ensure_foreign_key_exists(pool, "tags", Some(*tag_id), "Tag").await?;
+    }
+
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut updated_count = 0usize;
 
-    for design_id in &design_ids {
-        sqlx::query("DELETE FROM design_tags WHERE design_id = ?")
-            .bind(*design_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| e.to_string())?;
+    for design_id in design_ids {
+        if request.clear_all_tags {
+            sqlx::query("DELETE FROM design_tags WHERE design_id = ?")
+                .bind(*design_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        } else if !tags_to_remove.is_empty() {
+            let mut delete_query = QueryBuilder::<Sqlite>::new(
+                "DELETE FROM design_tags WHERE design_id = ",
+            );
+            delete_query.push_bind(*design_id);
+            delete_query.push(" AND tag_id IN (");
+            let mut separated = delete_query.separated(", ");
+            for tag_id in &tags_to_remove {
+                separated.push_bind(*tag_id);
+            }
+            delete_query.push(")");
+            delete_query
+                .build()
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
 
-        for tag_id in &tag_ids {
+        for tag_id in &tags_to_add {
             sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
                 .bind(*design_id)
                 .bind(*tag_id)
@@ -1989,6 +2040,15 @@ pub async fn bulk_set_tags_for_designs(
         requested_count: design_ids.len(),
         updated_count,
     })
+}
+
+#[tauri::command]
+pub async fn bulk_set_tags_for_designs(
+    state: State<'_, AppState>,
+    design_ids: Vec<i64>,
+    request: BulkApplyTagsRequest,
+) -> Result<BulkSetTagsResult, String> {
+    bulk_set_tags_for_designs_with_pool(&state.db, &design_ids, request).await
 }
 
 #[tauri::command]

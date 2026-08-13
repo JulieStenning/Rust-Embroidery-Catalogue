@@ -1329,17 +1329,32 @@ export async function getBrowseTags(): Promise<AdapterListResponse<BrowseTagOpti
 }
 
 /**
- * Replace tag assignments for selected designs in Rust backend.
- * Falls back to local-only behavior while route wiring is in progress.
+ * Apply an explicit add/remove tag diff across a batch of designs.
+ *
+ * Tags left untouched (indeterminate / mixed in the UI) are simply excluded
+ * from both lists, so the backend never touches them. This prevents the
+ * previous blanket "replace all tags" behaviour from accidentally removing
+ * tags that existed on only some selected designs.
+ *
  * @param {Array<number | string>} designIds
- * @param {Array<number | string>} tagIds
+ * @param {Array<number | string>} tagsToAdd - Tags to add to ALL selected designs.
+ * @param {Array<number | string>} [tagsToRemove=[]] - Tags to remove from ALL selected designs.
+ * @param {boolean} [clearAllTags=false] - Clear all tags from the selected designs first.
  */
-export async function bulkSetTagsForDesigns(designIds: Array<number | string>, tagIds: Array<number | string>) {
+export async function bulkSetTagsForDesigns(
+  designIds: Array<number | string>,
+  tagsToAdd: Array<number | string>,
+  tagsToRemove: Array<number | string> = [],
+  clearAllTags = false,
+) {
   const normalizedDesignIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
     ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
     : [];
-  const normalizedTagIds = (tagIds && typeof tagIds[Symbol.iterator] === 'function')
-    ? Array.from(new Set(Array.from(tagIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+  const normalizedAddIds = (tagsToAdd && typeof tagsToAdd[Symbol.iterator] === 'function')
+    ? Array.from(new Set(Array.from(tagsToAdd).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+    : [];
+  const normalizedRemoveIds = (tagsToRemove && typeof tagsToRemove[Symbol.iterator] === 'function')
+    ? Array.from(new Set(Array.from(tagsToRemove).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
     : [];
 
   if (normalizedDesignIds.length === 0) {
@@ -1354,7 +1369,11 @@ export async function bulkSetTagsForDesigns(designIds: Array<number | string>, t
   try {
     const result = await invokeLoose("bulk_set_tags_for_designs", {
       designIds: normalizedDesignIds,
-      tagIds: normalizedTagIds,
+      request: {
+        tags_to_add: normalizedAddIds,
+        tags_to_remove: normalizedRemoveIds,
+        clear_all_tags: Boolean(clearAllTags),
+      },
     });
     return {
       source: "rust",

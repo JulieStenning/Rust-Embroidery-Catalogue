@@ -174,6 +174,17 @@ export interface SetDesignTagsRequest {
   tag_ids: number[];
 }
 
+/**
+ * Wire shape for `bulk_set_tags_for_designs`. Explicit add/remove lists so
+ * tags left untouched (indeterminate / mixed in the bulk UI) are never
+ * touched by the backend.
+ */
+export interface BulkApplyTagsRequest {
+  tags_to_add: number[];
+  tags_to_remove: number[];
+  clear_all_tags: boolean;
+}
+
 export interface DesignCommandResult {
   design_id: number;
   message: string;

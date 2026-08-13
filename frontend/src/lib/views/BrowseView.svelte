@@ -103,9 +103,12 @@
   let browseBulkModalOpen = $state(false);
   let browseBulkModalMode = $state("browse");
   /** @type {Array<number | string>} */
-  let browseBulkTagSelection = $state([]);
+  let browseBulkTagAddIds = $state([]);
   /** @type {Array<number | string>} */
-  let browseBulkTagIndeterminate = $state([]);
+  let browseBulkTagRemoveIds = $state([]);
+  /** @type {Array<number | string>} */
+  let browseBulkTagIndeterminateIds = $state([]);
+  let browseBulkClearAll = $state(false);
   /** @type {number[]} */
   let browseBulkProjectSelection = $state([]);
   let browseBulkProjectDropdownOpen = $state(false);
@@ -849,8 +852,10 @@
       }
     }
 
-    browseBulkTagSelection = checkedIds;
-    browseBulkTagIndeterminate = indeterminateIds;
+    browseBulkTagAddIds = checkedIds;
+    browseBulkTagRemoveIds = [];
+    browseBulkTagIndeterminateIds = indeterminateIds;
+    browseBulkClearAll = false;
     browseBulkModalOpen = true;
   }
 
@@ -858,40 +863,88 @@
     browseBulkModalOpen = false;
   }
 
-  /** @param {number | string} tagId */
-  function tagChooserSelectionIncludes(tagId) {
-    return browseBulkTagSelection.includes(Number(tagId));
+  /**
+   * Resolve the effective tri-state for a tag:
+   * - "add"           → checked [✓] → tag added to all selected designs.
+   * - "remove"        → unchecked [ ] → tag removed from all selected designs.
+   * - "indeterminate" → mixed [-] → tag left completely untouched.
+   * - "none"          → not present on any selected design
+   * @param {number | string} tagId
+   * @returns {"add" | "remove" | "indeterminate" | "none"}
+   */
+  function tagChooserState(tagId) {
+    const id = Number(tagId);
+    if (browseBulkTagAddIds.includes(id)) return "add";
+    if (browseBulkTagRemoveIds.includes(id)) return "remove";
+    if (browseBulkTagIndeterminateIds.includes(id)) return "indeterminate";
+    return "none";
   }
 
-  /** @param {number | string} tagId */
-  function tagChooserIndeterminateIncludes(tagId) {
-    return browseBulkTagIndeterminate.includes(Number(tagId));
-  }
-
-  /** @param {number | string} tagId @param {boolean} checked */
-  function toggleTagChooserSelection(tagId, checked) {
+  /**
+   * Cycle a tri-state checkbox: [-] → [✓] → [ ] → [✓].
+   * This derives the next state from the *current* state, so untouched
+   * mixed tags are never silently dropped.
+   * @param {number | string} tagId
+   */
+  function toggleTagChooserSelection(tagId) {
     const id = Number(tagId);
     if (!Number.isFinite(id)) return;
-    if (browseBulkTagIndeterminate.includes(id)) {
-      browseBulkTagIndeterminate = browseBulkTagIndeterminate.filter((value) => value !== id);
-    }
-    if (checked) {
-      browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, id]));
+
+    const current = tagChooserState(id);
+
+    // Remove the tag from every list first, then move it to its target list.
+    browseBulkTagAddIds = browseBulkTagAddIds.filter((value) => value !== id);
+    browseBulkTagRemoveIds = browseBulkTagRemoveIds.filter((value) => value !== id);
+    browseBulkTagIndeterminateIds = browseBulkTagIndeterminateIds.filter((value) => value !== id);
+
+    // [-] (mixed) or [ ] (remove) or unlisted → [✓] (add).
+    if (current === "add") {
+      // [✓] → [ ] (remove)
+      browseBulkTagRemoveIds = [...browseBulkTagRemoveIds, id];
     } else {
-      browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== id);
+      // anything else → [✓] (add)
+      browseBulkTagAddIds = [...browseBulkTagAddIds, id];
     }
+  }
+
+  /**
+   * Visual glyph for a tag's tri-state on the tag chooser buttons.
+   * @param {number | string} tagId
+   * @returns {string}
+   */
+  function tagChooserGlyph(tagId) {
+    const state = tagChooserState(tagId);
+    if (state === "add") return "✓";
+    if (state === "indeterminate") return "−";
+    return "";
+  }
+
+  /**
+   * ARIA representation for a tag's tri-state.
+   * @param {number | string} tagId
+   * @returns {"true" | "false" | "mixed"}
+   */
+  function tagChooserAria(tagId) {
+    const state = tagChooserState(tagId);
+    if (state === "add") return "true";
+    if (state === "indeterminate") return "mixed";
+    return "false";
   }
 
   async function applyBulkTags() {
     if (browseSelectedIds.size === 0) return;
 
-    const tagIds = [...browseBulkTagSelection];
-    const clearAll = tagIds.includes(BROWSE_TAG_UNTAGGED);
-    const finalTags = clearAll ? [] : tagIds;
+    const clearAll = browseBulkClearAll;
+    const addIds = clearAll ? [] : browseBulkTagAddIds;
 
     browseLoading = true;
     try {
-      const result = /** @type {BulkSetTagsResult} */ (await bulkSetTagsForDesigns(Array.from(browseSelectedIds), finalTags));
+      const result = /** @type {BulkSetTagsResult} */ (await bulkSetTagsForDesigns(
+        Array.from(browseSelectedIds),
+        addIds,
+        browseBulkTagRemoveIds,
+        clearAll,
+      ));
       if (result?.persisted) {
         addToast(`${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`, "success");
         closeBulkTagModal();
@@ -1719,14 +1772,10 @@
           <label class="tag-chooser-option" style="font-weight:600;">
             <input
               type="checkbox"
-              checked={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
+              checked={browseBulkClearAll}
+              disabled={browseBulkTagAddIds.length > 0 || browseBulkTagRemoveIds.length > 0 || browseBulkTagIndeterminateIds.length > 0}
               onchange={(event) => {
-                if (event.currentTarget.checked) {
-                  browseBulkTagSelection = Array.from(new Set([...browseBulkTagSelection, BROWSE_TAG_UNTAGGED]));
-                  browseBulkTagIndeterminate = [];
-                } else {
-                  browseBulkTagSelection = browseBulkTagSelection.filter((value) => value !== BROWSE_TAG_UNTAGGED);
-                }
+                browseBulkClearAll = event.currentTarget.checked;
               }}
             />
             <span>Untagged (clear all tags)</span>
@@ -1738,17 +1787,18 @@
             <section class="tag-chooser-section">
               <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">Image tags</p>
               <div class="tag-chooser-grid">
-                {#each groupedTagOptions.image as tagOption}
-                  <label class="tag-chooser-option">
-                    <input
-                      type="checkbox"
-                      checked={tagChooserSelectionIncludes(tagOption.id)}
-                      indeterminate={tagChooserIndeterminateIncludes(tagOption.id)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
-                      disabled={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
-                    />
+                {#each groupedTagOptions.image as tagOption (tagOption.id)}
+                  <button
+                    type="button"
+                    class="tag-chooser-option"
+                    role="checkbox"
+                    aria-checked={tagChooserAria(tagOption.id)}
+                    disabled={browseBulkClearAll}
+                    onclick={() => toggleTagChooserSelection(tagOption.id)}
+                  >
+                    <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
                     <span>{tagOption.description}</span>
-                  </label>
+                  </button>
                 {/each}
               </div>
             </section>
@@ -1758,17 +1808,18 @@
             <section class="tag-chooser-section">
               <p class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold">Stitching tags</p>
               <div class="tag-chooser-grid">
-                {#each groupedTagOptions.stitching as tagOption}
-                  <label class="tag-chooser-option">
-                    <input
-                      type="checkbox"
-                      checked={tagChooserSelectionIncludes(tagOption.id)}
-                      indeterminate={tagChooserIndeterminateIncludes(tagOption.id)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
-                      disabled={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
-                    />
+                {#each groupedTagOptions.stitching as tagOption (tagOption.id)}
+                  <button
+                    type="button"
+                    class="tag-chooser-option"
+                    role="checkbox"
+                    aria-checked={tagChooserAria(tagOption.id)}
+                    disabled={browseBulkClearAll}
+                    onclick={() => toggleTagChooserSelection(tagOption.id)}
+                  >
+                    <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
                     <span>{tagOption.description}</span>
-                  </label>
+                  </button>
                 {/each}
               </div>
             </section>
@@ -1778,17 +1829,18 @@
             <section class="tag-chooser-section">
               <p class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold">Unclassified tags</p>
               <div class="tag-chooser-grid">
-                {#each groupedTagOptions.unclassified as tagOption}
-                  <label class="tag-chooser-option">
-                    <input
-                      type="checkbox"
-                      checked={tagChooserSelectionIncludes(tagOption.id)}
-                      indeterminate={tagChooserIndeterminateIncludes(tagOption.id)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption.id, event.currentTarget.checked)}
-                      disabled={browseBulkTagSelection.includes(BROWSE_TAG_UNTAGGED)}
-                    />
+                {#each groupedTagOptions.unclassified as tagOption (tagOption.id)}
+                  <button
+                    type="button"
+                    class="tag-chooser-option"
+                    role="checkbox"
+                    aria-checked={tagChooserAria(tagOption.id)}
+                    disabled={browseBulkClearAll}
+                    onclick={() => toggleTagChooserSelection(tagOption.id)}
+                  >
+                    <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
                     <span>{tagOption.description}</span>
-                  </label>
+                  </button>
                 {/each}
               </div>
             </section>

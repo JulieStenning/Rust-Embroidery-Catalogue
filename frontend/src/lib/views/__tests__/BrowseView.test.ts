@@ -1172,7 +1172,7 @@ describe("BrowseView", () => {
       expect(within(dialog).getByText("Satin")).toBeInTheDocument();
     });
 
-    it("applies bulk tags successfully", async () => {
+    it("applies bulk tags successfully with explicit add lists", async () => {
       adapterMocks.getBrowseTags.mockResolvedValue(
         listResponse([tagOption(1, "Floral", "image")])
       );
@@ -1183,10 +1183,13 @@ describe("BrowseView", () => {
 
       const dialog = screen.getByRole("dialog");
 
-      // Pick the Floral tag within the dialog.
-      const floralLabel = within(dialog).getByText("Floral").closest("label");
-      const floralCheckbox = floralLabel?.querySelector("input") as HTMLInputElement;
-      await fireEvent.click(floralCheckbox);
+      // Pick the Floral tag (a tri-state button with aria-checked).
+      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
+      await fireEvent.click(floralButton);
+
+      // Clicking cycles [-] / [ ] → [✓] add.
+      expect(floralButton).toHaveAttribute("aria-checked", "true");
+      expect(floralButton).toHaveTextContent("✓");
 
       await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
 
@@ -1194,7 +1197,10 @@ describe("BrowseView", () => {
         expect(adapterMocks.bulkSetTagsForDesigns).toHaveBeenCalled();
         const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
         expect(args[0].length).toBe(2);
+        // args[1] = tagsToAdd, args[2] = tagsToRemove, args[3] = clearAllTags
         expect(args[1]).toEqual([1]);
+        expect(args[2]).toEqual([]);
+        expect(args[3]).toBe(false);
       });
 
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -1218,9 +1224,7 @@ describe("BrowseView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
 
       const dialog = screen.getByRole("dialog");
-      const floralLabel = within(dialog).getByText("Floral").closest("label");
-      const floralCheckbox = floralLabel?.querySelector("input") as HTMLInputElement;
-      await fireEvent.click(floralCheckbox);
+      await fireEvent.click(within(dialog).getByRole("checkbox", { name: /Floral/ }));
 
       await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
 
@@ -1229,7 +1233,7 @@ describe("BrowseView", () => {
       });
     });
 
-    it("clears all tags when 'Untagged' is selected in the chooser", async () => {
+    it("clears all tags when 'Untagged' is selected (clearAllTags=true)", async () => {
       adapterMocks.getBrowseTags.mockResolvedValue(
         listResponse([tagOption(1, "Floral", "image")])
       );
@@ -1240,21 +1244,117 @@ describe("BrowseView", () => {
 
       const dialog = screen.getByRole("dialog");
 
-      // Check Untagged (clear all tags).
+      // Check Untagged (clear all tags) — a native checkbox.
       const untaggedLabel = within(dialog).getByText("Untagged (clear all tags)").closest("label");
       const untaggedCheckbox = untaggedLabel?.querySelector("input") as HTMLInputElement;
       await fireEvent.click(untaggedCheckbox);
 
-      // The Floral checkbox should be disabled now.
-      const floralLabel = within(dialog).getByText("Floral").closest("label");
-      const floralCheckbox = floralLabel?.querySelector("input") as HTMLInputElement;
-      expect(floralCheckbox.disabled).toBe(true);
+      // The Floral tri-state button should be disabled now.
+      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
+      expect((floralButton as HTMLButtonElement).disabled).toBe(true);
 
       await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
 
       await waitFor(() => {
         const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
-        expect(args[1]).toEqual([]);
+        expect(args[1]).toEqual([]);   // tagsToAdd empty when clearing
+        expect(args[2]).toEqual([]);   // tagsToRemove empty when clearing
+        expect(args[3]).toBe(true);    // clearAllTags true
+      });
+    });
+
+    it("excludes indeterminate (mixed) tags from the save payload", async () => {
+      // Two designs; only the first has "Floral" → the tag is mixed ([-]).
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({ id: 1, filename: "design-1.pes", tags: ["Floral"] }),
+          design({ id: 2, filename: "design-2.pes", tags: [] }),
+        ])
+      );
+      adapterMocks.getBrowseTags.mockResolvedValue(
+        listResponse([tagOption(1, "Floral", "image")])
+      );
+
+      // Select both designs WITHOUT the selectItems helper (which would
+      // overwrite the fixture above with tag-less designs).
+      renderBrowse();
+      await waitFor(() => {
+        expect(screen.getByText("design-1.pes")).toBeInTheDocument();
+      });
+      const allCheckbox = screen.getByTestId("select-all-page-checkbox") as HTMLInputElement;
+      await fireEvent.click(allCheckbox);
+
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+
+      // Floral starts mixed ([-]) — untouched it must NOT be sent at all.
+      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
+      expect(floralButton).toHaveAttribute("aria-checked", "mixed");
+      expect(floralButton).toHaveTextContent("−");
+
+      await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
+
+      await waitFor(() => {
+        const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
+        expect(args[1]).toEqual([]);  // tagsToAdd — Floral excluded
+        expect(args[2]).toEqual([]);  // tagsToRemove — Floral excluded
+        expect(args[3]).toBe(false);
+      });
+    });
+
+    it("cycles a mixed tag [-] → [✓] → [ ] → [✓]", async () => {
+      // Both designs have Floral → initial state is checked [✓].
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({ id: 1, filename: "design-1.pes", tags: ["Floral"] }),
+          design({ id: 2, filename: "design-2.pes", tags: ["Floral"] }),
+        ])
+      );
+      adapterMocks.getBrowseTags.mockResolvedValue(
+        listResponse([tagOption(1, "Floral", "image")])
+      );
+
+      // Select both designs WITHOUT the selectItems helper (which would
+      // overwrite the fixture above with tag-less designs).
+      renderBrowse();
+      await waitFor(() => {
+        expect(screen.getByText("design-1.pes")).toBeInTheDocument();
+      });
+      const allCheckbox = screen.getByTestId("select-all-page-checkbox") as HTMLInputElement;
+      await fireEvent.click(allCheckbox);
+
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
+
+      // Initial: [✓] add
+      expect(floralButton).toHaveAttribute("aria-checked", "true");
+      expect(floralButton).toHaveTextContent("✓");
+
+      // Click 1: [✓] → [ ] remove
+      await fireEvent.click(floralButton);
+      expect(floralButton).toHaveAttribute("aria-checked", "false");
+      expect(floralButton.querySelector(".tag-chooser-box")).toHaveTextContent("");
+
+      // Click 2: [ ] → [✓] add
+      await fireEvent.click(floralButton);
+      expect(floralButton).toHaveAttribute("aria-checked", "true");
+      expect(floralButton.querySelector(".tag-chooser-box")).toHaveTextContent("✓");
+
+      // Click 3: [✓] → [ ] remove (final state → send to remove list)
+      await fireEvent.click(floralButton);
+      expect(floralButton).toHaveAttribute("aria-checked", "false");
+      expect(floralButton.querySelector(".tag-chooser-box")).toHaveTextContent("");
+
+      await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
+
+      await waitFor(() => {
+        const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
+        expect(args[1]).toEqual([]);      // no adds
+        expect(args[2]).toEqual([1]);     // Floral removed
+        expect(args[3]).toBe(false);
       });
     });
 
@@ -1979,8 +2079,7 @@ describe("BrowseView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
 
       const dialog = screen.getByRole("dialog");
-      const floralLabel = within(dialog).getByText("Floral").closest("label");
-      await fireEvent.click(floralLabel?.querySelector("input") as HTMLInputElement);
+      await fireEvent.click(within(dialog).getByRole("checkbox", { name: /Floral/ }));
 
       await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
 

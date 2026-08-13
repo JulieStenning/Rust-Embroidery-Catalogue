@@ -598,6 +598,216 @@ async fn set_design_tags_replaces_and_marks_verified() {
 }
 
 #[tokio::test]
+async fn bulk_set_tags_adds_only_requested_tags() {
+    let pool = test_pool().await;
+
+    // Design 1 starts with Flowers (tag 1), design 2 starts with Satin (tag 2).
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath) VALUES ('second.pes', 'Roses/second.pes')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design 2");
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .expect("seed design 1 tag");
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (2, 2)")
+        .execute(&pool)
+        .await
+        .expect("seed design 2 tag");
+
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1, 2],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![2],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().updated_count, 2);
+
+    // Design 1 should now have Satin (2) added but keep Flowers (1).
+    let design1 = sqlx::query_as::<_, (i64,)>(
+        "SELECT tag_id FROM design_tags WHERE design_id = 1 ORDER BY tag_id ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("design 1 tags query");
+
+    assert_eq!(design1.len(), 2);
+    assert_eq!(design1[0].0, 1);
+    assert_eq!(design1[1].0, 2);
+
+    // Design 2 should retain Satin (2) and NOT gain Flowers (1).
+    let design2 = sqlx::query_as::<_, (i64,)>(
+        "SELECT tag_id FROM design_tags WHERE design_id = 2 ORDER BY tag_id ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("design 2 tags query");
+
+    assert_eq!(design2.len(), 1);
+    assert_eq!(design2[0].0, 2);
+}
+
+#[tokio::test]
+async fn bulk_set_tags_remove_only_removes_requested_tags() {
+    let pool = test_pool().await;
+
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .expect("seed design 1 tag");
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .expect("seed design 1 second tag");
+
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![],
+            tags_to_remove: vec![1],
+            clear_all_tags: false,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    // Only tag 1 removed; tag 2 stays (mixed/indeterminate tags are untouched).
+    let remaining = sqlx::query_as::<_, (i64,)>(
+        "SELECT tag_id FROM design_tags WHERE design_id = 1 ORDER BY tag_id ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("remaining tags query");
+
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].0, 2);
+}
+
+#[tokio::test]
+async fn bulk_set_tags_clear_all_removes_everything() {
+    let pool = test_pool().await;
+
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .expect("seed design 1 tag");
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .expect("seed design 1 second tag");
+
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![],
+            tags_to_remove: vec![],
+            clear_all_tags: true,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM design_tags WHERE design_id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("count query");
+
+    assert_eq!(count, 0);
+}
+
+#[tokio::test]
+async fn bulk_set_tags_add_wins_when_tag_in_both_lists() {
+    let pool = test_pool().await;
+
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![1, 1, 2],
+            tags_to_remove: vec![1],
+            clear_all_tags: false,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    // Duplicate add ids deduplicate; tag 1 survives because add wins.
+    let assigned = sqlx::query_as::<_, (i64,)>(
+        "SELECT tag_id FROM design_tags WHERE design_id = 1 ORDER BY tag_id ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("assigned tags query");
+
+    assert_eq!(assigned.len(), 2);
+    assert_eq!(assigned[0].0, 1);
+    assert_eq!(assigned[1].0, 2);
+}
+
+#[tokio::test]
+async fn bulk_set_tags_rejects_unknown_tag_id() {
+    let pool = test_pool().await;
+
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![999],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+        },
+    )
+    .await;
+
+    assert!(result.is_err());
+    assert!(
+        result
+            .expect_err("expected error")
+            .contains("Tag with id=999 not found.")
+    );
+}
+
+#[tokio::test]
+async fn bulk_set_tags_marks_designs_verified() {
+    let pool = test_pool().await;
+
+    // Design 1 starts unverified.
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![1],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let checked = sqlx::query_scalar::<_, i64>("SELECT tags_checked FROM designs WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .expect("tags_checked query");
+
+    assert_eq!(checked, 1);
+}
+
+#[tokio::test]
 async fn add_and_remove_project_membership_round_trip() {
     let pool = test_pool().await;
 
