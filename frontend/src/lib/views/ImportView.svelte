@@ -1149,34 +1149,7 @@
           </div>
         {/if}
 
-        {#if importPrecheck.is_first_import}
-          <div class="ui-section-shell import-folder-card border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded space-y-2 text-sm">
-            <p class="font-semibold text-amber-900">Before your first import, please check your hoops</p>
-            <p class="ui-help-note text-amber-900">
-              A starter set of tags is already included with the catalogue. Hoops are not, because they depend on your machine and the frames you actually own.
-            </p>
-            <p class="ui-help-note text-amber-900">
-              If you set up your hoops now, the import process can auto-assign a hoop where the design size is known. You can also review tags, sources, and designers before importing.
-            </p>
-            {#if importPrecheck.needs_hoop_setup}
-              <p class="ui-help-note font-semibold text-amber-900 pt-1">No hoops are defined yet for this catalogue.</p>
-            {/if}
-          </div>
-
-          <p class="ui-help-note text-sm text-gray-500 italic">
-            Review your hoops first, or skip them for now and the app will ask if you are really really sure before importing.
-          </p>
-        {:else}
-          <p class="ui-help-note text-sm text-gray-500 italic">
-            Consider reviewing your hoops, tags, sources, or designers before importing. Hoops usually only need special attention on the first import.
-          </p>
-        {/if}
-
         <div class="ui-action-button-group flex flex-wrap gap-2 pt-2">
-          <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_hoops")} disabled={importActionLoading || !importContextToken}>Review Hoops</button>
-          <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_tags")} disabled={importActionLoading || !importContextToken}>Review Tags</button>
-          <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_sources")} disabled={importActionLoading || !importContextToken}>Review Sources</button>
-          <button class="menu-button-secondary ui-action-button" onclick={() => executeImportPrecheckAction("review_designers")} disabled={importActionLoading || !importContextToken}>Review Designers</button>
           <button class="menu-button-primary ui-action-button ui-action-button-primary" onclick={() => executeImportPrecheckAction("import_now")} disabled={importActionLoading || !importContextToken}>
             {#if importActionLoading && importActionInProgress === "import_now"}
               {#if importProgressStatus}

@@ -997,7 +997,6 @@ describe("ImportView precheck flow", () => {
     );
 
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Review Hoops" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
 });
@@ -1012,10 +1011,6 @@ describe("ImportView step 3 actions", () => {
 
     expect(screen.getByText("Before You Import")).toBeInTheDocument();
     expect(screen.getByText("Google AI tagging is not configured")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review Hoops" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review Tags" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review Sources" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review Designers" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
@@ -1028,60 +1023,6 @@ describe("ImportView step 3 actions", () => {
     await gotoStep3(container);
 
     expect(screen.getByText("Google AI tagging is enabled for this installation")).toBeInTheDocument();
-  });
-
-  it("shows the first-import hoop warning when the precheck requires it", async () => {
-    adapterMocks.precheckImportWire.mockResolvedValue(
-      precheckResponse({ is_first_import: true, needs_hoop_setup: true })
-    );
-    const { container } = renderHarness("#/import");
-    await gotoStep3(container);
-
-    expect(
-      screen.getByText("Before your first import, please check your hoops")
-    ).toBeInTheDocument();
-    expect(screen.getByText("No hoops are defined yet for this catalogue.")).toBeInTheDocument();
-  });
-
-  it("routes review actions to the mapped hash route", async () => {
-    adapterMocks.runPrecheckAction.mockResolvedValue(
-      actionResponse({
-        action: "review_hoops",
-        next_route: "/import/step3",
-        consumed_context: false,
-        confirm_result: null,
-      })
-    );
-    const { container, onNavigate } = renderHarness("#/import");
-    await gotoStep3(container);
-
-    await fireEvent.click(screen.getByRole("button", { name: "Review Hoops" }));
-    await waitFor(() =>
-      expect(onNavigate).toHaveBeenCalledWith("#/import/step3")
-    );
-    expect(adapterMocks.runPrecheckAction).toHaveBeenCalledWith({
-      contextToken: "tok-123",
-      action: "review_hoops",
-      confirmSkipHoops: false,
-    });
-  });
-
-  it("does not navigate when the action next_route is unmapped", async () => {
-    adapterMocks.runPrecheckAction.mockResolvedValue(
-      actionResponse({
-        action: "review_hoops",
-        next_route: "/admin/hoops",
-        consumed_context: false,
-        confirm_result: null,
-      })
-    );
-    const { container, onNavigate } = renderHarness("#/import");
-    await gotoStep3(container);
-
-    const callsBefore = onNavigate.mock.calls.length;
-    await fireEvent.click(screen.getByRole("button", { name: "Review Hoops" }));
-    await waitFor(() => expect(adapterMocks.runPrecheckAction).toHaveBeenCalled());
-    expect(onNavigate.mock.calls.length).toBe(callsBefore);
   });
 
   it("completes an import and calls onImportCompleted with the persisted count", async () => {
@@ -1219,21 +1160,12 @@ describe("ImportView bulk import progress events", () => {
     resolveAction(actionResponse());
   });
 
-  it("does not start the listener for review or cancel actions", async () => {
-    adapterMocks.runPrecheckAction.mockResolvedValue(
-      actionResponse({
-        action: "review_tags",
-        next_route: "/import/step3",
-        consumed_context: false,
-        confirm_result: null,
-      })
-    );
+  it("does not start the listener for a cancel action", async () => {
     const { container } = renderHarness("#/import");
     await gotoStep3(container);
 
-    await fireEvent.click(screen.getByRole("button", { name: "Review Tags" }));
-    await waitFor(() => expect(adapterMocks.runPrecheckAction).toHaveBeenCalled());
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(adapterMocks.runPrecheckAction).toHaveBeenCalled());
 
     expect(eventMocks.listen).not.toHaveBeenCalled();
   });
