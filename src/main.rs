@@ -388,6 +388,8 @@ fn main() {
             routes::settings::save_settings_view_model,
             routes::settings::save_import_last_browse_folder,
             routes::settings::browse_settings_data_root,
+            routes::settings::get_google_api_key,
+            routes::settings::set_google_api_key,
             routes::admin::list_designers,
             routes::admin::create_designer,
             routes::admin::update_designer,

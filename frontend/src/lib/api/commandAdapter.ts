@@ -27,6 +27,7 @@ import type {
   AdapterBrowseDataRootResponse,
   AdapterCompactResponse,
   AdapterDbStatsResponse,
+  AdapterGoogleApiKeyResponse,
   AdapterItemResponse,
   AdapterListResponse,
   AdapterMutationResponse,
@@ -1616,6 +1617,46 @@ export async function browseSettingsDataRoot(startDir: string): Promise<AdapterB
       path: null,
       error: `Folder picker unavailable: ${error}`,
     };
+  }
+}
+
+/**
+ * Fetch the currently configured Google API key (optional, for AI tagging).
+ *
+ * @returns {Promise<AdapterGoogleApiKeyResponse>}
+ */
+export async function getGoogleApiKey(): Promise<AdapterGoogleApiKeyResponse> {
+  try {
+    const result = await invokeLoose<string | null>("get_google_api_key");
+    return {
+      source: "rust",
+      key: result ? String(result) : "",
+    };
+  } catch (error) {
+    console.info("get_google_api_key failed.", error);
+    return { source: "mock", key: "", error: String(error) };
+  }
+}
+
+/**
+ * Persist the user's Google API key via the Rust `.env` writer.
+ * Pass an empty string to clear the stored key.
+ *
+ * @param {string} apiKey
+ * @returns {Promise<{source: string; persisted: boolean; error?: string}>}
+ */
+export async function setGoogleApiKey(apiKey: string): Promise<{
+  source: string;
+  persisted: boolean;
+  error?: string;
+}> {
+  const normalized = String(apiKey || "").trim();
+  try {
+    await invokeLoose("set_google_api_key", { apiKey: normalized });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    console.info("set_google_api_key failed.", error);
+    return { source: "mock", persisted: false, error: String(error) };
   }
 }
 

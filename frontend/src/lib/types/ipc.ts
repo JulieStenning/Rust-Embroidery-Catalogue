@@ -220,6 +220,13 @@ export interface BrowseDataRootResult {
   error: string | null;
 }
 
+export interface AdapterGoogleApiKeyResponse {
+  source: string;
+  key: string;
+  persisted?: boolean;
+  error?: string;
+}
+
 export interface DbStats {
   file_size_bytes: number;
   page_count: number;

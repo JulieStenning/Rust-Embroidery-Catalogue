@@ -13,6 +13,9 @@ const getConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const browseDataRootFolderMock = vi.hoisted(() => vi.fn());
 const restartApplicationMock = vi.hoisted(() => vi.fn());
+const getGoogleApiKeyMock = vi.hoisted(() => vi.fn());
+const setGoogleApiKeyMock = vi.hoisted(() => vi.fn());
+const addToastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/api/commandAdapter", () => ({
   completeInitialSetup: completeInitialSetupMock,
@@ -21,6 +24,12 @@ vi.mock("../lib/api/commandAdapter", () => ({
   setConfiguredDataRoot: setConfiguredDataRootMock,
   browseDataRootFolder: browseDataRootFolderMock,
   restartApplication: restartApplicationMock,
+  getGoogleApiKey: getGoogleApiKeyMock,
+  setGoogleApiKey: setGoogleApiKeyMock,
+}));
+
+vi.mock("../lib/stores/toastStore.js", () => ({
+  addToast: addToastMock,
 }));
 
 // Mock the embedded admin views so the wizard's step gating can be tested in
@@ -38,6 +47,13 @@ vi.mock("../lib/views/AdminSourcesView.svelte", async () => {
     "./__mocks__/AdminSourcesView.svelte"
   );
   return { default: AdminSourcesView };
+});
+
+vi.mock("../lib/views/AdminHoopsView.svelte", async () => {
+  const { default: AdminHoopsView } = await import(
+    "./__mocks__/AdminHoopsView.svelte"
+  );
+  return { default: AdminHoopsView };
 });
 
 // ---------------------------------------------------------------------------
@@ -103,7 +119,7 @@ function mockInstalledDataRootMissing() {
 }
 
 /** Installed mode where a valid configured data root already exists
- *  (data step is skipped entirely — Designers → Sources). */
+ *  (data step is skipped entirely — Designers → Sources → Hoops → API Key). */
 function mockInstalledWithConfig() {
   getAppStatusMock.mockResolvedValue({
     source: "rust",
@@ -134,11 +150,13 @@ describe("InitialSetupView.svelte", () => {
     vi.clearAllMocks();
     completeInitialSetupMock.mockResolvedValue(undefined);
     restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
+    getGoogleApiKeyMock.mockResolvedValue({ source: "rust", key: "" });
+    setGoogleApiKeyMock.mockResolvedValue({ source: "rust", persisted: true });
     mockDevMode();
   });
 
   // -----------------------------------------------------------------------
-  // Dev mode — no data step, Designers → Sources
+  // Dev mode — no data step, Designers → Sources → Hoops → API Key
   // -----------------------------------------------------------------------
 
   it("renders the Designers step by default", async () => {
@@ -153,7 +171,7 @@ describe("InitialSetupView.svelte", () => {
     expect(
       screen.getByText("Let's set up your catalogue")
     ).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 2 — Designers")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     expect(screen.getByText("What are Designers?")).toBeInTheDocument();
     expect(
       screen.getByText(/Designers are the digitizers or creators/)
@@ -172,6 +190,9 @@ describe("InitialSetupView.svelte", () => {
 
     const button = screen.getByRole("button", { name: "Continue →" });
     expect(button).toBeEnabled();
+    // Back is hidden on the first step.
+    const backButton = screen.getByRole("button", { name: "← Back" });
+    expect(backButton).toBeDisabled();
   });
 
   it("advances to the Sources step when Continue is clicked", async () => {
@@ -184,7 +205,7 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
 
-    expect(screen.getByText("Step 2 of 2 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
     expect(screen.getByText("What are Sources?")).toBeInTheDocument();
     expect(
       screen.getByText(/Sources describe where your embroidery designs came from/)
@@ -200,20 +221,173 @@ describe("InitialSetupView.svelte", () => {
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
   });
 
+  it("advances to the Hoops step from Sources", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+    expect(screen.getByText("What are Hoops?")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Hoops are the frames your embroidery machine uses/)
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-sources-view")).not.toBeInTheDocument();
+  });
+
+  it("advances to the Google API Key step from Hoops", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    expect(screen.getByText("Step 4 of 4 — Google API Key")).toBeInTheDocument();
+    expect(screen.getByText("Would you like automated tagging?")).toBeInTheDocument();
+    expect(screen.getByTestId("initial-setup-api-key-input")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
+  });
+
   it("completes setup and invokes the callback on the final step", async () => {
     const onInitialSetupCompleted = vi.fn();
     render(InitialSetupView, { props: { onInitialSetupCompleted } });
     await tick();
 
-    // Move from Designers to Sources.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
 
-    // Finish setup on the Sources step (the last step shows "Finish").
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(onInitialSetupCompleted).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("saves a non-blank API key when finishing", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    const apiInput = screen.getByTestId("initial-setup-api-key-input");
+    await fireEvent.input(apiInput, { target: { value: "AIza-Setup-Key" } });
+    await tick();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    await waitFor(() => {
+      expect(setGoogleApiKeyMock).toHaveBeenCalledWith("AIza-Setup-Key");
+    });
+    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not save an empty API key when finishing", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    await waitFor(() => {
+      expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(setGoogleApiKeyMock).not.toHaveBeenCalled();
+  });
+
+  it("saves the API key when navigating back from the API Key step", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    const apiInput = screen.getByTestId("initial-setup-api-key-input");
+    await fireEvent.input(apiInput, { target: { value: "AIza-Back-Key" } });
+    await tick();
+
+    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    await tick();
+
+    await waitFor(() => {
+      expect(setGoogleApiKeyMock).toHaveBeenCalledWith("AIza-Back-Key");
+    });
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+  });
+
+  it("back navigates through the steps", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+    expect(screen.getByText("Step 4 of 4 — Google API Key")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    await tick();
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    await tick();
+    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    await tick();
+    expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
+    const backButton = screen.getByRole("button", { name: "← Back" });
+    expect(backButton).toBeDisabled();
+
+    expect(completeInitialSetupMock).not.toHaveBeenCalled();
+  });
+
+  it("loads an existing API key on mount", async () => {
+    getGoogleApiKeyMock.mockResolvedValue({ source: "rust", key: "existing-key" });
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    await waitFor(() => {
+      expect(screen.getByTestId("initial-setup-api-key-input")).toHaveValue("existing-key");
     });
   });
 
@@ -230,8 +404,10 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    // Move to the final step.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
 
     const finishButton = screen.getByRole("button", { name: "Finish" });
     await fireEvent.click(finishButton);
@@ -242,17 +418,13 @@ describe("InitialSetupView.svelte", () => {
     const savingButton = screen.getByRole("button", { name: "Saving…" });
     expect(savingButton).toBeDisabled();
 
-    // Resolve the pending setup promise and confirm we return to normal state.
     resolveSetup?.();
     await waitFor(() => {
-      // Still on the final step, so the enabled button reads "Finish".
       expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
     });
   });
 
   it("ignores a second continue while already finishing setup", async () => {
-    // Keep the promise pending so `finishing` stays true between clicks. A
-    // resolved promise would clear `finishing` before the second click fires.
     completeInitialSetupMock.mockReturnValue(new Promise<void>(() => {}));
 
     render(InitialSetupView, {
@@ -260,19 +432,16 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    // Move to the final step.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
 
-    // Fire two clicks while the setup promise is still pending. The second
-    // invocation must be ignored by the `finishing` guard so
-    // completeInitialSetup is called exactly once.
     const finishButton = screen.getByRole("button", { name: "Finish" });
     await fireEvent.click(finishButton);
     await fireEvent.click(finishButton);
 
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
-    // The button should remain disabled and show "Saving…" because the setup
-    // promise is still pending.
     const savingButton = screen.getByRole("button", { name: "Saving…" });
     expect(savingButton).toBeDisabled();
   });
@@ -288,8 +457,10 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    // Move to the final step and attempt to finish.
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     await waitFor(() => {
@@ -324,16 +495,15 @@ describe("InitialSetupView.svelte", () => {
   // Installed mode, first run — data root first, then restart
   // -----------------------------------------------------------------------
 
-  it("shows a three-step wizard with Data Location first on first run", async () => {
+  it("shows a five-step wizard with Data Location first on first run", async () => {
     mockInstalledNoConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
     await tick();
 
-    // First step is Data Location (Step 1 of 3).
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-input")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-browse")).toBeInTheDocument();
@@ -348,10 +518,9 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
-    // Enter a data root and continue.
     const input = screen.getByTestId("data-root-input");
     await fireEvent.input(input, {
       target: { value: "D:/EmbroideryCatalogue/Data" },
@@ -365,8 +534,6 @@ describe("InitialSetupView.svelte", () => {
         "D:/EmbroideryCatalogue/Data"
       );
     });
-    // The restart confirmation dialog appears; the app must NOT advance to
-    // Designers until after restart.
     expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
@@ -380,7 +547,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -403,7 +570,6 @@ describe("InitialSetupView.svelte", () => {
 
   it("shows an error and closes the dialog when restart fails", async () => {
     mockInstalledNoConfig();
-    // Override AFTER the helper so the failure outcome actually takes effect.
     restartApplicationMock.mockResolvedValue({
       source: "rust",
       restarted: false,
@@ -415,7 +581,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -446,10 +612,9 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
-    // Leave the data root empty and attempt to continue.
     const finishButton = screen.getByRole("button", { name: "Continue →" });
     await fireEvent.click(finishButton);
 
@@ -468,10 +633,8 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    // Because the configured root is unreachable, the wizard goes straight to
-    // the Data Location step (Step 1 of 3) and shows the recovery notice.
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-missing-notice")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-input")).toHaveValue("G:/OldPortableData");
@@ -488,20 +651,27 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    // No Data Location step — the wizard starts directly at Designers.
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 2 — Designers")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     });
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByTestId("data-root-input")).not.toBeInTheDocument();
 
-    // And continues to Sources as the final step.
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
-    expect(screen.getByText("Step 2 of 2 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
 
-    // Finishing does not touch the data root.
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    expect(screen.getByText("Step 4 of 4 — Google API Key")).toBeInTheDocument();
+    expect(screen.getByTestId("initial-setup-api-key-input")).toBeInTheDocument();
+
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);

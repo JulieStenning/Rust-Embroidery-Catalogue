@@ -319,6 +319,16 @@ pub(crate) fn is_truthy(raw: &str) -> bool {
     )
 }
 
+pub(crate) fn get_google_api_key() -> Option<String> {
+    let key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 pub(crate) fn save_google_api_key_to_env(value: &str) -> Result<(), AppError> {
     let env_path = Path::new(".env");
     let existing = std::fs::read_to_string(env_path).unwrap_or_default();

@@ -10,6 +10,10 @@
 
   /** @typedef {{ id: number, name: string, maxWidthMm: number, maxHeightMm: number, designCount: number }} HoopRow */
 
+  /** When embedded (true), the standalone page title/description are hidden
+   *  because the wrapping context provides the heading. */
+  let { embedded = false } = $props();
+
   /** @type {HoopRow[]} */
   let hoops = $state([]);
   let newHoopName = $state("");
@@ -150,10 +154,12 @@
   });
 </script>
 
-<h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Hoops</h1>
-<p class="text-sm text-gray-500">
-  Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
-</p>
+{#if !embedded}
+  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Hoops</h1>
+  <p class="text-sm text-gray-500">
+    Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
+  </p>
+{/if}
 
 <div class="admin-card bg-white rounded shadow p-5 max-w-4xl border mt-2">
   <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new hoop</h2>

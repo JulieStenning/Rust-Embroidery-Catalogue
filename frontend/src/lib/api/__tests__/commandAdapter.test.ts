@@ -36,6 +36,7 @@ import {
   getDbStats,
   getDesignDetail,
   getDesignImageDataUrl,
+  getGoogleApiKey,
   getOrphansPage,
   getProjectDetail,
   getProjectPrintView,
@@ -68,6 +69,7 @@ import {
   saveSettings,
   scanOrphans,
   setDesignRating,
+  setGoogleApiKey,
   setDesignStitched,
   setDesignTags,
   setDesignTagsChecked,
@@ -1459,6 +1461,66 @@ describe("commandAdapter settings", () => {
     expect(result.source).toBe("rust");
     expect(result.path).toBeNull();
     expect(result.error).toBe("cancelled");
+  });
+
+  it("getGoogleApiKey returns the key from Rust with the exact command name", async () => {
+    invokeMock.mockResolvedValue("AIza-key");
+
+    const result = await getGoogleApiKey();
+
+    expect(invokeMock).toHaveBeenCalledWith("get_google_api_key");
+    expect(result.source).toBe("rust");
+    expect(result.key).toBe("AIza-key");
+  });
+
+  it("getGoogleApiKey returns an empty key when Rust has none", async () => {
+    invokeMock.mockResolvedValue(null);
+
+    const result = await getGoogleApiKey();
+
+    expect(result.source).toBe("rust");
+    expect(result.key).toBe("");
+  });
+
+  it("getGoogleApiKey falls back to mock empty key on error", async () => {
+    mockReject(new Error("key failed"));
+
+    const result = await getGoogleApiKey();
+
+    expect(result.source).toBe("mock");
+    expect(result.key).toBe("");
+    expect(result.error).toContain("key failed");
+  });
+
+  it("setGoogleApiKey sends the camelCase apiKey wire key and trims the value", async () => {
+    invokeMock.mockResolvedValue(true);
+
+    const result = await setGoogleApiKey("  AIza-trimmed  ");
+
+    expect(invokeMock).toHaveBeenCalledWith("set_google_api_key", {
+      apiKey: "AIza-trimmed",
+    });
+    expect(result).toEqual({ source: "rust", persisted: true });
+  });
+
+  it("setGoogleApiKey persists an empty string to clear the key", async () => {
+    invokeMock.mockResolvedValue(true);
+
+    const result = await setGoogleApiKey("");
+
+    expect(invokeMock).toHaveBeenCalledWith("set_google_api_key", { apiKey: "" });
+    expect(result.source).toBe("rust");
+    expect(result.persisted).toBe(true);
+  });
+
+  it("setGoogleApiKey falls back to mock on error", async () => {
+    mockReject(new Error("save key failed"));
+
+    const result = await setGoogleApiKey("key");
+
+    expect(result.source).toBe("mock");
+    expect(result.persisted).toBe(false);
+    expect(result.error).toContain("save key failed");
   });
 
   it("getTaggingActionsViewModel maps the Rust view model", async () => {

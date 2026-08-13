@@ -59,6 +59,18 @@ pub async fn save_settings_view_model(
 pub fn browse_settings_data_root(start_dir: Option<String>) -> BrowseDataRootResult {
     settings::browse_settings_data_root(start_dir)
 }
+
+#[tauri::command]
+pub fn get_google_api_key() -> Result<Option<String>, String> {
+    Ok(settings::get_google_api_key())
+}
+
+#[tauri::command]
+pub fn set_google_api_key(api_key: String) -> Result<bool, String> {
+    settings::save_google_api_key_to_env(&api_key)
+        .map(|_| true)
+        .map_err(|err| err.to_string())
+}
 #[cfg(test)]
 #[path = "settings_route_tests.rs"]
 mod tests;

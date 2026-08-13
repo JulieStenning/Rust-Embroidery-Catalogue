@@ -758,3 +758,70 @@ fn save_google_api_key_updates_and_clears_env_file() {
     std::env::set_current_dir(original_dir).expect("should restore original dir");
     let _ = std::fs::remove_dir_all(test_dir);
 }
+
+// ---------------------------------------------------------------------------
+// New setup-wizard API key route tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn get_google_api_key_returns_none_when_unset() {
+    let _guard = lock_env();
+    let prev = std::env::var("GOOGLE_API_KEY").ok();
+    std::env::remove_var("GOOGLE_API_KEY");
+
+    let result = get_google_api_key();
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), None);
+
+    if let Some(key) = prev {
+        std::env::set_var("GOOGLE_API_KEY", key);
+    }
+}
+
+#[test]
+fn get_google_api_key_returns_value_when_set() {
+    let _guard = lock_env();
+    let prev = std::env::var("GOOGLE_API_KEY").ok();
+    std::env::set_var("GOOGLE_API_KEY", "  my-test-key  ");
+
+    let result = get_google_api_key();
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), Some("my-test-key".to_string()));
+
+    if let Some(key) = prev {
+        std::env::set_var("GOOGLE_API_KEY", key);
+    } else {
+        std::env::remove_var("GOOGLE_API_KEY");
+    }
+}
+
+#[test]
+fn set_google_api_key_persists_env_and_returns_true() {
+    let _guard = lock_env();
+
+    let original_dir = std::env::current_dir().expect("current dir available");
+    let test_dir = std::env::temp_dir().join(format!(
+        "settings-route-set-key-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time available")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&test_dir).expect("test dir should be created");
+    std::env::set_current_dir(&test_dir).expect("should switch into test dir");
+
+    let result = set_google_api_key("route-key-456".to_string());
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), true);
+
+    let written = std::fs::read_to_string(test_dir.join(".env")).expect(".env should exist");
+    assert!(written.contains("GOOGLE_API_KEY=route-key-456"));
+    assert_eq!(
+        std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+        "route-key-456"
+    );
+
+    std::env::set_current_dir(original_dir).expect("should restore original dir");
+    std::env::remove_var("GOOGLE_API_KEY");
+    let _ = std::fs::remove_dir_all(test_dir);
+}
