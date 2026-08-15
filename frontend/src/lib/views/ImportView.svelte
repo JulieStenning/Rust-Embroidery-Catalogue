@@ -715,8 +715,13 @@
     importRootPaths = importRootPaths.filter((value) => String(value || "").toLowerCase() !== target);
   }
 
-  function clearPrimaryImportRootPath() {
-    importRootPath = "";
+  function removePrimaryImportRootPath() {
+    if (importRootPaths.length > 0) {
+      importRootPath = importRootPaths[0];
+      importRootPaths = importRootPaths.slice(1);
+    } else {
+      importRootPath = "";
+    }
   }
 
   function addCurrentImportRootPath() {
@@ -893,7 +898,7 @@
               <button
                 type="button"
                 class="ui-action-button menu-button-secondary py-2"
-                onclick={clearPrimaryImportRootPath}
+                onclick={removePrimaryImportRootPath}
                 disabled={importLoading || importActionLoading || importBrowseLoading || !String(importRootPath || "").trim()}
                 title="Remove this folder"
               >

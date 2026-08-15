@@ -352,20 +352,29 @@ describe("ImportView step 1 folder path management", () => {
     expect(screen.queryByLabelText("Source folder path 2")).not.toBeInTheDocument();
   });
 
-  it("removes only the primary folder row with its Remove button, keeping extra rows", async () => {
+  it("shifts the next folder up into the primary row when its Remove button is pressed", async () => {
     const { container } = renderStatic("#/import");
     const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
     await fireEvent.input(input, { target: { value: "C:\\Designs" } });
     await fireEvent.click(screen.getByRole("button", { name: "Add another folder" }));
 
+    // Extra rows are readonly; fill the second row with a real value via browse.
+    adapterMocks.browseImportFolder.mockResolvedValue(browseResponse({ paths: ["D:/Extra"] }));
+    await fireEvent.click(screen.getAllByRole("button", { name: "Browse…" })[1]);
+    await waitFor(() =>
+      expect(
+        container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value
+      ).toBe("D:/Extra")
+    );
+
     const removeButtons = screen.getAllByRole("button", { name: "Remove" });
     await fireEvent.click(removeButtons[0]);
-    expect(input.value).toBe("");
-    // The additional folder row is not affected.
-    expect(screen.getByLabelText("Source folder path 2")).toBeInTheDocument();
+    // The primary row now holds the next folder and the extra row is gone.
+    expect(input.value).toBe("D:/Extra");
+    expect(screen.queryByLabelText("Source folder path 2")).not.toBeInTheDocument();
   });
 
-  it("removes only the clicked folder when several are selected via multi-browse", async () => {
+  it("shifts the primary row up when several folders are selected via multi-browse", async () => {
     const { container } = renderStatic("#/import");
     adapterMocks.browseImportFolder.mockResolvedValue(
       browseResponse({ paths: ["D:/A", "D:/B", "D:/C"] })
@@ -376,12 +385,25 @@ describe("ImportView step 1 folder path management", () => {
       expect(screen.getByLabelText("Source folder path 3")).toBeInTheDocument()
     );
 
-    // Remove the primary (row 1); rows 2 and 3 must remain.
+    // Remove the primary (row 1); row 2 shifts up into the primary slot.
     const removeButtons = screen.getAllByRole("button", { name: "Remove" });
     await fireEvent.click(removeButtons[0]);
-    expect(container.querySelector<HTMLInputElement>("#import-root-path")?.value).toBe("");
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value).toBe("D:/B");
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 3"]')?.value).toBe("D:/C");
+    expect(container.querySelector<HTMLInputElement>("#import-root-path")?.value).toBe("D:/B");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value).toBe("D:/C");
+    expect(screen.queryByLabelText("Source folder path 3")).not.toBeInTheDocument();
+  });
+
+  it("clears the primary row when it is the only folder and Remove is pressed", async () => {
+    const { container } = renderStatic("#/import");
+    const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
+    await fireEvent.input(input, { target: { value: "C:\\Designs" } });
+    expect(input.value).toBe("C:\\Designs");
+
+    const removeButtons = screen.getAllByRole("button", { name: "Remove" });
+    await fireEvent.click(removeButtons[0]);
+    // No extra folders to shift up, so the single entry point just clears.
+    expect(input.value).toBe("");
+    expect(screen.queryByLabelText("Source folder path 2")).not.toBeInTheDocument();
   });
 
   it("normalises backslashes, trailing slashes, and drive-letter roots on submit", async () => {
