@@ -17,6 +17,7 @@
 
   let settingsHelpUrl = $state("#/help");
   let settingsHasGoogleApiKey = $state(false);
+  let settingsImportLastBrowseFolder = $state("");
   let settingsLoaded = $state(false);
   let settingsLoading = $state(false);
 
@@ -72,6 +73,7 @@
       const model = result.model;
       settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
       settingsHasGoogleApiKey = Boolean(model?.google_api_key && String(model.google_api_key).trim().length > 0);
+      settingsImportLastBrowseFolder = String(model?.import_last_browse_folder || "").trim();
       settingsLoaded = true;
     } catch (e) {
       console.error("Could not load settings in import view", e);
@@ -619,7 +621,9 @@
       const currentValue = targetIndex === null || targetIndex === undefined || targetIndex < 0
         ? importRootPath
         : importRootPaths[targetIndex] || "";
-      const startHint = parentFolder(currentValue) || "";
+      const currentHint = currentValue ? parentFolder(currentValue) : "";
+      const persistedHint = parentFolder(settingsImportLastBrowseFolder) || "";
+      const startHint = currentHint || persistedHint;
       const result = await browseImportFolder(startHint);
       const selectedPaths = Array.isArray(result?.paths)
         ? result.paths.map((value) => String(value || "").trim()).filter(Boolean)

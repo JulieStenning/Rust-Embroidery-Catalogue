@@ -474,6 +474,51 @@ describe("ImportView browse flows", () => {
     expect(adapterMocks.saveImportLastBrowseFolder).toHaveBeenCalledWith("E:/New Designs");
   });
 
+  it("seeds the picker from the persisted last browse folder when the row is empty", async () => {
+    // Simulate a previous session where multiple folders were picked: the
+    // persisted value is the last folder picked (e.g. e:/designs/patterns).
+    adapterMocks.getSettingsViewModel.mockResolvedValue(
+      settingsResponse({ import_last_browse_folder: "e:/designs/patterns" })
+    );
+    renderStatic("#/import");
+    // Wait for settings to load so the persisted folder seeds the picker.
+    await waitFor(() => expect(adapterMocks.getSettingsViewModel).toHaveBeenCalled());
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    await waitFor(() => expect(adapterMocks.browseImportFolder).toHaveBeenCalled());
+    // The picker should open in the parent of the persisted folder (e:/designs),
+    // not the last folder picked (e:/designs/patterns).
+    expect(adapterMocks.browseImportFolder).toHaveBeenLastCalledWith("e:/designs");
+  });
+
+  it("uses the persisted parent for a single previously browsed folder", async () => {
+    adapterMocks.getSettingsViewModel.mockResolvedValue(
+      settingsResponse({ import_last_browse_folder: "e:/designs/faces" })
+    );
+    renderStatic("#/import");
+    await waitFor(() => expect(adapterMocks.getSettingsViewModel).toHaveBeenCalled());
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    await waitFor(() => expect(adapterMocks.browseImportFolder).toHaveBeenCalled());
+    expect(adapterMocks.browseImportFolder).toHaveBeenLastCalledWith("e:/designs");
+  });
+
+  it("prefers the current row's parent over the persisted folder when the row is populated", async () => {
+    const { container } = renderStatic("#/import");
+    adapterMocks.getSettingsViewModel.mockResolvedValue(
+      settingsResponse({ import_last_browse_folder: "e:/designs/patterns" })
+    );
+    await waitFor(() => expect(adapterMocks.getSettingsViewModel).toHaveBeenCalled());
+
+    const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
+    await fireEvent.input(input, { target: { value: "C:/MyDesigns/Sub" } });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    await waitFor(() => expect(adapterMocks.browseImportFolder).toHaveBeenCalled());
+    // The populated row wins: it opens in the parent of the typed value.
+    expect(adapterMocks.browseImportFolder).toHaveBeenLastCalledWith("C:/MyDesigns");
+  });
+
   it("fills additional rows when multi-selection returns extra paths", async () => {
     const { container } = renderStatic("#/import");
     adapterMocks.browseImportFolder.mockResolvedValue(
