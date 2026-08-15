@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
+import { tick } from "svelte";
 import ImportView from "../ImportView.svelte";
 import ImportTestHarness from "./ImportTestHarness.svelte";
 
@@ -404,6 +405,30 @@ describe("ImportView step 1 folder path management", () => {
     // No extra folders to shift up, so the single entry point just clears.
     expect(input.value).toBe("");
     expect(screen.queryByLabelText("Source folder path 2")).not.toBeInTheDocument();
+  });
+
+  it("disabled Scan and Reset until at least one folder is selected", async () => {
+    const { container } = renderStatic("#/import");
+
+    const scanButton = screen.getByRole("button", { name: "Scan folder(s)" });
+    const resetButton = screen.getByRole("button", { name: "Reset" });
+
+    // No folder selected yet.
+    expect(scanButton).toBeDisabled();
+    expect(resetButton).toBeDisabled();
+
+    // Type a folder into the primary row.
+    const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
+    await fireEvent.input(input, { target: { value: "C:\\Designs" } });
+    await tick();
+    expect(scanButton).toBeEnabled();
+    expect(resetButton).toBeEnabled();
+
+    // Clear the folder again.
+    await fireEvent.input(input, { target: { value: "" } });
+    await tick();
+    expect(scanButton).toBeDisabled();
+    expect(resetButton).toBeDisabled();
   });
 
   it("normalises backslashes, trailing slashes, and drive-letter roots on submit", async () => {

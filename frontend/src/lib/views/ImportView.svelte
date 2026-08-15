@@ -703,6 +703,8 @@
     return uniqueRoots;
   }
 
+  let importHasActiveRoots = $derived(getActiveImportRoots().length > 0);
+
   /** @param {string} [path] */
   function addImportRootPath(path = importRootPath) {
     const next = normalizeImportRootPath(path);
@@ -953,10 +955,10 @@
         </div>
 
         <div class="ui-action-button-group import-step1-primary-actions pt-2 flex gap-2">
-          <button class="menu-button-primary ui-action-button ui-action-button-primary" type="submit" disabled={importLoading || importBrowseLoading}>
+          <button class="menu-button-primary ui-action-button ui-action-button-primary" type="submit" disabled={importLoading || importBrowseLoading || !importHasActiveRoots}>
             {importLoading ? "Running…" : "Scan folder(s)"}
           </button>
-          <button type="button" class="menu-button-secondary ui-action-button" onclick={resetImportWizard} disabled={importLoading || importActionLoading || importBrowseLoading}>
+          <button type="button" class="menu-button-secondary ui-action-button" onclick={resetImportWizard} disabled={importLoading || importActionLoading || importBrowseLoading || !importHasActiveRoots}>
             Reset
           </button>
         </div>
