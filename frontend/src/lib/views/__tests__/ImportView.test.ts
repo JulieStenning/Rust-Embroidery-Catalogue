@@ -352,7 +352,7 @@ describe("ImportView step 1 folder path management", () => {
     expect(screen.queryByLabelText("Source folder path 2")).not.toBeInTheDocument();
   });
 
-  it("clears all folder paths via the top Remove button", async () => {
+  it("removes only the primary folder row with its Remove button, keeping extra rows", async () => {
     const { container } = renderStatic("#/import");
     const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
     await fireEvent.input(input, { target: { value: "C:\\Designs" } });
@@ -361,7 +361,27 @@ describe("ImportView step 1 folder path management", () => {
     const removeButtons = screen.getAllByRole("button", { name: "Remove" });
     await fireEvent.click(removeButtons[0]);
     expect(input.value).toBe("");
-    expect(screen.queryByLabelText("Source folder path 2")).not.toBeInTheDocument();
+    // The additional folder row is not affected.
+    expect(screen.getByLabelText("Source folder path 2")).toBeInTheDocument();
+  });
+
+  it("removes only the clicked folder when several are selected via multi-browse", async () => {
+    const { container } = renderStatic("#/import");
+    adapterMocks.browseImportFolder.mockResolvedValue(
+      browseResponse({ paths: ["D:/A", "D:/B", "D:/C"] })
+    );
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Source folder path 3")).toBeInTheDocument()
+    );
+
+    // Remove the primary (row 1); rows 2 and 3 must remain.
+    const removeButtons = screen.getAllByRole("button", { name: "Remove" });
+    await fireEvent.click(removeButtons[0]);
+    expect(container.querySelector<HTMLInputElement>("#import-root-path")?.value).toBe("");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value).toBe("D:/B");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 3"]')?.value).toBe("D:/C");
   });
 
   it("normalises backslashes, trailing slashes, and drive-letter roots on submit", async () => {
