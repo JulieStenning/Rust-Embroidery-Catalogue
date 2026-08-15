@@ -76,7 +76,8 @@ async fn import_test_pool() -> SqlitePool {
                 color_count INTEGER,
                 color_change_count INTEGER,
                 is_stitched INTEGER NOT NULL DEFAULT 0,
-                tags_checked INTEGER NOT NULL DEFAULT 0,
+                image_tags_verified INTEGER NOT NULL DEFAULT 0,
+                stitching_tags_verified INTEGER NOT NULL DEFAULT 0,
                 tagging_tier INTEGER,
                 file_size_bytes INTEGER,
                 file_hash_blake3 TEXT
@@ -769,7 +770,7 @@ fn preview_bulk_import_wire_excludes_already_catalogued_files() {
     let pool = tauri::async_runtime::block_on(import_test_pool());
     tauri::async_runtime::block_on(async {
             sqlx::query(
-                "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
+                "INSERT INTO designs (filename, filepath, date_added, is_stitched, image_tags_verified, stitching_tags_verified) VALUES (?, ?, DATE('now'), 0, 0, 0)",
             )
             .bind("existing-design.pes")
             .bind(&prospective_stored)
@@ -1370,7 +1371,7 @@ async fn preview_dedup_excludes_by_prospective_stored_path() {
 
     // Seed a design row whose stored filepath matches the prospective path.
     sqlx::query(
-            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked) VALUES (?, ?, DATE('now'), 0, 0)",
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, image_tags_verified, stitching_tags_verified) VALUES (?, ?, DATE('now'), 0, 0, 0)",
         )
         .bind("unique-file.pes")
         .bind(&prospective_stored)
@@ -1829,7 +1830,7 @@ async fn filter_existing_scanned_files_different_hash_passes() {
     let same_size = 9i64; // "version1" = 9 bytes
     let different_hash = "0000000000000000000000000000000000000000000000000000000000000000";
     sqlx::query(
-            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, ?, ?)",
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, 0, ?, ?)",
         )
         .bind(same_filename)
         .bind("/MachineEmbroideryDesigns/other-folder/test.pes")
@@ -1887,7 +1888,7 @@ async fn filter_existing_scanned_files_triple_match_excludes() {
 
     // Seed a design matching all three: filename, size, hash
     sqlx::query(
-            "INSERT INTO designs (filename, filepath, date_added, is_stitched, tags_checked, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, ?, ?)",
+            "INSERT INTO designs (filename, filepath, date_added, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, 0, ?, ?)",
         )
         .bind("exact-match.pes")
         .bind("/MachineEmbroideryDesigns/exact-match.pes")

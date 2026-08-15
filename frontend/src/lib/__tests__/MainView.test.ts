@@ -53,7 +53,7 @@ const adapterMock = vi.hoisted(() => ({
   updateDesignMetadata: vi.fn(),
   setDesignRating: vi.fn(),
   setDesignStitched: vi.fn(),
-  setDesignTagsChecked: vi.fn(),
+  setDesignVerification: vi.fn(),
   setDesignTags: vi.fn(),
   removeDesignTag: vi.fn(),
   openDesignInEditor: vi.fn(),
@@ -164,7 +164,8 @@ const wireCard = (overrides: Record<string, unknown> = {}) => ({
   image_tags: ["Floral"],
   stitching_tags: ["Border"],
   is_stitched: false,
-  tags_checked: true,
+  image_tags_verified: true,
+  stitching_tags_verified: true,
   rating: 4,
   ...overrides,
 });
@@ -362,7 +363,7 @@ beforeEach(() => {
     "updateDesignMetadata",
     "setDesignRating",
     "setDesignStitched",
-    "setDesignTagsChecked",
+    "setDesignVerification",
     "setDesignTags",
     "removeDesignTag",
     "openDesignInEditor",
@@ -659,8 +660,8 @@ describe("browse filtering and search", () => {
   it("applies the unverified-only filter when the checkbox is toggled", async () => {
     adapterMock.getBrowseDesigns.mockResolvedValue(
       browseResponse([
-        wireCard({ id: 1, filename: "verified.pes", tags_checked: true }),
-        wireCard({ id: 2, filename: "unverified.pes", tags_checked: false }),
+        wireCard({ id: 1, filename: "verified.pes", image_tags_verified: true, stitching_tags_verified: true }),
+        wireCard({ id: 2, filename: "unverified.pes", image_tags_verified: false, stitching_tags_verified: false }),
       ])
     );
 
@@ -815,8 +816,8 @@ describe("browse filtering and search", () => {
   it("enables and uses the Reset filters button", async () => {
     adapterMock.getBrowseDesigns.mockResolvedValue(
       browseResponse([
-        wireCard({ id: 1, filename: "a.pes", tags_checked: true, hoop: "Hoop" }),
-        wireCard({ id: 2, filename: "b.pes", tags_checked: false, hoop: "Hoop" }),
+        wireCard({ id: 1, filename: "a.pes", image_tags_verified: true, stitching_tags_verified: true, hoop: "Hoop" }),
+        wireCard({ id: 2, filename: "b.pes", image_tags_verified: false, stitching_tags_verified: false, hoop: "Hoop" }),
       ])
     );
 

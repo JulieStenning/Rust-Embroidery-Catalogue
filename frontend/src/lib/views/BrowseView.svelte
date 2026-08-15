@@ -109,6 +109,21 @@
   /** @type {Array<number | string>} */
   let browseBulkTagIndeterminateIds = $state([]);
   let browseBulkClearAll = $state(false);
+  // Per-category uniformity of the selected designs when the bulk modal opens.
+  // Uniform = every selected design shares the exact same tag set in that
+  // category (Rule 2). Mixed = at least one design differs (Rule 3).
+  let browseBulkImageUniform = $state(false);
+  let browseBulkStitchingUniform = $state(false);
+  /** @type {Record<string | number, string>} */
+  let browseBulkTagGroupById = $state({});
+  /** @type {Array<number | string>} */
+  let browseBulkGroupAddIds = $state([]);
+  /** @type {Array<number | string>} */
+  let browseBulkGroupStitchingAddIds = $state([]);
+  /** @type {Array<number | string>} */
+  let browseBulkGroupRemoveIds = $state([]);
+  /** @type {Array<number | string>} */
+  let browseBulkGroupStitchingRemoveIds = $state([]);
   /** @type {number[]} */
   let browseBulkProjectSelection = $state([]);
   let browseBulkProjectDropdownOpen = $state(false);
@@ -310,7 +325,8 @@
       hoop: String(item.hoop || ""),
       rating: item.rating == null ? null : Number(item.rating),
       isStitched: Boolean(item.is_stitched),
-      tagsChecked: Boolean(item.tags_checked),
+      imageTagsVerified: Boolean(item.image_tags_verified),
+      stitchingTagsVerified: Boolean(item.stitching_tags_verified),
       projects,
       imageTags,
       stitchingTags,
@@ -702,7 +718,7 @@
       }
 
       if (browseFilters.unverifiedOnly) {
-        filtered = filtered.filter((item) => !item.tagsChecked);
+        filtered = filtered.filter((item) => !(item.imageTagsVerified && item.stitchingTagsVerified));
       }
 
       // Sorting
@@ -852,6 +868,37 @@
       }
     }
 
+    // Build tag id → group lookup so we can classify each add/remove diff by
+    // category (image vs stitching) for the verification payload (Rules 2 & 3).
+    const tagGroupById = /** @type {Record<string | number, string>} */ ({});
+    for (const tagOption of browseTagOptions) {
+      tagGroupById[Number(tagOption.id)] = String(tagOption.tag_group || "image");
+    }
+
+    // Per-category uniformity: whether every selected design shares the exact
+    // same tag set within that category. Uniform ⇒ Rule 2 (mark verified);
+    // mixed ⇒ Rule 3 (only mark verified when that category actually changed).
+    const evenlySortedImage = (/** @type {string[]} */ tags) => [...tags].sort(compareStrings);
+    const evenlySortedStitching = (/** @type {string[]} */ tags) => [...tags].sort(compareStrings);
+    const firstSelected = selectedDesigns[0];
+    const imageUniform =
+      totalSelected > 0 &&
+      selectedDesigns.every(
+        (/** @type {BrowseDesignCard} */ design) =>
+          evenlySortedImage(design.imageTags).join("\u0000") ===
+          evenlySortedImage(firstSelected.imageTags).join("\u0000")
+      );
+    const stitchingUniform =
+      totalSelected > 0 &&
+      selectedDesigns.every(
+        (/** @type {BrowseDesignCard} */ design) =>
+          evenlySortedStitching(design.stitchingTags).join("\u0000") ===
+          evenlySortedStitching(firstSelected.stitchingTags).join("\u0000")
+      );
+
+    browseBulkImageUniform = imageUniform;
+    browseBulkStitchingUniform = stitchingUniform;
+    browseBulkTagGroupById = tagGroupById;
     browseBulkTagAddIds = checkedIds;
     browseBulkTagRemoveIds = [];
     browseBulkTagIndeterminateIds = indeterminateIds;
@@ -937,6 +984,47 @@
     const clearAll = browseBulkClearAll;
     const addIds = clearAll ? [] : browseBulkTagAddIds;
 
+    // Classify the per-category changes so we only set verification flags for
+    // categories that were actually touched by this batch, per the decision
+    // matrix:
+    //   single design            → both categories verified
+    //   multiple, uniform        → that category verified (Rule 2)
+    //   multiple, mixed + change → that category verified (Rule 3)
+    //   multiple, mixed, untouched → category flag left unchanged (undefined)
+    const isSingle = browseSelectedIds.size === 1;
+    const categoryChanged = (/** @type {Array<number | string>} */ ids) =>
+      clearAll || ids.some((id) => browseBulkTagGroupById[Number(id)] !== "stitching");
+    const stitchingCategoryChanged = (/** @type {Array<number | string>} */ ids) =>
+      clearAll || ids.some((id) => browseBulkTagGroupById[Number(id)] === "stitching");
+
+    // Note: unclassified tags are treated as image-category for verification
+    // purposes (they are "what the design depicts").
+    const imageChanged = categoryChanged(browseBulkTagAddIds) || categoryChanged(browseBulkTagRemoveIds);
+    const stitchingChanged =
+      stitchingCategoryChanged(browseBulkTagAddIds) || stitchingCategoryChanged(browseBulkTagRemoveIds);
+
+    let imageTagsVerified;
+    let stitchingTagsVerified;
+    if (isSingle) {
+      imageTagsVerified = true;
+      stitchingTagsVerified = true;
+    } else {
+      if (browseBulkImageUniform) {
+        imageTagsVerified = true;
+      } else {
+        imageTagsVerified = imageChanged ? true : undefined;
+      }
+      if (browseBulkStitchingUniform) {
+        stitchingTagsVerified = true;
+      } else {
+        stitchingTagsVerified = stitchingChanged ? true : undefined;
+      }
+    }
+    if (clearAll) {
+      imageTagsVerified = true;
+      stitchingTagsVerified = true;
+    }
+
     browseLoading = true;
     try {
       const result = /** @type {BulkSetTagsResult} */ (await bulkSetTagsForDesigns(
@@ -944,6 +1032,7 @@
         addIds,
         browseBulkTagRemoveIds,
         clearAll,
+        { imageTagsVerified, stitchingTagsVerified },
       ));
       if (result?.persisted) {
         addToast(`${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`, "success");
@@ -1584,13 +1673,29 @@
                   <div>
                     <div class="browse-card-title-row flex items-start justify-between gap-1.5">
                       <p class="browse-card-title text-sm font-semibold text-gray-800 truncate flex-1" title={item.filename}>{item.filename}</p>
-                      {#if item.tagsChecked}
+                      {#if item.imageTagsVerified && item.stitchingTagsVerified}
                         <span
                           class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-green-500"
                           title="Verified"
                           aria-label="Verified"
                         >
                           ✓
+                        </span>
+                      {:else if item.imageTagsVerified}
+                        <span
+                          class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-amber-400"
+                          title="Image Verified, Stitching Unverified"
+                          aria-label="Image Verified, Stitching Unverified"
+                        >
+                          ◐
+                        </span>
+                      {:else if item.stitchingTagsVerified}
+                        <span
+                          class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-amber-400"
+                          title="Stitching Verified, Image Unverified"
+                          aria-label="Stitching Verified, Image Unverified"
+                        >
+                          ◑
                         </span>
                       {/if}
                     </div>

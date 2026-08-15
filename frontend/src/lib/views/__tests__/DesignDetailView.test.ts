@@ -13,7 +13,7 @@ const adapterMocks = vi.hoisted(() => ({
   updateDesignMetadata: vi.fn(),
   setDesignRating: vi.fn(),
   setDesignStitched: vi.fn(),
-  setDesignTagsChecked: vi.fn(),
+  setDesignVerification: vi.fn(),
   setDesignTags: vi.fn(),
   removeDesignTag: vi.fn(),
   addDesignToProject: vi.fn(),
@@ -62,7 +62,8 @@ const baseDetail = {
   notes: "Pretty floral border with satin stitches.",
   rating: 4,
   isStitched: true,
-  tagsChecked: false,
+  imageTagsVerified: false,
+  stitchingTagsVerified: false,
   taggingTier: 2,
   dateAdded: "2026-05-01",
   tags: [
@@ -139,7 +140,7 @@ describe("DesignDetailView", () => {
       design_id: 42,
       message: "Stitched state updated.",
     });
-    adapterMocks.setDesignTagsChecked.mockResolvedValue({
+    adapterMocks.setDesignVerification.mockResolvedValue({
       source: "rust",
       persisted: true,
       design_id: 42,
@@ -463,17 +464,35 @@ describe("DesignDetailView", () => {
       });
     });
 
-    it("marks a design as verified", async () => {
+    it("marks image tags as verified", async () => {
       renderDetail();
       await waitFor(() => {
         expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
-      await user.click(screen.getByRole("button", { name: /Verify/ }));
+      await user.click(screen.getByRole("button", { name: /Image Unverified/ }));
 
       await waitFor(() => {
-        expect(adapterMocks.setDesignTagsChecked).toHaveBeenCalledWith(42, true);
+        expect(adapterMocks.setDesignVerification).toHaveBeenCalledWith(42, {
+          imageTagsVerified: true,
+        });
+      });
+    });
+
+    it("marks stitching tags as verified", async () => {
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Stitching Unverified/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignVerification).toHaveBeenCalledWith(42, {
+          stitchingTagsVerified: true,
+        });
       });
     });
   });

@@ -85,7 +85,8 @@ interface WireDesign {
   image_tags?: string[];
   stitching_tags?: string[];
   is_stitched?: boolean;
-  tags_checked?: boolean;
+  image_tags_verified?: boolean;
+  stitching_tags_verified?: boolean;
   rating?: number | null;
   folder?: string;
   date_added?: string;
@@ -111,7 +112,8 @@ const design = (overrides: Partial<WireDesign> = {}): Record<string, unknown> =>
   image_tags: [],
   stitching_tags: [],
   is_stitched: false,
-  tags_checked: false,
+  image_tags_verified: false,
+  stitching_tags_verified: false,
   rating: null,
   ...overrides,
 });
@@ -281,7 +283,8 @@ describe("BrowseView", () => {
             hoop: "Hoop A",
             rating: 4,
             tags: ["Floral"],
-            tags_checked: true,
+            image_tags_verified: true,
+            stitching_tags_verified: true,
             is_stitched: true,
             image_tags: ["Floral"],
           }),
@@ -731,8 +734,8 @@ describe("BrowseView", () => {
     it("filters by 'unverified only' checkbox", async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([
-          design({ id: 1, filename: "unverified.pes", tags_checked: false }),
-          design({ id: 2, filename: "verified.pes", tags_checked: true }),
+          design({ id: 1, filename: "unverified.pes", image_tags_verified: false, stitching_tags_verified: false }),
+          design({ id: 2, filename: "verified.pes", image_tags_verified: true, stitching_tags_verified: true }),
         ])
       );
 

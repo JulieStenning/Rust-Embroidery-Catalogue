@@ -85,7 +85,8 @@ async fn test_pool() -> SqlitePool {
                 notes TEXT,
                 rating SMALLINT,
                 is_stitched BOOLEAN NOT NULL DEFAULT 0,
-                tags_checked BOOLEAN NOT NULL DEFAULT 0,
+                image_tags_verified BOOLEAN NOT NULL DEFAULT 0,
+                stitching_tags_verified BOOLEAN NOT NULL DEFAULT 0,
                 date_added DATE,
                 designer_id INTEGER REFERENCES designers(id) ON DELETE SET NULL,
                 hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL

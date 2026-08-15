@@ -15,7 +15,7 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, tags_checked INTEGER NOT NULL DEFAULT 0, tagging_tier INTEGER)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, tagging_tier INTEGER)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
     ] {
         sqlx::query(sql).execute(&pool).await.expect("schema");
@@ -41,9 +41,9 @@ async fn seed_basic(pool: &SqlitePool) {
         .execute(pool)
         .await
         .expect("seed tag3");
-    sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (1, 'cute_cat.pes', 'tests/Test Designs/cute_cat.pes', 0)").execute(pool).await.expect("seed design1");
-    sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (2, 'dog_crest.pes', 'tests/Test Designs/dog_crest.pes', 1)").execute(pool).await.expect("seed design2");
-    sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (3, 'flower.pes', 'tests/Test Designs/flower.pes', 0)").execute(pool).await.expect("seed design3");
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (1, 'cute_cat.pes', 'tests/Test Designs/cute_cat.pes', 0, 0)").execute(pool).await.expect("seed design1");
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (2, 'dog_crest.pes', 'tests/Test Designs/dog_crest.pes', 1, 1)").execute(pool).await.expect("seed design2");
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (3, 'flower.pes', 'tests/Test Designs/flower.pes', 0, 0)").execute(pool).await.expect("seed design3");
     sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (2, 1)")
         .execute(pool)
         .await
@@ -836,8 +836,8 @@ async fn seed_design_with_image(
     image_type: Option<&str>,
 ) {
     sqlx::query(
-        "INSERT INTO designs (id, filename, filepath, image_data, image_type, tags_checked)
-             VALUES (?, ?, ?, ?, ?, 0)",
+        "INSERT INTO designs (id, filename, filepath, image_data, image_type, image_tags_verified, stitching_tags_verified)
+             VALUES (?, ?, ?, ?, ?, 0, 0)",
     )
     .bind(id)
     .bind(format!("design{}.pes", id))
@@ -1020,7 +1020,7 @@ async fn apply_tagging_tiers_tier1_match_populates_tags() {
 async fn apply_tagging_tiers_tier1_falls_to_tier2() {
     let pool = make_test_pool().await;
     // design with no keyword match but token match works in tier2
-    sqlx::query("INSERT INTO designs (id, filename, filepath, tags_checked) VALUES (?, ?, ?, 0)")
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, 0, 0)")
         .bind(10_i64)
         .bind("red_rose.pes")
         .bind("tests/Test Designs/red_rose.pes")

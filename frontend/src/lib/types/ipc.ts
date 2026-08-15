@@ -29,7 +29,8 @@ export interface BrowseDesignSummaryWire {
   image_tags: string[];
   stitching_tags: string[];
   is_stitched: boolean;
-  tags_checked: boolean;
+  image_tags_verified: boolean;
+  stitching_tags_verified: boolean;
   rating: number | null;
 }
 
@@ -45,7 +46,8 @@ export interface BrowseDesignCard {
   imageTags: string[];
   stitchingTags: string[];
   isStitched: boolean;
-  tagsChecked: boolean;
+  imageTagsVerified: boolean;
+  stitchingTagsVerified: boolean;
   rating: number | null;
   folder: string;
   dateAdded: string;
@@ -61,7 +63,8 @@ export interface MutationPatch {
   stitchingTags?: string[];
   rating?: number | null;
   isStitched?: boolean;
-  tagsChecked?: boolean;
+  imageTagsVerified?: boolean;
+  stitchingTagsVerified?: boolean;
 }
 
 export interface ProjectListItem {
@@ -107,7 +110,8 @@ export interface DesignDetailWire {
   notes: string | null;
   rating: number | null;
   is_stitched: boolean;
-  tags_checked: boolean;
+  image_tags_verified: boolean;
+  stitching_tags_verified: boolean;
   tagging_tier: number | null;
   date_added: string | null;
   tags: DesignTagDetail[];
@@ -139,7 +143,8 @@ export interface DesignDetail {
   notes: string | null;
   rating: number | null;
   isStitched: boolean;
-  tagsChecked: boolean;
+  imageTagsVerified: boolean;
+  stitchingTagsVerified: boolean;
   taggingTier: number | null;
   dateAdded: string | null;
   tags: DesignTagDetail[];
@@ -166,12 +171,15 @@ export interface SetDesignStitchedRequest {
   is_stitched: boolean;
 }
 
-export interface SetDesignTagsCheckedRequest {
-  tags_checked: boolean;
+export interface SetDesignVerificationRequest {
+  image_tags_verified?: boolean | null;
+  stitching_tags_verified?: boolean | null;
 }
 
 export interface SetDesignTagsRequest {
   tag_ids: number[];
+  image_tags_verified?: boolean | null;
+  stitching_tags_verified?: boolean | null;
 }
 
 /**
@@ -183,6 +191,8 @@ export interface BulkApplyTagsRequest {
   tags_to_add: number[];
   tags_to_remove: number[];
   clear_all_tags: boolean;
+  image_tags_verified?: boolean | null;
+  stitching_tags_verified?: boolean | null;
 }
 
 export interface DesignCommandResult {
@@ -790,7 +800,8 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     notes: wire.notes ?? null,
     rating: wire.rating ?? null,
     isStitched: Boolean(wire.is_stitched),
-    tagsChecked: Boolean(wire.tags_checked),
+    imageTagsVerified: Boolean(wire.image_tags_verified),
+    stitchingTagsVerified: Boolean(wire.stitching_tags_verified),
     taggingTier: wire.tagging_tier ?? null,
     dateAdded: wire.date_added ?? null,
     tags: Array.isArray(wire.tags) ? wire.tags : [],

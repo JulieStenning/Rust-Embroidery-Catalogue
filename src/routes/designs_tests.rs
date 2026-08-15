@@ -455,7 +455,8 @@ async fn test_pool() -> SqlitePool {
 				notes TEXT,
 				rating SMALLINT,
 				is_stitched BOOLEAN NOT NULL DEFAULT 0,
-				tags_checked BOOLEAN NOT NULL DEFAULT 0,
+				image_tags_verified BOOLEAN NOT NULL DEFAULT 0,
+				stitching_tags_verified BOOLEAN NOT NULL DEFAULT 0,
 				tagging_tier SMALLINT,
 				date_added DATE,
 				designer_id INTEGER REFERENCES designers(id) ON DELETE SET NULL,
@@ -514,7 +515,7 @@ async fn test_pool() -> SqlitePool {
         .expect("failed to seed project");
 
     sqlx::query(
-			"INSERT INTO designs (filename, filepath, notes, designer_id, source_id, hoop_id, is_stitched, tags_checked, rating) VALUES ('rose.pes', 'Roses/rose.pes', 'old note', 1, 1, 1, 0, 0, NULL)",
+			"INSERT INTO designs (filename, filepath, notes, designer_id, source_id, hoop_id, is_stitched, image_tags_verified, stitching_tags_verified, rating) VALUES ('rose.pes', 'Roses/rose.pes', 'old note', 1, 1, 1, 0, 0, 0, NULL)",
 		)
 		.execute(&pool)
 		.await
@@ -576,7 +577,7 @@ async fn set_design_tags_replaces_and_marks_verified() {
         .await
         .expect("should insert original tag");
 
-    let result = set_design_tags_with_pool(&pool, 1, vec![2]).await;
+    let result = set_design_tags_with_pool(&pool, 1, vec![2], None, None).await;
     assert!(result.is_ok());
 
     let assigned = sqlx::query_as::<_, (i64,)>(
@@ -589,12 +590,19 @@ async fn set_design_tags_replaces_and_marks_verified() {
     assert_eq!(assigned.len(), 1);
     assert_eq!(assigned[0].0, 2);
 
-    let checked = sqlx::query_scalar::<_, i64>("SELECT tags_checked FROM designs WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .expect("tags_checked query should succeed");
+    let image_checked =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query should succeed");
+    let stitching_checked =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query should succeed");
 
-    assert_eq!(checked, 1);
+    assert_eq!(image_checked, 1);
+    assert_eq!(stitching_checked, 1);
 }
 
 #[tokio::test]
@@ -624,12 +632,17 @@ async fn bulk_set_tags_adds_only_requested_tags() {
             tags_to_add: vec![2],
             tags_to_remove: vec![],
             clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
         },
     )
     .await;
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().updated_count, 2);
+    // Design 1 changes (Satin added); design 2 already had Satin so its
+    // INSERT OR IGNORE is a no-op. With no flag overrides, design 2 is
+    // not counted as updated.
+    assert_eq!(result.unwrap().updated_count, 1);
 
     // Design 1 should now have Satin (2) added but keep Flowers (1).
     let design1 = sqlx::query_as::<_, (i64,)>(
@@ -675,6 +688,8 @@ async fn bulk_set_tags_remove_only_removes_requested_tags() {
             tags_to_add: vec![],
             tags_to_remove: vec![1],
             clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
         },
     )
     .await;
@@ -713,6 +728,8 @@ async fn bulk_set_tags_clear_all_removes_everything() {
             tags_to_add: vec![],
             tags_to_remove: vec![],
             clear_all_tags: true,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
         },
     )
     .await;
@@ -739,6 +756,8 @@ async fn bulk_set_tags_add_wins_when_tag_in_both_lists() {
             tags_to_add: vec![1, 1, 2],
             tags_to_remove: vec![1],
             clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
         },
     )
     .await;
@@ -769,6 +788,8 @@ async fn bulk_set_tags_rejects_unknown_tag_id() {
             tags_to_add: vec![999],
             tags_to_remove: vec![],
             clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
         },
     )
     .await;
@@ -782,29 +803,164 @@ async fn bulk_set_tags_rejects_unknown_tag_id() {
 }
 
 #[tokio::test]
-async fn bulk_set_tags_marks_designs_verified() {
+async fn bulk_set_tags_explicit_flags_override() {
     let pool = test_pool().await;
 
-    // Design 1 starts unverified.
+    // Explicitly mark only image verified and stitching unverified, with no
+    // tag diff at all. Flags are always written when explicitly provided.
     let result = bulk_set_tags_for_designs_with_pool(
         &pool,
         &[1],
         BulkApplyTagsRequest {
-            tags_to_add: vec![1],
+            tags_to_add: vec![],
             tags_to_remove: vec![],
             clear_all_tags: false,
+            image_tags_verified: Some(true),
+            stitching_tags_verified: Some(false),
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().updated_count, 1);
+
+    let image_checked =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query");
+    let stitching_checked =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query");
+
+    assert_eq!(image_checked, 1);
+    assert_eq!(stitching_checked, 0);
+}
+
+#[tokio::test]
+async fn bulk_set_tags_unchanged_domain_preserves_verification() {
+    let pool = test_pool().await;
+
+    // Pre-verify the image category; the design starts unverified for it.
+    sqlx::query("UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .expect("pre-verify design");
+
+    // A tag diff that only touches the stitching domain (tag 2 = Satin Stitch).
+    // With `None` flags, the image flag must be preserved (not cleared).
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![2],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
         },
     )
     .await;
 
     assert!(result.is_ok());
 
-    let checked = sqlx::query_scalar::<_, i64>("SELECT tags_checked FROM designs WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .expect("tags_checked query");
+    let image_checked =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query");
+    let stitching_checked =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query");
 
-    assert_eq!(checked, 1);
+    assert_eq!(image_checked, 1, "untouched image flag must be preserved");
+    // Both flags were pre-set to 1; because the request carried no flag
+    // overrides (None), the stitching flag is also preserved as-is.
+    assert_eq!(stitching_checked, 1, "untouched stitching flag must be preserved");
+}
+
+#[tokio::test]
+async fn bulk_set_tags_no_diff_no_flags_keeps_flags_untouched() {
+    let pool = test_pool().await;
+
+    sqlx::query("UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .expect("pre-verify design");
+
+    // No tag diff and no flag overrides — nothing is written, flags preserved.
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().updated_count, 0);
+
+    let image_checked =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query");
+    let stitching_checked =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query");
+
+    assert_eq!(image_checked, 1);
+    assert_eq!(stitching_checked, 1);
+}
+
+#[tokio::test]
+async fn bulk_set_tags_clear_all_without_flags_preserves_verification() {
+    let pool = test_pool().await;
+
+    sqlx::query("UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 0 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .expect("pre-verify design");
+
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &[1],
+        BulkApplyTagsRequest {
+            tags_to_add: vec![],
+            tags_to_remove: vec![],
+            clear_all_tags: true,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
+        },
+    )
+    .await;
+
+    assert!(result.is_ok());
+
+    let image_checked =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query");
+    let stitching_checked =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query");
+
+    assert_eq!(image_checked, 1, "clear-all without flags must not clear image flag");
+    assert_eq!(stitching_checked, 0);
 }
 
 #[tokio::test]
@@ -1062,30 +1218,32 @@ async fn set_design_stitched_with_pool_sets_false() {
 }
 
 #[tokio::test]
-async fn set_design_tags_checked_with_pool_sets_true() {
+async fn set_design_verification_with_pool_sets_image_true() {
     let pool = test_pool().await;
 
-    let result = set_design_tags_checked_with_pool(&pool, 1, true).await;
+    let result = set_design_verification_with_pool(&pool, 1, Some(true), None).await;
     assert!(result.is_ok());
 
-    let checked = sqlx::query_scalar::<_, i64>("SELECT tags_checked FROM designs WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .expect("query should succeed");
+    let checked =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("query should succeed");
     assert_eq!(checked, 1);
 }
 
 #[tokio::test]
-async fn set_design_tags_checked_with_pool_sets_false() {
+async fn set_design_verification_with_pool_sets_stitching_false() {
     let pool = test_pool().await;
 
-    let result = set_design_tags_checked_with_pool(&pool, 1, false).await;
+    let result = set_design_verification_with_pool(&pool, 1, Some(true), Some(false)).await;
     assert!(result.is_ok());
 
-    let checked = sqlx::query_scalar::<_, i64>("SELECT tags_checked FROM designs WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .expect("query should succeed");
+    let checked =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("query should succeed");
     assert_eq!(checked, 0);
 }
 
@@ -1550,9 +1708,9 @@ async fn set_design_stitched_errors_when_missing() {
 }
 
 #[tokio::test]
-async fn set_design_tags_checked_errors_when_missing() {
+async fn set_design_verification_errors_when_missing() {
     let pool = test_pool().await;
-    let result = set_design_tags_checked_with_pool(&pool, 999, true).await;
+    let result = set_design_verification_with_pool(&pool, 999, Some(true), None).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("not found"));
 }
@@ -1597,7 +1755,7 @@ async fn update_design_metadata_rejects_invalid_hoop() {
 async fn set_design_tags_rejects_non_positive_tag_id() {
     let pool = test_pool().await;
 
-    let result = set_design_tags_with_pool(&pool, 1, vec![0]).await;
+    let result = set_design_tags_with_pool(&pool, 1, vec![0], None, None).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("positive integer"));
 }

@@ -366,7 +366,7 @@ fn main() {
             routes::designs::update_design_metadata,
             routes::designs::set_design_rating,
             routes::designs::set_design_stitched,
-            routes::designs::set_design_tags_checked,
+            routes::designs::set_design_verification,
             routes::designs::set_design_tags,
             routes::designs::remove_design_tag,
             routes::designs::add_design_to_project,

@@ -72,7 +72,7 @@ import {
   setGoogleApiKey,
   setDesignStitched,
   setDesignTags,
-  setDesignTagsChecked,
+  setDesignVerification,
   setTagGroup,
   stopUnifiedBackfill,
   updateDesignMetadata,
@@ -118,7 +118,8 @@ const DESIGN_DETAIL_WIRE = {
   hoop: "Hoop A",
   hoop_id: 1,
   is_stitched: true,
-  tags_checked: false,
+  image_tags_verified: false,
+  stitching_tags_verified: true,
   notes: "Some notes",
   rating: 4,
   tagging_tier: 2,
@@ -172,7 +173,8 @@ describe("commandAdapter getBrowseDesigns", () => {
         hoop: "Hoop A",
         rating: "4",
         is_stitched: true,
-        tags_checked: true,
+        image_tags_verified: true,
+        stitching_tags_verified: true,
       },
       {
         id: 11,
@@ -202,7 +204,8 @@ describe("commandAdapter getBrowseDesigns", () => {
       hoop: "Hoop A",
       rating: 4,
       is_stitched: true,
-      tags_checked: true,
+      image_tags_verified: true,
+      stitching_tags_verified: true,
     });
     // project_names string split, empty tags, rating clamped to 5
     expect(result.items[1].projects).toEqual(["P1", "P2"]);
@@ -397,18 +400,30 @@ describe("commandAdapter design mutations", () => {
     expect(bad.error).toContain("err");
   });
 
-  it("setDesignTagsChecked sends tags_checked and falls back on error", async () => {
+  it("setDesignVerification sends camelCase id + snake_case verification flags and falls back on error", async () => {
     invokeMock.mockResolvedValue(wireResult);
 
-    const ok = await setDesignTagsChecked(7, true);
-    expect(invokeMock).toHaveBeenCalledWith("set_design_tags_checked", {
+    const ok = await setDesignVerification(7, {
+      imageTagsVerified: true,
+      stitchingTagsVerified: false,
+    });
+    // Assert the EXACT wire payload Tauri expects (see .clinerules):
+    // invoke keys are camelCase, but the nested request struct is deserialized
+    // by serde using snake_case field names.
+    expect(invokeMock).toHaveBeenCalledWith("set_design_verification", {
       designId: 7,
-      request: { tags_checked: true },
+      request: {
+        image_tags_verified: true,
+        stitching_tags_verified: false,
+      },
     });
     expect(ok.persisted).toBe(true);
 
     mockReject(new Error("boom"));
-    const bad = await setDesignTagsChecked(7, false);
+    const bad = await setDesignVerification(7, {
+      imageTagsVerified: true,
+      stitchingTagsVerified: false,
+    });
     expect(bad.source).toBe("mock");
     expect(bad.error).toContain("boom");
   });
@@ -420,7 +435,11 @@ describe("commandAdapter design mutations", () => {
 
     expect(invokeMock).toHaveBeenCalledWith("set_design_tags", {
       designId: 1,
-      request: { tag_ids: [2, 3] },
+      request: {
+        tag_ids: [2, 3],
+        image_tags_verified: null,
+        stitching_tags_verified: null,
+      },
     });
   });
 
@@ -1240,6 +1259,8 @@ describe("commandAdapter tags & previews", () => {
         tags_to_add: [2, 3],
         tags_to_remove: [4, 5],
         clear_all_tags: false,
+        image_tags_verified: null,
+        stitching_tags_verified: null,
       },
     });
     expect(result.source).toBe("rust");
@@ -1257,6 +1278,8 @@ describe("commandAdapter tags & previews", () => {
         tags_to_add: [],
         tags_to_remove: [],
         clear_all_tags: true,
+        image_tags_verified: null,
+        stitching_tags_verified: null,
       },
     });
   });
@@ -1272,6 +1295,8 @@ describe("commandAdapter tags & previews", () => {
         tags_to_add: [7],
         tags_to_remove: [],
         clear_all_tags: false,
+        image_tags_verified: null,
+        stitching_tags_verified: null,
       },
     });
   });

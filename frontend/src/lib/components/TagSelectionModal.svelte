@@ -68,7 +68,13 @@
     modalSaving = true;
     createError = "";
     try {
-      const result = await setDesignTags(designId, localSelectedIds);
+      // A single design's tag review/edit always marks BOTH categories verified
+      // (Rule 1). The backend leaves each flag exactly as supplied; passing
+      // explicit `true` for both is the intent of a full single-design save.
+      const result = await setDesignTags(designId, localSelectedIds, {
+        imageTagsVerified: true,
+        stitchingTagsVerified: true,
+      });
       if (result.persisted) {
         const allTagsLookup = localAllTags;
         const selectedTags = allTagsLookup.filter((t) => localSelectedIds.includes(t.id));
@@ -84,7 +90,8 @@
           tags: allTagDescriptions,
           imageTags,
           stitchingTags,
-          tagsChecked: true,
+          imageTagsVerified: true,
+          stitchingTagsVerified: true,
         });
       } else {
         createError = `Auto-save failed: ${result.message || "Unknown error"}`;

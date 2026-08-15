@@ -26,7 +26,7 @@ export type {
   SearchPayload,
   SetDesignRatingRequest,
   SetDesignStitchedRequest,
-  SetDesignTagsCheckedRequest,
+  SetDesignVerificationRequest,
   SetDesignTagsRequest,
   SettingsViewModel,
   UpdateDesignMetadataRequest,

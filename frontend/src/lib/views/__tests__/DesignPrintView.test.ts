@@ -39,7 +39,8 @@ const baseDetail = {
   notes: "Pretty floral border with satin stitches.",
   rating: 4,
   isStitched: true,
-  tagsChecked: true,
+  imageTagsVerified: true,
+  stitchingTagsVerified: true,
   taggingTier: 2,
   dateAdded: "2026-05-01",
   tags: [

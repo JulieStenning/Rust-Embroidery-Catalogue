@@ -107,7 +107,8 @@ const MOCK_DESIGNS = [
     hoop: "Hoop A",
     rating: 4,
     is_stitched: false,
-    tags_checked: true,
+    image_tags_verified: true,
+    stitching_tags_verified: true,
   },
   {
     id: 2,
@@ -118,7 +119,8 @@ const MOCK_DESIGNS = [
     hoop: "Hoop B",
     rating: 3,
     is_stitched: true,
-    tags_checked: false,
+    image_tags_verified: false,
+    stitching_tags_verified: false,
   },
   {
     id: 3,
@@ -129,7 +131,8 @@ const MOCK_DESIGNS = [
     hoop: null,
     rating: null,
     is_stitched: false,
-    tags_checked: true,
+    image_tags_verified: true,
+    stitching_tags_verified: true,
   },
 ];
 
@@ -191,7 +194,8 @@ function normalizeBrowseItem(raw: any, index: number, options: { useSeedTags?: b
         ? null
         : Math.max(0, Math.min(5, Number(raw.rating))),
     is_stitched: Boolean(raw?.is_stitched),
-    tags_checked: Boolean(raw?.tags_checked ?? seed % 4 !== 0),
+    image_tags_verified: Boolean(raw?.image_tags_verified ?? seed % 4 !== 0),
+    stitching_tags_verified: Boolean(raw?.stitching_tags_verified ?? raw?.image_tags_verified ?? seed % 4 !== 0),
   };
 }
 
@@ -279,7 +283,8 @@ export async function getDesignDetail(designId: number | string): Promise<Adapte
         hoop: fallback.hoop,
         hoop_id: matchedHoop ? matchedHoop.id : null,
         is_stitched: Boolean(fallback.is_stitched),
-        tags_checked: Boolean(fallback.tags_checked),
+        image_tags_verified: Boolean(fallback.image_tags_verified),
+        stitching_tags_verified: Boolean(fallback.stitching_tags_verified),
         hoops: MOCK_HOOPS,
         notes: "Mock detail while Rust route migration continues.",
         rating: null,
@@ -323,7 +328,8 @@ export async function getDesignDetail(designId: number | string): Promise<Adapte
       hoop: fallback.hoop,
       hoop_id: matchedHoop ? matchedHoop.id : null,
       is_stitched: Boolean(fallback.is_stitched),
-      tags_checked: Boolean(fallback.tags_checked),
+      image_tags_verified: Boolean(fallback.image_tags_verified),
+      stitching_tags_verified: Boolean(fallback.stitching_tags_verified),
       hoops: MOCK_HOOPS,
       notes: "Mock detail while Rust route migration continues.",
       rating: null,
@@ -449,16 +455,24 @@ export async function setDesignStitched(designId: number | string, isStitched: b
 }
 
 /**
+ * Update the image and/or stitching verification flags independently.
+ * Each `null` / absent field is left untouched in SQLite.
  * @param {number | string} designId
- * @param {boolean} tagsChecked
+ * @param {{ imageTagsVerified?: boolean | null, stitchingTagsVerified?: boolean | null }} patch
  */
-export async function setDesignTagsChecked(designId: number | string, tagsChecked: boolean): Promise<AdapterMutationResponse> {
+export async function setDesignVerification(
+  designId: number | string,
+  patch: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null },
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
-    const result = await invokeLoose<DesignCommandResult>("set_design_tags_checked", {
+    const result = await invokeLoose<DesignCommandResult>("set_design_verification", {
       designId: normalizedId,
-      request: { tags_checked: Boolean(tagsChecked) },
+      request: {
+        image_tags_verified: patch.imageTagsVerified ?? null,
+        stitching_tags_verified: patch.stitchingTagsVerified ?? null,
+      },
     });
     return {
       source: "rust",
@@ -478,10 +492,22 @@ export async function setDesignTagsChecked(designId: number | string, tagsChecke
 }
 
 /**
+ * Replace a single design's full tag set.
+ *
+ * The optional verification object lets callers explicitly drive the
+ * image/stitching verification flags. Absent (`null`) fields tell the backend
+ * to leave that flag untouched, so an unaffected category never has its prior
+ * verified status cleared.
+ *
  * @param {number | string} designId
  * @param {Array<number | string>} tagIds
+ * @param {{ imageTagsVerified?: boolean | null, stitchingTagsVerified?: boolean | null }} [verification]
  */
-export async function setDesignTags(designId: number | string, tagIds: Array<number | string>): Promise<AdapterMutationResponse> {
+export async function setDesignTags(
+  designId: number | string,
+  tagIds: Array<number | string>,
+  verification?: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null },
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedTagIds = Array.isArray(tagIds)
     ? Array.from(new Set(tagIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
@@ -490,7 +516,11 @@ export async function setDesignTags(designId: number | string, tagIds: Array<num
   try {
     const result = await invokeLoose<DesignCommandResult>("set_design_tags", {
       designId: normalizedId,
-      request: { tag_ids: normalizedTagIds },
+      request: {
+        tag_ids: normalizedTagIds,
+        image_tags_verified: verification?.imageTagsVerified ?? null,
+        stitching_tags_verified: verification?.stitchingTagsVerified ?? null,
+      },
     });
     return {
       source: "rust",
@@ -1340,12 +1370,17 @@ export async function getBrowseTags(): Promise<AdapterListResponse<BrowseTagOpti
  * @param {Array<number | string>} tagsToAdd - Tags to add to ALL selected designs.
  * @param {Array<number | string>} [tagsToRemove=[]] - Tags to remove from ALL selected designs.
  * @param {boolean} [clearAllTags=false] - Clear all tags from the selected designs first.
+ * @param {{ imageTagsVerified?: boolean | null, stitchingTagsVerified?: boolean | null }} [verification]
+ *   Optional per-category verification overrides. `null` / absent means "leave
+ *   that category's existing verification flag untouched" — the backend will
+ *   NOT clear a prior verified status for a category with no change.
  */
 export async function bulkSetTagsForDesigns(
   designIds: Array<number | string>,
   tagsToAdd: Array<number | string>,
   tagsToRemove: Array<number | string> = [],
   clearAllTags = false,
+  verification?: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null },
 ) {
   const normalizedDesignIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
     ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
@@ -1373,6 +1408,8 @@ export async function bulkSetTagsForDesigns(
         tags_to_add: normalizedAddIds,
         tags_to_remove: normalizedRemoveIds,
         clear_all_tags: Boolean(clearAllTags),
+        image_tags_verified: verification?.imageTagsVerified ?? null,
+        stitching_tags_verified: verification?.stitchingTagsVerified ?? null,
       },
     });
     return {

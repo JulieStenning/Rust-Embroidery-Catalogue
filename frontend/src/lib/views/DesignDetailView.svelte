@@ -6,7 +6,7 @@
     updateDesignMetadata,
     setDesignRating,
     setDesignStitched,
-    setDesignTagsChecked,
+    setDesignVerification,
     setDesignTags,
     removeDesignTag,
     addDesignToProject,
@@ -263,16 +263,30 @@
     }
   }
 
-  async function toggleDetailTagsChecked() {
+  async function toggleImageTagsVerified() {
     if (!detailItem?.id || detailSaving) return;
 
-    const newChecked = !detailItem?.tagsChecked;
+    const newValue = !detailItem?.imageTagsVerified;
     detailSaving = true;
-    const result = await setDesignTagsChecked(detailItem.id, newChecked);
+    const result = await setDesignVerification(detailItem.id, { imageTagsVerified: newValue });
     detailSaving = false;
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
-      designSessionStore.trackMutation(detailItem.id, { tagsChecked: newChecked });
+      designSessionStore.trackMutation(detailItem.id, { imageTagsVerified: newValue });
+      await refreshDetailAfterAction();
+    }
+  }
+
+  async function toggleStitchingTagsVerified() {
+    if (!detailItem?.id || detailSaving) return;
+
+    const newValue = !detailItem?.stitchingTagsVerified;
+    detailSaving = true;
+    const result = await setDesignVerification(detailItem.id, { stitchingTagsVerified: newValue });
+    detailSaving = false;
+    addToast(result.message, result.persisted ? "success" : "error");
+    if (result.persisted) {
+      designSessionStore.trackMutation(detailItem.id, { stitchingTagsVerified: newValue });
       await refreshDetailAfterAction();
     }
   }
@@ -281,7 +295,12 @@
     if (!detailItem?.id || detailSaving) return false;
 
     detailSaving = true;
-    const result = await setDesignTags(detailItem.id, detailTagSelection);
+    // A single-design tag save marks BOTH image and stitching categories
+    // verified (Rule 1).
+    const result = await setDesignTags(detailItem.id, detailTagSelection, {
+      imageTagsVerified: true,
+      stitchingTagsVerified: true,
+    });
     detailSaving = false;
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
@@ -303,7 +322,8 @@
         tags: allTagDescriptions,
         imageTags,
         stitchingTags,
-        tagsChecked: true,
+        imageTagsVerified: true,
+        stitchingTagsVerified: true,
       });
       await refreshDetailAfterAction();
       return true;
@@ -496,12 +516,22 @@
 
     if (result.persisted) {
       addToast(result.message, "success");
-      // Track mutation for browse card sync
+      // A single-design tag edit marks BOTH categories verified (Rule 1).
+      const setVerify = await setDesignVerification(detailItem.id, {
+        imageTagsVerified: true,
+        stitchingTagsVerified: true,
+      });
+      if (!setVerify.persisted) {
+        addToast(setVerify.message || "Tag removed but verification update failed.", "error");
+      }
+      // Track mutation for browse card sync; also patch both verified flags.
       const updatedTags = (detailItem.tags || []).map(t => t.description);
       designSessionStore.trackMutation(detailItem.id, {
         tags: updatedTags,
         imageTags: (detailItem.tags || []).filter(t => t.tag_group === 'image').map(t => t.description),
         stitchingTags: (detailItem.tags || []).filter(t => t.tag_group === 'stitching').map(t => t.description),
+        imageTagsVerified: true,
+        stitchingTagsVerified: true,
       });
     } else {
       addToast(result.message, "error");
@@ -711,20 +741,38 @@
             {/if}
           </button>
 
-          <!-- Verified toggle (only shown if tags exist) -->
+          <!-- Image verification toggle (only shown if tags exist) -->
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <button
-              class="menu-button-toggle {detailItem.tagsChecked
+              class="menu-button-toggle {detailItem.imageTagsVerified
                 ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
                 : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
-              onclick={toggleDetailTagsChecked}
+              onclick={toggleImageTagsVerified}
               disabled={detailSaving}
-              title={detailItem.tagsChecked ? 'Mark as unverified' : 'Mark as verified'}
+              title={detailItem.imageTagsVerified ? 'Mark image tags as unverified' : 'Mark image tags as verified'}
             >
-              {#if detailItem.tagsChecked}
-                <span aria-hidden="true">&#10003;</span> Verified
+              {#if detailItem.imageTagsVerified}
+                <span aria-hidden="true">&#10003;</span> Image Verified
               {:else}
-                <span aria-hidden="true">&#9888;</span> Verify
+                <span aria-hidden="true">&#9888;</span> Image Unverified
+              {/if}
+            </button>
+          {/if}
+
+          <!-- Stitching verification toggle (only shown if tags exist) -->
+          {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
+            <button
+              class="menu-button-toggle {detailItem.stitchingTagsVerified
+                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
+                : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
+              onclick={toggleStitchingTagsVerified}
+              disabled={detailSaving}
+              title={detailItem.stitchingTagsVerified ? 'Mark stitching tags as unverified' : 'Mark stitching tags as verified'}
+            >
+              {#if detailItem.stitchingTagsVerified}
+                <span aria-hidden="true">&#10003;</span> Stitching Verified
+              {:else}
+                <span aria-hidden="true">&#9888;</span> Stitching Unverified
               {/if}
             </button>
           {/if}

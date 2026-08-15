@@ -183,7 +183,11 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Animals" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [10, 13]);
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(
+          5,
+          [10, 13],
+          { imageTagsVerified: true, stitchingTagsVerified: true }
+        );
       });
     });
 
@@ -198,7 +202,11 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Animals" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [10]);
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(
+          5,
+          [10],
+          { imageTagsVerified: true, stitchingTagsVerified: true }
+        );
       });
     });
 
@@ -213,7 +221,11 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Floral" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, []);
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(
+          5,
+          [],
+          { imageTagsVerified: true, stitchingTagsVerified: true }
+        );
       });
     });
 
@@ -229,7 +241,11 @@ describe("TagSelectionModal", () => {
       await waitFor(() => {
         expect(mockedSetDesignTags).toHaveBeenCalledTimes(1);
       });
-      expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [10, 11, 14]);
+      expect(mockedSetDesignTags).toHaveBeenCalledWith(
+        5,
+        [10, 11, 14],
+        { imageTagsVerified: true, stitchingTagsVerified: true }
+      );
     });
 
     it("shows the saving state while persistence is in flight", async () => {
@@ -269,7 +285,11 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [12]);
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(
+          5,
+          [12],
+          { imageTagsVerified: true, stitchingTagsVerified: true }
+        );
       });
       await waitFor(() => {
         expect(onClose).toHaveBeenCalledTimes(1);
@@ -531,7 +551,8 @@ describe("TagSelectionModal", () => {
           tags: ["Floral", "Satin Stitch", "Animals"],
           imageTags: ["Floral", "Animals"],
           stitchingTags: ["Satin Stitch"],
-          tagsChecked: true,
+          imageTagsVerified: true,
+          stitchingTagsVerified: true,
         });
       });
     });

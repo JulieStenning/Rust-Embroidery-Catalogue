@@ -502,7 +502,7 @@ async fn select_tagging_design_ids(
     let sql = match mode {
         TAG_ACTION_RETAG_ALL => "SELECT id FROM designs ORDER BY id ASC LIMIT ?",
         TAG_ACTION_RETAG_ALL_UNVERIFIED => {
-            "SELECT id FROM designs WHERE COALESCE(tags_checked, 0) = 0 ORDER BY id ASC LIMIT ?"
+            "SELECT id FROM designs WHERE COALESCE(image_tags_verified, 0) = 0 ORDER BY id ASC LIMIT ?"
         }
         _ => {
             "SELECT d.id
@@ -672,7 +672,7 @@ async fn apply_image_tags_and_tier(
         }
     }
 
-    sqlx::query("UPDATE designs SET tagging_tier = ?, tags_checked = 0 WHERE id = ?")
+    sqlx::query("UPDATE designs SET tagging_tier = ?, image_tags_verified = 0 WHERE id = ?")
         .bind(tier)
         .bind(design_id)
         .execute(pool)
@@ -708,7 +708,7 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
 		 JOIN designs d ON d.id = dt.design_id
 		 JOIN tags t ON t.id = dt.tag_id
 		 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'
-		   AND COALESCE(d.tags_checked, 0) = 0"
+		   AND COALESCE(d.stitching_tags_verified, 0) = 0"
     };
 
     let rows = sqlx::query(select_sql)
@@ -722,7 +722,7 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
 		 WHERE tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
     } else {
         "DELETE FROM design_tags
-		 WHERE design_id IN (SELECT id FROM designs WHERE COALESCE(tags_checked, 0) = 0)
+		 WHERE design_id IN (SELECT id FROM designs WHERE COALESCE(stitching_tags_verified, 0) = 0)
 		   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
     };
 
