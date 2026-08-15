@@ -861,7 +861,7 @@
       <a href="#/help?section=importing" class="text-indigo-600 hover:underline ml-1">Import help</a>
     </p>
 
-    <div class="import-step1-card bg-white rounded shadow p-6 max-w-2xl space-y-4">
+    <div class="import-step1-card bg-white rounded shadow p-6 w-full space-y-4">
       <form
         id="importScanForm"
         class="space-y-4"
