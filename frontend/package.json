@@ -13,11 +13,13 @@
     "format:check": "prettier --check src"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2"
+    "@tauri-apps/api": "^2",
+    "dompurify": "^3.4.13",
+    "marked": "^18.0.9"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^5",
     "@eslint/js": "^9.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5",
     "eslint": "^9.16.0",
     "eslint-plugin-svelte": "^2.46.1",
     "globals": "^15.13.0",

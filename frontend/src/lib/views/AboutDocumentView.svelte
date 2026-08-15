@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { getAboutDocument } from "../api/commandAdapter";
+  import { renderMarkdown } from "../utils/markdown.js";
 
   let { slug } = $props();
 
@@ -8,6 +9,17 @@
   let documentItem = $state(null);
   let loading = $state(false);
   let error = $state("");
+
+  /**
+   * Determine whether the loaded document should be rendered as Markdown.
+   * @param {{ slug?: string, filename?: string } | null | undefined} item
+   */
+  function shouldRenderAsMarkdown(item) {
+    if (!item || typeof item !== "object") return false;
+    const slugName = String(item.slug || "").toLowerCase();
+    const filename = String(item.filename || "").toLowerCase();
+    return slugName === "ai-tagging" || filename.endsWith(".md");
+  }
 
   /**
    * @param {{ slug?: string, filename?: string } | null | undefined} item
@@ -66,6 +78,10 @@
       {#if shouldRenderAsHtml(documentItem)}
         <div class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 space-y-4 shadow-inner">
           {@html documentItem.document_text}
+        </div>
+      {:else if shouldRenderAsMarkdown(documentItem)}
+        <div class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 prose prose-gray max-w-none shadow-inner">
+          {@html renderMarkdown(documentItem.document_text)}
         </div>
       {:else}
         <pre class="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>

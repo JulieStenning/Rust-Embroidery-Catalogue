@@ -1164,7 +1164,7 @@ describe("ImportView step 3 actions", () => {
     await gotoStep3(container);
 
     expect(screen.getByText("Before You Import")).toBeInTheDocument();
-    expect(screen.getByText("Google AI tagging is not configured")).toBeInTheDocument();
+    expect(screen.getByText("Google AI tagging is not configured.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
@@ -1176,7 +1176,7 @@ describe("ImportView step 3 actions", () => {
     const { container } = renderHarness("#/import");
     await gotoStep3(container);
 
-    expect(screen.getByText("Google AI tagging is enabled for this installation")).toBeInTheDocument();
+    expect(screen.getByText("Google AI tagging is enabled for this installation.")).toBeInTheDocument();
   });
 
   it("completes an import and calls onImportCompleted with the persisted count", async () => {

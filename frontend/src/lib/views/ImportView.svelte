@@ -15,8 +15,9 @@
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
-  let settingsHelpUrl = $state("#/help");
   let settingsHasGoogleApiKey = $state(false);
+  let settingsAiTier2Auto = $state(false);
+  let settingsAiTier3Auto = $state(false);
   let settingsImportLastBrowseFolder = $state("");
   let settingsLoaded = $state(false);
   let settingsLoading = $state(false);
@@ -71,8 +72,9 @@
     try {
       const result = await getSettingsViewModel();
       const model = result.model;
-      settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
       settingsHasGoogleApiKey = Boolean(model?.google_api_key && String(model.google_api_key).trim().length > 0);
+      settingsAiTier2Auto = Boolean(model?.ai_tier2_auto);
+      settingsAiTier3Auto = Boolean(model?.ai_tier3_auto);
       settingsImportLastBrowseFolder = String(model?.import_last_browse_folder || "").trim();
       settingsLoaded = true;
     } catch (e) {
@@ -1136,24 +1138,47 @@
 
         {#if settingsHasGoogleApiKey}
           <div class="ui-section-shell border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded space-y-2 text-sm">
-            <p class="font-semibold text-amber-900">Google AI tagging is enabled for this installation</p>
+            <p class="font-semibold text-amber-900">Google AI tagging is enabled for this installation.</p>
             <p class="ui-help-note text-amber-900">
-              Depending on your saved settings, Tier 2 and/or Tier 3 may run during this import. Gemini usage may incur cost. Free-tier limits are approximately
+              Your saved settings will run AI tagging as follows during this import:
+            </p>
+            <ul class="ui-help-note list-disc pl-5 space-y-1 text-amber-900">
+              <li>
+                <strong>Tier 2 (text AI) - {settingsAiTier2Auto ? "enabled" : "not enabled"}.</strong>
+                Tier 2 sends the file name to Gemini to suggest tags for each imported design.
+              </li>
+              <li>
+                <strong>Tier 3 (vision AI) - {settingsAiTier3Auto ? "enabled" : "not enabled"}.</strong>
+                Tier 3 sends the preview image to Gemini to suggest tags for designs left untagged after Tiers 1 and 2.
+              </li>
+            </ul>
+            <p class="ui-help-note text-amber-900">
+              Tier 1 keyword tagging matches the file name and file path against your existing tags. It runs locally and does not call Gemini.
+            </p>
+            <p class="ui-help-note text-amber-900">
+              Gemini usage may incur cost. Free-tier limits are approximately
               <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>.
-              An historical estimate from February 2026 found that Tier 3 on 4,000 images cost about <strong>$0.33 on the paid tier</strong>; actual pricing may have changed -
+              A February 2026 estimate found that Tier 3 on 4,000 images cost about <strong>$0.33 on the paid tier</strong>; actual pricing may have changed -
               check <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener" class="underline hover:text-amber-800">ai.google.dev/pricing</a>.
+            </p>
+            <p class="text-xs text-amber-900 pt-1">
+              <a href="#/admin/settings" class="underline font-medium hover:text-amber-800">Admin Settings</a>
+              · <a href="#/about/document/ai-tagging" class="underline font-medium hover:text-amber-800">AI Tagging Guide</a>
             </p>
           </div>
         {:else}
           <div class="ui-section-shell border border-blue-300 bg-blue-50 text-blue-950 p-4 rounded space-y-2 text-sm">
-            <p class="font-semibold text-blue-900">Google AI tagging is not configured</p>
+            <p class="font-semibold text-blue-900">Google AI tagging is not configured.</p>
+            <p class="ui-help-note text-blue-900">
+              Google AI tagging uses Google's Gemini AI to suggest tags for your designs. Tier 2 (text AI) sends the file name to Gemini, and Tier 3 (vision AI) sends the preview image.
+            </p>
             <p class="ui-help-note text-blue-900">
               No Google API key is currently saved, so this import will use <strong>Tier 1 keyword tagging only</strong> and no Gemini calls will be made.
               If you want AI-assisted tagging, add an API key in Settings and enable the tiers you want.
             </p>
             <p class="text-xs text-blue-900 pt-1">
               <a href="#/admin/settings" class="underline font-medium">Admin Settings</a>
-              · <a href={settingsHelpUrl} class="underline font-medium">AI Tagging Guide</a>
+              · <a href="#/about/document/ai-tagging" class="underline font-medium">AI Tagging Guide</a>
             </p>
           </div>
         {/if}

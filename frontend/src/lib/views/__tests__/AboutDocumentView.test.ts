@@ -110,6 +110,34 @@ describe("AboutDocumentView", () => {
       expect(div.innerHTML).toContain("<p>We do not track you.</p>");
       expect(container.querySelector("pre")).not.toBeInTheDocument();
     });
+
+    it("renders Markdown content as styled HTML and strips relative links for the ai-tagging slug", async () => {
+      const mockDoc = {
+        slug: "ai-tagging",
+        title: "AI Tagging Guide",
+        description: "Enable optional AI tagging.",
+        filename: "docs/User-Facing-Guidance/AI_TAGGING.md",
+        document_text:
+          "# AI-Assisted Auto-Tagging\n\nSee [STITCH_TYPES.md](STITCH_TYPES.md) and " +
+          "[current pricing](https://ai.google.dev/pricing).",
+      };
+      adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
+
+      const { container } = render(AboutDocumentView, { props: { slug: "ai-tagging" } });
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
+      });
+
+      const div = element(container.querySelector("div.prose"));
+      expect(div.querySelector("h1")).toHaveTextContent("AI-Assisted Auto-Tagging");
+      // Relative .md links are neutralized to plain text (no dead links).
+      expect(div.querySelector('a[href="STITCH_TYPES.md"]')).not.toBeInTheDocument();
+      expect(screen.getByText(/STITCH_TYPES\.md/)).toBeInTheDocument();
+      // Absolute URLs remain as links.
+      expect(div.querySelector('a[href="https://ai.google.dev/pricing"]')).toBeInTheDocument();
+      expect(container.querySelector("pre")).not.toBeInTheDocument();
+    });
   });
 
   describe("error handling and empty states", () => {

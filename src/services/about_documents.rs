@@ -51,7 +51,7 @@ const DOCUMENTS: [AboutDocumentSpec; 6] = [
     AboutDocumentSpec {
         slug: "ai-tagging",
         title: "AI Tagging Guide",
-        filename: "templates/info/AI_TAGGING.html",
+        filename: "docs/User-Facing-Guidance/AI_TAGGING.md",
         description: "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
     },
     AboutDocumentSpec {
