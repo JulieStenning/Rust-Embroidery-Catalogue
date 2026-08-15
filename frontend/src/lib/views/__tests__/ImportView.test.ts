@@ -445,7 +445,49 @@ describe("ImportView browse flows", () => {
     );
     expect(screen.getByLabelText("Source folder path 3")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Browse…" })).toHaveLength(3);
+
+    // Every row must retain its selected folder in order — the primary row must
+    // not be clobbered by the last appended folder.
+    expect(container.querySelector<HTMLInputElement>("#import-root-path")?.value).toBe("D:/A");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value).toBe("D:/B");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 3"]')?.value).toBe("D:/C");
     expect(adapterMocks.saveImportLastBrowseFolder).toHaveBeenCalledWith("D:/A");
+  });
+
+  it("keeps all four folders in order with no duplication when four are selected", async () => {
+    const { container, navigateTo } = renderStatic("#/import");
+    adapterMocks.browseImportFolder.mockResolvedValue(
+      browseResponse({ paths: ["D:/Folder1", "D:/Folder2", "D:/Folder3", "D:/Folder4"] })
+    );
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+    // All four selected folders are represented: primary + 3 appended rows.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Source folder path 4")).toBeInTheDocument()
+    );
+    expect(screen.getAllByRole("button", { name: "Browse…" })).toHaveLength(4);
+
+    const inputs = [
+      container.querySelector<HTMLInputElement>("#import-root-path"),
+      container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]'),
+      container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 3"]'),
+      container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 4"]'),
+    ];
+    const values = inputs.map((input) => input?.value ?? "");
+    expect(values).toEqual(["D:/Folder1", "D:/Folder2", "D:/Folder3", "D:/Folder4"]);
+    // No duplicate and no missing folder.
+    expect(new Set(values).size).toBe(4);
+
+    const form = element(container.querySelector<HTMLFormElement>("#importScanForm"));
+    await fireEvent.submit(form);
+    await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalled());
+    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith([
+      "D:/Folder1",
+      "D:/Folder2",
+      "D:/Folder3",
+      "D:/Folder4",
+    ]);
+    expect(navigateTo).toHaveBeenCalledWith("#/import/step2");
   });
 
   it("updates an extra row when its browse button is used", async () => {

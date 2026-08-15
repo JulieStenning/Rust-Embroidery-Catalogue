@@ -707,7 +707,6 @@
     if (!existingByLower.has(next.toLowerCase())) {
       importRootPaths = [...importRootPaths, next];
     }
-    importRootPath = next;
   }
 
   /** @param {string} path */
