@@ -29,7 +29,7 @@ struct AboutDocumentSpec {
     description: &'static str,
 }
 
-const DOCUMENTS: [AboutDocumentSpec; 6] = [
+const DOCUMENTS: [AboutDocumentSpec; 7] = [
     AboutDocumentSpec {
         slug: "disclaimer",
         title: "Disclaimer",
@@ -53,6 +53,12 @@ const DOCUMENTS: [AboutDocumentSpec; 6] = [
         title: "AI Tagging Guide",
         filename: "docs/User-Facing-Guidance/AI_TAGGING.md",
         description: "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
+    },
+    AboutDocumentSpec {
+        slug: "data-storage",
+        title: "Data Storage & External Drives Guide",
+        filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
+        description: "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
     },
     AboutDocumentSpec {
         slug: "third-party-notices",

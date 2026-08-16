@@ -9,8 +9,8 @@ import HelpView from "../HelpView.svelte";
 //
 // Behaviour under test:
 //   - Renders the page title and subtitle.
-//   - Renders all 7 in-page navigation links with the correct hrefs.
-//   - Renders all 7 help sections with their headings and key content.
+//   - Renders all 8 in-page navigation links with the correct hrefs.
+//   - Renders all 8 help sections with their headings and key content.
 // ---------------------------------------------------------------------------
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
@@ -64,12 +64,17 @@ describe("HelpView", () => {
   });
 
   describe("navigation links", () => {
-    it("renders all 7 section navigation links with correct hrefs", () => {
+    it("renders all 8 section navigation links with correct hrefs", () => {
       render(HelpView);
 
       const expectedLinks = [
         { text: "Search", href: "#/help?section=search", emoji: "🔍" },
         { text: "Importing", href: "#/help?section=importing", emoji: "📥" },
+        {
+          text: "Data Storage & External Drives",
+          href: "#/help?section=storage",
+          emoji: "💾",
+        },
         { text: "AI Tagging", href: "#/help?section=ai-tagging", emoji: "🤖" },
         {
           text: "Tagging Actions",
@@ -186,6 +191,48 @@ describe("HelpView", () => {
       const { container } = render(HelpView);
 
       const section = container.querySelector("#importing");
+      expect(section).not.toBeNull();
+      expect(section?.tagName).toBe("SECTION");
+    });
+  });
+
+  describe("storage section", () => {
+    it("renders the Data Storage & External Drives heading", () => {
+      render(HelpView);
+
+      expect(
+        screen.getByRole("heading", { name: "💾 Data Storage & External Drives" })
+      ).toBeInTheDocument();
+    });
+
+    it("renders the storage section content", () => {
+      const { container } = render(HelpView);
+      const section = sectionQueries(container, "storage");
+
+      expect(
+        section.getByText(
+          normalizedText(
+            "The catalogue manages two data components: your design files (copied from your original files) and the internal catalogue database containing images and other details about the designs."
+          )
+        )
+      ).toBeInTheDocument();
+
+      expect(section.getByText("Internal drives:")).toBeInTheDocument();
+      expect(section.getByText("External storage:")).toBeInTheDocument();
+      expect(section.getByText("SD card recommendation:")).toBeInTheDocument();
+      expect(section.getByText("Keep drives connected:")).toBeInTheDocument();
+      expect(section.getByText("Full guide:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", {
+        name: "Data Storage & External Drives Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/data-storage");
+    });
+
+    it("renders the storage section with a section id of 'storage'", () => {
+      const { container } = render(HelpView);
+
+      const section = container.querySelector("#storage");
       expect(section).not.toBeNull();
       expect(section?.tagName).toBe("SECTION");
     });
@@ -430,16 +477,17 @@ describe("HelpView", () => {
   });
 
   describe("structure", () => {
-    it("renders exactly 7 help sections with the expected ids", () => {
+    it("renders exactly 8 help sections with the expected ids", () => {
       const { container } = render(HelpView);
 
       const sections = Array.from(container.querySelectorAll("section"));
       const ids = sections.map((section) => section.id);
 
-      expect(sections).toHaveLength(7);
+      expect(sections).toHaveLength(8);
       expect(ids).toEqual([
         "search",
         "importing",
+        "storage",
         "ai-tagging",
         "tagging-actions",
         "projects",
@@ -454,14 +502,14 @@ describe("HelpView", () => {
       const links = Array.from(container.querySelectorAll("a"));
       const sections = container.querySelectorAll("section");
 
-      expect(links.length).toBeGreaterThanOrEqual(7);
-      expect(sections).toHaveLength(7);
+      expect(links.length).toBeGreaterThanOrEqual(8);
+      expect(sections).toHaveLength(8);
 
-      // Exactly 7 of the links are the in-page section navigators.
+      // Exactly 8 of the links are the in-page section navigators.
       const sectionNavigators = links.filter((link) =>
         (link.getAttribute("href") || "").startsWith("#/help?section=")
       );
-      expect(sectionNavigators).toHaveLength(7);
+      expect(sectionNavigators).toHaveLength(8);
     });
   });
 });

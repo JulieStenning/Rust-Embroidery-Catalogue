@@ -1515,6 +1515,13 @@ export async function getAboutDocuments() {
         available: false,
       },
       {
+        slug: "data-storage",
+        title: "Data Storage & External Drives Guide",
+        description: "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
+        filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
+        available: false,
+      },
+      {
         slug: "third-party-notices",
         title: "Third-Party Notices",
         description: "Licensing and attribution information for bundled and dependency software.",

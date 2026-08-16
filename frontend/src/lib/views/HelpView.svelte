@@ -7,6 +7,7 @@
   <nav class="flex flex-wrap gap-3 text-sm no-print">
     <a href="#/help?section=search" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔍 Search</a>
     <a href="#/help?section=importing" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a>
+    <a href="#/help?section=storage" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">💾 Data Storage & External Drives</a>
     <a href="#/help?section=ai-tagging" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a>
     <a href="#/help?section=tagging-actions" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🏷 Tagging Actions</a>
     <a href="#/help?section=projects" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📁 Projects</a>
@@ -41,6 +42,20 @@
       <p><strong>Tag check before import:</strong> first import asks for tag review, later imports can continue directly.</p>
       <p><strong>AI tagging notice:</strong> blue notice for Tier 1 only; amber notice when API key is configured.</p>
       <p><strong>Error files and large scans:</strong> unreadable files are skipped; large scans may summarise rows.</p>
+    </div>
+  </section>
+
+  <section id="storage">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">💾 Data Storage & External Drives</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      The catalogue manages two data components: your design files (copied from your original files) and the internal catalogue database containing images and other details about the designs.
+    </p>
+    <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
+      <p><strong>Internal drives:</strong> work automatically with no extra setup.</p>
+      <p><strong>External storage:</strong> SD cards, portable SSDs, and USB drives are supported for your library.</p>
+      <p><strong>SD card recommendation:</strong> use an Application Performance Class "A2" card (e.g. A2 V30/U3) for responsive thumbnail browsing and scanning of the design files.</p>
+      <p><strong>Keep drives connected:</strong> connect external drives before launching and safely eject them before unplugging.</p>
+      <p><strong>Full guide:</strong> open the <a href="#/about/document/data-storage" class="text-indigo-600 hover:underline">Data Storage & External Drives Guide</a>.</p>
     </div>
   </section>
 

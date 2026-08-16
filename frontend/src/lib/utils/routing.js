@@ -39,6 +39,7 @@ export const ROUTE_UI_KIND = {
 export const HELP_SECTION_IDS = new Set([
   "search",
   "importing",
+  "storage",
   "ai-tagging",
   "tagging-actions",
   "projects",
