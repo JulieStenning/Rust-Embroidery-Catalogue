@@ -32,6 +32,24 @@
   let currentRoute = $state("");
   let previousRoute = $state("");
   let currentUiKind = $derived(resolveCurrentUiKind(currentRoute));
+
+  // Utility/reference pages (About, Licensing/AI-Tagging docs, Help, Settings)
+  // are cross-linked from many places. Show a context-aware "Back" button that
+  // returns to the page the user actually came from (e.g. Import step 3), and
+  // hide it when there is no previous route (e.g. app launched directly here).
+  const UTILITY_UI_KINDS_WITH_BACK = new Set(["settings", "about", "about-document", "help"]);
+  let showBackButton = $derived(
+    UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) &&
+    Boolean(previousRoute) &&
+    previousRoute !== currentRoute
+  );
+
+  /** Return to the page the user came from. */
+  function goBack() {
+    if (previousRoute) {
+      navigateTo(previousRoute);
+    }
+  }
   let detailDesignId = $derived(parseDesignDetailId(currentRoute));
   let printDesignId = $derived(parseDesignPrintId(currentRoute));
   let projectDetailId = $derived(parseProjectDetailId(currentRoute));
@@ -127,6 +145,11 @@
 </nav>
 
 <main class="max-w-7xl mx-auto px-4 py-6 font-sans">
+  {#if showBackButton}
+    <div class="ui-action-button-group flex flex-wrap gap-2 mb-4 no-print">
+      <button type="button" class="menu-button-secondary ui-action-button" onclick={goBack}>&larr; Back</button>
+    </div>
+  {/if}
   {#if currentUiKind === "browse"}
     <BrowseView
       {navigateTo}

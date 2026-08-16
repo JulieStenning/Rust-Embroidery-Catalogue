@@ -472,6 +472,90 @@ describe("MainView.svelte", () => {
     expect(screen.getByTestId("import-view")).toBeInTheDocument();
   });
 
+  // --- Context-aware Back button -------------------------------------------------
+
+  it("shows a Back button on a utility page arrived from another page", async () => {
+    // Start on Browse, then navigate to Settings via click/menu.
+    render(MainView);
+    expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+    setHash("#/admin/settings");
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    });
+
+    // A previous route exists, so the context-aware back button appears.
+    const backButton = screen.getByRole("button", { name: /\u2190 Back/ });
+    expect(backButton).toBeInTheDocument();
+  });
+
+  it("returns to the previous page when Back is clicked", async () => {
+    render(MainView);
+
+    setHash("#/admin/settings");
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole("button", { name: /\u2190 Back/ }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("settings-view")).not.toBeInTheDocument();
+  });
+
+  it("shows Back on About and Licence pages when a previous route exists", async () => {
+    render(MainView);
+
+    setHash("#/about");
+    await waitFor(() => {
+      expect(screen.getByTestId("about-view")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /\u2190 Back/ })).toBeInTheDocument();
+  });
+
+  it("does not show a Back button when launched directly on a utility page", () => {
+    setHash("#/admin/settings");
+    render(MainView);
+
+    expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
+  });
+
+  it("shows a Back button on the Help page arrived from Import step 1", async () => {
+    render(MainView);
+
+    setHash("#/import/step1");
+    await waitFor(() => {
+      expect(screen.getByTestId("import-view")).toBeInTheDocument();
+    });
+
+    setHash("#/help?section=importing");
+    await waitFor(() => {
+      expect(screen.getByTestId("help-view")).toBeInTheDocument();
+    });
+
+    const backButton = screen.getByRole("button", { name: /\u2190 Back/ });
+    expect(backButton).toBeInTheDocument();
+
+    await fireEvent.click(backButton);
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#/import/step1");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("import-view")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show a Back button on non-utility pages", () => {
+    setHash("#/designs/123");
+    render(MainView);
+
+    expect(screen.getByTestId("design-detail-view")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
+  });
+
   // --- Import completion callback ----------------------------------------------
 
   it("sets browseNeedsRefresh when import completes with items", async () => {
