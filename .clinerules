@@ -112,6 +112,12 @@ When making changes to Svelte components or Rust backend files:
 - Prefer small, localized search-and-replace diffs (replace_in_file).
 - If an edit impacts more than ~30 lines or rewrites significant parts of a view, use write_to_file to replace the full file content rather than generating a massive diff.
 
+### 5. Route-Level State Persistence
+- **`MainView.svelte` conditionally mounts exactly one view per `currentUiKind`.** Any route change that leaves that UI kind unmounts the view and destroys its local `$state`. Do **not** keep multi-step wizard state only in component locals if the user can navigate away and expect to return (e.g. Import step 3 linking to Admin Settings / AI Tagging Guide / About / Licence).
+- Lift such state into a module-level store (see `frontend/src/lib/stores/importSessionStore.ts`): restore it on mount, mirror every change back via `$effect`, and call its `clear()` from the wizard's reset/cancel paths. Remember to clear the store in each test's `beforeEach` (a module singleton persists across tests).
+- **Shared cross-linked navigation:** for utility/reference pages reachable from many places (About, Licence, Settings, Help, AI-Tagging Guide), use **context-aware back navigation** via `previousRoute` (already tracked in `MainView.svelte`) rather than a hardcoded "Back to X". Show the button only when a previous route actually exists.
+- **Backend-minted tokens may expire:** persisting only the frontend state is insufficient if it references a backend token with a TTL (e.g. the bulk-import `context_token` from `precheck_bulk_import_wire` expires after ~15 minutes). Detect the "expired/unknown context token" failure and re-run the precheck from preserved selections to mint a fresh token.
+
 ---
 
 ## 🧪 Svelte 5 View Testing Rules
@@ -132,7 +138,7 @@ const cards = screen.getAllByRole("article");      // ← synchronous, DOM is se
 
 **Never** use `await new Promise((resolve) => setTimeout(resolve))` — it's non-deterministic and slow. **Avoid** `waitFor(() => screen.getAllByRole(...))` — the polling loop fights Svelte's microtask queue.
 
-> **Scope of this rule:** `tick()` flushes **synchronous** reactive updates. It does **not** replace `waitFor` for flows that trigger an **async** data fetch (e.g. a filter change that calls `loadItems()` and re-renders only after the (mocked) promise resolves) — those still need `waitFor` per Rule #3. It also does not replace the one-time effect-gate in a `settle()` helper, where `waitFor(() => expect(adapter).toHaveBeenCalled())` waits for the first `$effect` invocation before a `tick()` settles the DOM.
+> **Scope of this rule:** `tick()` flushes **synchronous** reactive updates. It does **not** replace `waitFor` for flows that trigger an **async** data fetch (e.g. a filter change that calls `loadItems()` and re-renders only after the (mocked) promise resolves) — those still need `waitFor` per Rule #3. It also does not replace the one-time effect-gate in a `settle()` helper, where `waitFor(() => expect(adapter).toHaveBeenCalled())` waits for the first `$effect` invocation before a `tick()` settles the DOM. Likewise, after a `navigateTo()` / hashchange re-render, assert the **newly mounted view** with `waitFor` (e.g. `waitFor(() => screen.getByTestId("import-view"))`) — a synchronous `getByTestId` immediately after the click races Svelte's async re-render and fails.
 
 ### 2. Scope `getByText` with `within()` when text appears in multiple DOM regions
 
@@ -215,6 +221,20 @@ cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"
 ```
 cd frontend && npx svelte-check --tsconfig ./jsconfig.json
 ```
+
+**Run Vitest from the repo root — never from inside `frontend/`.** The Vitest config
+(`vitest.config.mts`) and jsdom setup (`vitest.setup.ts`) live at the **repo root** and are
+**silently dropped** when you run `npx vitest` from inside `frontend/`, causing every test to
+fail with `ReferenceError: document is not defined` (visible as `setup: 0ms`,
+`environment: 0ms`). Use the repo-root invocation with paths relative to the repo root:
+
+```
+cmd /c "npx vitest run frontend/src/__tests__/MainView.test.ts"
+```
+
+`frontend/package.json` defines no `test` script, so `cd frontend && npx vitest` is the wrong
+form. Treat a wall of `document is not defined` failures as a test-runner invocation problem
+first, not a code problem.
 
 ---
 
