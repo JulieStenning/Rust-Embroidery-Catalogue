@@ -1080,14 +1080,6 @@
             Reset
           </button>
         </div>
-
-        {#if importPreview}
-          <div class="grid sm:grid-cols-3 gap-3 text-sm pt-2">
-            <div class="ui-section-shell import-metric-card bg-gray-50 border rounded p-3 text-center">Source: <strong>{importPreviewSource}</strong></div>
-            <div class="ui-section-shell import-metric-card bg-gray-50 border rounded p-3 text-center">Discovered: <strong>{importPreview.discovered_count ?? 0}</strong></div>
-            <div class="ui-section-shell import-metric-card bg-gray-50 border rounded p-3 text-center">Folders: <strong>{importPreview.folder_count ?? 0}</strong></div>
-          </div>
-        {/if}
       </form>
     </div>
   {/if}
