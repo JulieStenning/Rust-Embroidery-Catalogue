@@ -11,6 +11,7 @@ const completeInitialSetupMock = vi.hoisted(() => vi.fn());
 const getAppStatusMock = vi.hoisted(() => vi.fn());
 const getConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
+const configureFreshDataRootMock = vi.hoisted(() => vi.fn());
 const browseDataRootFolderMock = vi.hoisted(() => vi.fn());
 const restartApplicationMock = vi.hoisted(() => vi.fn());
 const getGoogleApiKeyMock = vi.hoisted(() => vi.fn());
@@ -22,6 +23,7 @@ vi.mock("../lib/api/commandAdapter", () => ({
   getAppStatus: getAppStatusMock,
   getConfiguredDataRoot: getConfiguredDataRootMock,
   setConfiguredDataRoot: setConfiguredDataRootMock,
+  configureFreshDataRoot: configureFreshDataRootMock,
   browseDataRootFolder: browseDataRootFolderMock,
   restartApplication: restartApplicationMock,
   getGoogleApiKey: getGoogleApiKeyMock,
@@ -89,7 +91,7 @@ function mockInstalledNoConfig() {
     },
   });
   getConfiguredDataRootMock.mockResolvedValue({ source: "rust", path: null });
-  setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+  configureFreshDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
   browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
   restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
 }
@@ -113,7 +115,7 @@ function mockInstalledDataRootMissing() {
     source: "rust",
     path: "G:/OldPortableData",
   });
-  setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+  configureFreshDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
   browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
   restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
 }
@@ -137,7 +139,7 @@ function mockInstalledWithConfig() {
     source: "rust",
     path: "D:/ExistingData",
   });
-  setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+  configureFreshDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
   browseDataRootFolderMock.mockResolvedValue({ source: "rust", path: null });
   restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
 }
@@ -530,7 +532,7 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
 
     await waitFor(() => {
-      expect(setConfiguredDataRootMock).toHaveBeenCalledWith(
+      expect(configureFreshDataRootMock).toHaveBeenCalledWith(
         "D:/EmbroideryCatalogue/Data"
       );
     });
@@ -622,7 +624,7 @@ describe("InitialSetupView.svelte", () => {
     expect(
       screen.getByText("Please enter a data location or choose a folder.")
     ).toBeInTheDocument();
-    expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
+    expect(configureFreshDataRootMock).not.toHaveBeenCalled();
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
   });
 
@@ -673,7 +675,7 @@ describe("InitialSetupView.svelte", () => {
     expect(screen.getByTestId("initial-setup-api-key-input")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
+    expect(configureFreshDataRootMock).not.toHaveBeenCalled();
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
   });
 });

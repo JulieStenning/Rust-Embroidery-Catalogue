@@ -12,6 +12,7 @@ import {
   checkInitialSetup,
   compactDatabase,
   completeInitialSetup,
+  configureFreshDataRoot,
   createDesigner,
   createHoop,
   createProject,
@@ -2524,5 +2525,41 @@ describe("commandAdapter initial setup & app status", () => {
     expect(result.source).toBe("mock");
     expect(result.status).toBeNull();
     expect(result.error).toContain("not available");
+  });
+
+  it("configureFreshDataRoot invokes with the camelCase dataRoot key", async () => {
+    invokeMock.mockResolvedValue(undefined);
+
+    const result = await configureFreshDataRoot("F:/FreshData");
+
+    // The exact camelCase wire key Tauri expects to map to `data_root`.
+    expect(invokeMock).toHaveBeenCalledWith("configure_fresh_data_root", {
+      dataRoot: "F:/FreshData",
+    });
+    expect(result).toEqual({ source: "rust", persisted: true });
+  });
+
+  it("configureFreshDataRoot rejects an empty data root without invoking", async () => {
+    const empty = await configureFreshDataRoot("   ");
+    expect(empty).toEqual({
+      source: "mock",
+      persisted: false,
+      error: "Data root cannot be empty.",
+    });
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    const missing = await configureFreshDataRoot("");
+    expect(missing.persisted).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("configureFreshDataRoot falls back to mock on error", async () => {
+    mockReject(new Error("config write failed"));
+
+    const result = await configureFreshDataRoot("F:/FreshData");
+
+    expect(result.source).toBe("mock");
+    expect(result.persisted).toBe(false);
+    expect(result.error).toContain("config write failed");
   });
 });

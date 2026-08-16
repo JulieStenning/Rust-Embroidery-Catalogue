@@ -2761,6 +2761,38 @@ export async function setConfiguredDataRoot(dataRoot: string): Promise<{
 }
 
 /**
+ * Persist the user-chosen data root for Installed mode **and** seed a fresh
+ * database for a brand-new installation.
+ *
+ * This is the first-run setup path only — it is called the moment the user
+ * answers the "where should your data live?" prompt. The Rust command writes
+ * the bootstrap config and force-copies the embedded seed DB into
+ * `<data_root>/Database/`, overwriting any stale leftover file from a previous
+ * uninstall. Subsequent launches and Settings relocation use
+ * `setConfiguredDataRoot` instead (which never touches the database).
+ *
+ * @param {string} dataRoot - Absolute path to the desired data root.
+ * @returns {Promise<{ source: string, persisted: boolean, error?: string }>}
+ */
+export async function configureFreshDataRoot(dataRoot: string): Promise<{
+  source: string;
+  persisted: boolean;
+  error?: string;
+}> {
+  const normalized = String(dataRoot || "").trim();
+  if (!normalized) {
+    return { source: "mock", persisted: false, error: "Data root cannot be empty." };
+  }
+  try {
+    await invokeLoose("configure_fresh_data_root", { dataRoot: normalized });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    console.info("configure_fresh_data_root failed.", error);
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
  * Open a native folder picker to choose the data root for Installed mode.
  *
  * @param {string} [startDir] - Optional starting directory for the picker.

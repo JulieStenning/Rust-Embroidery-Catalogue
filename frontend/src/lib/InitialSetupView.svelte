@@ -6,11 +6,11 @@
   import {
     browseDataRootFolder,
     completeInitialSetup,
+    configureFreshDataRoot,
     getAppStatus,
     getConfiguredDataRoot,
     getGoogleApiKey,
     restartApplication,
-    setConfiguredDataRoot,
     setGoogleApiKey,
   } from "./api/commandAdapter";
   import { addToast } from "./stores/toastStore.js";
@@ -217,7 +217,7 @@
         finishing = false;
         return;
       }
-      const saved = await setConfiguredDataRoot(trimmed);
+      const saved = await configureFreshDataRoot(trimmed);
       if (!saved.persisted) {
         error = `Could not save the data location: ${saved.error || "unknown error"}.`;
         finishing = false;

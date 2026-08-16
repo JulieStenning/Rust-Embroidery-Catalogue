@@ -127,15 +127,56 @@ fn dev_data_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("dev_data")
 }
 
-/// Attempt to copy the bundled seed database to `database_path`.
+/// Embedded pre-migrated seed database bytes (compacted to ~180 KB).
+/// Path is relative to this source file (`src/paths.rs`).
+const SEED_DB_BYTES: &[u8] = include_bytes!("../src-tauri/resources/EmbroideryCatalogue.db");
+
+/// Copy the bundled seed database to `data_root/Database/EmbroideryCatalogue.db`,
+/// overwriting any existing file.
 ///
-/// Runs in every execution mode. If the copy succeeds the database is
-/// initialised from the curated seed content; on failure the app falls back
-/// to the SQLx migration path (creating an empty schema).
+/// This is used only on a **fresh install**: the moment the user answers the
+/// first-run "where should your data live?" prompt. Because the seed DB is
+/// pre-migrated and contains no design rows, overwriting is safe for a brand
+/// new catalogue. Normal launches must NOT call this (it would destroy a real
+/// catalogue) — see `ensure_seed_database_if_missing`.
+pub fn copy_seed_database_to(data_root: &Path) -> Result<(), AppError> {
+    let database_dir = data_root.join("Database");
+    let database_path = database_dir.join(DATABASE_FILENAME);
+
+    std::fs::create_dir_all(&database_dir).map_err(|err| {
+        AppError::io(format!(
+            "failed to create database directory {}: {err}",
+            database_dir.display()
+        ))
+    })?;
+
+    std::fs::write(&database_path, SEED_DB_BYTES).map_err(|err| {
+        AppError::io(format!(
+            "failed to write seed database {}: {err}",
+            database_path.display()
+        ))
+    })?;
+
+    // Cannot use tracing here because this may run before the subscriber is
+    // initialised; print to stderr instead.
+    eprintln!(
+        "[EmbroideryCatalogue] Seeded fresh database from bundled resource -> {}",
+        database_path.display()
+    );
+
+    Ok(())
+}
+
+/// Attempt to copy the bundled seed database to `database_path` when the file
+/// does not already exist.
+///
+/// This runs on every launch for the standard (non-fresh-install) flow. If a
+/// database already exists it is left untouched — never overwritten. On write
+/// failure the app falls back to the SQLx migration path (empty schema).
 fn copy_seed_database_if_missing(database_path: &Path) {
-    /// Embedded pre-migrated seed database bytes (compacted to ~180 KB).
-    /// Path is relative to this source file (`src/paths.rs`).
-    const SEED_DB_BYTES: &[u8] = include_bytes!("../src-tauri/resources/EmbroideryCatalogue.db");
+    if database_path.exists() {
+        return;
+    }
 
     if let Some(parent) = database_path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -143,9 +184,6 @@ fn copy_seed_database_if_missing(database_path: &Path) {
 
     match std::fs::write(database_path, SEED_DB_BYTES) {
         Ok(_) => {
-            // Cannot use tracing here because the subscriber might not be set up yet;
-            // we print to stderr instead.  In practice this runs once per installation
-            // so it is acceptable.
             eprintln!(
                 "[EmbroideryCatalogue] Seeded fresh database from bundled resource -> {}",
                 database_path.display()

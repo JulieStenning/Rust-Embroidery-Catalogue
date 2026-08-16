@@ -112,6 +112,28 @@ fn set_configured_data_root(data_root: String) -> Result<(), String> {
     paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())
 }
 
+/// Persist the user-chosen data root **and** seed a fresh database for a
+/// brand-new installation.
+///
+/// This is the first-run setup path: the user has just answered the "where
+/// should your data live?" prompt. It writes `config.json` and force-copies
+/// the embedded seed database into `<data_root>/Database/`. It deliberately
+/// OVERWRITES any existing DB file because a fresh install has no catalogue —
+/// a leftover stale file from an uninstalled build must be replaced with the
+/// current seed schema. Normal launches and Settings relocation must NOT use
+/// this command (they use `set_configured_data_root`, which never touches the
+/// database).
+#[tauri::command]
+fn configure_fresh_data_root(data_root: String) -> Result<(), String> {
+    let trimmed = data_root.trim();
+    if trimmed.is_empty() {
+        return Err("Data root cannot be empty.".to_string());
+    }
+    let path = std::path::PathBuf::from(trimmed);
+    paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())?;
+    paths::copy_seed_database_to(&path).map_err(|err| err.to_string())
+}
+
 /// Open a native folder picker to choose the data root for Installed mode.
 ///
 /// Follows the existing `browse_backup_folder`/`browse_import_folder` pattern
@@ -347,6 +369,7 @@ fn main() {
             get_app_status,
             get_configured_data_root,
             set_configured_data_root,
+            configure_fresh_data_root,
             browse_data_root_folder,
             restart_application,
             config::debug_bootstrap_config,
