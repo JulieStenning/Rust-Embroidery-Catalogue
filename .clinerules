@@ -46,10 +46,17 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
   ```
 - **Adapter tests MUST assert exact camelCase keys:** Every `commandAdapter` test that mocks `invoke()` MUST assert the exact camelCase payload keys that Tauri expects to exchange with the Rust command. Tests pass with snake_case keys because the mock never performs Tauri deserialization — they only pass if they check the exact wire keys.
 - **Diagnose IPC failures first:** If a Rust command logs `Option<T>` parameters as `None` even though the frontend set them, check the invoke key casing in the adapter before anything else. This is the most common silent IPC failure in Tauri v2.
+- **`AppHandle::path()` needs the `Manager` trait:** Tauri v2's `PathResolver` (used for `app_handle.path().document_dir()` etc.) comes from the `Manager` trait. Without `use tauri::Manager;` you get `no method named "path" found for AppHandle`. Prefer `app_handle.path().document_dir()` over hand-rolled env-var Documents resolution.
 
 ### 3. Frontend Isolation
 - Svelte components must **not** call `invoke()` directly. 
 - Abstract all Tauri IPC calls into dedicated TypeScript service modules under `src/lib/services/` (e.g., `src/lib/services/db.ts`, `src/lib/services/parser.ts`).
+
+### 4. Catalogue Data Root Persistence
+- **The catalogue data root is persisted ONLY to the bootstrap `config.json`** via `paths::write_bootstrap_data_root` / the `set_configured_data_root` Tauri command — **never** to the SQLite settings table.
+- `save_settings_view_model_inner` deliberately ignores `request.data_root` (the `let _ = request.data_root;` line). This is by design: the SQLite database file lives *under* the data root, so the DB cannot store its own location (bootstrapping chicken-and-egg).
+- After a data-root change is persisted, the app **must restart** for the running backend to relocate. A settings-table save alone does NOT relocate the catalogue.
+- The Settings "Browse…" flow should therefore: pick the folder → `setConfiguredDataRoot(path)` → show a restart-required dialog (same pattern as `InitialSetupView.svelte`).
 
 ---
 
@@ -57,6 +64,7 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 - **Zero Panics:** Absolute ban on `unwrap()` or `expect()` in binary parsing modules. Handle all out-of-bounds, empty, or malformed files gracefully via strict error types. Always write idiomatic Rust with clear, robust error types.
 - **Performance-Focused I/O:** Use buffered readers (`BufReader`) and streaming/lazy parsing logic where possible to avoid loading huge design buffers into memory at once.
 - **Automated Verification:** You **MUST** run `cargo check` or `cargo test` after editing any Rust code to ensure the borrow checker is completely satisfied and the project compiles before asking for user feedback.
+- **Native folder pickers (`rfd`):** `FileDialog::set_directory` silently falls back to a system default when given a non-existent/unreadable path. Always validate + resolve the start directory (existence + `read_dir()` readability probe) before calling it, and pass an explicit known-good fallback (e.g. `app_handle.path().document_dir()`) rather than relying on rfd's implicit default. A `pick_folder()` `None` result means the user cancelled.
 
 ### 📏 Test File Separation Rule
 
@@ -85,7 +93,9 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
 **Verification**
 - **MUST** run `cargo check` immediately after extraction.
 - **MUST** run `cargo test <module>` to confirm all tests pass through the `#[path]` indirection.
-- `rustfmt --edition 2024` must be applied to the new test file.
+- `rustfmt --edition 2021` must be applied to the new test file (the crate
+  uses `edition = "2021"` in `Cargo.toml` — never format with a mismatched
+  edition).
 
 ---
 
@@ -241,6 +251,17 @@ cmd /c "npx vitest run frontend/src/__tests__/MainView.test.ts"
 `frontend/package.json` defines no `test` script, so `cd frontend && npx vitest` is the wrong
 form. Treat a wall of `document is not defined` failures as a test-runner invocation problem
 first, not a code problem.
+
+**Never run `cargo fmt -- <paths>` to format specific files.** The trailing args are passed
+to `rustfmt` as *options*, so `cargo fmt` will reformat the **entire crate**. To format only
+specific files, invoke `rustfmt` directly:
+
+```
+rustfmt --edition 2021 src/routes/settings.rs src/services/settings.rs
+```
+
+If `git status` suddenly shows dozens of modified `.rs` files after a format step, assume this
+gotcha and revert the incidental ones with `git checkout --`.
 
 ---
 
