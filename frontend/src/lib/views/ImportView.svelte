@@ -1,5 +1,7 @@
 <script>
   import { onMount, onDestroy, untrack } from "svelte";
+  import { get } from "svelte/store";
+  import { importSessionStore } from "../stores/importSessionStore";
   import {
     listDesigners,
     listSources,
@@ -59,12 +61,83 @@
   let importNowInProgress = $derived(importActionLoading && importActionInProgress === "import_now");
   let importRouteStep = $derived(parseImportWizardStep(currentRoute));
 
+  // Guards the stale-context recovery path so an expired token can never loop.
+  let importRecoveryInProgress = $state(false);
+
   /** @param {string} route */
   function parseImportWizardStep(route) {
     if (route === "#/import") return 1;
     const match = route.match(/^#\/import\/step([123])$/);
     return match ? Number(match[1]) : null;
   }
+
+  // -------------------------------------------------------------------------
+  // Session-store bridging
+  // -------------------------------------------------------------------------
+  // ImportView's local `$state` is destroyed whenever the route leaves "import"
+  // (clicking Admin Settings, AI Tagging Guide, About or Licence from the step 3
+  // "Before You Import" panel unmounts this component via MainView).  We snapshot
+  // the wizard into a singleton store on every change so returning to
+  // #/import/step2 or #/import/step3 restores all selections.
+  // -------------------------------------------------------------------------
+
+  /** @returns {any} */
+  function buildImportSessionSnapshot() {
+    return {
+      rootPath: importRootPath,
+      rootPaths: importRootPaths,
+      preview: importPreview,
+      previewSource: importPreviewSource,
+      previewMessage: importPreviewMessage,
+      precheck: importPrecheck,
+      precheckSource: importPrecheckSource,
+      precheckMessage: importPrecheckMessage,
+      selectedFiles: importSelectedFiles,
+      contextToken: importContextToken,
+      globalDesignerId: importGlobalDesignerId,
+      globalSourceId: importGlobalSourceId,
+      perFolderAssignmentByPath: importPerFolderAssignmentByPath,
+      actionMessage: importActionMessage,
+      actionSource: importActionSource,
+      actionNeedsSkipHoopsConfirm: importActionNeedsSkipHoopsConfirm,
+    };
+  }
+
+  /** @param {any} snapshot */
+  function applyImportSessionSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return;
+    importRootPath = String(snapshot.rootPath || "");
+    importRootPaths = Array.isArray(snapshot.rootPaths) ? snapshot.rootPaths.slice() : [];
+    importPreview = snapshot.preview || null;
+    importPreviewSource = String(snapshot.previewSource || "mock");
+    importPreviewMessage = String(snapshot.previewMessage || "");
+    importPrecheck = snapshot.precheck || null;
+    importPrecheckSource = String(snapshot.precheckSource || "mock");
+    importPrecheckMessage = String(snapshot.precheckMessage || "Run precheck after selecting files.");
+    importSelectedFiles = Array.isArray(snapshot.selectedFiles) ? snapshot.selectedFiles.slice() : [];
+    importContextToken = String(snapshot.contextToken || "");
+    importGlobalDesignerId = String(snapshot.globalDesignerId || "");
+    importGlobalSourceId = String(snapshot.globalSourceId || "");
+    importPerFolderAssignmentByPath = snapshot.perFolderAssignmentByPath &&
+      typeof snapshot.perFolderAssignmentByPath === "object"
+      ? { ...snapshot.perFolderAssignmentByPath }
+      : {};
+    importActionMessage = String(snapshot.actionMessage || "");
+    importActionSource = String(snapshot.actionSource || "mock");
+    importActionNeedsSkipHoopsConfirm = Boolean(snapshot.actionNeedsSkipHoopsConfirm);
+  }
+
+  let importSessionRestored = $state(false);
+
+  // Restore the snapshot the first time this instance mounts, then mirror every
+  // subsequent state change back into the store so it survives unmount.
+  $effect(() => {
+    if (!importSessionRestored) {
+      importSessionRestored = true;
+      applyImportSessionSnapshot(get(importSessionStore));
+    }
+    importSessionStore.setSession(buildImportSessionSnapshot());
+  });
 
   async function loadSettingsFromBackend() {
     if (settingsLoading || settingsLoaded) return;
@@ -440,6 +513,43 @@
     return null;
   }
 
+  /**
+   * Detect whether an import_now failure was caused by the backend's bulk-import
+   * context token expiring (the backend stores tokens for a 15-minute TTL).  The
+   * adapter degrades such failures to a mock result with no next_route and a
+   * message describing the expired/unknown token.
+   * @param {any} actionResult
+   * @param {string} message
+   */
+  function isExpiredImportContextFailure(actionResult, message) {
+    if (actionResult?.next_route) return false;
+    const text = String(actionResult?.message || message || "");
+    return /expired/i.test(text) && /context token/i.test(text);
+  }
+
+  /**
+   * Recover from an expired bulk-import context token.  The user may have
+   * lingered on a top-level page (Admin Settings, AI Tagging Guide, About,
+   * Licence) longer than the backend's token TTL.  Re-run the precheck from the
+   * preserved selections to mint a fresh token, then retry the original action.
+   * @param {string} action @param {boolean} confirmSkipHoops
+   */
+  async function recoverExpiredImportContext(action, confirmSkipHoops = false) {
+    if (importRecoveryInProgress) return;
+    importRecoveryInProgress = true;
+    try {
+      addToast("Import context expired. Re-checking your selections before retrying...", "info");
+      await runImportPrecheck();
+      if (!importContextToken) {
+        addToast("Could not refresh the import context. Please review and retry.", "error");
+        return;
+      }
+      await executeImportPrecheckAction(action, confirmSkipHoops);
+    } finally {
+      importRecoveryInProgress = false;
+    }
+  }
+
   /** @param {string} action @param {boolean} [confirmSkipHoops] */
   async function executeImportPrecheckAction(action, confirmSkipHoops = false) {
     if (!importContextToken) {
@@ -493,7 +603,11 @@
         }
         navigateTo(hashRoute);
       } else if (action === "import_now") {
-        addToast(actionMessage || "Import failed. Check the console for details and try again.", "error");
+        if (isExpiredImportContextFailure(actionResult, actionMessage)) {
+          await recoverExpiredImportContext(action, confirmSkipHoops);
+        } else {
+          addToast(actionMessage || "Import failed. Check the console for details and try again.", "error");
+        }
       }
     } catch (error) {
       addToast(`Import action failed: ${error}`, "error");
@@ -758,6 +872,8 @@
     importGlobalDesignerId = "";
     importGlobalSourceId = "";
     importPerFolderAssignmentByPath = {};
+
+    importSessionStore.clear();
 
     navigateTo("#/import/step1");
   }

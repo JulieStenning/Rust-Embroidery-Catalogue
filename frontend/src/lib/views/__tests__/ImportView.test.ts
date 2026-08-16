@@ -4,6 +4,7 @@ import { render, screen, waitFor, fireEvent, within } from "@testing-library/sve
 import { tick } from "svelte";
 import ImportView from "../ImportView.svelte";
 import ImportTestHarness from "./ImportTestHarness.svelte";
+import { importSessionStore } from "../../stores/importSessionStore";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -156,7 +157,7 @@ function renderHarness(initialRoute = "#/import") {
   const view = render(ImportTestHarness, {
     props: { initialRoute, onImportCompleted, onNavigate },
   });
-  return { onNavigate, onImportCompleted, container: view.container };
+  return { onNavigate, onImportCompleted, container: view.container, view };
 }
 
 /**
@@ -200,6 +201,7 @@ async function gotoStep3(container: HTMLElement, path = "C:\\Designs") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  importSessionStore.clear();
 
   adapterMocks.listDesigners.mockResolvedValue(listResponse(defaultDesigners()));
   adapterMocks.listSources.mockResolvedValue(listResponse(defaultSources()));
@@ -1287,6 +1289,88 @@ describe("ImportView step 3 actions", () => {
     );
   });
 
+});
+
+// ---------------------------------------------------------------------------
+// Wizard session survival across route changes
+// ---------------------------------------------------------------------------
+describe("ImportView wizard session survival", () => {
+  it("restores step 3 with all selections after ImportView is unmounted and remounted", async () => {
+    // Reach step 3 exactly as the user would.
+    const { view, container } = renderHarness("#/import");
+    await gotoStep3(container);
+    expect(screen.getByRole("button", { name: "Import Designs" })).toBeEnabled();
+
+    // Simulate clicking Admin Settings / AI Tagging Guide / About / Licence:
+    // MainView unmounts ImportView, destroying its local $state.
+    view.unmount();
+
+    // Return to the wizard on the step 3 hash (e.g. browser Back).  The session
+    // store must restore the precheck, selected files, and context token so the
+    // "Before You Import" panel renders ready to import again.
+    renderHarness("#/import/step3");
+    await waitFor(() =>
+      expect(screen.getByText("Before You Import")).toBeInTheDocument()
+    );
+    expect(screen.getByRole("button", { name: "Import Designs" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  });
+
+  it("restores step 2 review with selections after unmount and remount", async () => {
+    const { view, container } = renderHarness("#/import");
+    await gotoStep2(container);
+    expect(screen.getByRole("button", { name: "Continue with 3 designs" })).toBeInTheDocument();
+
+    view.unmount();
+
+    // Returning to #/import/step2 after visiting a top-level page restores the
+    // scanned preview and the user's file selection.
+    renderHarness("#/import/step2");
+    await waitFor(() =>
+      expect(screen.getByText("Review scanned files")).toBeInTheDocument()
+    );
+    expect(screen.getByRole("button", { name: "Continue with 3 designs" })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stale backend context token recovery
+// ---------------------------------------------------------------------------
+describe("ImportView stale context token recovery", () => {
+  it("re-runs the precheck and retries the import when the backend token expires", async () => {
+    const { container, onImportCompleted, onNavigate } = renderHarness("#/import");
+    await gotoStep3(container);
+
+    // First runPrecheckAction call simulates the backend rejecting the token
+    // (15-minute TTL elapsed while the user was on a top-level page).  The
+    // adapter degrades to a mock result with no next_route and the expired
+    // token message.
+    adapterMocks.runPrecheckAction.mockResolvedValueOnce({
+      source: "mock",
+      actionResult: {
+        action: "import_now",
+        context_token_present: false,
+        consumed_context: false,
+        requires_skip_hoops_confirmation: false,
+        next_route: null,
+        confirm_result: null,
+      },
+      message: "Import action failed: Unknown or expired bulk import context token: tok-123",
+    });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
+
+    // Recovery re-runs the precheck to mint a fresh token, then retries.
+    await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalledTimes(2));
+    expect(toastMocks.addToast).toHaveBeenCalledWith(
+      "Import context expired. Re-checking your selections before retrying...",
+      "info"
+    );
+
+    // The retried import succeeds and completes normally.
+    await waitFor(() => expect(onImportCompleted).toHaveBeenCalledWith(3));
+    expect(onNavigate).toHaveBeenLastCalledWith("#/designs");
+  });
 });
 
 // ---------------------------------------------------------------------------
