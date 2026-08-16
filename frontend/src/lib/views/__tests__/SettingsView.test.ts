@@ -15,6 +15,8 @@ import type {
 const getSettingsViewModelMock = vi.hoisted(() => vi.fn());
 const saveSettingsMock = vi.hoisted(() => vi.fn());
 const browseSettingsDataRootMock = vi.hoisted(() => vi.fn());
+const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
+const restartApplicationMock = vi.hoisted(() => vi.fn());
 const getDbStatsMock = vi.hoisted(() => vi.fn());
 const compactDatabaseMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
@@ -23,6 +25,8 @@ vi.mock("../../api/commandAdapter", () => ({
   getSettingsViewModel: getSettingsViewModelMock,
   saveSettings: saveSettingsMock,
   browseSettingsDataRoot: browseSettingsDataRootMock,
+  setConfiguredDataRoot: setConfiguredDataRootMock,
+  restartApplication: restartApplicationMock,
   getDbStats: getDbStatsMock,
   compactDatabase: compactDatabaseMock,
 }));
@@ -341,11 +345,39 @@ describe("SettingsView.svelte", () => {
 
   // -- Data root browsing --------------------------------------------------
 
-  it("updates the data root when a folder is picked", async () => {
+  it("persists the picked folder and shows the restart dialog", async () => {
     browseSettingsDataRootMock.mockResolvedValue({
       source: "rust",
       path: "E:\\NewData",
       error: null,
+    });
+    setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+    restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(browseSettingsDataRootMock).toHaveBeenCalledWith("D:\\EmbroideryData");
+    });
+    expect(setConfiguredDataRootMock).toHaveBeenCalledWith("E:\\NewData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("E:\\NewData");
+    expect(screen.getByTestId("settings-restart-dialog")).toBeInTheDocument();
+  });
+
+  it("shows an error toast and retains the old path when persistence fails", async () => {
+    browseSettingsDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "E:\\NewData",
+      error: null,
+    });
+    setConfiguredDataRootMock.mockResolvedValue({
+      source: "mock",
+      persisted: false,
+      error: "cannot write config",
     });
 
     renderView();
@@ -355,9 +387,48 @@ describe("SettingsView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Catalogue data location")).toHaveValue("E:\\NewData");
+      expect(addToastMock).toHaveBeenCalledWith(
+        "Could not save the data location: cannot write config",
+        "error"
+      );
     });
-    expect(browseSettingsDataRootMock).toHaveBeenCalledWith("D:\\EmbroideryData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("D:\\EmbroideryData");
+    expect(screen.queryByTestId("settings-restart-dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows an error toast when restarting fails after persisting", async () => {
+    browseSettingsDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "E:\\NewData",
+      error: null,
+    });
+    setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+    restartApplicationMock.mockResolvedValue({
+      source: "mock",
+      restarted: false,
+      error: "restart boom",
+    });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    // Restart dialog appears after picking.
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-restart-dialog")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByTestId("settings-restart-now"));
+
+    await waitFor(() => {
+      expect(addToastMock).toHaveBeenCalledWith(
+        "Could not restart the application: restart boom. Please close and reopen it manually so your new data location takes effect.",
+        "error"
+      );
+    });
+    expect(screen.queryByTestId("settings-restart-dialog")).not.toBeInTheDocument();
   });
 
   it("shows an error toast when the folder picker fails", async () => {

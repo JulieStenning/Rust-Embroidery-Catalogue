@@ -4,6 +4,8 @@
     getSettingsViewModel,
     saveSettings,
     browseSettingsDataRoot,
+    setConfiguredDataRoot,
+    restartApplication,
     getDbStats,
     compactDatabase
   } from "../api/commandAdapter";
@@ -35,6 +37,8 @@
   let settingsLogFolder = $state("");
   let settingsAppMode = $state("development");
   let settingsHelpUrl = $state("#/help");
+  let showRestartConfirm = $state(false);
+  let restarting = $state(false);
 
   let settingsHasGoogleApiKey = $derived(settingsGoogleApiKey.trim().length > 0);
 
@@ -159,13 +163,49 @@
   async function browseDataRootFromBackend() {
     const result = await browseSettingsDataRoot(settingsDataRoot);
     if (result.path) {
+      const persisted = await setConfiguredDataRoot(result.path);
+      if (!persisted.persisted) {
+        addToast(
+          `Could not save the data location: ${persisted.error || "unknown error"}`,
+          "error"
+        );
+        // Retain the previous data root — persistence failed.
+        return;
+      }
       settingsDataRoot = result.path;
       settingsSaveState = "idle";
+      // The new data root is persisted to the bootstrap config, but the running
+      // backend still points at the old location. A restart is required before
+      // the new location takes effect.
+      showRestartConfirm = true;
       return;
     }
 
     if (result.error) {
       addToast(result.error, "error");
+    }
+  }
+
+  /** Launch the application restart after the user confirms. */
+  async function handleRestart() {
+    if (restarting) return;
+    restarting = true;
+    try {
+      const res = await restartApplication();
+      if (!res.restarted) {
+        addToast(
+          `Could not restart the application: ${res.error || "unknown error"}. Please close and reopen it manually so your new data location takes effect.`,
+          "error"
+        );
+        restarting = false;
+        showRestartConfirm = false;
+        return;
+      }
+      // On success the process is relaunching; the window will close shortly.
+    } catch (error) {
+      addToast(`Failed to restart the application: ${error}`, "error");
+      restarting = false;
+      showRestartConfirm = false;
     }
   }
 
@@ -447,3 +487,38 @@
     </div>
   </div>
 </section>
+
+{#if showRestartConfirm}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Restart required"
+    data-testid="settings-restart-dialog"
+  >
+    <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+      <h2 class="text-lg font-bold text-gray-800">Restart required</h2>
+      <p class="text-sm text-gray-600">
+        Your new data location has been saved. Embroidery Catalogue needs to restart
+        so it can begin using <span class="font-medium text-gray-800">{settingsDataRoot}</span>.
+      </p>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick={handleRestart}
+          disabled={restarting}
+          class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
+                 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
+                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          data-testid="settings-restart-now"
+        >
+          {#if restarting}
+            Restarting…
+          {:else}
+            Restart now
+          {/if}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

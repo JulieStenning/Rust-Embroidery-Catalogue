@@ -1,10 +1,9 @@
-﻿use crate::AppState;
 use crate::services::settings::{
-    self,
-    BrowseDataRootResult, SaveImportBrowseFolderResult, SaveSettingsRequest,
+    self, BrowseDataRootResult, SaveImportBrowseFolderResult, SaveSettingsRequest,
     SaveSettingsResult, SettingsViewModel,
 };
-use tauri::State;
+use crate::AppState;
+use tauri::{Manager, State};
 
 pub(crate) async fn get_settings_view_model_inner(
     app_state: &AppState,
@@ -56,8 +55,14 @@ pub async fn save_settings_view_model(
 }
 
 #[tauri::command]
-pub fn browse_settings_data_root(start_dir: Option<String>) -> BrowseDataRootResult {
-    settings::browse_settings_data_root(start_dir)
+pub fn browse_settings_data_root(
+    app_handle: tauri::AppHandle,
+    start_dir: Option<String>,
+) -> BrowseDataRootResult {
+    // Best-effort platform Documents path from Tauri; the service helper falls
+    // back to an env-derived Documents dir when this is unavailable.
+    let fallback_docs = app_handle.path().document_dir().ok();
+    settings::browse_settings_data_root(start_dir, fallback_docs)
 }
 
 #[tauri::command]
@@ -74,4 +79,3 @@ pub fn set_google_api_key(api_key: String) -> Result<bool, String> {
 #[cfg(test)]
 #[path = "settings_route_tests.rs"]
 mod tests;
-

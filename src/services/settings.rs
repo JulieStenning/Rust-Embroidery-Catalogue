@@ -1,10 +1,10 @@
-﻿use crate::error::AppError;
+use crate::error::AppError;
 use crate::paths::ExecutionMode;
 use crate::settings;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub const KEY_AI_TIER2_AUTO: &str = "ai.tier2_auto";
 pub const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
@@ -78,12 +78,8 @@ pub(crate) async fn get_settings_view_model_inner(
         .map_err(|e| AppError::database(e.to_string()))?;
 
     let preview_3d_profile = get_setting_with_default(&mut conn, KEY_PREVIEW_3D_PROFILE).await?;
-    let ai_tier2_auto = is_truthy(
-        &get_setting_with_default(&mut conn, KEY_AI_TIER2_AUTO).await?,
-    );
-    let ai_tier3_auto = is_truthy(
-        &get_setting_with_default(&mut conn, KEY_AI_TIER3_AUTO).await?,
-    );
+    let ai_tier2_auto = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_TIER2_AUTO).await?);
+    let ai_tier3_auto = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_TIER3_AUTO).await?);
     let ai_batch_size = get_setting_with_default(&mut conn, KEY_AI_BATCH_SIZE).await?;
     let ai_delay = get_setting_with_default(&mut conn, KEY_AI_DELAY).await?;
     let import_commit_batch_size =
@@ -162,11 +158,26 @@ pub(crate) async fn save_settings_view_model_inner(
         .await
         .map_err(|e| AppError::database(e.to_string()))?;
 
-    upsert_setting(&mut conn, KEY_AI_TIER2_AUTO, bool_to_setting(request.ai_tier2_auto)).await?;
-    upsert_setting(&mut conn, KEY_AI_TIER3_AUTO, bool_to_setting(request.ai_tier3_auto)).await?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_TIER2_AUTO,
+        bool_to_setting(request.ai_tier2_auto),
+    )
+    .await?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_TIER3_AUTO,
+        bool_to_setting(request.ai_tier3_auto),
+    )
+    .await?;
     upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, &ai_batch_size).await?;
     upsert_setting(&mut conn, KEY_AI_DELAY, &ai_delay).await?;
-    upsert_setting(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE, &import_commit_batch_size).await?;
+    upsert_setting(
+        &mut conn,
+        KEY_IMPORT_COMMIT_BATCH_SIZE,
+        &import_commit_batch_size,
+    )
+    .await?;
     upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, &preview_3d_profile).await?;
     upsert_setting(
         &mut conn,
@@ -185,14 +196,104 @@ pub(crate) async fn save_settings_view_model_inner(
     })
 }
 
-pub(crate) fn browse_settings_data_root(start_dir: Option<String>) -> BrowseDataRootResult {
-    let from = start_dir.unwrap_or_default();
-    BrowseDataRootResult {
-        path: None,
-        error: Some(format!(
-            "Folder picker is not wired yet in this build. Please enter the path manually. Start directory was: {}",
-            if from.trim().is_empty() { "(blank)" } else { from.trim() }
-        )),
+/// Best-effort resolution of the OS-standard user Documents directory.
+///
+/// This deliberately avoids new dependencies: on Windows it prefers the
+/// `USERPROFILE` env var and on macOS/Linux `HOME`. The caller (a Tauri
+/// command) normally supplies a more accurate platform Documents path from
+/// `app.path().document_dir()`; this function is the fallback seam and is
+/// also used directly by tests.
+pub(crate) fn standard_documents_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(profile) = std::env::var_os("USERPROFILE") {
+            let candidate = PathBuf::from(profile).join("Documents");
+            if candidate.is_dir() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(xdg) = std::env::var("XDG_DOCUMENTS_DIR") {
+            let candidate = PathBuf::from(xdg.trim());
+            if candidate.is_dir() {
+                return Some(candidate);
+            }
+        }
+        if let Some(home) = std::env::var_os("HOME") {
+            let candidate = PathBuf::from(home).join("Documents");
+            if candidate.is_dir() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    None
+}
+
+/// Returns `true` when `path` is an existing directory that can be listed
+/// (a lightweight read-permission probe). Missing or unreadable paths report
+/// `false` so the folder picker can fall back to a safe starting directory.
+pub(crate) fn is_readable_dir(path: &Path) -> bool {
+    path.is_dir() && std::fs::read_dir(path).is_ok()
+}
+
+/// Resolve the starting directory for the native folder picker.
+///
+/// Priority:
+/// 1. The caller's `start_dir` when it is a readable existing directory
+///    (trimmed, canonicalised when possible).
+/// 2. The supplied fallback Documents directory when it is readable.
+/// 3. The process current directory (last resort — always exists).
+pub(crate) fn resolve_initial_dir(start_dir: Option<&str>, fallback_docs: &Path) -> PathBuf {
+    let trimmed = start_dir.map(str::trim).unwrap_or("");
+
+    if !trimmed.is_empty() {
+        let candidate = PathBuf::from(trimmed);
+        if is_readable_dir(&candidate) {
+            return std::fs::canonicalize(&candidate).unwrap_or(candidate);
+        }
+    }
+
+    if is_readable_dir(fallback_docs) {
+        return std::fs::canonicalize(fallback_docs)
+            .unwrap_or_else(|_| fallback_docs.to_path_buf());
+    }
+
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+/// Open a native folder picker for the catalogue data root.
+///
+/// - The dialog starts at the resolved initial directory (existing value when
+///   readable, otherwise the Documents fallback).
+/// - A `None` result means the user cancelled — the caller retains state.
+/// - The selected native path is returned as a lossy UTF-8 string; the app
+///   compares paths via `normalise/canonicalise` elsewhere so this is safe.
+pub(crate) fn browse_settings_data_root(
+    start_dir: Option<String>,
+    fallback_docs: Option<PathBuf>,
+) -> BrowseDataRootResult {
+    let fallback = fallback_docs
+        .or_else(standard_documents_dir)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+
+    let initial = resolve_initial_dir(start_dir.as_deref(), &fallback);
+
+    let mut dialog = rfd::FileDialog::new().set_title("Choose the folder for your catalogue data");
+    dialog = dialog.set_directory(&initial);
+
+    match dialog.pick_folder() {
+        Some(path) => BrowseDataRootResult {
+            path: Some(path.to_string_lossy().to_string()),
+            error: None,
+        },
+        None => BrowseDataRootResult {
+            path: None,
+            error: None,
+        },
     }
 }
 
@@ -371,4 +472,3 @@ pub(crate) fn save_google_api_key_to_env(value: &str) -> Result<(), AppError> {
 #[cfg(test)]
 #[path = "settings_svc_tests.rs"]
 mod tests;
-

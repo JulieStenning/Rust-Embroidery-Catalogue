@@ -50,7 +50,9 @@ fn make_app_paths_installed(tmp_dir: &std::path::Path) -> crate::paths::AppPaths
         data_root: data_root.clone(),
         embroidery_designs_dir: data_root.join("MachineEmbroideryDesigns"),
         database_dir: data_root.join("Database"),
-        database_path: data_root.join("Database").join(crate::paths::DATABASE_FILENAME),
+        database_path: data_root
+            .join("Database")
+            .join(crate::paths::DATABASE_FILENAME),
         thumbnail_cache_dir: data_root.join("thumbnails"),
         log_dir: data_root.join("logs"),
     }
@@ -65,7 +67,9 @@ fn make_app_paths_portable(tmp_dir: &std::path::Path) -> crate::paths::AppPaths 
         data_root: data_root.clone(),
         embroidery_designs_dir: data_root.join("MachineEmbroideryDesigns"),
         database_dir: data_root.join("Database"),
-        database_path: data_root.join("Database").join(crate::paths::DATABASE_FILENAME),
+        database_path: data_root
+            .join("Database")
+            .join(crate::paths::DATABASE_FILENAME),
         thumbnail_cache_dir: data_root.join("thumbnails"),
         log_dir: data_root.join("logs"),
     }
@@ -285,26 +289,89 @@ async fn get_setting_with_default_returns_empty_string_for_unknown_with_empty_de
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 #[test]
-fn browse_data_root_returns_expected_fallback_shapes() {
-    let with_start = settings::browse_settings_data_root(Some("D:/catalogue".to_string()));
-    assert!(with_start.path.is_none());
-    assert!(
-        with_start
-            .error
-            .as_deref()
-            .unwrap_or_default()
-            .contains("D:/catalogue")
+fn is_readable_dir_true_for_existing_dir() {
+    let tmp = std::env::temp_dir();
+    assert!(settings::is_readable_dir(&tmp));
+}
+
+#[test]
+fn is_readable_dir_false_for_missing_path() {
+    let missing = std::env::temp_dir().join("no_such_dir_for_settings_test_xyz");
+    assert!(!settings::is_readable_dir(&missing));
+}
+
+#[test]
+fn is_readable_dir_false_for_existing_file() {
+    // A regular file is not a readable directory.
+    let file = std::env::temp_dir().join("settings_readable_dir_probe_tmp");
+    std::fs::write(&file, b"x").expect("probe file should be written");
+    assert!(!settings::is_readable_dir(&file));
+    let _ = std::fs::remove_file(&file);
+}
+
+#[test]
+fn resolve_initial_dir_prefers_readable_start_dir_canonicalised() {
+    let tmp = std::env::temp_dir();
+    let input = format!("  {}  ", tmp.to_string_lossy());
+
+    let resolved =
+        settings::resolve_initial_dir(Some(&input), std::path::Path::new("C:/nonexistent"));
+
+    let canonical = std::fs::canonicalize(&tmp).expect("canonical should work");
+    assert_eq!(resolved, canonical);
+}
+
+#[test]
+fn resolve_initial_dir_falls_back_to_documents_when_start_dir_invalid() {
+    let tmp = std::env::temp_dir();
+
+    // Empty / whitespace start dir when the fallback docs dir is readable.
+    let resolved_blank = settings::resolve_initial_dir(Some("   "), &tmp);
+    assert_eq!(
+        resolved_blank,
+        std::fs::canonicalize(&tmp).expect("canonical docs")
     );
 
-    let without_start = settings::browse_settings_data_root(None);
-    assert!(without_start.path.is_none());
-    assert!(
-        without_start
-            .error
-            .as_deref()
-            .unwrap_or_default()
-            .contains("(blank)")
+    // Non-existent start dir.
+    let missing = tmp.join("does_not_exist_settings_xyz");
+    let resolved_missing = settings::resolve_initial_dir(Some(&missing.to_string_lossy()), &tmp);
+    assert_eq!(
+        resolved_missing,
+        std::fs::canonicalize(&tmp).expect("canonical docs")
     );
+
+    // A regular file is not a readable directory.
+    let file = tmp.join("settings_resolve_probe_file");
+    std::fs::write(&file, b"x").expect("probe file should be written");
+    let resolved_file = settings::resolve_initial_dir(Some(&file.to_string_lossy()), &tmp);
+    let _ = std::fs::remove_file(&file);
+    assert_eq!(
+        resolved_file,
+        std::fs::canonicalize(&tmp).expect("canonical docs")
+    );
+}
+
+#[test]
+fn resolve_initial_dir_falls_back_to_unreadable_documents_then_cwd() {
+    // An unreadable / missing fallback docs dir should not be used; the result
+    // must be the process current directory (always exists).
+    let missing_docs = std::env::temp_dir().join("missing_documents_settings_xyz");
+    let resolved = settings::resolve_initial_dir(None, &missing_docs);
+
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    assert_eq!(resolved, cwd);
+}
+
+#[test]
+fn standard_documents_dir_returns_some_when_userprofile_documents_exists() {
+    // On Windows, USERPROFILE\\Documents normally exists on a dev machine.
+    // On non-Windows we validate the HOME\\Documents branch only if present.
+    let result = settings::standard_documents_dir();
+    if let Some(docs) = result {
+        assert!(docs.is_dir());
+        assert!(settings::is_readable_dir(&docs));
+    }
+    // Absence is acceptable on minimal CI images; we just must not panic.
 }
 
 #[tokio::test]
