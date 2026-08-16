@@ -89,9 +89,7 @@ fn dev_mode_in_debug_builds() {
     assert!(app_paths.database_dir.exists());
     assert_eq!(
         app_paths.database_path,
-        dev_data_root()
-            .join("Database")
-            .join(DATABASE_FILENAME)
+        dev_data_root().join("Database").join(DATABASE_FILENAME)
     );
 }
 

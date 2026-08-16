@@ -38,10 +38,8 @@ fn description_for_key_known_keys() {
     assert!(description_for_key(KEY_AI_TIER3_AUTO).contains("Tier 3"));
     assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("Maximum number of designs"));
     assert!(description_for_key(KEY_AI_DELAY).contains("Seconds to wait"));
-    assert!(
-        description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE)
-            .contains("Maximum number of designs to persist")
-    );
+    assert!(description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE)
+        .contains("Maximum number of designs to persist"));
     assert!(
         description_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER).contains("Most recently used folder")
     );

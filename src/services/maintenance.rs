@@ -9,7 +9,9 @@ pub async fn get_setting_with_default(
     conn: &mut SqliteConnection,
     key: &str,
 ) -> Result<String, AppError> {
-    let current = settings::get_setting(conn, key).await.map_err(|e| AppError::database(e.to_string()))?;
+    let current = settings::get_setting(conn, key)
+        .await
+        .map_err(|e| AppError::database(e.to_string()))?;
     if let Some(setting) = current {
         return Ok(setting.value);
     }

@@ -146,7 +146,7 @@ fn vp3_read_truncated_mid_color_block_does_not_panic() {
     buf.extend_from_slice(&0u16.to_be_bytes()); // catalog length 0
     buf.extend_from_slice(&0u16.to_be_bytes()); // description length 0
     buf.extend_from_slice(&0u16.to_be_bytes()); // brand length 0
-    // 15-byte seek + 3-byte bytescheck
+                                                // 15-byte seek + 3-byte bytescheck
     buf.extend_from_slice(&[0u8; 15]);
     buf.extend_from_slice(&[0, 0, 0]);
     // Stitch bytes: declared length 4, but only 2 bytes present.

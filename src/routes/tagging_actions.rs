@@ -181,10 +181,10 @@ fn is_truthy(raw: &str) -> bool {
 mod tests {
     use super::*;
     use crate::utils::test_support::lock_env;
-    use tauri::Manager;
-    use sqlx::SqlitePool;
     use sqlx::sqlite::SqlitePoolOptions;
+    use sqlx::SqlitePool;
     use std::sync::atomic::AtomicBool;
+    use tauri::Manager;
 
     #[test]
     fn is_truthy_accepts_expected_variants() {
@@ -195,7 +195,7 @@ mod tests {
         assert!(is_truthy("  true  "));
         assert!(is_truthy("On"));
         assert!(is_truthy("Yes"));
-        
+
         assert!(!is_truthy("false"));
         assert!(!is_truthy("0"));
         assert!(!is_truthy("no"));
@@ -286,11 +286,16 @@ mod tests {
         let mut conn = pool.acquire().await.unwrap();
 
         // 1. Key doesn't exist, should insert empty string and return it
-        let val = get_setting_with_default(&mut conn, "test.new_key").await.unwrap();
+        let val = get_setting_with_default(&mut conn, "test.new_key")
+            .await
+            .unwrap();
         assert_eq!(val, "");
 
         // Verify it was inserted
-        let inserted = crate::settings::get_setting(&mut conn, "test.new_key").await.unwrap().unwrap();
+        let inserted = crate::settings::get_setting(&mut conn, "test.new_key")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(inserted.value, "");
 
         // 2. Key exists, should return it
@@ -301,7 +306,9 @@ mod tests {
             .await
             .unwrap();
 
-        let val2 = get_setting_with_default(&mut conn, "test.new_key").await.unwrap();
+        let val2 = get_setting_with_default(&mut conn, "test.new_key")
+            .await
+            .unwrap();
         assert_eq!(val2, "existing_val");
     }
 
@@ -397,7 +404,9 @@ mod tests {
         assert_eq!(stop_res.status, "stopping");
 
         // 3. Get backfill log entries
-        let logs = get_backfill_log_entries(state.clone(), Some(5)).await.unwrap();
+        let logs = get_backfill_log_entries(state.clone(), Some(5))
+            .await
+            .unwrap();
         assert!(logs.len() <= 5);
 
         // 4. Run stitching backfill
@@ -408,7 +417,9 @@ mod tests {
         assert_eq!(summary_stitch.processed, 0);
 
         // 5. Run fingerprint backfill
-        let summary_fingerprint = run_fingerprint_backfill(state.clone(), Some(5)).await.unwrap();
+        let summary_fingerprint = run_fingerprint_backfill(state.clone(), Some(5))
+            .await
+            .unwrap();
         assert_eq!(summary_fingerprint.processed, 0);
 
         // Clean up environment variable

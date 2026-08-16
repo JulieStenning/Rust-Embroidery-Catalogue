@@ -396,7 +396,10 @@ fn app_status_serializes_correct_field_names() {
         "missing 'embroidery_dir'"
     );
     assert!(map.contains_key("database_path"), "missing 'database_path'");
-    assert!(map.contains_key("data_root_missing"), "missing 'data_root_missing'");
+    assert!(
+        map.contains_key("data_root_missing"),
+        "missing 'data_root_missing'"
+    );
 
     // Exactly 5 fields â€” no extra, no missing
     assert_eq!(map.len(), 5, "AppStatus should serialize exactly 5 fields");

@@ -1,4 +1,4 @@
-﻿// use crate::models::{EmbPattern, StitchType};
+// use crate::models::{EmbPattern, StitchType};
 use crate::readers::embroidery_reader::EmbroideryReader;
 // ...existing code...
 
@@ -6,7 +6,8 @@ pub struct Vp3Reader;
 
 impl EmbroideryReader for Vp3Reader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
-        read_vp3(data).map_err(|err| crate::error::AppError::parse(format!("VP3 parse failed: {err}")))
+        read_vp3(data)
+            .map_err(|err| crate::error::AppError::parse(format!("VP3 parse failed: {err}")))
     }
 }
 
@@ -192,4 +193,3 @@ fn read_vp3_string_8(cursor: &mut Cursor<&[u8]>) -> Result<String, Box<dyn std::
 #[cfg(test)]
 #[path = "vp3_reader_tests.rs"]
 mod tests;
-

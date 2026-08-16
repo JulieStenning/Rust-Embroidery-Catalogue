@@ -2,12 +2,25 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppError {
-    InvalidInput { message: String },
-    NotFound { resource: &'static str, id: Option<String> },
-    Database { message: String },
-    Io { message: String },
-    Parse { message: String },
-    Unsupported { message: String },
+    InvalidInput {
+        message: String,
+    },
+    NotFound {
+        resource: &'static str,
+        id: Option<String>,
+    },
+    Database {
+        message: String,
+    },
+    Io {
+        message: String,
+    },
+    Parse {
+        message: String,
+    },
+    Unsupported {
+        message: String,
+    },
 }
 
 impl AppError {

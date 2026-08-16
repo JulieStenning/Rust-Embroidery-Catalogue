@@ -85,9 +85,15 @@ mod tests {
 
     #[test]
     fn test_validate_path_not_absolute() {
-        assert_eq!(validate_path("relative/path"), Err(ValidationError::NotAbsolute));
+        assert_eq!(
+            validate_path("relative/path"),
+            Err(ValidationError::NotAbsolute)
+        );
         #[cfg(windows)]
-        assert_eq!(validate_path(r"relative\path"), Err(ValidationError::NotAbsolute));
+        assert_eq!(
+            validate_path(r"relative\path"),
+            Err(ValidationError::NotAbsolute)
+        );
     }
 
     #[test]
@@ -135,8 +141,14 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let temp_path_str = temp_dir.to_str().unwrap();
 
-        assert_eq!(validate_under_base("", temp_path_str), Err(ValidationError::EmptyPath));
-        assert_eq!(validate_under_base("relative/path", temp_path_str), Err(ValidationError::NotAbsolute));
+        assert_eq!(
+            validate_under_base("", temp_path_str),
+            Err(ValidationError::EmptyPath)
+        );
+        assert_eq!(
+            validate_under_base("relative/path", temp_path_str),
+            Err(ValidationError::NotAbsolute)
+        );
     }
 
     #[test]
@@ -144,8 +156,14 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let temp_path_str = temp_dir.to_str().unwrap();
 
-        assert_eq!(validate_under_base(temp_path_str, ""), Err(ValidationError::EmptyPath));
-        assert_eq!(validate_under_base(temp_path_str, "relative/path"), Err(ValidationError::NotAbsolute));
+        assert_eq!(
+            validate_under_base(temp_path_str, ""),
+            Err(ValidationError::EmptyPath)
+        );
+        assert_eq!(
+            validate_under_base(temp_path_str, "relative/path"),
+            Err(ValidationError::NotAbsolute)
+        );
     }
 
     #[test]
@@ -157,7 +175,10 @@ mod tests {
         let base_path_str = base_path.to_str().unwrap();
         let other_path_str = other_path.to_str().unwrap();
 
-        assert_eq!(validate_under_base(other_path_str, base_path_str), Err(ValidationError::OutsideBasePath));
+        assert_eq!(
+            validate_under_base(other_path_str, base_path_str),
+            Err(ValidationError::OutsideBasePath)
+        );
     }
 
     #[test]
@@ -169,13 +190,16 @@ mod tests {
         let base_path_str = base_path.to_str().unwrap();
         let file_path_str = file_path.to_str().unwrap();
 
-        assert_eq!(validate_under_base(file_path_str, base_path_str), Err(ValidationError::DoesNotExist));
+        assert_eq!(
+            validate_under_base(file_path_str, base_path_str),
+            Err(ValidationError::DoesNotExist)
+        );
     }
 
     #[test]
     fn test_validate_under_base_success() {
         let temp_dir = std::env::temp_dir();
-        
+
         let base_path = temp_dir.join("embroidery_test_base_success");
         std::fs::create_dir_all(&base_path).unwrap();
 
@@ -193,4 +217,3 @@ mod tests {
         let _ = std::fs::remove_dir(base_path);
     }
 }
-

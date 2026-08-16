@@ -1,4 +1,4 @@
-﻿// Database migration helpers using SQLx
+// Database migration helpers using SQLx
 use crate::error::AppError;
 use std::borrow::Cow;
 
@@ -72,15 +72,13 @@ fn is_sqlite_locked_error(err: &sqlx::Error) -> bool {
 /// `_sqlx_migrations` tracking table is missing or incomplete.
 pub fn is_already_exists_error(err: &MigrateError) -> bool {
     match err {
-        MigrateError::ExecuteMigration(inner, _) | MigrateError::Execute(inner) => {
-            match inner {
-                sqlx::Error::Database(db_err) => {
-                    let msg = db_err.message().to_ascii_lowercase();
-                    msg.contains("already exists")
-                }
-                _ => false,
+        MigrateError::ExecuteMigration(inner, _) | MigrateError::Execute(inner) => match inner {
+            sqlx::Error::Database(db_err) => {
+                let msg = db_err.message().to_ascii_lowercase();
+                msg.contains("already exists")
             }
-        }
+            _ => false,
+        },
         _ => false,
     }
 }
@@ -91,4 +89,3 @@ pub fn is_already_exists_error(err: &MigrateError) -> bool {
 #[cfg(test)]
 #[path = "migrations_tests.rs"]
 mod tests;
-

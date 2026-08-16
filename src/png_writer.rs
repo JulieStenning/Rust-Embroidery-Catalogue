@@ -1,7 +1,7 @@
-﻿use crate::error::AppError;
-use image::ImageEncoder;
+use crate::error::AppError;
 /// PNG rendering for embroidery previews (Rust replacement for Python PngWriter)
 use crate::models::{EmbPattern, StitchType};
+use image::ImageEncoder;
 use image::{Rgba, RgbaImage};
 use imageproc::drawing::draw_antialiased_line_segment_mut;
 use imageproc::pixelops::interpolate;
@@ -219,7 +219,10 @@ fn draw_segment_3d(
 }
 
 /// Render an embroidery pattern to PNG bytes.
-pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) -> Result<Vec<u8>, AppError> {
+pub fn render_pattern_to_png(
+    pattern: &EmbPattern,
+    settings: &RenderSettings,
+) -> Result<Vec<u8>, AppError> {
     let (min_x, min_y, max_x, max_y) = drawable_bounds(pattern).unwrap_or((0.0, 0.0, 1.0, 1.0));
     let width = (max_x - min_x).ceil() as u32 + 4;
     let height = (max_y - min_y).ceil() as u32 + 4;
@@ -279,4 +282,3 @@ pub fn render_pattern_to_png(pattern: &EmbPattern, settings: &RenderSettings) ->
 #[cfg(test)]
 #[path = "png_writer_tests.rs"]
 mod tests;
-

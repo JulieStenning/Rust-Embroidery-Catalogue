@@ -1,9 +1,8 @@
-use crate::AppState;
 use crate::services::projects::{
-    self,
-    CreateProjectRequest, ProjectDetailView, ProjectMutationResult, ProjectPrintView,
+    self, CreateProjectRequest, ProjectDetailView, ProjectMutationResult, ProjectPrintView,
     ProjectSummary, RemoveProjectDesignResult, UpdateProjectRequest,
 };
+use crate::AppState;
 use tauri::State;
 
 #[tauri::command]

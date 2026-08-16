@@ -51,7 +51,11 @@ pub trait EmbroideryReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, AppError> {
         let report = self.read_with_report(data);
         report.pattern.ok_or_else(|| {
-            AppError::parse(report.error.unwrap_or_else(|| "reader returned no pattern".into()))
+            AppError::parse(
+                report
+                    .error
+                    .unwrap_or_else(|| "reader returned no pattern".into()),
+            )
         })
     }
 

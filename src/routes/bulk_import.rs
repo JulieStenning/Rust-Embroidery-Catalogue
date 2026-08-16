@@ -1,4 +1,4 @@
-﻿use crate::config::BootstrapConfig;
+use crate::config::BootstrapConfig;
 use crate::services::{
     folder_picker, image_generation, scanning, stitch_identifier, tagging, validation,
 };
@@ -374,7 +374,6 @@ fn normalize_import_commit_batch_size(raw_value: Option<&str>) -> usize {
     }
 }
 
-
 async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, String> {
     let raw_batch_size: Option<String> =
         sqlx::query_scalar("SELECT value FROM settings WHERE key = ? LIMIT 1")
@@ -518,7 +517,12 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
         ));
     }
 
-    if normalized_full.to_ascii_lowercase() == designs_base.to_string_lossy().replace('\\', "/").to_ascii_lowercase() {
+    if normalized_full.to_ascii_lowercase()
+        == designs_base
+            .to_string_lossy()
+            .replace('\\', "/")
+            .to_ascii_lowercase()
+    {
         return Ok("/MachineEmbroideryDesigns".to_string());
     }
 
@@ -585,9 +589,8 @@ fn compute_prospective_stored_filepath(
 
             // Detect drive-letter-only root: e.g. "C:" or "C:/" => no natural leaf.
             // Canonical drive-root paths on Windows look like "C:" or "C:/".
-            let is_drive_root = root.len() <= 3
-                && root.ends_with(':')
-                || (root.len() <= 4 && root.ends_with(":/"));
+            let is_drive_root =
+                root.len() <= 3 && root.ends_with(':') || (root.len() <= 4 && root.ends_with(":/"));
 
             if is_drive_root {
                 // Place files directly under /MachineEmbroideryDesigns using
@@ -714,8 +717,7 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
 
     // Use the single-source-of-truth path helper to compute the prospective
     // stored relative path (e.g. "testdata/Bean.pes").
-    let prospective_stored =
-        compute_prospective_stored_filepath(full_path, root_paths)?;
+    let prospective_stored = compute_prospective_stored_filepath(full_path, root_paths)?;
     // prospective_stored looks like "/MachineEmbroideryDesigns/testdata/Bean.pes"
     let rel_path = prospective_stored
         .strip_prefix("/MachineEmbroideryDesigns/")
@@ -1155,7 +1157,8 @@ async fn persist_bulk_import_confirm_wire(
             if let Some(error) = image_result.error.as_ref() {
                 tracing::error!(
                     "Image generation adapter error for '{}': {}",
-                    file_path, error
+                    file_path,
+                    error
                 );
             }
 
@@ -1199,8 +1202,7 @@ async fn persist_bulk_import_confirm_wire(
                     .unwrap_or(&stored_filepath),
             );
             let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
-            let file_hash_blake3: Option<String> =
-                compute_file_hash_blake3(&stored_path).ok();
+            let file_hash_blake3: Option<String> = compute_file_hash_blake3(&stored_path).ok();
 
             let t_insert = Instant::now();
             let insert_result = sqlx::query(
@@ -1746,10 +1748,8 @@ fn do_confirm_bulk_import_wire_internal(
     let confirm_wire = take_bulk_import_context(&context_token)
         .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
 
-    let persisted_design_count = persist_bulk_import_confirm_if_initialized(
-        &confirm_wire,
-        Some(&context_token),
-    )?;
+    let persisted_design_count =
+        persist_bulk_import_confirm_if_initialized(&confirm_wire, Some(&context_token))?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
     Ok(result)
@@ -1906,7 +1906,11 @@ async fn filter_existing_scanned_files(
     let fingerprint_set: HashSet<(String, i64, String)> = fingerprint_rows
         .into_iter()
         .map(|(filename, size, hash)| {
-            (filename.to_ascii_lowercase(), size, hash.to_ascii_lowercase())
+            (
+                filename.to_ascii_lowercase(),
+                size,
+                hash.to_ascii_lowercase(),
+            )
         })
         .collect();
 

@@ -991,12 +991,10 @@ fn precheck_action_review_tags_keeps_context() {
 
     assert!(!action_result.consumed_context);
     assert!(action_result.context_token_present);
-    assert!(
-        action_result
-            .next_route
-            .unwrap_or_default()
-            .contains("/admin/tags/")
-    );
+    assert!(action_result
+        .next_route
+        .unwrap_or_default()
+        .contains("/admin/tags/"));
     assert!(take_bulk_import_context(&precheck.context_token).is_some());
 }
 
@@ -1153,13 +1151,11 @@ fn bulk_import_context_store_evicts_oldest_when_capacity_is_exceeded() {
     }
 
     assert!(take_bulk_import_context(&first_token).is_none());
-    assert!(
-        take_bulk_import_context(&format!(
-            "bulk-import-test-{}",
-            BULK_IMPORT_CONTEXT_MAX_ENTRIES as u64 + 1
-        ))
-        .is_some()
-    );
+    assert!(take_bulk_import_context(&format!(
+        "bulk-import-test-{}",
+        BULK_IMPORT_CONTEXT_MAX_ENTRIES as u64 + 1
+    ))
+    .is_some());
 }
 
 #[test]
@@ -1711,12 +1707,10 @@ fn precheck_action_review_hoops_keeps_context() {
 
     assert!(!action_result.consumed_context);
     assert!(action_result.context_token_present);
-    assert!(
-        action_result
-            .next_route
-            .unwrap_or_default()
-            .contains("/admin/hoops/")
-    );
+    assert!(action_result
+        .next_route
+        .unwrap_or_default()
+        .contains("/admin/hoops/"));
     // Context still available after review
     assert!(take_bulk_import_context(&precheck.context_token).is_some());
 }
@@ -1749,12 +1743,10 @@ fn precheck_action_review_sources_keeps_context() {
 
     assert!(!action_result.consumed_context);
     assert!(action_result.context_token_present);
-    assert!(
-        action_result
-            .next_route
-            .unwrap_or_default()
-            .contains("/admin/sources/")
-    );
+    assert!(action_result
+        .next_route
+        .unwrap_or_default()
+        .contains("/admin/sources/"));
     assert!(take_bulk_import_context(&precheck.context_token).is_some());
 }
 
@@ -1786,12 +1778,10 @@ fn precheck_action_review_designers_keeps_context() {
 
     assert!(!action_result.consumed_context);
     assert!(action_result.context_token_present);
-    assert!(
-        action_result
-            .next_route
-            .unwrap_or_default()
-            .contains("/admin/designers/")
-    );
+    assert!(action_result
+        .next_route
+        .unwrap_or_default()
+        .contains("/admin/designers/"));
     assert!(take_bulk_import_context(&precheck.context_token).is_some());
 }
 

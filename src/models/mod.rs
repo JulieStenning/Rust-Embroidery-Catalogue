@@ -324,30 +324,66 @@ mod tests {
         assert_eq!(StitchType::from_command(9), StitchType::NeedleSet);
         assert_eq!(StitchType::from_command(0x0B), StitchType::Slow);
         assert_eq!(StitchType::from_command(0x0C), StitchType::Fast);
-        assert_eq!(StitchType::from_command(0x10), StitchType::SetChangeSequence);
+        assert_eq!(
+            StitchType::from_command(0x10),
+            StitchType::SetChangeSequence
+        );
         assert_eq!(StitchType::from_command(0xB0), StitchType::SewTo);
         assert_eq!(StitchType::from_command(0xB1), StitchType::NeedleAt);
         assert_eq!(StitchType::from_command(0xC0), StitchType::MatrixTranslate);
-        assert_eq!(StitchType::from_command(0xC1), StitchType::MatrixScaleOrigin);
-        assert_eq!(StitchType::from_command(0xC2), StitchType::MatrixRotateOrigin);
+        assert_eq!(
+            StitchType::from_command(0xC1),
+            StitchType::MatrixScaleOrigin
+        );
+        assert_eq!(
+            StitchType::from_command(0xC2),
+            StitchType::MatrixRotateOrigin
+        );
         assert_eq!(StitchType::from_command(0xC3), StitchType::MatrixReset);
         assert_eq!(StitchType::from_command(0xC4), StitchType::MatrixScale);
         assert_eq!(StitchType::from_command(0xC5), StitchType::MatrixRotate);
-        assert_eq!(StitchType::from_command(0xD1), StitchType::ContingencyTieOnThreeSmall);
-        assert_eq!(StitchType::from_command(0xD2), StitchType::ContingencyTieOffThreeSmall);
-        assert_eq!(StitchType::from_command(0xD3), StitchType::ContingencyTieOnNone);
-        assert_eq!(StitchType::from_command(0xD4), StitchType::ContingencyTieOffNone);
-        assert_eq!(StitchType::from_command(0xD5), StitchType::OptionMaxStitchLength);
-        assert_eq!(StitchType::from_command(0xD6), StitchType::OptionMaxJumpLength);
-        assert_eq!(StitchType::from_command(0xD7), StitchType::OptionExplicitTrim);
-        assert_eq!(StitchType::from_command(0xD8), StitchType::OptionImplicitTrim);
+        assert_eq!(
+            StitchType::from_command(0xD1),
+            StitchType::ContingencyTieOnThreeSmall
+        );
+        assert_eq!(
+            StitchType::from_command(0xD2),
+            StitchType::ContingencyTieOffThreeSmall
+        );
+        assert_eq!(
+            StitchType::from_command(0xD3),
+            StitchType::ContingencyTieOnNone
+        );
+        assert_eq!(
+            StitchType::from_command(0xD4),
+            StitchType::ContingencyTieOffNone
+        );
+        assert_eq!(
+            StitchType::from_command(0xD5),
+            StitchType::OptionMaxStitchLength
+        );
+        assert_eq!(
+            StitchType::from_command(0xD6),
+            StitchType::OptionMaxJumpLength
+        );
+        assert_eq!(
+            StitchType::from_command(0xD7),
+            StitchType::OptionExplicitTrim
+        );
+        assert_eq!(
+            StitchType::from_command(0xD8),
+            StitchType::OptionImplicitTrim
+        );
         assert_eq!(StitchType::from_command(0xE0), StitchType::StitchBreak);
         assert_eq!(StitchType::from_command(0xE1), StitchType::SequenceBreak);
         assert_eq!(StitchType::from_command(0xE2), StitchType::ColorBreak);
         assert_eq!(StitchType::from_command(0xE4), StitchType::TieOn);
         assert_eq!(StitchType::from_command(0xE5), StitchType::TieOff);
         assert_eq!(StitchType::from_command(0xE9), StitchType::FrameEject);
-        assert_eq!(StitchType::from_command(0xF0), StitchType::ContingencyLongStitchNone);
+        assert_eq!(
+            StitchType::from_command(0xF0),
+            StitchType::ContingencyLongStitchNone
+        );
         assert_eq!(
             StitchType::from_command(0xF1),
             StitchType::ContingencyLongStitchJumpNeedle
@@ -413,7 +449,10 @@ mod tests {
         assert_eq!(StitchType::TieOff.to_command(), 0xE5);
         assert_eq!(StitchType::FrameEject.to_command(), 0xE9);
         assert_eq!(StitchType::ContingencyLongStitchNone.to_command(), 0xF0);
-        assert_eq!(StitchType::ContingencyLongStitchJumpNeedle.to_command(), 0xF1);
+        assert_eq!(
+            StitchType::ContingencyLongStitchJumpNeedle.to_command(),
+            0xF1
+        );
         assert_eq!(StitchType::ContingencyLongStitchSewTo.to_command(), 0xF2);
     }
 
@@ -429,9 +468,9 @@ mod tests {
         // Roundtrip: from_command → to_command should recover the base code
         // for every known command value.
         let known_codes = [
-            0, 1, 2, 3, 4, 5, 6, 7, 9, 0x0B, 0x0C, 0x10, 0xB0, 0xB1, 0xC0, 0xC1, 0xC2, 0xC3,
-            0xC4, 0xC5, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xE0, 0xE1, 0xE2, 0xE4,
-            0xE5, 0xE9, 0xF0, 0xF1, 0xF2,
+            0, 1, 2, 3, 4, 5, 6, 7, 9, 0x0B, 0x0C, 0x10, 0xB0, 0xB1, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4,
+            0xC5, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xE0, 0xE1, 0xE2, 0xE4, 0xE5,
+            0xE9, 0xF0, 0xF1, 0xF2,
         ];
         for &code in &known_codes {
             assert_eq!(

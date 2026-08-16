@@ -69,17 +69,12 @@ pub fn schedule_incremental_vacuum(pool: SqlitePool) {
 ///     run — e.g. after the next bulk delete).
 ///
 /// `max_pages` is the per-step page count passed to `incremental_vacuum`.
-pub async fn run_incremental_vacuum(
-    pool: &SqlitePool,
-    max_pages: i64,
-) -> Result<u64, String> {
+pub async fn run_incremental_vacuum(pool: &SqlitePool, max_pages: i64) -> Result<u64, String> {
     let max_pages = max_pages.max(1);
     let before = read_freelist_count(pool).await?;
 
     if before == 0 {
-        tracing::info!(
-            "Incremental vacuum: no freelist pages to reclaim (freelist_count=0)"
-        );
+        tracing::info!("Incremental vacuum: no freelist pages to reclaim (freelist_count=0)");
         return Ok(0);
     }
 
@@ -323,10 +318,7 @@ mod tests {
         let freelist_final = read_freelist_count(&pool)
             .await
             .expect("read freelist final");
-        assert_eq!(
-            freelist_final, 0,
-            "second run should empty the freelist"
-        );
+        assert_eq!(freelist_final, 0, "second run should empty the freelist");
     }
 
     #[tokio::test]
@@ -353,10 +345,7 @@ mod tests {
         // SQLite's default page size is 4096 bytes; the in-memory pool uses
         // the default (the test setup only sets auto_vacuum).
         let size = read_page_size(&pool).await.expect("read page size");
-        assert_eq!(
-            size, 4096,
-            "expected default SQLite page size, got {size}"
-        );
+        assert_eq!(size, 4096, "expected default SQLite page size, got {size}");
     }
 
     #[tokio::test]

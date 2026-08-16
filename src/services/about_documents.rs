@@ -106,15 +106,22 @@ pub fn get_about_documents() -> Vec<AboutDocumentSummary> {
 
 pub fn get_about_document(slug: String) -> Result<AboutDocumentDetail, AppError> {
     let normalized_slug = slug.trim().to_lowercase();
-    let doc = resolve_document(&normalized_slug).ok_or_else(|| AppError::not_found("document", Some(slug)))?;
+    let doc = resolve_document(&normalized_slug)
+        .ok_or_else(|| AppError::not_found("document", Some(slug)))?;
 
     let path = resolve_document_path(&project_root(), doc.filename);
     if !path.exists() {
-        return Err(AppError::not_found("document file", Some(doc.filename.to_string())));
+        return Err(AppError::not_found(
+            "document file",
+            Some(doc.filename.to_string()),
+        ));
     }
 
     let document_text = fs::read_to_string(&path).map_err(|error| {
-        AppError::io(format!("Could not read document '{}': {}", doc.filename, error))
+        AppError::io(format!(
+            "Could not read document '{}': {}",
+            doc.filename, error
+        ))
     })?;
 
     Ok(AboutDocumentDetail {
@@ -134,7 +141,10 @@ mod tests {
     fn project_root_points_to_cargo_manifest_dir() {
         let root = project_root();
         assert!(root.exists(), "project_root should exist");
-        assert!(root.join("Cargo.toml").exists(), "project_root should contain Cargo.toml");
+        assert!(
+            root.join("Cargo.toml").exists(),
+            "project_root should contain Cargo.toml"
+        );
     }
 
     #[test]

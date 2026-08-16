@@ -878,7 +878,7 @@ fn test_read_pes_header_version_5_inner_with_image_file() {
     let mut buf = vec![0u8; 4]; // padding
     buf.extend_from_slice(&metadata_buffer()); // 5 bytes
     buf.extend_from_slice(&vec![0u8; skip1 as usize]); // skip1
-    // image_file = "MyImage.png" (11 chars)
+                                                       // image_file = "MyImage.png" (11 chars)
     buf.push(11);
     buf.extend_from_slice(b"MyImage.png");
     buf.extend_from_slice(&vec![0u8; skip2 as usize]); // skip2
@@ -1002,11 +1002,11 @@ fn test_read_pes_header_version_9_with_hoop_and_image() {
     let mut buf = vec![0u8; 4]; // padding
     buf.extend_from_slice(&metadata_buffer()); // 5 bytes
     buf.extend_from_slice(&vec![0u8; 14]); // hoop_name seek
-    // hoop_name = "Big Hoop"
+                                           // hoop_name = "Big Hoop"
     buf.push(8);
     buf.extend_from_slice(b"Big Hoop");
     buf.extend_from_slice(&vec![0u8; 30]); // seek before image_file
-    // image_file = "preview.png"
+                                           // image_file = "preview.png"
     buf.push(11);
     buf.extend_from_slice(b"preview.png");
     buf.extend_from_slice(&vec![0u8; 34]); // final seek
@@ -1029,11 +1029,11 @@ fn test_read_pes_header_version_10_with_hoop_and_image() {
     let mut buf = vec![0u8; 4]; // padding
     buf.extend_from_slice(&metadata_buffer()); // 5 bytes
     buf.extend_from_slice(&vec![0u8; 14]); // hoop_name seek
-    // hoop_name = "Big Hoop"
+                                           // hoop_name = "Big Hoop"
     buf.push(8);
     buf.extend_from_slice(b"Big Hoop");
     buf.extend_from_slice(&vec![0u8; 38]); // seek before image_file (v10 uses 38)
-    // image_file = "preview.png"
+                                           // image_file = "preview.png"
     buf.push(11);
     buf.extend_from_slice(b"preview.png");
     buf.extend_from_slice(&vec![0u8; 34]); // final seek

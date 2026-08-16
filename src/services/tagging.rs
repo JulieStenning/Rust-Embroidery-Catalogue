@@ -268,8 +268,7 @@ mod tests {
     #[test]
     fn suggest_tier1_compound_tag_alphabet_monogram() {
         let valid = HashSet::from(["Alphabets & Monograms".to_string()]);
-        let matched =
-            suggest_tier1_descriptions("", "C:/imports/Monogram/design.pes", &valid);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Monogram/design.pes", &valid);
         assert!(
             matched.contains(&"Alphabets & Monograms".to_string()),
             "folder 'Monogram' should match 'Alphabets & Monograms' via inflection (no synonym needed): {:?}",
@@ -280,8 +279,7 @@ mod tests {
     #[test]
     fn suggest_tier1_compound_tag_butterfly_folder() {
         let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched =
-            suggest_tier1_descriptions("", "C:/imports/Butterfly/design.pes", &valid);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Butterfly/design.pes", &valid);
         assert!(
             matched.contains(&"Butterflies & Insects".to_string()),
             "folder 'Butterfly' should match 'Butterflies & Insects': {:?}",
@@ -292,8 +290,7 @@ mod tests {
     #[test]
     fn suggest_tier1_compound_tag_butterfly_filename() {
         let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched =
-            suggest_tier1_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
+        let matched = suggest_tier1_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
         assert!(
             matched.contains(&"Butterflies & Insects".to_string()),
             "filename 'Pretty Butterflies.pes' should match 'Butterflies & Insects': {:?}",

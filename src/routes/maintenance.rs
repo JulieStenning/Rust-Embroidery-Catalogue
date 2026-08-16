@@ -1,4 +1,4 @@
-﻿use crate::config::BootstrapConfig;
+use crate::config::BootstrapConfig;
 use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::db_health;
 use crate::services::folder_picker;
@@ -1037,7 +1037,6 @@ async fn delete_design_ids_with_pool(
     Ok(deleted)
 }
 
-
 fn strip_sqlite_prefix(database_url: &str) -> &str {
     database_url
         .strip_prefix("sqlite:///")
@@ -1247,4 +1246,3 @@ fn cleanup_empty_directories(
 #[cfg(test)]
 #[path = "maintenance_tests.rs"]
 mod tests;
-

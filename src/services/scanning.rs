@@ -204,12 +204,11 @@ mod tests {
 
     #[test]
     fn scan_with_error_reports_empty_root_path_as_invalid_input() {
-        let result = scan_with_error(&ScanInput { root_path: String::new() });
+        let result = scan_with_error(&ScanInput {
+            root_path: String::new(),
+        });
 
-        assert!(matches!(
-            result,
-            Err(AppError::InvalidInput { .. })
-        ));
+        assert!(matches!(result, Err(AppError::InvalidInput { .. })));
     }
 
     #[test]
@@ -281,7 +280,10 @@ mod tests {
 
         assert!(result.files.is_empty());
         assert!(result.missing_root, "missing root should be flagged");
-        assert!(!result.no_supported_files, "missing root is not a no-files-found case");
+        assert!(
+            !result.no_supported_files,
+            "missing root is not a no-files-found case"
+        );
     }
 
     #[test]
@@ -294,7 +296,10 @@ mod tests {
         });
 
         assert!(result.files.is_empty());
-        assert!(!result.missing_root, "root exists so missing_root must be false");
+        assert!(
+            !result.missing_root,
+            "root exists so missing_root must be false"
+        );
         assert!(
             result.no_supported_files,
             "existing directory with zero supported files should set no_supported_files"

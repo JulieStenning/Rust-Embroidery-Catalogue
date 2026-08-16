@@ -7,8 +7,8 @@
 // parent module through use super::*;.
 
 use super::*;
-use sqlx::Row;
 use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::Row;
 
 async fn test_pool() -> SqlitePool {
     let pool = SqlitePoolOptions::new()
@@ -240,11 +240,9 @@ async fn ensure_unique_name_err_when_exists() {
 
     let result = ensure_unique_name(&pool, "designers", "Existing", "Designer").await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -292,11 +290,9 @@ async fn ensure_unique_name_except_id_rejects_name_of_other_row() {
         ensure_unique_name_except_id(&pool, "designers", "id", second.id, "First", "Designer")
             .await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate error")
+        .contains("already exists"));
 }
 
 // ========================================================================
@@ -336,11 +332,9 @@ async fn create_designer_empty_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty name error")
-            .contains("Designer name is required")
-    );
+    assert!(result
+        .expect_err("expected empty name error")
+        .contains("Designer name is required"));
 }
 
 #[tokio::test]
@@ -365,11 +359,9 @@ async fn create_designer_duplicate_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -394,11 +386,9 @@ async fn create_designer_case_insensitive_duplicate() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected case-insensitive duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected case-insensitive duplicate error")
+        .contains("already exists"));
 }
 
 // --- Source ---
@@ -434,11 +424,9 @@ async fn create_source_empty_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty name error")
-            .contains("Source name is required")
-    );
+    assert!(result
+        .expect_err("expected empty name error")
+        .contains("Source name is required"));
 }
 
 #[tokio::test]
@@ -463,11 +451,9 @@ async fn create_source_duplicate_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -492,11 +478,9 @@ async fn create_source_case_insensitive_duplicate() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected case-insensitive duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected case-insensitive duplicate error")
+        .contains("already exists"));
 }
 
 // --- Tag ---
@@ -570,11 +554,9 @@ async fn create_tag_empty_description() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty description error")
-            .contains("Tag description is required")
-    );
+    assert!(result
+        .expect_err("expected empty description error")
+        .contains("Tag description is required"));
 }
 
 #[tokio::test]
@@ -591,11 +573,9 @@ async fn create_tag_invalid_group() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected invalid group error")
-            .contains("must be 'image' or 'stitching'")
-    );
+    assert!(result
+        .expect_err("expected invalid group error")
+        .contains("must be 'image' or 'stitching'"));
 }
 
 #[tokio::test]
@@ -622,11 +602,9 @@ async fn create_tag_duplicate_description() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -653,11 +631,9 @@ async fn create_tag_case_insensitive_duplicate() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected case-insensitive duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected case-insensitive duplicate error")
+        .contains("already exists"));
 }
 
 // --- Hoop ---
@@ -699,11 +675,9 @@ async fn create_hoop_empty_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty name error")
-            .contains("Hoop name is required")
-    );
+    assert!(result
+        .expect_err("expected empty name error")
+        .contains("Hoop name is required"));
 }
 
 #[tokio::test]
@@ -721,11 +695,9 @@ async fn create_hoop_invalid_width() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected invalid width error")
-            .contains("must be a positive number")
-    );
+    assert!(result
+        .expect_err("expected invalid width error")
+        .contains("must be a positive number"));
 }
 
 #[tokio::test]
@@ -743,11 +715,9 @@ async fn create_hoop_invalid_height() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected invalid height error")
-            .contains("must be a positive number")
-    );
+    assert!(result
+        .expect_err("expected invalid height error")
+        .contains("must be a positive number"));
 }
 
 #[tokio::test]
@@ -776,11 +746,9 @@ async fn create_hoop_duplicate_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -809,11 +777,9 @@ async fn create_hoop_case_insensitive_duplicate() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected case-insensitive duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected case-insensitive duplicate error")
+        .contains("already exists"));
 }
 
 // ========================================================================
@@ -1154,11 +1120,9 @@ async fn update_designer_not_found() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1184,11 +1148,9 @@ async fn update_designer_empty_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty name error")
-            .contains("Designer name is required")
-    );
+    assert!(result
+        .expect_err("expected empty name error")
+        .contains("Designer name is required"));
 }
 
 #[tokio::test]
@@ -1223,11 +1185,9 @@ async fn update_designer_duplicate_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate name error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate name error")
+        .contains("already exists"));
 }
 
 // --- Source ---
@@ -1274,11 +1234,9 @@ async fn update_source_not_found() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1304,11 +1262,9 @@ async fn update_source_empty_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty name error")
-            .contains("Source name is required")
-    );
+    assert!(result
+        .expect_err("expected empty name error")
+        .contains("Source name is required"));
 }
 
 #[tokio::test]
@@ -1343,11 +1299,9 @@ async fn update_source_duplicate_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate name error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate name error")
+        .contains("already exists"));
 }
 
 // --- Hoop ---
@@ -1402,11 +1356,9 @@ async fn update_hoop_not_found() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1436,11 +1388,9 @@ async fn update_hoop_empty_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty name error")
-            .contains("Hoop name is required")
-    );
+    assert!(result
+        .expect_err("expected empty name error")
+        .contains("Hoop name is required"));
 }
 
 #[tokio::test]
@@ -1481,11 +1431,9 @@ async fn update_hoop_duplicate_name() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate name error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate name error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -1515,11 +1463,9 @@ async fn update_hoop_invalid_dimensions() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected invalid width error")
-            .contains("must be a positive number")
-    );
+    assert!(result
+        .expect_err("expected invalid width error")
+        .contains("must be a positive number"));
 }
 
 // ========================================================================
@@ -1570,11 +1516,9 @@ async fn update_tag_not_found() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1603,11 +1547,9 @@ async fn update_tag_rejects_system_tag() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected system tag rejection error")
-            .contains("System tags cannot be modified or deleted.")
-    );
+    assert!(result
+        .expect_err("expected system tag rejection error")
+        .contains("System tags cannot be modified or deleted."));
 }
 
 #[tokio::test]
@@ -1634,11 +1576,9 @@ async fn update_tag_empty_description() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected empty description error")
-            .contains("Tag description is required")
-    );
+    assert!(result
+        .expect_err("expected empty description error")
+        .contains("Tag description is required"));
 }
 
 #[tokio::test]
@@ -1675,11 +1615,9 @@ async fn update_tag_duplicate_description() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected duplicate description error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected duplicate description error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -1716,11 +1654,9 @@ async fn update_tag_case_insensitive_duplicate() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected case-insensitive duplicate error")
-            .contains("already exists")
-    );
+    assert!(result
+        .expect_err("expected case-insensitive duplicate error")
+        .contains("already exists"));
 }
 
 #[tokio::test]
@@ -1807,11 +1743,9 @@ async fn set_tag_group_not_found() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1840,11 +1774,9 @@ async fn set_tag_group_rejects_system_tag() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected system tag rejection error")
-            .contains("System tags cannot be modified or deleted.")
-    );
+    assert!(result
+        .expect_err("expected system tag rejection error")
+        .contains("System tags cannot be modified or deleted."));
 }
 
 #[tokio::test]
@@ -1871,11 +1803,9 @@ async fn set_tag_group_rejects_invalid_group() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected invalid tag group error")
-            .contains("must be 'image' or 'stitching'")
-    );
+    assert!(result
+        .expect_err("expected invalid tag group error")
+        .contains("must be 'image' or 'stitching'"));
 }
 
 // ========================================================================
@@ -1913,11 +1843,9 @@ async fn delete_designer_not_found() {
 
     let result = delete_designer_with_pool(&pool, 555).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 // --- Source ---
@@ -1950,11 +1878,9 @@ async fn delete_source_not_found() {
 
     let result = delete_source_with_pool(&pool, 666).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 // --- Tag ---
@@ -1988,11 +1914,9 @@ async fn delete_tag_rejects_not_found_id() {
 
     let result = delete_tag_with_pool(&pool, 444).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -2014,11 +1938,9 @@ async fn delete_tag_rejects_system_tag() {
     let result = delete_tag_with_pool(&pool, system_tag_id).await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected system tag rejection error")
-            .contains("System tags cannot be modified or deleted.")
-    );
+    assert!(result
+        .expect_err("expected system tag rejection error")
+        .contains("System tags cannot be modified or deleted."));
 
     // The system tag must still exist.
     let still_exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM tags WHERE id = ?")
@@ -2061,9 +1983,7 @@ async fn delete_hoop_not_found() {
 
     let result = delete_hoop_with_pool(&pool, 888).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected not-found error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected not-found error")
+        .contains("not found"));
 }

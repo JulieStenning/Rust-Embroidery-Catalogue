@@ -1,5 +1,5 @@
-﻿use crate::AppState;
 use crate::services::admin as admin_service;
+use crate::AppState;
 use sqlx::SqlitePool;
 use tauri::State;
 
@@ -11,20 +11,17 @@ pub use crate::services::admin::{
 
 #[cfg(test)]
 fn validate_non_empty(value: &str, label: &str) -> Result<String, String> {
-    admin_service::validate_non_empty(value, label)
-        .map_err(|error| error.to_string())
+    admin_service::validate_non_empty(value, label).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
 fn validate_positive(value: f64, label: &str) -> Result<f64, String> {
-    admin_service::validate_positive(value, label)
-        .map_err(|error| error.to_string())
+    admin_service::validate_positive(value, label).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
 fn validate_tag_group(raw: &str) -> Result<String, String> {
-    admin_service::validate_tag_group(raw)
-        .map_err(|error| error.to_string())
+    admin_service::validate_tag_group(raw).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -58,9 +55,8 @@ async fn ensure_unique_name_except_id(
     name: &str,
     label: &str,
 ) -> Result<(), String> {
-    let sql = format!(
-        "SELECT 1 FROM {table} WHERE lower(name) = lower(?) AND {id_column} <> ? LIMIT 1"
-    );
+    let sql =
+        format!("SELECT 1 FROM {table} WHERE lower(name) = lower(?) AND {id_column} <> ? LIMIT 1");
     let exists = sqlx::query_scalar::<_, i64>(&sql)
         .bind(name)
         .bind(excluded_id)
@@ -342,4 +338,3 @@ async fn delete_hoop_with_pool(pool: &SqlitePool, hoop_id: i64) -> Result<(), St
 #[cfg(test)]
 #[path = "admin_tests.rs"]
 mod tests;
-

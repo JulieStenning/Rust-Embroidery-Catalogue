@@ -1,4 +1,4 @@
-﻿use std::cmp::min;
+use std::cmp::min;
 use std::io::{Cursor, Read};
 
 use crate::models::{EmbPattern, EmbThread, StitchType};
@@ -8,7 +8,8 @@ pub struct HusReader;
 
 impl EmbroideryReader for HusReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
-        read_hus(data).map_err(|err| crate::error::AppError::parse(format!("HUS parse failed: {err}")))
+        read_hus(data)
+            .map_err(|err| crate::error::AppError::parse(format!("HUS parse failed: {err}")))
     }
 }
 
@@ -489,4 +490,3 @@ pub fn read_hus(data: &[u8]) -> Result<EmbPattern, String> {
 #[cfg(test)]
 #[path = "hus_reader_tests.rs"]
 mod tests;
-

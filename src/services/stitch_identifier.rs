@@ -193,8 +193,12 @@ impl<'a> StitchIdentifier<'a> {
         // still uses the original colour-split blocks and applique geometry
         // still needs the separate colour layers.
         let flattened = flatten_colors(self.pattern);
-        let flattened_identifier =
-            StitchIdentifier::new(&flattened, &self.filename, &self.folder_name, self.confidence_threshold);
+        let flattened_identifier = StitchIdentifier::new(
+            &flattened,
+            &self.filename,
+            &self.folder_name,
+            self.confidence_threshold,
+        );
         let whole_filled = flattened_identifier.detect_filled(false);
         let whole_satin = flattened_identifier.detect_satin(false);
         let whole_outline = flattened_identifier.detect_outline();

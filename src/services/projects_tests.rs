@@ -300,12 +300,10 @@ async fn ensure_project_exists_rejects_non_positive_id() {
     let pool = test_pool().await;
     let result = ensure_project_exists(&pool, 0).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -313,12 +311,10 @@ async fn ensure_project_exists_returns_error_for_nonexistent_project() {
     let pool = test_pool().await;
     let result = ensure_project_exists(&pool, 999).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -657,12 +653,10 @@ async fn get_project_detail_rejects_non_positive_id() {
 
     let result = get_project_detail(&state, 0).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -672,12 +666,10 @@ async fn get_project_detail_rejects_nonexistent_project() {
 
     let result = get_project_detail(&state, 999).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -731,23 +723,19 @@ async fn get_project_detail_includes_designs_with_images() {
     assert_eq!(view.designs[0].filename, "floral.pes");
     assert!(view.designs[0].has_image);
     assert!(view.designs[0].image_data_url.is_some());
-    assert!(
-        view.designs[0]
-            .image_data_url
-            .as_deref()
-            .unwrap()
-            .starts_with("data:image/jpeg;base64,")
-    );
+    assert!(view.designs[0]
+        .image_data_url
+        .as_deref()
+        .unwrap()
+        .starts_with("data:image/jpeg;base64,"));
     assert_eq!(view.designs[1].filename, "rose.pes");
     assert!(view.designs[1].has_image);
     assert_eq!(view.designs[1].designer_name.as_deref(), Some("Acme"));
-    assert!(
-        view.designs[1]
-            .image_data_url
-            .as_deref()
-            .unwrap()
-            .starts_with("data:image/png;base64,")
-    );
+    assert!(view.designs[1]
+        .image_data_url
+        .as_deref()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
 }
 
 #[tokio::test]
@@ -852,12 +840,10 @@ async fn update_project_rejects_non_existent_project() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -941,12 +927,10 @@ async fn delete_project_rejects_non_existent_project() {
 
     let result = delete_project(&state, 999).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -956,12 +940,10 @@ async fn delete_project_rejects_non_positive_id() {
 
     let result = delete_project(&state, 0).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -1035,12 +1017,10 @@ async fn remove_design_rejects_nonexistent_project() {
 
     let result = remove_design_from_project_detail(&state, 999, 10).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -1102,12 +1082,10 @@ async fn get_project_print_view_rejects_nonexistent_project() {
 
     let result = get_project_print_view(&state, 999).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("project not found")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("project not found"));
 }
 
 #[tokio::test]
@@ -1175,13 +1153,11 @@ async fn get_project_print_view_includes_designs_with_all_print_fields() {
     assert_eq!(design.width_mm, Some(51));
     assert_eq!(design.height_mm, Some(75));
     // X'AABB' + 'png' -> data URL
-    assert!(
-        design
-            .image_data_url
-            .as_deref()
-            .unwrap()
-            .starts_with("data:image/png;base64,")
-    );
+    assert!(design
+        .image_data_url
+        .as_deref()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
 }
 
 #[tokio::test]

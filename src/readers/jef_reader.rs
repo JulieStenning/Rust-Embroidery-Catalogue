@@ -1,10 +1,11 @@
-﻿use crate::readers::embroidery_reader::EmbroideryReader;
+use crate::readers::embroidery_reader::EmbroideryReader;
 
 pub struct JefReader;
 
 impl EmbroideryReader for JefReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
-        read_jef(data).map_err(|err| crate::error::AppError::parse(format!("JEF parse failed: {err}")))
+        read_jef(data)
+            .map_err(|err| crate::error::AppError::parse(format!("JEF parse failed: {err}")))
     }
 }
 use binrw::{BinRead, BinReaderExt};
@@ -323,4 +324,3 @@ pub fn read_jef(data: &[u8]) -> Result<EmbPattern, binrw::Error> {
 #[cfg(test)]
 #[path = "jef_reader_tests.rs"]
 mod tests;
-

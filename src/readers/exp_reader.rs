@@ -4,7 +4,8 @@ pub struct ExpReader;
 
 impl EmbroideryReader for ExpReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
-        read_exp(data).map_err(|err| crate::error::AppError::parse(format!("EXP parse failed: {err}")))
+        read_exp(data)
+            .map_err(|err| crate::error::AppError::parse(format!("EXP parse failed: {err}")))
     }
 }
 use std::io::Cursor;
@@ -328,43 +329,29 @@ mod tests {
     /// Total records: 17 commands → parsed stitch list includes appended End.
     const COMPLEX_INTERLEAVED_EXP: [u8; 46] = [
         // 1. Regular stitch: dx=0, dy=0  (origin)
-        0x00, 0x00,
-        // 2. Regular stitch: dx=10, dy=-15 → signed8 => 10, y=15
-        0x0A, 0xF1,
-        // 3. Trim: 0x80 0x80 + 2 bytes (dx=0, dy=0)
-        0x80, 0x80, 0x00, 0x00,
-        // 4. Regular stitch: dx=5, dy=-5
-        0x05, 0xFB,
-        // 5. Jump: 0x80 0x04 + dx=100, dy=-100 → signed8 => 100, y=100
-        0x80, 0x04, 0x64, 0x9C,
-        // 6. Regular stitch: dx=1, dy=-1
-        0x01, 0xFF,
-        // 7. ColorChange zero delta: 0x80 0x01 + dx=0, dy=0
-        0x80, 0x01, 0x00, 0x00,
-        // 8. Regular stitch: dx=1, dy=-1
-        0x01, 0xFF,
-        // 9. Trim: 0x80 0x80 + dx=0, dy=0
-        0x80, 0x80, 0x00, 0x00,
-        // 10. Regular stitch: dx=1, dy=-1
+        0x00, 0x00, // 2. Regular stitch: dx=10, dy=-15 → signed8 => 10, y=15
+        0x0A, 0xF1, // 3. Trim: 0x80 0x80 + 2 bytes (dx=0, dy=0)
+        0x80, 0x80, 0x00, 0x00, // 4. Regular stitch: dx=5, dy=-5
+        0x05, 0xFB, // 5. Jump: 0x80 0x04 + dx=100, dy=-100 → signed8 => 100, y=100
+        0x80, 0x04, 0x64, 0x9C, // 6. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF, // 7. ColorChange zero delta: 0x80 0x01 + dx=0, dy=0
+        0x80, 0x01, 0x00, 0x00, // 8. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF, // 9. Trim: 0x80 0x80 + dx=0, dy=0
+        0x80, 0x80, 0x00, 0x00, // 10. Regular stitch: dx=1, dy=-1
         0x01, 0xFF,
         // 11. Unknown control 0x12 with non-zero delta: 0x80 0x12 + dx=10, dy=-10
-        0x80, 0x12, 0x0A, 0xF6,
-        // 12. Regular stitch: dx=1, dy=-1
-        0x01, 0xFF,
-        // 13. ColorChange with non-zero delta: 0x80 0x01 + dx=5, dy=-5
-        0x80, 0x01, 0x05, 0xFB,
-        // 14. Regular stitch: dx=1, dy=-1
-        0x01, 0xFF,
-        // 15. ColorChange zero delta again: 0x80 0x01 + dx=0, dy=0
-        0x80, 0x01, 0x00, 0x00,
-        // 16. Regular stitch: dx=1, dy=-1
+        0x80, 0x12, 0x0A, 0xF6, // 12. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF, // 13. ColorChange with non-zero delta: 0x80 0x01 + dx=5, dy=-5
+        0x80, 0x01, 0x05, 0xFB, // 14. Regular stitch: dx=1, dy=-1
+        0x01, 0xFF, // 15. ColorChange zero delta again: 0x80 0x01 + dx=0, dy=0
+        0x80, 0x01, 0x00, 0x00, // 16. Regular stitch: dx=1, dy=-1
         0x01, 0xFF,
     ];
 
     #[test]
     fn test_complex_interleaved_control_commands_preserve_position() {
-        let pattern = read_exp(&COMPLEX_INTERLEAVED_EXP)
-            .expect("should parse complex interleaved EXP data");
+        let pattern =
+            read_exp(&COMPLEX_INTERLEAVED_EXP).expect("should parse complex interleaved EXP data");
 
         // Stitches (excluding End) = 16 raw records, but some emit extra commands:
         //   - The ColorChange with non-zero delta (record 13) emits a Jump
@@ -432,7 +419,9 @@ mod tests {
     fn test_exp_reader_trait_read_success() {
         let reader = ExpReader;
         let data = vec![0x05, 0xF6, 0xFD, 0xF9];
-        let pattern = reader.read(&data).expect("ExpReader::read should parse valid EXP");
+        let pattern = reader
+            .read(&data)
+            .expect("ExpReader::read should parse valid EXP");
         assert_eq!(
             pattern.count_stitch_commands(StitchType::Stitch),
             2,
@@ -444,7 +433,9 @@ mod tests {
     fn test_exp_reader_trait_read_handles_empty_data_gracefully() {
         // Empty data should produce an empty pattern, not a panic or error.
         let reader = ExpReader;
-        let pattern = reader.read(&[]).expect("empty data should produce Ok pattern");
+        let pattern = reader
+            .read(&[])
+            .expect("empty data should produce Ok pattern");
         assert_eq!(
             pattern.count_stitch_commands(StitchType::Stitch),
             0,
@@ -486,10 +477,7 @@ mod tests {
 
         // End marker appended at origin.
         assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
-        let end = pattern
-            .stitches
-            .last()
-            .expect("expected End marker");
+        let end = pattern.stitches.last().expect("expected End marker");
         assert_eq!(end.x, 0.0);
         assert_eq!(end.y, 0.0);
     }
@@ -513,10 +501,7 @@ mod tests {
         assert_eq!(stitches[0].y, 10.0);
 
         // End marker appended at the last decoded position (5, 10).
-        let end = pattern
-            .stitches
-            .last()
-            .expect("expected End marker");
+        let end = pattern.stitches.last().expect("expected End marker");
         assert_eq!(end.x, 5.0);
         assert_eq!(end.y, 10.0);
     }

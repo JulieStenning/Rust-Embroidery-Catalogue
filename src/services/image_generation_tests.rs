@@ -370,13 +370,11 @@ fn native_analysis_returns_expected_contract_shape() {
 
     assert_eq!(result.backend, "native");
     assert!(result.error.is_none());
-    assert!(
-        result
-            .image_data
-            .as_ref()
-            .map(|bytes| !bytes.is_empty())
-            .unwrap_or(false)
-    );
+    assert!(result
+        .image_data
+        .as_ref()
+        .map(|bytes| !bytes.is_empty())
+        .unwrap_or(false));
     assert_eq!(result.image_type.as_deref(), Some("2d"));
     assert_eq!(result.width_mm, Some(2.0));
     assert_eq!(result.height_mm, Some(1.0));
@@ -405,13 +403,11 @@ fn native_analysis_marks_3d_when_requested() {
     assert_eq!(result.backend, "native");
     assert!(result.error.is_none());
     assert_eq!(result.image_type.as_deref(), Some("3d"));
-    assert!(
-        result
-            .image_data
-            .as_ref()
-            .map(|bytes| !bytes.is_empty())
-            .unwrap_or(false)
-    );
+    assert!(result
+        .image_data
+        .as_ref()
+        .map(|bytes| !bytes.is_empty())
+        .unwrap_or(false));
 }
 
 #[test]
@@ -677,13 +673,11 @@ fn native_backend_parses_vp3_fixture() {
         "native backend should succeed for VP3 fixture"
     );
     assert_eq!(native.image_type.as_deref(), Some("2d"));
-    assert!(
-        native
-            .image_data
-            .as_ref()
-            .map(|bytes| !bytes.is_empty())
-            .unwrap_or(false)
-    );
+    assert!(native
+        .image_data
+        .as_ref()
+        .map(|bytes| !bytes.is_empty())
+        .unwrap_or(false));
     assert!(native.stitch_count.unwrap_or_default() > 0);
 }
 
@@ -708,13 +702,11 @@ fn native_backend_parses_user_vp3_regression_fixture_when_present() {
         "native backend should succeed for user VP3 fixture"
     );
     assert_eq!(native.image_type.as_deref(), Some("2d"));
-    assert!(
-        native
-            .image_data
-            .as_ref()
-            .map(|bytes| !bytes.is_empty())
-            .unwrap_or(false)
-    );
+    assert!(native
+        .image_data
+        .as_ref()
+        .map(|bytes| !bytes.is_empty())
+        .unwrap_or(false));
     assert!(native.stitch_count.unwrap_or_default() > 0);
 }
 

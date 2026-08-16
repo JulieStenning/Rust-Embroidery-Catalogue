@@ -8,8 +8,7 @@ pub fn get_about_documents() -> Vec<AboutDocumentSummary> {
 
 #[tauri::command]
 pub fn get_about_document(slug: String) -> Result<AboutDocumentDetail, String> {
-    about_documents::get_about_document(slug)
-        .map_err(|err| err.to_string())
+    about_documents::get_about_document(slug).map_err(|err| err.to_string())
 }
 
 #[cfg(test)]

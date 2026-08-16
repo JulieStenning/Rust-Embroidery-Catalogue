@@ -60,7 +60,10 @@ mod tests {
         let mut conn = pool.acquire().await.unwrap();
 
         // Clear settings table
-        sqlx::query("DELETE FROM settings").execute(&mut *conn).await.unwrap();
+        sqlx::query("DELETE FROM settings")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
 
         // 1. Empty state
         let settings = load_all_settings(&mut *conn).await.unwrap();
@@ -93,7 +96,10 @@ mod tests {
         assert_eq!(settings[1].description.as_deref(), Some("desc_b"));
 
         // 3. Error path: drop table and verify it returns Err
-        sqlx::query("DROP TABLE settings").execute(&mut *conn).await.unwrap();
+        sqlx::query("DROP TABLE settings")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
         let err = load_all_settings(&mut *conn).await;
         assert!(err.is_err());
     }
@@ -103,7 +109,10 @@ mod tests {
         let pool = setup_db().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        sqlx::query("DELETE FROM settings").execute(&mut *conn).await.unwrap();
+        sqlx::query("DELETE FROM settings")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
 
         // 1. Get non-existent key returns None
         let res = get_setting(&mut *conn, "nonexistent").await.unwrap();
@@ -124,7 +133,10 @@ mod tests {
         assert_eq!(res.description.as_deref(), Some("my_desc"));
 
         // 3. Error path: drop table and verify it returns Err
-        sqlx::query("DROP TABLE settings").execute(&mut *conn).await.unwrap();
+        sqlx::query("DROP TABLE settings")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
         let err = get_setting(&mut *conn, "my_key").await;
         assert!(err.is_err());
     }
@@ -134,10 +146,15 @@ mod tests {
         let pool = setup_db().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        sqlx::query("DELETE FROM settings").execute(&mut *conn).await.unwrap();
+        sqlx::query("DELETE FROM settings")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
 
         // 1. Update non-existent key returns 0 rows affected
-        let rows = update_setting(&mut *conn, "nonexistent", "new_val").await.unwrap();
+        let rows = update_setting(&mut *conn, "nonexistent", "new_val")
+            .await
+            .unwrap();
         assert_eq!(rows, 0);
 
         // 2. Update existent key returns 1 row affected and modifies the value
@@ -149,16 +166,20 @@ mod tests {
             .await
             .unwrap();
 
-        let rows = update_setting(&mut *conn, "my_key", "new_val").await.unwrap();
+        let rows = update_setting(&mut *conn, "my_key", "new_val")
+            .await
+            .unwrap();
         assert_eq!(rows, 1);
 
         let res = get_setting(&mut *conn, "my_key").await.unwrap().unwrap();
         assert_eq!(res.value, "new_val");
 
         // 3. Error path: drop table and verify it returns Err
-        sqlx::query("DROP TABLE settings").execute(&mut *conn).await.unwrap();
+        sqlx::query("DROP TABLE settings")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
         let err = update_setting(&mut *conn, "my_key", "new_val").await;
         assert!(err.is_err());
     }
 }
-

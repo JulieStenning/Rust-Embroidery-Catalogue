@@ -383,13 +383,11 @@ fn unique_path_with_suffix_handles_file_without_extension() {
 
     let candidate = unique_path_with_suffix(base.clone());
     assert_ne!(candidate, base);
-    assert!(
-        candidate
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .starts_with("noext_")
-    );
+    assert!(candidate
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .starts_with("noext_"));
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
@@ -836,13 +834,11 @@ fn unique_path_with_suffix_avoids_existing_file() {
 
     let candidate = unique_path_with_suffix(base.clone());
     assert_ne!(candidate, base);
-    assert!(
-        candidate
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .starts_with("catalogue_2026-05-30_1200_")
-    );
+    assert!(candidate
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .starts_with("catalogue_2026-05-30_1200_"));
 
     let _ = fs::remove_dir_all(&temp_dir);
 }

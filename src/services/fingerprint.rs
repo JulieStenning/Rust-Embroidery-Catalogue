@@ -1,4 +1,4 @@
-﻿// Content fingerprinting backfill: compute BLAKE3 hash and file size for designs
+// Content fingerprinting backfill: compute BLAKE3 hash and file size for designs
 // missing those columns, storing results incrementally into the database.
 //
 // Design decisions:
@@ -131,14 +131,12 @@ async fn select_candidates(
     let mut candidates = Vec::with_capacity(rows.len());
     for row in rows {
         candidates.push(FingerprintCandidate {
-            id: row.try_get::<i64, _>("id").map_err(|e| {
-                AppError::database(format!("failed to read candidate id: {e}"))
+            id: row
+                .try_get::<i64, _>("id")
+                .map_err(|e| AppError::database(format!("failed to read candidate id: {e}")))?,
+            filepath: row.try_get::<String, _>("filepath").map_err(|e| {
+                AppError::database(format!("failed to read candidate filepath: {e}"))
             })?,
-            filepath: row
-                .try_get::<String, _>("filepath")
-                .map_err(|e| {
-                    AppError::database(format!("failed to read candidate filepath: {e}"))
-                })?,
         });
     }
 
@@ -239,11 +237,13 @@ async fn process_one_design(
     let metadata = match fs::metadata(&source_path) {
         Ok(meta) => meta,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            sqlx::query("UPDATE designs SET file_size_bytes = -1, file_hash_blake3 = '' WHERE id = ?")
-                .bind(candidate.id)
-                .execute(pool)
-                .await
-                .map_err(|e| AppError::database(format!("failed to mark missing design: {e}")))?;
+            sqlx::query(
+                "UPDATE designs SET file_size_bytes = -1, file_hash_blake3 = '' WHERE id = ?",
+            )
+            .bind(candidate.id)
+            .execute(pool)
+            .await
+            .map_err(|e| AppError::database(format!("failed to mark missing design: {e}")))?;
 
             backfill::log_error(format!(
                 "Fingerprint: file missing on disk design_id={} stored_path={} resolved_path={}",
@@ -264,15 +264,19 @@ async fn process_one_design(
 
     let hash_needed = current_hash.as_ref().map_or(true, String::is_empty);
     let hash_string = if hash_needed {
-        let mut file = fs::File::open(&source_path)
-            .map_err(|e| AppError::io(format!("failed to open file for hashing '{}': {}", source_display, e)))?;
+        let mut file = fs::File::open(&source_path).map_err(|e| {
+            AppError::io(format!(
+                "failed to open file for hashing '{}': {}",
+                source_display, e
+            ))
+        })?;
 
         let mut hasher = blake3::Hasher::new();
         let mut buffer = [0u8; 65536];
         loop {
-            let bytes_read = file
-                .read(&mut buffer)
-                .map_err(|e| AppError::io(format!("failed to hash file '{}': {}", source_display, e)))?;
+            let bytes_read = file.read(&mut buffer).map_err(|e| {
+                AppError::io(format!("failed to hash file '{}': {}", source_display, e))
+            })?;
             if bytes_read == 0 {
                 break;
             }
@@ -306,4 +310,3 @@ async fn process_one_design(
 #[cfg(test)]
 #[path = "fingerprint_tests.rs"]
 mod tests;
-

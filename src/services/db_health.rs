@@ -14,10 +14,10 @@
 use crate::services::compaction::{read_page_size, run_incremental_vacuum};
 use serde::Serialize;
 use sqlx::SqlitePool;
-use tauri::Emitter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+use tauri::Emitter;
 
 /// Default free-page ratio threshold (freelist ÷ page_count) above which
 /// fragmentation maintenance is considered worthwhile. 20% of the database
@@ -67,11 +67,10 @@ pub struct DbMaintenanceFinishedEvent {
 
 /// Read the current page count, freelist count, and page size from the pool.
 pub async fn get_freelist_metrics(pool: &SqlitePool) -> Result<MetricsSnapshot, String> {
-    let (page_count,): (i64,) =
-        sqlx::query_as("SELECT page_count FROM pragma_page_count")
-            .fetch_one(pool)
-            .await
-            .map_err(|err| format!("Failed to read page_count: {err}"))?;
+    let (page_count,): (i64,) = sqlx::query_as("SELECT page_count FROM pragma_page_count")
+        .fetch_one(pool)
+        .await
+        .map_err(|err| format!("Failed to read page_count: {err}"))?;
 
     let (freelist_count,): (i64,) =
         sqlx::query_as("SELECT freelist_count FROM pragma_freelist_count")
@@ -262,12 +261,24 @@ mod tests {
 
     #[test]
     fn no_maintenance_when_zero_freelist() {
-        assert!(!should_run_maintenance(10_000, 0, 4096, 0.20, 20 * 1024 * 1024));
+        assert!(!should_run_maintenance(
+            10_000,
+            0,
+            4096,
+            0.20,
+            20 * 1024 * 1024
+        ));
     }
 
     #[test]
     fn no_maintenance_when_zero_total_pages() {
-        assert!(!should_run_maintenance(0, 100, 4096, 0.20, 20 * 1024 * 1024));
+        assert!(!should_run_maintenance(
+            0,
+            100,
+            4096,
+            0.20,
+            20 * 1024 * 1024
+        ));
     }
 
     #[test]
@@ -278,13 +289,25 @@ mod tests {
     #[test]
     fn no_maintenance_below_ratio_threshold() {
         // 1000 free / 10000 total = 10% < 20%, even though > 20MB of free space.
-        assert!(!should_run_maintenance(10_000, 1_000, 4096, 0.20, 20 * 1024 * 1024));
+        assert!(!should_run_maintenance(
+            10_000,
+            1_000,
+            4096,
+            0.20,
+            20 * 1024 * 1024
+        ));
     }
 
     #[test]
     fn no_maintenance_below_byte_floor() {
         // 20% free, but only 100 pages * 4096 = ~0.4 MB < 20 MB.
-        assert!(!should_run_maintenance(500, 100, 4096, 0.20, 20 * 1024 * 1024));
+        assert!(!should_run_maintenance(
+            500,
+            100,
+            4096,
+            0.20,
+            20 * 1024 * 1024
+        ));
     }
 
     #[test]
@@ -322,7 +345,13 @@ mod tests {
     #[test]
     fn high_ratio_with_low_bytes_does_not_trigger() {
         // 90% free but tiny file — under the byte floor.
-        assert!(!should_run_maintenance(100, 90, 4096, 0.20, 20 * 1024 * 1024));
+        assert!(!should_run_maintenance(
+            100,
+            90,
+            4096,
+            0.20,
+            20 * 1024 * 1024
+        ));
     }
 
     // ─── MetricsSnapshot helpers ─────────────────────────────────────────────

@@ -1,4 +1,4 @@
-﻿use std::io::{Cursor, Seek, SeekFrom};
+use std::io::{Cursor, Seek, SeekFrom};
 
 use crate::models::{EmbPattern, EmbThread, StitchType};
 use crate::readers::embroidery_reader::EmbroideryReader;
@@ -689,7 +689,8 @@ pub struct PesReader;
 
 impl EmbroideryReader for PesReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
-        read_pes(data).map_err(|err| crate::error::AppError::parse(format!("PES parse failed: {err}")))
+        read_pes(data)
+            .map_err(|err| crate::error::AppError::parse(format!("PES parse failed: {err}")))
     }
 }
 
@@ -745,4 +746,3 @@ fn interpolate_duplicate_color_as_stop(pattern: &mut EmbPattern) {
 #[cfg(test)]
 #[path = "pes_reader_tests.rs"]
 mod tests;
-

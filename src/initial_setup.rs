@@ -35,9 +35,7 @@ pub async fn set_initial_setup_completed(
     .execute(conn)
     .await
     .map(|_| true)
-    .map_err(|err| {
-        AppError::database(format!("failed to persist initial setup status: {err}"))
-    })
+    .map_err(|err| AppError::database(format!("failed to persist initial setup status: {err}")))
 }
 
 #[cfg(test)]
@@ -131,12 +129,11 @@ mod tests {
 
         assert!(set_initial_setup_completed(&mut conn, true).await.unwrap());
 
-        let row: (String,) = sqlx::query_as(
-            "SELECT value FROM settings WHERE key = 'initial_setup_completed'",
-        )
-        .fetch_one(&mut conn)
-        .await
-        .expect("select failed");
+        let row: (String,) =
+            sqlx::query_as("SELECT value FROM settings WHERE key = 'initial_setup_completed'")
+                .fetch_one(&mut conn)
+                .await
+                .expect("select failed");
 
         assert_eq!(row.0, "TRUE");
     }
@@ -148,12 +145,11 @@ mod tests {
 
         assert!(set_initial_setup_completed(&mut conn, false).await.unwrap());
 
-        let row: (String,) = sqlx::query_as(
-            "SELECT value FROM settings WHERE key = 'initial_setup_completed'",
-        )
-        .fetch_one(&mut conn)
-        .await
-        .expect("select failed");
+        let row: (String,) =
+            sqlx::query_as("SELECT value FROM settings WHERE key = 'initial_setup_completed'")
+                .fetch_one(&mut conn)
+                .await
+                .expect("select failed");
 
         assert_eq!(row.0, "FALSE");
     }
@@ -183,12 +179,11 @@ mod tests {
 
         assert!(is_initial_setup_completed(&mut conn).await.unwrap());
 
-        let row: (String,) = sqlx::query_as(
-            "SELECT value FROM settings WHERE key = 'initial_setup_completed'",
-        )
-        .fetch_one(&mut conn)
-        .await
-        .expect("select failed");
+        let row: (String,) =
+            sqlx::query_as("SELECT value FROM settings WHERE key = 'initial_setup_completed'")
+                .fetch_one(&mut conn)
+                .await
+                .expect("select failed");
 
         assert_eq!(row.0, "TRUE");
     }

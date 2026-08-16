@@ -1,4 +1,4 @@
-﻿use crate::error::AppError;
+use crate::error::AppError;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
 use crate::services::stitch_identifier;
 use crate::services::tagging;
@@ -343,12 +343,9 @@ pub async fn run_unified_backfill(
     if let Some(images_action) = actions.images {
         if images_action.enabled.unwrap_or(true) {
             actions_run.push("images".to_string());
-            let image_candidates = select_image_candidates(
-                pool,
-                images_action.redo.unwrap_or(false),
-                batch_size,
-            )
-            .await?;
+            let image_candidates =
+                select_image_candidates(pool, images_action.redo.unwrap_or(false), batch_size)
+                    .await?;
             for design_id in image_candidates {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
@@ -395,9 +392,10 @@ pub async fn run_unified_backfill(
     if let Some(fp_action) = actions.fingerprinting {
         if fp_action.enabled.unwrap_or(true) {
             actions_run.push("fingerprinting".to_string());
-            let fp_summary = crate::services::fingerprint::run_fingerprint_backfill(pool, commit_every)
-                .await
-                .map_err(|e| AppError::database(format!("Fingerprint backfill failed: {e}")))?;
+            let fp_summary =
+                crate::services::fingerprint::run_fingerprint_backfill(pool, commit_every)
+                    .await
+                    .map_err(|e| AppError::database(format!("Fingerprint backfill failed: {e}")))?;
             processed += fp_summary.processed;
             errors += fp_summary.errors;
             if fp_summary.stopped {
@@ -486,8 +484,12 @@ async fn get_image_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>,
 
     let mut map = HashMap::new();
     for row in rows {
-        let tag_id: i64 = row.try_get("id").map_err(|e| AppError::database(format!("failed to read tag id: {e}")))?;
-        let description: String = row.try_get("description").map_err(|e| AppError::database(format!("failed to read tag description: {e}")))?;
+        let tag_id: i64 = row
+            .try_get("id")
+            .map_err(|e| AppError::database(format!("failed to read tag id: {e}")))?;
+        let description: String = row
+            .try_get("description")
+            .map_err(|e| AppError::database(format!("failed to read tag description: {e}")))?;
         map.insert(description, tag_id);
     }
 
@@ -526,7 +528,11 @@ async fn select_tagging_design_ids(
 
     let mut ids = Vec::with_capacity(rows.len());
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read tagging design id: {e}")))?);
+        ids.push(
+            row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read tagging design id: {e}"))
+            })?,
+        );
     }
     Ok(ids)
 }
@@ -552,9 +558,15 @@ async fn apply_tagging_tiers(
         return Ok(());
     };
 
-    let filename: String = row.try_get("filename").map_err(|e| AppError::database(format!("failed to read filename: {e}")))?;
-    let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
-    let image_data: Option<Vec<u8>> = row.try_get("image_data").map_err(|e| AppError::database(format!("failed to read image data: {e}")))?;
+    let filename: String = row
+        .try_get("filename")
+        .map_err(|e| AppError::database(format!("failed to read filename: {e}")))?;
+    let filepath: String = row
+        .try_get("filepath")
+        .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let image_data: Option<Vec<u8>> = row
+        .try_get("image_data")
+        .map_err(|e| AppError::database(format!("failed to read image data: {e}")))?;
 
     if tier1_enabled {
         let tier1 = tagging::suggest_tier1_descriptions(&filename, &filepath, valid_descriptions);
@@ -733,7 +745,11 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read stitching-design id: {e}")))?);
+        ids.push(
+            row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read stitching-design id: {e}"))
+            })?,
+        );
     }
     Ok(ids)
 }
@@ -762,13 +778,15 @@ async fn select_stitching_candidates(
     let mut candidates = Vec::new();
     for row in rows {
         candidates.push(StitchingCandidate {
-            id: row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read stitching candidate id: {e}")))?,
-            filename: row
-                .try_get::<String, _>("filename")
-                .map_err(|e| AppError::database(format!("failed to read stitching filename: {e}")))?,
-            filepath: row
-                .try_get::<String, _>("filepath")
-                .map_err(|e| AppError::database(format!("failed to read stitching filepath: {e}")))?,
+            id: row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read stitching candidate id: {e}"))
+            })?,
+            filename: row.try_get::<String, _>("filename").map_err(|e| {
+                AppError::database(format!("failed to read stitching filename: {e}"))
+            })?,
+            filepath: row.try_get::<String, _>("filepath").map_err(|e| {
+                AppError::database(format!("failed to read stitching filepath: {e}"))
+            })?,
         });
     }
     Ok(candidates)
@@ -793,10 +811,12 @@ async fn get_stitching_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i
 
     let mut map = HashMap::new();
     for row in rows {
-        let tag_id = row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read stitching tag id: {e}")))?;
-        let description = row
-            .try_get::<String, _>("description")
-            .map_err(|e| AppError::database(format!("failed to read stitching tag description: {e}")))?;
+        let tag_id = row
+            .try_get::<i64, _>("id")
+            .map_err(|e| AppError::database(format!("failed to read stitching tag id: {e}")))?;
+        let description = row.try_get::<String, _>("description").map_err(|e| {
+            AppError::database(format!("failed to read stitching tag description: {e}"))
+        })?;
         map.insert(description, tag_id);
     }
     Ok(map)
@@ -863,7 +883,11 @@ async fn select_image_candidates(
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read image candidate id: {e}")))?);
+        ids.push(
+            row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read image candidate id: {e}"))
+            })?,
+        );
     }
     Ok(ids)
 }
@@ -884,10 +908,7 @@ async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), App
     Ok(())
 }
 
-async fn generate_and_store_preview(
-    pool: &SqlitePool,
-    design_id: i64,
-) -> Result<(), AppError> {
+async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
     let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
         .bind(design_id)
         .fetch_optional(pool)
@@ -898,7 +919,9 @@ async fn generate_and_store_preview(
         return Ok(());
     };
 
-    let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let filepath: String = row
+        .try_get("filepath")
+        .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
     let result = generate_preview(&ImageGenerationRequest {
         file_path: resolved_path.to_string_lossy().to_string(),
@@ -975,7 +998,10 @@ fn resolve_stored_design_path(stored_filepath: &str) -> PathBuf {
     designs_base.join(cleaned)
 }
 
-async fn select_color_count_candidates(pool: &SqlitePool, limit: i64) -> Result<Vec<i64>, AppError> {
+async fn select_color_count_candidates(
+    pool: &SqlitePool,
+    limit: i64,
+) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query(
         "SELECT id
 		 FROM designs
@@ -990,7 +1016,11 @@ async fn select_color_count_candidates(pool: &SqlitePool, limit: i64) -> Result<
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| AppError::database(format!("failed to read image candidate id: {e}")))?);
+        ids.push(
+            row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read image candidate id: {e}"))
+            })?,
+        );
     }
     Ok(ids)
 }
@@ -1000,13 +1030,17 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
         .bind(design_id)
         .fetch_optional(pool)
         .await
-        .map_err(|e| AppError::database(format!("failed to read filepath for color counts: {e}")))?;
+        .map_err(|e| {
+            AppError::database(format!("failed to read filepath for color counts: {e}"))
+        })?;
 
     let Some(row) = row else {
         return Ok(());
     };
 
-    let filepath: String = row.try_get("filepath").map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let filepath: String = row
+        .try_get("filepath")
+        .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
     let result = generate_preview(&ImageGenerationRequest {
         file_path: resolved_path.to_string_lossy().to_string(),
@@ -1084,9 +1118,7 @@ fn log_dir_path() -> PathBuf {
     let base_dir = BASE_DIR.get_or_init(|| {
         crate::paths::resolve_app_paths()
             .map(|paths| paths.log_dir)
-            .unwrap_or_else(|_| {
-                std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-            })
+            .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
     });
 
     base_dir.clone()
@@ -1103,17 +1135,26 @@ fn error_log_path() -> PathBuf {
 fn truncate_logs_for_new_run() -> Result<(), AppError> {
     let dir = log_dir_path();
     if let Err(err) = fs::create_dir_all(&dir) {
-        return Err(AppError::io(format!("failed to create log dir {}: {err}", dir.display())));
+        return Err(AppError::io(format!(
+            "failed to create log dir {}: {err}",
+            dir.display()
+        )));
     }
 
     let info_path = info_log_path();
     let error_path = error_log_path();
 
     if let Err(err) = fs::write(&info_path, "") {
-        return Err(AppError::io(format!("failed to truncate info log {}: {err}", info_path.display())));
+        return Err(AppError::io(format!(
+            "failed to truncate info log {}: {err}",
+            info_path.display()
+        )));
     }
     if let Err(err) = fs::write(&error_path, "") {
-        return Err(AppError::io(format!("failed to truncate error log {}: {err}", error_path.display())));
+        return Err(AppError::io(format!(
+            "failed to truncate error log {}: {err}",
+            error_path.display()
+        )));
     }
 
     Ok(())
@@ -1132,11 +1173,7 @@ fn append_log_line(path: &Path, line: &str) {
         return;
     }
 
-    let mut file = match fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-    {
+    let mut file = match fs::OpenOptions::new().create(true).append(true).open(path) {
         Ok(file) => file,
         Err(err) => {
             eprintln!("failed to open log file {}: {err}", path.display());
@@ -1163,11 +1200,16 @@ pub fn log_error(message: String) {
     );
 }
 
-fn read_log_tail(path: &Path, level: &str, limit: usize) -> Result<Vec<BackfillLogEntry>, AppError> {
+fn read_log_tail(
+    path: &Path,
+    level: &str,
+    limit: usize,
+) -> Result<Vec<BackfillLogEntry>, AppError> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let text = fs::read_to_string(path).map_err(|e| AppError::io(format!("failed to read log file {}: {e}", path.display())))?;
+    let text = fs::read_to_string(path)
+        .map_err(|e| AppError::io(format!("failed to read log file {}: {e}", path.display())))?;
     let mut lines = text
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -1186,4 +1228,3 @@ fn read_log_tail(path: &Path, level: &str, limit: usize) -> Result<Vec<BackfillL
 #[cfg(test)]
 #[path = "backfill_tests.rs"]
 mod tests;
-

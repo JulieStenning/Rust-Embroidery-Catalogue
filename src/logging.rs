@@ -22,7 +22,10 @@ pub struct LogGuard {
 /// correct application log directory (e.g. via `paths::resolve_app_paths().log_dir`).
 pub fn init_logging(log_dir: &Path) -> Result<LogGuard, AppError> {
     std::fs::create_dir_all(log_dir).map_err(|err| {
-        AppError::io(format!("failed to create log dir {}: {err}", log_dir.display()))
+        AppError::io(format!(
+            "failed to create log dir {}: {err}",
+            log_dir.display()
+        ))
     })?;
 
     let file_appender = RollingFileAppender::new(Rotation::DAILY, log_dir, "app.log");
@@ -33,13 +36,11 @@ pub fn init_logging(log_dir: &Path) -> Result<LogGuard, AppError> {
         .with_ansi(false)
         .with_target(false);
 
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     #[cfg(debug_assertions)]
     {
-        let (non_blocking_stdout, stdout_guard) =
-            tracing_appender::non_blocking(std::io::stdout());
+        let (non_blocking_stdout, stdout_guard) = tracing_appender::non_blocking(std::io::stdout());
         let stdout_layer = fmt::layer()
             .with_writer(non_blocking_stdout)
             .with_target(false);
@@ -112,7 +113,10 @@ mod tests {
 
         // Clean any leftover state from a previous failed run.
         let _ = std::fs::remove_dir_all(&log_dir);
-        assert!(!log_dir.exists(), "Precondition: directory should not exist yet");
+        assert!(
+            !log_dir.exists(),
+            "Precondition: directory should not exist yet"
+        );
 
         // Act – initialise logging.
         let guard = init_logging(&log_dir).unwrap();

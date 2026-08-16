@@ -89,7 +89,10 @@ pub async fn establish_connection_from_env() -> Result<SqlitePool, ConnectionErr
 /// applied to the developer DB at `Data/Database/`. The startup PRAGMA
 /// below is therefore a harmless no-op on those pre-converted files; it is
 /// retained so the connection configuration is explicit and defensive.
-async fn configure_pragmas(pool: &sqlx::SqlitePool, database_url: &str) -> Result<(), ConnectionError> {
+async fn configure_pragmas(
+    pool: &sqlx::SqlitePool,
+    database_url: &str,
+) -> Result<(), ConnectionError> {
     sqlx::query("PRAGMA busy_timeout = 30000")
         .execute(pool)
         .await
@@ -130,7 +133,8 @@ async fn configure_pragmas(pool: &sqlx::SqlitePool, database_url: &str) -> Resul
         Err(e) => {
             tracing::warn!(
                 "Configured SQLite PRAGMAs but could not read auto_vacuum mode for '{}': {}",
-                database_url, e
+                database_url,
+                e
             );
         }
     }
@@ -146,10 +150,7 @@ async fn read_auto_vacuum_mode(pool: &sqlx::SqlitePool) -> Result<i64, Connectio
         .fetch_one(pool)
         .await
         .map_err(|e| {
-            ConnectionError::BusyTimeout(format!(
-                "Failed to read auto_vacuum mode: {}",
-                e
-            ))
+            ConnectionError::BusyTimeout(format!("Failed to read auto_vacuum mode: {}", e))
         })?;
     Ok(mode)
 }

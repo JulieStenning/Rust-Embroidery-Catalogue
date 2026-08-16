@@ -158,12 +158,10 @@ mod helper_tests {
     fn build_data_url_uses_correct_mime_for_jpeg() {
         let data = Some(vec![255_u8; 4]);
         let result = build_data_url(data, Some("jpg"));
-        assert!(
-            result
-                .as_deref()
-                .unwrap_or_default()
-                .starts_with("data:image/jpeg;base64,")
-        );
+        assert!(result
+            .as_deref()
+            .unwrap_or_default()
+            .starts_with("data:image/jpeg;base64,"));
     }
 
     // â”€â”€â”€ strip_sqlite_prefix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -561,11 +559,9 @@ async fn set_design_rating_rejects_invalid_values() {
 
     let result = set_design_rating_with_pool(&pool, 1, Some(9)).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected rating error")
-            .contains("between 1 and 5")
-    );
+    assert!(result
+        .expect_err("expected rating error")
+        .contains("between 1 and 5"));
 }
 
 #[tokio::test]
@@ -795,11 +791,9 @@ async fn bulk_set_tags_rejects_unknown_tag_id() {
     .await;
 
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected error")
-            .contains("Tag with id=999 not found.")
-    );
+    assert!(result
+        .expect_err("expected error")
+        .contains("Tag with id=999 not found."));
 }
 
 #[tokio::test]
@@ -844,10 +838,12 @@ async fn bulk_set_tags_unchanged_domain_preserves_verification() {
     let pool = test_pool().await;
 
     // Pre-verify the image category; the design starts unverified for it.
-    sqlx::query("UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1")
-        .execute(&pool)
-        .await
-        .expect("pre-verify design");
+    sqlx::query(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1",
+    )
+    .execute(&pool)
+    .await
+    .expect("pre-verify design");
 
     // A tag diff that only touches the stitching domain (tag 2 = Satin Stitch).
     // With `None` flags, the image flag must be preserved (not cleared).
@@ -880,17 +876,22 @@ async fn bulk_set_tags_unchanged_domain_preserves_verification() {
     assert_eq!(image_checked, 1, "untouched image flag must be preserved");
     // Both flags were pre-set to 1; because the request carried no flag
     // overrides (None), the stitching flag is also preserved as-is.
-    assert_eq!(stitching_checked, 1, "untouched stitching flag must be preserved");
+    assert_eq!(
+        stitching_checked, 1,
+        "untouched stitching flag must be preserved"
+    );
 }
 
 #[tokio::test]
 async fn bulk_set_tags_no_diff_no_flags_keeps_flags_untouched() {
     let pool = test_pool().await;
 
-    sqlx::query("UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1")
-        .execute(&pool)
-        .await
-        .expect("pre-verify design");
+    sqlx::query(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1",
+    )
+    .execute(&pool)
+    .await
+    .expect("pre-verify design");
 
     // No tag diff and no flag overrides — nothing is written, flags preserved.
     let result = bulk_set_tags_for_designs_with_pool(
@@ -928,10 +929,12 @@ async fn bulk_set_tags_no_diff_no_flags_keeps_flags_untouched() {
 async fn bulk_set_tags_clear_all_without_flags_preserves_verification() {
     let pool = test_pool().await;
 
-    sqlx::query("UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 0 WHERE id = 1")
-        .execute(&pool)
-        .await
-        .expect("pre-verify design");
+    sqlx::query(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 0 WHERE id = 1",
+    )
+    .execute(&pool)
+    .await
+    .expect("pre-verify design");
 
     let result = bulk_set_tags_for_designs_with_pool(
         &pool,
@@ -959,7 +962,10 @@ async fn bulk_set_tags_clear_all_without_flags_preserves_verification() {
             .await
             .expect("stitching_tags_verified query");
 
-    assert_eq!(image_checked, 1, "clear-all without flags must not clear image flag");
+    assert_eq!(
+        image_checked, 1,
+        "clear-all without flags must not clear image flag"
+    );
     assert_eq!(stitching_checked, 0);
 }
 
@@ -1008,13 +1014,11 @@ async fn get_design_image_data_returns_data_url_when_image_exists() {
 
     assert_eq!(image.design_id, 1);
     assert_eq!(image.image_type.as_deref(), Some("png"));
-    assert!(
-        image
-            .data_url
-            .as_deref()
-            .unwrap_or_default()
-            .starts_with("data:image/png;base64,")
-    );
+    assert!(image
+        .data_url
+        .as_deref()
+        .unwrap_or_default()
+        .starts_with("data:image/png;base64,"));
 }
 
 #[tokio::test]
@@ -1023,11 +1027,9 @@ async fn open_design_in_editor_returns_error_for_missing_design() {
 
     let result = open_design_in_editor_with_pool(&pool, 999).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected missing design error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected missing design error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1036,11 +1038,9 @@ async fn open_design_in_explorer_returns_error_for_missing_design() {
 
     let result = open_design_in_explorer_with_pool(&pool, 999).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected missing design error")
-            .contains("not found")
-    );
+    assert!(result
+        .expect_err("expected missing design error")
+        .contains("not found"));
 }
 
 #[tokio::test]
@@ -1049,11 +1049,9 @@ async fn render_design_3d_preview_returns_error_when_source_file_is_missing() {
 
     let result = render_design_3d_preview_with_pool(&pool, 1, true).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected missing file error")
-            .contains("not found on disk")
-    );
+    assert!(result
+        .expect_err("expected missing file error")
+        .contains("not found on disk"));
 }
 
 #[tokio::test]
@@ -1062,11 +1060,9 @@ async fn render_design_2d_preview_returns_error_when_source_file_is_missing() {
 
     let result = render_design_3d_preview_with_pool(&pool, 1, false).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .expect_err("expected missing file error")
-            .contains("not found on disk")
-    );
+    assert!(result
+        .expect_err("expected missing file error")
+        .contains("not found on disk"));
 }
 
 #[test]
@@ -1182,11 +1178,9 @@ async fn get_design_filepath_errors_for_empty_filepath() {
 
     let result = get_design_filepath(&pool, 2).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .contains("does not have a stored filepath")
-    );
+    assert!(result
+        .unwrap_err()
+        .contains("does not have a stored filepath"));
 }
 
 #[tokio::test]

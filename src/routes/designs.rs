@@ -1,4 +1,4 @@
-﻿use crate::config::BootstrapConfig;
+use crate::config::BootstrapConfig;
 use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
 use crate::AppState;
@@ -861,10 +861,7 @@ async fn reparse_design_file_with_pool(
     });
 
     if let Some(error) = generation_result.error {
-        return Err(format!(
-            "Could not re-parse the design file: {}",
-            error
-        ));
+        return Err(format!("Could not re-parse the design file: {}", error));
     }
 
     let width_mm = round_mm_to_i64(generation_result.width_mm);
@@ -1208,7 +1205,12 @@ async fn classify_tag_ids(
             .await
             .map_err(|e| e.to_string())?;
         let group = row
-            .and_then(|record| record.try_get::<Option<String>, _>("tag_group").ok().flatten())
+            .and_then(|record| {
+                record
+                    .try_get::<Option<String>, _>("tag_group")
+                    .ok()
+                    .flatten()
+            })
             .unwrap_or_default();
         if group.eq_ignore_ascii_case("stitching") {
             stitching_ids.push(*tag_id);
@@ -1497,9 +1499,8 @@ async fn bulk_delete_designs_with_pool(
 
     // Fetch filepaths for all designs (needed if delete_files is true)
     let filepath_rows: Vec<(i64, String)> = if delete_files {
-        let mut query = QueryBuilder::<Sqlite>::new(
-            "SELECT id, filepath FROM designs WHERE id IN (",
-        );
+        let mut query =
+            QueryBuilder::<Sqlite>::new("SELECT id, filepath FROM designs WHERE id IN (");
         let mut separated = query.separated(", ");
         for id in &deduped {
             separated.push_bind(*id);
@@ -1664,9 +1665,14 @@ fn parse_general_token(raw: &str) -> GeneralSearchToken {
     let phrase = text.starts_with('"') && text.ends_with('"') || text.contains('"');
     let normalized = text.trim_matches('"').trim();
 
-    let is_extension = normalized.starts_with("*") && normalized.len() > 1 && !normalized.contains(' ');
+    let is_extension =
+        normalized.starts_with("*") && normalized.len() > 1 && !normalized.contains(' ');
     let final_text = if is_extension {
-        normalized.trim_start_matches('*').trim_start_matches('.').trim().to_string()
+        normalized
+            .trim_start_matches('*')
+            .trim_start_matches('.')
+            .trim()
+            .to_string()
     } else {
         normalized.to_string()
     };
@@ -1778,13 +1784,16 @@ pub async fn get_designs(
         LEFT JOIN hoops ON hoops.id = d.hoop_id
         LEFT JOIN design_tags ON design_tags.design_id = d.id
         LEFT JOIN tags ON tags.id = design_tags.tag_id
-        "#
+        "#,
     );
 
     let mut has_where = false;
 
     if let Some(ref p) = payload {
-        let q_trimmed = p.q.as_deref().map(str::trim).filter(|value| !value.is_empty());
+        let q_trimmed =
+            p.q.as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
         if let Some(q) = q_trimmed {
             let search_file = p.search_file_name.unwrap_or(true);
             let search_tags = p.search_tags.unwrap_or(true);
@@ -1793,7 +1802,13 @@ pub async fn get_designs(
 
             if search_file || search_tags || search_folder {
                 push_where_clause(&mut query_builder, &mut has_where);
-                push_general_search_clause(&mut query_builder, search_file, search_tags, search_folder, &general_groups);
+                push_general_search_clause(
+                    &mut query_builder,
+                    search_file,
+                    search_tags,
+                    search_folder,
+                    &general_groups,
+                );
             }
         }
 
@@ -2129,9 +2144,8 @@ async fn bulk_set_tags_for_designs_with_pool(
                 .map_err(|e| e.to_string())?;
             design_changed |= result.rows_affected() > 0;
         } else if !tags_to_remove.is_empty() {
-            let mut delete_query = QueryBuilder::<Sqlite>::new(
-                "DELETE FROM design_tags WHERE design_id = ",
-            );
+            let mut delete_query =
+                QueryBuilder::<Sqlite>::new("DELETE FROM design_tags WHERE design_id = ");
             delete_query.push_bind(*design_id);
             delete_query.push(" AND tag_id IN (");
             let mut separated = delete_query.separated(", ");
@@ -2148,12 +2162,13 @@ async fn bulk_set_tags_for_designs_with_pool(
         }
 
         for tag_id in &tags_to_add {
-            let result = sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
-                .bind(*design_id)
-                .bind(*tag_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
+            let result =
+                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                    .bind(*design_id)
+                    .bind(*tag_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
             design_changed |= result.rows_affected() > 0;
         }
 
@@ -2272,10 +2287,13 @@ pub async fn update_design_metadata(
     request: UpdateDesignMetadataRequest,
 ) -> Result<DesignCommandResult, String> {
     let result = update_design_metadata_with_pool(&state.db, design_id, request).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {}
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {}
+        }),
+    );
     Ok(result)
 }
 
@@ -2287,10 +2305,13 @@ pub async fn set_design_rating(
     request: SetDesignRatingRequest,
 ) -> Result<DesignCommandResult, String> {
     let result = set_design_rating_with_pool(&state.db, design_id, request.rating).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": { "rating": request.rating }
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": { "rating": request.rating }
+        }),
+    );
     Ok(result)
 }
 
@@ -2302,10 +2323,13 @@ pub async fn set_design_stitched(
     request: SetDesignStitchedRequest,
 ) -> Result<DesignCommandResult, String> {
     let result = set_design_stitched_with_pool(&state.db, design_id, request.is_stitched).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": { "is_stitched": request.is_stitched }
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": { "is_stitched": request.is_stitched }
+        }),
+    );
     Ok(result)
 }
 
@@ -2323,13 +2347,16 @@ pub async fn set_design_verification(
         request.stitching_tags_verified,
     )
     .await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {
-            "image_tags_verified": request.image_tags_verified,
-            "stitching_tags_verified": request.stitching_tags_verified,
-        }
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {
+                "image_tags_verified": request.image_tags_verified,
+                "stitching_tags_verified": request.stitching_tags_verified,
+            }
+        }),
+    );
     Ok(result)
 }
 
@@ -2348,13 +2375,16 @@ pub async fn set_design_tags(
         request.stitching_tags_verified,
     )
     .await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {
-            "image_tags_verified": request.image_tags_verified,
-            "stitching_tags_verified": request.stitching_tags_verified,
-        }
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {
+                "image_tags_verified": request.image_tags_verified,
+                "stitching_tags_verified": request.stitching_tags_verified,
+            }
+        }),
+    );
     Ok(result)
 }
 
@@ -2366,10 +2396,13 @@ pub async fn remove_design_tag(
     tag_id: i64,
 ) -> Result<DesignCommandResult, String> {
     let result = remove_design_tag_with_pool(&state.db, design_id, tag_id).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {}
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {}
+        }),
+    );
     Ok(result)
 }
 
@@ -2381,10 +2414,13 @@ pub async fn add_design_to_project(
     request: SetDesignProjectRequest,
 ) -> Result<DesignCommandResult, String> {
     let result = add_design_to_project_with_pool(&state.db, design_id, request.project_id).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {}
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {}
+        }),
+    );
     Ok(result)
 }
 
@@ -2396,10 +2432,13 @@ pub async fn remove_design_from_project(
     project_id: i64,
 ) -> Result<DesignCommandResult, String> {
     let result = remove_design_from_project_with_pool(&state.db, design_id, project_id).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {}
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {}
+        }),
+    );
     Ok(result)
 }
 
@@ -2411,10 +2450,13 @@ pub async fn delete_design(
     delete_file: bool,
 ) -> Result<DesignCommandResult, String> {
     let result = delete_design_with_pool(&state.db, design_id, delete_file).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": { "_deleted": true }
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": { "_deleted": true }
+        }),
+    );
     // Reclaim freelist pages asynchronously after the delete commits, so the
     // UI never blocks on database file compaction.
     schedule_incremental_vacuum(state.db.clone());
@@ -2427,13 +2469,17 @@ pub async fn bulk_delete_designs(
     state: State<'_, AppState>,
     request: BulkDeleteDesignsRequest,
 ) -> Result<BulkDeleteDesignsResult, String> {
-    let result = bulk_delete_designs_with_pool(&state.db, &request.design_ids, request.delete_files).await?;
+    let result =
+        bulk_delete_designs_with_pool(&state.db, &request.design_ids, request.delete_files).await?;
     // Emit events for each deleted design
     for design_id in &request.design_ids {
-        let _ = app_handle.emit("design:mutated", json!({
-            "design_id": design_id,
-            "fields": { "_deleted": true }
-        }));
+        let _ = app_handle.emit(
+            "design:mutated",
+            json!({
+                "design_id": design_id,
+                "fields": { "_deleted": true }
+            }),
+        );
     }
     // Reclaim freelist pages asynchronously after the bulk delete commits, so
     // the UI never blocks on database file compaction.
@@ -2474,13 +2520,15 @@ pub async fn reparse_design_file(
     design_id: i64,
 ) -> Result<ReparseDesignResult, String> {
     let result = reparse_design_file_with_pool(&state.db, design_id).await?;
-    let _ = app_handle.emit("design:mutated", json!({
-        "design_id": design_id,
-        "fields": {}
-    }));
+    let _ = app_handle.emit(
+        "design:mutated",
+        json!({
+            "design_id": design_id,
+            "fields": {}
+        }),
+    );
     Ok(result)
 }
 #[cfg(test)]
 #[path = "designs_tests.rs"]
 mod tests;
-

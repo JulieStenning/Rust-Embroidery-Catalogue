@@ -4,7 +4,8 @@ pub struct DstReader;
 
 impl EmbroideryReader for DstReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
-        read_dst(data).map_err(|err| crate::error::AppError::parse(format!("DST parse failed: {err}")))
+        read_dst(data)
+            .map_err(|err| crate::error::AppError::parse(format!("DST parse failed: {err}")))
     }
 }
 use std::io::{Cursor, Seek, SeekFrom};

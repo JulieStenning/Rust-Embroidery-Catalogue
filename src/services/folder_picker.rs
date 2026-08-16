@@ -45,9 +45,7 @@ pub fn resolve_assignment(
 /// When the path exists, it is canonicalized (resolving symlinks and normalising
 /// separators) so that `rfd` receives a native OS path.
 fn resolve_start_dir(start_dir: Option<&str>) -> Option<PathBuf> {
-    let candidate = start_dir
-        .map(str::trim)
-        .filter(|value| !value.is_empty())?;
+    let candidate = start_dir.map(str::trim).filter(|value| !value.is_empty())?;
 
     let path = Path::new(candidate);
     if path.exists() {
@@ -190,8 +188,8 @@ mod tests {
         let result = resolve_assignment(&per, &fallback);
 
         assert_eq!(result.folder_path, "/d");
-        assert_eq!(result.designer_id, Some(1));  // from per-folder
-        assert_eq!(result.source_id, Some(2));     // from fallback
+        assert_eq!(result.designer_id, Some(1)); // from per-folder
+        assert_eq!(result.source_id, Some(2)); // from fallback
     }
 
     // ── resolve_start_dir ─────────────────────────────────────────────────

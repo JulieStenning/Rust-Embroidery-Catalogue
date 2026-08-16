@@ -1,4 +1,4 @@
-﻿use crate::models::EmbPattern;
+use crate::models::EmbPattern;
 use crate::png_writer::{render_pattern_to_png, RenderSettings, ThreeDStyle};
 use crate::readers::{
     DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader,
@@ -235,4 +235,3 @@ fn analyze_pattern_with_native_renderer(
 #[cfg(test)]
 #[path = "image_generation_tests.rs"]
 mod tests;
-

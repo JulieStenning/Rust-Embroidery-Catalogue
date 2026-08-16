@@ -890,22 +890,19 @@ async fn clear_image_fields_sets_fields_to_null() {
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert!(
-        row.try_get::<Option<Vec<u8>>, _>("image_data")
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        row.try_get::<Option<String>, _>("image_type")
-            .unwrap()
-            .is_none()
-    );
+    assert!(row
+        .try_get::<Option<Vec<u8>>, _>("image_data")
+        .unwrap()
+        .is_none());
+    assert!(row
+        .try_get::<Option<String>, _>("image_type")
+        .unwrap()
+        .is_none());
     assert!(row.try_get::<Option<i64>, _>("width_mm").unwrap().is_none());
-    assert!(
-        row.try_get::<Option<i64>, _>("height_mm")
-            .unwrap()
-            .is_none()
-    );
+    assert!(row
+        .try_get::<Option<i64>, _>("height_mm")
+        .unwrap()
+        .is_none());
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

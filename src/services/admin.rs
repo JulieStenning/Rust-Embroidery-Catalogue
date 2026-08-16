@@ -1,4 +1,4 @@
-﻿use crate::error::AppError;
+use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 
@@ -99,7 +99,9 @@ pub fn validate_non_empty(value: &str, label: &str) -> Result<String, AppError> 
 
 pub fn validate_positive(value: f64, label: &str) -> Result<f64, AppError> {
     if !value.is_finite() || value <= 0.0 {
-        return Err(AppError::invalid_input(format!("{label} must be a positive number.")));
+        return Err(AppError::invalid_input(format!(
+            "{label} must be a positive number."
+        )));
     }
     Ok(value)
 }
@@ -130,7 +132,9 @@ async fn ensure_unique_name(
         .is_some();
 
     if exists {
-        Err(AppError::invalid_input(format!("{label} '{name}' already exists.")))
+        Err(AppError::invalid_input(format!(
+            "{label} '{name}' already exists."
+        )))
     } else {
         Ok(())
     }
@@ -144,9 +148,8 @@ async fn ensure_unique_name_except_id(
     name: &str,
     label: &str,
 ) -> Result<(), AppError> {
-    let sql = format!(
-        "SELECT 1 FROM {table} WHERE lower(name) = lower(?) AND {id_column} <> ? LIMIT 1"
-    );
+    let sql =
+        format!("SELECT 1 FROM {table} WHERE lower(name) = lower(?) AND {id_column} <> ? LIMIT 1");
     let exists = sqlx::query_scalar::<_, i64>(&sql)
         .bind(name)
         .bind(excluded_id)
@@ -156,7 +159,9 @@ async fn ensure_unique_name_except_id(
         .is_some();
 
     if exists {
-        Err(AppError::invalid_input(format!("{label} '{name}' already exists.")))
+        Err(AppError::invalid_input(format!(
+            "{label} '{name}' already exists."
+        )))
     } else {
         Ok(())
     }
@@ -205,7 +210,15 @@ pub async fn update_designer_with_pool(
     request: UpdateDesignerRequest,
 ) -> Result<AdminDesigner, AppError> {
     let name = validate_non_empty(&request.name, "Designer name")?;
-    ensure_unique_name_except_id(pool, "designers", "id", request.designer_id, &name, "Designer").await?;
+    ensure_unique_name_except_id(
+        pool,
+        "designers",
+        "id",
+        request.designer_id,
+        &name,
+        "Designer",
+    )
+    .await?;
 
     let result = sqlx::query("UPDATE designers SET name = ? WHERE id = ?")
         .bind(&name)
@@ -215,7 +228,10 @@ pub async fn update_designer_with_pool(
         .map_err(|e| AppError::database(e.to_string()))?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::not_found("designer", Some(request.designer_id.to_string())));
+        return Err(AppError::not_found(
+            "designer",
+            Some(request.designer_id.to_string()),
+        ));
     }
 
     let row = sqlx::query_as::<_, AdminDesigner>(
@@ -239,7 +255,10 @@ pub async fn update_designer_with_pool(
     Ok(row)
 }
 
-pub async fn delete_designer_with_pool(pool: &SqlitePool, designer_id: i64) -> Result<(), AppError> {
+pub async fn delete_designer_with_pool(
+    pool: &SqlitePool,
+    designer_id: i64,
+) -> Result<(), AppError> {
     let result = sqlx::query("DELETE FROM designers WHERE id = ?")
         .bind(designer_id)
         .execute(pool)
@@ -247,7 +266,10 @@ pub async fn delete_designer_with_pool(pool: &SqlitePool, designer_id: i64) -> R
         .map_err(|e| AppError::database(e.to_string()))?;
 
     if result.rows_affected() == 0 {
-        Err(AppError::not_found("designer", Some(designer_id.to_string())))
+        Err(AppError::not_found(
+            "designer",
+            Some(designer_id.to_string()),
+        ))
     } else {
         Ok(())
     }
@@ -306,7 +328,10 @@ pub async fn update_source_with_pool(
         .map_err(|e| AppError::database(e.to_string()))?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::not_found("source", Some(request.source_id.to_string())));
+        return Err(AppError::not_found(
+            "source",
+            Some(request.source_id.to_string()),
+        ));
     }
 
     let row = sqlx::query_as::<_, AdminSource>(
@@ -381,7 +406,9 @@ pub async fn create_tag_with_pool(
     .is_some();
 
     if existing {
-        return Err(AppError::invalid_input(format!("Tag '{description}' already exists.")));
+        return Err(AppError::invalid_input(format!(
+            "Tag '{description}' already exists."
+        )));
     }
 
     let result = sqlx::query("INSERT INTO tags (description, tag_group) VALUES (?, ?)")
@@ -403,13 +430,12 @@ pub async fn create_tag_with_pool(
 /// Fetch the `is_system` flag for a tag and reject requests to modify or delete
 /// system-defined tags. Returns `NotFound` if the tag does not exist.
 async fn ensure_tag_not_system(pool: &SqlitePool, tag_id: i64) -> Result<(), AppError> {
-    let is_system = sqlx::query_scalar::<_, bool>(
-        "SELECT is_system FROM tags WHERE id = ? LIMIT 1",
-    )
-    .bind(tag_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| AppError::database(e.to_string()))?;
+    let is_system =
+        sqlx::query_scalar::<_, bool>("SELECT is_system FROM tags WHERE id = ? LIMIT 1")
+            .bind(tag_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| AppError::database(e.to_string()))?;
 
     match is_system {
         None => Err(AppError::not_found("tag", Some(tag_id.to_string()))),
@@ -439,7 +465,9 @@ pub async fn update_tag_with_pool(
     .is_some();
 
     if existing {
-        return Err(AppError::invalid_input(format!("Tag '{description}' already exists.")));
+        return Err(AppError::invalid_input(format!(
+            "Tag '{description}' already exists."
+        )));
     }
 
     let result = sqlx::query("UPDATE tags SET description = ? WHERE id = ?")
@@ -601,7 +629,10 @@ pub async fn update_hoop_with_pool(
             .map_err(|e| AppError::database(e.to_string()))?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::not_found("hoop", Some(request.hoop_id.to_string())));
+        return Err(AppError::not_found(
+            "hoop",
+            Some(request.hoop_id.to_string()),
+        ));
     }
 
     let row = sqlx::query_as::<_, AdminHoop>(
@@ -643,4 +674,3 @@ pub async fn delete_hoop_with_pool(pool: &SqlitePool, hoop_id: i64) -> Result<()
 #[cfg(test)]
 #[path = "admin_tests.rs"]
 mod tests;
-

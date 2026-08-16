@@ -1,4 +1,4 @@
-﻿//! Path resolution for Dev and Installed execution modes.
+//! Path resolution for Dev and Installed execution modes.
 //!
 //! This module centralises all filesystem layout decisions so that every
 //! part of the application derives paths from a single `AppPaths` struct
@@ -184,7 +184,9 @@ struct BootstrapConfig {
 /// This is the fixed location on the system drive (e.g. `%APPDATA%`) that
 /// survives uninstalls/reinstalls and records the chosen data-root location.
 pub fn bootstrap_config_path() -> PathBuf {
-    app_data_base_dir().join("EmbroideryCatalogue").join(BOOTSTRAP_CONFIG_FILENAME)
+    app_data_base_dir()
+        .join("EmbroideryCatalogue")
+        .join(BOOTSTRAP_CONFIG_FILENAME)
 }
 
 /// The base platform app-data directory (`%APPDATA%` on Windows, etc.).
@@ -258,16 +260,21 @@ pub fn write_bootstrap_data_root(data_root: &Path) -> Result<(), AppError> {
     let config = BootstrapConfig {
         data_root: data_root.to_path_buf(),
     };
-    let json = serde_json::to_string_pretty(&config).map_err(|err| {
-        AppError::parse(format!("failed to serialize bootstrap config: {err}"))
-    })?;
+    let json = serde_json::to_string_pretty(&config)
+        .map_err(|err| AppError::parse(format!("failed to serialize bootstrap config: {err}")))?;
 
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, json).map_err(|err| {
-        AppError::io(format!("failed to write bootstrap config {}: {err}", tmp.display()))
+        AppError::io(format!(
+            "failed to write bootstrap config {}: {err}",
+            tmp.display()
+        ))
     })?;
     std::fs::rename(&tmp, &path).map_err(|err| {
-        AppError::io(format!("failed to finalize bootstrap config {}: {err}", path.display()))
+        AppError::io(format!(
+            "failed to finalize bootstrap config {}: {err}",
+            path.display()
+        ))
     })?;
 
     Ok(())
@@ -312,7 +319,9 @@ pub fn configured_data_root_missing() -> Result<Option<bool>, AppError> {
 /// canonicalisation falls back to string-level prefix matching).
 pub fn to_relative(absolute: &Path, root: &Path) -> Result<PathBuf, std::io::Error> {
     // Try canonical forms first for the most reliable result
-    let abs_canon = absolute.canonicalize().unwrap_or_else(|_| absolute.to_path_buf());
+    let abs_canon = absolute
+        .canonicalize()
+        .unwrap_or_else(|_| absolute.to_path_buf());
     let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
 
     if let Ok(rest) = abs_canon.strip_prefix(&root_canon) {

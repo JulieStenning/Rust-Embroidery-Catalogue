@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // Embroidery Catalogue â€” Tauri v2 entry point
 
@@ -64,7 +64,10 @@ fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
     // Only Installed mode can have a configured-then-missing root; Dev mode
     // always resolves to the project dev_data folder.
     let data_root_missing = matches!(paths.mode, paths::ExecutionMode::Installed)
-        && paths::configured_data_root_missing().ok().flatten().unwrap_or(false);
+        && paths::configured_data_root_missing()
+            .ok()
+            .flatten()
+            .unwrap_or(false);
 
     AppStatus {
         execution_mode: mode_str,
@@ -115,8 +118,8 @@ fn set_configured_data_root(data_root: String) -> Result<(), String> {
 /// using the `rfd` crate. Returns `Ok(None)` when the user cancels.
 #[tauri::command]
 fn browse_data_root_folder(start_dir: Option<String>) -> Result<Option<String>, String> {
-    let mut dialog = rfd::FileDialog::new()
-        .set_title("Choose a folder for your Embroidery Catalogue data");
+    let mut dialog =
+        rfd::FileDialog::new().set_title("Choose a folder for your Embroidery Catalogue data");
     if let Some(dir) = start_dir.filter(|d| !d.trim().is_empty()) {
         dialog = dialog.set_directory(&dir);
     }
@@ -192,7 +195,10 @@ fn main() {
             std::process::exit(1);
         }
     };
-    tracing::info!("Logging initialised â€” log_dir={}", app_paths.log_dir.display());
+    tracing::info!(
+        "Logging initialised â€” log_dir={}",
+        app_paths.log_dir.display()
+    );
 
     // Load .env file if present (best-effort; not required in production)
     load_dotenv();
@@ -257,9 +263,7 @@ fn main() {
     // (hash + file size).  This is fire-and-forget â€” errors are logged, not fatal.
     let fp_pool = app_state.db.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(err) =
-            services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await
-        {
+        if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await {
             tracing::error!("Startup fingerprint backfill error: {}", err);
         }
     });
@@ -286,12 +290,9 @@ fn main() {
             {
                 let state = app.state::<AppState>();
                 let pool = state.db.clone();
-                let maintenance_flag = std::sync::Arc::new(
-                    std::sync::atomic::AtomicBool::new(false),
-                );
-                let shutdown_flag = std::sync::Arc::new(
-                    std::sync::atomic::AtomicBool::new(false),
-                );
+                let maintenance_flag =
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                let shutdown_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
                 // NOTE: The immediate startup health check is NOT spawned here.
                 // The single-connection pool (max_connections=1) is shared with
@@ -310,8 +311,7 @@ fn main() {
                     // Start with the default, then pick up the persisted value
                     // from the settings table on each tick so Settings UI
                     // changes take effect without restart.
-                    let mut interval_secs =
-                        services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS;
+                    let mut interval_secs = services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS;
 
                     loop {
                         // Re-read the persisted interval each cycle.
@@ -455,12 +455,8 @@ fn main() {
         // connection" error.
         let state = app.state::<AppState>();
         let pool = state.db.clone();
-        let maintenance_flag = std::sync::Arc::new(
-            std::sync::atomic::AtomicBool::new(false),
-        );
-        let shutdown_flag = std::sync::Arc::new(
-            std::sync::atomic::AtomicBool::new(false),
-        );
+        let maintenance_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let shutdown_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let startup_handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -576,4 +572,3 @@ fn load_dotenv_from_str(content: &str) {
 #[cfg(test)]
 #[path = "main_tests.rs"]
 mod tests;
-

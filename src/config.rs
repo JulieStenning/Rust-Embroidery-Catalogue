@@ -70,7 +70,10 @@ pub fn ensure_database_dir(database_url: &str) -> Result<(), AppError> {
     if let Some(parent) = std::path::Path::new(file_path).parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).map_err(|err| {
-                AppError::io(format!("failed to create database directory {}: {err}", parent.display()))
+                AppError::io(format!(
+                    "failed to create database directory {}: {err}",
+                    parent.display()
+                ))
             })?;
         }
     }
@@ -91,18 +94,12 @@ mod tests {
 
     #[test]
     fn normalize_empty_string_returns_default() {
-        assert_eq!(
-            normalize_database_url(""),
-            DEFAULT_DATABASE_URL
-        );
+        assert_eq!(normalize_database_url(""), DEFAULT_DATABASE_URL);
     }
 
     #[test]
     fn normalize_whitespace_only_returns_default() {
-        assert_eq!(
-            normalize_database_url("   "),
-            DEFAULT_DATABASE_URL
-        );
+        assert_eq!(normalize_database_url("   "), DEFAULT_DATABASE_URL);
     }
 
     #[test]

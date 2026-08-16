@@ -1,4 +1,4 @@
-﻿use crate::error::AppError;
+use crate::error::AppError;
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -145,7 +145,10 @@ pub fn round_mm_to_i64(value: Option<f64>) -> Option<i64> {
     value.map(|v| v.round() as i64)
 }
 
-pub async fn ensure_project_exists(pool: &SqlitePool, project_id: i64) -> Result<ProjectSummary, AppError> {
+pub async fn ensure_project_exists(
+    pool: &SqlitePool,
+    project_id: i64,
+) -> Result<ProjectSummary, AppError> {
     if project_id <= 0 {
         return Err(AppError::not_found("project", Some(project_id.to_string())));
     }
@@ -173,15 +176,18 @@ pub async fn ensure_project_exists(pool: &SqlitePool, project_id: i64) -> Result
 }
 
 pub async fn ensure_unique_project_name(pool: &SqlitePool, name: &str) -> Result<(), AppError> {
-    let exists = sqlx::query_scalar::<_, i64>("SELECT 1 FROM projects WHERE lower(name) = lower(?) LIMIT 1")
-        .bind(name)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| AppError::database(e.to_string()))?
-        .is_some();
+    let exists =
+        sqlx::query_scalar::<_, i64>("SELECT 1 FROM projects WHERE lower(name) = lower(?) LIMIT 1")
+            .bind(name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| AppError::database(e.to_string()))?
+            .is_some();
 
     if exists {
-        Err(AppError::invalid_input(format!("Project '{name}' already exists.")))
+        Err(AppError::invalid_input(format!(
+            "Project '{name}' already exists."
+        )))
     } else {
         Ok(())
     }
@@ -203,7 +209,9 @@ pub async fn ensure_unique_project_name_except_id(
     .is_some();
 
     if exists {
-        Err(AppError::invalid_input(format!("Project '{name}' already exists.")))
+        Err(AppError::invalid_input(format!(
+            "Project '{name}' already exists."
+        )))
     } else {
         Ok(())
     }
@@ -321,7 +329,10 @@ pub async fn update_project(
     })
 }
 
-pub async fn delete_project(state: &AppState, project_id: i64) -> Result<ProjectMutationResult, AppError> {
+pub async fn delete_project(
+    state: &AppState,
+    project_id: i64,
+) -> Result<ProjectMutationResult, AppError> {
     ensure_project_exists(&state.db, project_id).await?;
 
     sqlx::query("DELETE FROM projects WHERE id = ?")
@@ -424,4 +435,3 @@ pub async fn get_project_print_view(
 #[cfg(test)]
 #[path = "projects_tests.rs"]
 mod tests;
-
