@@ -39,6 +39,7 @@
   // hide it when there is no previous route (e.g. app launched directly here).
   const UTILITY_UI_KINDS_WITH_BACK = new Set(["settings", "about", "about-document", "help"]);
   let showBackButton = $derived(
+    currentUiKind !== null &&
     UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) &&
     Boolean(previousRoute) &&
     previousRoute !== currentRoute
