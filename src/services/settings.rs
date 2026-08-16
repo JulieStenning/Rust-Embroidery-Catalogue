@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 pub const KEY_AI_TIER2_AUTO: &str = "ai.tier2_auto";
 pub const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
+pub const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
 pub const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 pub const KEY_AI_DELAY: &str = "ai.delay";
 pub const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
@@ -88,8 +89,7 @@ pub(crate) async fn get_settings_view_model_inner(
         get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER).await?;
     let db_idle_check_interval_secs =
         get_setting_with_default(&mut conn, KEY_DB_IDLE_CHECK_INTERVAL_SECS).await?;
-
-    let google_api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
+    let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY).await?;
     let has_google_api_key = !google_api_key.trim().is_empty();
 
     let data_root = app_state.paths.data_root.to_string_lossy().to_string();
@@ -185,8 +185,12 @@ pub(crate) async fn save_settings_view_model_inner(
         &normalize_idle_check_interval(&request.db_idle_check_interval_secs),
     )
     .await?;
-
-    save_google_api_key_to_env(&request.google_api_key)?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_GOOGLE_API_KEY,
+        request.google_api_key.trim(),
+    )
+    .await?;
 
     let _ = request.data_root;
 
@@ -334,6 +338,7 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
     match key {
         KEY_AI_TIER2_AUTO => "false",
         KEY_AI_TIER3_AUTO => "false",
+        KEY_AI_GOOGLE_API_KEY => "",
         KEY_AI_BATCH_SIZE => "",
         KEY_AI_DELAY => "",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "",
@@ -348,6 +353,7 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
     match key {
         KEY_AI_TIER2_AUTO => "Run Tier 2 (Gemini text AI) automatically during import when a Google API key is present.",
         KEY_AI_TIER3_AUTO => "Run Tier 3 (Gemini vision AI) automatically during import when a Google API key is present.",
+        KEY_AI_GOOGLE_API_KEY => "Google Gemini API key used for optional automated AI tagging.",
         KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
         KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds).",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
@@ -420,54 +426,18 @@ pub(crate) fn is_truthy(raw: &str) -> bool {
     )
 }
 
-pub(crate) fn get_google_api_key() -> Option<String> {
-    let key = std::env::var("GOOGLE_API_KEY").unwrap_or_default();
+pub(crate) async fn get_google_api_key(conn: &mut SqliteConnection) -> Result<Option<String>, AppError> {
+    let key = get_setting_with_default(conn, KEY_AI_GOOGLE_API_KEY).await?;
     let trimmed = key.trim();
     if trimmed.is_empty() {
-        None
+        Ok(None)
     } else {
-        Some(trimmed.to_string())
+        Ok(Some(trimmed.to_string()))
     }
 }
 
-pub(crate) fn save_google_api_key_to_env(value: &str) -> Result<(), AppError> {
-    let env_path = Path::new(".env");
-    let existing = std::fs::read_to_string(env_path).unwrap_or_default();
-
-    let mut lines = Vec::new();
-    let mut replaced = false;
-
-    for line in existing.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("GOOGLE_API_KEY=") {
-            if !value.trim().is_empty() {
-                lines.push(format!("GOOGLE_API_KEY={}", value.trim()));
-            }
-            replaced = true;
-        } else {
-            lines.push(line.to_string());
-        }
-    }
-
-    if !replaced && !value.trim().is_empty() {
-        lines.push(format!("GOOGLE_API_KEY={}", value.trim()));
-    }
-
-    let mut output = lines.join("\n");
-    if !output.is_empty() {
-        output.push('\n');
-    }
-
-    std::fs::write(env_path, output)
-        .map_err(|e| AppError::io(format!("Failed to update .env: {e}")))?;
-
-    if value.trim().is_empty() {
-        std::env::remove_var("GOOGLE_API_KEY");
-    } else {
-        std::env::set_var("GOOGLE_API_KEY", value.trim());
-    }
-
-    Ok(())
+pub(crate) async fn save_google_api_key(conn: &mut SqliteConnection, value: &str) -> Result<(), AppError> {
+    upsert_setting(conn, KEY_AI_GOOGLE_API_KEY, value.trim()).await
 }
 #[cfg(test)]
 #[path = "settings_svc_tests.rs"]

@@ -16,6 +16,7 @@ use sqlx::SqlitePool;
 fn default_for_key_known_keys() {
     assert_eq!(default_for_key(KEY_AI_TIER2_AUTO), "false");
     assert_eq!(default_for_key(KEY_AI_TIER3_AUTO), "false");
+    assert_eq!(default_for_key(KEY_AI_GOOGLE_API_KEY), "");
     assert_eq!(default_for_key(KEY_AI_BATCH_SIZE), "");
     assert_eq!(default_for_key(KEY_AI_DELAY), "");
     assert_eq!(default_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE), "");
@@ -36,6 +37,7 @@ fn default_for_key_unknown_key_falls_back_to_empty() {
 fn description_for_key_known_keys() {
     assert!(description_for_key(KEY_AI_TIER2_AUTO).contains("Tier 2"));
     assert!(description_for_key(KEY_AI_TIER3_AUTO).contains("Tier 3"));
+    assert!(description_for_key(KEY_AI_GOOGLE_API_KEY).contains("Google Gemini API key"));
     assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("Maximum number of designs"));
     assert!(description_for_key(KEY_AI_DELAY).contains("Seconds to wait"));
     assert!(description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE)
@@ -251,3 +253,33 @@ async fn upsert_setting_updates_existing_row() {
         .expect("row exists");
     assert_eq!(stored.value, "7.0");
 }
+
+#[tokio::test]
+async fn get_google_api_key_returns_none_when_empty() {
+    let pool = setup_pool().await;
+    let mut conn = pool.acquire().await.unwrap();
+
+    let key = get_google_api_key(&mut conn).await.unwrap();
+    assert_eq!(key, None);
+}
+
+#[tokio::test]
+async fn save_and_get_google_api_key_roundtrips() {
+    let pool = setup_pool().await;
+    let mut conn = pool.acquire().await.unwrap();
+
+    save_google_api_key(&mut conn, "  my-secret-key  ")
+        .await
+        .unwrap();
+
+    let key = get_google_api_key(&mut conn).await.unwrap();
+    assert_eq!(key, Some("my-secret-key".to_string()));
+
+    save_google_api_key(&mut conn, "   ")
+        .await
+        .unwrap();
+
+    let key_cleared = get_google_api_key(&mut conn).await.unwrap();
+    assert_eq!(key_cleared, None);
+}
+

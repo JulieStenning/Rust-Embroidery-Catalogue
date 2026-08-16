@@ -65,16 +65,47 @@ pub fn browse_settings_data_root(
     settings::browse_settings_data_root(start_dir, fallback_docs)
 }
 
-#[tauri::command]
-pub fn get_google_api_key() -> Result<Option<String>, String> {
-    Ok(settings::get_google_api_key())
+pub(crate) async fn get_google_api_key_inner(
+    app_state: &AppState,
+) -> Result<Option<String>, String> {
+    let mut conn = app_state
+        .db
+        .acquire()
+        .await
+        .map_err(|err| err.to_string())?;
+    settings::get_google_api_key(&mut conn)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
-pub fn set_google_api_key(api_key: String) -> Result<bool, String> {
-    settings::save_google_api_key_to_env(&api_key)
+pub async fn get_google_api_key(
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    get_google_api_key_inner(&*state).await
+}
+
+pub(crate) async fn set_google_api_key_inner(
+    app_state: &AppState,
+    api_key: String,
+) -> Result<bool, String> {
+    let mut conn = app_state
+        .db
+        .acquire()
+        .await
+        .map_err(|err| err.to_string())?;
+    settings::save_google_api_key(&mut conn, &api_key)
+        .await
         .map(|_| true)
         .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub async fn set_google_api_key(
+    state: State<'_, AppState>,
+    api_key: String,
+) -> Result<bool, String> {
+    set_google_api_key_inner(&*state, api_key).await
 }
 #[cfg(test)]
 #[path = "settings_route_tests.rs"]

@@ -120,20 +120,16 @@
             <li>Hard-code secrets in source files.</li>
         </ul>
 
-        <h3><code>GOOGLE_API_KEY</code></h3>
-        <p>The <code>GOOGLE_API_KEY</code> environment variable enables optional Gemini AI tagging features. It is <strong>optional</strong>; leave it unset or empty to disable all AI features.</p>
+        <h3>Google API Key</h3>
+        <p>The Google API key enables optional Gemini AI tagging features. It is <strong>optional</strong>; leave it unset or empty in Settings to disable all AI features.</p>
         
         <p>Safe handling guidance:</p>
         <ul>
-            <li>Store the key only in your local <code>.env</code> file.</li>
+            <li>Configure the key only through the application settings UI (saved to your local database settings).</li>
             <li>Grant the key the minimum required permissions in the Google Cloud / AI Studio console.</li>
             <li>Rotate the key if you suspect it has been exposed.</li>
-            <li>Do not set this key in shared or multi-user environments unless you fully understand the access implications.</li>
+            <li>Do not share database backups that contain a live API key.</li>
         </ul>
-
-        <h3>Portable Deployments (<code>prepare_portable_target.bat</code>)</h3>
-        <p><code>prepare_portable_target.bat</code> creates a safe, clean <code>.env</code> on the deployment target by copying from <code>.env.example</code>. Your development <code>.env</code> (including any live <code>GOOGLE_API_KEY</code>) is <strong>never</strong> copied to the target drive.</p>
-        <p>The <code>.env</code> placed on the portable target contains only placeholder comments — the same content as <code>.env.example</code>. Users of the portable copy can add their own API key after deployment if they want AI auto-tagging features.</p>
 
         <h2>Dependency Security</h2>
         <ul>

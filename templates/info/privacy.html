@@ -168,7 +168,7 @@
 
     <ol>
         <li>Obtain a Google Gemini API key from <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer">https://ai.google.dev/</a>.</li>
-        <li>Set the <code>GOOGLE_API_KEY</code> environment variable in your <code>.env</code> file.</li>
+        <li>Set the Google API Key in the application settings (Admin &rarr; Settings or initial setup).</li>
     </ol>
 
     <p><strong>When Gemini features are enabled</strong>, the following information may be sent to Google's servers:</p>
@@ -184,14 +184,11 @@
     <p><strong>You are responsible for reviewing and accepting Google's privacy policy and terms of service before enabling this feature.</strong> Do not enable AI tagging for files that contain sensitive or personal information.</p>
 
     <h2>API Key Handling</h2>
-    <p>Your <code>GOOGLE_API_KEY</code> is stored in your local <code>.env</code> file and loaded at runtime. It is <strong>never</strong> logged, displayed in the UI, or transmitted anywhere other than to Google's API endpoints.</p>
+    <p>Your Google API key is stored in your local application database settings and loaded at runtime. It is <strong>never</strong> logged, displayed in logs, or transmitted anywhere other than to Google's API endpoints.</p>
 
     <div class="warning-box">
-        <strong>Warning:</strong> Do not commit your <code>.env</code> file to source control, and do not share copies of the application (including portable deployments) that contain a live API key. See <a href="SECURITY.html">SECURITY.md</a> for guidance on safe secret handling.
+        <strong>Warning:</strong> Do not share database backups that contain a live API key. See <a href="SECURITY.html">SECURITY.md</a> for guidance on safe secret handling.
     </div>
-
-    <h2>Portable Deployments</h2>
-    <p>When the application is copied to a deployment target using <code>prepare_portable_target.bat</code>, any <code>.env</code> file present in the source folder <strong>is not</strong> automatically excluded from the copy. If your <code>.env</code> file contains a live <code>GOOGLE_API_KEY</code>, that key will be present on the portable copy. Ensure you understand the implications before distributing the drive to others.</p>
 
     <h2>Contact</h2>
     <p>If you have privacy-related questions or concerns, please open a GitHub issue in this repository.</p>

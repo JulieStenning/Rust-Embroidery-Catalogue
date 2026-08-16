@@ -263,6 +263,15 @@ rustfmt --edition 2021 src/routes/settings.rs src/services/settings.rs
 If `git status` suddenly shows dozens of modified `.rs` files after a format step, assume this
 gotcha and revert the incidental ones with `git checkout --`.
 
+**Never rely on `.env` in the launch working directory for release/installed builds.** `load_dotenv()`
+reads `Path::new(".env")` relative to the **current working directory** — so launching an installed
+app from inside (or adjacent to) a developer's folder can pick up a real `GOOGLE_API_KEY` and make
+it appear on a fresh install even though the key is neither in git nor bundled. The key is never
+committed (`.env` is git-ignored) but can still leak via the ambient environment at runtime. Do NOT
+make `load_dotenv` dev-only at this point; the durable rule is to be aware that installed builds can
+load a developer `.env` from the CWD, and to harden this (gate `load_dotenv` to dev-only) **once
+portable mode is removed** (portable is currently being removed).
+
 ---
 
 ## 🧠 Context & Exploration Discipline

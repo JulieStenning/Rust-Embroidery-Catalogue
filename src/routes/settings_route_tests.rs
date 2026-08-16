@@ -378,11 +378,6 @@ fn standard_documents_dir_returns_some_when_userprofile_documents_exists() {
 async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
     let _guard = lock_env();
 
-    // Isolate GOOGLE_API_KEY so ambient process state (.env / real env)
-    // cannot leak into this default-value assertion.
-    let prev_google_api_key = std::env::var("GOOGLE_API_KEY").ok();
-    std::env::remove_var("GOOGLE_API_KEY");
-
     // Helper builds a sandboxed Installed-mode AppPaths directly.
     let tmp = std::env::temp_dir().join(format!(
         "settings-test-get-vm-{}",
@@ -410,14 +405,9 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
     assert_eq!(vm.import_last_browse_folder, "");
     assert_eq!(vm.google_api_key, "");
     assert!(!vm.has_google_api_key);
-    assert!(vm.can_configure_data_root); // Installed â†’ true
+    assert!(vm.can_configure_data_root); // Installed → true
     assert_eq!(vm.app_mode, "installed");
     assert_eq!(vm.ai_tagging_help_url, "#/help");
-
-    // Restore the ambient GOOGLE_API_KEY (if any) for other tests.
-    if let Some(google_api_key) = prev_google_api_key {
-        std::env::set_var("GOOGLE_API_KEY", google_api_key);
-    }
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&tmp);
@@ -504,9 +494,7 @@ async fn get_settings_view_model_inner_reflects_custom_settings() {
 }
 
 #[tokio::test]
-async fn get_settings_view_model_inner_reads_google_api_key_from_env() {
-    let _guard = lock_env();
-
+async fn get_settings_view_model_inner_reads_google_api_key_from_db() {
     let tmp = std::env::temp_dir().join(format!(
         "settings-test-gapi-{}",
         std::time::SystemTime::now()
@@ -520,8 +508,11 @@ async fn get_settings_view_model_inner_reads_google_api_key_from_env() {
     let paths = make_app_paths_installed(&tmp);
     let state = make_app_state(pool, paths);
 
-    // Set the env var before calling
-    std::env::set_var("GOOGLE_API_KEY", "my-test-key");
+    let mut conn = state.db.acquire().await.unwrap();
+    settings::upsert_setting(&mut conn, settings::KEY_AI_GOOGLE_API_KEY, "my-test-key")
+        .await
+        .unwrap();
+    drop(conn);
 
     let vm = get_settings_view_model_inner(&state)
         .await
@@ -529,8 +520,6 @@ async fn get_settings_view_model_inner_reads_google_api_key_from_env() {
     assert_eq!(vm.google_api_key, "my-test-key");
     assert!(vm.has_google_api_key);
 
-    // Clean up env
-    std::env::remove_var("GOOGLE_API_KEY");
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
@@ -639,19 +628,14 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         read_setting(&mut conn, settings::KEY_IMPORT_COMMIT_BATCH_SIZE).await,
         "100"
     );
-    drop(conn);
-
-    // Verify .env file was written
-    let env_content = std::fs::read_to_string(tmp.join(".env")).unwrap_or_default();
-    assert!(env_content.contains("GOOGLE_API_KEY=env-key-abc"));
     assert_eq!(
-        std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+        read_setting(&mut conn, settings::KEY_AI_GOOGLE_API_KEY).await,
         "env-key-abc"
     );
+    drop(conn);
 
     // Cleanup
     std::env::set_current_dir(&original_dir).expect("restore dir");
-    std::env::remove_var("GOOGLE_API_KEY");
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
@@ -738,6 +722,92 @@ fn save_settings_request_preview_3d_profile_defaults_to_empty() {
     assert_eq!(req.preview_3d_profile, ""); // #[serde(default)]
 }
 
+// ---------------------------------------------------------------------------
+// Setup-wizard API key route tests (DB backed)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn get_google_api_key_inner_returns_none_when_unset() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-gapi-unset-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time available")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).expect("test dir created");
+
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let state = make_app_state(pool, paths);
+
+    let result = get_google_api_key_inner(&state).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), None);
+
+    let _ = std::fs::remove_dir_all(test_dir_path(&tmp));
+}
+
+#[tokio::test]
+async fn get_google_api_key_inner_returns_value_when_set() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-gapi-set-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time available")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).expect("test dir created");
+
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let state = make_app_state(pool, paths);
+
+    let mut conn = state.db.acquire().await.unwrap();
+    settings::upsert_setting(&mut conn, settings::KEY_AI_GOOGLE_API_KEY, "my-test-key")
+        .await
+        .unwrap();
+    drop(conn);
+
+    let result = get_google_api_key_inner(&state).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), Some("my-test-key".to_string()));
+
+    let _ = std::fs::remove_dir_all(test_dir_path(&tmp));
+}
+
+#[tokio::test]
+async fn set_google_api_key_inner_persists_to_db_and_returns_true() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-set-key-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time available")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).expect("test dir created");
+
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let state = make_app_state(pool, paths);
+
+    let result = set_google_api_key_inner(&state, "route-key-456".to_string()).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), true);
+
+    let mut conn = state.db.acquire().await.unwrap();
+    let val = settings::get_setting_with_default(&mut conn, settings::KEY_AI_GOOGLE_API_KEY)
+        .await
+        .unwrap();
+    assert_eq!(val, "route-key-456");
+
+    let _ = std::fs::remove_dir_all(test_dir_path(&tmp));
+}
+
+fn test_dir_path(p: &std::path::Path) -> std::path::PathBuf {
+    p.to_path_buf()
+}
+
 #[test]
 fn save_settings_result_serializes_correctly() {
     let result = SaveSettingsResult {
@@ -787,108 +857,4 @@ fn browse_data_root_result_serializes_correctly() {
     assert_eq!(json2["error"], serde_json::json!("failed"));
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// Existing env-file test (preserved)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-#[test]
-fn save_google_api_key_updates_and_clears_env_file() {
-    let _guard = lock_env();
-
-    let original_dir = std::env::current_dir().expect("current dir available");
-    let test_dir = std::env::temp_dir().join(format!(
-        "settings-route-tests-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time available")
-            .as_nanos()
-    ));
-
-    std::fs::create_dir_all(&test_dir).expect("test dir should be created");
-    std::env::set_current_dir(&test_dir).expect("should switch into test dir");
-
-    let write_result = settings::save_google_api_key_to_env("test-key-123");
-    assert!(write_result.is_ok());
-    let written = std::fs::read_to_string(test_dir.join(".env")).expect(".env should exist");
-    assert!(written.contains("GOOGLE_API_KEY=test-key-123"));
-    assert_eq!(
-        std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
-        "test-key-123"
-    );
-
-    let clear_result = settings::save_google_api_key_to_env("");
-    assert!(clear_result.is_ok());
-    let cleared = std::fs::read_to_string(test_dir.join(".env")).expect(".env should still exist");
-    assert!(!cleared.contains("GOOGLE_API_KEY="));
-    assert!(std::env::var("GOOGLE_API_KEY").is_err());
-
-    std::env::set_current_dir(original_dir).expect("should restore original dir");
-    let _ = std::fs::remove_dir_all(test_dir);
-}
-
-// ---------------------------------------------------------------------------
-// New setup-wizard API key route tests
-// ---------------------------------------------------------------------------
-
-#[test]
-fn get_google_api_key_returns_none_when_unset() {
-    let _guard = lock_env();
-    let prev = std::env::var("GOOGLE_API_KEY").ok();
-    std::env::remove_var("GOOGLE_API_KEY");
-
-    let result = get_google_api_key();
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), None);
-
-    if let Some(key) = prev {
-        std::env::set_var("GOOGLE_API_KEY", key);
-    }
-}
-
-#[test]
-fn get_google_api_key_returns_value_when_set() {
-    let _guard = lock_env();
-    let prev = std::env::var("GOOGLE_API_KEY").ok();
-    std::env::set_var("GOOGLE_API_KEY", "  my-test-key  ");
-
-    let result = get_google_api_key();
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Some("my-test-key".to_string()));
-
-    if let Some(key) = prev {
-        std::env::set_var("GOOGLE_API_KEY", key);
-    } else {
-        std::env::remove_var("GOOGLE_API_KEY");
-    }
-}
-
-#[test]
-fn set_google_api_key_persists_env_and_returns_true() {
-    let _guard = lock_env();
-
-    let original_dir = std::env::current_dir().expect("current dir available");
-    let test_dir = std::env::temp_dir().join(format!(
-        "settings-route-set-key-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time available")
-            .as_nanos()
-    ));
-    std::fs::create_dir_all(&test_dir).expect("test dir should be created");
-    std::env::set_current_dir(&test_dir).expect("should switch into test dir");
-
-    let result = set_google_api_key("route-key-456".to_string());
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), true);
-
-    let written = std::fs::read_to_string(test_dir.join(".env")).expect(".env should exist");
-    assert!(written.contains("GOOGLE_API_KEY=route-key-456"));
-    assert_eq!(
-        std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
-        "route-key-456"
-    );
-
-    std::env::set_current_dir(original_dir).expect("should restore original dir");
-    std::env::remove_var("GOOGLE_API_KEY");
-    let _ = std::fs::remove_dir_all(test_dir);
-}

@@ -33,6 +33,7 @@ const KEY_AI_TIER2_AUTO: &str = "ai.tier2_auto";
 const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
 const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 const KEY_AI_DELAY: &str = "ai.delay";
+const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
 const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 
 #[tauri::command]
@@ -62,9 +63,10 @@ pub async fn get_tagging_actions_view_model(
             .await
             .map_err(|e| e.to_string())?;
 
-    let has_google_api_key = std::env::var("GOOGLE_API_KEY")
-        .map(|value| !value.trim().is_empty())
-        .unwrap_or(false);
+    let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY)
+        .await
+        .map_err(|e| e.to_string())?;
+    let has_google_api_key = !google_api_key.trim().is_empty();
 
     Ok(TaggingActionsViewModel {
         has_google_api_key,
@@ -84,9 +86,29 @@ pub async fn run_unified_backfill(
     state: State<'_, AppState>,
     request: backfill::UnifiedBackfillRequest,
 ) -> Result<backfill::UnifiedBackfillSummary, String> {
-    let has_api_key = std::env::var("GOOGLE_API_KEY")
-        .map(|value| !value.trim().is_empty())
-        .unwrap_or(false);
+    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY)
+        .await
+        .map_err(|e| e.to_string())?;
+    let has_api_key = !google_api_key.trim().is_empty();
+    drop(conn);
+
+    if let Some(ref actions) = request.actions {
+        if let Some(ref tagging) = actions.tagging {
+            if tagging.enabled.unwrap_or(true) {
+                if let Some(ref tiers) = tagging.tiers {
+                    let requests_ai = tiers.contains(&2) || tiers.contains(&3);
+                    if requests_ai && !has_api_key {
+                        return Err(
+                            "Google API key is required for AI tagging (Tier 2 / Tier 3). Please configure your API key in Admin -> Settings."
+                                .to_string(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     backfill::run_unified_backfill(&state.db, request, has_api_key)
         .await
         .map_err(|err| err.to_string())
@@ -325,9 +347,15 @@ mod tests {
         app.manage(app_state);
         let state = app.state::<AppState>();
 
-        // Set GOOGLE_API_KEY environment variable
-        let original_key = std::env::var("GOOGLE_API_KEY");
-        std::env::set_var("GOOGLE_API_KEY", "test-api-key");
+        // Set ai.google_api_key in database
+        {
+            let mut conn = state.db.acquire().await.unwrap();
+            sqlx::query("UPDATE settings SET value = 'test-api-key' WHERE key = ?")
+                .bind(KEY_AI_GOOGLE_API_KEY)
+                .execute(&mut *conn)
+                .await
+                .unwrap();
+        }
 
         let vm = get_tagging_actions_view_model(state.clone()).await.unwrap();
         assert!(vm.has_google_api_key);
@@ -361,12 +389,6 @@ mod tests {
         assert!(vm2.ai_tier3_auto);
         assert_eq!(vm2.ai_batch_size, "50");
 
-        // Clean up environment variable
-        match original_key {
-            Ok(val) => std::env::set_var("GOOGLE_API_KEY", val),
-            Err(_) => std::env::remove_var("GOOGLE_API_KEY"),
-        }
-
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -383,9 +405,15 @@ mod tests {
         app.manage(app_state);
         let state = app.state::<AppState>();
 
-        // Set GOOGLE_API_KEY environment variable
-        let original_key = std::env::var("GOOGLE_API_KEY");
-        std::env::set_var("GOOGLE_API_KEY", "test-api-key");
+        // Set ai.google_api_key in database
+        {
+            let mut conn = state.db.acquire().await.unwrap();
+            sqlx::query("UPDATE settings SET value = 'test-api-key' WHERE key = ?")
+                .bind(KEY_AI_GOOGLE_API_KEY)
+                .execute(&mut *conn)
+                .await
+                .unwrap();
+        }
 
         // 1. Run unified backfill (no actions active)
         let request = backfill::UnifiedBackfillRequest {
@@ -422,11 +450,53 @@ mod tests {
             .unwrap();
         assert_eq!(summary_fingerprint.processed, 0);
 
-        // Clean up environment variable
-        match original_key {
-            Ok(val) => std::env::set_var("GOOGLE_API_KEY", val),
-            Err(_) => std::env::remove_var("GOOGLE_API_KEY"),
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key() {
+        let pool = test_pool().await;
+        let tmp = std::env::temp_dir().join("tagging-actions-test-no-key");
+        std::fs::create_dir_all(&tmp).ok();
+        let app_state = make_app_state(pool, &tmp);
+
+        let app = tauri::test::mock_app();
+        app.manage(app_state);
+        let state = app.state::<AppState>();
+
+        // Ensure ai.google_api_key in database is empty
+        {
+            let mut conn = state.db.acquire().await.unwrap();
+            sqlx::query("UPDATE settings SET value = '' WHERE key = ?")
+                .bind(KEY_AI_GOOGLE_API_KEY)
+                .execute(&mut *conn)
+                .await
+                .unwrap();
         }
+
+        let request = backfill::UnifiedBackfillRequest {
+            actions: Some(backfill::UnifiedBackfillActions {
+                tagging: Some(backfill::TaggingActionOptions {
+                    action: Some("tag_untagged".to_string()),
+                    tiers: Some(vec![1, 2]),
+                    enabled: Some(true),
+                }),
+                stitching: None,
+                images: None,
+                color_counts: None,
+                fingerprinting: None,
+            }),
+            batch_size: None,
+            commit_every: None,
+            workers: None,
+            delay_seconds: None,
+            vision_delay_seconds: None,
+        };
+
+        let result = run_unified_backfill(state.clone(), request).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Google API key is required"));
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
