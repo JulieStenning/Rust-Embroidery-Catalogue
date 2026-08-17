@@ -580,7 +580,7 @@
       /** @type {string} */
       const actionMessage = result.message;
       importActionSource = actionSource || "mock";
-      importActionMessage = actionMessage || "Import precheck action complete.";
+      importActionMessage = actionMessage || "";
       importActionNeedsSkipHoopsConfirm = Boolean(actionResult?.requires_skip_hoops_confirmation);
 
       if (actionResult?.consumed_context) {

@@ -858,6 +858,7 @@ describe("commandAdapter runPrecheckAction", () => {
     });
     expect(result.source).toBe("rust");
     expect(result.actionResult.next_route).toBe("/import/");
+    expect(result.message).toBe("");
   });
 
   it("falls back to a cancel mock result on error", async () => {

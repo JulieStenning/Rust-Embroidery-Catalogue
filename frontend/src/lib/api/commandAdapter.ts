@@ -992,7 +992,7 @@ export async function runPrecheckAction({
     return {
       source: "rust",
       actionResult,
-      message: "Precheck action loaded from Rust command.",
+      message: "",
     };
   } catch (error) {
     console.info("precheck_bulk_import_action_wire unavailable or failed, using mock action result.", error);
