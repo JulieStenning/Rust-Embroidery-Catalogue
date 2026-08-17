@@ -390,6 +390,70 @@ pub fn to_absolute(relative: &Path, root: &Path) -> PathBuf {
     root.join(relative)
 }
 
+/// Build a full `AppPaths` layout for an arbitrary root directory.
+///
+/// Used during catalogue storage migration to construct the target layout
+/// without touching the live startup resolution. Migration only runs from an
+/// installed deployment, so the mode is exposed as `Installed`.
+pub fn resolve_paths_for_root(data_root: &Path) -> AppPaths {
+    let embroidery_designs_dir = data_root.join("MachineEmbroideryDesigns");
+    let database_dir = data_root.join("Database");
+    let database_path = database_dir.join(DATABASE_FILENAME);
+    let thumbnail_cache_dir = data_root.join("thumbnails");
+    let log_dir = data_root.join("logs");
+
+    AppPaths {
+        mode: ExecutionMode::Installed,
+        data_root: data_root.to_path_buf(),
+        embroidery_designs_dir,
+        database_dir,
+        database_path,
+        thumbnail_cache_dir,
+        log_dir,
+    }
+}
+
+/// Best-effort check whether `child` is equal to or nested within `ancestor`.
+///
+/// When both paths exist they are canonicalised (resolving symlinks and `..`),
+/// then compared as normalised strings so drive-letter prefixes like the
+/// Windows `\\?\` verbatim marker cannot break the prefix check. Paths that do
+/// not exist fall back to raw string normalisation (forward slashes, lowercase
+/// on case-insensitive platforms), matching `to_relative`'s fallback behaviour.
+pub fn path_within(child: &Path, ancestor: &Path) -> bool {
+    let child_canon = child.canonicalize().unwrap_or_else(|_| child.to_path_buf());
+    let ancestor_canon = ancestor
+        .canonicalize()
+        .unwrap_or_else(|_| ancestor.to_path_buf());
+
+    let normalize = |path: &Path| {
+        let mut s = path.to_string_lossy().replace('\\', "/");
+        while s.ends_with('/') {
+            s.pop();
+        }
+        #[cfg(target_os = "windows")]
+        {
+            s = s.trim_start_matches("//?/").to_string();
+            s = s.to_ascii_lowercase();
+        }
+        s
+    };
+
+    let child_str = normalize(&child_canon);
+    let ancestor_str = normalize(&ancestor_canon);
+
+    if ancestor_str.is_empty() {
+        return false;
+    }
+
+    if child_str == ancestor_str {
+        return true;
+    }
+
+    child_str.starts_with(&ancestor_str)
+        && child_str.as_bytes().get(ancestor_str.len()) == Some(&b'/')
+}
+
 #[cfg(test)]
 #[path = "paths_tests.rs"]
 mod tests;

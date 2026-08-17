@@ -16,6 +16,7 @@ pub mod projects;
 pub mod scanning;
 pub mod settings;
 pub mod stitch_identifier;
+pub mod storage_migration;
 pub mod tagging;
 pub mod validation;
 

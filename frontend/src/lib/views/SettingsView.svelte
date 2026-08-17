@@ -4,12 +4,15 @@
     getSettingsViewModel,
     saveSettings,
     browseSettingsDataRoot,
-    setConfiguredDataRoot,
     restartApplication,
+    startCatalogueStorageMigration,
+    cancelCatalogueStorageMigration,
+    listenCatalogueStorageMigrationProgress,
     getDbStats,
     compactDatabase
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  /** @typedef {import("../types/ipc").StorageMigrationProgress} StorageMigrationProgress */
 
   /** @typedef {import("../types/ipc").SettingsViewModel} SettingsViewModel */
   /** @typedef {import("../types/ipc").SaveSettingsRequest} SaveSettingsRequest */
@@ -39,6 +42,12 @@
   let settingsHelpUrl = $state("#/help");
   let showRestartConfirm = $state(false);
   let restarting = $state(false);
+
+  let migrating = $state(false);
+  let migrationProgress = $state(/** @type {StorageMigrationProgress | null} */ (null));
+  let migrationError = $state("");
+  /** @type {(() => void) | null} */
+  let unlistenMigration = null;
 
   let settingsHasGoogleApiKey = $derived(settingsGoogleApiKey.trim().length > 0);
 
@@ -160,29 +169,84 @@
     }
   }
 
+  /** @param {StorageMigrationProgress} progress */
+  function onMigrationProgress(progress) {
+    migrationProgress = progress;
+    if (progress.current_phase === "cancelled") {
+      migrating = false;
+      addToast("Catalogue migration cancelled.", "info");
+    } else if (progress.current_phase === "error") {
+      migrating = false;
+      migrationError = progress.error || progress.status_message || "Migration failed.";
+      addToast(migrationError, "error");
+    } else if (progress.current_phase === "completed") {
+      migrating = false;
+      addToast("Catalogue storage migrated successfully.", "success");
+    }
+  }
+
   async function browseDataRootFromBackend() {
     const result = await browseSettingsDataRoot(settingsDataRoot);
-    if (result.path) {
-      const persisted = await setConfiguredDataRoot(result.path);
-      if (!persisted.persisted) {
-        addToast(
-          `Could not save the data location: ${persisted.error || "unknown error"}`,
-          "error"
-        );
-        // Retain the previous data root — persistence failed.
-        return;
+    if (!result.path) {
+      if (result.error) {
+        addToast(result.error, "error");
       }
-      settingsDataRoot = result.path;
-      settingsSaveState = "idle";
-      // The new data root is persisted to the bootstrap config, but the running
-      // backend still points at the old location. A restart is required before
-      // the new location takes effect.
-      showRestartConfirm = true;
       return;
     }
 
+    // Begin the full catalogue migration to the freshly picked target.
+    migrating = true;
+    migrationError = "";
+    migrationProgress = null;
+    try {
+      unlistenMigration = await listenCatalogueStorageMigrationProgress(onMigrationProgress);
+    } catch (error) {
+      console.info("Could not subscribe to migration progress.", error);
+      unlistenMigration = null;
+    }
+
+    const started = await startCatalogueStorageMigration(result.path);
+    if (started.error) {
+      migrating = false;
+      migrationError = started.error;
+      addToast(`Could not start catalogue migration: ${started.error}`, "error");
+      await stopListeningToMigration();
+      return;
+    }
+    if (started.summary) {
+      settingsDataRoot = result.path;
+      settingsSaveState = "idle";
+      showRestartConfirm = true;
+      migrating = false;
+      await closeMigrationModal();
+    }
+  }
+
+  /** Close/dismiss the migration modal and tear down any progress listener. */
+  async function closeMigrationModal() {
+    migrating = false;
+    migrationError = "";
+    migrationProgress = null;
+    await stopListeningToMigration();
+  }
+
+  /** @return {Promise<void>} */
+  async function stopListeningToMigration() {
+    if (typeof unlistenMigration === "function") {
+      const fn = unlistenMigration;
+      unlistenMigration = null;
+      try {
+        await fn();
+      } catch (error) {
+        console.info("Could not unlisten migration progress.", error);
+      }
+    }
+  }
+
+  async function handleCancelMigration() {
+    const result = await cancelCatalogueStorageMigration();
     if (result.error) {
-      addToast(result.error, "error");
+      addToast(`Could not cancel migration: ${result.error}`, "error");
     }
   }
 
@@ -519,6 +583,75 @@
           {/if}
         </button>
       </div>
+    </div>
+  </div>
+{/if}
+
+{#if migrating || migrationProgress || migrationError}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Catalogue storage migration"
+    data-testid="catalogue-migration-dialog"
+  >
+    <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+      <h2 class="text-lg font-bold text-gray-800">Moving your catalogue…</h2>
+      <p class="text-sm text-gray-600">
+        Your database, design library and thumbnails are being moved to the new
+        storage location. Your original embroidery files remain untouched.
+      </p>
+
+      {#if migrationError}
+        <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm" data-testid="catalogue-migration-error">
+          {migrationError}
+        </div>
+      {/if}
+
+      {#if migrationProgress}
+        <div>
+          <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+            <span data-testid="catalogue-migration-status">{migrationProgress.status_message}</span>
+            <span>{Math.round(migrationProgress.percent * 100)}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div
+              class="h-2 bg-indigo-600 rounded-full transition-all"
+              style="width: {Math.round(migrationProgress.percent * 100)}%"
+              data-testid="catalogue-migration-progress-bar"
+            ></div>
+          </div>
+          <p class="mt-2 text-xs text-gray-500" data-testid="catalogue-migration-counts">
+            {migrationProgress.items_copied} of {migrationProgress.total_items} files
+          </p>
+        </div>
+      {/if}
+
+      {#if migrating}
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onclick={handleCancelMigration}
+            class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded text-sm font-medium
+                   hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            data-testid="cancel-catalogue-migration"
+          >
+            Cancel
+          </button>
+        </div>
+      {:else if migrationError || migrationProgress}
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onclick={closeMigrationModal}
+            class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
+                   hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            data-testid="close-catalogue-migration"
+          >
+            Close
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

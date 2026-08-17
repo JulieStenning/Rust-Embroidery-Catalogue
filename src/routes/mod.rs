@@ -8,6 +8,7 @@ pub mod import;
 pub mod maintenance;
 pub mod projects;
 pub mod settings;
+pub mod storage_migration;
 pub mod tagging_actions;
 
 pub use crate::error::AppError;

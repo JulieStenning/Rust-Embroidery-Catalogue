@@ -17,6 +17,29 @@ export interface SearchPayload {
   additional_filters?: BrowseAdditionalFilters;
 }
 
+/** Progress streamed from Rust during catalogue storage migration. */
+export interface StorageMigrationProgress {
+  current_phase: "preflight" | "database" | "assets" | "finalising" | "completed" | "cancelled" | "error" | string;
+  items_copied: number;
+  total_items: number;
+  bytes_copied: number;
+  total_bytes: number;
+  status_message: string;
+  percent: number;
+  error: string | null;
+}
+
+/** Final result returned by the migration command. */
+export interface StorageMigrationSummary {
+  success: boolean;
+  source_root: string;
+  target_root: string;
+  database_bytes: number;
+  asset_items: number;
+  asset_bytes: number;
+  requires_restart: boolean;
+}
+
 export interface BrowseDesignSummaryWire {
   id: number;
   filename: string;

@@ -601,6 +601,111 @@ fn relative_absolute_roundtrip_with_real_dirs() {
 }
 
 // ---------------------------------------------------------------------------
+// resolve_paths_for_root
+// ---------------------------------------------------------------------------
+
+#[test]
+fn resolve_paths_for_root_builds_installed_layout() {
+    let tmp = tmp_dir("resolve_paths_for_root");
+    fs::create_dir_all(&tmp).expect("create temp root");
+
+    let app_paths = resolve_paths_for_root(&tmp);
+
+    assert_eq!(app_paths.mode, ExecutionMode::Installed);
+    assert_eq!(app_paths.data_root, tmp);
+    assert_eq!(
+        app_paths.embroidery_designs_dir,
+        tmp.join("MachineEmbroideryDesigns")
+    );
+    assert_eq!(app_paths.database_dir, tmp.join("Database"));
+    assert_eq!(
+        app_paths.database_path,
+        tmp.join("Database").join(DATABASE_FILENAME)
+    );
+    assert_eq!(app_paths.thumbnail_cache_dir, tmp.join("thumbnails"));
+    assert_eq!(app_paths.log_dir, tmp.join("logs"));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn resolve_paths_for_root_does_not_create_directories() {
+    // Unlike startup resolution, migration must construct the target layout
+    // WITHOUT creating directories on disk (pre-flight decides that).
+    let tmp = tmp_dir("resolve_paths_for_root_no_create");
+    fs::create_dir_all(&tmp).expect("create temp root");
+
+    let app_paths = resolve_paths_for_root(&tmp);
+    let _ = app_paths;
+
+    assert!(!tmp.join("Database").exists());
+    assert!(!tmp.join("MachineEmbroideryDesigns").exists());
+    assert!(!tmp.join("thumbnails").exists());
+    assert!(!tmp.join("logs").exists());
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// path_within
+// ---------------------------------------------------------------------------
+
+#[test]
+fn path_within_true_for_equal_paths() {
+    let tmp = tmp_dir("path_within_equal");
+    fs::create_dir_all(&tmp).expect("create temp dir");
+
+    assert!(path_within(&tmp, &tmp));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn path_within_true_for_nested_path() {
+    let tmp = tmp_dir("path_within_nested");
+    let parent = tmp.join("parent");
+    let child = parent.join("child").join("deep");
+    fs::create_dir_all(&child).expect("create nested dirs");
+
+    assert!(path_within(&child, &parent));
+    assert!(path_within(&child, &tmp));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn path_within_false_for_sibling_paths() {
+    let tmp = tmp_dir("path_within_siblings");
+    let a = tmp.join("a");
+    let b = tmp.join("b");
+    fs::create_dir_all(&a).expect("create a");
+    fs::create_dir_all(&b).expect("create b");
+
+    assert!(!path_within(&a, &b));
+    assert!(!path_within(&b, &a));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn path_within_false_for_missing_paths_normalises_with_fallback() {
+    let tmp = tmp_dir("path_within_missing");
+    fs::create_dir_all(&tmp).expect("create temp dir");
+
+    // Non-existent child under an existing ancestor still resolves true via the
+    // string/prefix fallback because canonicalize falls back to the raw paths.
+    let missing_child = tmp.join("Database").join("EmbroideryCatalogue.db");
+    assert!(path_within(&missing_child, &tmp));
+
+    // Completely disjoint paths should be false.
+    let other = tmp.join("sibling");
+    fs::create_dir_all(&other).expect("create other");
+    assert!(!path_within(&other, &tmp.join("nonexistent_ancestor")));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
 // bootstrap config (Installed mode)
 // ---------------------------------------------------------------------------
 //

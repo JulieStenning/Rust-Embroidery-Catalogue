@@ -299,6 +299,8 @@ mod tests {
             log_guard: crate::logging::LogGuard::dummy_for_test(),
             shutdown_requested: AtomicBool::new(false),
             maintenance_running: AtomicBool::new(false),
+            migration_running: AtomicBool::new(false),
+            migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
         }
     }
 

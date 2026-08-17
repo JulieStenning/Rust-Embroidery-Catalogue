@@ -17,6 +17,9 @@ const saveSettingsMock = vi.hoisted(() => vi.fn());
 const browseSettingsDataRootMock = vi.hoisted(() => vi.fn());
 const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const restartApplicationMock = vi.hoisted(() => vi.fn());
+const startCatalogueStorageMigrationMock = vi.hoisted(() => vi.fn());
+const cancelCatalogueStorageMigrationMock = vi.hoisted(() => vi.fn());
+const listenCatalogueStorageMigrationProgressMock = vi.hoisted(() => vi.fn());
 const getDbStatsMock = vi.hoisted(() => vi.fn());
 const compactDatabaseMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
@@ -27,6 +30,9 @@ vi.mock("../../api/commandAdapter", () => ({
   browseSettingsDataRoot: browseSettingsDataRootMock,
   setConfiguredDataRoot: setConfiguredDataRootMock,
   restartApplication: restartApplicationMock,
+  startCatalogueStorageMigration: startCatalogueStorageMigrationMock,
+  cancelCatalogueStorageMigration: cancelCatalogueStorageMigrationMock,
+  listenCatalogueStorageMigrationProgress: listenCatalogueStorageMigrationProgressMock,
   getDbStats: getDbStatsMock,
   compactDatabase: compactDatabaseMock,
 }));
@@ -345,13 +351,25 @@ describe("SettingsView.svelte", () => {
 
   // -- Data root browsing --------------------------------------------------
 
-  it("persists the picked folder and shows the restart dialog", async () => {
+  it("starts the catalogue migration for the picked folder and shows the restart dialog on success", async () => {
     browseSettingsDataRootMock.mockResolvedValue({
       source: "rust",
       path: "E:\\NewData",
       error: null,
     });
-    setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+    listenCatalogueStorageMigrationProgressMock.mockResolvedValue(() => {});
+    startCatalogueStorageMigrationMock.mockResolvedValue({
+      source: "rust",
+      summary: {
+        success: true,
+        source_root: "D:\\EmbroideryData",
+        target_root: "E:\\NewData",
+        database_bytes: 10,
+        asset_items: 3,
+        asset_bytes: 40,
+        requires_restart: true,
+      },
+    });
     restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
 
     renderView();
@@ -363,21 +381,23 @@ describe("SettingsView.svelte", () => {
     await waitFor(() => {
       expect(browseSettingsDataRootMock).toHaveBeenCalledWith("D:\\EmbroideryData");
     });
-    expect(setConfiguredDataRootMock).toHaveBeenCalledWith("E:\\NewData");
+    expect(listenCatalogueStorageMigrationProgressMock).toHaveBeenCalledTimes(1);
+    expect(startCatalogueStorageMigrationMock).toHaveBeenCalledWith("E:\\NewData");
     expect(screen.getByLabelText("Catalogue data location")).toHaveValue("E:\\NewData");
     expect(screen.getByTestId("settings-restart-dialog")).toBeInTheDocument();
   });
 
-  it("shows an error toast and retains the old path when persistence fails", async () => {
+  it("shows an error toast and retains the old path when the migration cannot start", async () => {
     browseSettingsDataRootMock.mockResolvedValue({
       source: "rust",
       path: "E:\\NewData",
       error: null,
     });
-    setConfiguredDataRootMock.mockResolvedValue({
+    listenCatalogueStorageMigrationProgressMock.mockResolvedValue(() => {});
+    startCatalogueStorageMigrationMock.mockResolvedValue({
       source: "mock",
-      persisted: false,
-      error: "cannot write config",
+      summary: null,
+      error: "insufficient free space",
     });
 
     renderView();
@@ -388,21 +408,73 @@ describe("SettingsView.svelte", () => {
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith(
-        "Could not save the data location: cannot write config",
+        "Could not start catalogue migration: insufficient free space",
         "error"
       );
     });
     expect(screen.getByLabelText("Catalogue data location")).toHaveValue("D:\\EmbroideryData");
     expect(screen.queryByTestId("settings-restart-dialog")).not.toBeInTheDocument();
+    // The migration dialog stays visible to surface the error message.
+    expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("catalogue-migration-error")).toHaveTextContent("insufficient free space");
   });
 
-  it("shows an error toast when restarting fails after persisting", async () => {
+  it("provides a Close button that dismisses the terminal-error migration dialog", async () => {
     browseSettingsDataRootMock.mockResolvedValue({
       source: "rust",
       path: "E:\\NewData",
       error: null,
     });
-    setConfiguredDataRootMock.mockResolvedValue({ source: "rust", persisted: true });
+    listenCatalogueStorageMigrationProgressMock.mockResolvedValue(() => {});
+    startCatalogueStorageMigrationMock.mockResolvedValue({
+      source: "mock",
+      summary: null,
+      error: "disk full",
+    });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
+    });
+
+    // Terminal error state must offer a dismiss control (regression: previously
+    // the modal had no button and the only escape was quitting the app).
+    const closeButton = screen.getByTestId("close-catalogue-migration");
+    expect(closeButton).toHaveTextContent("Close");
+
+    await fireEvent.click(closeButton);
+    await tick();
+
+    expect(screen.queryByTestId("catalogue-migration-dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Catalogue data location")
+    ).toHaveValue("D:\\EmbroideryData");
+  });
+
+  it("shows an error toast when restarting fails after the migration succeeds", async () => {
+    browseSettingsDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "E:\\NewData",
+      error: null,
+    });
+    listenCatalogueStorageMigrationProgressMock.mockResolvedValue(() => {});
+    startCatalogueStorageMigrationMock.mockResolvedValue({
+      source: "rust",
+      summary: {
+        success: true,
+        source_root: "D:\\EmbroideryData",
+        target_root: "E:\\NewData",
+        database_bytes: 10,
+        asset_items: 0,
+        asset_bytes: 0,
+        requires_restart: true,
+      },
+    });
     restartApplicationMock.mockResolvedValue({
       source: "mock",
       restarted: false,
@@ -415,7 +487,7 @@ describe("SettingsView.svelte", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
 
-    // Restart dialog appears after picking.
+    // Restart dialog appears after the migration completes.
     await waitFor(() => {
       expect(screen.getByTestId("settings-restart-dialog")).toBeInTheDocument();
     });
@@ -429,6 +501,76 @@ describe("SettingsView.svelte", () => {
       );
     });
     expect(screen.queryByTestId("settings-restart-dialog")).not.toBeInTheDocument();
+  });
+
+  it("renders the migration progress dialog while migrating", async () => {
+    browseSettingsDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "E:\\NewData",
+      error: null,
+    });
+    let capturedCallback: ((progress: unknown) => void) | null = null;
+    listenCatalogueStorageMigrationProgressMock.mockImplementation(
+      (callback: (progress: unknown) => void) => {
+        capturedCallback = callback;
+        return Promise.resolve(() => {});
+      }
+    );
+    startCatalogueStorageMigrationMock.mockResolvedValue(new Promise(() => {})); // stay migrating
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    // The picker returns a path; migration starts and the modal appears.
+    await waitFor(() => {
+      expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
+    });
+
+    // Simulate a progress event from the backend.
+    (capturedCallback as ((progress: unknown) => void) | null)?.({
+      current_phase: "assets",
+      items_copied: 2,
+      total_items: 10,
+      bytes_copied: 50,
+      total_bytes: 100,
+      status_message: "Copying files…",
+      percent: 0.5,
+      error: null,
+    });
+    await tick();
+
+    expect(screen.getByTestId("catalogue-migration-status")).toHaveTextContent("Copying files…");
+    expect(screen.getByTestId("catalogue-migration-counts")).toHaveTextContent("2 of 10 files");
+  });
+
+  it("cancels the running migration when the Cancel button is clicked", async () => {
+    browseSettingsDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "E:\\NewData",
+      error: null,
+    });
+    listenCatalogueStorageMigrationProgressMock.mockResolvedValue(() => {});
+    startCatalogueStorageMigrationMock.mockResolvedValue(new Promise(() => {})); // stay migrating
+    cancelCatalogueStorageMigrationMock.mockResolvedValue({ source: "rust", cancelled: true });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByTestId("cancel-catalogue-migration"));
+
+    await waitFor(() => {
+      expect(cancelCatalogueStorageMigrationMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("shows an error toast when the folder picker fails", async () => {

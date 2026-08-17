@@ -272,6 +272,19 @@ make `load_dotenv` dev-only at this point; the durable rule is to be aware that 
 load a developer `.env` from the CWD, and to harden this (gate `load_dotenv` to dev-only) **once
 portable mode is removed** (portable is currently being removed).
 
+**Post-commit cleanup must never fail a storage migration.** After the bootstrap `config.json` is
+written the migration has succeeded — any later tidy-up (renaming the old data root to
+`<root>.migrated-backup`) is cosmetic and must be best-effort only. Data roots can be **filesystem
+roots** (e.g. `F:\`): such roots have no parent directory, so a sibling rename collapses to
+`.\.migrated-backup` and is impossible (`Access is denied`). Detect roots with `path.parent().is_none()`,
+and on any rename failure fall back to writing a `storage location moved.txt` marker at the old root
+recording the new location + timestamp; never `return Err` from this step.
+
+**Modal terminal states must always offer a dismiss control.** A modal shown for an error or
+cancelled state needs an explicit `Close`/`OK` button (and must clear its transient state when the
+user or success path closes it). Without it the only escape is quitting the app — e.g. the migration
+error modal previously had no button once `migrating` became false.
+
 ---
 
 ## 🧠 Context & Exploration Discipline

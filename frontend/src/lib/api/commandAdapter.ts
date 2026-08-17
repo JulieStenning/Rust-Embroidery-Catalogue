@@ -69,6 +69,8 @@ import type {
   UnifiedBackfillResult,
   UnifiedBackfillWireRequest,
   UpdateDesignMetadataRequest,
+  StorageMigrationProgress,
+  StorageMigrationSummary,
 } from "../types/ipc";
 import { mapDesignDetailFromWire, mapReparseDesignFromWire } from "../types/ipc";
 
@@ -2841,5 +2843,76 @@ export async function restartApplication(): Promise<{
     console.info("restart_application failed.", error);
     return { source: "mock", restarted: false, error: String(error) };
   }
+}
+
+/**
+ * Start migrating the active catalogue to a newly selected data root.
+ *
+ * Streams progress events on `catalogue-storage-migration-progress`. The Rust
+ * command force-moves any pre-existing non-empty target aside before copying.
+ * The invoke keys are camelCase (`targetDir`, `force`) → Rust `target_dir`,
+ * `force`.
+ *
+ * @param {string} targetDir - Absolute path to the new data root.
+ * @returns {Promise<{ source: string, summary: StorageMigrationSummary | null, error?: string }>}
+ */
+export async function startCatalogueStorageMigration(targetDir: string): Promise<{
+  source: string;
+  summary: StorageMigrationSummary | null;
+  error?: string;
+}> {
+  const normalized = String(targetDir || "").trim();
+  if (!normalized) {
+    return { source: "mock", summary: null, error: "Data root cannot be empty." };
+  }
+  try {
+    const summary = await invokeLoose<StorageMigrationSummary>(
+      "start_catalogue_storage_migration",
+      { targetDir: normalized, force: true },
+    );
+    return {
+      source: "rust",
+      summary: summary && typeof summary === "object" ? summary : null,
+    };
+  } catch (error) {
+    console.info("start_catalogue_storage_migration failed.", error);
+    return { source: "mock", summary: null, error: String(error) };
+  }
+}
+
+/**
+ * Request cancellation of a running catalogue storage migration (cooperative).
+ *
+ * @returns {Promise<{ source: string, cancelled: boolean, error?: string }>}
+ */
+export async function cancelCatalogueStorageMigration(): Promise<{
+  source: string;
+  cancelled: boolean;
+  error?: string;
+}> {
+  try {
+    await invokeLoose<void>("cancel_catalogue_storage_migration");
+    return { source: "rust", cancelled: true };
+  } catch (error) {
+    console.info("cancel_catalogue_storage_migration failed.", error);
+    return { source: "mock", cancelled: false, error: String(error) };
+  }
+}
+
+/**
+ * Subscribe to `catalogue-storage-migration-progress` events from Rust.
+ *
+ * @param {(progress: StorageMigrationProgress) => void} callback
+ * @returns {Promise<() => void>} An unlisten function.
+ */
+export async function listenCatalogueStorageMigrationProgress(
+  callback: (progress: StorageMigrationProgress) => void,
+): Promise<() => void> {
+  const { listen } = await import("@tauri-apps/api/event");
+  const unlisten = await listen<StorageMigrationProgress>(
+    "catalogue-storage-migration-progress",
+    (event) => callback(event.payload),
+  );
+  return unlisten;
 }
 

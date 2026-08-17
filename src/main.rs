@@ -37,6 +37,10 @@ pub struct AppState {
     pub shutdown_requested: AtomicBool,
     /// Atomic guard preventing overlapping incremental-vacuum maintenance runs.
     pub maintenance_running: AtomicBool,
+    /// True while a catalogue storage migration is in progress.
+    pub migration_running: AtomicBool,
+    /// Cooperative cancellation flag observed by the running migration loop.
+    pub migration_cancel_requested: std::sync::Arc<AtomicBool>,
 }
 
 // â”€â”€â”€ AppStatus (exposed to frontend) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -279,6 +283,8 @@ fn main() {
         log_guard,
         shutdown_requested: AtomicBool::new(false),
         maintenance_running: AtomicBool::new(false),
+        migration_running: AtomicBool::new(false),
+        migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
     };
 
     // Launch a lightweight background backfill for orphan fingerprint data
@@ -413,6 +419,8 @@ fn main() {
             routes::settings::browse_settings_data_root,
             routes::settings::get_google_api_key,
             routes::settings::set_google_api_key,
+            routes::storage_migration::start_catalogue_storage_migration,
+            routes::storage_migration::cancel_catalogue_storage_migration,
             routes::admin::list_designers,
             routes::admin::create_designer,
             routes::admin::update_designer,

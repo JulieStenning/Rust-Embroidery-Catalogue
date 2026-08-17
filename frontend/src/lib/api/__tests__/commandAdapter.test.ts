@@ -9,6 +9,7 @@ import {
   bulkDeleteDesigns,
   bulkSetTagsForDesigns,
   bulkVerifyDesigns,
+  cancelCatalogueStorageMigration,
   checkInitialSetup,
   compactDatabase,
   completeInitialSetup,
@@ -69,6 +70,7 @@ import {
   saveImportLastBrowseFolder,
   saveSettings,
   scanOrphans,
+  startCatalogueStorageMigration,
   setDesignRating,
   setGoogleApiKey,
   setDesignStitched,
@@ -2525,6 +2527,68 @@ describe("commandAdapter initial setup & app status", () => {
     expect(result.source).toBe("mock");
     expect(result.status).toBeNull();
     expect(result.error).toContain("not available");
+  });
+
+  it("startCatalogueStorageMigration invokes with camelCase targetDir and force keys", async () => {
+    invokeMock.mockResolvedValue({
+      success: true,
+      source_root: "D:/data",
+      target_root: "E:/new",
+      database_bytes: 10,
+      asset_items: 3,
+      asset_bytes: 40,
+      requires_restart: true,
+    });
+
+    const result = await startCatalogueStorageMigration("E:/new");
+
+    // The exact camelCase wire keys Tauri expects for `target_dir` and `force`.
+    expect(invokeMock).toHaveBeenCalledWith("start_catalogue_storage_migration", {
+      targetDir: "E:/new",
+      force: true,
+    });
+    expect(result.source).toBe("rust");
+    expect(result.summary?.success).toBe(true);
+    expect(result.summary?.target_root).toBe("E:/new");
+  });
+
+  it("startCatalogueStorageMigration rejects an empty target without invoking", async () => {
+    const result = await startCatalogueStorageMigration("   ");
+    expect(result).toEqual({
+      source: "mock",
+      summary: null,
+      error: "Data root cannot be empty.",
+    });
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("startCatalogueStorageMigration falls back to mock on error", async () => {
+    mockReject(new Error("preflight failed"));
+
+    const result = await startCatalogueStorageMigration("E:/new");
+
+    expect(result.source).toBe("mock");
+    expect(result.summary).toBeNull();
+    expect(result.error).toContain("preflight failed");
+  });
+
+  it("cancelCatalogueStorageMigration invokes the command and maps success", async () => {
+    invokeMock.mockResolvedValue(undefined);
+
+    const result = await cancelCatalogueStorageMigration();
+
+    expect(invokeMock).toHaveBeenCalledWith("cancel_catalogue_storage_migration");
+    expect(result).toEqual({ source: "rust", cancelled: true });
+  });
+
+  it("cancelCatalogueStorageMigration falls back to mock on error", async () => {
+    mockReject(new Error("cancel failed"));
+
+    const result = await cancelCatalogueStorageMigration();
+
+    expect(result.source).toBe("mock");
+    expect(result.cancelled).toBe(false);
+    expect(result.error).toContain("cancel failed");
   });
 
   it("configureFreshDataRoot invokes with the camelCase dataRoot key", async () => {
