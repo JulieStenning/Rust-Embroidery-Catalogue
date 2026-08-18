@@ -1,10 +1,10 @@
 //! Catalogue storage migration.
 //!
-//! Moves the active catalogue (SQLite database + managed design library +
-//! cached thumbnails) from the current data root to a newly selected root.
-//! The original files are never deleted — on success the source root is
-//! renamed to `<root>.migrated-backup`, and any pre-existing non-empty target
-//! is first moved aside to `<target>.before-migration-backup`.
+//! Moves the active catalogue (SQLite database + managed design library)
+//! from the current data root to a newly selected root. The original files
+//! are never deleted — on success the source root is renamed to
+//! `<root>.migrated-backup`, and any pre-existing non-empty target is first
+//! moved aside to `<target>.before-migration-backup`.
 //!
 //! Progress is streamed via a caller-provided callback; the Tauri route turns
 //! that into `app_handle.emit(...)` events.
@@ -416,13 +416,12 @@ async fn verify_database_at(db_path: &Path) -> Result<bool, AppError> {
     Ok(true)
 }
 
-/// Copy (or, on the same device, rename) the `MachineEmbroideryDesigns` and
-/// `thumbnails` trees to the target, updating cumulative item/byte counts.
+/// Copy (or, on the same device, rename) the `MachineEmbroideryDesigns` tree
+/// to the target, updating cumulative item/byte counts.
 ///
-/// On the same device each tree is renamed atomically and its totals added to
+/// On the same device the tree is renamed atomically and its totals added to
 /// the running counters; on a different device each file is copied with
-/// per-file progress. Counters never jump backwards — the "rename" event
-/// reports the cumulative totals including the just-moved tree.
+/// per-file progress.
 async fn copy_asset_trees(
     source: &AppPaths,
     plan: &MigrationPlan,
@@ -431,45 +430,34 @@ async fn copy_asset_trees(
     items_copied: &mut u64,
     bytes_copied: &mut u64,
 ) -> Result<(), MigrationAbort> {
-    let asset_dirs = [
-        (
-            "MachineEmbroideryDesigns",
-            &source.embroidery_designs_dir,
-            &plan.target_paths.embroidery_designs_dir,
-        ),
-        (
-            "thumbnails",
-            &source.thumbnail_cache_dir,
-            &plan.target_paths.thumbnail_cache_dir,
-        ),
-    ];
+    let src_dir = &source.embroidery_designs_dir;
+    let dst_dir = &plan.target_paths.embroidery_designs_dir;
 
-    for (label, src_dir, dst_dir) in asset_dirs {
-        if !src_dir.exists() {
-            continue;
-        }
+    if !src_dir.exists() {
+        return Ok(());
+    }
 
-        let (tree_items, tree_bytes) = tree_totals_at(src_dir);
+    let (tree_items, tree_bytes) = tree_totals_at(src_dir);
 
-        if plan.same_device {
-            // Fast path: rename the whole tree atomically.
-            std::fs::rename(src_dir, dst_dir).map_err(|e| {
-                MigrationAbort::Io(AppError::io(format!("rename failed for {label}: {e}")))
-            })?;
-            *items_copied += tree_items;
-            *bytes_copied += tree_bytes;
-            emit(
-                StorageMigrationProgress::new("assets", format!("Moved {label}…"))
-                    .with_totals(
-                        plan.total_items,
-                        plan.total_bytes,
-                        *items_copied,
-                        *bytes_copied,
-                    ),
-            );
-            continue;
-        }
-
+    if plan.same_device {
+        // Fast path: rename the whole tree atomically.
+        std::fs::rename(src_dir, dst_dir).map_err(|e| {
+            MigrationAbort::Io(AppError::io(format!(
+                "rename failed for MachineEmbroideryDesigns: {e}"
+            )))
+        })?;
+        *items_copied += tree_items;
+        *bytes_copied += tree_bytes;
+        emit(
+            StorageMigrationProgress::new("assets", "Moved MachineEmbroideryDesigns…".to_string())
+                .with_totals(
+                    plan.total_items,
+                    plan.total_bytes,
+                    *items_copied,
+                    *bytes_copied,
+                ),
+        );
+    } else {
         // Cross-device: per-file copy with progress.
         copy_tree_recursive(src_dir, dst_dir, cancel, emit, plan, items_copied, bytes_copied)?;
     }
@@ -537,23 +525,21 @@ fn copy_tree_recursive(
     Ok(())
 }
 
-/// Verify the migrated asset trees have matching file counts and byte totals.
+/// Verify the migrated design library has matching file counts and byte totals.
 fn verify_target_tree(source: &AppPaths, plan: &MigrationPlan) -> Result<(), AppError> {
-    for (src_dir, dst_dir) in [
-        (&source.embroidery_designs_dir, &plan.target_paths.embroidery_designs_dir),
-        (&source.thumbnail_cache_dir, &plan.target_paths.thumbnail_cache_dir),
-    ] {
-        if !src_dir.exists() {
-            continue;
-        }
-        let (src_items, src_bytes) = tree_totals_at(src_dir);
-        let (dst_items, dst_bytes) = tree_totals_at(dst_dir);
-        if src_items != dst_items || src_bytes != dst_bytes {
-            return Err(AppError::io(format!(
-                "verification mismatch for {:?}: source {src_items} files/{src_bytes} bytes vs target {dst_items} files/{dst_bytes} bytes",
-                dst_dir
-            )));
-        }
+    let src_dir = &source.embroidery_designs_dir;
+    let dst_dir = &plan.target_paths.embroidery_designs_dir;
+
+    if !src_dir.exists() {
+        return Ok(());
+    }
+    let (src_items, src_bytes) = tree_totals_at(src_dir);
+    let (dst_items, dst_bytes) = tree_totals_at(dst_dir);
+    if src_items != dst_items || src_bytes != dst_bytes {
+        return Err(AppError::io(format!(
+            "verification mismatch for {:?}: source {src_items} files/{src_bytes} bytes vs target {dst_items} files/{dst_bytes} bytes",
+            dst_dir
+        )));
     }
     Ok(())
 }
@@ -656,7 +642,7 @@ fn write_moved_notice(source_root: &Path, target_root: &Path) -> Result<(), AppE
     let content = format!(
         "Embroidery Catalogue storage was moved on {}.\n\n\
          The catalogue data is now stored at:\n{}\n\n\
-         The folders at this location (Database, MachineEmbroideryDesigns, thumbnails)\n\
+         The folders at this location (Database, MachineEmbroideryDesigns)\n\
          are no longer used by the application and can be deleted manually once you are\n\
          happy with the move.\n",
         format_moved_timestamp(
@@ -686,11 +672,10 @@ fn database_bytes(source: &AppPaths) -> u64 {
     total
 }
 
-/// Sum of file count + bytes across the managed design library and thumbnails.
+/// Sum of file count + bytes across the managed design library.
 fn tree_totals(source: &AppPaths) -> (u64, u64) {
     let (design_items, design_bytes) = tree_totals_at(&source.embroidery_designs_dir);
-    let (thumb_items, thumb_bytes) = tree_totals_at(&source.thumbnail_cache_dir);
-    (design_items + thumb_items, design_bytes + thumb_bytes)
+    (design_items, design_bytes)
 }
 
 fn tree_totals_at(dir: &Path) -> (u64, u64) {

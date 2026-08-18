@@ -192,7 +192,6 @@ fn resolve_paths_creates_all_directories() {
     assert!(app_paths.data_root.exists());
     assert!(app_paths.embroidery_designs_dir.exists());
     assert!(app_paths.database_dir.exists());
-    assert!(app_paths.thumbnail_cache_dir.exists());
     assert!(app_paths.log_dir.exists());
 }
 
@@ -499,10 +498,6 @@ fn resolve_app_paths_does_not_panic_and_smoke_checks() {
         "database_path must not be empty"
     );
     assert!(
-        !app_paths.thumbnail_cache_dir.as_os_str().is_empty(),
-        "thumbnail_cache_dir must not be empty"
-    );
-    assert!(
         !app_paths.log_dir.as_os_str().is_empty(),
         "log_dir must not be empty"
     );
@@ -537,11 +532,6 @@ fn resolve_app_paths_does_not_panic_and_smoke_checks() {
         app_paths.database_dir.display()
     );
     assert!(
-        app_paths.thumbnail_cache_dir.exists(),
-        "thumbnail_cache_dir '{}' was not created",
-        app_paths.thumbnail_cache_dir.display()
-    );
-    assert!(
         app_paths.log_dir.exists(),
         "log_dir '{}' was not created",
         app_paths.log_dir.display()
@@ -566,10 +556,6 @@ fn resolve_app_paths_is_consistent() {
     assert_eq!(
         a.database_path, b.database_path,
         "database_path differs between calls"
-    );
-    assert_eq!(
-        a.thumbnail_cache_dir, b.thumbnail_cache_dir,
-        "thumbnail_cache_dir differs between calls"
     );
     assert_eq!(a.log_dir, b.log_dir, "log_dir differs between calls");
 }
@@ -622,7 +608,6 @@ fn resolve_paths_for_root_builds_installed_layout() {
         app_paths.database_path,
         tmp.join("Database").join(DATABASE_FILENAME)
     );
-    assert_eq!(app_paths.thumbnail_cache_dir, tmp.join("thumbnails"));
     assert_eq!(app_paths.log_dir, tmp.join("logs"));
 
     let _ = fs::remove_dir_all(&tmp);
@@ -640,7 +625,6 @@ fn resolve_paths_for_root_does_not_create_directories() {
 
     assert!(!tmp.join("Database").exists());
     assert!(!tmp.join("MachineEmbroideryDesigns").exists());
-    assert!(!tmp.join("thumbnails").exists());
     assert!(!tmp.join("logs").exists());
 
     let _ = fs::remove_dir_all(&tmp);

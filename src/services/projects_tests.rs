@@ -125,7 +125,6 @@ fn make_app_state(pool: SqlitePool) -> AppState {
             embroidery_designs_dir: tmp_dir.join("MachineEmbroideryDesigns"),
             database_dir: tmp_dir.join("Database"),
             database_path: tmp_dir.join("Database").join("test.db"),
-            thumbnail_cache_dir: tmp_dir.join("thumbnails"),
             log_dir: tmp_dir.join("logs"),
         },
         log_guard: LogGuard::dummy_for_test(),

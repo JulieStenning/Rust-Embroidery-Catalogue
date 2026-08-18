@@ -598,7 +598,7 @@
     <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-800">Moving your catalogue…</h2>
       <p class="text-sm text-gray-600">
-        Your database, design library and thumbnails are being moved to the new
+        Your database and design library are being moved to the new
         storage location. Your original embroidery files remain untouched.
       </p>
 

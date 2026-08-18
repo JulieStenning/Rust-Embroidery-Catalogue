@@ -199,7 +199,6 @@ mod tests {
             embroidery_designs_dir: PathBuf::from("/tmp/test_data/MachineEmbroideryDesigns"),
             database_dir: PathBuf::from("/tmp/test_data/Database"),
             database_path: PathBuf::from("/tmp/test_data/Database/EmbroideryCatalogue.db"),
-            thumbnail_cache_dir: PathBuf::from("/tmp/test_data/thumbnails"),
             log_dir: PathBuf::from("/tmp/test_data/logs"),
         };
 

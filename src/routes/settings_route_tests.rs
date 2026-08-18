@@ -53,7 +53,6 @@ fn make_app_paths_installed(tmp_dir: &std::path::Path) -> crate::paths::AppPaths
         database_path: data_root
             .join("Database")
             .join(crate::paths::DATABASE_FILENAME),
-        thumbnail_cache_dir: data_root.join("thumbnails"),
         log_dir: data_root.join("logs"),
     }
 }
@@ -70,7 +69,6 @@ fn make_app_paths_portable(tmp_dir: &std::path::Path) -> crate::paths::AppPaths 
         database_path: data_root
             .join("Database")
             .join(crate::paths::DATABASE_FILENAME),
-        thumbnail_cache_dir: data_root.join("thumbnails"),
         log_dir: data_root.join("logs"),
     }
 }

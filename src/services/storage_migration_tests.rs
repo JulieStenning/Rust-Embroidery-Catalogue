@@ -30,7 +30,6 @@ fn make_source(root: &Path) -> AppPaths {
     let app_paths = crate::paths::resolve_paths_for_root(root);
     std::fs::create_dir_all(&app_paths.database_dir).expect("create db dir");
     std::fs::create_dir_all(&app_paths.embroidery_designs_dir).expect("create designs dir");
-    std::fs::create_dir_all(&app_paths.thumbnail_cache_dir).expect("create thumbnails dir");
     app_paths
 }
 
@@ -177,7 +176,6 @@ async fn full_migration_copies_database_and_assets() {
 
         // Assets.
         std::fs::write(source.embroidery_designs_dir.join("rose.pes"), b"design-a").unwrap();
-        std::fs::write(source.thumbnail_cache_dir.join("rose.png"), b"thumb-a").unwrap();
 
         let target = tmp.join("target");
         let cancel = AtomicBool::new(false);
@@ -192,12 +190,11 @@ async fn full_migration_copies_database_and_assets() {
 
         assert!(summary.success);
         assert!(summary.requires_restart);
-        assert_eq!(summary.asset_items, 2);
+        assert_eq!(summary.asset_items, 1);
 
         // Target database is valid and has the design.
         assert!(target.join("Database").join(DATABASE_FILENAME).exists());
         assert!(target.join("MachineEmbroideryDesigns").join("rose.pes").exists());
-        assert!(target.join("thumbnails").join("rose.png").exists());
 
         // Source was renamed to a backup, not deleted.
         let backup = tmp.join("source.migrated-backup");
@@ -231,7 +228,6 @@ async fn full_migration_cancellation_rolls_back_partial_target() {
             vec![0x42u8; 2048],
         )
         .unwrap();
-        std::fs::write(source.thumbnail_cache_dir.join("t.png"), b"thumb").unwrap();
 
         let target = tmp.join("target");
 
@@ -330,7 +326,6 @@ async fn full_migration_source_is_filesystem_root_still_succeeds() {
         let source = make_source(&tmp.join("source"));
         seed_database(&source).await;
         std::fs::write(source.embroidery_designs_dir.join("a.pes"), b"data").unwrap();
-        std::fs::write(source.thumbnail_cache_dir.join("t.png"), b"t").unwrap();
 
         let target = tmp.join("target");
         let cancel = AtomicBool::new(false);
@@ -360,7 +355,6 @@ async fn progress_percent_reflects_bytes() {
         let source = make_source(&tmp.join("source"));
         seed_database(&source).await;
         std::fs::write(source.embroidery_designs_dir.join("a.pes"), b"aaaa").unwrap();
-        std::fs::write(source.thumbnail_cache_dir.join("b.png"), b"bbbbbb").unwrap();
 
         let target = tmp.join("target");
         let cancel = AtomicBool::new(false);

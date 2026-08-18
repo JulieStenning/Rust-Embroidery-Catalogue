@@ -217,7 +217,6 @@ mod tests {
             embroidery_designs_dir: tmp.join("MachineEmbroideryDesigns"),
             database_dir: database_dir.clone(),
             database_path: database_path.clone(),
-            thumbnail_cache_dir: tmp.join("thumbnails"),
             log_dir: tmp.join("logs"),
         };
 
@@ -253,7 +252,6 @@ mod tests {
             embroidery_designs_dir: tmp.join("MachineEmbroideryDesigns"),
             database_dir: tmp.join("Database"),
             database_path,
-            thumbnail_cache_dir: tmp.join("thumbnails"),
             log_dir: tmp.join("logs"),
         };
 

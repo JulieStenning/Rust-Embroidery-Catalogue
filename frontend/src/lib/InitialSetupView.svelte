@@ -116,7 +116,7 @@
   const dataCopy = {
     question: "Where should your catalogue data live?",
     answer:
-      "Your design files, database and thumbnails are stored in a data folder. You can choose any folder on your computer, including one on a portable drive. Once the location is chosen, the app will restart.",
+      "Your design files and database are stored in a data folder. You can choose any folder on your computer, including one on a portable drive. Once the location is chosen, the app will restart.",
     whyNowTitle: "Why choose now?",
     whyNow:
       "Choosing a location now ensures your data lives exactly where you want it before you start importing designs. You can change this later via Settings.",

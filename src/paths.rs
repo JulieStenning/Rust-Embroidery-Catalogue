@@ -38,7 +38,6 @@ pub struct AppPaths {
     pub embroidery_designs_dir: PathBuf,
     pub database_dir: PathBuf,
     pub database_path: PathBuf,
-    pub thumbnail_cache_dir: PathBuf,
     pub log_dir: PathBuf,
 }
 
@@ -86,17 +85,10 @@ pub fn resolve_paths_from_exe_dir(_exe_dir: &Path) -> AppPaths {
     let embroidery_designs_dir = data_root.join("MachineEmbroideryDesigns");
     let database_dir = data_root.join("Database");
     let database_path = database_dir.join(DATABASE_FILENAME);
-    let thumbnail_cache_dir = data_root.join("thumbnails");
     let log_dir = data_root.join("logs");
 
     // Create all required directories (best-effort; failures will surface later)
-    for dir in [
-        &data_root,
-        &embroidery_designs_dir,
-        &database_dir,
-        &thumbnail_cache_dir,
-        &log_dir,
-    ] {
+    for dir in [&data_root, &embroidery_designs_dir, &database_dir, &log_dir] {
         let _ = std::fs::create_dir_all(dir);
     }
 
@@ -113,7 +105,6 @@ pub fn resolve_paths_from_exe_dir(_exe_dir: &Path) -> AppPaths {
         embroidery_designs_dir,
         database_dir,
         database_path,
-        thumbnail_cache_dir,
         log_dir,
     }
 }
@@ -399,7 +390,6 @@ pub fn resolve_paths_for_root(data_root: &Path) -> AppPaths {
     let embroidery_designs_dir = data_root.join("MachineEmbroideryDesigns");
     let database_dir = data_root.join("Database");
     let database_path = database_dir.join(DATABASE_FILENAME);
-    let thumbnail_cache_dir = data_root.join("thumbnails");
     let log_dir = data_root.join("logs");
 
     AppPaths {
@@ -408,7 +398,6 @@ pub fn resolve_paths_for_root(data_root: &Path) -> AppPaths {
         embroidery_designs_dir,
         database_dir,
         database_path,
-        thumbnail_cache_dir,
         log_dir,
     }
 }

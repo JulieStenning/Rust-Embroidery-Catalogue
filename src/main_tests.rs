@@ -258,7 +258,6 @@ fn app_status_from_paths_serializes_installed_mode_backslash_variant() {
         embroidery_designs_dir: PathBuf::from("E:/portable/data/MachineEmbroideryDesigns"),
         database_dir: PathBuf::from("E:/portable/data/Database"),
         database_path: PathBuf::from("E:/portable/data/Database/EmbroideryCatalogue.db"),
-        thumbnail_cache_dir: PathBuf::from("E:/portable/data/thumbnails"),
         log_dir: PathBuf::from("E:/portable/data/logs"),
     };
 
@@ -288,7 +287,6 @@ fn app_status_from_paths_serializes_dev_mode() {
         database_path: PathBuf::from(
             "D:/dev/rust-embroidery-catalogue/dev_data/Database/EmbroideryCatalogue.db",
         ),
-        thumbnail_cache_dir: PathBuf::from("D:/dev/rust-embroidery-catalogue/dev_data/thumbnails"),
         log_dir: PathBuf::from("D:/dev/rust-embroidery-catalogue/dev_data/logs"),
     };
 
@@ -321,9 +319,6 @@ fn app_status_from_paths_serializes_installed_mode() {
         database_path: PathBuf::from(
             "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
         ),
-        thumbnail_cache_dir: PathBuf::from(
-            "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/thumbnails",
-        ),
         log_dir: PathBuf::from("C:/Users/test/AppData/Roaming/EmbroideryCatalogue/logs"),
     };
 
@@ -346,7 +341,6 @@ fn app_status_from_paths_handles_windows_backslash_paths() {
         embroidery_designs_dir: PathBuf::from("D:\\MyData\\MachineEmbroideryDesigns"),
         database_dir: PathBuf::from("D:\\MyData\\Database"),
         database_path: PathBuf::from("D:\\MyData\\Database\\EmbroideryCatalogue.db"),
-        thumbnail_cache_dir: PathBuf::from("D:\\MyData\\thumbnails"),
         log_dir: PathBuf::from("D:\\MyData\\logs"),
     };
 
