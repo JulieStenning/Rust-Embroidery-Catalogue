@@ -30,6 +30,6 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.0"
+    "@tailwindcss/vite": "^4.3.3"
   }
 }
