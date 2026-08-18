@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Rust dependencies (Cargo)
+  - package-ecosystem: "cargo"
+    directory: "/" # Adjust to "/src-tauri" if your Cargo.toml lives in a subfolder
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Svelte / TypeScript dependencies (npm)
+  - package-ecosystem: "npm"
+    directory: "/" # Location of package.json
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
