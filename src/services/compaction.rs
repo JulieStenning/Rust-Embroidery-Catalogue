@@ -98,7 +98,8 @@ pub async fn run_incremental_vacuum(pool: &SqlitePool, max_pages: i64) -> Result
         // short write transaction, so the shared connection is never locked
         // for long; the loop yields between steps below.
         let claimed = remaining.min(max_pages);
-        sqlx::query(&format!("PRAGMA incremental_vacuum({})", claimed))
+        let pragma_sql = format!("PRAGMA incremental_vacuum({})", claimed);
+        sqlx::query(sqlx::AssertSqlSafe(pragma_sql))
             .execute(pool)
             .await
             .map_err(|err| format!("PRAGMA incremental_vacuum failed: {err}"))?;

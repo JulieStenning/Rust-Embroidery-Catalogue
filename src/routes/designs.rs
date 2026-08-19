@@ -361,7 +361,7 @@ async fn ensure_foreign_key_exists(
 ) -> Result<(), String> {
     if let Some(value) = id {
         let sql = format!("SELECT 1 FROM {} WHERE id = ? LIMIT 1", table);
-        let exists = sqlx::query_scalar::<_, i64>(&sql)
+        let exists = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
             .bind(value)
             .fetch_optional(pool)
             .await

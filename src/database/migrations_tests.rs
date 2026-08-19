@@ -318,13 +318,14 @@ async fn run_migrations_applies_all_migrations_to_fresh_db() {
 
     // Verify some expected application tables exist.
     for table in &["designs", "tags", "settings", "projects"] {
-        let count: (i64,) = sqlx::query_as(&format!(
+        let query_str = format!(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{}'",
             table
-        ))
-        .fetch_one(&pool)
-        .await
-        .expect("query sqlite_master");
+        );
+        let count: (i64,) = sqlx::query_as(sqlx::AssertSqlSafe(query_str))
+            .fetch_one(&pool)
+            .await
+            .expect("query sqlite_master");
         assert_eq!(count.0, 1, "table '{}' must exist after migrations", table);
     }
 

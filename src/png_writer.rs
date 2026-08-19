@@ -275,7 +275,7 @@ pub fn render_pattern_to_png(
     let mut buf = Vec::new();
     use image::codecs::png::PngEncoder;
     PngEncoder::new(&mut buf)
-        .write_image(&img, img.width(), img.height(), image::ColorType::Rgba8)
+        .write_image(&img, img.width(), img.height(), image::ColorType::Rgba8.into())
         .map_err(|err| AppError::parse(format!("failed to encode PNG: {err}")))?;
     Ok(buf)
 }

@@ -463,7 +463,7 @@ pub async fn run_database_backup(
 
     let escaped_destination = destination_path.to_string_lossy().replace('\'', "''");
     let vacuum_sql = format!("VACUUM INTO '{}'", escaped_destination);
-    let db_backup_result = sqlx::query(&vacuum_sql).execute(&mut *conn).await;
+    let db_backup_result = sqlx::query(sqlx::AssertSqlSafe(vacuum_sql)).execute(&mut *conn).await;
 
     if db_backup_result.is_err() {
         if let Err(copy_error) = fs::copy(&source_db_path, &destination_path) {

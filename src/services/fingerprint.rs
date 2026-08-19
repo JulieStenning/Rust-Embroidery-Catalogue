@@ -117,7 +117,7 @@ async fn select_candidates(
     }
     sql.push_str(" ORDER BY id ASC LIMIT ?");
 
-    let mut query = sqlx::query(&sql);
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
     for id in exclude_ids {
         query = query.bind(*id);
     }

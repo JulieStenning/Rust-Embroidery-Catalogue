@@ -124,7 +124,7 @@ async fn ensure_unique_name(
     label: &str,
 ) -> Result<(), AppError> {
     let sql = format!("SELECT 1 FROM {table} WHERE lower(name) = lower(?) LIMIT 1");
-    let exists = sqlx::query_scalar::<_, i64>(&sql)
+    let exists = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
         .bind(name)
         .fetch_optional(pool)
         .await
@@ -150,7 +150,7 @@ async fn ensure_unique_name_except_id(
 ) -> Result<(), AppError> {
     let sql =
         format!("SELECT 1 FROM {table} WHERE lower(name) = lower(?) AND {id_column} <> ? LIMIT 1");
-    let exists = sqlx::query_scalar::<_, i64>(&sql)
+    let exists = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
         .bind(name)
         .bind(excluded_id)
         .fetch_optional(pool)

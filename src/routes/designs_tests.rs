@@ -278,7 +278,7 @@ mod helper_tests {
         push_where_clause(&mut builder, &mut has_where);
         assert!(has_where);
         let sql = builder.sql();
-        assert!(sql.contains(" WHERE "), "sql should have WHERE clause");
+        assert!(sql.as_str().contains(" WHERE "), "sql should have WHERE clause");
     }
 
     #[test]
@@ -288,8 +288,8 @@ mod helper_tests {
         push_where_clause(&mut builder, &mut has_where);
         assert!(has_where);
         let sql = builder.sql();
-        assert!(sql.contains(" AND "), "sql should have AND clause");
-        assert!(!sql.contains(" WHERE "));
+        assert!(sql.as_str().contains(" AND "), "sql should have AND clause");
+        assert!(!sql.as_str().contains(" WHERE "));
     }
 
     // â”€â”€â”€ is_truthy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1985,12 +1985,12 @@ fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
     push_general_search_clause(&mut builder, true, true, true, &groups);
 
     let sql = builder.sql();
-    assert!(sql.contains("LOWER(d.filename) LIKE"));
-    assert!(sql.contains("design_tags"));
-    assert!(sql.contains("LOWER(tags.description) LIKE"));
-    assert!(sql.contains("LOWER(d.filepath) LIKE"));
+    assert!(sql.as_str().contains("LOWER(d.filename) LIKE"));
+    assert!(sql.as_str().contains("design_tags"));
+    assert!(sql.as_str().contains("LOWER(tags.description) LIKE"));
+    assert!(sql.as_str().contains("LOWER(d.filepath) LIKE"));
     // The bind values are stored as parameters, so count the `?` placeholders.
-    assert!(sql.matches("LIKE ").count() >= 3);
+    assert!(sql.as_str().matches("LIKE ").count() >= 3);
 }
 
 #[test]
@@ -2007,9 +2007,9 @@ fn push_general_search_clause_with_exclusion_adds_not() {
     push_general_search_clause(&mut builder, true, false, false, &groups);
 
     let sql = builder.sql();
-    assert!(sql.contains("NOT ("));
-    assert!(sql.contains("LOWER(d.filename) LIKE"));
-    assert!(sql.contains(")"));
+    assert!(sql.as_str().contains("NOT ("));
+    assert!(sql.as_str().contains("LOWER(d.filename) LIKE"));
+    assert!(sql.as_str().contains(")"));
 }
 
 #[test]
@@ -2032,17 +2032,17 @@ fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
     push_general_search_clause(&mut builder, true, false, false, &groups);
 
     let sql = builder.sql();
-    assert!(sql.contains(" OR "));
+    assert!(sql.as_str().contains(" OR "));
     // Each group adds a LIKE placeholder for the file search.
-    assert!(sql.matches("LOWER(d.filename) LIKE").count() >= 2);
+    assert!(sql.as_str().matches("LOWER(d.filename) LIKE").count() >= 2);
 }
 
 #[test]
 fn push_general_search_clause_empty_groups_is_noop() {
     let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
-    let original = builder.sql().to_string();
+    let original = builder.sql().as_str().to_string();
     push_general_search_clause(&mut builder, true, true, true, &[]);
-    assert_eq!(builder.sql(), original);
+    assert_eq!(builder.sql().as_str(), original.as_str());
 }
 
 #[test]
@@ -2067,8 +2067,8 @@ fn push_general_search_clause_and_between_tokens_within_group() {
     push_general_search_clause(&mut builder, true, false, false, &groups);
 
     let sql = builder.sql();
-    assert!(sql.contains(" AND "));
-    assert!(sql.matches("LOWER(d.filename) LIKE").count() >= 2);
+    assert!(sql.as_str().contains(" AND "));
+    assert!(sql.as_str().matches("LOWER(d.filename) LIKE").count() >= 2);
 }
 
 // â”€â”€â”€ recommend_hoop_for_design â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

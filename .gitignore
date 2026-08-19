@@ -61,3 +61,4 @@ copy_seed_database.bat
 Install.lnk
 Tag Rules.xlsx
 dev-datax
+cargo_deny_report.txt
