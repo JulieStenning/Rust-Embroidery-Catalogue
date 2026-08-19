@@ -31,5 +31,5 @@ time = { version = "0.3", features = ["formatting", "local-offset"] }
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 [dev-dependencies]
-serial_test = "3.0"
+serial_test = "4.0"
 tauri = { version = "2", features = ["test"] }
