@@ -1,3 +1,4 @@
+# Trigger GitHub dependency scan refresh
 [package]
 name = "Rust-Embroidery-Catalogue"
 version = "0.1.0"
