@@ -306,6 +306,36 @@ export interface AppStatus {
   embroidery_dir: string;
   database_path: string;
   data_root_missing: boolean;
+  /** True when a configured data root exists but the database file is missing. */
+  database_missing: boolean;
+}
+
+/** Tri-state status of the configured database reported at startup. */
+export type DatabaseStatusKind = "uninitialized" | "connected" | "missing";
+
+/** Detailed database status used by the recovery flow. */
+export interface DatabaseStatus {
+  status: DatabaseStatusKind;
+  configured_data_root: string | null;
+  database_path: string | null;
+  embroidery_dir: string | null;
+  data_root_missing: boolean;
+}
+
+/** Result of a drive-letter relocation scan. */
+export interface DetectedDataRoot {
+  data_root: string | null;
+  relative_subpath: string;
+}
+
+/** Validation result for a candidate data root. */
+export interface DatabaseValidation {
+  valid: boolean;
+  data_root: string;
+  database_path: string;
+  embroidery_dir: string;
+  embroidery_dir_exists: boolean;
+  error: string | null;
 }
 
 export interface BrowseDesignPreview {
@@ -776,6 +806,18 @@ export interface AdminHoopSummary {
   max_width_mm: number;
   max_height_mm: number;
   design_count: number;
+}
+
+export interface ConfigureDataRootResult {
+  data_root: string;
+  existing_database_detected: boolean;
+  database_path: string;
+}
+
+export interface AdapterConfigureDataRootResponse extends AdapterPersistedResponse {
+  data_root?: string;
+  existing_database_detected?: boolean;
+  database_path?: string;
 }
 
 export interface AdapterPersistedResponse {

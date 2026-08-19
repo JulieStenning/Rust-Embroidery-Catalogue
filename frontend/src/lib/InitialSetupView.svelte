@@ -223,6 +223,7 @@
         finishing = false;
         return;
       }
+      existingDatabaseDetected = Boolean(saved.existing_database_detected);
       // The data root is now persisted, but the running backend still points
       // at the old location. A restart is required before designers/sources
       // are added so they land in the correct database.
@@ -234,6 +235,9 @@
       finishing = false;
     }
   }
+
+  /** Whether an existing database was detected during data root configuration */
+  let existingDatabaseDetected = $state(false);
 
   /** Launch the application restart after the user confirms. */
   async function handleRestart() {
@@ -493,6 +497,14 @@
   >
     <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-800">Restart required</h2>
+      {#if existingDatabaseDetected}
+        <div
+          class="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded px-3 py-2 text-sm"
+          data-testid="existing-database-notice"
+        >
+          An existing Embroidery Catalogue database was detected at this location. Connecting to your existing library without overwriting data.
+        </div>
+      {/if}
       <p class="text-sm text-gray-600">
         Your new data location has been saved. Embroidery Catalogue needs to restart
         so it can begin using <span class="font-medium text-gray-800">{dataRootInput}</span>.

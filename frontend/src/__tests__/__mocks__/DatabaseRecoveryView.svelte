@@ -1,0 +1,1 @@
+<div data-testid="database-recovery-view">Database Recovery View</div>

@@ -374,6 +374,7 @@ fn app_status_serializes_correct_field_names() {
         embroidery_dir: "/some/data/root/MachineEmbroideryDesigns".to_string(),
         database_path: "/some/data/root/Database/EmbroideryCatalogue.db".to_string(),
         data_root_missing: false,
+        database_missing: false,
     };
 
     let json = serde_json::to_value(&status).expect("serialize AppStatus");
@@ -395,8 +396,8 @@ fn app_status_serializes_correct_field_names() {
         "missing 'data_root_missing'"
     );
 
-    // Exactly 5 fields â€” no extra, no missing
-    assert_eq!(map.len(), 5, "AppStatus should serialize exactly 5 fields");
+    // Exactly 6 fields â€” no extra, no missing
+    assert_eq!(map.len(), 6, "AppStatus should serialize exactly 6 fields");
 }
 
 #[test]
@@ -407,6 +408,7 @@ fn app_status_serializes_correct_field_values() {
         embroidery_dir: "D:/data/MachineEmbroideryDesigns".to_string(),
         database_path: "D:/data/Database/EmbroideryCatalogue.db".to_string(),
         data_root_missing: false,
+        database_missing: false,
     };
 
     let json = serde_json::to_value(&status).expect("serialize AppStatus");

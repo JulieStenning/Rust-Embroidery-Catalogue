@@ -4,6 +4,7 @@ pub mod admin;
 pub mod auto_tagging;
 pub mod backfill;
 pub mod compaction;
+pub mod database_recovery;
 pub mod db_health;
 pub mod fingerprint;
 pub mod folder_picker;

@@ -287,6 +287,13 @@ mod tests {
     fn make_app_state(pool: SqlitePool, tmp_dir: &std::path::Path) -> AppState {
         AppState {
             db: pool,
+            database_status: crate::DatabaseStatus {
+                status: crate::DatabaseStatusKind::Connected,
+                configured_data_root: Some(tmp_dir.to_string_lossy().to_string()),
+                database_path: Some(tmp_dir.join("Database").join("test.db").to_string_lossy().to_string()),
+                embroidery_dir: Some(tmp_dir.join("MachineEmbroideryDesigns").to_string_lossy().to_string()),
+                data_root_missing: false,
+            },
             paths: crate::paths::AppPaths {
                 mode: crate::paths::ExecutionMode::Installed,
                 data_root: tmp_dir.to_path_buf(),

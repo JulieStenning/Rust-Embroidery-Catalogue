@@ -18,6 +18,7 @@ pub mod templating;
 pub mod utils;
 
 use serde::Serialize;
+use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 use std::sync::atomic::AtomicBool;
 use tauri::{Manager, State};
@@ -26,9 +27,73 @@ use tauri::{Manager, State};
 
 /// Shared application state managed by Tauri.
 /// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
+// ---------------------------------------------------------------------------
+// Database status (exposed to frontend for the recovery flow)
+// ---------------------------------------------------------------------------
+
+/// Tri-state status of the configured database at startup.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DatabaseStatusKind {
+    /// No configured data root yet - first-run setup wizard handles it.
+    Uninitialized,
+    /// The configured database file exists and was opened normally.
+    Connected,
+    /// A configured data root exists but the database file is missing
+    /// (e.g. a portable drive letter changed). The recovery view handles it.
+    Missing,
+}
+
+/// Detailed database status report sent to the frontend.
+#[derive(Debug, Clone, Serialize)]
+pub struct DatabaseStatus {
+    pub status: DatabaseStatusKind,
+    pub configured_data_root: Option<String>,
+    pub database_path: Option<String>,
+    pub embroidery_dir: Option<String>,
+    pub data_root_missing: bool,
+}
+
+/// Compute the database status for the current paths/configuration.
+fn database_status_from_paths(paths: &paths::AppPaths) -> DatabaseStatus {
+    let configured_root = paths::read_bootstrap_data_root().ok().flatten();
+
+    let configured_str =
+        configured_root.as_ref().map(|p| p.to_string_lossy().to_string());
+    let database_str = Some(paths.database_path.to_string_lossy().to_string());
+    let embroidery_str = Some(paths.embroidery_designs_dir.to_string_lossy().to_string());
+
+    let data_root_missing = matches!(paths.mode, paths::ExecutionMode::Installed)
+        && configured_root
+            .as_ref()
+            .map(|root| !root.exists())
+            .unwrap_or(false);
+
+    let status = match configured_root {
+        None => DatabaseStatusKind::Uninitialized,
+        Some(_) if data_root_missing => DatabaseStatusKind::Missing,
+        Some(_) if !paths.database_path.exists() => DatabaseStatusKind::Missing,
+        Some(_) => DatabaseStatusKind::Connected,
+    };
+
+    DatabaseStatus {
+        status,
+        configured_data_root: configured_str,
+        database_path: database_str,
+        embroidery_dir: embroidery_str,
+        data_root_missing,
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+/// Shared application state managed by Tauri.
+/// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
 pub struct AppState {
     /// Connection pool for the SQLite database.
     pub db: SqlitePool,
+    /// Status of the configured database (Connected / Missing / Uninitialized).
+    pub database_status: DatabaseStatus,
     /// Resolved application paths (Portable vs Installed mode).
     pub paths: paths::AppPaths,
     /// Log guard â€” kept alive so log writes are flushed on app exit.
@@ -55,6 +120,8 @@ pub struct AppStatus {
     /// (e.g. a portable drive letter changed). The frontend offers a recovery
     /// dialog to reselect the location.
     pub data_root_missing: bool,
+    /// True when a configured data root exists but the database file is missing.
+    pub database_missing: bool,
 }
 
 /// Pure function to construct an `AppStatus` from `AppPaths`.
@@ -73,12 +140,19 @@ fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
             .flatten()
             .unwrap_or(false);
 
+    // A database is "missing" when a data root is configured but the derived
+    // DB file does not exist. This is the recovery-flow condition.
+    let has_configured_root = matches!(paths.mode, paths::ExecutionMode::Installed)
+        && paths::read_bootstrap_data_root().ok().flatten().is_some();
+    let database_missing = has_configured_root && !paths.database_path.exists();
+
     AppStatus {
         execution_mode: mode_str,
         data_root: paths.data_root.to_string_lossy().to_string(),
         embroidery_dir: paths.embroidery_designs_dir.to_string_lossy().to_string(),
         database_path: paths.database_path.to_string_lossy().to_string(),
         data_root_missing,
+        database_missing,
     }
 }
 
@@ -86,6 +160,12 @@ fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
 #[tauri::command]
 fn get_app_status(state: State<'_, AppState>) -> AppStatus {
     app_status_from_paths(&state.paths)
+}
+
+/// Return the detailed database status used by the recovery flow.
+#[tauri::command]
+fn get_database_status(state: State<'_, AppState>) -> DatabaseStatus {
+    state.database_status.clone()
 }
 
 /// Return the persisted, user-configured data root for Installed mode.
@@ -116,26 +196,42 @@ fn set_configured_data_root(data_root: String) -> Result<(), String> {
     paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())
 }
 
-/// Persist the user-chosen data root **and** seed a fresh database for a
-/// brand-new installation.
+/// Result returned by `configure_fresh_data_root` to report whether an existing
+/// database was detected and preserved or a new seed database was copied.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConfigureDataRootResult {
+    pub data_root: String,
+    pub existing_database_detected: bool,
+    pub database_path: String,
+}
+
+/// Persist the user-chosen data root and initialize catalogue storage.
 ///
-/// This is the first-run setup path: the user has just answered the "where
-/// should your data live?" prompt. It writes `config.json` and force-copies
-/// the embedded seed database into `<data_root>/Database/`. It deliberately
-/// OVERWRITES any existing DB file because a fresh install has no catalogue —
-/// a leftover stale file from an uninstalled build must be replaced with the
-/// current seed schema. Normal launches and Settings relocation must NOT use
-/// this command (they use `set_configured_data_root`, which never touches the
-/// database).
+/// If an existing database (`EmbroideryCatalogue.db`) is detected within the
+/// target directory, it is preserved without copying or overwriting seed data.
+/// If no database exists, the seed database is copied to `<data_root>/Database/`.
 #[tauri::command]
-fn configure_fresh_data_root(data_root: String) -> Result<(), String> {
+fn configure_fresh_data_root(data_root: String) -> Result<ConfigureDataRootResult, String> {
     let trimmed = data_root.trim();
     if trimmed.is_empty() {
         return Err("Data root cannot be empty.".to_string());
     }
     let path = std::path::PathBuf::from(trimmed);
+    let seeded_fresh = paths::ensure_catalogue_layout_and_seed_if_missing(&path)
+        .map_err(|err| err.to_string())?;
     paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())?;
-    paths::copy_seed_database_to(&path).map_err(|err| err.to_string())
+
+    let database_path = path
+        .join("Database")
+        .join(paths::DATABASE_FILENAME)
+        .to_string_lossy()
+        .to_string();
+
+    Ok(ConfigureDataRootResult {
+        data_root: path.to_string_lossy().to_string(),
+        existing_database_detected: !seeded_fresh,
+        database_path,
+    })
 }
 
 /// Open a native folder picker to choose the data root for Installed mode.
@@ -208,13 +304,34 @@ fn main() {
         }
     };
     tracing::info!(
-        "Embroidery Catalogue starting â€” mode={:?}, data_root={}",
+        "Embroidery Catalogue starting - mode={:?}, data_root={}",
         app_paths.mode,
         app_paths.data_root.display()
     );
 
-    // â”€â”€ Logging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    let log_guard = match logging::init_logging(&app_paths.log_dir) {
+    // Determine whether we are in database-recovery mode. This happens in
+    // Installed mode when a data root has been configured but the derived
+    // database file is missing (e.g. a portable drive letter changed from D:
+    // to E:). In that case we must NOT run schema migrations, create catalogue
+    // folders under the stale root, or mount the normal app: the recovery view
+    // asks the user to re-point the location before anything else happens.
+    let recovery_mode = paths::database_recovery_mode(&app_paths);
+
+    // Logging: while recovering, write logs to a safe temp location instead of
+    // the stale configured root so no `logs` folder is created under e.g.
+    // `F:\` before the user re-points the real location.
+    let log_dir = if recovery_mode {
+        let fallback = paths::recovery_log_dir();
+        tracing::info!(
+            "Database recovery mode: logging to fallback temp dir {} instead of {}",
+            fallback.display(),
+            app_paths.log_dir.display()
+        );
+        fallback
+    } else {
+        app_paths.log_dir.clone()
+    };
+    let log_guard = match logging::init_logging(&log_dir) {
         Ok(guard) => guard,
         Err(err) => {
             eprintln!("Failed to initialize logging: {err}");
@@ -222,8 +339,8 @@ fn main() {
         }
     };
     tracing::info!(
-        "Logging initialised â€” log_dir={}",
-        app_paths.log_dir.display()
+        "Logging initialised - log_dir={}",
+        log_dir.display()
     );
 
     // Load .env file if present (best-effort; not required in production)
@@ -242,43 +359,67 @@ fn main() {
     // root (e.g. target\debug\Data).
     std::env::set_var("DATABASE_URL", &bootstrap_config.database_url);
 
-    // Ensure the database directory exists before trying to connect
-    if let Err(err) = config::ensure_database_dir(&bootstrap_config.database_url) {
-        eprintln!("Failed to create database directory: {err}");
-        std::process::exit(1);
-    }
+    // Compute the database status for state registration.
+    let database_status = database_status_from_paths(&app_paths);
 
     // Run async setup using Tauri's built-in Tokio runtime
     // This avoids creating a conflicting second runtime alongside Tauri's own
-    let pool = tauri::async_runtime::block_on(async {
-        // Establish the SQLite connection pool using resolved paths
-        let pool = match database::connection::establish_connection(&app_paths).await {
-            Ok(pool) => pool,
-            Err(err) => {
-                eprintln!("Failed to establish database connection: {err}");
-                std::process::exit(1);
-            }
-        };
+    let pool = if recovery_mode {
+        tracing::warn!(
+            "Database recovery mode: configured database missing at {} - awaiting user re-pointing.",
+            app_paths.database_path.display()
+        );
+        // Throwaway in-memory pool: keeps AppState constructible and commands
+        // registered without touching the missing real DB file. The blocking
+        // recovery view guarantees no data-touching command runs against it.
+        tauri::async_runtime::block_on(async {
+            SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap_or_else(|e| {
+                    eprintln!("Failed to establish in-memory recovery pool: {e}");
+                    std::process::exit(1);
+                })
+        })
+    } else {
+        // Ensure the database directory exists before trying to connect
+        if let Err(err) = config::ensure_database_dir(&bootstrap_config.database_url) {
+            eprintln!("Failed to create database directory: {err}");
+            std::process::exit(1);
+        }
 
-        // NOTE: Migration runner is intentionally disabled.
-        // Both the seed DB (src-tauri/resources/) and the development DB are
-        // pre-migrated. Running sqlx::migrate!() would re-insert all seed data
-        // (118 tags, settings, etc.) from the initial migration, overwriting
-        // the curated seed DB content.
-        //
-        // If schema changes are needed in the future, run migrations manually:
-        //   - Update the dev DB with new schema
-        //   - Compact it and copy to src-tauri/resources/EmbroideryCatalogue.db
-        //   - Add the .sql migration file to migrations/ for documentation
-        //
-        // database::migrations::run_migrations(&pool).await
-        //     .expect("Failed to run database migrations");
+        tauri::async_runtime::block_on(async {
+            // Establish the SQLite connection pool using resolved paths
+            let pool = match database::connection::establish_connection(&app_paths).await {
+                Ok(pool) => pool,
+                Err(err) => {
+                    eprintln!("Failed to establish database connection: {err}");
+                    std::process::exit(1);
+                }
+            };
 
-        pool
-    });
+            // NOTE: Migration runner is intentionally disabled.
+            // Both the seed DB (src-tauri/resources/) and the development DB are
+            // pre-migrated. Running sqlx::migrate!() would re-insert all seed data
+            // (118 tags, settings, etc.) from the initial migration, overwriting
+            // the curated seed DB content.
+            //
+            // If schema changes are needed in the future, run migrations manually:
+            //   - Update the dev DB with new schema
+            //   - Compact it and copy to src-tauri/resources/EmbroideryCatalogue.db
+            //   - Add the .sql migration file to migrations/ for documentation
+            //
+            // database::migrations::run_migrations(&pool).await
+            //     .expect("Failed to run database migrations");
+
+            pool
+        })
+    };
 
     let app_state = AppState {
         db: pool,
+        database_status,
         paths: app_paths,
         log_guard,
         shutdown_requested: AtomicBool::new(false),
@@ -289,22 +430,30 @@ fn main() {
 
     // Launch a lightweight background backfill for orphan fingerprint data
     // (hash + file size).  This is fire-and-forget â€” errors are logged, not fatal.
-    let fp_pool = app_state.db.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await {
-            tracing::error!("Startup fingerprint backfill error: {}", err);
-        }
-    });
+    if recovery_mode {
+        // In recovery mode the frontend is blocked on the DatabaseRecoveryView;
+        // none of the normal background DB work (fingerprint backfill, bulk
+        // import pool, health monitor) should run against the in-memory pool.
+        tracing::info!("Skipping background DB initialisation during database recovery mode.");
+    } else {
+        let fp_pool = app_state.db.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await
+            {
+                tracing::error!("Startup fingerprint backfill error: {}", err);
+            }
+        });
 
-    routes::bulk_import::initialize_bulk_import_db_pool(app_state.db.clone());
-    let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
-    tracing::info!(
-        "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
-        startup_reset.cleared_context_count,
-        startup_reset.active_context_count,
-        startup_reset.reset_count,
-        startup_reset.reset_at_millis
-    );
+        routes::bulk_import::initialize_bulk_import_db_pool(app_state.db.clone());
+        let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
+        tracing::info!(
+            "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
+            startup_reset.cleared_context_count,
+            startup_reset.active_context_count,
+            startup_reset.reset_count,
+            startup_reset.reset_at_millis
+        );
+    }
 
     let app = tauri::Builder::default()
         .manage(app_state)
@@ -373,6 +522,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_status,
+            get_database_status,
             get_configured_data_root,
             set_configured_data_root,
             configure_fresh_data_root,
@@ -381,6 +531,9 @@ fn main() {
             config::debug_bootstrap_config,
             check_initial_setup,
             complete_initial_setup,
+            routes::database_recovery::detect_relocated_data_root,
+            routes::database_recovery::validate_database_path,
+            routes::database_recovery::seed_database_to_data_root,
             routes::about::get_about_documents,
             routes::about::get_about_document,
             routes::designs::get_designs,

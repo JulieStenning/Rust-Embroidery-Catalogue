@@ -1,10 +1,11 @@
 <script>
   import { onDestroy, onMount } from "svelte";
+  import DatabaseRecoveryView from "./lib/DatabaseRecoveryView.svelte";
   import InitialSetupView from "./lib/InitialSetupView.svelte";
   import MainView from "./lib/MainView.svelte";
   import ToastContainer from "./lib/components/ToastContainer.svelte";
   import { initDbMaintenanceEvents } from "./lib/services/dbMaintenanceEvents";
-  import { checkInitialSetup } from "./lib/api/commandAdapter";
+  import { checkInitialSetup, getDatabaseStatus } from "./lib/api/commandAdapter";
 
   /** Cleanup function returned by initDbMaintenanceEvents(), if subscribed. */
   let stopDbMaintenanceEvents = $state(() => {});
@@ -13,6 +14,8 @@
   let loading = $state(true);
   /** Whether the initial setup wizard has been completed or skipped */
   let initialSetupCompleted = $state(false);
+  /** True when the configured database is missing and the recovery view must block the app. */
+  let databaseMissing = $state(false);
   /** Error message if the check fails */
   let checkError = $state("");
 
@@ -34,6 +37,15 @@
     }
 
     try {
+      // Check the database recovery status first. If the configured database
+      // is missing (e.g. a drive letter changed), block the main UI until the
+      // user re-points the location or explicitly creates a new catalogue.
+      const dbStatus = await getDatabaseStatus();
+      if (dbStatus.status && dbStatus.status.status === "missing") {
+        databaseMissing = true;
+        loading = false;
+        return;
+      }
       initialSetupCompleted = await checkInitialSetup();
     } catch (e) {
       checkError = `Could not verify setup status: ${e}`;
@@ -91,6 +103,12 @@
       </p>
     </div>
   </div>
+
+{:else if databaseMissing}
+  <!-- Database recovery view: the configured database is missing (e.g. drive
+       letter changed). This blocks the main UI until the user re-points the
+       location or explicitly creates a new catalogue. -->
+  <DatabaseRecoveryView />
 
 {:else if !initialSetupCompleted}
   <!-- Initial setup wizard (data location, designers & sources) -->

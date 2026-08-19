@@ -195,6 +195,99 @@ fn resolve_paths_creates_all_directories() {
     assert!(app_paths.log_dir.exists());
 }
 
+/// Helper to build an Installed-mode `AppPaths` rooted at `data_root`.
+fn installed_paths(data_root: &std::path::Path) -> AppPaths {
+    AppPaths {
+        mode: ExecutionMode::Installed,
+        data_root: data_root.to_path_buf(),
+        embroidery_designs_dir: data_root.join("MachineEmbroideryDesigns"),
+        database_dir: data_root.join("Database"),
+        database_path: data_root.join("Database").join(DATABASE_FILENAME),
+        log_dir: data_root.join("logs"),
+    }
+}
+
+#[test]
+#[serial]
+fn database_recovery_mode_true_when_db_missing() {
+    with_sandboxed_app_data(|| {
+        let configured = tmp_dir("recovery_configured_root");
+        write_bootstrap_data_root(&configured).expect("write config");
+
+        // The configured root is registered but the DB file does not exist.
+        let paths = installed_paths(&configured);
+        assert!(database_recovery_mode(&paths), "recovery mode should be true");
+
+        let _ = fs::remove_dir_all(&configured);
+    });
+}
+
+#[test]
+#[serial]
+fn database_recovery_mode_false_when_db_exists() {
+    with_sandboxed_app_data(|| {
+        let configured = tmp_dir("recovery_existing_db");
+        fs::create_dir_all(configured.join("Database")).expect("create Database dir");
+        fs::write(
+            configured.join("Database").join(DATABASE_FILENAME),
+            b"sqlite-bytes",
+        )
+        .expect("write db");
+
+        let paths = installed_paths(&configured);
+        assert!(paths.database_path.exists());
+        assert!(!database_recovery_mode(&paths), "recovery mode should be false");
+
+        let _ = fs::remove_dir_all(&configured);
+    });
+}
+
+#[test]
+#[serial]
+fn database_recovery_mode_false_when_no_config() {
+    with_sandboxed_app_data(|| {
+        let configured = tmp_dir("recovery_no_config");
+        let paths = installed_paths(&configured);
+        assert!(
+            !database_recovery_mode(&paths),
+            "recovery mode should be false without a configured root"
+        );
+        let _ = fs::remove_dir_all(&configured);
+    });
+}
+
+#[test]
+fn database_recovery_mode_false_for_dev_mode() {
+    let tmp = tmp_dir("recovery_dev_mode");
+    let paths = AppPaths {
+        mode: ExecutionMode::Dev,
+        data_root: tmp.clone(),
+        embroidery_designs_dir: tmp.join("MachineEmbroideryDesigns"),
+        database_dir: tmp.join("Database"),
+        database_path: tmp.join("Database").join(DATABASE_FILENAME),
+        log_dir: tmp.join("logs"),
+    };
+    assert!(
+        !database_recovery_mode(&paths),
+        "Dev mode must never be in recovery mode"
+    );
+}
+
+#[test]
+fn recovery_log_dir_points_under_temp() {
+    let dir = recovery_log_dir();
+    assert!(
+        dir.starts_with(std::env::temp_dir()),
+        "recovery logs should live under the OS temp dir, got {}",
+        dir.display()
+    );
+    assert!(
+        dir.to_string_lossy().contains("EmbroideryCatalogue"),
+        "recovery log dir should be namespaced, got {}",
+        dir.display()
+    );
+}
+
 // ---------------------------------------------------------------------------
 // platform_data_root
 // ---------------------------------------------------------------------------
@@ -824,4 +917,101 @@ fn platform_data_root_falls_back_to_appdata_when_no_config() {
             root.display()
         );
     });
+}
+
+// ---------------------------------------------------------------------------
+// Existing database detection & non-destructive layout seeding
+// ---------------------------------------------------------------------------
+
+#[test]
+fn detect_existing_database_path_returns_none_when_empty() {
+    let tmp = tmp_dir("detect_db_empty");
+    fs::create_dir_all(&tmp).expect("create dir");
+
+    assert_eq!(detect_existing_database_path(&tmp), None);
+    assert!(!has_existing_database(&tmp));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn detect_existing_database_path_finds_standard_layout_database() {
+    let tmp = tmp_dir("detect_db_standard");
+    let db_dir = tmp.join("Database");
+    fs::create_dir_all(&db_dir).expect("create Database dir");
+    let db_file = db_dir.join(DATABASE_FILENAME);
+    fs::write(&db_file, b"existing-db-bytes").expect("write db");
+
+    assert_eq!(detect_existing_database_path(&tmp), Some(db_file.clone()));
+    assert!(has_existing_database(&tmp));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn detect_existing_database_path_finds_root_level_database() {
+    let tmp = tmp_dir("detect_db_root");
+    fs::create_dir_all(&tmp).expect("create dir");
+    let db_file = tmp.join(DATABASE_FILENAME);
+    fs::write(&db_file, b"root-db-bytes").expect("write db");
+
+    assert_eq!(detect_existing_database_path(&tmp), Some(db_file));
+    assert!(has_existing_database(&tmp));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn ensure_catalogue_layout_and_seed_if_missing_seeds_when_empty() {
+    let tmp = tmp_dir("seed_fresh");
+    fs::create_dir_all(&tmp).expect("create dir");
+
+    let seeded = ensure_catalogue_layout_and_seed_if_missing(&tmp).expect("should succeed");
+    assert!(seeded, "Should return true indicating a fresh seed was written");
+
+    let db_file = tmp.join("Database").join(DATABASE_FILENAME);
+    assert!(db_file.is_file(), "Seed DB should exist at Database/EmbroideryCatalogue.db");
+    assert!(tmp.join("MachineEmbroideryDesigns").is_dir(), "Designs folder should exist");
+    assert!(tmp.join("logs").is_dir(), "Logs folder should exist");
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn ensure_catalogue_layout_and_seed_if_missing_preserves_existing_database() {
+    let tmp = tmp_dir("preserve_existing_db");
+    let db_dir = tmp.join("Database");
+    fs::create_dir_all(&db_dir).expect("create Database dir");
+    let db_file = db_dir.join(DATABASE_FILENAME);
+    let original_content = b"CUSTOM_EXISTING_USER_DATABASE_DATA";
+    fs::write(&db_file, original_content).expect("write original db");
+
+    let seeded = ensure_catalogue_layout_and_seed_if_missing(&tmp).expect("should succeed");
+    assert!(!seeded, "Should return false indicating existing DB was preserved");
+
+    let read_back = fs::read(&db_file).expect("read db");
+    assert_eq!(read_back, original_content, "Existing database content must remain unchanged");
+    assert!(tmp.join("MachineEmbroideryDesigns").is_dir(), "Designs folder should exist");
+    assert!(tmp.join("logs").is_dir(), "Logs folder should exist");
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn ensure_catalogue_layout_and_seed_if_missing_moves_root_database_to_database_dir() {
+    let tmp = tmp_dir("move_root_db");
+    fs::create_dir_all(&tmp).expect("create dir");
+    let root_db_file = tmp.join(DATABASE_FILENAME);
+    let original_content = b"ROOT_LEVEL_USER_DATABASE_DATA";
+    fs::write(&root_db_file, original_content).expect("write original root db");
+
+    let seeded = ensure_catalogue_layout_and_seed_if_missing(&tmp).expect("should succeed");
+    assert!(!seeded, "Should return false indicating existing DB was preserved");
+
+    let target_db_file = tmp.join("Database").join(DATABASE_FILENAME);
+    assert!(target_db_file.is_file(), "Database should be moved under Database/ folder");
+    let read_back = fs::read(&target_db_file).expect("read moved db");
+    assert_eq!(read_back, original_content, "Moved database content must be preserved");
+
+    let _ = fs::remove_dir_all(&tmp);
 }

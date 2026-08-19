@@ -3,6 +3,7 @@ pub mod about;
 pub mod admin;
 pub mod api;
 pub mod bulk_import;
+pub mod database_recovery;
 pub mod designs;
 pub mod import;
 pub mod maintenance;

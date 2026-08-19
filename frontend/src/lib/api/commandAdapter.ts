@@ -26,6 +26,7 @@ import type {
   AdapterAppStatusResponse,
   AdapterBrowseDataRootResponse,
   AdapterCompactResponse,
+  AdapterConfigureDataRootResponse,
   AdapterDbStatsResponse,
   AdapterGoogleApiKeyResponse,
   AdapterItemResponse,
@@ -44,7 +45,11 @@ import type {
   BrowseDesignSummaryWire,
   BrowseTagOption,
   CompactResult,
+  ConfigureDataRootResult,
   DatabaseBackupResult,
+  DatabaseStatus,
+  DatabaseValidation,
+  DetectedDataRoot,
   DbStats,
   DesignCommandResult,
   DesignDetail,
@@ -1686,6 +1691,96 @@ export async function browseSettingsDataRoot(startDir: string): Promise<AdapterB
 }
 
 /**
+ * Fetch the database recovery status (Uninitialized / Connected / Missing).
+ * The app shell blocks the main UI until "missing" is resolved.
+ */
+export async function getDatabaseStatus(): Promise<{
+  source: string;
+  status: DatabaseStatus | null;
+  error?: string;
+}> {
+  try {
+    const status = await invokeLoose<DatabaseStatus>("get_database_status");
+    return {
+      source: "rust",
+      status: status && typeof status === "object" ? status : null,
+    };
+  } catch (error) {
+    console.info("get_database_status failed.", error);
+    return { source: "mock", status: null, error: String(error) };
+  }
+}
+
+/**
+ * Scan other drive letters for the same relative catalogue path (e.g. D: moved to E:).
+ */
+export async function detectRelocatedDataRoot(configuredDataRoot: string): Promise<{
+  source: string;
+  detected: DetectedDataRoot | null;
+  error?: string;
+}> {
+  try {
+    const result = await invokeLoose<DetectedDataRoot>("detect_relocated_data_root", {
+      configuredDataRoot: String(configuredDataRoot || ""),
+    });
+    return {
+      source: "rust",
+      detected: result && typeof result === "object" ? result : null,
+    };
+  } catch (error) {
+    console.info("detect_relocated_data_root failed.", error);
+    return { source: "mock", detected: null, error: String(error) };
+  }
+}
+
+/**
+ * Validate a candidate data root contains a real catalogue database.
+ */
+export async function validateDatabasePath(candidateDataRoot: string): Promise<{
+  source: string;
+  validation: DatabaseValidation | null;
+  error?: string;
+}> {
+  try {
+    const result = await invokeLoose<DatabaseValidation>("validate_database_path", {
+      candidateDataRoot: String(candidateDataRoot || ""),
+    });
+    return {
+      source: "rust",
+      validation: result && typeof result === "object" ? result : null,
+    };
+  } catch (error) {
+    console.info("validate_database_path failed.", error);
+    return { source: "mock", validation: null, error: String(error) };
+  }
+}
+
+/**
+ * Create a fresh empty catalogue at `dataRoot` (guarded). Builds the standard
+ * layout (MachineEmbroideryDesigns, logs, Database) and writes the seed DB.
+ * `overwrite` is only true after the user explicitly confirms.
+ */
+export async function seedDatabaseToDataRoot(
+  dataRoot: string,
+  overwrite = false,
+): Promise<{
+  source: string;
+  persisted: boolean;
+  error?: string;
+}> {
+  try {
+    await invokeLoose("seed_database_to_data_root", {
+      dataRoot: String(dataRoot || ""),
+      overwrite: Boolean(overwrite),
+    });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    console.info("seed_database_to_data_root failed.", error);
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
  * Fetch the currently configured Google API key (optional, for AI tagging).
  *
  * @returns {Promise<AdapterGoogleApiKeyResponse>}
@@ -2691,6 +2786,7 @@ export async function getAppStatus(): Promise<AdapterAppStatusResponse> {
           embroidery_dir: String(status.embroidery_dir || ""),
           database_path: String(status.database_path || ""),
           data_root_missing: Boolean(status.data_root_missing),
+          database_missing: Boolean(status.database_missing),
         },
       };
     }
@@ -2763,30 +2859,30 @@ export async function setConfiguredDataRoot(dataRoot: string): Promise<{
 }
 
 /**
- * Persist the user-chosen data root for Installed mode **and** seed a fresh
- * database for a brand-new installation.
+ * Persist the user-chosen data root for Installed mode and initialize catalogue storage.
  *
- * This is the first-run setup path only — it is called the moment the user
- * answers the "where should your data live?" prompt. The Rust command writes
- * the bootstrap config and force-copies the embedded seed DB into
- * `<data_root>/Database/`, overwriting any stale leftover file from a previous
- * uninstall. Subsequent launches and Settings relocation use
- * `setConfiguredDataRoot` instead (which never touches the database).
+ * If an existing database is detected at the chosen location, it is preserved
+ * without overwriting. Otherwise a fresh seed database is copied.
  *
  * @param {string} dataRoot - Absolute path to the desired data root.
- * @returns {Promise<{ source: string, persisted: boolean, error?: string }>}
+ * @returns {Promise<AdapterConfigureDataRootResponse>}
  */
-export async function configureFreshDataRoot(dataRoot: string): Promise<{
-  source: string;
-  persisted: boolean;
-  error?: string;
-}> {
+export async function configureFreshDataRoot(dataRoot: string): Promise<AdapterConfigureDataRootResponse> {
   const normalized = String(dataRoot || "").trim();
   if (!normalized) {
     return { source: "mock", persisted: false, error: "Data root cannot be empty." };
   }
   try {
-    await invokeLoose("configure_fresh_data_root", { dataRoot: normalized });
+    const result = await invokeLoose<ConfigureDataRootResult>("configure_fresh_data_root", { dataRoot: normalized });
+    if (result && typeof result === "object") {
+      return {
+        source: "rust",
+        persisted: true,
+        data_root: String(result.data_root || normalized),
+        existing_database_detected: Boolean(result.existing_database_detected),
+        database_path: String(result.database_path || ""),
+      };
+    }
     return { source: "rust", persisted: true };
   } catch (error) {
     console.info("configure_fresh_data_root failed.", error);

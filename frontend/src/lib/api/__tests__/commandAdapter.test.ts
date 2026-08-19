@@ -2508,6 +2508,7 @@ describe("commandAdapter initial setup & app status", () => {
       embroidery_dir: "C:/data/embroidery",
       database_path: "C:/data/catalogue.db",
       data_root_missing: false,
+      database_missing: false,
     });
   });
 
@@ -2592,8 +2593,12 @@ describe("commandAdapter initial setup & app status", () => {
     expect(result.error).toContain("cancel failed");
   });
 
-  it("configureFreshDataRoot invokes with the camelCase dataRoot key", async () => {
-    invokeMock.mockResolvedValue(undefined);
+  it("configureFreshDataRoot invokes with the camelCase dataRoot key and maps result", async () => {
+    invokeMock.mockResolvedValue({
+      data_root: "F:/FreshData",
+      existing_database_detected: true,
+      database_path: "F:/FreshData/Database/EmbroideryCatalogue.db",
+    });
 
     const result = await configureFreshDataRoot("F:/FreshData");
 
@@ -2601,7 +2606,13 @@ describe("commandAdapter initial setup & app status", () => {
     expect(invokeMock).toHaveBeenCalledWith("configure_fresh_data_root", {
       dataRoot: "F:/FreshData",
     });
-    expect(result).toEqual({ source: "rust", persisted: true });
+    expect(result).toEqual({
+      source: "rust",
+      persisted: true,
+      data_root: "F:/FreshData",
+      existing_database_detected: true,
+      database_path: "F:/FreshData/Database/EmbroideryCatalogue.db",
+    });
   });
 
   it("configureFreshDataRoot rejects an empty data root without invoking", async () => {
@@ -2623,8 +2634,10 @@ describe("commandAdapter initial setup & app status", () => {
 
     const result = await configureFreshDataRoot("F:/FreshData");
 
-    expect(result.source).toBe("mock");
-    expect(result.persisted).toBe(false);
-    expect(result.error).toContain("config write failed");
+    expect(result).toEqual({
+      source: "mock",
+      persisted: false,
+      error: expect.stringContaining("config write failed"),
+    });
   });
 });

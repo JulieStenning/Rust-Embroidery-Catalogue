@@ -537,8 +537,45 @@ describe("InitialSetupView.svelte", () => {
       );
     });
     expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("existing-database-notice")).not.toBeInTheDocument();
     expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
+  });
+
+  it("shows existing database notice in restart dialog when existing DB is detected", async () => {
+    mockInstalledNoConfig();
+    configureFreshDataRootMock.mockResolvedValue({
+      source: "rust",
+      persisted: true,
+      data_root: "D:/EmbroideryCatalogue/Data",
+      existing_database_detected: true,
+      database_path: "D:/EmbroideryCatalogue/Data/Database/EmbroideryCatalogue.db",
+    });
+
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
+    await tick();
+
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId("data-root-input");
+    await fireEvent.input(input, {
+      target: { value: "D:/EmbroideryCatalogue/Data" },
+    });
+    await tick();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("existing-database-notice")).toBeInTheDocument();
+    expect(
+      screen.getByText(/An existing Embroidery Catalogue database was detected at this location/)
+    ).toBeInTheDocument();
   });
 
   it("launches the restart when the user confirms", async () => {

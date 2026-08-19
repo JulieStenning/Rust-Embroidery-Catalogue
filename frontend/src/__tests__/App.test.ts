@@ -8,8 +8,10 @@ import App from "../App.svelte";
 // ../lib/api/commandAdapter (no disclaimer gate).
 // ---------------------------------------------------------------------------
 const checkInitialSetupMock = vi.hoisted(() => vi.fn());
+const getDatabaseStatusMock = vi.hoisted(() => vi.fn());
 vi.mock("../lib/api/commandAdapter", () => ({
   checkInitialSetup: checkInitialSetupMock,
+  getDatabaseStatus: getDatabaseStatusMock,
 }));
 
 // Mock the Tauri invoke bridge and event API so hasTauriInvoke()/listeners work.
@@ -41,6 +43,13 @@ vi.mock("../lib/components/ToastContainer.svelte", async () => {
   return { default: ToastContainer };
 });
 
+vi.mock("../lib/DatabaseRecoveryView.svelte", async () => {
+  const { default: DatabaseRecoveryView } = await import(
+    "./__mocks__/DatabaseRecoveryView.svelte"
+  );
+  return { default: DatabaseRecoveryView };
+});
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -63,6 +72,13 @@ describe("App.svelte", () => {
     vi.clearAllMocks();
     removeTauriBridge();
     checkInitialSetupMock.mockReset();
+    // Default: the configured database is healthy/connected so the setup gate
+    // proceeds to checkInitialSetup.
+    getDatabaseStatusMock.mockReset();
+    getDatabaseStatusMock.mockResolvedValue({
+      source: "rust",
+      status: { status: "connected" },
+    });
   });
 
   afterEach(() => {
@@ -109,6 +125,29 @@ describe("App.svelte", () => {
     expect(screen.getByTestId("toast-container")).toBeInTheDocument();
     expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
     expect(checkInitialSetupMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the database recovery view when the configured database is missing", async () => {
+    installTauriBridge();
+    getDatabaseStatusMock.mockResolvedValue({
+      source: "rust",
+      status: {
+        status: "missing",
+        configured_data_root: "D:/EmbroideryCatalogue",
+        database_path: "D:/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
+        embroidery_dir: "D:/EmbroideryCatalogue/MachineEmbroideryDesigns",
+        data_root_missing: true,
+      },
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("database-recovery-view")).toBeInTheDocument();
+    });
+    expect(checkInitialSetupMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
   });
 
   it("renders the setup wizard when setup is required", async () => {

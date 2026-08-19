@@ -87,16 +87,35 @@ pub fn resolve_paths_from_exe_dir(_exe_dir: &Path) -> AppPaths {
     let database_path = database_dir.join(DATABASE_FILENAME);
     let log_dir = data_root.join("logs");
 
-    // Create all required directories (best-effort; failures will surface later)
-    for dir in [&data_root, &embroidery_designs_dir, &database_dir, &log_dir] {
-        let _ = std::fs::create_dir_all(dir);
-    }
-
     // Seed the database from the bundled resource when no database is present.
-    // This runs in every execution mode so a fresh Dev / Installed deployment
-    // always starts from the curated seed database.
-    if !database_path.exists() {
-        copy_seed_database_if_missing(&database_path);
+    //
+    // - Dev mode: always seed — a fresh checkout has no DB yet.
+    // - Installed mode: seed only on a genuine first run (no configured root in
+    //   config.json). When a configured root simply points at a missing
+    //   database (e.g. a portable drive letter changed from D: to E:), we must
+    //   NOT silently copy a blank seed into the old path and lose the user's
+    //   real catalogue — the database-recovery flow takes over instead and
+    //   asks the user to re-point the location.
+    //
+    // The catalogue layout directories (MachineEmbroideryDesigns, Database,
+    // logs) are created ONLY when the database already exists at this root or
+    // when we are about to seed a fresh database. In database-recovery mode
+    // (configured root present but DB missing) nothing is created at the
+    // stale root — the user re-points to the real location instead.
+    let seed_on_missing = match mode {
+        ExecutionMode::Dev => true,
+        ExecutionMode::Installed => read_bootstrap_data_root().ok().flatten().is_none(),
+    };
+    let layout_needed = database_path.exists() || seed_on_missing;
+
+    if layout_needed {
+        // Create all required directories (best-effort; failures will surface later)
+        for dir in [&data_root, &embroidery_designs_dir, &database_dir, &log_dir] {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if !database_path.exists() {
+            copy_seed_database_if_missing(&database_path);
+        }
     }
 
     AppPaths {
@@ -122,40 +141,88 @@ fn dev_data_root() -> PathBuf {
 /// Path is relative to this source file (`src/paths.rs`).
 const SEED_DB_BYTES: &[u8] = include_bytes!("../src-tauri/resources/EmbroideryCatalogue.db");
 
-/// Copy the bundled seed database to `data_root/Database/EmbroideryCatalogue.db`,
-/// overwriting any existing file.
+/// Check if a database file exists within the data root, checking both:
+/// 1. `<data_root>/Database/EmbroideryCatalogue.db` (standard layout)
+/// 2. `<data_root>/EmbroideryCatalogue.db` (direct in root)
 ///
-/// This is used only on a **fresh install**: the moment the user answers the
-/// first-run "where should your data live?" prompt. Because the seed DB is
-/// pre-migrated and contains no design rows, overwriting is safe for a brand
-/// new catalogue. Normal launches must NOT call this (it would destroy a real
-/// catalogue) — see `ensure_seed_database_if_missing`.
-pub fn copy_seed_database_to(data_root: &Path) -> Result<(), AppError> {
-    let database_dir = data_root.join("Database");
-    let database_path = database_dir.join(DATABASE_FILENAME);
+/// Returns `Some(PathBuf)` of the existing database file if found, otherwise `None`.
+pub fn detect_existing_database_path(data_root: &Path) -> Option<PathBuf> {
+    let standard_path = data_root.join("Database").join(DATABASE_FILENAME);
+    if standard_path.is_file() {
+        return Some(standard_path);
+    }
 
-    std::fs::create_dir_all(&database_dir).map_err(|err| {
-        AppError::io(format!(
-            "failed to create database directory {}: {err}",
-            database_dir.display()
-        ))
-    })?;
+    let root_path = data_root.join(DATABASE_FILENAME);
+    if root_path.is_file() {
+        return Some(root_path);
+    }
 
-    std::fs::write(&database_path, SEED_DB_BYTES).map_err(|err| {
+    None
+}
+
+/// Returns true if an existing database file is present at `data_root`.
+pub fn has_existing_database(data_root: &Path) -> bool {
+    detect_existing_database_path(data_root).is_some()
+}
+
+/// Ensure the standard catalogue layout exists and copy the bundled seed database
+/// only if no database already exists.
+///
+/// If `<data_root>/Database/EmbroideryCatalogue.db` already exists, seed copying
+/// is skipped to avoid destroying existing data.
+/// If `<data_root>/EmbroideryCatalogue.db` exists (directly in data root), it is
+/// moved/preserved under `<data_root>/Database/EmbroideryCatalogue.db`.
+///
+/// Returns `Ok(false)` if an existing database was detected and preserved.
+/// Returns `Ok(true)` if a fresh seed database was written.
+pub fn ensure_catalogue_layout_and_seed_if_missing(data_root: &Path) -> Result<bool, AppError> {
+    create_catalogue_layout(data_root)?;
+
+    let target_database_path = data_root.join("Database").join(DATABASE_FILENAME);
+    if target_database_path.is_file() {
+        eprintln!(
+            "[EmbroideryCatalogue] Existing database detected at {} — preserving without overwriting.",
+            target_database_path.display()
+        );
+        return Ok(false);
+    }
+
+    let direct_root_path = data_root.join(DATABASE_FILENAME);
+    if direct_root_path.is_file() {
+        eprintln!(
+            "[EmbroideryCatalogue] Moving existing database from {} to {}",
+            direct_root_path.display(),
+            target_database_path.display()
+        );
+        std::fs::rename(&direct_root_path, &target_database_path).map_err(|err| {
+            AppError::io(format!(
+                "failed to move database from {} to {}: {err}",
+                direct_root_path.display(),
+                target_database_path.display()
+            ))
+        })?;
+        return Ok(false);
+    }
+
+    std::fs::write(&target_database_path, SEED_DB_BYTES).map_err(|err| {
         AppError::io(format!(
             "failed to write seed database {}: {err}",
-            database_path.display()
+            target_database_path.display()
         ))
     })?;
 
-    // Cannot use tracing here because this may run before the subscriber is
-    // initialised; print to stderr instead.
     eprintln!(
         "[EmbroideryCatalogue] Seeded fresh database from bundled resource -> {}",
-        database_path.display()
+        target_database_path.display()
     );
 
-    Ok(())
+    Ok(true)
+}
+
+/// Copy the bundled seed database to `data_root/Database/EmbroideryCatalogue.db`,
+/// preserving any existing database if already present.
+pub fn copy_seed_database_to(data_root: &Path) -> Result<(), AppError> {
+    ensure_catalogue_layout_and_seed_if_missing(data_root).map(|_| ())
 }
 
 /// Attempt to copy the bundled seed database to `database_path` when the file
@@ -188,6 +255,64 @@ fn copy_seed_database_if_missing(database_path: &Path) {
             );
         }
     }
+}
+
+/// Create the standard catalogue layout directories under `data_root`:
+/// `<root>/MachineEmbroideryDesigns`, `<root>/logs` and `<root>/Database`.
+///
+/// Used by the database-recovery "create new catalogue" action so a freshly
+/// seeded catalogue has exactly the same folder structure as a normal install
+/// (designs root + logs + database directory).
+pub fn create_catalogue_layout(data_root: &Path) -> Result<(), AppError> {
+    for dir in [
+        data_root.join("MachineEmbroideryDesigns"),
+        data_root.join("logs"),
+        data_root.join("Database"),
+    ] {
+        std::fs::create_dir_all(&dir).map_err(|err| {
+            AppError::io(format!(
+                "failed to create catalogue directory {}: {err}",
+                dir.display()
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+/// Guarded seed for the database-recovery flow.
+///
+/// Creates the standard catalogue layout then writes the bundled seed database
+/// into `<root>/Database/EmbroideryCatalogue.db`.
+///
+/// - With `overwrite = false` (default) this **errors** if a database already
+///   exists at the target path, so a real catalogue can never be clobbered.
+/// - With `overwrite = true` it replaces any existing file (explicit user
+///   confirmation required in the UI).
+pub fn seed_database_if_allowed(data_root: &Path, overwrite: bool) -> Result<(), AppError> {
+    let database_path = data_root.join("Database").join(DATABASE_FILENAME);
+
+    if !overwrite && database_path.exists() {
+        return Err(AppError::invalid_input(format!(
+            "a database already exists at {}; refusing to overwrite without explicit confirmation",
+            database_path.display()
+        )));
+    }
+
+    create_catalogue_layout(data_root)?;
+
+    std::fs::write(&database_path, SEED_DB_BYTES).map_err(|err| {
+        AppError::io(format!(
+            "failed to write seed database {}: {err}",
+            database_path.display()
+        ))
+    })?;
+
+    eprintln!(
+        "[EmbroideryCatalogue] Seeded fresh database from bundled resource -> {}",
+        database_path.display()
+    );
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -336,6 +461,32 @@ pub fn configured_data_root_missing() -> Result<Option<bool>, AppError> {
         Some(root) => Ok(Some(!root.exists())),
         None => Ok(None),
     }
+}
+
+/// Whether the app is in database-recovery mode.
+///
+/// True for Installed mode when a data root has been configured but the
+/// derived database file is missing (e.g. a portable drive letter changed
+/// from D: to E: or the data folder was moved). In this state the backend
+/// must NOT create catalogue folders, seed the database, or write logs under
+/// the stale configured root — the recovery view asks the user to re-point
+/// the location first.
+pub fn database_recovery_mode(paths: &AppPaths) -> bool {
+    matches!(paths.mode, ExecutionMode::Installed)
+        && read_bootstrap_data_root().ok().flatten().is_some()
+        && !paths.database_path.exists()
+}
+
+/// Safe log location used while the app is in database-recovery mode.
+///
+/// Avoids creating a `logs` directory under the stale configured data root
+/// (which may be a drive-letter remnant like `F:\`). Logs are written to the
+/// OS temp dir instead; the real logs resume at the re-pointed root after the
+/// recovery-triggered restart.
+pub fn recovery_log_dir() -> PathBuf {
+    std::env::temp_dir()
+        .join("EmbroideryCatalogue")
+        .join("logs")
 }
 
 // ---------------------------------------------------------------------------

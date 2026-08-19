@@ -76,6 +76,13 @@ fn make_app_paths_portable(tmp_dir: &std::path::Path) -> crate::paths::AppPaths 
 fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
     AppState {
         db: pool,
+        database_status: crate::DatabaseStatus {
+            status: crate::DatabaseStatusKind::Connected,
+            configured_data_root: Some(paths.data_root.to_string_lossy().to_string()),
+            database_path: Some(paths.database_path.to_string_lossy().to_string()),
+            embroidery_dir: Some(paths.embroidery_designs_dir.to_string_lossy().to_string()),
+            data_root_missing: false,
+        },
         paths,
         log_guard: LogGuard::dummy_for_test(),
         shutdown_requested: AtomicBool::new(false),
