@@ -22,7 +22,7 @@
     "postcss": "^8.5.14",
     "prettier": "^3.4.2",
     "prettier-plugin-svelte": "^3.3.2",
-    "svelte": "^5.56.6",
+    "svelte": "^5.56.9",
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.2",
