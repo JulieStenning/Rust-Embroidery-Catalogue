@@ -18,7 +18,7 @@ tokio = { version = "1", features = ["full"] }
 serde_json = "1.0"
 blake3 = "1.5"
 tauri = { version = "2", features = [] }
-base64 = "0.22"
+base64 = "0.23"
 rfd = "0.17"
 trash = "5"
 fs4 = { version = "1.1", features = ["sync"] }
