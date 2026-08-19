@@ -8,7 +8,7 @@
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tauri-apps/api": "^2.11.1",
-    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/svelte": "^5.4.2",
     "@testing-library/user-event": "^14.6.4",
     "@vitest/coverage-istanbul": "^4.1.10",
