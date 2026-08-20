@@ -14,11 +14,11 @@
     </div>
 
     <p class="text-sm text-gray-700">
-      Embroidery Catalogue is a local, offline desktop catalogue for browsing, tagging, and managing a
+      Embroidery Catalogue is a local, desktop catalogue for browsing, tagging, and managing a
       collection of digital embroidery designs. It reads a broad range of embroidery formats directly
-      via built-in readers, including <code>.jef</code>, <code>.pes</code>, <code>.hus</code>,
-      <code>.vp3</code>, <code>.dst</code>, <code>.exp</code>, <code>.sew</code>, and many more, and
-      stores all catalogue data in a local database — no internet connection is required for normal use.
+      via built-in readers (<code>.jef</code>, <code>.pes</code>, <code>.hus</code>,
+      <code>.vp3</code>, <code>.dst</code>, <code>.exp</code>) and
+      stores all catalogue data in a local database. An Internet connection is required for advanced tagging.
     </p>
 
     <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm space-y-1">
