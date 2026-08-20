@@ -365,7 +365,17 @@ describe("MainView.svelte", () => {
     expect(screen.getByTestId("about-view")).toBeInTheDocument();
   });
 
-  it("renders AboutDocumentView with the licence slug", () => {
+  it("renders AboutDocumentView with the licence slug for #/about/licence", () => {
+    setHash("#/about/licence");
+    render(MainView);
+
+    expect(screen.getByTestId("about-document-view")).toBeInTheDocument();
+    expect(screen.getByTestId("about-document-slug")).toHaveTextContent(
+      "licence"
+    );
+  });
+
+  it("renders AboutDocumentView for #/about/document/licence", () => {
     setHash("#/about/document/licence");
     render(MainView);
 
@@ -415,7 +425,7 @@ describe("MainView.svelte", () => {
     render(MainView);
 
     const licenceLink = screen.getByRole("link", { name: "Licence" });
-    expect(licenceLink).toHaveAttribute("href", "#/about/document/licence");
+    expect(licenceLink).toHaveAttribute("href", "#/about/licence");
     expect(screen.getByRole("link", { name: "About" })).toHaveAttribute(
       "href",
       "#/about"

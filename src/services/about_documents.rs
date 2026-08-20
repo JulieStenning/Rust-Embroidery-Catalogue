@@ -29,7 +29,7 @@ struct AboutDocumentSpec {
     description: &'static str,
 }
 
-const DOCUMENTS: [AboutDocumentSpec; 7] = [
+const DOCUMENTS: [AboutDocumentSpec; 5] = [
     AboutDocumentSpec {
         slug: "disclaimer",
         title: "Disclaimer",
@@ -60,18 +60,7 @@ const DOCUMENTS: [AboutDocumentSpec; 7] = [
         filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
         description: "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
     },
-    AboutDocumentSpec {
-        slug: "third-party-notices",
-        title: "Third-Party Notices",
-        filename: "THIRD_PARTY_NOTICES.html",
-        description: "Licensing and attribution information for bundled and dependency software.",
-    },
-    AboutDocumentSpec {
-        slug: "licence",
-        title: "Licence",
-        filename: "LICENCE",
-        description: "The licence terms for the Embroidery Catalogue project itself.",
-    },
+
 ];
 
 pub fn project_root() -> PathBuf {

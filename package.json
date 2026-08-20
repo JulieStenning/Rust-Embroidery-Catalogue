@@ -1,7 +1,9 @@
 {
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "generate:licences": "cargo about generate about.hbs -o ./src/assets/licences.html && npx license-checker-rseidelsohn --start ./frontend --json --out ./src/assets/npm-licences.json",
+    "postgenerate:licences": "node scripts/sync-licences.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -474,9 +474,10 @@ describe("routing and navigation", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: "About Embroidery Catalogue" })
+        screen.getByRole("heading", { name: "Embroidery Catalogue" })
       ).toBeInTheDocument();
     });
+    expect(screen.getByText("Version v0.1.0")).toBeInTheDocument();
   });
 
   it("renders the Settings view for #/admin/settings", async () => {

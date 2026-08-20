@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/svelte";
+import { tick } from "svelte";
 import AboutDocumentView from "../AboutDocumentView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -11,6 +12,45 @@ const adapterMock = vi.hoisted(() => ({
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMock);
+
+// ---------------------------------------------------------------------------
+// Mock the statically-imported licence assets so tests are self-contained and
+// deterministic (and so behaviour is covered even when the assets are empty,
+// satisfying the "no build/lint errors if assets are empty" requirement).
+// The fixture values live inside vi.hoisted() because vi.mock factories are
+// hoisted above any top-level const declarations in this file.
+// ---------------------------------------------------------------------------
+const assetMocks = vi.hoisted(() => ({
+  WHIPPED_LICENCE_HTML:
+    '<details class="license-card"><summary class="license-header"><span class="license-name">Apache License 2.0</span><span class="license-used-by">Crates using this license:</span></summary><div class="license-crates"><h4>Used by:</h4><ul><li><strong>tokio</strong> (v1.0) — <a href="https://github.com/tokio-rs/tokio" target="_blank" rel="noopener">https://github.com/tokio-rs/tokio</a></li></ul></div><div class="license-text"><pre>Apache license text.</pre></div></details>',
+  WHIPPED_APP_LICENCE:
+    "GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 3, 19 November 2007\n\nCopyright (c) 2026",
+  WHIPPED_NPM_LICENCES: {
+    "@esbuild/win32-x64@0.25.12": {
+      licenses: "MIT",
+      repository: "https://github.com/evanw/esbuild",
+      path: "C:\\node_modules\\@esbuild\\win32-x64",
+      licenseFile: "C:\\node_modules\\@esbuild\\win32-x64\\README.md",
+    },
+    "svelte@5.56.9": {
+      licenses: "MIT",
+      repository: "https://github.com/sveltejs/svelte",
+      publisher: "Rich Harris",
+      path: "C:\\node_modules\\svelte",
+      licenseFile: "C:\\node_modules\\svelte\\LICENSE",
+    },
+  },
+}));
+
+vi.mock("../../../LICENSE?raw", () => ({
+  default: assetMocks.WHIPPED_APP_LICENCE,
+}));
+vi.mock("../../assets/licences.html?raw", () => ({
+  default: assetMocks.WHIPPED_LICENCE_HTML,
+}));
+vi.mock("../../assets/npm-licences.json", () => ({
+  default: assetMocks.WHIPPED_NPM_LICENCES,
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,16 +72,166 @@ describe("AboutDocumentView", () => {
     vi.clearAllMocks();
   });
 
+  // ---------------------------------------------------------------------
+  // Dedicated Licence view (slug "licence")
+  // ---------------------------------------------------------------------
+  describe("dedicated licence view", () => {
+    it("does not call getAboutDocument for the licence slug", () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      expect(adapterMock.getAboutDocument).not.toHaveBeenCalled();
+    });
+
+    it("renders the three licence tab buttons", () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      expect(
+        screen.getByRole("button", { name: "Application Licence" })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Rust Dependencies" })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Frontend Dependencies" })
+      ).toBeInTheDocument();
+    });
+
+    it("shows the Application Licence tab by default with the primary licence text", () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      expect(
+        screen.getByTestId("licence-application-tab")
+      ).toBeInTheDocument();
+
+      const pre = element(
+        document.querySelector("pre.licence-primary-text"),
+        "Expected the primary licence <pre> block."
+      );
+      expect(pre.textContent).toContain("GNU AFFERO GENERAL PUBLIC LICENSE");
+    });
+
+    it("switches to the Rust Dependencies tab and renders the sanitized rust licence HTML", async () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await fireEvent.click(screen.getByRole("button", { name: "Rust Dependencies" }));
+      await tick();
+
+      expect(screen.getByTestId("licence-rust-tab")).toBeInTheDocument();
+      expect(screen.queryByTestId("licence-application-tab")).not.toBeInTheDocument();
+
+      // The injected {@html} is not Svelte-scoped, so query the raw DOM.
+      const rustList = element(
+        document.querySelector(".licence-rust-list"),
+        "Expected the rust licence list container."
+      );
+      expect(rustList.textContent).toContain("Apache License 2.0");
+      expect(rustList.textContent).toContain("tokio");
+      expect(rustList.querySelector("a")).toHaveAttribute(
+        "href",
+        "https://github.com/tokio-rs/tokio"
+      );
+    });
+
+    it("switches to the Frontend Dependencies tab and renders package details cards", async () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await fireEvent.click(
+        screen.getByRole("button", { name: "Frontend Dependencies" })
+      );
+      await tick();
+
+      const tab = screen.getByTestId("licence-frontend-tab");
+      expect(tab).toBeInTheDocument();
+
+      const svelteSummary = element(
+        within(tab)
+          .getByText("svelte", { selector: "span.font-medium" })
+          .closest("summary"),
+        "Expected the svelte licence summary."
+      );
+      expect(svelteSummary.textContent).toContain("v5.56.9");
+
+      const esbuildSummary = element(
+        within(tab)
+          .getByText("@esbuild/win32-x64", { selector: "span.font-medium" })
+          .closest("summary"),
+        "Expected the esbuild licence summary."
+      );
+      expect(esbuildSummary.textContent).toContain("v0.25.12");
+
+      // license badges (one badge span per package)
+      expect(within(tab).getAllByText("MIT", { selector: "span" })).toHaveLength(2);
+
+      // repository links (target=_blank)
+      const repoLinks = within(tab).getAllByRole("link", { name: /github.com/ });
+      expect(repoLinks).toHaveLength(2);
+      expect(repoLinks[0]).toHaveAttribute("href", "https://github.com/evanw/esbuild");
+      expect(repoLinks[1]).toHaveAttribute("href", "https://github.com/sveltejs/svelte");
+    });
+
+    it("renders the Rust empty fallback when the rust HTML asset is empty", async () => {
+      // The rows are computed at module scope, so re-import the component with
+      // an empty HTML asset to exercise the guarded fallback. `vi.resetModules()`
+      // re-evaluates the `svelte` runtime, so we must also re-import the
+      // test harness pieces (render + tick) from the same module graph to avoid
+      // the Svelte 5 `effect_orphan` dual-instance error.
+      vi.resetModules();
+      vi.doMock("../../assets/licences.html?raw", () => ({ default: "" }));
+
+      const { render: renderLazy } = await import("@testing-library/svelte");
+      const { tick: tickLazy } = await import("svelte");
+      const { default: AboutDocumentViewLazy } = await import("../AboutDocumentView.svelte");
+      const view = renderLazy(AboutDocumentViewLazy, { props: { slug: "licence" } });
+
+      await fireEvent.click(
+        screen.getByRole("button", { name: "Rust Dependencies" })
+      );
+      await tickLazy();
+
+      expect(screen.getByTestId("licence-rust-tab")).toBeInTheDocument();
+      expect(
+        screen.getByText("No Rust licence data is available.")
+      ).toBeInTheDocument();
+
+      view.unmount();
+    });
+
+    it("renders the frontend empty fallback when the npm JSON asset is empty", async () => {
+      vi.resetModules();
+      vi.doMock("../../assets/npm-licences.json", () => ({ default: {} }));
+
+      const { render: renderLazy } = await import("@testing-library/svelte");
+      const { tick: tickLazy } = await import("svelte");
+      const { default: AboutDocumentViewLazy } = await import("../AboutDocumentView.svelte");
+      const view = renderLazy(AboutDocumentViewLazy, { props: { slug: "licence" } });
+
+      await fireEvent.click(
+        screen.getByRole("button", { name: "Frontend Dependencies" })
+      );
+      await tickLazy();
+
+      expect(screen.getByTestId("licence-frontend-tab")).toBeInTheDocument();
+      expect(screen.getByTestId("frontend-licences-empty")).toHaveTextContent(
+        "No frontend packages recorded."
+      );
+
+      view.unmount();
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Generic document loading (non-licence slugs)
+  // ---------------------------------------------------------------------
   describe("loading state", () => {
     it("shows the loading message while getAboutDocument is pending", async () => {
       // Keep promise pending so it stays in loading state
       adapterMock.getAboutDocument.mockReturnValue(new Promise(() => {}));
 
-      render(AboutDocumentView, { props: { slug: "licence" } });
+      render(AboutDocumentView, { props: { slug: "privacy" } });
 
       expect(screen.getByText("Loading document...")).toBeInTheDocument();
       expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
-      
+
       // Wait one tick
       await Promise.resolve();
     });
@@ -50,22 +240,22 @@ describe("AboutDocumentView", () => {
   describe("successful document loading", () => {
     it("renders document content as plain text in a pre element by default", async () => {
       const mockDoc = {
-        slug: "licence",
-        title: "Licence",
-        description: "The licence terms.",
-        filename: "LICENCE",
-        document_text: "Copyright (c) 2026 Rust Embroidery Catalogue Developers",
+        slug: "privacy",
+        title: "Privacy",
+        description: "The privacy terms.",
+        filename: "PRIVACY",
+        document_text: "We store your catalogue data locally.",
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      const { container } = render(AboutDocumentView, { props: { slug: "licence" } });
+      const { container } = render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
       });
 
       const pre = element(container.querySelector("pre"));
-      expect(pre).toHaveTextContent("Copyright (c) 2026 Rust Embroidery Catalogue Developers");
+      expect(pre).toHaveTextContent("We store your catalogue data locally.");
       expect(pre).toHaveClass("whitespace-pre-wrap", "font-mono");
     });
 
@@ -143,15 +333,15 @@ describe("AboutDocumentView", () => {
   describe("error handling and empty states", () => {
     it("renders document unavailable text when document_text is missing", async () => {
       const mockDoc = {
-        slug: "licence",
-        title: "Licence",
-        description: "The licence terms.",
-        filename: "LICENCE",
+        slug: "privacy",
+        title: "Privacy",
+        description: "The privacy terms.",
+        filename: "PRIVACY",
         document_text: null,
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      render(AboutDocumentView, { props: { slug: "licence" } });
+      render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
         expect(screen.getByText("Document content is unavailable.")).toBeInTheDocument();
@@ -160,14 +350,16 @@ describe("AboutDocumentView", () => {
 
     it("renders API error message when the getAboutDocument returns an error field", async () => {
       adapterMock.getAboutDocument.mockResolvedValue({
-        error: "Database error reading licence.",
+        error: "Database error reading privacy document.",
         item: null,
       });
 
-      render(AboutDocumentView, { props: { slug: "licence" } });
+      render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
-        expect(screen.getByText("Database error reading licence.")).toBeInTheDocument();
+        expect(
+          screen.getByText("Database error reading privacy document.")
+        ).toBeInTheDocument();
       });
       expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
     });
@@ -175,7 +367,7 @@ describe("AboutDocumentView", () => {
     it("renders not-found fallback when getAboutDocument returns an empty payload", async () => {
       adapterMock.getAboutDocument.mockResolvedValue({ item: null });
 
-      render(AboutDocumentView, { props: { slug: "licence" } });
+      render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
         expect(screen.getByText("Document not found.")).toBeInTheDocument();
@@ -187,7 +379,7 @@ describe("AboutDocumentView", () => {
     it("renders not-found fallback when getAboutDocument resolves to null", async () => {
       adapterMock.getAboutDocument.mockResolvedValue(null);
 
-      render(AboutDocumentView, { props: { slug: "licence" } });
+      render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
         expect(screen.getByText("Document not found.")).toBeInTheDocument();
@@ -199,10 +391,12 @@ describe("AboutDocumentView", () => {
     it("renders fallback error message when the getAboutDocument promise rejects", async () => {
       adapterMock.getAboutDocument.mockRejectedValue(new Error("Connection refused"));
 
-      render(AboutDocumentView, { props: { slug: "licence" } });
+      render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
-        expect(screen.getByText("Could not load document: Error: Connection refused")).toBeInTheDocument();
+        expect(
+          screen.getByText("Could not load document: Error: Connection refused")
+        ).toBeInTheDocument();
       });
     });
   });
@@ -230,21 +424,21 @@ describe("AboutDocumentView", () => {
 
     it("renders as plain text when filename is missing", async () => {
       const mockDoc = {
-        slug: "licence",
-        title: "Licence",
-        description: "The licence terms.",
-        document_text: "Copyright (c) 2026 Rust Embroidery Catalogue Developers",
+        slug: "privacy",
+        title: "Privacy",
+        description: "The privacy terms.",
+        document_text: "We store your catalogue data locally.",
       };
       adapterMock.getAboutDocument.mockResolvedValue({ item: mockDoc });
 
-      const { container } = render(AboutDocumentView, { props: { slug: "licence" } });
+      const { container } = render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
       });
 
       const pre = element(container.querySelector("pre"));
-      expect(pre).toHaveTextContent("Copyright (c) 2026 Rust Embroidery Catalogue Developers");
+      expect(pre).toHaveTextContent("We store your catalogue data locally.");
       expect(pre).toHaveClass("whitespace-pre-wrap", "font-mono");
     });
   });

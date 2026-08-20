@@ -238,6 +238,6 @@
     <span aria-hidden="true">•</span>
     <a href="#/about" class="hover:underline text-indigo-650 font-medium">About</a>
     <span aria-hidden="true">•</span>
-    <a href="#/about/document/licence" class="hover:underline text-indigo-650 font-medium">Licence</a>
+    <a href="#/about/licence" class="hover:underline text-indigo-650 font-medium">Licence</a>
   </div>
 </footer>

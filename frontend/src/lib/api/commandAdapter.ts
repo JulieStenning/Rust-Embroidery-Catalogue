@@ -1528,20 +1528,6 @@ export async function getAboutDocuments() {
         filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
         available: false,
       },
-      {
-        slug: "third-party-notices",
-        title: "Third-Party Notices",
-        description: "Licensing and attribution information for bundled and dependency software.",
-        filename: "third_party_notices.html",
-        available: false,
-      },
-      {
-        slug: "licence",
-        title: "Licence",
-        description: "The licence terms for the Embroidery Catalogue project itself.",
-        filename: "LICENCE",
-        available: false,
-      },
     ],
   };
 }

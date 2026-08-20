@@ -19,7 +19,17 @@ tokio = { version = "1.53", features = ["full"] }
 serde_json = "1.0"
 blake3 = "1.8"
 tauri = { version = "2.11", features = [] }
+
+# Align rand and getrandom to 0.9.x / 0.3.x family to match image & tauri
+rand = "0.9"
+getrandom = "0.3"
+
+# Pin base64 to match current tauri-utils / hyper ecosystem
 base64 = "0.22"
+
+# Downgrade or pin thiserror to 1.0 to avoid carrying both 1.0 and 2.0 runtimes
+thiserror = "1.0"
+
 rfd = "0.17"
 trash = "5.2"
 fs4 = { version = "1.1", features = ["sync"] }

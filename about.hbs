@@ -1,0 +1,28 @@
+<div class="licenses-list">
+  {{~#each licenses~}}
+  <details class="license-card">
+    <summary class="license-header">
+      <span class="license-name">{{name}}</span>
+      <span class="license-used-by">Crates using this license:</span>
+    </summary>
+    
+    <div class="license-crates">
+      <h4>Used by:</h4>
+      <ul>
+        {{~#each used_by~}}
+        <li>
+          <strong>{{crate.name}}</strong> (v{{crate.version}})
+          {{~#if crate.repository~}}
+            — <a href="{{crate.repository}}" target="_blank" rel="noopener">{{crate.repository}}</a>
+          {{~/if~}}
+        </li>
+        {{~/each~}}
+      </ul>
+    </div>
+
+    <div class="license-text">
+      <pre>{{text}}</pre>
+    </div>
+  </details>
+  {{~/each~}}
+</div>
