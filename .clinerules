@@ -19,6 +19,20 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 
 ---
 
+## ⚠️ The STRONGEST lesson: "Missing/Invalid file" is a state with side-effects, not just a file check
+
+**Treat "the file is missing or invalid" as a system state that disables or redirects EVERY side-effect touching that path — not merely the main file operation.**
+
+When a configured resource (database, data root, seed asset) is absent or invalid:
+
+1. **Audit every side effect** that touches the stale/invalid path — folder creation, log writes, cache/thumbnail generation, temp files, background tasks — and gate ALL of them on the same single recovery/invalid-state decision. Example: the database-recovery flow correctly stopped seeding the DB when missing, but still re-created empty `Database/`, `MachineEmbroideryDesigns/` and `logs/` at the stale root via `create_dir_all` and `logging::init_logging`. Each had to be gated separately.
+2. **Write the "must NOT happen" test explicitly.** A test suite that only asserts what *should* be created will always be blind to leftovers at an invalid path. Add negative assertions (e.g. "recovery mode must NOT create dirs at the stale root") alongside the positive ones.
+3. **Enumerate the full state space before designing the flow.** *exists-valid*, *missing*, and *exists-but-invalid/corrupt* are distinct states with different user paths. If a follow-up reveals a state you didn't model (e.g. "what if the DB exists but is corrupt?"), the plan was incomplete — re-plan, don't patch.
+4. **Order writes so nothing is persisted until a valid decision is made.** In multi-step flows, an "invalid" branch must not write config/persist state before the user resolves the situation (or explicitly confirms replacement). And for replacement of an invalid file, prefer **rename-aside** (`<file>.corrupt-<timestamp>`) over delete — it is never safe to destroy the only copy of user data.
+5. **Single source of truth for the invalid state.** Compute the recovery/invalid condition once (e.g. `paths::database_recovery_mode(&AppPaths)`) and reference it everywhere — startup, logging, background init, UI gating — instead of re-deriving the condition in each caller.
+
+---
+
 ## 🧱 Core Architectural Boundaries
 
 ### 1. Database & Queries
@@ -57,6 +71,28 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 - `save_settings_view_model_inner` deliberately ignores `request.data_root` (the `let _ = request.data_root;` line). This is by design: the SQLite database file lives *under* the data root, so the DB cannot store its own location (bootstrapping chicken-and-egg).
 - After a data-root change is persisted, the app **must restart** for the running backend to relocate. A settings-table save alone does NOT relocate the catalogue.
 - The Settings "Browse…" flow should therefore: pick the folder → `setConfiguredDataRoot(path)` → show a restart-required dialog (same pattern as `InitialSetupView.svelte`).
+
+---
+
+## 🧩 Test-Surface & Boundary-Drift Discipline
+
+- **Two MainView test suites exist, and both must track visible changes:**
+  - `frontend/src/__tests__/MainView.test.ts` — mocked-view routing shell (asserts `data-testid`, footer hrefs, router branches).
+  - `frontend/src/lib/__tests__/MainView.test.ts` — integration shell that mounts the **real** child views (asserts rendered headings/text/content).
+  - When changing a route, footer link, or any visible heading/copy, update **both** suites. A targeted `vitest` run can pass one and miss the other; run the full `npx vitest run` after visible-surface changes.
+
+- **Moving a feature across the Rust↔frontend boundary breaks the other side's tests:**
+  - Example: the "licence" about-document was removed from the backend registry, but `src/routes/about.rs` still asserted `slug == "licence"`. The frontend now renders the licence through static assets, so the backend test had to drop that entry.
+  - When a feature migrates across the IPC boundary, grep both `src/` and `frontend/src/` for assertions/contracts referencing the old surface (slugs, commands, routes, mock keys) and update them together.
+
+- **Static-import roots differ per tool, and the difference silently masks breakage:**
+  - Vite's production build is rooted at `frontend/` and **cannot** import files outside it (`?raw`, JSON, etc.); Vitest is repo-rooted and *can*, so an import that works in tests can still break `vite build`.
+  - When an asset generator writes outside the frontend root (e.g. `npm run generate:licences` → repo-root `src/assets/`), add an explicit **sync step** — a small Node script plus an npm lifecycle hook (`"postgenerate:licences": "node scripts/sync-licences.mjs"`) — that mirrors the files inside `frontend/src/` so both build and tests resolve the same paths.
+  - **Reconcile any example import path against where the generator actually writes, including filename spelling** (e.g. `LICENSE` vs `LICENCE`). A snippet that resolves in dev/tests can fail the production build when the real file lives elsewhere or is spelled differently.
+
+- **Shared process-global state makes Rust tests order-dependent:**
+  - `backfill_tests.rs` shares the real `logs/` directory via `truncate_logs_for_new_run()` and the process-wide `STOP_REQUESTED: AtomicBool`. Tests touching shared log files are `#[serial]`, but other modules' `run_unified_backfill` calls truncate the same files concurrently, so assertions like `get_backfill_log_entries_respects_limit_clamp` can pass alone yet fail in the full suite.
+  - Any Rust test that mutates shared resources (log files, process-wide atomics, data-root paths) must be `#[serial]`; prefer per-test temp dirs (see `tagging_actions.rs` using `lock_env()` + `temp_dir()`). If a test passes alone or per-module but fails in the full suite, treat it as shared-state pollution and fix the isolation — not the assertion.
 
 ---
 
@@ -134,6 +170,11 @@ When making changes to Svelte components or Rust backend files:
 - **Shared cross-linked navigation:** for utility/reference pages reachable from many places (About, Licence, Settings, Help, AI-Tagging Guide), use **context-aware back navigation** via `previousRoute` (already tracked in `MainView.svelte`) rather than a hardcoded "Back to X". Show the button only when a previous route actually exists.
 - **Backend-minted tokens may expire:** persisting only the frontend state is insufficient if it references a backend token with a TTL (e.g. the bulk-import `context_token` from `precheck_bulk_import_wire` expires after ~15 minutes). Detect the "expired/unknown context token" failure and re-run the precheck from preserved selections to mint a fresh token.
 
+### 6. Ambient module declarations (.d.ts)
+
+- **A `.d.ts` file with any top-level `import`/`export` is a module, not an ambient script.** Its `declare module "*.ext" { … }` blocks become *module augmentations* and silently stop applying globally — the wildcard import types never apply, and `svelte-check`/TS report "Cannot find module". Keep a file of global wildcard declarations a pure *script* (no top-level import/export) and pull in library types with a triple-slash reference (e.g. `/// <reference types="vite/client" />` for `*?raw`).
+- **A concrete module import always wins over an ambient wildcard declaration.** TypeScript prefers the *actual inferred type* of a real JSON/data file over your `declare module "*.json"` shape (resulting in errors like `Property 'x' does not exist on type { … } | { … }`). Don't fight the ambient declaration — route the import through a typed accessor function whose parameter carries the desired shape (e.g. a JSDoc `Record<string, T>`), and call `String(record.field || …)` defensively since emitted record fields are optional.
+
 ---
 
 ## 🧪 Svelte 5 View Testing Rules
@@ -156,7 +197,9 @@ const cards = screen.getAllByRole("article");      // ← synchronous, DOM is se
 
 > **Scope of this rule:** `tick()` flushes **synchronous** reactive updates. It does **not** replace `waitFor` for flows that trigger an **async** data fetch (e.g. a filter change that calls `loadItems()` and re-renders only after the (mocked) promise resolves) — those still need `waitFor` per Rule #3. It also does not replace the one-time effect-gate in a `settle()` helper, where `waitFor(() => expect(adapter).toHaveBeenCalled())` waits for the first `$effect` invocation before a `tick()` settles the DOM. Likewise, after a `navigateTo()` / hashchange re-render, assert the **newly mounted view** with `waitFor` (e.g. `waitFor(() => screen.getByTestId("import-view"))`) — a synchronous `getByTestId` immediately after the click races Svelte's async re-render and fails.
 
-### 2. Scope `getByText` with `within()` when text appears in multiple DOM regions
+### 2. Scope `getByText` with `within()` when text appears in multiple DOM regions (and beware raw-string matching)
+
+**Testing Library normalizes the *DOM node* it found, but compares against your *raw* matcher string.** Leading/trailing whitespace in the matcher breaks exact `getByText` matches (e.g. `getByText(" (v1.2.3)")` fails when the node renders `(v1.2.3)`). Prefer scoping with `within(container)`, then assert on `element.textContent` with `.toContain(…)` or a normalizing matcher.
 
 Mock components and `<details>` panels can cause the same text to render in multiple places (filter panels, card details, modals). Use `within()` to restrict the query:
 
@@ -171,6 +214,8 @@ Or use a unique CSS selector:
 const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
 within(dropdown).getByText("Project Name");
 ```
+
+A `getByText(fn)` (or `getByText(text)`) that throws "Found multiple elements" is a scoping problem, not a data problem — same copy appears in multiple regions (e.g. the `pyembroidery` attribution card contains the same file extensions as the app description). Prefer a unique class/selector (e.g. `document.querySelector("p.text-gray-700")`) or `within(...)` over fuzzy global text matchers, and normalize whitespace before `toContain`-style assertions.
 
 ### 3. Prefer direct mock assertions over `waitFor` for synchronous side-effects
 
@@ -205,13 +250,44 @@ Tiny Svelte stub components for child views should render a root element with `d
 </div>
 ```
 
+### 6. Route-driven props that branch the template must use `$derived`, not `const`
+
+A prop read outside a closure (e.g. `const isLicenceView = String(slug || "") === "licence"`) captures only the **initial** value. If the route can change while the component stays mounted (e.g. navigating between `#/about/licence` and `#/about/document/disclaimer`), the branch never re-evaluates, and `svelte-check` flags it with `state_referenced_locally`. Use:
+
+```svelte
+const isLicenceView = $derived(String(slug || "").trim().toLowerCase() === "licence");
+```
+
+### 7. `vi.mock` factories are hoisted above top-level declarations — use `vi.hoisted()` for fixtures
+
+`vi.mock` calls are hoisted to the top of the file, so any top-level `const` referenced inside a factory throws `ReferenceError: Cannot access 'X' before initialization`. Wrap fixture data in `vi.hoisted(() => ({ … }))` and reference it from the factory:
+
+```typescript
+const assetMocks = vi.hoisted(() => ({
+  WHIPPED_JSON: { "pkg@1.0.0": { licenses: "MIT" } },
+}));
+vi.mock("../../assets/data.json", () => ({ default: assetMocks.WHIPPED_JSON }));
+```
+
+### 8. Module-scope computation needs `vi.resetModules()` + `vi.doMock()` + dynamic import
+
+If a component derives state from an import at **module scope** (parsed rows, config, data maps), a per-test `vi.mock`/`mockResolvedValue` cannot vary it — the module already evaluated. To exercise an edge variant (e.g. empty assets):
+
+1. `vi.resetModules()` — rebuilds the whole module graph, **including the `svelte` runtime**.
+2. `vi.doMock("path/to/asset", () => ({ default: … }))`.
+3. Dynamically re-import the test-harness pieces **and** the component from the same fresh graph: `const { render } = await import("@testing-library/svelte"); const { tick } = await import("svelte"); const { default: Cmp } = await import("../Cmp.svelte");`.
+
+Failing to re-import `render`/`tick` along with the component causes a dual-`svelte`-instance error (`$effect can only be used inside an effect … effect_orphan`). Also `view.unmount()` at the end of such tests.
+
 ---
 
 ## 📝 File Writing Rules (Critical for Windows CMD)
 
-### A) `write_to_file` XML Tag Nesting — THE #1 cause of failures
+### A) Tool-call XML Tag Nesting — THE #1 cause of failures
 
-Every parameter tag in `write_to_file` MUST be closed with its exact matching closer:
+The XML tag-nesting hazard applies to **every** tool call, not just `write_to_file`. Every
+parameter tag in **any** tool invocation MUST be closed with its exact matching closer, and
+must be closed *before* the next parameter tag begins:
 
 **CORRECT:**
 ```xml
@@ -222,6 +298,16 @@ Every parameter tag in `write_to_file` MUST be closed with its exact matching cl
 </content>
 </write_to_file>
 ```
+
+**Symptom of a violation:** the error message contains the *literal closing tag text* inside a
+parameter value, e.g. `File not found: ...\ipc.ts</path> <start_line>…` (the `</path>` became
+part of the filename) or `Missing value for required parameter 'regex'` (a mangled
+`search_files` call never registered its `regex` parameter).
+
+**Stop-and-reformat rule:** if a tool call fails with an obviously malformed /
+concatenated-parameter error, **re-emit the entire call cleanly from scratch**. Do NOT retry a
+near-identical broken variant — after one malformed call, do not resubmit an incrementally
+tweaked version of the same broken shape; reformat the whole invocation first.
 
 ---
 
@@ -285,6 +371,10 @@ cancelled state needs an explicit `Close`/`OK` button (and must clear its transi
 user or success path closes it). Without it the only escape is quitting the app — e.g. the migration
 error modal previously had no button once `migrating` became false.
 
+**Verify "fixed" Rust tests with the full suite, not just the single test.** `cargo test <name>` and
+`cargo test <module>` can pass while the full `cargo test` fails on shared-state ordering (real log
+files, process-wide atomics). Use the full run as the final gate when a test touches shared resources.
+
 ---
 
 ## 🧠 Context & Exploration Discipline
@@ -292,3 +382,4 @@ error modal previously had no button once `migrating` became false.
 - **Do not re-read** a file whose content you already have (pasted in the user's message, or read earlier) unless you have reason to believe it changed. Re-reads of large files (e.g. `bulk_import.rs`, view/test files) waste context and trigger "DUPLICATE READ" warnings.
 - **Do not open vendored dependency source** under `~/.cargo/registry/src/...` (e.g. `rfd`) to explain observed behaviour. Reason from the application's own code and the dependency's public API/documentation. Only inspect a dependency's internals if you are actually modifying or patching that dependency.
 - **Begin multi-step work with a `task_progress` checklist** and keep it updated after each step.
+- **Believe verified tool output over editor diagnostics.** A TS/Rust diagnostic pointing at a path outside the workspace (e.g. `C:\Users\...\Microsoft VS Code\AboutView.test.ts`) is a stale/misattributed editor model. Re-read the actual file and run `vitest run <file>` / `cargo test <name>` before editing; fix the real file, not the phantom path.
