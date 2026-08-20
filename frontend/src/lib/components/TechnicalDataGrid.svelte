@@ -1,5 +1,14 @@
 <script>
-  /** @type {{ items: Array<{label: string, value: string | number | null | undefined}> }} */
+  /**
+   * Renders label/value pairs in a responsive two-column layout.
+   *
+   * @type {{
+   *   items?: Array<{
+   *     label: string,
+   *     value: string | number | null | undefined
+   *   }>
+   * }}
+   */
   let { items = [] } = $props();
 </script>
 

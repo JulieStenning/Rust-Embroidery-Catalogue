@@ -64,7 +64,12 @@
   let detailBrowseIds = $state([]);
   let detailBrowseIndex = $state(-1);
 
-  /** @param {number} importedCount */
+  /**
+   * `ImportView` callback prop — invoked when the import wizard finishes.
+   * Marks the browse list dirty so it refreshes once the user navigates back.
+   *
+   * @param {number} importedCount Number of designs successfully imported.
+   */
   function handleImportCompleted(importedCount) {
     if (importedCount >= 1) {
       browseNeedsRefresh = true;
@@ -116,6 +121,7 @@
   syncRouteFromHash();
 </script>
 
+<!-- Window event — fires on every hash change and drives route state. -->
 <svelte:window onhashchange={syncRouteFromHash} />
 
 <nav class="menu-shell text-white shadow font-sans">
@@ -175,6 +181,7 @@
       {navigateTo}
     />
   {:else if currentUiKind === "design-detail"}
+    <!-- Event callback prop — marks the browse list dirty when a design is deleted from the detail view. -->
     <DesignDetailView
       {detailDesignId}
       {detailBrowseIds}
