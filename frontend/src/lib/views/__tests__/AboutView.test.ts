@@ -40,14 +40,13 @@ describe("AboutView", () => {
         .replace(/\s+/g, " ")
         .trim();
       expect(normalized).toContain(
-        "Embroidery Catalogue is a local, offline desktop catalogue for browsing, tagging, and managing a collection of digital embroidery designs"
+        "Embroidery Catalogue is a local, desktop catalogue for browsing, tagging, and managing a collection of digital embroidery designs."
       );
       expect(normalized).toContain(".jef");
       expect(normalized).toContain(".pes");
       expect(normalized).toContain(".hus");
       expect(normalized).toContain(".vp3");
       expect(normalized).toContain("local database");
-      expect(normalized).toContain("no internet connection is required");
     });
 
     it("renders the primary copyright notice", () => {
@@ -96,7 +95,6 @@ describe("AboutView", () => {
       expect((card as HTMLElement).textContent).toContain(".exp");
       expect((card as HTMLElement).textContent).toContain(".dst");
     });
-
   });
 
   describe("View Full Licences navigation", () => {

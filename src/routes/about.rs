@@ -21,7 +21,10 @@ mod tests {
         let documents = get_about_documents();
         assert!(!documents.is_empty());
         assert!(documents.iter().any(|doc| doc.slug == "disclaimer"));
-        assert!(documents.iter().any(|doc| doc.slug == "licence"));
+        assert!(documents.iter().any(|doc| doc.slug == "privacy"));
+        assert!(documents.iter().any(|doc| doc.slug == "security"));
+        assert!(documents.iter().any(|doc| doc.slug == "ai-tagging"));
+        assert!(documents.iter().any(|doc| doc.slug == "data-storage"));
     }
 
     #[test]
