@@ -28,7 +28,7 @@ getrandom = "0.3"
 base64 = "0.22"
 
 # Downgrade or pin thiserror to 1.0 to avoid carrying both 1.0 and 2.0 runtimes
-thiserror = "1.0"
+thiserror = "2.0"
 
 rfd = "0.17"
 trash = "5.2"
