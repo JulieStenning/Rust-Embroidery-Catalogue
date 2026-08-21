@@ -21,7 +21,7 @@ blake3 = "1.8"
 tauri = { version = "2.11", features = [] }
 
 # Align rand and getrandom to 0.9.x / 0.3.x family to match image & tauri
-rand = "0.9"
+rand = "0.10"
 getrandom = "0.3"
 
 # Pin base64 to match current tauri-utils / hyper ecosystem
