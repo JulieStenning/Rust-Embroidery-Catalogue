@@ -25,7 +25,7 @@ rand = "0.9"
 getrandom = "0.3"
 
 # Pin base64 to match current tauri-utils / hyper ecosystem
-base64 = "0.22"
+base64 = "0.23"
 
 # Downgrade or pin thiserror to 1.0 to avoid carrying both 1.0 and 2.0 runtimes
 thiserror = "1.0"
