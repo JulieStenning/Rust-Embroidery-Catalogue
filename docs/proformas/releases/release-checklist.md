@@ -72,9 +72,9 @@
 
 * [ ]  Run `cargo check` (zero errors).
 * [ ]  Run `cargo clippy --all-targets` (no critical warnings). Run `cargo clippy --fix --bin "embroidery-catalogue" -p Rust-Embroidery-Catalogue --tests --` to fix any errors. Fix any remaining errors.
-* [ ]  Run `cargo fmt --check`. Fix any errors with `cargo fmt` and run `cargo fmt --check`
+* [ ]  Run `cargo fmt --check`. Fix any errors with `cargo fmt` and confirm with `cargo fmt --check`
 * [ ]  Run `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"` (zero errors).
-* [ ]  Run `cmd /c "cd frontend && npm run lint"`.
+* [ ]  Run `cmd /c "cd frontend && npm run lint"`. Try to fix any errors with `cmd /c "cd frontend && npx eslint . --fix"`. Fix any remaining errors.
 * [ ]  Run `cmd /c "cd frontend && npm run format:check"`.
 
 **Migration Gate**
