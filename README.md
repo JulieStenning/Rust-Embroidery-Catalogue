@@ -1,7 +1,7 @@
 # Rust-Embroidery-Catalogue
 
 ## Licence
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENCE file for full details.
+This program is free software: you can redistribute it and/or modify it under the terms of the MIT License. See the LICENCE file for full details.
 
 # Developer Environment Setup & Contributing Guide
 

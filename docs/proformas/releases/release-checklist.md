@@ -1,123 +1,136 @@
-# Release Checklist
+# Integrated Release Checklist
 
-Use this checklist for every release. Complete all items before tagging.
-Record evidence in the [release evidence template](./release-evidence-template.md).
+## 1. Code Attributions & License Registrations
 
----
-
-## Pre-release quality gates
-
-### Version sync
-- [ ] `Cargo.toml` `[package] version` updated to target version.
-- [ ] `tauri.conf.json` and `src-tauri/tauri.conf.json` `version` match `Cargo.toml`.
-- [ ] `frontend/package.json` `version` matches target version.
-- [ ] All version files committed on release branch.
-
-### Test gate
-- [ ] Backend tests: `cargo test` run — all unit and integration test suites pass.
-- [ ] Frontend tests: `npm test` (or `npx vitest run`) from repo root — all Vitest suites pass.
-- [ ] Any new failures investigated and either fixed or exception-documented.
-- [ ] Evidence (test output log or CI run URL) captured in release evidence doc.
-
-### Lint / format / type-check gate
-- [ ] `cargo check` — compiles with zero errors.
-- [ ] `cargo clippy --all-targets` — no errors or critical warnings introduced by this release.
-- [ ] `cargo fmt --check` (or `rustfmt --edition 2021`) — Rust code formatted cleanly.
-- [ ] `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"` — zero TypeScript/Svelte errors.
-- [ ] `cmd /c "cd frontend && npm run lint"` — ESLint checks pass.
-- [ ] `cmd /c "cd frontend && npm run format:check"` — Prettier format checks pass.
-
-### Migration gate
-- [ ] Release type classified per [release-types-and-migration-scope](../../policies/releases/release-types-and-migration-scope.md).
-- [ ] All migration files in `migrations/` verified and valid.
-- [ ] Clean database startup smoke test passed (`sqlx` migrations run and `_sqlx_migrations` initialized).
-- [ ] Existing database upgrade smoke test passed (existing DB updated cleanly without data loss).
-- [ ] Custom data-root persistence verified (`config.json` bootstrap location intact).
-- [ ] For destructive migrations: backup-first guidance confirmed; rollback/restore path confirmed.
-- [ ] Latest migration revision/timestamp recorded in release evidence doc.
-
-### CI gate
-- [ ] CI workflow passes on release branch (all jobs green).
-- [ ] CI run URL captured in release evidence doc.
-
-### Dependency / lock-file gate
-- [ ] `Cargo.lock` reflects intended dependencies and is committed.
-- [ ] `package-lock.json` reflects intended frontend dependencies and is committed.
-- [ ] Rust dependency audit: `cargo audit` (no unhandled high or critical vulnerabilities).
-- [ ] Frontend dependency audit: `npm audit` (no unhandled high or critical vulnerabilities).
+* [ ]  **Rust License Check:** If new Rust crates were added, confirm their SPDX identifiers are included in the `accepted` array in `about.toml`. If they are not, then the build will fail and the output will explicitly name the unapproved license by its standard SPDX identifier.
+* [ ]  **NPM License Check:** Confirm new frontend dependencies in `frontend/package.json` are ready for scanning. If running
+  cmd /c "cd frontend && npx license-checker-rseidelsohn --excludePackages `"embroidery-catalogue-frontend@0.1.0`" --onlyAllow `"MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;CC0-1.0;Zlib;MPL-2.0;Python-2.0`""
+  runs without errors, then this requirement is satisfied.
+* [ ]  **Root `LICENSE` Attributions:** If non-dependency code or ported algorithms were added, add entries to **ACKNOWLEDGEMENTS & SPECIAL ATTRIBUTIONS** in the root `LICENCE`and frontend/src/LICENSE files.
+* [ ]  **UI Attributions:** Update **Acknowledgements & Code Porting Attributions** in @AboutView.svelte.
 
 ---
 
-## Evidence capture checklist
+## 2. Version Synchronization & Configuration
 
-- [ ] Release evidence document created from [release-evidence-template.md](./release-evidence-template.md).
-- [ ] All gate evidence fields completed.
-- [ ] Evidence document committed or linked in release PR.
+* [ ]  Update `[package] version` in `Cargo.toml`.
+* [ ]  Update `version` in `frontend/package.json`.
+* [ ]  Update `version` in `src-tauri/tauri.conf.json`.
+* [ ]  Verify `tauri.conf.json` matches `Cargo.toml`.
+* [ ]  Commit all updated version files on the release branch.
+* [ ]  Confirm root `package.json` contains the `generate:licences` and `build` scripts:
 
----
+```json
+"scripts": {
+  "generate:licences": "cargo about generate about.hbs -o ./src/assets/licences.html && npx license-checker-rseidelsohn --start ./frontend --json --out ./src/assets/npm-licences.json",
+  "build": "npm run generate:licences && tauri build"
+}
 
-## Rollback readiness checks
-
-- [ ] Rollback strategy confirmed (backup restore + known-good installer).
-- [ ] Backup-before-update guidance included in release notes.
-- [ ] Hotfix/rollback trigger criteria documented (e.g. critical startup issue or data loss triggers rollback).
-
----
-
-## Artifact checks
-
-- [ ] Release build created via `build-rust-release.bat` or `cargo tauri build`.
-- [ ] Installer artifacts built:
-  - MSI installer: `target/release/bundle/msi/`
-  - NSIS installer: `target/release/bundle/nsis/`
-- [ ] Artifact filenames match version (e.g., `Embroidery Catalogue_<version>_x64_en-US.msi`, `*-setup.exe`).
-- [ ] SHA-256 checksum computed and noted in release evidence.
-- [ ] Artifacts verified against checksums.
-- [ ] Test install / upgrade executed on a clean or test Windows environment.
-- [ ] Code signing completed if required (see [CODE_SIGNING.md](../../CODE_SIGNING.md)).
-
----
-
-## Release notes completion checks
-
-- [ ] `CHANGELOG.md` `[Unreleased]` section promoted to versioned entry.
-- [ ] Release notes include:
-  - [ ] Summary of changes.
-  - [ ] Any migration notes (if schema changed).
-  - [ ] Backup-before-update reminder (for minor and major releases).
-  - [ ] Known issues (if any).
-- [ ] GitHub Release draft created with release notes attached.
-- [ ] Artifacts uploaded to GitHub Release.
-- [ ] Checksum published in release body or as attached file.
-
----
-
-## Post-publish checks (24–48 h monitoring)
-
-- [ ] Monitoring owner assigned.
-- [ ] No critical issues reported within monitoring window.
-- [ ] Monitoring sign-off recorded.
-
----
-
-## Final sign-off
-
-- [ ] Release owner sign-off (name / date).
-- [ ] Verifier sign-off (name / date).
-- [ ] Final decision: **GO / NO-GO**.
-
----
-
-## Dependency lock-file maintenance reminder
-
-After a release, if dependencies were updated, ensure both backend and frontend lock files are refreshed and committed:
-
-```bash
-# Update Cargo dependencies if planned
-cargo update
-
-# Update frontend dependencies if planned
-npm install
 ```
 
-Commit `Cargo.lock` and `package-lock.json` on the next development branch.
+---
+
+## 3. Dependency Security, Audits & Maintenance
+
+* [ ]  **Cargo Deny Configuration:** Run `cargo deny check` to run all configured checks. (You may need to install cargo-deny with
+  `cargo install --locked cargo-deny` )
+* [ ]  **Security Vulnerabilities:** Run `cargo audit > audit-results.txt` (you may need to install cargo-audit with
+  `cargo install cargo-audit --locked` )
+  Inspect audit-results.txt for any errors and warnings. The original developer drops the file into Gemini and asks advice about the results. Remove the file audit-results.txt.
+* [ ]  **Dependency Tree & Duplicates:**
+* [ ]  Run `cargo deny check bans`.
+* [ ]  Run `cargo tree --duplicates >duplicates.txt` to inspect duplicate crate versions.
+  Inspect duplicates.txt for any errors and warnings. The original developer drops the file into Gemini and asks advice about the results. Remove the file duplicates.txt.
+* [ ]  **License & Source Validation:**
+* [ ]  Run `cargo deny check licenses`.
+* [ ]  Run `cargo deny check sources` to ensure crates originate from allowed registries.
+* [ ]  **Frontend Security:** Run `npm audit` for frontend dependencies.The original developer asks Gemini for help resolving issues.
+* [ ]  **Update Previews:**
+* [ ]  Run `cargo update`
+* [ ]  Run `cargo test`
+* [ ]  Run `cargo check`
+* [ ]  Run `cargo outdated > outdated.txt` to review available major/minor updates. (You may need to install cargo-outdated with
+  `cargo install cargo-outdated`remove
+  remove the file outdate.txt
+* [ ]  **Lockfile Commit:** Confirm updated `Cargo.lock` and `package-lock.json` are committed.
+
+---
+
+## 4. Quality Gates
+
+**Test Gate**
+
+* [ ]  Run backend tests (`cargo test`) — all suites pass.
+* [ ]  Run frontend tests (`npx vitest run` from root) — all suites pass.
+* [ ]  Capture test evidence in the release evidence document.
+
+**Lint / Format / Type-Check Gate**
+
+* [ ]  Run `cargo check` (zero errors).
+* [ ]  Run `cargo clippy --all-targets` (no critical warnings).
+* [ ]  Run `cargo fmt --check`.
+* [ ]  Run `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"` (zero errors).
+* [ ]  Run `cmd /c "cd frontend && npm run lint"`.
+* [ ]  Run `cmd /c "cd frontend && npm run format:check"`.
+
+**Migration Gate**
+
+* [ ]  Classify release type per migration policies.
+* [ ]  Validate all SQL files in `migrations/`.
+* [ ]  Pass clean DB startup smoke test (`sqlx` migrations).
+* [ ]  Pass existing DB upgrade smoke test.
+* [ ]  Verify custom data-root persistence via `config.json` bootstrap location.
+* [ ]  Confirm rollback/backup guidance for destructive migrations.
+
+**CI Gate**
+
+* [ ]  All CI jobs pass green on release branch.
+* [ ]  Capture CI run URL in release evidence doc.
+
+---
+
+## 5. Rollback Readiness
+
+* [ ]  Confirm rollback strategy (backup restore + known-good installer).
+* [ ]  Include backup-before-update guidance in release notes.
+* [ ]  Document trigger criteria for hotfixes or rollbacks.
+
+---
+
+## 6. License Asset Generation & Release Build Execution
+
+* [ ]  **Manual License Asset Verification:** Run `npm run generate:licences` in PowerShell.
+* [ ]  Confirm generation of `src/assets/licences.html`.
+* [ ]  Confirm generation of `src/assets/npm-licences.json`.
+* [ ]  **Execute Release Build:** Run `npm run build` (or `build-rust-release.bat` / `cargo tauri build`).
+* [ ]  Verify Vite bundles license assets for rendering in @AboutView.svelte and @AboutDocumentView.svelte.
+
+---
+
+## 7. Artifact Verification & Testing
+
+* [ ]  Locate MSI installer in `target/release/bundle/msi/`.
+* [ ]  Locate NSIS installer in `target/release/bundle/nsis/`.
+* [ ]  Verify installer filenames contain correct version string.
+* [ ]  Compute SHA-256 checksums and verify artifacts.
+* [ ]  Complete code signing if required.
+* [ ]  Execute test installation and upgrade in a clean Windows environment.
+
+---
+
+## 8. Release Documentation & Publishing
+
+* [ ]  Create release evidence document from `release-evidence-template.md`.
+* [ ]  Promote `CHANGELOG.md` `[Unreleased]` section to versioned entry.
+* [ ]  Compile Release Notes (Summary, Migration Notes, Backup Reminder, Known Issues).
+* [ ]  Draft GitHub Release with notes, installer artifacts, and checksums attached.
+
+---
+
+## 9. Final Sign-Off & Post-Publish
+
+* [ ]  Release Owner Sign-off (Name / Date): ____________________
+* [ ]  Verifier Sign-off (Name / Date): ____________________
+* [ ]  Final Decision: **GO / NO-GO**
+* [ ]  **24–48h Post-Publish Monitoring:** Assign owner and record sign-off.
+* [ ]  **Post-Release Dependency Maintenance:** Run `cargo update` and `npm install`, then commit refreshed `Cargo.lock` and `package-lock.json` on the next dev branch.

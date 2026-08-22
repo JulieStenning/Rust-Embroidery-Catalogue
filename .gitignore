@@ -1,7 +1,6 @@
 # --- Rust specific ---
 /target/
 **/*.rs.bk
-Cargo.lock
 node_modules/
 
 # --- Python specific ---
