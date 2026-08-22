@@ -1000,7 +1000,14 @@ async fn apply_tagging_tiers_tier1_match_populates_tags() {
     map.insert("Don't Know".to_string(), 3);
     let valid: HashSet<String> = map.keys().cloned().collect();
 
-    apply_tagging_tiers(&pool, 1, &map, &valid, true, false, false, 0.0, 0.0)
+    let tier_options = TaggingTierOptions {
+        tier1_enabled: true,
+        tier2_enabled: false,
+        tier3_enabled: false,
+        tier2_delay_seconds: 0.0,
+        tier3_delay_seconds: 0.0,
+    };
+    apply_tagging_tiers(&pool, 1, &map, &valid, &tier_options)
         .await
         .unwrap();
 
@@ -1037,7 +1044,14 @@ async fn apply_tagging_tiers_tier1_falls_to_tier2() {
     map.insert("Don't Know".to_string(), 3);
     let valid: HashSet<String> = map.keys().cloned().collect();
 
-    apply_tagging_tiers(&pool, 10, &map, &valid, true, true, false, 0.0, 0.0)
+    let tier_options = TaggingTierOptions {
+        tier1_enabled: true,
+        tier2_enabled: true,
+        tier3_enabled: false,
+        tier2_delay_seconds: 0.0,
+        tier3_delay_seconds: 0.0,
+    };
+    apply_tagging_tiers(&pool, 10, &map, &valid, &tier_options)
         .await
         .unwrap();
 
@@ -1059,7 +1073,14 @@ async fn apply_tagging_tiers_nonexistent_design_returns_ok() {
     let pool = make_test_pool().await;
     let map = HashMap::new();
     let valid = HashSet::new();
-    let result = apply_tagging_tiers(&pool, 999, &map, &valid, true, false, false, 0.0, 0.0).await;
+    let tier_options = TaggingTierOptions {
+        tier1_enabled: true,
+        tier2_enabled: false,
+        tier3_enabled: false,
+        tier2_delay_seconds: 0.0,
+        tier3_delay_seconds: 0.0,
+    };
+    let result = apply_tagging_tiers(&pool, 999, &map, &valid, &tier_options).await;
     assert!(result.is_ok());
 }
 

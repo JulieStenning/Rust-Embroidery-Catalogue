@@ -25,8 +25,8 @@ use tauri::{Manager, State};
 
 // â”€â”€â”€ Shared Application State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// Shared application state managed by Tauri.
-/// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
+// Shared application state managed by Tauri.
+// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
 // ---------------------------------------------------------------------------
 // Database status (exposed to frontend for the recovery flow)
 // ---------------------------------------------------------------------------

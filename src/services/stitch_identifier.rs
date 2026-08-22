@@ -158,7 +158,7 @@ impl<'a> StitchIdentifier<'a> {
     ///   1. Lace      - keyword only (filename/folder)
     ///   2. ITH       - keyword or whole-pattern geometry
     ///   3. Applique  - keyword only, or two geometrically-matching outline
-    ///                  blocks (placement + tack-down)
+    ///      blocks (placement + tack-down)
     ///   4. Cross Stitch - diagonal X signature
     ///   5. Filled    - dense back-and-forth pattern
     ///   6. Satin     - dense long parallel stitches

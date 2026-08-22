@@ -46,6 +46,7 @@ fn write_temp_file(name: &str, content: &[u8]) -> std::path::PathBuf {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn backfill_populates_size_and_hash() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -84,6 +85,7 @@ async fn backfill_populates_size_and_hash() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn backfill_handles_missing_file_with_sentinel() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -117,6 +119,7 @@ async fn backfill_handles_missing_file_with_sentinel() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn backfill_is_idempotent() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -146,6 +149,7 @@ async fn backfill_is_idempotent() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn backfill_respects_stop_signal() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -293,6 +297,7 @@ async fn test_select_candidates_type_mismatch() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_process_one_design_metadata_error() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -340,6 +345,7 @@ async fn test_process_one_design_metadata_error() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_process_one_design_open_error() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -366,6 +372,7 @@ async fn test_process_one_design_open_error() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_process_one_design_only_hash_present() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -402,6 +409,7 @@ async fn test_process_one_design_only_hash_present() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_clamp_commit_every() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -415,6 +423,7 @@ async fn test_clamp_commit_every() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_stop_mid_batch() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -458,6 +467,7 @@ async fn test_stop_mid_batch() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_backfill_handles_processing_error() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();
@@ -483,6 +493,7 @@ async fn test_backfill_handles_processing_error() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_backfill_select_candidates_error() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     backfill::clear_stop_signal();

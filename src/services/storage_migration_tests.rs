@@ -65,6 +65,7 @@ async fn seed_database(source: &AppPaths) {
 /// `lock_env()` — a global process-wide Mutex — to serialise themselves. This
 /// helper acquires that SAME lock so the env var is never mutated concurrently
 /// (which both races the tests and could clobber a real user config).
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn with_sandboxed_appdata<F, Fut>(fut: F)
 where
     F: FnOnce() -> Fut,

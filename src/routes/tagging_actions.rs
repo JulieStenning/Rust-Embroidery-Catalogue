@@ -343,6 +343,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
     async fn test_get_tagging_actions_view_model() {
         let _guard = lock_env();
 
@@ -401,6 +402,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
     async fn test_backfills_and_logs() {
         let _guard = lock_env();
 

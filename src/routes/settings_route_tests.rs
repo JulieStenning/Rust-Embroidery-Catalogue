@@ -382,6 +382,7 @@ fn standard_documents_dir_returns_some_when_userprofile_documents_exists() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
     let _guard = lock_env();
 
@@ -421,6 +422,7 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn get_settings_view_model_inner_has_installed_mode_defaults() {
     let _guard = lock_env();
 
@@ -448,6 +450,7 @@ async fn get_settings_view_model_inner_has_installed_mode_defaults() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn get_settings_view_model_inner_reflects_custom_settings() {
     let _guard = lock_env();
 
@@ -564,6 +567,7 @@ async fn save_import_last_browse_folder_inner_persists_and_trims() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn save_settings_view_model_inner_persists_all_fields() {
     let _guard = lock_env();
 

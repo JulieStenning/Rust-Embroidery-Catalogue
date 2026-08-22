@@ -15,6 +15,17 @@ use tokio::time::sleep;
 
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
+/// Tier configuration for the tagging action, grouped to keep
+/// `apply_tagging_tiers` under the clippy `too_many_arguments` limit.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TaggingTierOptions {
+    pub tier1_enabled: bool,
+    pub tier2_enabled: bool,
+    pub tier3_enabled: bool,
+    pub tier2_delay_seconds: f64,
+    pub tier3_delay_seconds: f64,
+}
+
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
@@ -223,18 +234,16 @@ pub async fn run_unified_backfill(
 
                 touched_design_ids.insert(*design_id);
                 processed += 1;
-                let tag_result = apply_tagging_tiers(
-                    pool,
-                    *design_id,
-                    &image_tag_map,
-                    &valid_descriptions,
+                let tier_options = TaggingTierOptions {
                     tier1_enabled,
                     tier2_enabled,
                     tier3_enabled,
                     tier2_delay_seconds,
                     tier3_delay_seconds,
-                )
-                .await;
+                };
+                let tag_result =
+                    apply_tagging_tiers(pool, *design_id, &image_tag_map, &valid_descriptions, &tier_options)
+                        .await;
 
                 if let Err(error) = tag_result {
                     errors += 1;
@@ -542,11 +551,7 @@ async fn apply_tagging_tiers(
     design_id: i64,
     image_tag_map: &HashMap<String, i64>,
     valid_descriptions: &HashSet<String>,
-    tier1_enabled: bool,
-    tier2_enabled: bool,
-    tier3_enabled: bool,
-    tier2_delay_seconds: f64,
-    tier3_delay_seconds: f64,
+    tier_options: &TaggingTierOptions,
 ) -> Result<(), AppError> {
     let row = sqlx::query("SELECT filename, filepath, image_data FROM designs WHERE id = ?")
         .bind(design_id)
@@ -568,16 +573,16 @@ async fn apply_tagging_tiers(
         .try_get("image_data")
         .map_err(|e| AppError::database(format!("failed to read image data: {e}")))?;
 
-    if tier1_enabled {
+    if tier_options.tier1_enabled {
         let tier1 = tagging::suggest_tier1_descriptions(&filename, &filepath, valid_descriptions);
         if !tier1.is_empty() {
             return apply_image_tags_and_tier(pool, design_id, image_tag_map, tier1, 1).await;
         }
     }
 
-    if tier2_enabled {
-        if tier2_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(tier2_delay_seconds)).await;
+    if tier_options.tier2_enabled {
+        if tier_options.tier2_delay_seconds > 0.0 {
+            sleep(Duration::from_secs_f64(tier_options.tier2_delay_seconds)).await;
         }
         let tier2 = suggest_tier2_descriptions(&filename, &filepath, valid_descriptions);
         if !tier2.is_empty() {
@@ -585,9 +590,9 @@ async fn apply_tagging_tiers(
         }
     }
 
-    if tier3_enabled && image_data.is_some() {
-        if tier3_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(tier3_delay_seconds)).await;
+    if tier_options.tier3_enabled && image_data.is_some() {
+        if tier_options.tier3_delay_seconds > 0.0 {
+            sleep(Duration::from_secs_f64(tier_options.tier3_delay_seconds)).await;
         }
         let tier3 = suggest_tier3_descriptions(&filename, &filepath, valid_descriptions);
         if !tier3.is_empty() {

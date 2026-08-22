@@ -1046,9 +1046,9 @@ async fn scan_orphans_counts_missing_absolute_filepath_as_orphan() {
     fs::create_dir_all(&root).expect("test root should be created");
 
     let missing_absolute = format!(
-        "{}{}",
+        "{}{}missing.jef",
         unique_temp_path("orphans-absolute-missing").to_string_lossy(),
-        format!("{}missing.jef", std::path::MAIN_SEPARATOR)
+        std::path::MAIN_SEPARATOR
     );
 
     sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
