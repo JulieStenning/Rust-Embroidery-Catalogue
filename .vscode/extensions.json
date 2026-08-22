@@ -1,3 +1,13 @@
 {
-  "recommendations": ["vitest.explorer"]
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "svelte.svelte-vscode",
+    "tauri-apps.tauri-vscode",
+    "tamasfe.even-better-toml",
+    "vadimcn.vscode-lldb",
+    "esbenp.prettier-vscode",
+    "alexcvzz.vscode-sqlite",
+    "vitest.explorer",
+    "swellaby.vscode-rust-test-adapter"
+  ]
 }
