@@ -22,12 +22,12 @@ export interface ImportSessionState {
   rootPaths: string[];
 
   /** Preview result from previewImportFromRoots, or null. */
-  preview: Record<string, any> | null;
+  preview: Record<string, unknown> | null;
   previewSource: string;
   previewMessage: string;
 
   /** Precheck result from precheckImportWire, or null. */
-  precheck: Record<string, any> | null;
+  precheck: Record<string, unknown> | null;
   precheckSource: string;
   precheckMessage: string;
 

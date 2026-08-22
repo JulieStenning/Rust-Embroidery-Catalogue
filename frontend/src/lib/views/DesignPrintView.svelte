@@ -10,7 +10,6 @@
   let detailError = $state("");
   /** @type {DesignItem | null} */
   let detailItem = $state(null);
-  let detailSource = $state("mock");
 
   /** @param {number | null} designId */
   async function loadDesignDetail(designId) {
@@ -24,14 +23,12 @@
       if (designId !== printDesignId) return;
 
       detailItem = result.item || null;
-      detailSource = result.source || "mock";
       if (!detailItem && result?.error) {
         detailError = `Could not load design detail: ${result.error}`;
       }
     } catch (error) {
       detailError = `Could not load design detail: ${error}`;
       detailItem = null;
-      detailSource = "mock";
     } finally {
       detailLoading = false;
     }

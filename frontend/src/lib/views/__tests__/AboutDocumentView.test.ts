@@ -460,7 +460,7 @@ describe("AboutDocumentView", () => {
 
   describe("race conditions / parameter updates", () => {
     it("ignores results from older requests if the slug prop changes before resolution", async () => {
-      let resolveFirst: (value: any) => void = () => {};
+      let resolveFirst: (value: unknown) => void = () => {};
       const firstPromise = new Promise((resolve) => {
         resolveFirst = resolve;
       });

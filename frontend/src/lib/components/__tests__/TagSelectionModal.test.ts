@@ -59,7 +59,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-async function renderModal(props: any) {
+async function renderModal(props: Record<string, unknown>) {
   const result = render(TagSelectionModal, { props });
   await tick();
   return result;

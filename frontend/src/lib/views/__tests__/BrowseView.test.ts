@@ -50,7 +50,7 @@ vi.mock("../../stores/tagChangeStore.js", () => tagChangeMock);
 // Mock the portal action — it moves nodes to document.body which complicates
 // DOM queries. A passthrough keeps the nodes in-place for selection.
 vi.mock("../../utils/portal.js", () => ({
-  portalToBody: (node: HTMLElement) => ({
+  portalToBody: (_node: HTMLElement) => ({
     destroy() {},
   }),
 }));

@@ -1,5 +1,5 @@
 <script>
-  import { onMount, untrack } from "svelte";
+  import { untrack } from "svelte";
   import {
     getProjectsList,
     createProject,
@@ -15,9 +15,7 @@
 
   /** @type {any[]} */
   let projectsItems = $state([]);
-  let projectsSource = $state("mock");
   let projectsLoading = $state(false);
-  let projectsLoaded = $state(false);
   let projectsError = $state("");
   let projectsLoadRequestToken = 0;
 
@@ -25,9 +23,8 @@
   let projectNewDescription = $state("");
   let projectNewSaving = $state(false);
 
-  /** @type {{ project: { id: number, name: string, description?: string }, designs: any[] } | null} */
+  /** @type {import("../types/ipc").ProjectDetailView | null} */
   let projectDetail = $state(null);
-  let projectDetailSource = $state("mock");
   let projectDetailLoading = $state(false);
   let projectDetailError = $state("");
   let projectDetailSaving = $state(false);
@@ -36,9 +33,8 @@
   let projectDetailOriginalName = $state("");
   let projectDetailOriginalDescription = $state("");
 
-  /** @type {{ project: { name: string, description?: string }, designs: any[] } | null} */
+  /** @type {import("../types/ipc").ProjectDetailView | null} */
   let projectPrint = $state(null);
-  let projectPrintSource = $state("mock");
   let projectPrintLoading = $state(false);
   let projectPrintError = $state("");
 
@@ -72,15 +68,12 @@
       if (requestToken !== projectsLoadRequestToken) return;
 
       projectsItems = Array.isArray(result?.items) ? result.items : [];
-      projectsSource = result?.source || "mock";
       if (result?.error) {
         projectsError = String(result.error);
       }
-      projectsLoaded = true;
     } catch (error) {
       if (requestToken !== projectsLoadRequestToken) return;
       projectsItems = [];
-      projectsSource = "mock";
       projectsError = `Could not load projects: ${error}`;
     } finally {
       if (requestToken === projectsLoadRequestToken) {
@@ -125,7 +118,6 @@
       if (projectId !== projectDetailId) return;
 
       projectDetail = result?.item || null;
-      projectDetailSource = result?.source || "mock";
 
       if (!projectDetail) {
         projectDetailError = result?.error || `Could not load project ${projectId}.`;
@@ -142,7 +134,6 @@
     } catch (error) {
       if (projectId !== projectDetailId) return;
       projectDetail = null;
-      projectDetailSource = "mock";
       projectDetailError = `Could not load project detail: ${error}`;
       projectDetailName = "";
       projectDetailDescription = "";
@@ -234,14 +225,12 @@
       if (projectId !== projectPrintId) return;
 
       projectPrint = result?.item || null;
-      projectPrintSource = result?.source || "mock";
       if (!projectPrint) {
         projectPrintError = result?.error || `Could not load project print view for id ${projectId}.`;
       }
     } catch (error) {
       if (projectId !== projectPrintId) return;
       projectPrint = null;
-      projectPrintSource = "mock";
       projectPrintError = `Could not load project print view: ${error}`;
     } finally {
       if (projectId === projectPrintId) {

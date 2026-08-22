@@ -16,7 +16,6 @@
   let newTagGroup = $state("image");
   let adminImageTagsOpen = $state(true);
   let adminStitchingTagsOpen = $state(true);
-  let adminTagsPanelStateLoaded = $state(false);
   let tagsLoading = $state(false);
 
   /**
@@ -39,7 +38,6 @@
         addToast(`Failed to load tags: ${result.error}`, "error");
         imageTags = [];
         stitchingTags = [];
-        adminTagsPanelStateLoaded = true;
         return;
       }
       const rawTags = /** @type {AdminTagSummary[]} */ (getResponseItems(result));
@@ -54,7 +52,6 @@
       const groups = splitTagsByGroup(mappedTags);
       imageTags = groups.image;
       stitchingTags = groups.stitching;
-      adminTagsPanelStateLoaded = true;
     } catch (e) {
       addToast(`Failed to load tags: ${e}`, "error");
     } finally {

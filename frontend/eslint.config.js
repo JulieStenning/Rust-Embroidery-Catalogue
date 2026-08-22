@@ -1,9 +1,11 @@
 import eslint from "@eslint/js";
 import sveltePlugin from "eslint-plugin-svelte";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default [
   eslint.configs.recommended,
+  ...tseslint.configs.recommended,
   ...sveltePlugin.configs["flat/recommended"],
   {
     languageOptions: {
@@ -13,18 +15,30 @@ export default [
         ...globals.browser,
         ...globals.es2021,
       },
+      parserOptions: {
+        parser: tseslint.parser,
+        extraFileExtensions: [".svelte"],
+      },
     },
     rules: {
-      "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-      "svelte/no-at-html-tags": "off"
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_" },
+      ],
+      "no-unused-vars": "off",
+      "svelte/no-at-html-tags": "off",
     },
   },
   {
-    ignores: [
-      "dist/",
-      "node_modules/",
-      ".svelte-kit/",
-      "build/"
-    ]
-  }
+    files: ["*.config.js", "*.config.cjs", "*.config.mjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    ignores: ["dist/", "node_modules/", ".svelte-kit/", "build/"],
+  },
 ];

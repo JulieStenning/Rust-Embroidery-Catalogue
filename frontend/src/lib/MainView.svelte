@@ -23,7 +23,6 @@
     parseProjectDetailId,
     parseProjectPrintId,
     parseAboutDocumentSlug,
-    parseImportWizardStep,
     resolveCurrentUiKind,
     ORDERED_ROUTE_HINTS,
     HELP_SECTION_IDS,

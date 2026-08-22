@@ -57,7 +57,7 @@
     taggingActionsLoading = true;
     try {
       const result = await getTaggingActionsViewModel();
-      const model = (result?.model as any) || {};
+      const model = (result?.model as import("../types/ipc").TaggingActionsViewModel | null | undefined) || null;
       taggingHasGoogleApiKey = Boolean(model?.has_google_api_key);
       taggingActionsLoaded = true;
       addToast(model?.has_google_api_key

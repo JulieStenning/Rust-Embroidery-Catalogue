@@ -446,11 +446,19 @@ export interface ProjectDesignItem {
   filepath: string;
   image_data_url?: string | null;
   designer?: string;
+  designer_name?: string | null;
   source?: string;
   hoop?: string | null;
   rating?: number | null;
   is_stitched?: boolean;
   tags_checked?: boolean;
+  has_image?: boolean;
+  width_mm?: number | null;
+  height_mm?: number | null;
+  stitch_count?: number | null;
+  color_count?: number | null;
+  color_change_count?: number | null;
+  notes?: string | null;
   date_added?: string | null;
 }
 

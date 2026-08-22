@@ -81,7 +81,7 @@ import { mapDesignDetailFromWire, mapReparseDesignFromWire } from "../types/ipc"
 
 type LooseRecord = Record<string, unknown>;
 
-function invokeLoose<T = any>(command: string, args?: Record<string, unknown>): Promise<T> {
+function invokeLoose<T = LooseRecord>(command: string, args?: Record<string, unknown>): Promise<T> {
   try {
     const result = args === undefined ? invoke(command) : invoke(command, args);
 
@@ -160,12 +160,8 @@ const MOCK_HOOPS = [
   { id: 3, name: "Hoop C" },
 ];
 
-/**
- * @param {Record<string, any> | null | undefined} raw
- * @param {number} index
- * @param {{ useSeedTags?: boolean }} [options]
- */
-function normalizeBrowseItem(raw: any, index: number, options: { useSeedTags?: boolean } = {}): BrowseDesignSummaryWire {
+/** @param {LooseRecord | null | undefined} raw @param {number} index @param {{ useSeedTags?: boolean }} [options] */
+function normalizeBrowseItem(raw: LooseRecord | null | undefined, index: number, options: { useSeedTags?: boolean } = {}): BrowseDesignSummaryWire {
   const { useSeedTags = false } = options;
   const id = Number(raw?.id ?? index + 1);
   const filename = String(raw?.filename || raw?.name || `design-${id}.pes`);
@@ -215,7 +211,10 @@ export async function getBrowseDesigns(payload?: SearchPayload): Promise<Adapter
   try {
     const designs = await invokeLoose<BrowseDesignSummaryWire[]>("get_designs", { payload });
     if (Array.isArray(designs)) {
-      return { items: designs.map((item, index) => normalizeBrowseItem(item, index)), source: "rust" };
+      return {
+        items: designs.map((item, index) => normalizeBrowseItem(item as unknown as LooseRecord, index)),
+        source: "rust",
+      };
     }
   } catch (error) {
     console.info("get_designs not available yet, using mock designs.", error);
@@ -1001,7 +1000,6 @@ export async function runPrecheckAction({
     };
   } catch (error) {
     console.info("precheck_bulk_import_action_wire unavailable or failed, using mock action result.", error);
-    const isImportNow = normalizedAction === "import_now";
     const isCancel = normalizedAction === "cancel";
 
     return {

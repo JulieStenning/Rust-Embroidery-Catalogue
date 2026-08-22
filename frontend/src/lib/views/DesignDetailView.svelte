@@ -7,11 +7,9 @@
     setDesignRating,
     setDesignStitched,
     setDesignVerification,
-    setDesignTags,
     removeDesignTag,
     addDesignToProject,
     removeDesignFromProject,
-    bulkDeleteDesigns,
     openDesignInEditor,
     openDesignInExplorer,
     renderDesign3dPreview,
@@ -20,7 +18,6 @@
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import TagSelectionModal from "../components/TagSelectionModal.svelte";
   import TechnicalDataGrid from "../components/TechnicalDataGrid.svelte";
-  import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
   import { addToast } from "../stores/toastStore.js";
   /** @typedef {import("../types/ipc").DesignDetail} DesignDetailItem */
@@ -63,7 +60,6 @@
       ? ratingHover
       : (/** @type {DesignDetailItem | null} */ (detailItem))?.rating ?? 0
   );
-  let detailSource = $state("mock");
   let detailNotes = $state("");
   let detailDesignerId = $state("");
   let detailSourceId = $state("");
@@ -113,7 +109,6 @@
       if (designId !== detailDesignId) return;
 
       detailItem = result.item || null;
-      detailSource = result.source || "mock";
       if (!detailItem && result?.error) {
         detailError = `Could not load design detail from Rust backend: ${result.error}`;
       }
@@ -129,7 +124,6 @@
     } catch (error) {
       detailError = `Could not load design detail: ${error}`;
       detailItem = null;
-      detailSource = "mock";
       detailProjectToAdd = "";
     } finally {
       detailLoading = false;
@@ -289,46 +283,6 @@
       designSessionStore.trackMutation(detailItem.id, { stitchingTagsVerified: newValue });
       await refreshDetailAfterAction();
     }
-  }
-
-  async function saveDetailTags() {
-    if (!detailItem?.id || detailSaving) return false;
-
-    detailSaving = true;
-    // A single-design tag save marks BOTH image and stitching categories
-    // verified (Rule 1).
-    const result = await setDesignTags(detailItem.id, detailTagSelection, {
-      imageTagsVerified: true,
-      stitchingTagsVerified: true,
-    });
-    detailSaving = false;
-    addToast(result.message, result.persisted ? "success" : "error");
-    if (result.persisted) {
-      // Compute tag arrays from the selected tag IDs and the all_tags lookup
-      const allTags = Array.isArray(detailItem?.allTags) ? detailItem.allTags : [];
-      const selectedTags = allTags.filter(
-        /** @param {{id: number, description: string, tag_group: string | null}} t */ (t) =>
-          detailTagSelection.includes(t.id)
-      );
-      const imageTags = selectedTags
-        .filter(/** @param {{tag_group: string | null}} t */ (t) => t.tag_group === "image")
-        .map(/** @param {{description: string}} t */ (t) => t.description);
-      const stitchingTags = selectedTags
-        .filter(/** @param {{tag_group: string | null}} t */ (t) => t.tag_group === "stitching")
-        .map(/** @param {{description: string}} t */ (t) => t.description);
-      const allTagDescriptions = selectedTags.map(/** @param {{description: string}} t */ (t) => t.description);
-
-      designSessionStore.trackMutation(detailItem.id, {
-        tags: allTagDescriptions,
-        imageTags,
-        stitchingTags,
-        imageTagsVerified: true,
-        stitchingTagsVerified: true,
-      });
-      await refreshDetailAfterAction();
-      return true;
-    }
-    return false;
   }
 
   /** @param {number} projectId */
@@ -538,14 +492,6 @@
       // Rollback optimistic update by re-fetching from backend
       await refreshDetailAfterAction();
     }
-  }
-
-  /** @param {number | string} rating */
-  function ratingToStars(rating) {
-    const numeric = Number(rating);
-    if (!Number.isFinite(numeric) || numeric <= 0) return "";
-    const clamped = Math.min(5, Math.max(0, numeric));
-    return `${"★".repeat(clamped)}${"☆".repeat(5 - clamped)}`;
   }
 
   $effect(() => {

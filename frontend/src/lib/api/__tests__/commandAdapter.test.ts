@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   addDesignToProject,
   browseBackupFolder,
@@ -93,9 +93,6 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
 }));
 
-// Silence console.info / console.error noise in fallback paths.
-const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 // Make the mocked invoke reject once so the adapter handles the failure
 // through the same promise-rejection path it uses for unavailable commands.

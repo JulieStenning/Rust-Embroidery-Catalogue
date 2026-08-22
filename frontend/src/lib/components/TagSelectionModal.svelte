@@ -1,5 +1,4 @@
 <script>
-  import { onMount } from "svelte";
   import { createTag, setDesignTags } from "../api/commandAdapter";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
@@ -203,7 +202,6 @@
 </script>
 
 {#if open}
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     use:portalToBody
     class="tag-chooser-overlay no-print"
@@ -214,7 +212,6 @@
     onkeydown={handleKeydown}
     tabindex="-1"
   >
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <button
       type="button"
       style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"

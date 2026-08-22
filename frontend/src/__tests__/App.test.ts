@@ -54,14 +54,27 @@ vi.mock("../lib/DatabaseRecoveryView.svelte", async () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Minimal shape used by the Tauri injected bridge. */
+interface TauriInternalsBridge {
+  invoke: unknown;
+  [key: string]: unknown;
+}
+
+/** Window augmented with the optional Tauri bridge property. */
+interface WindowWithTauriBridge extends Window {
+  __TAURI_INTERNALS__?: TauriInternalsBridge;
+}
+
+const winWithTauriBridge = window as unknown as WindowWithTauriBridge;
+
 /** Installs a fake Tauri internals bridge on window. */
 function installTauriBridge() {
-  (window as any).__TAURI_INTERNALS__ = { invoke: invokeMock };
+  winWithTauriBridge.__TAURI_INTERNALS__ = { invoke: invokeMock };
 }
 
 /** Removes the fake Tauri bridge, simulating plain browser dev mode. */
 function removeTauriBridge() {
-  delete (window as any).__TAURI_INTERNALS__;
+  delete winWithTauriBridge.__TAURI_INTERNALS__;
 }
 
 // ---------------------------------------------------------------------------

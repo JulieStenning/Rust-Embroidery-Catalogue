@@ -14,9 +14,7 @@
   /** @typedef {import("./types/ipc").DatabaseValidation} DatabaseValidation */
 
   let configuredRoot = $state("");
-  let relativeSubpath = $state("");
   let relocatedRoot = $state("");
-  let relocatedSubpath = $state("");
   let scanning = $state(true);
   let busy = $state(false);
   let error = $state("");
@@ -37,7 +35,6 @@
       const detected = await detectRelocatedDataRoot(configuredRoot);
       if (detected && !detected.error && detected.detected) {
         relocatedRoot = String(detected.detected.data_root || "");
-        relocatedSubpath = String(detected.detected.relative_subpath || "");
       }
     }
     scanning = false;
@@ -78,6 +75,7 @@
   }
 
   /** Persist the candidate root after it validates. */
+  /** @param {string} candidateRoot */
   async function validateCandidate(candidateRoot) {
     const validation = await validateDatabasePath(candidateRoot);
     if (!validation || !validation.validation) {

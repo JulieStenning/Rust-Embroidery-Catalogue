@@ -12,8 +12,7 @@
     listHoops,
     bulkVerifyDesigns,
     bulkAddDesignsToProject,
-    bulkSetTagsForDesigns,
-    bulkDeleteDesigns
+    bulkSetTagsForDesigns
   } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import Pagination from "../components/Pagination.svelte";
@@ -50,19 +49,14 @@
   // Browse state
   /** @type {BrowseDesignCard[]} */
   let browseItems = $state([]);
-  let browseSource = $state("mock");
   let browseLoading = $state(false);
   let browseHasLoaded = $state(false);
-  let browseError = $state("");
   /** @type {ProjectListItem[]} */
   let browseProjects = $state([]);
-  let browseProjectsSource = $state("mock");
   let browseProjectsLoaded = $state(false);
   /** @type {BrowseTagOption[]} */
   let browseTagOptions = $state([]);
-  let browseTagsSource = $state("mock");
   let browseTagsLoaded = $state(false);
-  let browsePreviewsSource = $state("mock");
   let browseImageTagOptions = $derived(
     (() => {
       const grouped = splitTagsByGroup(browseTagOptions);
@@ -79,6 +73,8 @@
       );
     })()
   );
+  /** @type {TagOptionBuckets} */
+  let browseGroupedTagOptions = $derived(splitTagsByGroup(browseTagOptions));
   /** @type {string[]} */
   let browseDesignerFilterOptions = $state([]);
   /** @type {string[]} */
@@ -96,12 +92,7 @@
   let browseSelectedIds = $state(new SvelteSet());
   /** @type {HTMLDivElement | null} */
   let browseBulkBarNode = $state(null);
-  /** @type {HTMLDivElement | null} */
-  let browseBulkModalOverlayNode = $state(null);
-  /** @type {HTMLDivElement | null} */
-  let browseBulkModalDialogNode = $state(null);
   let browseBulkModalOpen = $state(false);
-  let browseBulkModalMode = $state("browse");
   /** @type {Array<number | string>} */
   let browseBulkTagAddIds = $state([]);
   /** @type {Array<number | string>} */
@@ -116,14 +107,6 @@
   let browseBulkStitchingUniform = $state(false);
   /** @type {Record<string | number, string>} */
   let browseBulkTagGroupById = $state({});
-  /** @type {Array<number | string>} */
-  let browseBulkGroupAddIds = $state([]);
-  /** @type {Array<number | string>} */
-  let browseBulkGroupStitchingAddIds = $state([]);
-  /** @type {Array<number | string>} */
-  let browseBulkGroupRemoveIds = $state([]);
-  /** @type {Array<number | string>} */
-  let browseBulkGroupStitchingRemoveIds = $state([]);
   /** @type {number[]} */
   let browseBulkProjectSelection = $state([]);
   let browseBulkProjectDropdownOpen = $state(false);
@@ -140,7 +123,6 @@
   const BROWSE_BREAKPOINT_MD = 768;
   const BROWSE_BREAKPOINT_LG = 1024;
   const BROWSE_ROW_SELECTOR_WIDTH = 28;
-  const BROWSE_TAG_UNTAGGED = "__untagged__";
 
   /** @returns {BrowseFilterState} */
   const defaultBrowseFilters = () => ({
@@ -419,19 +401,10 @@
     return Array.isArray(items) ? items : [];
   }
 
-  /**
-   * @param {{ source?: string } | null | undefined} response
-   * @returns {string}
-   */
-  function getResponseSource(response) {
-    return typeof response?.source === "string" && response.source ? response.source : "mock";
-  }
-
   async function loadBrowseItems(force = false) {
     if (browseLoading && !force) return;
 
     browseLoading = true;
-    browseError = "";
     try {
       const stitchedStatus = /** @type {"all" | "yes" | "no"} */ (
         browseFilters.stitched === "yes" || browseFilters.stitched === "no"
@@ -462,13 +435,10 @@
         .map(normalizeCardItem)
         .filter((item) => item !== null);
       browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
-      browseSource = getResponseSource(result);
       browseHasLoaded = true;
-    } catch (error) {
+    } catch {
       browseHasLoaded = true;
       browseItems = [];
-      browseSource = "mock";
-      browseError = `Could not load designs: ${error}`;
     } finally {
       browseLoading = false;
     }
@@ -478,10 +448,8 @@
     try {
       const result = await getBrowseTags();
       browseTagOptions = getResponseItems(result);
-      browseTagsSource = getResponseSource(result);
     } catch (error) {
       browseTagOptions = [];
-      browseTagsSource = "mock";
       console.info("Could not load browse tags list", error);
     } finally {
       browseTagsLoaded = true;
@@ -494,11 +462,9 @@
       const items = [...getResponseItems(result)];
       items.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
       browseProjects = items;
-      browseProjectsSource = getResponseSource(result);
       browseProjectsLoaded = true;
     } catch (error) {
       browseProjects = [];
-      browseProjectsSource = "mock";
       console.info("Could not load projects list", error);
     }
   }
@@ -589,7 +555,6 @@
       }
 
       browsePreviewById = map;
-      browsePreviewsSource = result.source || "mock";
     } catch (error) {
       console.info("Could not load browse previews", error);
       if (requestId === browsePreviewRequestCounter) {
@@ -600,7 +565,6 @@
           }
         }
         browsePreviewById = nextMap;
-        browsePreviewsSource = "mock";
       }
     } finally {
       if (requestId === browsePreviewRequestCounter) {
@@ -616,7 +580,6 @@
   * @param {Record<number, MutationPatch>} patches
    */
   function applyPatchesToBrowse(patches) {
-    let changed = false;
     for (const [idStr, patch] of Object.entries(patches)) {
       const id = Number(idStr);
       const index = browseItems.findIndex((item) => item.id === id);
@@ -627,7 +590,6 @@
           ...restPatch,
           ...(hoop !== undefined ? { hoop: hoop ?? "" } : {}),
         };
-        changed = true;
       }
 
       // Invalidate cached preview for this card so it re-fetches if needed
@@ -840,7 +802,6 @@
   // Bulk Actions
   function openBulkTagModal() {
     if (browseSelectedIds.size === 0) return;
-    browseBulkModalMode = "browse";
 
     const selectedDesigns = browseItems.filter((item) => browseSelectedIds.has(item.id));
     const totalSelected = selectedDesigns.length;
@@ -1352,7 +1313,7 @@
   });
 
   $effect(() => {
-    browseFilteredItems.length;
+    void browseFilteredItems.length;
     tick().then(() => {
       untrack(() => {
         refreshBrowseGridColumns();
@@ -1377,8 +1338,6 @@
       }
     }
   });
-
-  let browseCardItems = $derived(browsePageItems);
 
   let browsePageRows = $derived(
     (() => {
@@ -1843,8 +1802,7 @@
 
 <!-- Browse Bulk Tag Modal -->
 {#if browseBulkModalOpen}
-  {@const tagOptionsForChooser = browseTagOptions}
-  {@const groupedTagOptions = /** @type {TagOptionBuckets} */ (splitTagsByGroup(tagOptionsForChooser))}
+  {@const groupedTagOptions = browseGroupedTagOptions}
   <div
     use:portalToBody
     class="tag-chooser-overlay no-print"

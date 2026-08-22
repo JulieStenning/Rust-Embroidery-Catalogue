@@ -37,7 +37,7 @@ function createTagChangeStore() {
      * cards that listed the tag need to be updated.
      */
     flagTagDeleted() {
-      update((state) => ({
+      update(() => ({
         tagsNeedRefresh: true,
         designsNeedRefresh: true,
       }));
