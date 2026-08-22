@@ -13,7 +13,7 @@
     openDesignInEditor,
     openDesignInExplorer,
     renderDesign3dPreview,
-    reparseDesignFile
+    reparseDesignFile,
   } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import TagSelectionModal from "../components/TagSelectionModal.svelte";
@@ -23,7 +23,13 @@
   /** @typedef {import("../types/ipc").DesignDetail} DesignDetailItem */
   /** @typedef {import("../types/ipc").DesignTagDetail} DesignTagDetail */
 
-  let { detailDesignId, detailBrowseIds = [], detailBrowseIndex = -1, navigateTo, onDesignDeleted = () => {} } = $props();
+  let {
+    detailDesignId,
+    detailBrowseIds = [],
+    detailBrowseIndex = -1,
+    navigateTo,
+    onDesignDeleted = () => {},
+  } = $props();
 
   let detailLoading = $state(false);
   let detailError = $state("");
@@ -56,9 +62,7 @@
     ratingHover = 0;
   }
   let effectiveRating = $derived(
-    ratingHover > 0
-      ? ratingHover
-      : (/** @type {DesignDetailItem | null} */ (detailItem))?.rating ?? 0
+    ratingHover > 0 ? ratingHover : /** @type {DesignDetailItem | null} */ (detailItem?.rating ?? 0)
   );
   let detailNotes = $state("");
   let detailDesignerId = $state("");
@@ -89,7 +93,13 @@
       return [
         { label: "Hoop", value: item.hoop || "Unknown" },
         { label: "Date Added", value: item.dateAdded || "Unknown" },
-        { label: "Dimensions", value: item.widthMm != null && item.heightMm != null ? `${item.widthMm} × ${item.heightMm} mm` : "?" },
+        {
+          label: "Dimensions",
+          value:
+            item.widthMm != null && item.heightMm != null
+              ? `${item.widthMm} × ${item.heightMm} mm`
+              : "?",
+        },
         { label: "Stitches", value: item.stitchCount ?? "?" },
         { label: "Colours", value: item.colorCount ?? "?" },
         { label: "Colour Changes", value: item.colorChangeCount ?? "?" },
@@ -340,7 +350,7 @@
     detailSaving = true;
     const result = await openDesignInEditor(detailItem.id);
     detailSaving = false;
-    addToast(result.message, (!result.persisted || !result?.result?.success) ? "error" : "success");
+    addToast(result.message, !result.persisted || !result?.result?.success ? "error" : "success");
   }
 
   async function launchDetailInExplorer() {
@@ -349,7 +359,7 @@
     detailSaving = true;
     const result = await openDesignInExplorer(detailItem.id);
     detailSaving = false;
-    addToast(result.message, (!result.persisted || !result?.result?.success) ? "error" : "success");
+    addToast(result.message, !result.persisted || !result?.result?.success ? "error" : "success");
   }
 
   async function renderDetailPreview() {
@@ -459,9 +469,9 @@
     // Optimistic UI update: immediately remove the tag from the display
     detailItem = {
       ...detailItem,
-      tags: (detailItem.tags || []).filter(t => t.id !== tagId),
+      tags: (detailItem.tags || []).filter((t) => t.id !== tagId),
     };
-    detailTagSelection = detailTagSelection.filter(id => id !== tagId);
+    detailTagSelection = detailTagSelection.filter((id) => id !== tagId);
 
     // Persist to backend
     detailSaving = true;
@@ -479,11 +489,15 @@
         addToast(setVerify.message || "Tag removed but verification update failed.", "error");
       }
       // Track mutation for browse card sync; also patch both verified flags.
-      const updatedTags = (detailItem.tags || []).map(t => t.description);
+      const updatedTags = (detailItem.tags || []).map((t) => t.description);
       designSessionStore.trackMutation(detailItem.id, {
         tags: updatedTags,
-        imageTags: (detailItem.tags || []).filter(t => t.tag_group === 'image').map(t => t.description),
-        stitchingTags: (detailItem.tags || []).filter(t => t.tag_group === 'stitching').map(t => t.description),
+        imageTags: (detailItem.tags || [])
+          .filter((t) => t.tag_group === "image")
+          .map((t) => t.description),
+        stitchingTags: (detailItem.tags || [])
+          .filter((t) => t.tag_group === "stitching")
+          .map((t) => t.description),
         imageTagsVerified: true,
         stitchingTagsVerified: true,
       });
@@ -512,15 +526,34 @@
 <div class="detail-page font-sans h-screen flex flex-col">
   <!-- Top navigation bar -->
   <div class="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-2 shrink-0 no-print">
-    <button class="menu-button-primary text-xs px-2.5 py-1" onclick={() => navigateTo("#/designs")}>&larr; Back to Browse</button>
+    <button class="menu-button-primary text-xs px-2.5 py-1" onclick={() => navigateTo("#/designs")}
+      >&larr; Back to Browse</button
+    >
     <span class="flex-1" aria-hidden="true"></span>
-    <button class="menu-button-nav" onclick={goToPreviousDetail} disabled={detailBrowseIndex <= 0} title="Previous design">&lsaquo; Prev</button>
+    <button
+      class="menu-button-nav"
+      onclick={goToPreviousDetail}
+      disabled={detailBrowseIndex <= 0}
+      title="Previous design">&lsaquo; Prev</button
+    >
     {#if detailBrowseIndex >= 0 && detailBrowseIds.length > 0}
-      <span class="text-sm text-gray-500 font-medium tabular-nums mx-1">{detailBrowseIndex + 1} / {detailBrowseIds.length}</span>
+      <span class="text-sm text-gray-500 font-medium tabular-nums mx-1"
+        >{detailBrowseIndex + 1} / {detailBrowseIds.length}</span
+      >
     {/if}
-    <button class="menu-button-nav" onclick={goToNextDetail} disabled={detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1} title="Next design">Next &rsaquo;</button>
+    <button
+      class="menu-button-nav"
+      onclick={goToNextDetail}
+      disabled={detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1}
+      title="Next design">Next &rsaquo;</button
+    >
     <span class="text-gray-300 select-none mx-0.5" aria-hidden="true">|</span>
-    <button class="menu-button-nav" onclick={openDetailPrintView} disabled={!detailItem} title="Print view">Print</button>
+    <button
+      class="menu-button-nav"
+      onclick={openDetailPrintView}
+      disabled={!detailItem}
+      title="Print view">Print</button
+    >
   </div>
 
   <!-- Two-column body -->
@@ -539,7 +572,9 @@
   {:else}
     <div class="flex-1 flex flex-col lg:flex-row min-h-0">
       <!-- LEFT COLUMN: Preview + Actions (sticky on large screens) -->
-      <div class="lg:w-5/12 xl:w-2/5 lg:sticky lg:top-0 lg:self-start lg:max-h-full flex flex-col gap-3 p-4 pb-2 lg:pb-4 lg:border-r border-gray-200 overflow-y-auto">
+      <div
+        class="lg:w-5/12 xl:w-2/5 lg:sticky lg:top-0 lg:self-start lg:max-h-full flex flex-col gap-3 p-4 pb-2 lg:pb-4 lg:border-r border-gray-200 overflow-y-auto"
+      >
         <!-- Filename -->
         <div class="route-card">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span>
@@ -548,8 +583,14 @@
 
         <!-- Filepath (collapsible) -->
         <details class="text-xs">
-          <summary class="cursor-pointer text-gray-500 hover:text-gray-700 font-medium select-none">Show file path</summary>
-          <p class="mt-1 break-all font-mono text-xs text-gray-600 bg-gray-50 rounded border px-2.5 py-1.5">{detailItem.filepath || "Unknown"}</p>
+          <summary class="cursor-pointer text-gray-500 hover:text-gray-700 font-medium select-none"
+            >Show file path</summary
+          >
+          <p
+            class="mt-1 break-all font-mono text-xs text-gray-600 bg-gray-50 rounded border px-2.5 py-1.5"
+          >
+            {detailItem.filepath || "Unknown"}
+          </p>
         </details>
 
         <!-- Preview image -->
@@ -560,14 +601,24 @@
             class="w-full rounded border border-gray-200 bg-white p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
           />
         {:else}
-          <div class="route-card p-6 text-gray-500 text-center italic text-sm">No preview image saved yet.</div>
+          <div class="route-card p-6 text-gray-500 text-center italic text-sm">
+            No preview image saved yet.
+          </div>
         {/if}
 
         <!-- Action buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
-          <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor</button>
-          <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button>
-          <button class="menu-button-primary text-xs px-2.5 py-1.5" onclick={renderDetailPreview} disabled={detailSaving}>
+          <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}
+            ><span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor</button
+          >
+          <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}
+            ><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button
+          >
+          <button
+            class="menu-button-primary text-xs px-2.5 py-1.5"
+            onclick={renderDetailPreview}
+            disabled={detailSaving}
+          >
             {detailItem.imageType === "3d" ? "Generate 2D Preview" : "Generate 3D Preview"}
           </button>
         </div>
@@ -579,11 +630,17 @@
         <!-- ZONE A: Editable Metadata (Designer + Source) -->
         <!-- ============================================ -->
         <div class="route-card space-y-2">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Designer & Source</h3>
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Designer & Source
+          </h3>
           <div class="grid sm:grid-cols-2 gap-2.5">
             <label class="block text-sm">
               <span class="block mb-0.5 font-medium text-gray-600 text-xs">Designer</span>
-              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailDesignerId} onchange={handleDesignerChange}>
+              <select
+                class="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                bind:value={detailDesignerId}
+                onchange={handleDesignerChange}
+              >
                 <option value="">None</option>
                 {#each detailItem.designers || [] as designer}
                   <option value={String(designer.id)}>{designer.name}</option>
@@ -592,7 +649,11 @@
             </label>
             <label class="block text-sm">
               <span class="block mb-0.5 font-medium text-gray-600 text-xs">Source</span>
-              <select class="w-full border rounded px-2 py-1.5 text-sm bg-white" bind:value={detailSourceId} onchange={handleSourceChange}>
+              <select
+                class="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                bind:value={detailSourceId}
+                onchange={handleSourceChange}
+              >
                 <option value="">None</option>
                 {#each detailItem.sources || [] as source}
                   <option value={String(source.id)}>{source.name}</option>
@@ -607,7 +668,9 @@
         <!-- ============================================ -->
         <div class="route-card space-y-1.5">
           <div class="flex items-center justify-between gap-2">
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Technical Data</h3>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Technical Data
+            </h3>
             <button
               class="menu-button-primary text-xs px-2.5 py-1"
               onclick={recalculateFromFile}
@@ -629,15 +692,17 @@
         <!-- ZONE C: Rating & Status (interactive)        -->
         <!-- ============================================ -->
         <div class="route-card flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <h3 class="w-full text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Rating & Status</h3>
+          <h3 class="w-full text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+            Rating & Status
+          </h3>
           <!-- 5 Interactive Stars -->
           <div class="flex items-center gap-0.5" role="radiogroup" aria-label="Rating">
             {#each [1, 2, 3, 4, 5] as score}
               <button
                 class="text-lg leading-none px-0.5 transition-colors duration-100
                   {score <= effectiveRating
-                    ? 'text-indigo-600'
-                    : 'text-gray-300 hover:text-indigo-400'}"
+                  ? 'text-indigo-600'
+                  : 'text-gray-300 hover:text-indigo-400'}"
                 onclick={() => handleStarClick(score)}
                 onmouseenter={() => onStarMouseEnter(score)}
                 onmouseleave={onStarMouseLeave}
@@ -645,13 +710,17 @@
                 onblur={onStarBlur}
                 disabled={detailSaving}
                 aria-label="{score} star{score !== 1 ? 's' : ''}"
-                title="{score} star{score !== 1 ? 's' : ''}"
-              >★</button>
+                title="{score} star{score !== 1 ? 's' : ''}">★</button
+              >
             {/each}
           </div>
 
           <!-- Rating badge -->
-          <span class="text-xs font-medium whitespace-nowrap {detailItem.rating ? 'text-indigo-700' : 'text-gray-400'}">
+          <span
+            class="text-xs font-medium whitespace-nowrap {detailItem.rating
+              ? 'text-indigo-700'
+              : 'text-gray-400'}"
+          >
             {#if detailItem.rating}
               Rating: ★ {detailItem.rating} / 5
             {:else}
@@ -664,8 +733,8 @@
             <button
               class="text-xs text-red-400 hover:text-red-600 hover:underline font-medium"
               onclick={() => submitDetailRating(null)}
-              disabled={detailSaving}
-            >Clear</button>
+              disabled={detailSaving}>Clear</button
+            >
           {/if}
 
           <!-- Divider -->
@@ -678,7 +747,7 @@
               : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400'}"
             onclick={toggleDetailStitched}
             disabled={detailSaving}
-            title={detailItem.isStitched ? 'Mark as not stitched' : 'Mark as stitched'}
+            title={detailItem.isStitched ? "Mark as not stitched" : "Mark as stitched"}
           >
             {#if detailItem.isStitched}
               <span aria-hidden="true">&#10003;</span> Stitched
@@ -695,7 +764,9 @@
                 : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
               onclick={toggleImageTagsVerified}
               disabled={detailSaving}
-              title={detailItem.imageTagsVerified ? 'Mark image tags as unverified' : 'Mark image tags as verified'}
+              title={detailItem.imageTagsVerified
+                ? "Mark image tags as unverified"
+                : "Mark image tags as verified"}
             >
               {#if detailItem.imageTagsVerified}
                 <span aria-hidden="true">&#10003;</span> Image Verified
@@ -713,7 +784,9 @@
                 : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
               onclick={toggleStitchingTagsVerified}
               disabled={detailSaving}
-              title={detailItem.stitchingTagsVerified ? 'Mark stitching tags as unverified' : 'Mark stitching tags as verified'}
+              title={detailItem.stitchingTagsVerified
+                ? "Mark stitching tags as unverified"
+                : "Mark stitching tags as verified"}
             >
               {#if detailItem.stitchingTagsVerified}
                 <span aria-hidden="true">&#10003;</span> Stitching Verified
@@ -730,21 +803,32 @@
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.tags as tag}
-                <span class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium {tag.tag_group === "stitching" ? "bg-blue-100 text-blue-700" : tag.tag_group === "image" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}">
+                <span
+                  class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium {tag.tag_group ===
+                  'stitching'
+                    ? 'bg-blue-100 text-blue-700'
+                    : tag.tag_group === 'image'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-700'}"
+                >
                   {tag.description}
                   <button
                     class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-red-600 rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
                     onclick={(e) => handleRemoveTag(tag.id, e)}
                     disabled={detailSaving}
-                    title="Remove tag"
-                  >&times;</button>
+                    title="Remove tag">&times;</button
+                  >
                 </span>
               {/each}
             </div>
           {:else}
             <p class="text-xs text-gray-400 italic">No tags assigned.</p>
           {/if}
-          <button class="menu-button-primary text-xs px-2.5 py-1" onclick={openDetailTagModal} disabled={detailSaving}>Choose tags...</button>
+          <button
+            class="menu-button-primary text-xs px-2.5 py-1"
+            onclick={openDetailTagModal}
+            disabled={detailSaving}>Choose tags...</button
+          >
         </div>
 
         <!-- Notes -->
@@ -757,7 +841,11 @@
             placeholder="Add notes about this design..."
           ></textarea>
           <div class="flex justify-end">
-            <button class="menu-button-primary text-xs px-2.5 py-1" onclick={saveDetailMetadata} disabled={detailSaving || detailNotes === (detailItem?.notes ?? "")}>
+            <button
+              class="menu-button-primary text-xs px-2.5 py-1"
+              onclick={saveDetailMetadata}
+              disabled={detailSaving || detailNotes === (detailItem?.notes ?? "")}
+            >
               {detailSaving ? "Saving..." : "Save Notes"}
             </button>
           </div>
@@ -770,15 +858,17 @@
           {#if Array.isArray(detailItem.projects) && detailItem.projects.length > 0}
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.projects as project}
-                <span class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                <span
+                  class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700"
+                >
                   <span aria-hidden="true">&#128193;</span>
                   {project.name}
                   <button
                     class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-red-600 rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
                     onclick={() => removeDetailFromProject(project.id)}
                     disabled={detailSaving}
-                    title="Remove from project"
-                  >&times;</button>
+                    title="Remove from project">&times;</button
+                  >
                 </span>
               {/each}
             </div>
@@ -788,13 +878,21 @@
 
           {#if Array.isArray(detailItem.availableProjects) && detailItem.availableProjects.length > 0}
             <div class="flex gap-2 pt-0.5">
-              <select class="flex-1 border rounded px-2.5 py-1.5 text-sm bg-white" bind:value={detailProjectToAdd} disabled={detailSaving}>
+              <select
+                class="flex-1 border rounded px-2.5 py-1.5 text-sm bg-white"
+                bind:value={detailProjectToAdd}
+                disabled={detailSaving}
+              >
                 <option value="">-- Select project to add --</option>
                 {#each detailItem.availableProjects as project}
                   <option value={String(project.id)}>{project.name}</option>
                 {/each}
               </select>
-              <button class="menu-button-primary text-xs px-2.5 py-1" onclick={addSelectedDetailProject} disabled={detailSaving || !detailProjectToAdd}>
+              <button
+                class="menu-button-primary text-xs px-2.5 py-1"
+                onclick={addSelectedDetailProject}
+                disabled={detailSaving || !detailProjectToAdd}
+              >
                 Add
               </button>
             </div>
@@ -803,7 +901,11 @@
 
         <!-- Delete -->
         <div class="flex justify-end pt-0.5 pb-2">
-          <button class="menu-button-secondary text-red-500 border-red-200 hover:bg-red-50 text-xs px-2.5 py-1.5" onclick={openDeleteModal} disabled={detailSaving}>Delete design</button>
+          <button
+            class="menu-button-secondary text-red-500 border-red-200 hover:bg-red-50 text-xs px-2.5 py-1.5"
+            onclick={openDeleteModal}
+            disabled={detailSaving}>Delete design</button
+          >
         </div>
       </div>
     </div>
@@ -813,12 +915,16 @@
 <!-- Shared Delete Modal -->
 <DeleteDesignsModal
   designIds={detailItem?.id != null ? [detailItem.id] : []}
-  previewItems={detailItem ? [{
-    id: detailItem.id,
-    filename: detailItem.filename ?? '',
-    filepath: detailItem.filepath ?? '',
-    dataUrl: detailItem.imageDataUrl ?? null,
-  }] : []}
+  previewItems={detailItem
+    ? [
+        {
+          id: detailItem.id,
+          filename: detailItem.filename ?? "",
+          filepath: detailItem.filepath ?? "",
+          dataUrl: detailItem.imageDataUrl ?? null,
+        },
+      ]
+    : []}
   open={detailDeleteModalOpen}
   onClose={closeDeleteModal}
   onDeleted={handleDetailDeleteResult}

@@ -93,7 +93,6 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
 }));
 
-
 // Make the mocked invoke reject once so the adapter handles the failure
 // through the same promise-rejection path it uses for unavailable commands.
 function mockReject(error: Error) {
@@ -1216,7 +1215,12 @@ describe("commandAdapter tags & previews", () => {
     const result = await getBrowseTags();
 
     expect(result.source).toBe("rust");
-    expect(result.items[0]).toEqual({ id: 1, description: "Floral", tag_group: "Theme", is_system: true });
+    expect(result.items[0]).toEqual({
+      id: 1,
+      description: "Floral",
+      tag_group: "Theme",
+      is_system: true,
+    });
     expect(result.items[1].tag_group).toBeNull();
   });
 
@@ -1243,7 +1247,12 @@ describe("commandAdapter tags & previews", () => {
   it("bulkSetTagsForDesigns returns mock zero-result for empty design ids", async () => {
     const result = await bulkSetTagsForDesigns([], [1]);
 
-    expect(result).toEqual({ source: "mock", requested_count: 0, updated_count: 0, persisted: false });
+    expect(result).toEqual({
+      source: "mock",
+      requested_count: 0,
+      updated_count: 0,
+      persisted: false,
+    });
   });
 
   it("bulkSetTagsForDesigns sends snake_case request fields for the Rust struct", async () => {
@@ -1356,7 +1365,13 @@ describe("commandAdapter about documents", () => {
 
   it("getAboutDocuments maps Rust docs", async () => {
     invokeMock.mockResolvedValue([
-      { slug: "privacy", title: "Privacy", description: "desc", filename: "PRIVACY.html", available: true },
+      {
+        slug: "privacy",
+        title: "Privacy",
+        description: "desc",
+        filename: "PRIVACY.html",
+        available: true,
+      },
     ]);
 
     const result = await getAboutDocuments();
@@ -1463,7 +1478,16 @@ describe("commandAdapter settings", () => {
   it("saveSettings maps Rust saved result", async () => {
     invokeMock.mockResolvedValue({ saved: true, message: "Saved." });
 
-    const request = { google_api_key: "k", ai_tier2_auto: true, ai_tier3_auto: false, ai_batch_size: "1", ai_delay: "2", import_commit_batch_size: "3", data_root: "C:/x", preview_3d_profile: "balanced" };
+    const request = {
+      google_api_key: "k",
+      ai_tier2_auto: true,
+      ai_tier3_auto: false,
+      ai_batch_size: "1",
+      ai_delay: "2",
+      import_commit_batch_size: "3",
+      data_root: "C:/x",
+      preview_3d_profile: "balanced",
+    };
     const result = await saveSettings(request);
 
     expect(invokeMock).toHaveBeenCalledWith("save_settings_view_model", { request });
@@ -1478,7 +1502,15 @@ describe("commandAdapter settings", () => {
   it("saveSettings falls back to mock on error", async () => {
     mockReject(new Error("save failed"));
 
-    const request = { google_api_key: "k", ai_tier2_auto: true, ai_tier3_auto: false, ai_batch_size: "1", ai_delay: "2", import_commit_batch_size: "3", data_root: "C:/x" };
+    const request = {
+      google_api_key: "k",
+      ai_tier2_auto: true,
+      ai_tier3_auto: false,
+      ai_batch_size: "1",
+      ai_delay: "2",
+      import_commit_batch_size: "3",
+      data_root: "C:/x",
+    };
     const result = await saveSettings(request);
 
     expect(result.source).toBe("mock");
@@ -1847,7 +1879,10 @@ describe("commandAdapter backups", () => {
       designs_destination: "C:/des",
     });
 
-    const result = await saveBackupSettings({ dbDestination: "C:/db", designsDestination: "C:/des" });
+    const result = await saveBackupSettings({
+      dbDestination: "C:/db",
+      designsDestination: "C:/des",
+    });
 
     expect(invokeMock).toHaveBeenCalledWith("save_backup_settings", {
       request: { db_destination: "C:/db", designs_destination: "C:/des" },
@@ -1861,7 +1896,10 @@ describe("commandAdapter backups", () => {
   it("saveBackupSettings falls back to mock on error", async () => {
     mockReject(new Error("save backup failed"));
 
-    const result = await saveBackupSettings({ dbDestination: "C:/db", designsDestination: "C:/des" });
+    const result = await saveBackupSettings({
+      dbDestination: "C:/db",
+      designsDestination: "C:/des",
+    });
 
     expect(result.source).toBe("mock");
     expect(result.saved).toBe(false);
@@ -1939,7 +1977,17 @@ describe("commandAdapter backups", () => {
   it("runBothBackups maps database and designs results", async () => {
     invokeMock.mockResolvedValue({
       database: { success: true, backup_path: "C:/db", size_bytes: 1, completed_at: "", error: "" },
-      designs: { success: true, scanned: 1, copied: 1, updated: 0, unchanged: 0, archived: 0, total_bytes_copied: 1, completed_at: "", error: "" },
+      designs: {
+        success: true,
+        scanned: 1,
+        copied: 1,
+        updated: 0,
+        unchanged: 0,
+        archived: 0,
+        total_bytes_copied: 1,
+        completed_at: "",
+        error: "",
+      },
     });
 
     const result = await runBothBackups();
@@ -2156,7 +2204,9 @@ describe("commandAdapter admin designers", () => {
 
     const result = await createDesigner("Amazing Designs");
 
-    expect(invokeMock).toHaveBeenCalledWith("create_designer", { request: { name: "Amazing Designs" } });
+    expect(invokeMock).toHaveBeenCalledWith("create_designer", {
+      request: { name: "Amazing Designs" },
+    });
     expect(result.source).toBe("rust");
     expect(result.persisted).toBe(true);
     expect(result.item).toEqual(summary);
@@ -2271,7 +2321,13 @@ describe("commandAdapter admin sources", () => {
 describe("commandAdapter admin tags", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  const summary = { id: 1, description: "Floral", tag_group: "Theme", design_count: 3, is_system: false };
+  const summary = {
+    id: 1,
+    description: "Floral",
+    tag_group: "Theme",
+    design_count: 3,
+    is_system: false,
+  };
 
   it("listTags returns Rust items and a mock fallback", async () => {
     invokeMock.mockResolvedValue([summary]);
@@ -2360,7 +2416,13 @@ describe("commandAdapter admin tags", () => {
 describe("commandAdapter admin hoops", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  const summary = { id: 1, name: "4x4 hoop", max_width_mm: 100, max_height_mm: 100, design_count: 0 };
+  const summary = {
+    id: 1,
+    name: "4x4 hoop",
+    max_width_mm: 100,
+    max_height_mm: 100,
+    design_count: 0,
+  };
 
   it("listHoops returns Rust items and a mock fallback", async () => {
     invokeMock.mockResolvedValue([summary]);
@@ -2442,7 +2504,10 @@ describe("commandAdapter runStitchingBackfill additional cases", () => {
       actions: ["stitching", "color_counts"],
     });
 
-    const result = await runStitchingBackfill({ clear_stitching_mode: "unverified", batch_size: 10 });
+    const result = await runStitchingBackfill({
+      clear_stitching_mode: "unverified",
+      batch_size: 10,
+    });
 
     expect(result.source).toBe("rust");
     expect(result.processed).toBe(7);

@@ -8,7 +8,13 @@
   } = $props();
 </script>
 
-<div data-testid="selection-header-mock" data-total-filtered={String(totalFilteredCount)} data-selected-count={String(selectedCountOnPage)} data-total-count={String(totalCountOnPage)} data-all-selected={String(isAllSelectedOnPage)}>
+<div
+  data-testid="selection-header-mock"
+  data-total-filtered={String(totalFilteredCount)}
+  data-selected-count={String(selectedCountOnPage)}
+  data-total-count={String(totalCountOnPage)}
+  data-all-selected={String(isAllSelectedOnPage)}
+>
   <span data-testid="selection-total-count">{totalFilteredCount} designs found</span>
   <label>
     <input

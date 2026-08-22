@@ -47,9 +47,7 @@ describe("TagsView", () => {
   it("renders the Manage Tags page title", async () => {
     render(TagsView);
 
-    expect(
-      await screen.findByRole("heading", { name: "Manage Tags" })
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Manage Tags" })).toBeInTheDocument();
   });
 
   it("renders image and stitching tag sections with group-split tags", async () => {
@@ -63,13 +61,9 @@ describe("TagsView", () => {
     render(TagsView);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Image Tags" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Image Tags" })).toBeInTheDocument();
     });
-    expect(
-      screen.getByRole("heading", { name: "Stitching Tags" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Stitching Tags" })).toBeInTheDocument();
 
     expect(screen.getByText("Floral")).toBeInTheDocument();
     expect(screen.getByText("Satin")).toBeInTheDocument();
@@ -87,14 +81,10 @@ describe("TagsView", () => {
     render(TagsView);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Image Tags" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Image Tags" })).toBeInTheDocument();
     });
 
-    expect(
-      screen.queryByRole("heading", { name: "Unclassified Tags" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Unclassified Tags" })).not.toBeInTheDocument();
     expect(screen.queryByText("Sparkle")).not.toBeInTheDocument();
   });
 
@@ -107,9 +97,7 @@ describe("TagsView", () => {
 
   it("shows used-by counts for each tag", async () => {
     adapterMocks.listTags.mockResolvedValue(
-      listResponse([
-        { id: 1, description: "Floral", tag_group: "image", design_count: 4 },
-      ])
+      listResponse([{ id: 1, description: "Floral", tag_group: "image", design_count: 4 }])
     );
 
     render(TagsView);
@@ -264,8 +252,20 @@ describe("TagsView", () => {
   it("locks edit/delete for system stitching tags with no badge", async () => {
     adapterMocks.listTags.mockResolvedValue(
       listResponse([
-        { id: 1, description: "Cross Stitch", tag_group: "stitching", design_count: 2, is_system: true },
-        { id: 2, description: "Custom Stitch", tag_group: "stitching", design_count: 0, is_system: false },
+        {
+          id: 1,
+          description: "Cross Stitch",
+          tag_group: "stitching",
+          design_count: 2,
+          is_system: true,
+        },
+        {
+          id: 2,
+          description: "Custom Stitch",
+          tag_group: "stitching",
+          design_count: 0,
+          is_system: false,
+        },
         { id: 3, description: "Floral", tag_group: "image", design_count: 1, is_system: false },
       ])
     );
@@ -289,15 +289,19 @@ describe("TagsView", () => {
     const crossStitchRow = screen.getByText("Cross Stitch").closest("tr");
     expect(crossStitchRow).not.toBeNull();
     expect(crossStitchRow!.querySelectorAll("button").length).toBe(0);
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 
   it("keeps full CRUD actions for image tags even when is_system is truthy", async () => {
     adapterMocks.listTags.mockResolvedValue(
       listResponse([
-        { id: 10, description: "Special Image", tag_group: "image", design_count: 0, is_system: true },
+        {
+          id: 10,
+          description: "Special Image",
+          tag_group: "image",
+          design_count: 0,
+          is_system: true,
+        },
       ])
     );
 
@@ -329,9 +333,7 @@ describe("TagsView", () => {
     fireEvent(imageDetails!, new Event("toggle", { bubbles: true }));
 
     await waitFor(() => {
-      expect(
-        window.localStorage.getItem("admin.tags.collapsible.image")
-      ).toBe("closed");
+      expect(window.localStorage.getItem("admin.tags.collapsible.image")).toBe("closed");
     });
   });
 

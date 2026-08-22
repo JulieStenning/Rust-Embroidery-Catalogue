@@ -4,10 +4,7 @@ import { render, screen, within } from "@testing-library/svelte";
 import AboutView from "../AboutView.svelte";
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
-function element<T extends Element>(
-  value: T | null | undefined,
-  message?: string
-): T {
+function element<T extends Element>(value: T | null | undefined, message?: string): T {
   if (!value) {
     throw new Error(message ?? "Expected element to exist.");
   }
@@ -19,9 +16,7 @@ describe("AboutView", () => {
     it("renders the app name, logo, and version", () => {
       render(AboutView);
 
-      expect(
-        screen.getByRole("heading", { name: "Embroidery Catalogue" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Embroidery Catalogue" })).toBeInTheDocument();
       expect(screen.getByText("Version v0.1.0")).toBeInTheDocument();
       expect(screen.getByText("🧵")).toBeInTheDocument();
     });
@@ -36,9 +31,7 @@ describe("AboutView", () => {
         document.querySelector("p.text-gray-700"),
         "Expected the app description paragraph."
       );
-      const normalized = (description.textContent ?? "")
-        .replace(/\s+/g, " ")
-        .trim();
+      const normalized = (description.textContent ?? "").replace(/\s+/g, " ").trim();
       expect(normalized).toContain(
         "Embroidery Catalogue is a local, desktop catalogue for browsing, tagging, and managing a collection of digital embroidery designs."
       );
@@ -87,7 +80,9 @@ describe("AboutView", () => {
       });
       const card = heading.closest("div");
       expect(card).not.toBeNull();
-      expect((card as HTMLElement).textContent).toContain("ported/derived into native Rust modules");
+      expect((card as HTMLElement).textContent).toContain(
+        "ported/derived into native Rust modules"
+      );
       expect((card as HTMLElement).textContent).toContain(".pes");
       expect((card as HTMLElement).textContent).toContain(".jef");
       expect((card as HTMLElement).textContent).toContain(".vp3");

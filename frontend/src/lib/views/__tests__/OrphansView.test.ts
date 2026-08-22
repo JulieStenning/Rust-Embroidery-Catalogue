@@ -328,9 +328,7 @@ describe("OrphansView delete selected orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Delete 2 selected record(s)? This cannot be undone."
-    );
+    expect(confirmSpy).toHaveBeenCalledWith("Delete 2 selected record(s)? This cannot be undone.");
     await waitFor(() => expect(adapterMocks.deleteOrphans).toHaveBeenCalledWith([1, 2]));
     expect(toastMocks.addToast).toHaveBeenCalledWith("2 record(s) deleted.", "success");
   });
@@ -533,9 +531,7 @@ describe("OrphansView disk scan", () => {
 // ---------------------------------------------------------------------------
 describe("OrphansView browse orphan path", () => {
   it("shows a success toast when the folder opens", async () => {
-    adapterMocks.browseOrphanPath.mockResolvedValue(
-      browseResponse({ opened: "C:\\Designs" })
-    );
+    adapterMocks.browseOrphanPath.mockResolvedValue(browseResponse({ opened: "C:\\Designs" }));
     render(OrphansView);
     await waitFor(() => expect(screen.getAllByText("Locate Folder")).toHaveLength(2));
 
@@ -628,9 +624,7 @@ describe("OrphansView pagination", () => {
     );
     render(OrphansView);
     await waitFor(() =>
-      expect(
-        screen.getByRole("navigation", { name: "Orphans pagination" })
-      ).toBeInTheDocument()
+      expect(screen.getByRole("navigation", { name: "Orphans pagination" })).toBeInTheDocument()
     );
     expect(screen.getByRole("button", { name: /First/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Next/ })).toBeInTheDocument();
@@ -671,9 +665,7 @@ describe("OrphansView pagination", () => {
     await fireEvent.click(screen.getByRole("button", { name: /Next/ }));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
 
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Prev/ })).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: /Prev/ })).toBeInTheDocument());
     await fireEvent.click(screen.getByRole("button", { name: /Prev/ }));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(3));
     expect(adapterMocks.getOrphansPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 });

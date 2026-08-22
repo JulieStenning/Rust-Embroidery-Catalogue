@@ -45,9 +45,9 @@ export async function initDbMaintenanceEvents(): Promise<UnlistenFn> {
     (event) => {
       console.info(
         `[db-maintenance] started — free ratio ${(event.payload.free_ratio * 100).toFixed(1)}%, ` +
-          `${event.payload.reclaimable_bytes} bytes reclaimable`,
+          `${event.payload.reclaimable_bytes} bytes reclaimable`
       );
-    },
+    }
   );
 
   const unlistenFinished = await listen<DbMaintenanceFinishedEvent>(
@@ -58,9 +58,9 @@ export async function initDbMaintenanceEvents(): Promise<UnlistenFn> {
         `Database optimisation complete — ${reclaimed_pages.toLocaleString()} pages reclaimed`,
         "success",
         false,
-        COMPLETION_TOAST_DURATION_MS,
+        COMPLETION_TOAST_DURATION_MS
       );
-    },
+    }
   );
 
   return () => {

@@ -56,13 +56,9 @@ describe("TaggingActionsView backfill log", () => {
   it("shows the empty log placeholder with a zero count", async () => {
     render(TaggingActionsView);
 
+    expect(await screen.findByText("Backfill log (0 entries)")).toBeInTheDocument();
     expect(
-      await screen.findByText("Backfill log (0 entries)")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "No log entries yet. Run an action to populate the log."
-      )
+      screen.getByText("No log entries yet. Run an action to populate the log.")
     ).toBeInTheDocument();
   });
 
@@ -77,9 +73,7 @@ describe("TaggingActionsView backfill log", () => {
     });
     render(TaggingActionsView);
 
-    expect(
-      await screen.findByText("Backfill log (3 entries)")
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Backfill log (3 entries)")).toBeInTheDocument();
     expect(screen.getByText("Backfill started")).toBeInTheDocument();
     expect(screen.getByText("Slow batch detected")).toBeInTheDocument();
     expect(screen.getByText("A design failed to parse")).toBeInTheDocument();
@@ -110,9 +104,7 @@ describe("TaggingActionsView backfill log", () => {
       "Expected the warn entry wrapper to exist."
     );
     const errorWrapper = element(
-      screen
-        .getByText("A design failed to parse")
-        .closest("div.text-red-600"),
+      screen.getByText("A design failed to parse").closest("div.text-red-600"),
       "Expected the error entry wrapper to exist."
     );
 
@@ -122,15 +114,11 @@ describe("TaggingActionsView backfill log", () => {
   });
 
   it("swallows log load failures and keeps the empty placeholder", async () => {
-    adapterMocks.getBackfillLogEntries.mockRejectedValue(
-      new Error("no log")
-    );
+    adapterMocks.getBackfillLogEntries.mockRejectedValue(new Error("no log"));
     render(TaggingActionsView);
 
     expect(
-      await screen.findByText(
-        "No log entries yet. Run an action to populate the log."
-      )
+      await screen.findByText("No log entries yet. Run an action to populate the log.")
     ).toBeInTheDocument();
     expect(screen.getByText("Backfill log (0 entries)")).toBeInTheDocument();
   });

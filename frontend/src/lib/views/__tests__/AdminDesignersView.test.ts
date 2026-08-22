@@ -45,10 +45,9 @@ function renderView(props: { embedded?: boolean } = {}) {
 
 /** Helper to type in the "Add new designer" input and submit the form. */
 async function fillAddForm(name: string) {
-  await fireEvent.input(
-    screen.getByPlaceholderText("New designer name..."),
-    { target: { value: name } }
-  );
+  await fireEvent.input(screen.getByPlaceholderText("New designer name..."), {
+    target: { value: name },
+  });
   const form = document.querySelector("form");
   if (!form) throw new Error("Add designer form not found");
   await fireEvent.submit(form);
@@ -95,9 +94,7 @@ describe("AdminDesignersView.svelte", () => {
   });
 
   it("shows a toast when listDesigners rejects", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     listDesignersMock.mockRejectedValue(new Error("db locked"));
 
     renderView();
@@ -162,10 +159,7 @@ describe("AdminDesignersView.svelte", () => {
     await fillAddForm("Boutique Stitch");
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not add designer: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not add designer: boom", "error");
     });
   });
 
@@ -181,10 +175,7 @@ describe("AdminDesignersView.svelte", () => {
     await fillAddForm("Boutique Stitch");
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not add designer: Unknown error",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not add designer: Unknown error", "error");
     });
   });
 
@@ -327,9 +318,7 @@ describe("AdminDesignersView.svelte", () => {
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     await tick();
 
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("Stitch Studio")).toBeInTheDocument();
   });
 
@@ -375,10 +364,7 @@ describe("AdminDesignersView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Enter a designer name.",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Enter a designer name.", "error");
     });
     expect(updateDesignerMock).not.toHaveBeenCalled();
   });
@@ -397,10 +383,7 @@ describe("AdminDesignersView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not update designer: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not update designer: boom", "error");
     });
   });
 
@@ -444,9 +427,7 @@ describe("AdminDesignersView.svelte", () => {
         "This designer is currently used by 2 design(s). If you delete it, those designs will no longer have a designer assigned."
       )
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Confirm delete" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
   });
 
   it("shows the 'confirm delete' toast for a designer with no designs", async () => {
@@ -480,9 +461,7 @@ describe("AdminDesignersView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await tick();
 
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(3);
   });
 
@@ -503,9 +482,7 @@ describe("AdminDesignersView.svelte", () => {
       expect(deleteDesignerMock).toHaveBeenCalledWith(1);
     });
     expect(addToastMock).toHaveBeenCalledWith("Designer deleted.", "success");
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 
   it("shows an error toast when deleteDesigner is not persisted", async () => {
@@ -522,10 +499,7 @@ describe("AdminDesignersView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not delete designer: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not delete designer: boom", "error");
     });
   });
 

@@ -92,9 +92,7 @@ describe("TagSelectionModal", () => {
       renderModal({ designId: 42, allTags: sampleTags, open: true });
 
       expect(screen.getByText("Design #42")).toBeInTheDocument();
-      expect(
-        screen.getByPlaceholderText("🔍 Search or create tag...")
-      ).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("🔍 Search or create tag...")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     });
 
@@ -118,16 +116,12 @@ describe("TagSelectionModal", () => {
       renderModal({ designId: 1, allTags: sampleTags, open: true });
 
       for (const tag of sampleTags) {
-        expect(
-          screen.getByRole("checkbox", { name: tag.description })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("checkbox", { name: tag.description })).toBeInTheDocument();
       }
     });
 
     it("only renders sections that contain tags", async () => {
-      const stitchingOnly = sampleTags.filter(
-        (t) => t.tag_group === "stitching"
-      );
+      const stitchingOnly = sampleTags.filter((t) => t.tag_group === "stitching");
       renderModal({ designId: 1, allTags: stitchingOnly, open: true });
 
       expect(screen.getByText("Stitching tags")).toBeInTheDocument();
@@ -153,9 +147,7 @@ describe("TagSelectionModal", () => {
 
       expect(screen.getByRole("checkbox", { name: "Floral" })).toBeChecked();
       expect(screen.getByRole("checkbox", { name: "Animals" })).toBeChecked();
-      expect(
-        screen.getByRole("checkbox", { name: "Satin Stitch" })
-      ).not.toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Satin Stitch" })).not.toBeChecked();
     });
 
     it("tolerates a non-array allTags prop", async () => {
@@ -183,11 +175,10 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Animals" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(
-          5,
-          [10, 13],
-          { imageTagsVerified: true, stitchingTagsVerified: true }
-        );
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [10, 13], {
+          imageTagsVerified: true,
+          stitchingTagsVerified: true,
+        });
       });
     });
 
@@ -202,11 +193,10 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Animals" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(
-          5,
-          [10],
-          { imageTagsVerified: true, stitchingTagsVerified: true }
-        );
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [10], {
+          imageTagsVerified: true,
+          stitchingTagsVerified: true,
+        });
       });
     });
 
@@ -221,11 +211,10 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Floral" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(
-          5,
-          [],
-          { imageTagsVerified: true, stitchingTagsVerified: true }
-        );
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [], {
+          imageTagsVerified: true,
+          stitchingTagsVerified: true,
+        });
       });
     });
 
@@ -233,19 +222,16 @@ describe("TagSelectionModal", () => {
       renderModal({ designId: 5, allTags: sampleTags, open: true });
 
       await fireEvent.click(screen.getByRole("checkbox", { name: "Floral" }));
-      await fireEvent.click(
-        screen.getByRole("checkbox", { name: "Satin Stitch" })
-      );
+      await fireEvent.click(screen.getByRole("checkbox", { name: "Satin Stitch" }));
       await fireEvent.click(screen.getByRole("checkbox", { name: "Applique" }));
 
       await waitFor(() => {
         expect(mockedSetDesignTags).toHaveBeenCalledTimes(1);
       });
-      expect(mockedSetDesignTags).toHaveBeenCalledWith(
-        5,
-        [10, 11, 14],
-        { imageTagsVerified: true, stitchingTagsVerified: true }
-      );
+      expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [10, 11, 14], {
+        imageTagsVerified: true,
+        stitchingTagsVerified: true,
+      });
     });
 
     it("shows the saving state while persistence is in flight", async () => {
@@ -256,9 +242,7 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Floral" }));
 
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Saving..." })
-        ).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
       });
       expect(screen.getAllByText("Saving...").length).toBeGreaterThan(0);
 
@@ -285,11 +269,10 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
       await waitFor(() => {
-        expect(mockedSetDesignTags).toHaveBeenCalledWith(
-          5,
-          [12],
-          { imageTagsVerified: true, stitchingTagsVerified: true }
-        );
+        expect(mockedSetDesignTags).toHaveBeenCalledWith(5, [12], {
+          imageTagsVerified: true,
+          stitchingTagsVerified: true,
+        });
       });
       await waitFor(() => {
         expect(onClose).toHaveBeenCalledTimes(1);
@@ -329,9 +312,7 @@ describe("TagSelectionModal", () => {
       await waitFor(() => {
         expect(screen.getByRole("checkbox", { name: "Animals" })).toBeInTheDocument();
       });
-      expect(
-        screen.queryByRole("checkbox", { name: "Floral" })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: "Floral" })).not.toBeInTheDocument();
     });
 
     it("keeps grouped sections intact while filtering", async () => {
@@ -344,9 +325,7 @@ describe("TagSelectionModal", () => {
         expect(screen.getByRole("checkbox", { name: "Applique" })).toBeInTheDocument();
       });
       expect(screen.getByText("Stitching tags")).toBeInTheDocument();
-      expect(
-        screen.queryByRole("checkbox", { name: "Floral" })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: "Floral" })).not.toBeInTheDocument();
     });
 
     it("hides the create button when the query exactly matches a tag", async () => {
@@ -358,9 +337,7 @@ describe("TagSelectionModal", () => {
       await waitFor(() => {
         expect(screen.getByRole("checkbox", { name: "Floral" })).toBeInTheDocument();
       });
-      expect(
-        screen.queryByRole("button", { name: /Create "Floral"/ })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Create "Floral"/ })).not.toBeInTheDocument();
     });
 
     it("shows the create button for a non-matching query and hides the empty message", async () => {
@@ -370,14 +347,10 @@ describe("TagSelectionModal", () => {
       await fireEvent.input(input, { target: { value: "zzz" } });
 
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "zzz"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "zzz"/ })).toBeInTheDocument();
       });
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-      expect(
-        screen.queryByText("No matching tags found.")
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("No matching tags found.")).not.toBeInTheDocument();
     });
   });
 
@@ -396,15 +369,11 @@ describe("TagSelectionModal", () => {
 
       await fireEvent.input(input, { target: { value: "Zebra" } });
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "Zebra"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "Zebra"/ })).toBeInTheDocument();
       });
       expect(screen.getByRole("combobox")).toHaveValue("image");
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: /Create "Zebra"/ })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: /Create "Zebra"/ }));
 
       await waitFor(() => {
         expect(mockedCreateTag).toHaveBeenCalledWith("Zebra", "image");
@@ -417,9 +386,7 @@ describe("TagSelectionModal", () => {
 
       await fireEvent.input(input, { target: { value: "Zebra" } });
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "Zebra"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "Zebra"/ })).toBeInTheDocument();
       });
 
       await fireEvent.change(screen.getByRole("combobox"), {
@@ -427,9 +394,7 @@ describe("TagSelectionModal", () => {
       });
       expect(screen.getByRole("combobox")).toHaveValue("stitching");
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: /Create "Zebra"/ })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: /Create "Zebra"/ }));
 
       await waitFor(() => {
         expect(mockedCreateTag).toHaveBeenCalledWith("Zebra", "stitching");
@@ -442,26 +407,18 @@ describe("TagSelectionModal", () => {
 
       await fireEvent.input(input, { target: { value: "Zebra" } });
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "Zebra"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "Zebra"/ })).toBeInTheDocument();
       });
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: /Create "Zebra"/ })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: /Create "Zebra"/ }));
 
       await waitFor(() => {
         const zebra = screen.getByRole("checkbox", { name: "Zebra" });
         expect(zebra).toBeInTheDocument();
         expect(zebra).toBeChecked();
       });
-      expect(
-        screen.getByPlaceholderText("🔍 Search or create tag...")
-      ).toHaveValue("");
-      expect(
-        screen.queryByRole("button", { name: /Create/ })
-      ).not.toBeInTheDocument();
+      expect(screen.getByPlaceholderText("🔍 Search or create tag...")).toHaveValue("");
+      expect(screen.queryByRole("button", { name: /Create/ })).not.toBeInTheDocument();
     });
 
     it("creates a tag when Enter is pressed in the search box", async () => {
@@ -470,9 +427,7 @@ describe("TagSelectionModal", () => {
 
       await fireEvent.input(input, { target: { value: "Zebra" } });
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "Zebra"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "Zebra"/ })).toBeInTheDocument();
       });
 
       await fireEvent.keyDown(input, { key: "Enter" });
@@ -495,19 +450,13 @@ describe("TagSelectionModal", () => {
 
       await fireEvent.input(input, { target: { value: "Zebra" } });
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "Zebra"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "Zebra"/ })).toBeInTheDocument();
       });
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: /Create "Zebra"/ })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: /Create "Zebra"/ }));
 
       await waitFor(() => {
-        expect(
-          screen.getByText("Could not create tag: duplicate tag")
-        ).toBeInTheDocument();
+        expect(screen.getByText("Could not create tag: duplicate tag")).toBeInTheDocument();
       });
     });
 
@@ -518,14 +467,10 @@ describe("TagSelectionModal", () => {
 
       await fireEvent.input(input, { target: { value: "Zebra" } });
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Create "Zebra"/ })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create "Zebra"/ })).toBeInTheDocument();
       });
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: /Create "Zebra"/ })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: /Create "Zebra"/ }));
 
       await waitFor(() => {
         expect(
@@ -585,9 +530,7 @@ describe("TagSelectionModal", () => {
       await fireEvent.click(screen.getByRole("checkbox", { name: "Floral" }));
 
       await waitFor(() => {
-        expect(
-          screen.getByText("Auto-save error: Error: network down")
-        ).toBeInTheDocument();
+        expect(screen.getByText("Auto-save error: Error: network down")).toBeInTheDocument();
       });
     });
   });

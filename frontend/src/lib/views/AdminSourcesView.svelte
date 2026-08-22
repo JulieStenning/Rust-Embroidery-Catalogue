@@ -44,7 +44,11 @@
     try {
       const result = await listSources();
       const items = getResponseItems(result);
-      sources = items.map((s) => ({ id: Number(s.id), name: String(s.name || ""), designCount: Number(s.design_count || 0) }));
+      sources = items.map((s) => ({
+        id: Number(s.id),
+        name: String(s.name || ""),
+        designCount: Number(s.design_count || 0),
+      }));
     } catch (e) {
       addToast(`Failed to load sources: ${e}`, "error");
     } finally {
@@ -107,7 +111,10 @@
     cancelEditSource();
     pendingDeleteSourceId = Number(source.id);
     if (Number(source.designCount) > 0) {
-      addToast(`Deleting '${source.name}' will clear assignment from ${source.designCount} design(s).`, "info");
+      addToast(
+        `Deleting '${source.name}' will clear assignment from ${source.designCount} design(s).`,
+        "info"
+      );
       return;
     }
     addToast(`Delete '${source.name}'? Click confirm delete to continue.`, "info");
@@ -139,7 +146,9 @@
 </script>
 
 {#if !embedded}
-  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Sources</h1>
+  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">
+    Manage Sources
+  </h1>
   <p class="text-sm text-gray-500">
     Sources describe where your designs came from, such as Purchased, Downloaded, or Gift.
   </p>
@@ -156,7 +165,12 @@
       class="admin-input flex-1 border rounded px-3 py-2 text-sm"
     />
     <button type="submit" class="menu-button-primary text-sm" disabled={!canAddSource}>Add</button>
-    <button type="button" class="menu-button-secondary text-sm" onclick={clearNewSourceForm} disabled={!canClearSourceForm}>Clear</button>
+    <button
+      type="button"
+      class="menu-button-secondary text-sm"
+      onclick={clearNewSourceForm}
+      disabled={!canClearSourceForm}>Clear</button
+    >
   </form>
 </div>
 
@@ -192,24 +206,48 @@
             <td class="px-4 py-2 text-right">
               <div class="flex justify-end gap-2.5 flex-wrap">
                 {#if editingSourceId === source.id}
-                  <button type="button" class="text-indigo-650 hover:underline text-xs font-semibold" onclick={() => saveSourceEdit(source.id)}>
+                  <button
+                    type="button"
+                    class="text-indigo-650 hover:underline text-xs font-semibold"
+                    onclick={() => saveSourceEdit(source.id)}
+                  >
                     Save
                   </button>
-                  <button type="button" class="text-gray-500 hover:underline text-xs font-semibold" onclick={cancelEditSource}>
+                  <button
+                    type="button"
+                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    onclick={cancelEditSource}
+                  >
                     Cancel
                   </button>
                 {:else if pendingDeleteSourceId === source.id}
-                  <button type="button" class="text-red-600 hover:underline text-xs font-bold" onclick={() => deleteSource(source.id)}>
+                  <button
+                    type="button"
+                    class="text-red-600 hover:underline text-xs font-bold"
+                    onclick={() => deleteSource(source.id)}
+                  >
                     Confirm delete
                   </button>
-                  <button type="button" class="text-gray-500 hover:underline text-xs font-semibold" onclick={cancelDeleteSource}>
+                  <button
+                    type="button"
+                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    onclick={cancelDeleteSource}
+                  >
                     Cancel
                   </button>
                 {:else}
-                  <button type="button" class="text-indigo-655 hover:underline text-xs font-semibold" onclick={() => beginEditSource(source)}>
+                  <button
+                    type="button"
+                    class="text-indigo-655 hover:underline text-xs font-semibold"
+                    onclick={() => beginEditSource(source)}
+                  >
                     Edit
                   </button>
-                  <button type="button" class="text-red-400 hover:underline text-xs font-semibold" onclick={() => requestDeleteSource(source)}>
+                  <button
+                    type="button"
+                    class="text-red-400 hover:underline text-xs font-semibold"
+                    onclick={() => requestDeleteSource(source)}
+                  >
                     Delete
                   </button>
                 {/if}
@@ -220,7 +258,8 @@
             <tr class="bg-amber-50">
               <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
                 {#if source.designCount > 0}
-                  This source is currently used by {source.designCount} design(s). If you delete it, those designs will no longer have a source assigned.
+                  This source is currently used by {source.designCount} design(s). If you delete it, those
+                  designs will no longer have a source assigned.
                 {:else}
                   Confirm deletion for this source.
                 {/if}

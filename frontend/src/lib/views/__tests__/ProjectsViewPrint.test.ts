@@ -52,7 +52,13 @@ const printResponse = (overrides: Record<string, unknown> = {}) => ({
 
 function renderProjects(props: Record<string, unknown> = {}) {
   return render(ProjectsView, {
-    props: { currentUiKind: "project-print", projectDetailId: null, projectPrintId: 1, navigateTo: () => {}, ...props },
+    props: {
+      currentUiKind: "project-print",
+      projectDetailId: null,
+      projectPrintId: 1,
+      navigateTo: () => {},
+      ...props,
+    },
   });
 }
 
@@ -60,7 +66,11 @@ describe("ProjectsView print view", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     adapterMock.getProjectsList.mockResolvedValue({ source: "rust", items: [], error: undefined });
-    adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item: null, error: undefined });
+    adapterMock.getProjectDetail.mockResolvedValue({
+      source: "rust",
+      item: null,
+      error: undefined,
+    });
     adapterMock.getProjectPrintView.mockResolvedValue(printResponse());
   });
 
@@ -74,12 +84,18 @@ describe("ProjectsView print view", () => {
   it("renders an error message when getProjectPrintView rejects", async () => {
     adapterMock.getProjectPrintView.mockRejectedValue(new Error("network down"));
     renderProjects();
-    await waitFor(() => expect(screen.getByText(/Could not load project print view: Error: network down/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Could not load project print view: Error: network down/)
+      ).toBeInTheDocument()
+    );
   });
 
   it("renders the project title, description and design print metadata", async () => {
     renderProjects();
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument()
+    );
 
     expect(screen.getByText("Bridesmaid gifts.")).toBeInTheDocument();
     expect(screen.getByText("rose-border.pes")).toBeInTheDocument();
@@ -92,7 +108,9 @@ describe("ProjectsView print view", () => {
   });
 
   it("clamps ratings above five to five stars", async () => {
-    adapterMock.getProjectPrintView.mockResolvedValue(printResponse({ designs: [{ ...printItem.designs[0], rating: 6 }] }));
+    adapterMock.getProjectPrintView.mockResolvedValue(
+      printResponse({ designs: [{ ...printItem.designs[0], rating: 6 }] })
+    );
     renderProjects();
     await waitFor(() => expect(screen.getByText("★★★★★")).toBeInTheDocument());
   });
@@ -100,14 +118,18 @@ describe("ProjectsView print view", () => {
   it("shows the empty message when the project has no designs", async () => {
     adapterMock.getProjectPrintView.mockResolvedValue(printResponse({ designs: [] }));
     renderProjects();
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument()
+    );
     expect(screen.getByText("No designs in this project yet.")).toBeInTheDocument();
   });
 
   it("navigates back when Back to Project is clicked", async () => {
     const navigateTo = vi.fn();
     renderProjects({ navigateTo });
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument()
+    );
     await fireEvent.click(screen.getByRole("button", { name: "Back to Project" }));
     expect(navigateTo).toHaveBeenCalledWith("#/projects/1");
   });
@@ -116,7 +138,9 @@ describe("ProjectsView print view", () => {
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
     try {
       renderProjects();
-      await waitFor(() => expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.getByRole("heading", { name: "Wedding Collection" })).toBeInTheDocument()
+      );
       await fireEvent.click(screen.getByRole("button", { name: "Print" }));
       expect(printSpy).toHaveBeenCalledTimes(1);
     } finally {

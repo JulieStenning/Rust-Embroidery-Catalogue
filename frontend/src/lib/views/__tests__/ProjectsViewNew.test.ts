@@ -31,7 +31,13 @@ const persistedCreate = {
 
 function renderProjects(props: Record<string, unknown> = {}) {
   return render(ProjectsView, {
-    props: { currentUiKind: "project-new", projectDetailId: null, projectPrintId: null, navigateTo: () => {}, ...props },
+    props: {
+      currentUiKind: "project-new",
+      projectDetailId: null,
+      projectPrintId: null,
+      navigateTo: () => {},
+      ...props,
+    },
   });
 }
 
@@ -84,7 +90,10 @@ describe("ProjectsView new project view", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Create Project" }));
 
     await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith("Could not create project: backend down", "error");
+      expect(toastMock.addToast).toHaveBeenCalledWith(
+        "Could not create project: backend down",
+        "error"
+      );
     });
     expect((nameInput as HTMLInputElement).value).toBe("Christ's");
     expect(navigateTo).not.toHaveBeenCalled();

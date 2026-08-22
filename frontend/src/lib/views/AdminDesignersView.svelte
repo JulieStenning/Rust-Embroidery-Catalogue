@@ -44,7 +44,11 @@
     try {
       const result = await listDesigners();
       const items = getResponseItems(result);
-      designers = items.map((d) => ({ id: Number(d.id), name: String(d.name || ""), designCount: Number(d.design_count || 0) }));
+      designers = items.map((d) => ({
+        id: Number(d.id),
+        name: String(d.name || ""),
+        designCount: Number(d.design_count || 0),
+      }));
     } catch (e) {
       addToast(`Failed to load designers: ${e}`, "error");
     } finally {
@@ -107,7 +111,10 @@
     cancelEditDesigner();
     pendingDeleteDesignerId = Number(designer.id);
     if (Number(designer.designCount) > 0) {
-      addToast(`Deleting '${designer.name}' will clear assignment from ${designer.designCount} design(s).`, "info");
+      addToast(
+        `Deleting '${designer.name}' will clear assignment from ${designer.designCount} design(s).`,
+        "info"
+      );
       return;
     }
     addToast(`Delete '${designer.name}'? Click confirm delete to continue.`, "info");
@@ -155,8 +162,14 @@
       placeholder="New designer name..."
       class="admin-input flex-1 border rounded px-3 py-2 text-sm"
     />
-    <button type="submit" class="menu-button-primary text-sm" disabled={!canAddDesigner}>Add</button>
-    <button type="button" class="menu-button-secondary text-sm" onclick={clearNewDesignerForm} disabled={!canClearDesignerForm}>Clear</button>
+    <button type="submit" class="menu-button-primary text-sm" disabled={!canAddDesigner}>Add</button
+    >
+    <button
+      type="button"
+      class="menu-button-secondary text-sm"
+      onclick={clearNewDesignerForm}
+      disabled={!canClearDesignerForm}>Clear</button
+    >
   </form>
 </div>
 
@@ -192,24 +205,48 @@
             <td class="px-4 py-2 text-right">
               <div class="flex justify-end gap-2.5 flex-wrap">
                 {#if editingDesignerId === designer.id}
-                  <button type="button" class="text-indigo-650 hover:underline text-xs font-semibold" onclick={() => saveDesignerEdit(designer.id)}>
+                  <button
+                    type="button"
+                    class="text-indigo-650 hover:underline text-xs font-semibold"
+                    onclick={() => saveDesignerEdit(designer.id)}
+                  >
                     Save
                   </button>
-                  <button type="button" class="text-gray-500 hover:underline text-xs font-semibold" onclick={cancelEditDesigner}>
+                  <button
+                    type="button"
+                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    onclick={cancelEditDesigner}
+                  >
                     Cancel
                   </button>
                 {:else if pendingDeleteDesignerId === designer.id}
-                  <button type="button" class="text-red-600 hover:underline text-xs font-bold" onclick={() => deleteDesigner(designer.id)}>
+                  <button
+                    type="button"
+                    class="text-red-600 hover:underline text-xs font-bold"
+                    onclick={() => deleteDesigner(designer.id)}
+                  >
                     Confirm delete
                   </button>
-                  <button type="button" class="text-gray-500 hover:underline text-xs font-semibold" onclick={cancelDeleteDesigner}>
+                  <button
+                    type="button"
+                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    onclick={cancelDeleteDesigner}
+                  >
                     Cancel
                   </button>
                 {:else}
-                  <button type="button" class="text-indigo-655 hover:underline text-xs font-semibold" onclick={() => beginEditDesigner(designer)}>
+                  <button
+                    type="button"
+                    class="text-indigo-655 hover:underline text-xs font-semibold"
+                    onclick={() => beginEditDesigner(designer)}
+                  >
                     Edit
                   </button>
-                  <button type="button" class="text-red-400 hover:underline text-xs font-semibold" onclick={() => requestDeleteDesigner(designer)}>
+                  <button
+                    type="button"
+                    class="text-red-400 hover:underline text-xs font-semibold"
+                    onclick={() => requestDeleteDesigner(designer)}
+                  >
                     Delete
                   </button>
                 {/if}
@@ -220,7 +257,8 @@
             <tr class="bg-amber-50">
               <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
                 {#if designer.designCount > 0}
-                  This designer is currently used by {designer.designCount} design(s). If you delete it, those designs will no longer have a designer assigned.
+                  This designer is currently used by {designer.designCount} design(s). If you delete it,
+                  those designs will no longer have a designer assigned.
                 {:else}
                   Confirm deletion for this designer.
                 {/if}

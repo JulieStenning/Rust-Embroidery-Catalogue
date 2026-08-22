@@ -25,9 +25,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 // Mock child views so App's gating logic can be tested in isolation.
 vi.mock("../lib/InitialSetupView.svelte", async () => {
-  const { default: InitialSetupView } = await import(
-    "./__mocks__/InitialSetupView.svelte"
-  );
+  const { default: InitialSetupView } = await import("./__mocks__/InitialSetupView.svelte");
   return { default: InitialSetupView };
 });
 
@@ -37,16 +35,12 @@ vi.mock("../lib/MainView.svelte", async () => {
 });
 
 vi.mock("../lib/components/ToastContainer.svelte", async () => {
-  const { default: ToastContainer } = await import(
-    "./__mocks__/ToastContainer.svelte"
-  );
+  const { default: ToastContainer } = await import("./__mocks__/ToastContainer.svelte");
   return { default: ToastContainer };
 });
 
 vi.mock("../lib/DatabaseRecoveryView.svelte", async () => {
-  const { default: DatabaseRecoveryView } = await import(
-    "./__mocks__/DatabaseRecoveryView.svelte"
-  );
+  const { default: DatabaseRecoveryView } = await import("./__mocks__/DatabaseRecoveryView.svelte");
   return { default: DatabaseRecoveryView };
 });
 
@@ -105,9 +99,7 @@ describe("App.svelte", () => {
     render(App);
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Loading Embroidery Catalogue…")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Loading Embroidery Catalogue…")).toBeInTheDocument();
     });
     expect(checkInitialSetupMock).toHaveBeenCalled();
     expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
@@ -121,9 +113,7 @@ describe("App.svelte", () => {
     });
     expect(screen.getByTestId("toast-container")).toBeInTheDocument();
     expect(checkInitialSetupMock).not.toHaveBeenCalled();
-    expect(
-      screen.queryByText("Loading Embroidery Catalogue…")
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading Embroidery Catalogue…")).not.toBeInTheDocument();
   });
 
   it("renders the main app when initial setup is already completed", async () => {
@@ -177,9 +167,7 @@ describe("App.svelte", () => {
   });
 
   it("renders the startup error state when check_initial_setup rejects", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     installTauriBridge();
     checkInitialSetupMock.mockRejectedValue(new Error("db locked"));
 
@@ -188,16 +176,9 @@ describe("App.svelte", () => {
     await waitFor(() => {
       expect(screen.getByText("Startup Error")).toBeInTheDocument();
     });
-    expect(
-      screen.getByText("Could not verify setup status: Error: db locked")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Try restarting the application\./)
-    ).toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalledWith(
-      "check_initial_setup failed:",
-      expect.any(Error)
-    );
+    expect(screen.getByText("Could not verify setup status: Error: db locked")).toBeInTheDocument();
+    expect(screen.getByText(/Try restarting the application\./)).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalledWith("check_initial_setup failed:", expect.any(Error));
     expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
     expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
 

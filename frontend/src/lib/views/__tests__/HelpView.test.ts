@@ -14,10 +14,7 @@ import HelpView from "../HelpView.svelte";
 // ---------------------------------------------------------------------------
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
-function element<T extends Element>(
-  value: T | null | undefined,
-  message?: string
-): T {
+function element<T extends Element>(value: T | null | undefined, message?: string): T {
   if (!value) {
     throw new Error(message ?? "Expected element to exist.");
   }
@@ -33,15 +30,12 @@ function element<T extends Element>(
  */
 function normalizedText(expected: string) {
   return (_content: string, node: Element | null) =>
-    node !== null &&
-    (node.textContent ?? "").replace(/\s+/g, " ").trim() === expected;
+    node !== null && (node.textContent ?? "").replace(/\s+/g, " ").trim() === expected;
 }
 
 /** Returns a `within`-scoped query API for the given <section id>. */
 function sectionQueries(container: HTMLElement, id: string) {
-  return within(
-    element(container.querySelector(`#${id}`), `Expected section #${id}.`)
-  );
+  return within(element(container.querySelector(`#${id}`), `Expected section #${id}.`));
 }
 
 describe("HelpView", () => {
@@ -49,9 +43,7 @@ describe("HelpView", () => {
     it("renders the page heading 'Help'", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "Help" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Help" })).toBeInTheDocument();
     });
 
     it("renders the subtitle describing the help page", () => {
@@ -106,9 +98,7 @@ describe("HelpView", () => {
     it("renders the Search heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "🔍 Search" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🔍 Search" })).toBeInTheDocument();
     });
 
     it("renders the search section content", () => {
@@ -139,9 +129,7 @@ describe("HelpView", () => {
       expect(section.getByText("Filename wildcards:")).toBeInTheDocument();
       expect(section.getByText("rose*.jef")).toBeInTheDocument();
       expect(section.getByText("Unverified only:")).toBeInTheDocument();
-      expect(
-        section.getByText("Quick search vs. filters:")
-      ).toBeInTheDocument();
+      expect(section.getByText("Quick search vs. filters:")).toBeInTheDocument();
     });
 
     it("renders the search section with a section id of 'search'", () => {
@@ -157,9 +145,7 @@ describe("HelpView", () => {
     it("renders the Importing heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "📥 Importing" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "📥 Importing" })).toBeInTheDocument();
     });
 
     it("renders the importing section content", () => {
@@ -169,9 +155,7 @@ describe("HelpView", () => {
       // Intro paragraph — text is split by the inline Import link.
       expect(
         section.getByText(
-          normalizedText(
-            "Use Import to scan one or more folders and their sub-folders."
-          )
+          normalizedText("Use Import to scan one or more folders and their sub-folders.")
         )
       ).toBeInTheDocument();
 
@@ -182,9 +166,7 @@ describe("HelpView", () => {
       expect(section.getByText("Review and metadata:")).toBeInTheDocument();
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
       expect(section.getByText("AI tagging notice:")).toBeInTheDocument();
-      expect(
-        section.getByText("Error files and large scans:")
-      ).toBeInTheDocument();
+      expect(section.getByText("Error files and large scans:")).toBeInTheDocument();
     });
 
     it("renders the importing section with a section id of 'importing'", () => {
@@ -242,9 +224,7 @@ describe("HelpView", () => {
     it("renders the AI Tagging heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "🤖 AI Tagging" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🤖 AI Tagging" })).toBeInTheDocument();
     });
 
     it("renders the ai-tagging section content", () => {
@@ -261,10 +241,7 @@ describe("HelpView", () => {
       const studioLink = section.getByRole("link", {
         name: "Google AI Studio",
       });
-      expect(studioLink).toHaveAttribute(
-        "href",
-        "https://aistudio.google.com/"
-      );
+      expect(studioLink).toHaveAttribute("href", "https://aistudio.google.com/");
 
       const pricingLink = section.getByRole("link", {
         name: "current pricing",
@@ -280,10 +257,7 @@ describe("HelpView", () => {
       const taggingActionsLink = section.getByRole("link", {
         name: "Admin → Tagging Actions",
       });
-      expect(taggingActionsLink).toHaveAttribute(
-        "href",
-        "#/admin/tagging-actions"
-      );
+      expect(taggingActionsLink).toHaveAttribute("href", "#/admin/tagging-actions");
 
       const guideLink = section.getByRole("link", {
         name: "AI Tagging Guide",
@@ -312,9 +286,7 @@ describe("HelpView", () => {
     it("renders the Tagging Actions heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "🏷 Tagging Actions" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🏷 Tagging Actions" })).toBeInTheDocument();
     });
 
     it("renders the tagging-actions section content", () => {
@@ -324,9 +296,7 @@ describe("HelpView", () => {
       // Intro paragraph — text is split by the inline Admin → Tagging Actions link.
       expect(
         section.getByText(
-          normalizedText(
-            "Run AI tagging on existing designs from Admin → Tagging Actions."
-          )
+          normalizedText("Run AI tagging on existing designs from Admin → Tagging Actions.")
         )
       ).toBeInTheDocument();
 
@@ -335,16 +305,10 @@ describe("HelpView", () => {
       });
       expect(adminLink).toHaveAttribute("href", "#/admin/tagging-actions");
 
-      expect(
-        section.getByText("Tag only untagged designs:")
-      ).toBeInTheDocument();
-      expect(
-        section.getByText("Tag untagged and unverified designs:")
-      ).toBeInTheDocument();
+      expect(section.getByText("Tag only untagged designs:")).toBeInTheDocument();
+      expect(section.getByText("Tag untagged and unverified designs:")).toBeInTheDocument();
       expect(section.getByText("Re-tag ALL designs:")).toBeInTheDocument();
-      expect(
-        section.getByText("Local stitching backfill:")
-      ).toBeInTheDocument();
+      expect(section.getByText("Local stitching backfill:")).toBeInTheDocument();
     });
 
     it("renders the tagging-actions section with a section id of 'tagging-actions'", () => {
@@ -360,9 +324,7 @@ describe("HelpView", () => {
     it("renders the Projects heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "📁 Projects" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "📁 Projects" })).toBeInTheDocument();
     });
 
     it("renders the projects section content", () => {
@@ -372,18 +334,14 @@ describe("HelpView", () => {
       // Intro paragraph — text is split by the inline Projects link.
       expect(
         section.getByText(
-          normalizedText(
-            "Projects let you group designs for planned embroidery tasks."
-          )
+          normalizedText("Projects let you group designs for planned embroidery tasks.")
         )
       ).toBeInTheDocument();
 
       const projectsLink = section.getByRole("link", { name: "Projects" });
       expect(projectsLink).toHaveAttribute("href", "#/projects");
 
-      expect(
-        section.getByText("What projects are for:")
-      ).toBeInTheDocument();
+      expect(section.getByText("What projects are for:")).toBeInTheDocument();
       expect(section.getByText("Adding designs:")).toBeInTheDocument();
       expect(section.getByText("Bulk add:")).toBeInTheDocument();
       expect(section.getByText("Printing:")).toBeInTheDocument();
@@ -402,9 +360,7 @@ describe("HelpView", () => {
     it("renders the Maintenance heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "🛠 Maintenance" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🛠 Maintenance" })).toBeInTheDocument();
     });
 
     it("renders the maintenance section content", () => {
@@ -413,19 +369,13 @@ describe("HelpView", () => {
 
       // Intro paragraph — text is split by the inline Orphans link.
       expect(
-        section.getByText(
-          normalizedText(
-            "Use Orphans to find records whose files are missing."
-          )
-        )
+        section.getByText(normalizedText("Use Orphans to find records whose files are missing."))
       ).toBeInTheDocument();
 
       const orphansLink = section.getByRole("link", { name: "Orphans" });
       expect(orphansLink).toHaveAttribute("href", "#/admin/orphans");
 
-      expect(
-        section.getByText("What orphaned records are:")
-      ).toBeInTheDocument();
+      expect(section.getByText("What orphaned records are:")).toBeInTheDocument();
       expect(section.getByText("Deleting orphans:")).toBeInTheDocument();
       expect(section.getByText("Use carefully:")).toBeInTheDocument();
     });
@@ -443,27 +393,17 @@ describe("HelpView", () => {
     it("renders the Troubleshooting heading", () => {
       render(HelpView);
 
-      expect(
-        screen.getByRole("heading", { name: "🔧 Troubleshooting" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🔧 Troubleshooting" })).toBeInTheDocument();
     });
 
     it("renders the troubleshooting section content", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "troubleshooting");
 
-      expect(
-        section.getByText("Missing folder / changed drive letter:")
-      ).toBeInTheDocument();
-      expect(
-        section.getByText("Import scan finds nothing:")
-      ).toBeInTheDocument();
-      expect(
-        section.getByText("Files missing after import:")
-      ).toBeInTheDocument();
-      expect(
-        section.getByText("Managed storage location:")
-      ).toBeInTheDocument();
+      expect(section.getByText("Missing folder / changed drive letter:")).toBeInTheDocument();
+      expect(section.getByText("Import scan finds nothing:")).toBeInTheDocument();
+      expect(section.getByText("Files missing after import:")).toBeInTheDocument();
+      expect(section.getByText("Managed storage location:")).toBeInTheDocument();
       expect(section.getByText("Still stuck:")).toBeInTheDocument();
     });
 

@@ -15,7 +15,13 @@
    *   onDeleted?: (result: any) => void
    * }}
    */
-  let { designIds = [], previewItems = [], open = false, onClose = () => {}, onDeleted = () => {} } = $props();
+  let {
+    designIds = [],
+    previewItems = [],
+    open = false,
+    onClose = () => {},
+    onDeleted = () => {},
+  } = $props();
 
   let deleteFile = $state(false);
   let previewOpen = $state(false);
@@ -114,7 +120,10 @@
       class="delete-modal-dialog"
       style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
     >
-      <div class="delete-modal-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+      <div
+        class="delete-modal-header"
+        style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;"
+      >
         <h2 id="delete-modal-title" class="text-lg font-bold text-gray-800" style="margin:0;">
           Delete selected design{selectedCount === 1 ? "" : "s"}?
         </h2>
@@ -136,7 +145,9 @@
               name="delete-file-action"
               class="accent-indigo-600"
               checked={!deleteFile}
-              onchange={() => { deleteFile = false; }}
+              onchange={() => {
+                deleteFile = false;
+              }}
             />
             <span>Remove from catalogue only (keep files on disk)</span>
           </label>
@@ -146,12 +157,16 @@
               name="delete-file-action"
               class="accent-indigo-600"
               checked={deleteFile}
-              onchange={() => { deleteFile = true; }}
+              onchange={() => {
+                deleteFile = true;
+              }}
             />
             <span>Move source file{selectedCount === 1 ? "" : "s"} to recycle bin</span>
           </label>
           {#if deleteFile}
-            <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+            <p
+              class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5"
+            >
               ⚠️ Source file{selectedCount === 1 ? "" : "s"} will be moved to the system recycle bin.
               You can restore them from there if needed.
             </p>
@@ -161,7 +176,9 @@
         <!-- Collapsible preview list (hidden for single-item context) -->
         {#if !isSingleItem}
           <details class="border rounded p-2 bg-gray-50" bind:open={previewOpen}>
-            <summary class="text-xs font-semibold text-gray-600 cursor-pointer select-none list-none flex items-center gap-1">
+            <summary
+              class="text-xs font-semibold text-gray-600 cursor-pointer select-none list-none flex items-center gap-1"
+            >
               <span>{previewOpen ? "▼" : "▶"}</span>
               <span>Review selected designs ({previewItems.length})</span>
             </summary>
@@ -175,11 +192,17 @@
                       class="w-8 h-8 object-contain rounded"
                     />
                   {:else}
-                    <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-400 font-bold">?</div>
+                    <div
+                      class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-400 font-bold"
+                    >
+                      ?
+                    </div>
                   {/if}
                   <div class="flex-1 min-w-0">
                     <p class="font-medium text-gray-800 truncate">{item.filename}</p>
-                    <p class="text-gray-400 truncate" title={item.filepath}>{item.filepath || "No filepath"}</p>
+                    <p class="text-gray-400 truncate" title={item.filepath}>
+                      {item.filepath || "No filepath"}
+                    </p>
                   </div>
                 </div>
               {/each}
@@ -188,13 +211,11 @@
         {/if}
       </div>
 
-      <div class="delete-modal-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;padding:1rem 1.5rem;border-top:1px solid #e5e7eb;">
-        <button
-          type="button"
-          class="menu-button-secondary"
-          onclick={handleCancel}
-          disabled={busy}
-        >
+      <div
+        class="delete-modal-footer"
+        style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;padding:1rem 1.5rem;border-top:1px solid #e5e7eb;"
+      >
+        <button type="button" class="menu-button-secondary" onclick={handleCancel} disabled={busy}>
           Cancel
         </button>
         <button

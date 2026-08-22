@@ -61,23 +61,17 @@ describe("TaggingActionsView stop behaviour", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Running..." })
-      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Running..." })).toBeDisabled();
     });
   }
 
   it("disables Run and enables Stop while a backfill is in flight", async () => {
     await startInFlightRun();
 
-    expect(
-      screen.getByRole("button", { name: "Running..." })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Running..." })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Stop" })).not.toBeDisabled();
   });
 
@@ -90,16 +84,11 @@ describe("TaggingActionsView stop behaviour", () => {
     await waitFor(() => {
       expect(adapterMocks.stopUnifiedBackfill).toHaveBeenCalledTimes(1);
     });
-    expect(toastMock.addToast).toHaveBeenCalledWith(
-      "Stop requested.",
-      "info"
-    );
+    expect(toastMock.addToast).toHaveBeenCalledWith("Stop requested.", "info");
   });
 
   it("shows an error toast when the stop request fails", async () => {
-    adapterMocks.stopUnifiedBackfill.mockRejectedValue(
-      new Error("stop failed")
-    );
+    adapterMocks.stopUnifiedBackfill.mockRejectedValue(new Error("stop failed"));
     await startInFlightRun();
 
     const user = userEvent.setup();

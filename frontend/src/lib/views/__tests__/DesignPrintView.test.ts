@@ -185,9 +185,7 @@ describe("DesignPrintView", () => {
       await waitFor(() => {
         expect(screen.getByRole("heading", { name: "holiday-tree.vp3" })).toBeInTheDocument();
       });
-      expect(
-        screen.queryByRole("heading", { name: "rose-border-01.pes" })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "rose-border-01.pes" })).not.toBeInTheDocument();
     });
   });
 
@@ -277,9 +275,7 @@ describe("DesignPrintView", () => {
       await waitFor(() => {
         expect(screen.getByText("Notes")).toBeInTheDocument();
       });
-      expect(
-        screen.getByText("Pretty floral border with satin stitches.")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Pretty floral border with satin stitches.")).toBeInTheDocument();
     });
 
     it("renders the tags section with comma-joined descriptions", async () => {

@@ -7,7 +7,7 @@
     runDatabaseBackup,
     runDesignsBackup,
     runBothBackups,
-    getSettingsViewModel
+    getSettingsViewModel,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
 
@@ -25,8 +25,8 @@
   let settingsDataRoot = $state("");
 
   let backupHasUnsavedChanges = $derived(
-    backupDbDestination.trim() !== backupSavedDbDestination.trim()
-      || backupDesignsDestination.trim() !== backupSavedDesignsDestination.trim()
+    backupDbDestination.trim() !== backupSavedDbDestination.trim() ||
+      backupDesignsDestination.trim() !== backupSavedDesignsDestination.trim()
   );
   let backupHasDbDestination = $derived(backupSavedDbDestination.trim().length > 0);
   let backupHasDesignsDestination = $derived(backupSavedDesignsDestination.trim().length > 0);
@@ -54,9 +54,15 @@
       backupSavedDesignsDestination = backupDesignsDestination;
 
       const fallbackDataRoot = settingsDataRoot ? String(settingsDataRoot) : "";
-      backupDbSourcePath = String(model?.db_source_path || (fallbackDataRoot ? `${fallbackDataRoot}\\database\\catalogue.db` : "(not available yet)"));
+      backupDbSourcePath = String(
+        model?.db_source_path ||
+          (fallbackDataRoot ? `${fallbackDataRoot}\\database\\catalogue.db` : "(not available yet)")
+      );
       backupDesignsSourcePath = String(
-        model?.designs_source_path || (fallbackDataRoot ? `${fallbackDataRoot}\\MachineEmbroideryDesigns` : "(not available yet)")
+        model?.designs_source_path ||
+          (fallbackDataRoot
+            ? `${fallbackDataRoot}\\MachineEmbroideryDesigns`
+            : "(not available yet)")
       );
 
       backupLoaded = true;
@@ -102,7 +108,9 @@
 
     if (result.saved) {
       backupSavedDbDestination = String(result.db_destination || backupDbDestination).trim();
-      backupSavedDesignsDestination = String(result.designs_destination || backupDesignsDestination).trim();
+      backupSavedDesignsDestination = String(
+        result.designs_destination || backupDesignsDestination
+      ).trim();
       backupDbDestination = backupSavedDbDestination;
       backupDesignsDestination = backupSavedDesignsDestination;
       addToast(result.message || "Backup destinations saved.", "success");
@@ -117,17 +125,26 @@
     if (backupAnyRunning) return;
 
     if (action === "database" && !backupHasDbDestination) {
-      addToast("No database backup destination is configured. Please set one below and save destinations.", "error");
+      addToast(
+        "No database backup destination is configured. Please set one below and save destinations.",
+        "error"
+      );
       return;
     }
 
     if (action === "designs" && !backupHasDesignsDestination) {
-      addToast("No designs backup destination is configured. Please set one below and save destinations.", "error");
+      addToast(
+        "No designs backup destination is configured. Please set one below and save destinations.",
+        "error"
+      );
       return;
     }
 
     if (action === "both" && (!backupHasDbDestination || !backupHasDesignsDestination)) {
-      addToast("Both backup destinations must be configured before you can run both backups.", "error");
+      addToast(
+        "Both backup destinations must be configured before you can run both backups.",
+        "error"
+      );
       return;
     }
 
@@ -145,7 +162,10 @@
         }
 
         const mb = (Number(result.size_bytes || 0) / (1024 * 1024)).toFixed(2);
-        addToast(`Database backup created: ${result.backup_path || "(path unavailable)"} (${mb} MB).`, "success");
+        addToast(
+          `Database backup created: ${result.backup_path || "(path unavailable)"} (${mb} MB).`,
+          "success"
+        );
         return;
       }
 
@@ -156,7 +176,10 @@
           return;
         }
 
-        addToast(`Designs backup complete: scanned ${result.scanned}, copied ${result.copied}, updated ${result.updated}, unchanged ${result.unchanged}, archived ${result.archived}.`, "success");
+        addToast(
+          `Designs backup complete: scanned ${result.scanned}, copied ${result.copied}, updated ${result.updated}, unchanged ${result.unchanged}, archived ${result.archived}.`,
+          "success"
+        );
         return;
       }
 
@@ -171,7 +194,10 @@
 
       const dbError = String(result?.database?.error || "").trim();
       const designsError = String(result?.designs?.error || "").trim();
-      addToast(`Backup results: database ${dbOk ? "ok" : "failed"}${dbError ? ` (${dbError})` : ""}; designs ${designsOk ? "ok" : "failed"}${designsError ? ` (${designsError})` : ""}.`, "error");
+      addToast(
+        `Backup results: database ${dbOk ? "ok" : "failed"}${dbError ? ` (${dbError})` : ""}; designs ${designsOk ? "ok" : "failed"}${designsError ? ` (${designsError})` : ""}.`,
+        "error"
+      );
     } finally {
       if (runsDatabase) backupDatabaseRunning = false;
       if (runsDesigns) backupDesignsRunning = false;
@@ -186,23 +212,35 @@
 <section class="backup-page space-y-4">
   <h1 class="ui-page-title backup-title mb-2">Backup</h1>
   <p class="text-sm text-gray-500 mb-4">
-    Back up your catalogue database and embroidery design files to folders of your choice.
-    The database backup saves your catalogue data, settings, tags, and projects.
-    The designs backup saves the actual embroidery files.
+    Back up your catalogue database and embroidery design files to folders of your choice. The
+    database backup saves your catalogue data, settings, tags, and projects. The designs backup
+    saves the actual embroidery files.
   </p>
 
-  <div class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1">
+  <div
+    class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
+  >
     <p class="font-semibold">Important</p>
-    <p>Ensure backup folders reside on a separate drive from your library (e.g. an external USB drive or a network folder).</p>
+    <p>
+      Ensure backup folders reside on a separate drive from your library (e.g. an external USB drive
+      or a network folder).
+    </p>
   </div>
 
   <div class="settings-layout max-w-3xl space-y-6">
-    <form class="settings-card backup-card bg-white rounded shadow p-6 space-y-5" onsubmit={saveBackupDestinations}>
+    <form
+      class="settings-card backup-card bg-white rounded shadow p-6 space-y-5"
+      onsubmit={saveBackupDestinations}
+    >
       <h2 class="text-base font-semibold text-gray-800">Backup Destinations</h2>
-      <p class="text-sm text-gray-600">Set separate destination folders for the database and designs backups.</p>
+      <p class="text-sm text-gray-600">
+        Set separate destination folders for the database and designs backups.
+      </p>
 
       <div>
-        <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1">Database backup folder</label>
+        <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1"
+          >Database backup folder</label
+        >
         <div class="flex gap-2">
           <input
             id="backup-db-destination"
@@ -212,7 +250,11 @@
             spellcheck="false"
             class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
           />
-          <button type="button" class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap" onclick={() => browseBackupDestination("database")}>
+          <button
+            type="button"
+            class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+            onclick={() => browseBackupDestination("database")}
+          >
             Browse…
           </button>
         </div>
@@ -222,7 +264,10 @@
       </div>
 
       <div>
-        <label for="backup-designs-destination" class="block text-sm font-semibold text-gray-700 mb-1">Designs backup folder</label>
+        <label
+          for="backup-designs-destination"
+          class="block text-sm font-semibold text-gray-700 mb-1">Designs backup folder</label
+        >
         <div class="flex gap-2">
           <input
             id="backup-designs-destination"
@@ -232,7 +277,11 @@
             spellcheck="false"
             class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
           />
-          <button type="button" class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap" onclick={() => browseBackupDestination("designs")}>
+          <button
+            type="button"
+            class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+            onclick={() => browseBackupDestination("designs")}
+          >
             Browse…
           </button>
         </div>
@@ -255,10 +304,21 @@
 
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
       <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
-      <p class="text-sm text-gray-600">Creates a timestamped copy of your SQLite database catalogue file.</p>
+      <p class="text-sm text-gray-600">
+        Creates a timestamped copy of your SQLite database catalogue file.
+      </p>
       <div class="text-xs text-gray-500 space-y-0.5">
-        <p>Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupDbSourcePath}</code></p>
-        <p>Saved destination folder: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupSavedDbDestination || "(not set)"}</code></p>
+        <p>
+          Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+            >{backupDbSourcePath}</code
+          >
+        </p>
+        <p>
+          Saved destination folder: <code
+            class="settings-code inline-block border rounded px-2 py-1 font-mono"
+            >{backupSavedDbDestination || "(not set)"}</code
+          >
+        </p>
       </div>
       <button
         type="button"
@@ -274,11 +334,21 @@
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
       <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
       <p class="text-sm text-gray-600">
-        Runs an incremental mirror backup of the designs folder. Only new or changed files are copied; unchanged files are skipped.
+        Runs an incremental mirror backup of the designs folder. Only new or changed files are
+        copied; unchanged files are skipped.
       </p>
       <div class="text-xs text-gray-500 space-y-0.5">
-        <p>Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupDesignsSourcePath}</code></p>
-        <p>Saved destination folder: <code class="settings-code inline-block border rounded px-2 py-1 font-mono">{backupSavedDesignsDestination || "(not set)"}</code></p>
+        <p>
+          Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+            >{backupDesignsSourcePath}</code
+          >
+        </p>
+        <p>
+          Saved destination folder: <code
+            class="settings-code inline-block border rounded px-2 py-1 font-mono"
+            >{backupSavedDesignsDestination || "(not set)"}</code
+          >
+        </p>
       </div>
       <button
         type="button"
@@ -293,12 +363,16 @@
 
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
       <h2 class="text-base font-semibold text-gray-800">Backup Both</h2>
-      <p class="text-sm text-gray-600">Run the database backup and the incremental designs backup in one step.</p>
+      <p class="text-sm text-gray-600">
+        Run the database backup and the incremental designs backup in one step.
+      </p>
       <button
         type="button"
         class="settings-primary-button menu-button-primary"
         disabled={!backupHasDbDestination || !backupHasDesignsDestination || backupAnyRunning}
-        title={!backupHasDbDestination || !backupHasDesignsDestination ? "Set both backup destinations first" : undefined}
+        title={!backupHasDbDestination || !backupHasDesignsDestination
+          ? "Set both backup destinations first"
+          : undefined}
         onclick={() => runBackupAction("both")}
       >
         {backupAnyRunning ? "Backup in progress..." : "Run both backups"}

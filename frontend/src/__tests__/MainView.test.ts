@@ -17,9 +17,7 @@ vi.mock("../lib/utils/routing.js", async (importOriginal) => {
     ...actual,
     normalizeHash: (hashString: string) => {
       const questionIndex = hashString.indexOf("?");
-      return questionIndex !== -1
-        ? hashString.slice(0, questionIndex)
-        : hashString;
+      return questionIndex !== -1 ? hashString.slice(0, questionIndex) : hashString;
     },
   };
 });
@@ -38,15 +36,11 @@ vi.mock("../lib/views/AboutView.svelte", async () => {
   return { default: AboutView };
 });
 vi.mock("../lib/views/AboutDocumentView.svelte", async () => {
-  const { default: AboutDocumentView } = await import(
-    "./__mocks__/AboutDocumentView.svelte"
-  );
+  const { default: AboutDocumentView } = await import("./__mocks__/AboutDocumentView.svelte");
   return { default: AboutDocumentView };
 });
 vi.mock("../lib/views/SettingsView.svelte", async () => {
-  const { default: SettingsView } = await import(
-    "./__mocks__/SettingsView.svelte"
-  );
+  const { default: SettingsView } = await import("./__mocks__/SettingsView.svelte");
   return { default: SettingsView };
 });
 vi.mock("../lib/views/BackupView.svelte", async () => {
@@ -54,9 +48,7 @@ vi.mock("../lib/views/BackupView.svelte", async () => {
   return { default: BackupView };
 });
 vi.mock("../lib/views/TaggingActionsView.svelte", async () => {
-  const { default: TaggingActionsView } = await import(
-    "./__mocks__/TaggingActionsView.svelte"
-  );
+  const { default: TaggingActionsView } = await import("./__mocks__/TaggingActionsView.svelte");
   return { default: TaggingActionsView };
 });
 vi.mock("../lib/views/OrphansView.svelte", async () => {
@@ -64,21 +56,15 @@ vi.mock("../lib/views/OrphansView.svelte", async () => {
   return { default: OrphansView };
 });
 vi.mock("../lib/views/ProjectsView.svelte", async () => {
-  const { default: ProjectsView } = await import(
-    "./__mocks__/ProjectsView.svelte"
-  );
+  const { default: ProjectsView } = await import("./__mocks__/ProjectsView.svelte");
   return { default: ProjectsView };
 });
 vi.mock("../lib/views/DesignDetailView.svelte", async () => {
-  const { default: DesignDetailView } = await import(
-    "./__mocks__/DesignDetailView.svelte"
-  );
+  const { default: DesignDetailView } = await import("./__mocks__/DesignDetailView.svelte");
   return { default: DesignDetailView };
 });
 vi.mock("../lib/views/DesignPrintView.svelte", async () => {
-  const { default: DesignPrintView } = await import(
-    "./__mocks__/DesignPrintView.svelte"
-  );
+  const { default: DesignPrintView } = await import("./__mocks__/DesignPrintView.svelte");
   return { default: DesignPrintView };
 });
 vi.mock("../lib/views/ImportView.svelte", async () => {
@@ -94,21 +80,15 @@ vi.mock("../lib/views/BrowseView.svelte", async () => {
   return { default: BrowseView };
 });
 vi.mock("../lib/views/AdminDesignersView.svelte", async () => {
-  const { default: AdminDesignersView } = await import(
-    "./__mocks__/AdminDesignersView.svelte"
-  );
+  const { default: AdminDesignersView } = await import("./__mocks__/AdminDesignersView.svelte");
   return { default: AdminDesignersView };
 });
 vi.mock("../lib/views/AdminSourcesView.svelte", async () => {
-  const { default: AdminSourcesView } = await import(
-    "./__mocks__/AdminSourcesView.svelte"
-  );
+  const { default: AdminSourcesView } = await import("./__mocks__/AdminSourcesView.svelte");
   return { default: AdminSourcesView };
 });
 vi.mock("../lib/views/AdminHoopsView.svelte", async () => {
-  const { default: AdminHoopsView } = await import(
-    "./__mocks__/AdminHoopsView.svelte"
-  );
+  const { default: AdminHoopsView } = await import("./__mocks__/AdminHoopsView.svelte");
   return { default: AdminHoopsView };
 });
 
@@ -370,9 +350,7 @@ describe("MainView.svelte", () => {
     render(MainView);
 
     expect(screen.getByTestId("about-document-view")).toBeInTheDocument();
-    expect(screen.getByTestId("about-document-slug")).toHaveTextContent(
-      "licence"
-    );
+    expect(screen.getByTestId("about-document-slug")).toHaveTextContent("licence");
   });
 
   it("renders AboutDocumentView for #/about/document/licence", () => {
@@ -380,9 +358,7 @@ describe("MainView.svelte", () => {
     render(MainView);
 
     expect(screen.getByTestId("about-document-view")).toBeInTheDocument();
-    expect(screen.getByTestId("about-document-slug")).toHaveTextContent(
-      "licence"
-    );
+    expect(screen.getByTestId("about-document-slug")).toHaveTextContent("licence");
   });
 
   // --- Fallback / route not found ---------------------------------------------
@@ -409,9 +385,7 @@ describe("MainView.svelte", () => {
     setHash("#/unknown/route");
     render(MainView);
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Go to Browse" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Go to Browse" }));
 
     expect(window.location.hash).toBe("#/designs");
     await waitFor(() => {
@@ -426,10 +400,7 @@ describe("MainView.svelte", () => {
 
     const licenceLink = screen.getByRole("link", { name: "Licence" });
     expect(licenceLink).toHaveAttribute("href", "#/about/licence");
-    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute(
-      "href",
-      "#/about"
-    );
+    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "#/about");
   });
 
   // --- Navigation & link styling -------------------------------------------------

@@ -252,7 +252,9 @@ describe("BrowseView", () => {
 
     it("shows 'Loading designs...' while the first load is pending", async () => {
       let resolveLoading: () => void = () => {};
-      const pending = new Promise<void>((resolve) => { resolveLoading = resolve; });
+      const pending = new Promise<void>((resolve) => {
+        resolveLoading = resolve;
+      });
       adapterMocks.getBrowseDesigns.mockReturnValue(pending);
       const { unmount } = renderBrowse();
 
@@ -269,9 +271,7 @@ describe("BrowseView", () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([]));
       renderBrowse();
 
-      expect(
-        await screen.findByText("No designs match your filters.")
-      ).toBeInTheDocument();
+      expect(await screen.findByText("No designs match your filters.")).toBeInTheDocument();
     });
 
     it("renders a design card with filename, hoop, rating, and tags", async () => {
@@ -302,9 +302,7 @@ describe("BrowseView", () => {
     });
 
     it('shows "Hoop unknown" when hoop is blank', async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([design({ id: 1, hoop: "" })])
-      );
+      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([design({ id: 1, hoop: "" })]));
 
       renderBrowse();
 
@@ -312,9 +310,7 @@ describe("BrowseView", () => {
     });
 
     it('renders "No tags" when a card has no tags', async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([design({ id: 1, tags: [] })])
-      );
+      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([design({ id: 1, tags: [] })]));
 
       renderBrowse();
 
@@ -334,9 +330,7 @@ describe("BrowseView", () => {
     });
 
     it('renders "Rating 4 out of 5" when rated', async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([design({ id: 1, rating: 4 })])
-      );
+      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([design({ id: 1, rating: 4 })]));
 
       renderBrowse();
 
@@ -524,9 +518,7 @@ describe("BrowseView", () => {
       await openFilters();
 
       // Click the Rose Studio filter checkbox.
-      const checkbox = screen
-        .getByText("Rose Studio")
-        .closest("label")?.querySelector("input");
+      const checkbox = screen.getByText("Rose Studio").closest("label")?.querySelector("input");
       const input = checkbox as HTMLInputElement;
       await fireEvent.click(input);
 
@@ -557,9 +549,12 @@ describe("BrowseView", () => {
       await openFilters();
 
       // Use scoped query: find "Floral" within the Image tags filter box.
-      const imageTagSection = screen.getByText("Image tags", { exact: false }).closest("div") as HTMLElement;
-      const checkbox = imageTagSection
-        .querySelector('label input[type="checkbox"]') as HTMLInputElement;
+      const imageTagSection = screen
+        .getByText("Image tags", { exact: false })
+        .closest("div") as HTMLElement;
+      const checkbox = imageTagSection.querySelector(
+        'label input[type="checkbox"]'
+      ) as HTMLInputElement;
       await fireEvent.click(checkbox);
 
       await waitFor(() => {
@@ -623,9 +618,7 @@ describe("BrowseView", () => {
 
       await openFilters();
 
-      const checkbox = screen
-        .getByText("Imported")
-        .closest("label")?.querySelector("input");
+      const checkbox = screen.getByText("Imported").closest("label")?.querySelector("input");
       await fireEvent.click(checkbox as HTMLInputElement);
 
       await waitFor(() => {
@@ -672,7 +665,10 @@ describe("BrowseView", () => {
 
       await openFilters();
 
-      const ratingSelect = screen.getByText("Minimum rating").closest("label")?.querySelector("select");
+      const ratingSelect = screen
+        .getByText("Minimum rating")
+        .closest("label")
+        ?.querySelector("select");
       await fireEvent.change(ratingSelect as HTMLSelectElement, { target: { value: "3" } });
 
       await waitFor(() => {
@@ -734,8 +730,18 @@ describe("BrowseView", () => {
     it("filters by 'unverified only' checkbox", async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([
-          design({ id: 1, filename: "unverified.pes", image_tags_verified: false, stitching_tags_verified: false }),
-          design({ id: 2, filename: "verified.pes", image_tags_verified: true, stitching_tags_verified: true }),
+          design({
+            id: 1,
+            filename: "unverified.pes",
+            image_tags_verified: false,
+            stitching_tags_verified: false,
+          }),
+          design({
+            id: 2,
+            filename: "verified.pes",
+            image_tags_verified: true,
+            stitching_tags_verified: true,
+          }),
         ])
       );
 
@@ -1176,9 +1182,7 @@ describe("BrowseView", () => {
     });
 
     it("applies bulk tags successfully with explicit add lists", async () => {
-      adapterMocks.getBrowseTags.mockResolvedValue(
-        listResponse([tagOption(1, "Floral", "image")])
-      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
 
       await selectItems(2);
 
@@ -1213,9 +1217,7 @@ describe("BrowseView", () => {
     });
 
     it("shows an error toast when bulk tags fail", async () => {
-      adapterMocks.getBrowseTags.mockResolvedValue(
-        listResponse([tagOption(1, "Floral", "image")])
-      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
       adapterMocks.bulkSetTagsForDesigns.mockResolvedValue({
         source: "rust",
         persisted: false,
@@ -1237,9 +1239,7 @@ describe("BrowseView", () => {
     });
 
     it("clears all tags when 'Untagged' is selected (clearAllTags=true)", async () => {
-      adapterMocks.getBrowseTags.mockResolvedValue(
-        listResponse([tagOption(1, "Floral", "image")])
-      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
 
       await selectItems(2);
 
@@ -1260,9 +1260,9 @@ describe("BrowseView", () => {
 
       await waitFor(() => {
         const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
-        expect(args[1]).toEqual([]);   // tagsToAdd empty when clearing
-        expect(args[2]).toEqual([]);   // tagsToRemove empty when clearing
-        expect(args[3]).toBe(true);    // clearAllTags true
+        expect(args[1]).toEqual([]); // tagsToAdd empty when clearing
+        expect(args[2]).toEqual([]); // tagsToRemove empty when clearing
+        expect(args[3]).toBe(true); // clearAllTags true
       });
     });
 
@@ -1274,9 +1274,7 @@ describe("BrowseView", () => {
           design({ id: 2, filename: "design-2.pes", tags: [] }),
         ])
       );
-      adapterMocks.getBrowseTags.mockResolvedValue(
-        listResponse([tagOption(1, "Floral", "image")])
-      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
 
       // Select both designs WITHOUT the selectItems helper (which would
       // overwrite the fixture above with tag-less designs).
@@ -1300,8 +1298,8 @@ describe("BrowseView", () => {
 
       await waitFor(() => {
         const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
-        expect(args[1]).toEqual([]);  // tagsToAdd — Floral excluded
-        expect(args[2]).toEqual([]);  // tagsToRemove — Floral excluded
+        expect(args[1]).toEqual([]); // tagsToAdd — Floral excluded
+        expect(args[2]).toEqual([]); // tagsToRemove — Floral excluded
         expect(args[3]).toBe(false);
       });
     });
@@ -1314,9 +1312,7 @@ describe("BrowseView", () => {
           design({ id: 2, filename: "design-2.pes", tags: ["Floral"] }),
         ])
       );
-      adapterMocks.getBrowseTags.mockResolvedValue(
-        listResponse([tagOption(1, "Floral", "image")])
-      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
 
       // Select both designs WITHOUT the selectItems helper (which would
       // overwrite the fixture above with tag-less designs).
@@ -1355,8 +1351,8 @@ describe("BrowseView", () => {
 
       await waitFor(() => {
         const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
-        expect(args[1]).toEqual([]);      // no adds
-        expect(args[2]).toEqual([1]);     // Floral removed
+        expect(args[1]).toEqual([]); // no adds
+        expect(args[2]).toEqual([1]); // Floral removed
         expect(args[3]).toBe(false);
       });
     });
@@ -1382,7 +1378,9 @@ describe("BrowseView", () => {
 
       // Scope to the bulk project dropdown (the <details> with the inline-block style)
       // so the "Wedding Collection" text in the in-card project details is ignored.
-      const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
+      const dropdown = document.querySelector(
+        "details[style*='display:inline-block']"
+      ) as HTMLElement;
       const projectLabel = within(dropdown).getByText("Wedding Collection").closest("label");
       const projectCheckbox = projectLabel?.querySelector("input") as HTMLInputElement;
       await fireEvent.click(projectCheckbox);
@@ -1413,7 +1411,9 @@ describe("BrowseView", () => {
       await fireEvent.click(screen.getByText("Add to project…"));
 
       // Scope to the bulk project dropdown so the in-card project details are ignored.
-      const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
+      const dropdown = document.querySelector(
+        "details[style*='display:inline-block']"
+      ) as HTMLElement;
 
       // Check both projects.
       const weddingLabel = within(dropdown).getByText("Wedding Collection").closest("label");
@@ -1471,7 +1471,12 @@ describe("BrowseView", () => {
     });
 
     it("includes the file-trash count in the delete success toast", async () => {
-      deleteResultHolder.value = { persisted: true, deleted_count: 2, files_trashed: 1, errors: [] };
+      deleteResultHolder.value = {
+        persisted: true,
+        deleted_count: 2,
+        files_trashed: 1,
+        errors: [],
+      };
 
       try {
         await selectItems(2);
@@ -1493,7 +1498,12 @@ describe("BrowseView", () => {
 
     it("includes file-warning count and console.warn when the delete has errors", async () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      deleteResultHolder.value = { persisted: true, deleted_count: 1, files_trashed: 0, errors: ["file locked"] };
+      deleteResultHolder.value = {
+        persisted: true,
+        deleted_count: 1,
+        files_trashed: 0,
+        errors: ["file locked"],
+      };
 
       try {
         await selectItems(1);
@@ -1515,7 +1525,12 @@ describe("BrowseView", () => {
     });
 
     it("shows an error toast when the delete fails to persist", async () => {
-      deleteResultHolder.value = { persisted: false, deleted_count: 0, files_trashed: 0, errors: ["permission denied"] };
+      deleteResultHolder.value = {
+        persisted: false,
+        deleted_count: 0,
+        files_trashed: 0,
+        errors: ["permission denied"],
+      };
 
       try {
         await selectItems(1);
@@ -1706,7 +1721,9 @@ describe("BrowseView", () => {
       );
       // Force the preview load to be pending.
       let resolvePreview: () => void = () => {};
-      const pending = new Promise<void>((resolve) => { resolvePreview = resolve; });
+      const pending = new Promise<void>((resolve) => {
+        resolvePreview = resolve;
+      });
       adapterMocks.getBrowseDesignPreviews.mockReturnValue(pending);
 
       const { unmount } = renderBrowse();
@@ -1748,13 +1765,18 @@ describe("BrowseView", () => {
 
     it("extracts folder from filepath when not provided", async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([design({ id: 1, filename: "rose.pes", filepath: "C:/designs/Embroidery/rose.pes" })])
+        listResponse([
+          design({ id: 1, filename: "rose.pes", filepath: "C:/designs/Embroidery/rose.pes" }),
+        ])
       );
 
       renderBrowse();
       await settle();
 
-      const sort = screen.getByText("Sort by:").closest("label")?.querySelector("select") as HTMLSelectElement;
+      const sort = screen
+        .getByText("Sort by:")
+        .closest("label")
+        ?.querySelector("select") as HTMLSelectElement;
       await fireEvent.change(sort, { target: { value: "folder" } });
 
       // Just ensure the card still renders without errors.
@@ -1781,9 +1803,7 @@ describe("BrowseView", () => {
       const summary = screen.getByText("+ Add to project");
       await fireEvent.click(summary);
 
-      expect(
-        await screen.findByText("No projects found. Create one first.")
-      ).toBeInTheDocument();
+      expect(await screen.findByText("No projects found. Create one first.")).toBeInTheDocument();
     });
 
     it("shows project names in the card project dropdown", async () => {
@@ -1987,10 +2007,7 @@ describe("BrowseView", () => {
       renderBrowse();
       await settle();
 
-      expect(spy).toHaveBeenCalledWith(
-        "Could not load browse tags list",
-        expect.any(Error)
-      );
+      expect(spy).toHaveBeenCalledWith("Could not load browse tags list", expect.any(Error));
 
       spy.mockRestore();
     });
@@ -2062,19 +2079,21 @@ describe("BrowseView", () => {
       // in the in-card project details, so `within()` disambiguates (see
       // .clinerules Rule #2).
       await waitFor(() => {
-        const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
+        const dropdown = document.querySelector(
+          "details[style*='display:inline-block']"
+        ) as HTMLElement;
         expect(within(dropdown).getByText("Wedding Collection")).toBeInTheDocument();
       });
 
-      const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
+      const dropdown = document.querySelector(
+        "details[style*='display:inline-block']"
+      ) as HTMLElement;
       const weddingLabel = within(dropdown).getByText("Wedding Collection").closest("label");
       await fireEvent.click(weddingLabel?.querySelector("input") as HTMLInputElement);
     }
 
     it("handles bulkSetTagsForDesigns rejection", async () => {
-      adapterMocks.getBrowseTags.mockResolvedValue(
-        listResponse([tagOption(1, "Floral", "image")])
-      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
       adapterMocks.bulkSetTagsForDesigns.mockRejectedValue(new Error("network"));
 
       await selectItemsHelper(1);
@@ -2144,7 +2163,9 @@ describe("BrowseView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus')).toHaveValue("");
+        expect(
+          screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus')
+        ).toHaveValue("");
       });
       expect(adapterMocks.getBrowseDesigns).toHaveBeenCalled();
     });
@@ -2228,7 +2249,10 @@ describe("BrowseView", () => {
       renderBrowse();
       await settle();
 
-      const sort = screen.getByText("Sort by:").closest("label")?.querySelector("select") as HTMLSelectElement;
+      const sort = screen
+        .getByText("Sort by:")
+        .closest("label")
+        ?.querySelector("select") as HTMLSelectElement;
       await fireEvent.change(sort, { target: { value: "folder" } });
       await tick();
 

@@ -80,7 +80,8 @@
     whyNowTitle: "Why do this now?",
     whyNow:
       "Setting up your frequent designers now enables the Bulk Import tool to display them in drop-down menus. This makes it effortless to assign a designer to an entire folder at once during import, rather than tagging designs individually later.",
-    mandatory: "Not at all! This step is completely optional. You can skip this now and add or edit designers at any time in the settings.",
+    mandatory:
+      "Not at all! This step is completely optional. You can skip this now and add or edit designers at any time in the settings.",
   };
 
   const sourcesCopy = {
@@ -90,7 +91,8 @@
     whyNowTitle: "Why do this now?",
     whyNow:
       "Setting up your common sources now enables the Bulk Import tool to display them in drop-down menus. This lets you tag an entire folder's designs with the same source during import, rather than editing each design individually later.",
-    mandatory: "Not at all! This step is completely optional. You can skip this now and add or edit sources at any time in the settings.",
+    mandatory:
+      "Not at all! This step is completely optional. You can skip this now and add or edit sources at any time in the settings.",
   };
 
   const hoopsCopy = {
@@ -100,7 +102,8 @@
     whyNowTitle: "Why do this now?",
     whyNow:
       "Adding the hoops you own now means the app can automatically recommend a hoop size when you inspect a design or share one to a project. You can add more hoops or edit these later in the settings.",
-    mandatory: "Not at all! This step is completely optional. You can skip it now and add or edit hoops at any time in the settings.",
+    mandatory:
+      "Not at all! This step is completely optional. You can skip it now and add or edit hoops at any time in the settings.",
   };
 
   const apiKeyCopy = {
@@ -110,7 +113,8 @@
     whyNowTitle: "Why do this now?",
     whyNow:
       "Adding your API key now means automated tagging is ready the moment you import your first designs. You can add or change it later via Admin → Settings.",
-    mandatory: "Not at all! This step is completely optional. Leave it blank to skip automated tagging and add a key later in the settings.",
+    mandatory:
+      "Not at all! This step is completely optional. Leave it blank to skip automated tagging and add a key later in the settings.",
   };
 
   const dataCopy = {
@@ -321,12 +325,11 @@
 </script>
 
 <div class="max-w-5xl mx-auto py-6 px-4 space-y-4">
-
   <!-- Welcome banner -->
   <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm">
     <span class="font-semibold">Welcome to Embroidery Catalogue!</span>
-    Before you import files, you can optionally add a few of your main Designers, Sources and
-    Hoops, plus an optional Google API key for automated tagging.
+    Before you import files, you can optionally add a few of your main Designers, Sources and Hoops, plus
+    an optional Google API key for automated tagging.
   </div>
 
   <!-- Main card -->
@@ -378,9 +381,9 @@
             class="bg-amber-50 border border-amber-300 text-amber-800 rounded px-3 py-2 text-sm"
             data-testid="data-root-missing-notice"
           >
-            Your previously configured data folder is no longer reachable. This can
-            happen if a portable drive letter changed or the folder was moved.
-            Please choose where your catalogue data should live now.
+            Your previously configured data folder is no longer reachable. This can happen if a
+            portable drive letter changed or the folder was moved. Please choose where your
+            catalogue data should live now.
           </div>
         {/if}
         <label for="data-root-input" class="block text-sm font-medium text-gray-700">
@@ -407,8 +410,8 @@
         </div>
         {#if hasConfiguredDataRoot}
           <p class="text-xs text-gray-500">
-            Your previous data location was set; you can keep it or change it. If you
-            change it, the app will restart to use the new location.
+            Your previous data location was set; you can keep it or change it. If you change it, the
+            app will restart to use the new location.
           </p>
         {/if}
       </div>
@@ -448,8 +451,8 @@
           </button>
         </div>
         <p class="text-xs text-gray-500">
-          Leave this blank to skip automated tagging — you can add a key later via
-          Admin → Settings. The key is stored locally and is only sent to Google's Gemini API.
+          Leave this blank to skip automated tagging — you can add a key later via Admin → Settings.
+          The key is stored locally and is only sent to Google's Gemini API.
         </p>
       </div>
     {/if}
@@ -502,12 +505,13 @@
           class="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded px-3 py-2 text-sm"
           data-testid="existing-database-notice"
         >
-          An existing Embroidery Catalogue database was detected at this location. Connecting to your existing library without overwriting data.
+          An existing Embroidery Catalogue database was detected at this location. Connecting to
+          your existing library without overwriting data.
         </div>
       {/if}
       <p class="text-sm text-gray-600">
-        Your new data location has been saved. Embroidery Catalogue needs to restart
-        so it can begin using <span class="font-medium text-gray-800">{dataRootInput}</span>.
+        Your new data location has been saved. Embroidery Catalogue needs to restart so it can begin
+        using <span class="font-medium text-gray-800">{dataRootInput}</span>.
       </p>
       {#if error}
         <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm">

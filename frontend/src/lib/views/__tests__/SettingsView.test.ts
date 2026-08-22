@@ -3,10 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
 import { tick } from "svelte";
 import SettingsView from "../SettingsView.svelte";
-import type {
-  SettingsViewModel,
-  DbStats,
-} from "../../types/ipc";
+import type { SettingsViewModel, DbStats } from "../../types/ipc";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter and toast store so all logic branches can be driven
@@ -151,17 +148,12 @@ describe("SettingsView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not load settings: Error: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not load settings: Error: boom", "error");
     });
   });
 
   it("logs to console when database stats fail to load", async () => {
-    const infoSpy = vi
-      .spyOn(console, "info")
-      .mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     getDbStatsMock.mockRejectedValue(new Error("db busy"));
 
     renderView();
@@ -188,9 +180,7 @@ describe("SettingsView.svelte", () => {
     expect(screen.getByLabelText(/Tier 3/)).not.toBeChecked();
 
     // can_configure_data_root is false → browse input hidden, dev-mode note shown.
-    expect(
-      screen.queryByRole("button", { name: "Browse…" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Browse…" })).not.toBeInTheDocument();
     expect(screen.getByText(/In development mode this location follows/)).toBeInTheDocument();
 
     // No API key → blue notice + "leave blank" hint.
@@ -200,9 +190,7 @@ describe("SettingsView.svelte", () => {
     ).toBeInTheDocument();
 
     // dbStats null → "unavailable" message.
-    expect(
-      screen.getByText("Database statistics unavailable.")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Database statistics unavailable.")).toBeInTheDocument();
   });
 
   // -- API key visibility & notices ----------------------------------------
@@ -326,10 +314,7 @@ describe("SettingsView.svelte", () => {
     await fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not save settings: Error: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not save settings: Error: boom", "error");
     });
   });
 
@@ -416,7 +401,9 @@ describe("SettingsView.svelte", () => {
     expect(screen.queryByTestId("settings-restart-dialog")).not.toBeInTheDocument();
     // The migration dialog stays visible to surface the error message.
     expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
-    expect(screen.getByTestId("catalogue-migration-error")).toHaveTextContent("insufficient free space");
+    expect(screen.getByTestId("catalogue-migration-error")).toHaveTextContent(
+      "insufficient free space"
+    );
   });
 
   it("provides a Close button that dismisses the terminal-error migration dialog", async () => {
@@ -451,9 +438,7 @@ describe("SettingsView.svelte", () => {
     await tick();
 
     expect(screen.queryByTestId("catalogue-migration-dialog")).not.toBeInTheDocument();
-    expect(
-      screen.getByLabelText("Catalogue data location")
-    ).toHaveValue("D:\\EmbroideryData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("D:\\EmbroideryData");
   });
 
   it("shows an error toast when restarting fails after the migration succeeds", async () => {
@@ -628,9 +613,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
     expect(getDbStatsMock).toHaveBeenCalledTimes(1);
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Optimize & Compact Database" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith(
@@ -653,9 +636,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Optimize & Compact Database" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith("disk full", "error");
@@ -674,15 +655,10 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Optimize & Compact Database" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not compact database.",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not compact database.", "error");
     });
   });
 
@@ -693,15 +669,10 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Optimize & Compact Database" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not compact database: Error: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not compact database: Error: boom", "error");
     });
   });
 
@@ -712,9 +683,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Optimize & Compact Database" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
     await tick();
 
     const compactingButton = screen.getByRole("button", { name: "Compacting…" });
@@ -774,9 +743,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    expect(
-      screen.getByText("Database statistics unavailable.")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Database statistics unavailable.")).toBeInTheDocument();
   });
 
   // -- Help link -----------------------------------------------------------

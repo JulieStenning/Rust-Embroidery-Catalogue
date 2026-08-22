@@ -100,7 +100,9 @@
   }
 
   const sortedTags = $derived(
-    [...tags].sort((a, b) => String(a.description).localeCompare(String(b.description), undefined, { sensitivity: "base" }))
+    [...tags].sort((a, b) =>
+      String(a.description).localeCompare(String(b.description), undefined, { sensitivity: "base" })
+    )
   );
 </script>
 
@@ -131,7 +133,9 @@
               {tag.description}
             {/if}
           </td>
-          <td class="px-4 py-2 text-right text-gray-600 font-mono">{Number(tag.design_count) || 0}</td>
+          <td class="px-4 py-2 text-right text-gray-600 font-mono"
+            >{Number(tag.design_count) || 0}</td
+          >
           <td class="px-4 py-2 text-right">
             <div class="flex justify-end gap-2.5 flex-wrap">
               {#if editingTagId === tag.id}
@@ -165,7 +169,10 @@
                   Cancel
                 </button>
               {:else if isSystemTag(tag)}
-                <span class="text-xs text-gray-300 select-none" title="System tags cannot be edited or deleted.">Locked</span>
+                <span
+                  class="text-xs text-gray-300 select-none"
+                  title="System tags cannot be edited or deleted.">Locked</span
+                >
               {:else}
                 <button
                   type="button"
@@ -189,7 +196,8 @@
           <tr class="bg-amber-50">
             <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
               {#if Number(tag.design_count) > 0}
-                This tag is used by {tag.design_count} design(s). If you delete it, those designs will no longer have the tag assigned.
+                This tag is used by {tag.design_count} design(s). If you delete it, those designs will
+                no longer have the tag assigned.
               {:else}
                 Confirm deletion for this tag.
               {/if}

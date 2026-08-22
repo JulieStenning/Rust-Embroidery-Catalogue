@@ -120,7 +120,9 @@
     <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new tag</h2>
     <form class="flex flex-wrap gap-3 items-end" onsubmit={addTag}>
       <div>
-        <label for="admin-tag-description" class="block text-xs font-semibold text-gray-650 mb-1">Description</label>
+        <label for="admin-tag-description" class="block text-xs font-semibold text-gray-650 mb-1"
+          >Description</label
+        >
         <input
           id="admin-tag-description"
           type="text"
@@ -131,8 +133,14 @@
         />
       </div>
       <div>
-        <label for="admin-tag-group" class="block text-xs font-semibold text-gray-650 mb-1">Group</label>
-        <select id="admin-tag-group" bind:value={newTagGroup} class="admin-input border rounded px-3 py-2 text-sm bg-white font-sans">
+        <label for="admin-tag-group" class="block text-xs font-semibold text-gray-650 mb-1"
+          >Group</label
+        >
+        <select
+          id="admin-tag-group"
+          bind:value={newTagGroup}
+          class="admin-input border rounded px-3 py-2 text-sm bg-white font-sans"
+        >
           <option value="image">Image</option>
           <option value="stitching">Stitching</option>
         </select>
@@ -141,20 +149,50 @@
     </form>
   </div>
 
-  <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border" open={adminImageTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("image", event)}>
-    <summary class="bg-green-50 border-b border-green-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none">
-      <svg class={`h-4 w-4 text-green-700 transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
+  <details
+    class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border"
+    open={adminImageTagsOpen}
+    ontoggle={(event) => handleAdminTagPanelToggle("image", event)}
+  >
+    <summary
+      class="bg-green-50 border-b border-green-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none"
+    >
+      <svg
+        class={`h-4 w-4 text-green-700 transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`}
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          fill-rule="evenodd"
+          d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z"
+          clip-rule="evenodd"
+        ></path>
       </svg>
       <h2 class="text-sm font-bold text-green-800 tracking-wide">Image Tags</h2>
     </summary>
     <TagTable tags={imageTags} group="image" onRefresh={loadTags} />
   </details>
 
-  <details class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border" open={adminStitchingTagsOpen} ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}>
-    <summary class="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none">
-      <svg class={`h-4 w-4 text-blue-700 transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
+  <details
+    class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border"
+    open={adminStitchingTagsOpen}
+    ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}
+  >
+    <summary
+      class="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none"
+    >
+      <svg
+        class={`h-4 w-4 text-blue-700 transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`}
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          fill-rule="evenodd"
+          d="M5.23 7.21a.75.75 0 011.06.02L10 11.176l3.71-3.946a.75.75 0 111.08 1.04l-4.25 4.52a.75.75 0 01-1.08 0l-4.25-4.52a.75.75 0 01.02-1.06z"
+          clip-rule="evenodd"
+        ></path>
       </svg>
       <h2 class="text-sm font-bold text-blue-800 tracking-wide">Stitching Tags</h2>
     </summary>

@@ -62,12 +62,8 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("checkbox", { name: /Stitching tag detection/ })
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith({
@@ -79,10 +75,7 @@ describe("TaggingActionsView run stitching backfill", () => {
       });
     });
     await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith(
-        "Stitching backfill complete.",
-        "success"
-      );
+      expect(toastMock.addToast).toHaveBeenCalledWith("Stitching backfill complete.", "success");
     });
   });
 
@@ -90,17 +83,13 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("checkbox", { name: /Stitching tag detection/ })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
     await user.click(
       screen.getByRole("checkbox", {
         name: /Overwrite stitching tags on designs that have already been processed/,
       })
     );
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith(
@@ -116,12 +105,8 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("checkbox", { name: /Stitching tag detection/ })
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -135,14 +120,10 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("checkbox", { name: /Stitching tag detection/ })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalled();

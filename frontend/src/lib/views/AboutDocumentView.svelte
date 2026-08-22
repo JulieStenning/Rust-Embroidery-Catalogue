@@ -16,7 +16,11 @@
   let error = $state("");
 
   /** Whether this instance is the dedicated Licence document route. */
-  const isLicenceView = $derived(String(slug || "").trim().toLowerCase() === "licence");
+  const isLicenceView = $derived(
+    String(slug || "")
+      .trim()
+      .toLowerCase() === "licence"
+  );
 
   /** @type {"application" | "rust" | "frontend"} */
   let activeLicenceTab = $state("application");
@@ -96,7 +100,9 @@
    * @param {string} slugName
    */
   async function loadAboutDocumentView(slugName) {
-    const normalizedSlug = String(slugName || "").trim().toLowerCase();
+    const normalizedSlug = String(slugName || "")
+      .trim()
+      .toLowerCase();
     if (!normalizedSlug) {
       documentItem = null;
       error = "Document not found.";
@@ -108,7 +114,13 @@
 
     try {
       const result = await getAboutDocument(normalizedSlug);
-      if (normalizedSlug !== String(slug || "").trim().toLowerCase()) return;
+      if (
+        normalizedSlug !==
+        String(slug || "")
+          .trim()
+          .toLowerCase()
+      )
+        return;
 
       documentItem = result?.item || null;
       if (!documentItem) {
@@ -139,7 +151,9 @@
           <button
             type="button"
             class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition
-              {activeLicenceTab === 'application' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
+              {activeLicenceTab === 'application'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
             onclick={() => selectLicenceTab("application")}
           >
             Application Licence
@@ -147,7 +161,9 @@
           <button
             type="button"
             class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition
-              {activeLicenceTab === 'rust' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
+              {activeLicenceTab === 'rust'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
             onclick={() => selectLicenceTab("rust")}
           >
             Rust Dependencies
@@ -155,7 +171,9 @@
           <button
             type="button"
             class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition
-              {activeLicenceTab === 'frontend' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
+              {activeLicenceTab === 'frontend'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
             onclick={() => selectLicenceTab("frontend")}
           >
             Frontend Dependencies
@@ -176,8 +194,7 @@
               </div>
             </div>
             <pre
-              class="whitespace-pre-wrap text-xs text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner licence-primary-text"
-            >{primaryLicense}</pre>
+              class="whitespace-pre-wrap text-xs text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner licence-primary-text">{primaryLicense}</pre>
           </div>
         {:else if activeLicenceTab === "rust"}
           <div data-testid="licence-rust-tab">
@@ -211,12 +228,17 @@
               <div class="space-y-2">
                 {#each frontendLicenceRows as pkg}
                   <details class="licence-card border border-gray-200 rounded-lg bg-gray-50">
-                    <summary class="licence-header px-4 py-3 cursor-pointer hover:bg-gray-100 transition">
+                    <summary
+                      class="licence-header px-4 py-3 cursor-pointer hover:bg-gray-100 transition"
+                    >
                       <span class="font-medium text-gray-800">{pkg.name}</span>
                       {#if pkg.version}
                         <span class="text-gray-500"> (v{pkg.version})</span>
                       {/if}
-                      <span class="ml-2 text-xs font-semibold text-indigo-700 bg-indigo-100 border border-indigo-200 rounded px-2 py-0.5">{pkg.licenses}</span>
+                      <span
+                        class="ml-2 text-xs font-semibold text-indigo-700 bg-indigo-100 border border-indigo-200 rounded px-2 py-0.5"
+                        >{pkg.licenses}</span
+                      >
                     </summary>
                     <div class="licence-crates px-4 pb-3 pt-2 border-t border-gray-200">
                       <h4 class="ui-section-label font-semibold text-gray-850 mb-1">Licence</h4>
@@ -228,7 +250,8 @@
                             target="_blank"
                             rel="noopener noreferrer"
                             class="text-indigo-600 hover:underline font-medium break-all"
-                          >{pkg.repository}</a>
+                            >{pkg.repository}</a
+                          >
                         </p>
                       {/if}
                     </div>
@@ -254,15 +277,20 @@
         <p class="text-sm text-red-650 bg-red-50 border border-red-200 rounded p-3">{error}</p>
       {:else if documentItem?.document_text}
         {#if shouldRenderAsHtml(documentItem)}
-          <div class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 space-y-4 shadow-inner">
+          <div
+            class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 space-y-4 shadow-inner"
+          >
             {@html documentItem.document_text}
           </div>
         {:else if shouldRenderAsMarkdown(documentItem)}
-          <div class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 prose prose-gray max-w-none shadow-inner document-markdown">
+          <div
+            class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 prose prose-gray max-w-none shadow-inner document-markdown"
+          >
             {@html renderMarkdown(documentItem.document_text)}
           </div>
         {:else}
-          <pre class="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>
+          <pre
+            class="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>
         {/if}
       {:else}
         <p class="text-sm text-gray-500 italic">Document content is unavailable.</p>

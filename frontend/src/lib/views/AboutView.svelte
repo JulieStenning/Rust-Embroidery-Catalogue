@@ -15,10 +15,10 @@
 
     <p class="text-sm text-gray-700">
       Embroidery Catalogue is a local, desktop catalogue for browsing, tagging, and managing a
-      collection of digital embroidery designs. It reads a broad range of embroidery formats directly
-      via built-in readers (<code>.jef</code>, <code>.pes</code>, <code>.hus</code>,
-      <code>.vp3</code>, <code>.dst</code>, <code>.exp</code>) and
-      stores all catalogue data in a local database. An Internet connection is required for advanced tagging.
+      collection of digital embroidery designs. It reads a broad range of embroidery formats
+      directly via built-in readers (<code>.jef</code>, <code>.pes</code>, <code>.hus</code>,
+      <code>.vp3</code>, <code>.dst</code>, <code>.exp</code>) and stores all catalogue data in a
+      local database. An Internet connection is required for advanced tagging.
     </p>
 
     <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm space-y-1">
@@ -28,29 +28,34 @@
   </div>
 
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
-    <h2 class="text-lg font-bold text-gray-800 font-sans">Acknowledgements & Code Porting Attributions</h2>
+    <h2 class="text-lg font-bold text-gray-800 font-sans">
+      Acknowledgements & Code Porting Attributions
+    </h2>
     <div class="space-y-4 text-sm">
       <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h3 class="ui-section-label font-semibold text-gray-850 mb-1">pyembroidery (MIT License)</h3>
+        <h3 class="ui-section-label font-semibold text-gray-850 mb-1">
+          pyembroidery (MIT License)
+        </h3>
         <p class="text-gray-700">
           Binary parsing routines for <code>.pes</code>, <code>.jef</code>, <code>.vp3</code>,
-          <code>.hus</code>, <code>.dst</code> and <code>.exp</code> and png_writerwere ported/derived into native Rust modules
-          from
+          <code>.hus</code>, <code>.dst</code> and <code>.exp</code> and png_writerwere
+          ported/derived into native Rust modules from
           <a
             href="https://github.com/EmbroidePy/pyembroidery"
             target="_blank"
             rel="noopener noreferrer"
             class="text-indigo-600 hover:underline font-medium break-all"
-          >https://github.com/EmbroidePy/pyembroidery</a>.
+            >https://github.com/EmbroidePy/pyembroidery</a
+          >.
         </p>
       </div>
-     
     </div>
   </div>
 
   <div class="bg-white rounded-xl shadow p-6 flex items-center justify-between gap-4">
     <p class="text-sm text-gray-600">
-      The full application licence, Rust crate credits, and frontend package credits are available here.
+      The full application licence, Rust crate credits, and frontend package credits are available
+      here.
     </p>
     <a
       href="#/about/licence"

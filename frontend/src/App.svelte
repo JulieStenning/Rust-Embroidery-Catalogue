@@ -23,7 +23,7 @@
     if (typeof window === "undefined") {
       return false;
     }
-    return typeof (/** @type {any} */ (window)).__TAURI_INTERNALS__?.invoke === "function";
+    return typeof (/** @type {any} */ (window).__TAURI_INTERNALS__?.invoke) === "function";
   }
 
   /** Called once on mount to determine which view to show */
@@ -90,7 +90,6 @@
       <p class="text-gray-500 text-sm">Loading Embroidery Catalogue…</p>
     </div>
   </div>
-
 {:else if checkError}
   <!-- Error state -->
   <div class="flex items-center justify-center min-h-screen">
@@ -98,22 +97,19 @@
       <p class="text-red-600 font-semibold">Startup Error</p>
       <p class="text-sm text-gray-600">{checkError}</p>
       <p class="text-xs text-gray-400">
-        Try restarting the application. If the problem persists, check that the
-        database directory is accessible.
+        Try restarting the application. If the problem persists, check that the database directory
+        is accessible.
       </p>
     </div>
   </div>
-
 {:else if databaseMissing}
   <!-- Database recovery view: the configured database is missing (e.g. drive
        letter changed). This blocks the main UI until the user re-points the
        location or explicitly creates a new catalogue. -->
   <DatabaseRecoveryView />
-
 {:else if !initialSetupCompleted}
   <!-- Initial setup wizard (data location, designers & sources) -->
   <InitialSetupView {onInitialSetupCompleted} />
-
 {:else}
   <!-- Main application -->
   <MainView />

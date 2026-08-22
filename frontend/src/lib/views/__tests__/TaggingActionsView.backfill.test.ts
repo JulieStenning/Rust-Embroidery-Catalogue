@@ -72,9 +72,7 @@ describe("TaggingActionsView run unified backfill", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
@@ -89,10 +87,7 @@ describe("TaggingActionsView run unified backfill", () => {
         workers: 4,
       });
     });
-    expect(toastMock.addToast).toHaveBeenCalledWith(
-      "Running selected actions...",
-      "info"
-    );
+    expect(toastMock.addToast).toHaveBeenCalledWith("Running selected actions...", "info");
   });
 
   it("builds the unified backfill payload from all enabled options", async () => {
@@ -104,12 +99,8 @@ describe("TaggingActionsView run unified backfill", () => {
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 3/ }));
     await user.click(screen.getByRole("checkbox", { name: /Image generation/ }));
     await user.click(screen.getByRole("checkbox", { name: /Regenerate images/ }));
-    await user.click(
-      screen.getByRole("checkbox", { name: /Recalculate colour/ })
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Recalculate colour/ }));
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
@@ -137,9 +128,7 @@ describe("TaggingActionsView run unified backfill", () => {
         name: /Re-tag designs that already have tags/,
       })
     );
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
@@ -152,9 +141,7 @@ describe("TaggingActionsView run unified backfill", () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Run selected actions" })).toBeDisabled();
     });
 
     expect(adapterMocks.runUnifiedBackfill).not.toHaveBeenCalled();
@@ -162,17 +149,13 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows the last run summary with processed and error counts", async () => {
-    adapterMocks.runUnifiedBackfill.mockResolvedValue(
-      backfillResult({ processed: 12, errors: 2 })
-    );
+    adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult({ processed: 12, errors: 2 }));
     render(TaggingActionsView);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(screen.getByText("Last run summary")).toBeInTheDocument();
@@ -195,17 +178,13 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows a success toast when a clean run completes", async () => {
-    adapterMocks.runUnifiedBackfill.mockResolvedValue(
-      backfillResult({ processed: 5 })
-    );
+    adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult({ processed: 5 }));
     render(TaggingActionsView);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -224,9 +203,7 @@ describe("TaggingActionsView run unified backfill", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -246,9 +223,7 @@ describe("TaggingActionsView run unified backfill", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -260,17 +235,13 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows an error toast when the unified backfill throws", async () => {
-    adapterMocks.runUnifiedBackfill.mockRejectedValue(
-      new Error("backend unreachable")
-    );
+    adapterMocks.runUnifiedBackfill.mockRejectedValue(new Error("backend unreachable"));
     render(TaggingActionsView);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -280,9 +251,7 @@ describe("TaggingActionsView run unified backfill", () => {
     });
     // The run is no longer in flight, so the button returns to its idle label.
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Run selected actions" })
-      ).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "Run selected actions" })).not.toBeDisabled();
     });
     expect(screen.queryByText("Last run summary")).not.toBeInTheDocument();
   });
@@ -292,9 +261,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
@@ -325,9 +292,7 @@ describe("TaggingActionsView run unified backfill", () => {
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
     const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
     expect(tier2).toBeDisabled();
-    await user.click(
-      screen.getByRole("button", { name: "Run selected actions" })
-    );
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(

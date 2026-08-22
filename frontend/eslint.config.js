@@ -21,10 +21,7 @@ export default [
       },
     },
     rules: {
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { argsIgnorePattern: "^_" },
-      ],
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "no-unused-vars": "off",
       "svelte/no-at-html-tags": "off",
     },

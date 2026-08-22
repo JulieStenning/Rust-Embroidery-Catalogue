@@ -19,7 +19,15 @@ export interface SearchPayload {
 
 /** Progress streamed from Rust during catalogue storage migration. */
 export interface StorageMigrationProgress {
-  current_phase: "preflight" | "database" | "assets" | "finalising" | "completed" | "cancelled" | "error" | string;
+  current_phase:
+    | "preflight"
+    | "database"
+    | "assets"
+    | "finalising"
+    | "completed"
+    | "cancelled"
+    | "error"
+    | string;
   items_copied: number;
   total_items: number;
   bytes_copied: number;

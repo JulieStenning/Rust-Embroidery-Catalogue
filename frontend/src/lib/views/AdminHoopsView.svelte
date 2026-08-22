@@ -48,7 +48,13 @@
     try {
       const result = await listHoops();
       const items = getResponseItems(result);
-      hoops = items.map((h) => ({ id: Number(h.id), name: String(h.name || ""), maxWidthMm: Number(h.max_width_mm || 0), maxHeightMm: Number(h.max_height_mm || 0), designCount: Number(h.design_count || 0) }));
+      hoops = items.map((h) => ({
+        id: Number(h.id),
+        name: String(h.name || ""),
+        maxWidthMm: Number(h.max_width_mm || 0),
+        maxHeightMm: Number(h.max_height_mm || 0),
+        designCount: Number(h.design_count || 0),
+      }));
     } catch (e) {
       addToast(`Failed to load hoops: ${e}`, "error");
     } finally {
@@ -121,7 +127,10 @@
     cancelEditHoop();
     pendingDeleteHoopId = Number(hoop.id);
     if (Number(hoop.designCount) > 0) {
-      addToast(`Deleting '${hoop.name}' will clear assignment from ${hoop.designCount} design(s).`, "info");
+      addToast(
+        `Deleting '${hoop.name}' will clear assignment from ${hoop.designCount} design(s).`,
+        "info"
+      );
       return;
     }
     addToast(`Delete '${hoop.name}'? Click confirm delete to continue.`, "info");
@@ -165,7 +174,9 @@
   <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new hoop</h2>
   <form class="flex gap-3 items-end flex-wrap" onsubmit={addHoop}>
     <div>
-      <label for="admin-hoop-name" class="block text-xs font-semibold text-gray-650 mb-1">Name</label>
+      <label for="admin-hoop-name" class="block text-xs font-semibold text-gray-650 mb-1"
+        >Name</label
+      >
       <input
         id="admin-hoop-name"
         type="text"
@@ -176,7 +187,9 @@
       />
     </div>
     <div>
-      <label for="admin-hoop-width" class="block text-xs font-semibold text-gray-650 mb-1">Max Width (mm)</label>
+      <label for="admin-hoop-width" class="block text-xs font-semibold text-gray-650 mb-1"
+        >Max Width (mm)</label
+      >
       <input
         id="admin-hoop-width"
         type="number"
@@ -188,7 +201,9 @@
       />
     </div>
     <div>
-      <label for="admin-hoop-height" class="block text-xs font-semibold text-gray-650 mb-1">Max Height (mm)</label>
+      <label for="admin-hoop-height" class="block text-xs font-semibold text-gray-650 mb-1"
+        >Max Height (mm)</label
+      >
       <input
         id="admin-hoop-height"
         type="number"
@@ -199,8 +214,15 @@
         class="admin-input border rounded px-3 py-2 text-sm w-36 font-sans text-right"
       />
     </div>
-    <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddHoop}>Add</button>
-    <button type="button" class="menu-button-secondary text-sm py-2" onclick={clearNewHoopForm} disabled={!canClearHoopForm}>Clear</button>
+    <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddHoop}
+      >Add</button
+    >
+    <button
+      type="button"
+      class="menu-button-secondary text-sm py-2"
+      onclick={clearNewHoopForm}
+      disabled={!canClearHoopForm}>Clear</button
+    >
   </form>
 </div>
 
@@ -218,7 +240,9 @@
     <tbody class="divide-y divide-gray-100">
       {#if hoops.length === 0}
         <tr>
-          <td colspan="5" class="px-4 py-3 text-gray-400 italic">No hoops defined yet. Add your own machine hoops above.</td>
+          <td colspan="5" class="px-4 py-3 text-gray-400 italic"
+            >No hoops defined yet. Add your own machine hoops above.</td
+          >
         </tr>
       {:else}
         {#each hoops as hoop}
@@ -264,24 +288,48 @@
             <td class="px-4 py-2 text-right">
               <div class="flex justify-end gap-2.5 flex-wrap">
                 {#if editingHoopId === hoop.id}
-                  <button type="button" class="text-indigo-650 hover:underline text-xs font-semibold" onclick={() => saveHoopEdit(hoop.id)}>
+                  <button
+                    type="button"
+                    class="text-indigo-650 hover:underline text-xs font-semibold"
+                    onclick={() => saveHoopEdit(hoop.id)}
+                  >
                     Save
                   </button>
-                  <button type="button" class="text-gray-500 hover:underline text-xs font-semibold" onclick={cancelEditHoop}>
+                  <button
+                    type="button"
+                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    onclick={cancelEditHoop}
+                  >
                     Cancel
                   </button>
                 {:else if pendingDeleteHoopId === hoop.id}
-                  <button type="button" class="text-red-600 hover:underline text-xs font-bold" onclick={() => deleteHoop(hoop.id)}>
+                  <button
+                    type="button"
+                    class="text-red-600 hover:underline text-xs font-bold"
+                    onclick={() => deleteHoop(hoop.id)}
+                  >
                     Confirm delete
                   </button>
-                  <button type="button" class="text-gray-500 hover:underline text-xs font-semibold" onclick={cancelDeleteHoop}>
+                  <button
+                    type="button"
+                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    onclick={cancelDeleteHoop}
+                  >
                     Cancel
                   </button>
                 {:else}
-                  <button type="button" class="text-indigo-655 hover:underline text-xs font-semibold" onclick={() => beginEditHoop(hoop)}>
+                  <button
+                    type="button"
+                    class="text-indigo-655 hover:underline text-xs font-semibold"
+                    onclick={() => beginEditHoop(hoop)}
+                  >
                     Edit
                   </button>
-                  <button type="button" class="text-red-400 hover:underline text-xs font-semibold" onclick={() => requestDeleteHoop(hoop)}>
+                  <button
+                    type="button"
+                    class="text-red-400 hover:underline text-xs font-semibold"
+                    onclick={() => requestDeleteHoop(hoop)}
+                  >
                     Delete
                   </button>
                 {/if}
@@ -292,7 +340,8 @@
             <tr class="bg-amber-50">
               <td colspan="5" class="px-4 py-2 text-xs text-amber-800">
                 {#if hoop.designCount > 0}
-                  This hoop is currently used by {hoop.designCount} design(s). If you delete it, those designs will no longer have a hoop assigned.
+                  This hoop is currently used by {hoop.designCount} design(s). If you delete it, those
+                  designs will no longer have a hoop assigned.
                 {:else}
                   Confirm deletion for this hoop.
                 {/if}

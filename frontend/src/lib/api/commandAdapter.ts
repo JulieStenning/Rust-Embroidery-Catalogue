@@ -90,7 +90,7 @@ function invokeLoose<T = LooseRecord>(command: string, args?: Record<string, unk
         try {
           (result as PromiseLike<T>).then(
             (value) => resolve(value as T),
-            (reason) => reject(reason),
+            (reason) => reject(reason)
           );
         } catch (error) {
           reject(error);
@@ -161,7 +161,11 @@ const MOCK_HOOPS = [
 ];
 
 /** @param {LooseRecord | null | undefined} raw @param {number} index @param {{ useSeedTags?: boolean }} [options] */
-function normalizeBrowseItem(raw: LooseRecord | null | undefined, index: number, options: { useSeedTags?: boolean } = {}): BrowseDesignSummaryWire {
+function normalizeBrowseItem(
+  raw: LooseRecord | null | undefined,
+  index: number,
+  options: { useSeedTags?: boolean } = {}
+): BrowseDesignSummaryWire {
   const { useSeedTags = false } = options;
   const id = Number(raw?.id ?? index + 1);
   const filename = String(raw?.filename || raw?.name || `design-${id}.pes`);
@@ -179,9 +183,15 @@ function normalizeBrowseItem(raw: LooseRecord | null | undefined, index: number,
       : Array.isArray(raw?.project_names)
         ? raw.project_names
         : typeof raw?.projects === "string"
-          ? raw.projects.split(",").map((value: string) => value.trim()).filter(Boolean)
+          ? raw.projects
+              .split(",")
+              .map((value: string) => value.trim())
+              .filter(Boolean)
           : typeof raw?.project_names === "string"
-            ? raw.project_names.split(",").map((value: string) => value.trim()).filter(Boolean)
+            ? raw.project_names
+                .split(",")
+                .map((value: string) => value.trim())
+                .filter(Boolean)
             : [],
     tags:
       Array.isArray(raw?.tags) && raw.tags.length > 0
@@ -198,7 +208,9 @@ function normalizeBrowseItem(raw: LooseRecord | null | undefined, index: number,
         : Math.max(0, Math.min(5, Number(raw.rating))),
     is_stitched: Boolean(raw?.is_stitched),
     image_tags_verified: Boolean(raw?.image_tags_verified ?? seed % 4 !== 0),
-    stitching_tags_verified: Boolean(raw?.stitching_tags_verified ?? raw?.image_tags_verified ?? seed % 4 !== 0),
+    stitching_tags_verified: Boolean(
+      raw?.stitching_tags_verified ?? raw?.image_tags_verified ?? seed % 4 !== 0
+    ),
   };
 }
 
@@ -207,12 +219,16 @@ function normalizeBrowseItem(raw: LooseRecord | null | undefined, index: number,
  * Falls back to local mock data while command migration is in progress.
  * @param {import("../types").SearchPayload} [payload]
  */
-export async function getBrowseDesigns(payload?: SearchPayload): Promise<AdapterListResponse<BrowseDesignSummaryWire>> {
+export async function getBrowseDesigns(
+  payload?: SearchPayload
+): Promise<AdapterListResponse<BrowseDesignSummaryWire>> {
   try {
     const designs = await invokeLoose<BrowseDesignSummaryWire[]>("get_designs", { payload });
     if (Array.isArray(designs)) {
       return {
-        items: designs.map((item, index) => normalizeBrowseItem(item as unknown as LooseRecord, index)),
+        items: designs.map((item, index) =>
+          normalizeBrowseItem(item as unknown as LooseRecord, index)
+        ),
         source: "rust",
       };
     }
@@ -221,7 +237,9 @@ export async function getBrowseDesigns(payload?: SearchPayload): Promise<Adapter
   }
 
   return {
-    items: MOCK_DESIGNS.map((item, index) => normalizeBrowseItem(item, index, { useSeedTags: true })),
+    items: MOCK_DESIGNS.map((item, index) =>
+      normalizeBrowseItem(item, index, { useSeedTags: true })
+    ),
     source: "mock",
   };
 }
@@ -231,7 +249,9 @@ export async function getBrowseDesigns(payload?: SearchPayload): Promise<Adapter
  * Falls back to mock data while detail command migration is in progress.
  * @param {number | string} designId
  */
-export async function getDesignDetail(designId: number | string): Promise<AdapterItemResponse<DesignDetail>> {
+export async function getDesignDetail(
+  designId: number | string
+): Promise<AdapterItemResponse<DesignDetail>> {
   const normalizedId = Number(designId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return { item: null, source: "mock", error: `Invalid design id: ${designId}` };
@@ -355,14 +375,18 @@ export async function getDesignDetail(designId: number | string): Promise<Adapte
 /**
  * @param {number | string} designId
  */
-export async function getDesignImageDataUrl(designId: number | string): Promise<AdapterItemResponse<DesignImageData>> {
+export async function getDesignImageDataUrl(
+  designId: number | string
+): Promise<AdapterItemResponse<DesignImageData>> {
   const normalizedId = Number(designId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return { item: null, source: "mock" };
   }
 
   try {
-    const image = await invokeLoose<DesignImageData | null>("get_design_image_data_url", { designId: normalizedId });
+    const image = await invokeLoose<DesignImageData | null>("get_design_image_data_url", {
+      designId: normalizedId,
+    });
     if (image && typeof image === "object") {
       return { item: image, source: "rust" };
     }
@@ -377,7 +401,10 @@ export async function getDesignImageDataUrl(designId: number | string): Promise<
  * @param {number | string} designId
  * @param {Record<string, any>} request
  */
-export async function updateDesignMetadata(designId: number | string, request: UpdateDesignMetadataRequest): Promise<AdapterMutationResponse> {
+export async function updateDesignMetadata(
+  designId: number | string,
+  request: UpdateDesignMetadataRequest
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
@@ -406,7 +433,10 @@ export async function updateDesignMetadata(designId: number | string, request: U
  * @param {number | string} designId
  * @param {number | null} rating
  */
-export async function setDesignRating(designId: number | string, rating: number | null): Promise<AdapterMutationResponse> {
+export async function setDesignRating(
+  designId: number | string,
+  rating: number | null
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
@@ -435,7 +465,10 @@ export async function setDesignRating(designId: number | string, rating: number 
  * @param {number | string} designId
  * @param {boolean} isStitched
  */
-export async function setDesignStitched(designId: number | string, isStitched: boolean): Promise<AdapterMutationResponse> {
+export async function setDesignStitched(
+  designId: number | string,
+  isStitched: boolean
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
   try {
@@ -468,7 +501,7 @@ export async function setDesignStitched(designId: number | string, isStitched: b
  */
 export async function setDesignVerification(
   designId: number | string,
-  patch: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null },
+  patch: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null }
 ): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
 
@@ -512,11 +545,13 @@ export async function setDesignVerification(
 export async function setDesignTags(
   designId: number | string,
   tagIds: Array<number | string>,
-  verification?: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null },
+  verification?: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null }
 ): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedTagIds = Array.isArray(tagIds)
-    ? Array.from(new Set(tagIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+    ? Array.from(
+        new Set(tagIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))
+      )
     : [];
 
   try {
@@ -549,7 +584,10 @@ export async function setDesignTags(
  * @param {number | string} designId
  * @param {number | string} tagId
  */
-export async function removeDesignTag(designId: number | string, tagId: number | string): Promise<AdapterMutationResponse> {
+export async function removeDesignTag(
+  designId: number | string,
+  tagId: number | string
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedTagId = Number(tagId);
 
@@ -579,7 +617,10 @@ export async function removeDesignTag(designId: number | string, tagId: number |
  * @param {number | string} designId
  * @param {number | string} projectId
  */
-export async function addDesignToProject(designId: number | string, projectId: number | string): Promise<AdapterMutationResponse> {
+export async function addDesignToProject(
+  designId: number | string,
+  projectId: number | string
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedProjectId = Number(projectId);
 
@@ -609,7 +650,10 @@ export async function addDesignToProject(designId: number | string, projectId: n
  * @param {number | string} designId
  * @param {number | string} projectId
  */
-export async function removeDesignFromProject(designId: number | string, projectId: number | string): Promise<AdapterMutationResponse> {
+export async function removeDesignFromProject(
+  designId: number | string,
+  projectId: number | string
+): Promise<AdapterMutationResponse> {
   const normalizedId = Number(designId);
   const normalizedProjectId = Number(projectId);
 
@@ -638,7 +682,7 @@ export async function removeDesignFromProject(designId: number | string, project
 /**
  * Bulk delete designs from the catalogue.
  * When deleteFiles is true, source design files are moved to the OS trash/recycle bin.
- * 
+ *
  * @param {Array<number | string>} designIds - Design IDs to delete (max 50).
  * @param {boolean} [deleteFiles=false] - Whether to also move source files to the recycle bin.
  * @returns {Promise<{
@@ -651,7 +695,9 @@ export async function removeDesignFromProject(designId: number | string, project
  */
 export async function bulkDeleteDesigns(designIds: Array<number | string>, deleteFiles = false) {
   const ids = Array.isArray(designIds)
-    ? Array.from(new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+    ? Array.from(
+        new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))
+      )
     : [];
 
   if (ids.length === 0) {
@@ -779,7 +825,9 @@ export async function renderDesign3dPreview(designId: number | string, preview3d
  *
  * @param {number | string} designId
  */
-export async function reparseDesignFile(designId: number | string): Promise<AdapterReparseDesignResponse> {
+export async function reparseDesignFile(
+  designId: number | string
+): Promise<AdapterReparseDesignResponse> {
   const normalizedId = Number(designId);
 
   try {
@@ -808,7 +856,9 @@ export async function reparseDesignFile(designId: number | string): Promise<Adap
  * Falls back to a mock preview shape if command wiring is incomplete.
  * @param {string | string[]} rootPaths
  */
-export async function previewImportFromRoots(rootPaths: string | string[]): Promise<AdapterImportPreviewResponse> {
+export async function previewImportFromRoots(
+  rootPaths: string | string[]
+): Promise<AdapterImportPreviewResponse> {
   const normalizedRoots = Array.isArray(rootPaths)
     ? rootPaths.map((rootPath) => String(rootPath || "").trim()).filter(Boolean)
     : [];
@@ -847,7 +897,9 @@ export async function previewImportFromRoots(rootPaths: string | string[]): Prom
         selected_count: Number(preview?.selected_count ?? 0),
         folder_count: Number(preview?.folder_count ?? normalizedRoots.length),
         scanned_files: Array.isArray(preview?.scanned_files) ? preview.scanned_files : [],
-        resolved_assignments: Array.isArray(preview?.resolved_assignments) ? preview.resolved_assignments : [],
+        resolved_assignments: Array.isArray(preview?.resolved_assignments)
+          ? preview.resolved_assignments
+          : [],
         missing_root: Boolean(preview?.missing_root),
         no_supported_files: Boolean(preview?.no_supported_files),
         invalid_root: Boolean(preview?.invalid_root),
@@ -876,7 +928,9 @@ export async function previewImportFromRoots(rootPaths: string | string[]): Prom
 /**
  * @param {string} rootPath
  */
-export async function previewImportFromRoot(rootPath: string): Promise<AdapterImportPreviewResponse> {
+export async function previewImportFromRoot(
+  rootPath: string
+): Promise<AdapterImportPreviewResponse> {
   const normalizedRoot = String(rootPath || "").trim();
   return previewImportFromRoots(normalizedRoot ? [normalizedRoot] : []);
 }
@@ -885,7 +939,9 @@ export async function previewImportFromRoot(rootPath: string): Promise<AdapterIm
  * Open native folder picker for import root selection.
  * @param {string} [startDir]
  */
-export async function browseImportFolder(startDir = ""): Promise<AdapterBrowseImportFolderResponse> {
+export async function browseImportFolder(
+  startDir = ""
+): Promise<AdapterBrowseImportFolderResponse> {
   try {
     const result = await invokeLoose<BrowseImportFolderResult>("browse_import_folder", {
       request: {
@@ -897,7 +953,9 @@ export async function browseImportFolder(startDir = ""): Promise<AdapterBrowseIm
     return {
       source: "rust",
       path: String(result?.path || ""),
-      paths: Array.isArray(result?.paths) ? result.paths.map((item) => String(item || "")).filter(Boolean) : [],
+      paths: Array.isArray(result?.paths)
+        ? result.paths.map((item) => String(item || "")).filter(Boolean)
+        : [],
       message: result?.path ? "Folder selected." : "Folder selection cancelled.",
     };
   } catch (error) {
@@ -915,7 +973,9 @@ export async function browseImportFolder(startDir = ""): Promise<AdapterBrowseIm
  * Run import precheck and persist tokenized import context in Rust backend.
  * @param {Record<string, any> | null} confirmWire
  */
-export async function precheckImportWire(confirmWire: Record<string, unknown> | null): Promise<AdapterImportPrecheckResponse> {
+export async function precheckImportWire(
+  confirmWire: Record<string, unknown> | null
+): Promise<AdapterImportPrecheckResponse> {
   const wire = confirmWire && typeof confirmWire === "object" ? confirmWire : null;
   if (!wire) {
     return {
@@ -985,13 +1045,16 @@ export async function runPrecheckAction({
   }
 
   try {
-    const actionResult = await invokeLoose<ImportPrecheckActionResult>("precheck_bulk_import_action_wire", {
-      request: {
-        context_token: normalizedToken,
-        action: normalizedAction,
-        confirm_skip_hoops: Boolean(confirmSkipHoops),
-      },
-    });
+    const actionResult = await invokeLoose<ImportPrecheckActionResult>(
+      "precheck_bulk_import_action_wire",
+      {
+        request: {
+          context_token: normalizedToken,
+          action: normalizedAction,
+          confirm_skip_hoops: Boolean(confirmSkipHoops),
+        },
+      }
+    );
 
     return {
       source: "rust",
@@ -999,7 +1062,10 @@ export async function runPrecheckAction({
       message: "",
     };
   } catch (error) {
-    console.info("precheck_bulk_import_action_wire unavailable or failed, using mock action result.", error);
+    console.info(
+      "precheck_bulk_import_action_wire unavailable or failed, using mock action result.",
+      error
+    );
     const isCancel = normalizedAction === "cancel";
 
     return {
@@ -1044,9 +1110,12 @@ export async function requestStopBulkImport(): Promise<AdapterStopBulkImportResp
  * @param {Array<number | string>} designIds
  */
 export async function bulkVerifyDesigns(designIds: Array<number | string>) {
-  const normalizedIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
-    ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
-    : [];
+  const normalizedIds =
+    designIds && typeof designIds[Symbol.iterator] === "function"
+      ? Array.from(designIds)
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      : [];
 
   if (normalizedIds.length === 0) {
     return {
@@ -1096,7 +1165,9 @@ export async function getBrowseProjects(): Promise<AdapterListResponse<ProjectLi
   };
 }
 
-export async function getProjectsList(requestTimeoutMs = 15000): Promise<AdapterProjectListResponse> {
+export async function getProjectsList(
+  requestTimeoutMs = 15000
+): Promise<AdapterProjectListResponse> {
   const REQUEST_TIMEOUT_MS = requestTimeoutMs;
 
   const timeoutPromise = new Promise((_, reject) => {
@@ -1106,7 +1177,10 @@ export async function getProjectsList(requestTimeoutMs = 15000): Promise<Adapter
   });
 
   try {
-    const projects = await Promise.race([invokeLoose<ProjectSummary[]>("get_projects_list"), timeoutPromise]);
+    const projects = await Promise.race([
+      invokeLoose<ProjectSummary[]>("get_projects_list"),
+      timeoutPromise,
+    ]);
     if (Array.isArray(projects)) {
       return { items: projects, source: "rust" };
     }
@@ -1126,7 +1200,10 @@ export async function getProjectsList(requestTimeoutMs = 15000): Promise<Adapter
  * @param {string} name
  * @param {string} description
  */
-export async function createProject(name: string, description: string): Promise<AdapterProjectMutationResponse> {
+export async function createProject(
+  name: string,
+  description: string
+): Promise<AdapterProjectMutationResponse> {
   const payload = {
     name: String(name || "").trim(),
     description: String(description || "").trim() || null,
@@ -1154,14 +1231,18 @@ export async function createProject(name: string, description: string): Promise<
 /**
  * @param {number | string} projectId
  */
-export async function getProjectDetail(projectId: number | string): Promise<AdapterProjectDetailResponse> {
+export async function getProjectDetail(
+  projectId: number | string
+): Promise<AdapterProjectDetailResponse> {
   const normalizedProjectId = Number(projectId);
   if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
     return { item: null, source: "mock", error: `Invalid project id: ${projectId}` };
   }
 
   try {
-    const detail = await invokeLoose<ProjectDetailView>("get_project_detail", { projectId: normalizedProjectId });
+    const detail = await invokeLoose<ProjectDetailView>("get_project_detail", {
+      projectId: normalizedProjectId,
+    });
     if (detail && typeof detail === "object") {
       return { item: detail, source: "rust" };
     }
@@ -1181,7 +1262,11 @@ export async function getProjectDetail(projectId: number | string): Promise<Adap
  * @param {string} name
  * @param {string} description
  */
-export async function updateProject(projectId: number | string, name: string, description: string): Promise<AdapterProjectMutationResponse> {
+export async function updateProject(
+  projectId: number | string,
+  name: string,
+  description: string
+): Promise<AdapterProjectMutationResponse> {
   const normalizedProjectId = Number(projectId);
   const payload = {
     name: String(name || "").trim(),
@@ -1213,11 +1298,15 @@ export async function updateProject(projectId: number | string, name: string, de
 /**
  * @param {number | string} projectId
  */
-export async function deleteProject(projectId: number | string): Promise<AdapterProjectMutationResponse> {
+export async function deleteProject(
+  projectId: number | string
+): Promise<AdapterProjectMutationResponse> {
   const normalizedProjectId = Number(projectId);
 
   try {
-    const result = await invokeLoose<ProjectMutationResult>("delete_project", { projectId: normalizedProjectId });
+    const result = await invokeLoose<ProjectMutationResult>("delete_project", {
+      projectId: normalizedProjectId,
+    });
     return {
       source: "rust",
       persisted: true,
@@ -1239,15 +1328,21 @@ export async function deleteProject(projectId: number | string): Promise<Adapter
  * @param {number | string} projectId
  * @param {number | string} designId
  */
-export async function removeDesignFromProjectDetail(projectId: number | string, designId: number | string): Promise<AdapterProjectDesignMutationResponse> {
+export async function removeDesignFromProjectDetail(
+  projectId: number | string,
+  designId: number | string
+): Promise<AdapterProjectDesignMutationResponse> {
   const normalizedProjectId = Number(projectId);
   const normalizedDesignId = Number(designId);
 
   try {
-    const result = await invokeLoose<RemoveProjectDesignResult>("remove_design_from_project_detail", {
-      projectId: normalizedProjectId,
-      designId: normalizedDesignId,
-    });
+    const result = await invokeLoose<RemoveProjectDesignResult>(
+      "remove_design_from_project_detail",
+      {
+        projectId: normalizedProjectId,
+        designId: normalizedDesignId,
+      }
+    );
     return {
       source: "rust",
       persisted: true,
@@ -1270,14 +1365,18 @@ export async function removeDesignFromProjectDetail(projectId: number | string, 
 /**
  * @param {number | string} projectId
  */
-export async function getProjectPrintView(projectId: number | string): Promise<AdapterProjectDetailResponse> {
+export async function getProjectPrintView(
+  projectId: number | string
+): Promise<AdapterProjectDetailResponse> {
   const normalizedProjectId = Number(projectId);
   if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) {
     return { item: null, source: "mock", error: `Invalid project id: ${projectId}` };
   }
 
   try {
-    const view = await invokeLoose<ProjectDetailView>("get_project_print_view", { projectId: normalizedProjectId });
+    const view = await invokeLoose<ProjectDetailView>("get_project_print_view", {
+      projectId: normalizedProjectId,
+    });
     if (view && typeof view === "object") {
       return { item: view, source: "rust" };
     }
@@ -1298,13 +1397,23 @@ export async function getProjectPrintView(projectId: number | string): Promise<A
  * @param {number | string} projectId
  * @param {Array<number | string>} designIds
  */
-export async function bulkAddDesignsToProject(projectId: number | string, designIds: Array<number | string>) {
+export async function bulkAddDesignsToProject(
+  projectId: number | string,
+  designIds: Array<number | string>
+) {
   const normalizedProjectId = Number(projectId);
-  const normalizedIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
-    ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
-    : [];
+  const normalizedIds =
+    designIds && typeof designIds[Symbol.iterator] === "function"
+      ? Array.from(designIds)
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      : [];
 
-  if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0 || normalizedIds.length === 0) {
+  if (
+    !Number.isFinite(normalizedProjectId) ||
+    normalizedProjectId <= 0 ||
+    normalizedIds.length === 0
+  ) {
     return {
       source: "mock",
       project_id: normalizedProjectId,
@@ -1357,7 +1466,11 @@ export async function getBrowseTags(): Promise<AdapterListResponse<BrowseTagOpti
         source: "rust",
       };
     }
-    return { items: [], source: "rust", error: "get_tags_for_browse returned an unexpected payload." };
+    return {
+      items: [],
+      source: "rust",
+      error: "get_tags_for_browse returned an unexpected payload.",
+    };
   } catch (error) {
     return { items: [], source: "mock", error: String(error) };
   }
@@ -1385,17 +1498,34 @@ export async function bulkSetTagsForDesigns(
   tagsToAdd: Array<number | string>,
   tagsToRemove: Array<number | string> = [],
   clearAllTags = false,
-  verification?: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null },
+  verification?: { imageTagsVerified?: boolean | null; stitchingTagsVerified?: boolean | null }
 ) {
-  const normalizedDesignIds = (designIds && typeof designIds[Symbol.iterator] === 'function')
-    ? Array.from(designIds).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
-    : [];
-  const normalizedAddIds = (tagsToAdd && typeof tagsToAdd[Symbol.iterator] === 'function')
-    ? Array.from(new Set(Array.from(tagsToAdd).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
-    : [];
-  const normalizedRemoveIds = (tagsToRemove && typeof tagsToRemove[Symbol.iterator] === 'function')
-    ? Array.from(new Set(Array.from(tagsToRemove).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
-    : [];
+  const normalizedDesignIds =
+    designIds && typeof designIds[Symbol.iterator] === "function"
+      ? Array.from(designIds)
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      : [];
+  const normalizedAddIds =
+    tagsToAdd && typeof tagsToAdd[Symbol.iterator] === "function"
+      ? Array.from(
+          new Set(
+            Array.from(tagsToAdd)
+              .map((id) => Number(id))
+              .filter((id) => Number.isFinite(id) && id > 0)
+          )
+        )
+      : [];
+  const normalizedRemoveIds =
+    tagsToRemove && typeof tagsToRemove[Symbol.iterator] === "function"
+      ? Array.from(
+          new Set(
+            Array.from(tagsToRemove)
+              .map((id) => Number(id))
+              .filter((id) => Number.isFinite(id) && id > 0)
+          )
+        )
+      : [];
 
   if (normalizedDesignIds.length === 0) {
     return {
@@ -1439,9 +1569,13 @@ export async function bulkSetTagsForDesigns(
  * Falls back to empty previews if unavailable.
  * @param {Array<number | string>} designIds
  */
-export async function getBrowseDesignPreviews(designIds: Array<number | string>): Promise<AdapterListResponse<BrowseDesignPreview>> {
+export async function getBrowseDesignPreviews(
+  designIds: Array<number | string>
+): Promise<AdapterListResponse<BrowseDesignPreview>> {
   const normalizedIds = Array.isArray(designIds)
-    ? Array.from(new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+    ? Array.from(
+        new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))
+      )
     : [];
 
   if (normalizedIds.length === 0) {
@@ -1449,7 +1583,9 @@ export async function getBrowseDesignPreviews(designIds: Array<number | string>)
   }
 
   try {
-    const previews = await invokeLoose<BrowseDesignPreview[]>("get_design_previews_for_browse", { designIds: normalizedIds });
+    const previews = await invokeLoose<BrowseDesignPreview[]>("get_design_previews_for_browse", {
+      designIds: normalizedIds,
+    });
     if (Array.isArray(previews)) {
       return {
         items: previews.map((item) => ({
@@ -1501,7 +1637,8 @@ export async function getAboutDocuments() {
       {
         slug: "privacy",
         title: "Privacy",
-        description: "Explains what data is stored locally and what optional AI features may send externally.",
+        description:
+          "Explains what data is stored locally and what optional AI features may send externally.",
         filename: "templates/info/PRIVACY.html",
         available: false,
       },
@@ -1515,14 +1652,16 @@ export async function getAboutDocuments() {
       {
         slug: "ai-tagging",
         title: "AI Tagging Guide",
-        description: "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
+        description:
+          "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
         filename: "templates/info/ai_tagging.html",
         available: false,
       },
       {
         slug: "data-storage",
         title: "Data Storage & External Drives Guide",
-        description: "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
+        description:
+          "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
         filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
         available: false,
       },
@@ -1534,7 +1673,9 @@ export async function getAboutDocuments() {
  * @param {string} slug
  */
 export async function getAboutDocument(slug: string) {
-  const normalizedSlug = String(slug || "").trim().toLowerCase();
+  const normalizedSlug = String(slug || "")
+    .trim()
+    .toLowerCase();
   if (!normalizedSlug) {
     return { item: null, source: "mock", error: "Document not found." };
   }
@@ -1583,8 +1724,8 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
 
   return {
     source: "mock",
-      model: {
-        preview_3d_profile: "balanced",
+    model: {
+      preview_3d_profile: "balanced",
       google_api_key: "",
       has_google_api_key: false,
       ai_tier2_auto: false,
@@ -1608,9 +1749,14 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
  * Save settings via Rust backend.
  * @param {Record<string, any>} request
  */
-export async function saveSettings(request: SaveSettingsRequest): Promise<AdapterSaveSettingsResponse> {
+export async function saveSettings(
+  request: SaveSettingsRequest
+): Promise<AdapterSaveSettingsResponse> {
   try {
-    const result = await invokeLoose<{ saved: boolean; message: string }>("save_settings_view_model", { request });
+    const result = await invokeLoose<{ saved: boolean; message: string }>(
+      "save_settings_view_model",
+      { request }
+    );
     return {
       source: "rust",
       saved: Boolean(result?.saved),
@@ -1633,7 +1779,9 @@ export async function saveSettings(request: SaveSettingsRequest): Promise<Adapte
  */
 export async function saveImportLastBrowseFolder(path: string) {
   try {
-    const result = await invokeLoose("save_import_last_browse_folder", { path: String(path || "") });
+    const result = await invokeLoose("save_import_last_browse_folder", {
+      path: String(path || ""),
+    });
     return {
       source: "rust",
       saved: Boolean(result?.saved),
@@ -1656,9 +1804,14 @@ export async function saveImportLastBrowseFolder(path: string) {
  * Open settings data-root folder picker when available.
  * @param {string} startDir
  */
-export async function browseSettingsDataRoot(startDir: string): Promise<AdapterBrowseDataRootResponse> {
+export async function browseSettingsDataRoot(
+  startDir: string
+): Promise<AdapterBrowseDataRootResponse> {
   try {
-    const result = await invokeLoose<{ path?: string | null; error?: string | null }>("browse_settings_data_root", { startDir: startDir });
+    const result = await invokeLoose<{ path?: string | null; error?: string | null }>(
+      "browse_settings_data_root",
+      { startDir: startDir }
+    );
     return {
       source: "rust",
       path: result?.path ? String(result.path) : null,
@@ -1746,7 +1899,7 @@ export async function validateDatabasePath(candidateDataRoot: string): Promise<{
  */
 export async function seedDatabaseToDataRoot(
   dataRoot: string,
-  overwrite = false,
+  overwrite = false
 ): Promise<{
   source: string;
   persisted: boolean;
@@ -1849,7 +2002,9 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
  *
  * @param {UnifiedBackfillRequest} request
  */
-function buildUnifiedBackfillWireRequest(request: UnifiedBackfillRequest): UnifiedBackfillWireRequest {
+function buildUnifiedBackfillWireRequest(
+  request: UnifiedBackfillRequest
+): UnifiedBackfillWireRequest {
   const runTagging = Boolean(request.run_tier2) || Boolean(request.run_tier3);
   const actionMode = request.action_mode === "tag_all" ? "retag_all" : "tag_untagged";
 
@@ -1877,10 +2032,14 @@ function buildUnifiedBackfillWireRequest(request: UnifiedBackfillRequest): Unifi
  *
  * @param {UnifiedBackfillRequest} request
  */
-export async function runUnifiedBackfill(request: UnifiedBackfillRequest): Promise<UnifiedBackfillResult> {
+export async function runUnifiedBackfill(
+  request: UnifiedBackfillRequest
+): Promise<UnifiedBackfillResult> {
   try {
     const wireRequest = buildUnifiedBackfillWireRequest(request);
-    const result = await invokeLoose<UnifiedBackfillResult>("run_unified_backfill", { request: wireRequest });
+    const result = await invokeLoose<UnifiedBackfillResult>("run_unified_backfill", {
+      request: wireRequest,
+    });
     return {
       source: "rust",
       processed: Number(result?.processed ?? 0),
@@ -1924,9 +2083,14 @@ export async function stopUnifiedBackfill(): Promise<AdapterStopUnifiedBackfillR
 /**
  * @param {number} [limit]
  */
-export async function getBackfillLogEntries(limit = 20): Promise<AdapterBackfillLogEntriesResponse> {
+export async function getBackfillLogEntries(
+  limit = 20
+): Promise<AdapterBackfillLogEntriesResponse> {
   try {
-    const entries = await invokeLoose<Array<{ level?: string; message?: string }>>("get_backfill_log_entries", { limit: Number(limit) });
+    const entries = await invokeLoose<Array<{ level?: string; message?: string }>>(
+      "get_backfill_log_entries",
+      { limit: Number(limit) }
+    );
     if (Array.isArray(entries)) {
       return {
         source: "rust",
@@ -1952,7 +2116,10 @@ export async function getBackfillLogEntries(limit = 20): Promise<AdapterBackfill
 /**
  * @param {RunStitchingBackfillOptions} [options]
  */
-export async function runStitchingBackfill({ clear_stitching_mode = "none", batch_size = 100 }: RunStitchingBackfillOptions = {}): Promise<UnifiedBackfillResult> {
+export async function runStitchingBackfill({
+  clear_stitching_mode = "none",
+  batch_size = 100,
+}: RunStitchingBackfillOptions = {}): Promise<UnifiedBackfillResult> {
   try {
     const result = await invokeLoose<UnifiedBackfillResult>("run_stitching_backfill", {
       clearStitchingMode: String(clear_stitching_mode),
@@ -2009,9 +2176,17 @@ export async function getBackupViewModel(): Promise<AdapterBackupViewModelRespon
 /**
  * @param {{ dbDestination: string, designsDestination: string }} options
  */
-export async function saveBackupSettings({ dbDestination, designsDestination }: SaveBackupSettingsRequest): Promise<AdapterSaveBackupSettingsResponse> {
+export async function saveBackupSettings({
+  dbDestination,
+  designsDestination,
+}: SaveBackupSettingsRequest): Promise<AdapterSaveBackupSettingsResponse> {
   try {
-    const result = await invokeLoose<{ saved?: boolean; message?: string; db_destination?: string; designs_destination?: string }>("save_backup_settings", {
+    const result = await invokeLoose<{
+      saved?: boolean;
+      message?: string;
+      db_destination?: string;
+      designs_destination?: string;
+    }>("save_backup_settings", {
       request: {
         db_destination: String(dbDestination || ""),
         designs_destination: String(designsDestination || ""),
@@ -2040,11 +2215,16 @@ export async function saveBackupSettings({ dbDestination, designsDestination }: 
 /**
  * @param {string} [startDir]
  */
-export async function browseBackupFolder(startDir = ""): Promise<AdapterBrowseBackupFolderResponse> {
+export async function browseBackupFolder(
+  startDir = ""
+): Promise<AdapterBrowseBackupFolderResponse> {
   try {
-    const result = await invokeLoose<{ path?: string | null; error?: string | null }>("browse_backup_folder", {
-      startDir: String(startDir || "") || null,
-    });
+    const result = await invokeLoose<{ path?: string | null; error?: string | null }>(
+      "browse_backup_folder",
+      {
+        startDir: String(startDir || "") || null,
+      }
+    );
 
     return {
       source: "rust",
@@ -2116,7 +2296,10 @@ export async function runDesignsBackup(): Promise<{ source: string } & DesignsBa
 
 export async function runBothBackups(): Promise<AdapterRunBothBackupsResponse> {
   try {
-    const result = await invokeLoose<{ database?: DatabaseBackupResult | null; designs?: DesignsBackupResult | null }>("run_both_backups");
+    const result = await invokeLoose<{
+      database?: DatabaseBackupResult | null;
+      designs?: DesignsBackupResult | null;
+    }>("run_both_backups");
     return {
       source: "rust",
       database: result?.database || null,
@@ -2215,9 +2398,13 @@ export async function compactDatabase(): Promise<AdapterCompactResponse> {
 /**
  * @param {{ page?: number, pageSize?: number }} [options]
  */
-export async function getOrphansPage({ page = 1, pageSize = 100 }: { page?: number; pageSize?: number } = {}): Promise<AdapterOrphansPageResponse> {
+export async function getOrphansPage({
+  page = 1,
+  pageSize = 100,
+}: { page?: number; pageSize?: number } = {}): Promise<AdapterOrphansPageResponse> {
   const normalizedPage = Number.isFinite(Number(page)) && Number(page) > 0 ? Number(page) : 1;
-  const normalizedPageSize = Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Number(pageSize) : 1;
+  const normalizedPageSize =
+    Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Number(pageSize) : 1;
 
   try {
     const result = await invokeLoose<AdapterOrphansPageResponse>("get_orphans_page", {
@@ -2259,7 +2446,9 @@ export async function getOrphansPage({ page = 1, pageSize = 100 }: { page?: numb
 /**
  * @param {Array<number | string>} designIds
  */
-export async function deleteOrphans(designIds: Array<number | string>): Promise<AdapterDeleteOrphansResponse> {
+export async function deleteOrphans(
+  designIds: Array<number | string>
+): Promise<AdapterDeleteOrphansResponse> {
   const ids = Array.isArray(designIds)
     ? designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
     : [];
@@ -2358,7 +2547,9 @@ export async function listDesigners(): Promise<AdapterListResponse<AdminEntitySu
 /**
  * @param {string} name
  */
-export async function createDesigner(name: string): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
+export async function createDesigner(
+  name: string
+): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
   try {
     const item = await invokeLoose<AdminEntitySummary>("create_designer", { request: { name } });
     return {
@@ -2379,7 +2570,10 @@ export async function createDesigner(name: string): Promise<AdapterPersistedItem
  * @param {number | string} designerId
  * @param {string} name
  */
-export async function updateDesigner(designerId: number | string, name: string): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
+export async function updateDesigner(
+  designerId: number | string,
+  name: string
+): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
   try {
     const item = await invokeLoose<AdminEntitySummary>("update_designer", {
       request: {
@@ -2404,7 +2598,9 @@ export async function updateDesigner(designerId: number | string, name: string):
 /**
  * @param {number | string} designerId
  */
-export async function deleteDesigner(designerId: number | string): Promise<AdapterPersistedResponse> {
+export async function deleteDesigner(
+  designerId: number | string
+): Promise<AdapterPersistedResponse> {
   try {
     await invokeLoose("delete_designer", { designerId: Number(designerId) });
     return { source: "rust", persisted: true };
@@ -2443,7 +2639,9 @@ export async function listSources(): Promise<AdapterListResponse<AdminEntitySumm
 /**
  * @param {string} name
  */
-export async function createSource(name: string): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
+export async function createSource(
+  name: string
+): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
   try {
     const item = await invokeLoose<AdminEntitySummary>("create_source", { request: { name } });
     return {
@@ -2464,7 +2662,10 @@ export async function createSource(name: string): Promise<AdapterPersistedItemRe
  * @param {number | string} sourceId
  * @param {string} name
  */
-export async function updateSource(sourceId: number | string, name: string): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
+export async function updateSource(
+  sourceId: number | string,
+  name: string
+): Promise<AdapterPersistedItemResponse<AdminEntitySummary>> {
   try {
     const item = await invokeLoose<AdminEntitySummary>("update_source", {
       request: {
@@ -2555,7 +2756,10 @@ export async function listTags(): Promise<AdapterListResponse<AdminTagSummary>> 
  * @param {string} description
  * @param {string | null} tagGroup
  */
-export async function createTag(description: string, tagGroup: string | null): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
+export async function createTag(
+  description: string,
+  tagGroup: string | null
+): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
   try {
     const item = await invokeLoose<AdminTagSummary>("create_tag", {
       request: {
@@ -2583,7 +2787,10 @@ export async function createTag(description: string, tagGroup: string | null): P
  * @param {number | string} tagId
  * @param {string | null} tagGroup
  */
-export async function setTagGroup(tagId: number | string, tagGroup: string | null): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
+export async function setTagGroup(
+  tagId: number | string,
+  tagGroup: string | null
+): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
   try {
     const item = await invokeLoose<AdminTagSummary>("set_tag_group", {
       request: { tag_id: Number(tagId), tag_group: tagGroup },
@@ -2608,7 +2815,10 @@ export async function setTagGroup(tagId: number | string, tagGroup: string | nul
  * @param {number | string} tagId
  * @param {string} description
  */
-export async function updateTag(tagId: number | string, description: string): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
+export async function updateTag(
+  tagId: number | string,
+  description: string
+): Promise<AdapterPersistedItemResponse<AdminTagSummary>> {
   try {
     const item = await invokeLoose<AdminTagSummary>("update_tag", {
       request: {
@@ -2678,7 +2888,11 @@ export async function listHoops(): Promise<AdapterListResponse<AdminHoopSummary>
  * @param {number} maxWidthMm
  * @param {number} maxHeightMm
  */
-export async function createHoop(name: string, maxWidthMm: number, maxHeightMm: number): Promise<AdapterPersistedItemResponse<AdminHoopSummary>> {
+export async function createHoop(
+  name: string,
+  maxWidthMm: number,
+  maxHeightMm: number
+): Promise<AdapterPersistedItemResponse<AdminHoopSummary>> {
   try {
     const item = await invokeLoose<AdminHoopSummary>("create_hoop", {
       request: {
@@ -2709,7 +2923,12 @@ export async function createHoop(name: string, maxWidthMm: number, maxHeightMm: 
  * @param {number} maxWidthMm
  * @param {number} maxHeightMm
  */
-export async function updateHoop(hoopId: number | string, name: string, maxWidthMm: number, maxHeightMm: number): Promise<AdapterPersistedItemResponse<AdminHoopSummary>> {
+export async function updateHoop(
+  hoopId: number | string,
+  name: string,
+  maxWidthMm: number,
+  maxHeightMm: number
+): Promise<AdapterPersistedItemResponse<AdminHoopSummary>> {
   try {
     const item = await invokeLoose<AdminHoopSummary>("update_hoop", {
       request: {
@@ -2851,13 +3070,17 @@ export async function setConfiguredDataRoot(dataRoot: string): Promise<{
  * @param {string} dataRoot - Absolute path to the desired data root.
  * @returns {Promise<AdapterConfigureDataRootResponse>}
  */
-export async function configureFreshDataRoot(dataRoot: string): Promise<AdapterConfigureDataRootResponse> {
+export async function configureFreshDataRoot(
+  dataRoot: string
+): Promise<AdapterConfigureDataRootResponse> {
   const normalized = String(dataRoot || "").trim();
   if (!normalized) {
     return { source: "mock", persisted: false, error: "Data root cannot be empty." };
   }
   try {
-    const result = await invokeLoose<ConfigureDataRootResult>("configure_fresh_data_root", { dataRoot: normalized });
+    const result = await invokeLoose<ConfigureDataRootResult>("configure_fresh_data_root", {
+      dataRoot: normalized,
+    });
     if (result && typeof result === "object") {
       return {
         source: "rust",
@@ -2948,7 +3171,7 @@ export async function startCatalogueStorageMigration(targetDir: string): Promise
   try {
     const summary = await invokeLoose<StorageMigrationSummary>(
       "start_catalogue_storage_migration",
-      { targetDir: normalized, force: true },
+      { targetDir: normalized, force: true }
     );
     return {
       source: "rust",
@@ -2986,13 +3209,12 @@ export async function cancelCatalogueStorageMigration(): Promise<{
  * @returns {Promise<() => void>} An unlisten function.
  */
 export async function listenCatalogueStorageMigrationProgress(
-  callback: (progress: StorageMigrationProgress) => void,
+  callback: (progress: StorageMigrationProgress) => void
 ): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
   const unlisten = await listen<StorageMigrationProgress>(
     "catalogue-storage-migration-progress",
-    (event) => callback(event.payload),
+    (event) => callback(event.payload)
   );
   return unlisten;
 }
-

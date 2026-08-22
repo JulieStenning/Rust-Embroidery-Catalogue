@@ -55,18 +55,13 @@ function renderView() {
 
 /** Helper to fill the "Add new hoop" form fields and submit. */
 async function fillAddForm(name: string, width: number, height: number) {
-  await fireEvent.input(
-    screen.getByLabelText("Name"),
-    { target: { value: name } }
-  );
-  await fireEvent.input(
-    screen.getByLabelText("Max Width (mm)"),
-    { target: { value: String(width) } }
-  );
-  await fireEvent.input(
-    screen.getByLabelText("Max Height (mm)"),
-    { target: { value: String(height) } }
-  );
+  await fireEvent.input(screen.getByLabelText("Name"), { target: { value: name } });
+  await fireEvent.input(screen.getByLabelText("Max Width (mm)"), {
+    target: { value: String(width) },
+  });
+  await fireEvent.input(screen.getByLabelText("Max Height (mm)"), {
+    target: { value: String(height) },
+  });
   const form = document.querySelector("form");
   if (!form) throw new Error("Add hoop form not found");
   await fireEvent.submit(form);
@@ -90,9 +85,7 @@ describe("AdminHoopsView.svelte", () => {
     await waitFor(() => {
       expect(screen.getByText("Manage Hoops")).toBeInTheDocument();
     });
-    expect(
-      screen.getByText(/Hoop sizes depend on your machine/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Hoop sizes depend on your machine/)).toBeInTheDocument();
     expect(screen.getByText("Add new hoop")).toBeInTheDocument();
     expect(
       screen.getByText("No hoops defined yet. Add your own machine hoops above.")
@@ -116,18 +109,13 @@ describe("AdminHoopsView.svelte", () => {
   });
 
   it("shows a toast when listHoops rejects", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     listHoopsMock.mockRejectedValue(new Error("db locked"));
 
     renderView();
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Failed to load hoops: Error: db locked",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Failed to load hoops: Error: db locked", "error");
     });
 
     consoleError.mockRestore();
@@ -182,10 +170,7 @@ describe("AdminHoopsView.svelte", () => {
     await fillAddForm("New Hoop", 100, 150);
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not add hoop: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not add hoop: boom", "error");
     });
   });
 
@@ -380,10 +365,7 @@ describe("AdminHoopsView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Enter hoop details.",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Enter hoop details.", "error");
     });
     expect(updateHoopMock).not.toHaveBeenCalled();
   });
@@ -401,10 +383,7 @@ describe("AdminHoopsView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not update hoop: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not update hoop: boom", "error");
     });
   });
 
@@ -426,9 +405,7 @@ describe("AdminHoopsView.svelte", () => {
         "This hoop is currently used by 2 design(s). If you delete it, those designs will no longer have a hoop assigned."
       )
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Confirm delete" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
   });
 
   it("shows the 'confirm delete' toast for a hoop with no designs", async () => {
@@ -459,9 +436,7 @@ describe("AdminHoopsView.svelte", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(2);
   });
 
@@ -481,9 +456,7 @@ describe("AdminHoopsView.svelte", () => {
       expect(deleteHoopMock).toHaveBeenCalledWith(1);
     });
     expect(addToastMock).toHaveBeenCalledWith("Hoop deleted.", "success");
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 
   it("shows an error toast when deleteHoop is not persisted", async () => {
@@ -499,10 +472,7 @@ describe("AdminHoopsView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not delete hoop: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not delete hoop: boom", "error");
     });
   });
 });

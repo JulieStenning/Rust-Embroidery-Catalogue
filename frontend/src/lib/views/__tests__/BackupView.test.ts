@@ -83,8 +83,24 @@ const designsResult = (o: Record<string, unknown> = {}) => ({
 
 const bothResult = (o: Record<string, unknown> = {}) => ({
   source: "rust",
-  database: { success: true, backup_path: "C:\\x.db", size_bytes: 1024, completed_at: "", error: "" },
-  designs: { success: true, scanned: 10, copied: 2, updated: 0, unchanged: 8, archived: 0, total_bytes_copied: 0, completed_at: "", error: "" },
+  database: {
+    success: true,
+    backup_path: "C:\\x.db",
+    size_bytes: 1024,
+    completed_at: "",
+    error: "",
+  },
+  designs: {
+    success: true,
+    scanned: 10,
+    copied: 2,
+    updated: 0,
+    unchanged: 8,
+    archived: 0,
+    total_bytes_copied: 0,
+    completed_at: "",
+    error: "",
+  },
   ...o,
 });
 
@@ -328,7 +344,9 @@ describe("BackupView", () => {
 
     it("handles a failed save with an error toast", async () => {
       adapterMocks.saveBackupSettings.mockResolvedValue({
-        source: "mock", persisted: false, saved: false,
+        source: "mock",
+        persisted: false,
+        saved: false,
         message: "Could not save backup destinations: disk full",
       });
       render(BackupView);
@@ -345,11 +363,13 @@ describe("BackupView", () => {
     });
 
     it("uses the response's normalized destinations when provided", async () => {
-      adapterMocks.saveBackupSettings.mockResolvedValue(saveResult({
-        message: "Saved.",
-        db_destination: "X:\\TrimmedDb",
-        designs_destination: "X:\\TrimmedDesigns",
-      }));
+      adapterMocks.saveBackupSettings.mockResolvedValue(
+        saveResult({
+          message: "Saved.",
+          db_destination: "X:\\TrimmedDb",
+          designs_destination: "X:\\TrimmedDesigns",
+        })
+      );
       render(BackupView);
       const dbInput = (await screen.findByLabelText("Database backup folder")) as HTMLInputElement;
       await waitFor(() => expect(dbInput.value).toBe(DB_DEST));
@@ -377,7 +397,11 @@ describe("BackupView", () => {
     });
 
     it("updates DB destination when a path is returned", async () => {
-      adapterMocks.browseBackupFolder.mockResolvedValue({ source: "rust", path: "E:\\NewDbFolder", error: null });
+      adapterMocks.browseBackupFolder.mockResolvedValue({
+        source: "rust",
+        path: "E:\\NewDbFolder",
+        error: null,
+      });
       render(BackupView);
       const dbInput = (await screen.findByLabelText("Database backup folder")) as HTMLInputElement;
       await waitFor(() => expect(dbInput.value).toBe(DB_DEST));
@@ -386,7 +410,11 @@ describe("BackupView", () => {
     });
 
     it("updates designs destination when a path is returned", async () => {
-      adapterMocks.browseBackupFolder.mockResolvedValue({ source: "rust", path: "E:\\NewDesignsFolder", error: null });
+      adapterMocks.browseBackupFolder.mockResolvedValue({
+        source: "rust",
+        path: "E:\\NewDesignsFolder",
+        error: null,
+      });
       render(BackupView);
       const designsInput = screen.getByLabelText("Designs backup folder") as HTMLInputElement;
       await waitFor(() => expect(designsInput.value).toBe(DESIGNS_DEST));
@@ -395,7 +423,11 @@ describe("BackupView", () => {
     });
 
     it("shows error toast when browse returns an error", async () => {
-      adapterMocks.browseBackupFolder.mockResolvedValue({ source: "mock", path: null, error: "Folder picker unavailable." });
+      adapterMocks.browseBackupFolder.mockResolvedValue({
+        source: "mock",
+        path: null,
+        error: "Folder picker unavailable.",
+      });
       render(BackupView);
       await screen.findByLabelText("Database backup folder");
       await fireEvent.click(screen.getAllByRole("button", { name: /Browse/ })[0]);
@@ -440,7 +472,9 @@ describe("BackupView", () => {
     });
 
     it("shows error toast when backup fails", async () => {
-      adapterMocks.runDatabaseBackup.mockResolvedValue(dbResult({ success: false, error: "Disk full" }));
+      adapterMocks.runDatabaseBackup.mockResolvedValue(
+        dbResult({ success: false, error: "Disk full" })
+      );
       render(BackupView);
       await fireEvent.click(await dbButton());
       await waitFor(() => expect(toastMocks.addToast).toHaveBeenCalledWith("Disk full", "error"));
@@ -546,8 +580,24 @@ describe("BackupView", () => {
     it("shows error toast when one backup fails", async () => {
       adapterMocks.runBothBackups.mockResolvedValue(
         bothResult({
-          database: { success: true, backup_path: "C:\\x.db", size_bytes: 1024, completed_at: "", error: "" },
-          designs: { success: false, scanned: 0, copied: 0, updated: 0, unchanged: 0, archived: 0, total_bytes_copied: 0, completed_at: "", error: "Source folder missing" },
+          database: {
+            success: true,
+            backup_path: "C:\\x.db",
+            size_bytes: 1024,
+            completed_at: "",
+            error: "",
+          },
+          designs: {
+            success: false,
+            scanned: 0,
+            copied: 0,
+            updated: 0,
+            unchanged: 0,
+            archived: 0,
+            total_bytes_copied: 0,
+            completed_at: "",
+            error: "Source folder missing",
+          },
         })
       );
       render(BackupView);
@@ -563,8 +613,24 @@ describe("BackupView", () => {
     it("shows error toast when both fail", async () => {
       adapterMocks.runBothBackups.mockResolvedValue(
         bothResult({
-          database: { success: false, backup_path: "", size_bytes: 0, completed_at: "", error: "Disk full" },
-          designs: { success: false, scanned: 0, copied: 0, updated: 0, unchanged: 0, archived: 0, total_bytes_copied: 0, completed_at: "", error: "Source folder missing" },
+          database: {
+            success: false,
+            backup_path: "",
+            size_bytes: 0,
+            completed_at: "",
+            error: "Disk full",
+          },
+          designs: {
+            success: false,
+            scanned: 0,
+            copied: 0,
+            updated: 0,
+            unchanged: 0,
+            archived: 0,
+            total_bytes_copied: 0,
+            completed_at: "",
+            error: "Source folder missing",
+          },
         })
       );
       render(BackupView);
@@ -578,7 +644,11 @@ describe("BackupView", () => {
     });
 
     it("shows generic error toast when both results are null", async () => {
-      adapterMocks.runBothBackups.mockResolvedValue({ source: "mock", database: null, designs: null });
+      adapterMocks.runBothBackups.mockResolvedValue({
+        source: "mock",
+        database: null,
+        designs: null,
+      });
       render(BackupView);
       await fireEvent.click(await bothButton());
       await waitFor(() =>
@@ -650,7 +720,9 @@ describe("BackupView", () => {
     it("shows 'Backing up database...' while running and restores after", async () => {
       let resolve!: (v: unknown) => void;
       adapterMocks.runDatabaseBackup.mockReturnValue(
-        new Promise((r) => { resolve = r; })
+        new Promise((r) => {
+          resolve = r;
+        })
       );
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Database Backup" });
@@ -669,7 +741,9 @@ describe("BackupView", () => {
     it("shows 'Running incremental backup...' while running", async () => {
       let resolve!: (v: unknown) => void;
       adapterMocks.runDesignsBackup.mockReturnValue(
-        new Promise((r) => { resolve = r; })
+        new Promise((r) => {
+          resolve = r;
+        })
       );
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Designs Backup" });
@@ -690,7 +764,9 @@ describe("BackupView", () => {
     it("shows 'Backup in progress...' while both are running", async () => {
       let resolve!: (v: unknown) => void;
       adapterMocks.runBothBackups.mockReturnValue(
-        new Promise((r) => { resolve = r; })
+        new Promise((r) => {
+          resolve = r;
+        })
       );
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Backup Both" });
@@ -709,7 +785,9 @@ describe("BackupView", () => {
     it("prevents starting a second backup while one is running", async () => {
       let resolveDatabase!: (v: unknown) => void;
       adapterMocks.runDatabaseBackup.mockReturnValue(
-        new Promise((r) => { resolveDatabase = r; })
+        new Promise((r) => {
+          resolveDatabase = r;
+        })
       );
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Database Backup" });
@@ -720,8 +798,12 @@ describe("BackupView", () => {
       // While the database backup is running, the other two action buttons
       // are disabled. Note: the "Backup Both" button text changes to
       // "Backup in progress..." during a running backup.
-      const designsBtn = screen.getByRole("button", { name: "Run incremental backup" }) as HTMLButtonElement;
-      const bothBtn = screen.getByRole("button", { name: "Backup in progress..." }) as HTMLButtonElement;
+      const designsBtn = screen.getByRole("button", {
+        name: "Run incremental backup",
+      }) as HTMLButtonElement;
+      const bothBtn = screen.getByRole("button", {
+        name: "Backup in progress...",
+      }) as HTMLButtonElement;
       expect(designsBtn).toBeDisabled();
       expect(bothBtn).toBeDisabled();
 

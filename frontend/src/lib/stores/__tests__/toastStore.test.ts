@@ -149,11 +149,7 @@ describe("toastStore", () => {
       addToast("Third", "warning", true);
 
       const list = currentToasts();
-      expect(list.map((t) => t.id)).toEqual([
-        probeId + 1,
-        probeId + 2,
-        probeId + 3,
-      ]);
+      expect(list.map((t) => t.id)).toEqual([probeId + 1, probeId + 2, probeId + 3]);
     });
 
     it("appends new toasts to the end of the list", () => {

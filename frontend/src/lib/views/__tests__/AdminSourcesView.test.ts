@@ -70,9 +70,7 @@ describe("AdminSourcesView.svelte", () => {
     renderView();
 
     expect(screen.getByText("Manage Sources")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Sources describe where your designs came from/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Sources describe where your designs came from/)).toBeInTheDocument();
     expect(screen.getByText("Add new source")).toBeInTheDocument();
 
     await waitFor(() => {
@@ -96,9 +94,7 @@ describe("AdminSourcesView.svelte", () => {
   });
 
   it("shows a toast when listSources rejects", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     listSourcesMock.mockRejectedValue(new Error("db locked"));
 
     renderView();
@@ -163,10 +159,7 @@ describe("AdminSourcesView.svelte", () => {
     await fillAddForm("Bought");
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not add source: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not add source: boom", "error");
     });
   });
 
@@ -182,10 +175,7 @@ describe("AdminSourcesView.svelte", () => {
     await fillAddForm("Bought");
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not add source: Unknown error",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not add source: Unknown error", "error");
     });
   });
 
@@ -328,9 +318,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     await tick();
 
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("Downloaded")).toBeInTheDocument();
   });
 
@@ -376,10 +364,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Enter a source name.",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Enter a source name.", "error");
     });
     expect(updateSourceMock).not.toHaveBeenCalled();
   });
@@ -398,10 +383,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not update source: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not update source: boom", "error");
     });
   });
 
@@ -419,10 +401,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not update source: Unknown error",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not update source: Unknown error", "error");
     });
   });
 
@@ -445,9 +424,7 @@ describe("AdminSourcesView.svelte", () => {
         "This source is currently used by 2 design(s). If you delete it, those designs will no longer have a source assigned."
       )
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Confirm delete" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
   });
 
   it("shows the 'confirm delete' toast for a source with no designs", async () => {
@@ -481,9 +458,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await tick();
 
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(4);
   });
 
@@ -504,9 +479,7 @@ describe("AdminSourcesView.svelte", () => {
       expect(deleteSourceMock).toHaveBeenCalledWith(1);
     });
     expect(addToastMock).toHaveBeenCalledWith("Source deleted.", "success");
-    expect(
-      screen.queryByRole("button", { name: "Confirm delete" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 
   it("shows an error toast when deleteSource is not persisted", async () => {
@@ -523,10 +496,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not delete source: boom",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not delete source: boom", "error");
     });
   });
 
@@ -544,10 +514,7 @@ describe("AdminSourcesView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     await waitFor(() => {
-      expect(addToastMock).toHaveBeenCalledWith(
-        "Could not delete source: Unknown error",
-        "error"
-      );
+      expect(addToastMock).toHaveBeenCalledWith("Could not delete source: Unknown error", "error");
     });
   });
 

@@ -83,12 +83,14 @@
     }
     const result = validation.validation;
     if (!result.valid) {
-      validationMessage = result.error || "This folder does not look like an Embroidery Catalogue data location.";
+      validationMessage =
+        result.error || "This folder does not look like an Embroidery Catalogue data location.";
       validationIsError = true;
       return;
     }
     if (!result.embroidery_dir_exists) {
-      validationMessage = "Database found, but the MachineEmbroideryDesigns folder is missing — design files may need re-pointing.";
+      validationMessage =
+        "Database found, but the MachineEmbroideryDesigns folder is missing — design files may need re-pointing.";
       validationIsError = true;
     } else {
       validationMessage = "";
@@ -130,14 +132,18 @@
     error = "";
     const res = await restartApplication();
     if (!res || !res.restarted) {
-      error = res?.error || "Could not restart the application. Please close and reopen it manually.";
+      error =
+        res?.error || "Could not restart the application. Please close and reopen it manually.";
       restarting = false;
       showRestartConfirm = false;
     }
   }
 </script>
 
-<div class="flex items-center justify-center min-h-screen bg-gray-50" data-testid="database-recovery-view">
+<div
+  class="flex items-center justify-center min-h-screen bg-gray-50"
+  data-testid="database-recovery-view"
+>
   <div class="max-w-lg w-full p-6 space-y-4">
     <div class="bg-white rounded-xl shadow p-6 space-y-4">
       <h1 class="text-xl font-bold text-gray-800">Your catalogue database could not be found</h1>
@@ -149,13 +155,17 @@
           Embroidery Catalogue could not find its database
           {#if configuredRoot}
             at <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot}</code>
-          {/if}. This usually happens when a portable drive changes letter
-          (for example from <code class="font-mono text-xs">D:</code> to <code class="font-mono text-xs">E:</code>)
-          or the data folder was moved. Your original files are safe — choose how to continue.
+          {/if}. This usually happens when a portable drive changes letter (for example from
+          <code class="font-mono text-xs">D:</code>
+          to <code class="font-mono text-xs">E:</code>) or the data folder was moved. Your original
+          files are safe — choose how to continue.
         </p>
 
         {#if error}
-          <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm" data-testid="recovery-error">
+          <div
+            class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
+            data-testid="recovery-error"
+          >
             {error}
           </div>
         {/if}
@@ -172,7 +182,9 @@
         {/if}
 
         {#if relocatedRoot}
-          <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm space-y-2">
+          <div
+            class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm space-y-2"
+          >
             <p class="font-semibold">We found your catalogue on another drive!</p>
             <p class="text-xs">
               A copy of your catalogue appears to be at
@@ -214,8 +226,8 @@
         </div>
 
         <p class="text-xs text-gray-500">
-          Choose <span class="font-semibold">"Create a new empty catalogue"</span> only if you are
-          sure you do not have an existing catalogue to recover — it starts fresh.
+          Choose <span class="font-semibold">"Create a new empty catalogue"</span> only if you are sure
+          you do not have an existing catalogue to recover — it starts fresh.
         </p>
       {/if}
     </div>
@@ -233,9 +245,10 @@
       <h2 class="font-semibold text-gray-800">Create a new empty catalogue?</h2>
       <p class="text-sm text-gray-600">
         This will create a fresh catalogue at
-        <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot || "the configured location"}</code>.
-        It will not touch any existing database files unless you confirm overwrite. Only use this if
-        you are certain you do not have an existing catalogue to recover.
+        <code class="font-mono text-xs bg-gray-100 px-1 rounded"
+          >{configuredRoot || "the configured location"}</code
+        >. It will not touch any existing database files unless you confirm overwrite. Only use this
+        if you are certain you do not have an existing catalogue to recover.
       </p>
       <div class="flex justify-end gap-2">
         <button

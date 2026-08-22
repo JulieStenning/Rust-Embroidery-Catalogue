@@ -6,7 +6,7 @@
     deleteAllOrphans as removeAllOrphans,
     browseOrphanPath,
     openDesignInEditor,
-    scanOrphans
+    scanOrphans,
   } from "../api/commandAdapter";
   import Pagination from "../components/Pagination.svelte";
   import { addToast } from "../stores/toastStore.js";
@@ -154,7 +154,10 @@
       }
       const orphanChecked = Number(result?.checked ?? 0);
       const orphanFound = Number(result?.found ?? 0);
-      addToast(`Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} orphan(s).`, "success");
+      addToast(
+        `Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} orphan(s).`,
+        "success"
+      );
       await loadOrphansPage(1, true);
     } catch (e) {
       addToast(`Could not complete scan: ${e}`, "error");
@@ -170,7 +173,9 @@
 <div class="space-y-4">
   <div class="space-y-1 font-sans">
     <h1 class="ui-page-title text-2xl font-bold text-gray-800">Orphans</h1>
-    <p class="text-gray-600 text-sm">Find and remove database records whose files no longer exist on disk.</p>
+    <p class="text-gray-600 text-sm">
+      Find and remove database records whose files no longer exist on disk.
+    </p>
   </div>
 
   {#if orphansError}
@@ -184,22 +189,52 @@
       {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
     </span>
     <div class="flex gap-2">
-      <button type="button" class="menu-button-primary" onclick={triggerDiskScan} disabled={orphansLoading}>
+      <button
+        type="button"
+        class="menu-button-primary"
+        onclick={triggerDiskScan}
+        disabled={orphansLoading}
+      >
         {orphansLoading ? "Scanning..." : "Scan Disk"}
       </button>
-      <button type="button" class="menu-button-secondary" onclick={() => loadOrphansPage(orphanPage, true)} disabled={orphansLoading}>
+      <button
+        type="button"
+        class="menu-button-secondary"
+        onclick={() => loadOrphansPage(orphanPage, true)}
+        disabled={orphansLoading}
+      >
         Refresh
       </button>
-      <button type="button" class="menu-button-secondary" onclick={selectAllOrphansOnPage} disabled={orphansLoading || orphanItems.length === 0}>
+      <button
+        type="button"
+        class="menu-button-secondary"
+        onclick={selectAllOrphansOnPage}
+        disabled={orphansLoading || orphanItems.length === 0}
+      >
         Select all
       </button>
-      <button type="button" class="menu-button-secondary" onclick={deselectAllOrphansOnPage} disabled={orphansLoading || orphanSelectedIds.length === 0}>
+      <button
+        type="button"
+        class="menu-button-secondary"
+        onclick={deselectAllOrphansOnPage}
+        disabled={orphansLoading || orphanSelectedIds.length === 0}
+      >
         Deselect all
       </button>
-      <button type="button" class="menu-button-secondary" onclick={deleteSelectedOrphans} disabled={orphansLoading || orphanSelectedIds.length === 0}>
+      <button
+        type="button"
+        class="menu-button-secondary"
+        onclick={deleteSelectedOrphans}
+        disabled={orphansLoading || orphanSelectedIds.length === 0}
+      >
         Delete selected ({orphanSelectedIds.length})
       </button>
-      <button type="button" class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50" onclick={deleteEveryOrphan} disabled={orphansLoading || orphanTotal === 0}>
+      <button
+        type="button"
+        class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+        onclick={deleteEveryOrphan}
+        disabled={orphansLoading || orphanTotal === 0}
+      >
         Delete all ({orphanTotal})
       </button>
     </div>
@@ -219,7 +254,9 @@
       <tbody class="divide-y divide-gray-100">
         {#if orphanItems.length === 0}
           <tr>
-            <td colspan="5" class="px-4 py-3 text-gray-400">No orphaned records found. Refresh or scan to check.</td>
+            <td colspan="5" class="px-4 py-3 text-gray-400"
+              >No orphaned records found. Refresh or scan to check.</td
+            >
           </tr>
         {:else}
           {#each orphanItems as item}

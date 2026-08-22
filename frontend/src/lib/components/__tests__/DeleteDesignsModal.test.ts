@@ -65,17 +65,13 @@ describe("DeleteDesignsModal", () => {
     it("uses a singular heading for one design", () => {
       render(DeleteDesignsModal, { props: { designIds: [7], open: true } });
 
-      expect(
-        screen.getByRole("heading", { name: "Delete selected design?" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Delete selected design?" })).toBeInTheDocument();
     });
 
     it("uses a plural heading for multiple designs", () => {
       render(DeleteDesignsModal, { props: { designIds: [1, 2, 3], open: true } });
 
-      expect(
-        screen.getByRole("heading", { name: "Delete selected designs?" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Delete selected designs?" })).toBeInTheDocument();
     });
 
     it("shows the singular selected-count message", () => {
@@ -128,9 +124,7 @@ describe("DeleteDesignsModal", () => {
       expect(radios).toHaveLength(2);
       expect(radios[0]).toBeChecked();
       expect(radios[1]).not.toBeChecked();
-      expect(
-        screen.queryByText(/will be moved to the system recycle bin/)
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/will be moved to the system recycle bin/)).not.toBeInTheDocument();
     });
 
     it("checks the recycle-bin option and shows the warning when selected", async () => {
@@ -141,9 +135,7 @@ describe("DeleteDesignsModal", () => {
 
       expect(radios[1]).toBeChecked();
       expect(radios[0]).not.toBeChecked();
-      expect(
-        screen.getByText(/will be moved to the system recycle bin/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/will be moved to the system recycle bin/)).toBeInTheDocument();
     });
 
     it("hides the warning again when switching back to keep-files", async () => {
@@ -151,16 +143,12 @@ describe("DeleteDesignsModal", () => {
 
       const radios = screen.getAllByRole("radio");
       await fireEvent.click(radios[1]);
-      expect(
-        screen.getByText(/will be moved to the system recycle bin/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/will be moved to the system recycle bin/)).toBeInTheDocument();
 
       await fireEvent.click(radios[0]);
 
       expect(radios[0]).toBeChecked();
-      expect(
-        screen.queryByText(/will be moved to the system recycle bin/)
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/will be moved to the system recycle bin/)).not.toBeInTheDocument();
     });
   });
 
@@ -179,16 +167,12 @@ describe("DeleteDesignsModal", () => {
       render(DeleteDesignsModal, { props: { designIds: [1], open: true, onClose } });
 
       await fireEvent.click(screen.getAllByRole("radio")[1]);
-      expect(
-        screen.getByText(/will be moved to the system recycle bin/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/will be moved to the system recycle bin/)).toBeInTheDocument();
 
       await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
       expect(onClose).toHaveBeenCalledTimes(1);
-      expect(
-        screen.queryByText(/will be moved to the system recycle bin/)
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/will be moved to the system recycle bin/)).not.toBeInTheDocument();
     });
   });
 

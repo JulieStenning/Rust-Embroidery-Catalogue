@@ -39,9 +39,9 @@
   const UTILITY_UI_KINDS_WITH_BACK = new Set(["settings", "about", "about-document", "help"]);
   let showBackButton = $derived(
     currentUiKind !== null &&
-    UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) &&
-    Boolean(previousRoute) &&
-    previousRoute !== currentRoute
+      UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) &&
+      Boolean(previousRoute) &&
+      previousRoute !== currentRoute
   );
 
   /** Return to the page the user came from. */
@@ -107,7 +107,8 @@
 
   /** @param {string} target */
   function linkClass(target) {
-    const isActive = currentRoute === target || (target === "#/import" && currentUiKind === "import");
+    const isActive =
+      currentRoute === target || (target === "#/import" && currentUiKind === "import");
     return `menu-link ${isActive ? "menu-link-active" : ""}`;
   }
 
@@ -143,8 +144,12 @@
       <a href="#/admin/sources" class={adminLinkClass("#/admin/sources")}>Sources</a>
       <a href="#/admin/hoops" class={adminLinkClass("#/admin/hoops")}>Hoops</a>
       <a href="#/admin/settings" class={adminLinkClass("#/admin/settings")}>Settings</a>
-      <a href="#/admin/maintenance/backup" class={adminLinkClass("#/admin/maintenance/backup")}>Backup</a>
-      <a href="#/admin/tagging-actions" class={adminLinkClass("#/admin/tagging-actions")}>Tagging Actions</a>
+      <a href="#/admin/maintenance/backup" class={adminLinkClass("#/admin/maintenance/backup")}
+        >Backup</a
+      >
+      <a href="#/admin/tagging-actions" class={adminLinkClass("#/admin/tagging-actions")}
+        >Tagging Actions</a
+      >
       <a href="#/admin/orphans" class={adminLinkClass("#/admin/orphans")}>Orphans</a>
     </div>
   </div>
@@ -153,7 +158,9 @@
 <main class="max-w-7xl mx-auto px-4 py-6 font-sans">
   {#if showBackButton}
     <div class="ui-action-button-group flex flex-wrap gap-2 mb-4 no-print">
-      <button type="button" class="menu-button-secondary ui-action-button" onclick={goBack}>&larr; Back</button>
+      <button type="button" class="menu-button-secondary ui-action-button" onclick={goBack}
+        >&larr; Back</button
+      >
     </div>
   {/if}
   {#if currentUiKind === "browse"}
@@ -173,12 +180,7 @@
   {:else if currentUiKind === "orphans"}
     <OrphansView />
   {:else if currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print"}
-    <ProjectsView
-      {currentUiKind}
-      {projectDetailId}
-      {projectPrintId}
-      {navigateTo}
-    />
+    <ProjectsView {currentUiKind} {projectDetailId} {projectPrintId} {navigateTo} />
   {:else if currentUiKind === "design-detail"}
     <!-- Event callback prop — marks the browse list dirty when a design is deleted from the detail view. -->
     <DesignDetailView
@@ -186,25 +188,18 @@
       {detailBrowseIds}
       {detailBrowseIndex}
       {navigateTo}
-      onDesignDeleted={() => { browseNeedsRefresh = true; }}
+      onDesignDeleted={() => {
+        browseNeedsRefresh = true;
+      }}
     />
   {:else if currentUiKind === "design-print"}
-    <DesignPrintView
-      {printDesignId}
-      {navigateTo}
-    />
+    <DesignPrintView {printDesignId} {navigateTo} />
   {:else if currentUiKind === "import"}
-    <ImportView
-      {currentRoute}
-      {navigateTo}
-      onImportCompleted={handleImportCompleted}
-    />
+    <ImportView {currentRoute} {navigateTo} onImportCompleted={handleImportCompleted} />
   {:else if currentUiKind === "about"}
     <AboutView />
   {:else if currentUiKind === "about-document"}
-    <AboutDocumentView
-      slug={aboutDocumentSlug}
-    />
+    <AboutDocumentView slug={aboutDocumentSlug} />
   {:else if currentUiKind === "help"}
     <HelpView />
   {:else if currentUiKind === "admin-list" && currentRoute === "#/admin/designers"}
@@ -223,10 +218,14 @@
       </p>
 
       <div class="flex flex-wrap gap-2 pt-2">
-        <button class="menu-button-primary" onclick={() => navigateTo("#/designs")}>Go to Browse</button>
+        <button class="menu-button-primary" onclick={() => navigateTo("#/designs")}
+          >Go to Browse</button
+        >
       </div>
 
-      <div class="border border-gray-200 rounded-lg p-4 bg-gray-50 text-sm text-gray-700 shadow-inner">
+      <div
+        class="border border-gray-200 rounded-lg p-4 bg-gray-50 text-sm text-gray-700 shadow-inner"
+      >
         <p class="font-semibold mb-2">Known routes</p>
         <ul class="space-y-1">
           {#each ORDERED_ROUTE_HINTS as route}

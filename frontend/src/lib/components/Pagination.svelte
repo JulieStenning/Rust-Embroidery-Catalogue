@@ -1,5 +1,13 @@
 <script>
-  let { currentPage = 1, totalPages = 1, onPageChange, disabled = false, ariaLabel = "Pagination", windowSize = 2, showFirstLast = false } = $props();
+  let {
+    currentPage = 1,
+    totalPages = 1,
+    onPageChange,
+    disabled = false,
+    ariaLabel = "Pagination",
+    windowSize = 2,
+    showFirstLast = false,
+  } = $props();
 
   let pageTokens = $derived.by(() => {
     if (totalPages <= 1) {
@@ -43,13 +51,13 @@
         &lt;&lt; First
       </button>
     {/if}
-    
+
     {#if currentPage > 1}
       <button
         type="button"
         class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
         onclick={() => onPageChange(currentPage - 1)}
-        disabled={disabled}
+        {disabled}
       >
         ‹ Prev
       </button>
@@ -59,13 +67,16 @@
       {#if pageToken === "..."}
         <span class="px-1 text-gray-400">...</span>
       {:else if pageToken === currentPage}
-        <span class="px-3 py-1 border rounded bg-indigo-600 text-white font-medium" aria-current="page">{pageToken}</span>
+        <span
+          class="px-3 py-1 border rounded bg-indigo-600 text-white font-medium"
+          aria-current="page">{pageToken}</span
+        >
       {:else}
         <button
           type="button"
           class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
           onclick={() => onPageChange(pageToken)}
-          disabled={disabled}
+          {disabled}
         >
           {pageToken}
         </button>
@@ -77,7 +88,7 @@
         type="button"
         class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
         onclick={() => onPageChange(currentPage + 1)}
-        disabled={disabled}
+        {disabled}
       >
         Next ›
       </button>

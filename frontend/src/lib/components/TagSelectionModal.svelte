@@ -10,7 +10,13 @@
    * @property {string} [tag_group]
    */
 
-  let { designId = 0, allTags = [], selectedTagIds = [], open = false, onClose = () => {} } = $props();
+  let {
+    designId = 0,
+    allTags = [],
+    selectedTagIds = [],
+    open = false,
+    onClose = () => {},
+  } = $props();
 
   let searchQuery = $state("");
   let createTagGroup = $state("image");
@@ -107,9 +113,8 @@
   /** @type {{image: TagOption[], stitching: TagOption[], unclassified: TagOption[]}} */
   let filteredGrouped = $derived.by(() => {
     const q = queryTrimmed.toLowerCase();
-    const filtered = q === ""
-      ? localAllTags
-      : localAllTags.filter((t) => t.description.toLowerCase().includes(q));
+    const filtered =
+      q === "" ? localAllTags : localAllTags.filter((t) => t.description.toLowerCase().includes(q));
     return splitTagsByGroup(filtered);
   });
 
@@ -118,9 +123,7 @@
       localAllTags.some((t) => t.description.toLowerCase() === queryTrimmed.toLowerCase())
   );
 
-  let showCreateButton = $derived(
-    queryTrimmed.length > 0 && !exactMatchExists
-  );
+  let showCreateButton = $derived(queryTrimmed.length > 0 && !exactMatchExists);
 
   async function handleCreateTag() {
     if (!queryTrimmed || modalSaving) return;
@@ -224,7 +227,10 @@
       style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
     >
       <!-- Header with search -->
-      <div class="tag-chooser-header" style="display:flex;flex-direction:column;align-items:stretch;gap:0.5rem;">
+      <div
+        class="tag-chooser-header"
+        style="display:flex;flex-direction:column;align-items:stretch;gap:0.5rem;"
+      >
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <h2 id="tag-modal-title" class="text-lg font-semibold" style="margin:0;">
             Choose tags for this design
@@ -284,14 +290,17 @@
         <div class="tag-chooser-sections">
           {#if filteredGrouped.image.length > 0}
             <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">Image tags</p>
+              <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">
+                Image tags
+              </p>
               <div class="tag-chooser-grid">
                 {#each filteredGrouped.image as tagOption}
                   <label class="tag-chooser-option">
                     <input
                       type="checkbox"
                       checked={tagChooserSelectionIncludes(tagOption)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption, event.currentTarget.checked)}
+                      onchange={(event) =>
+                        toggleTagChooserSelection(tagOption, event.currentTarget.checked)}
                     />
                     <span>{tagOption.description}</span>
                   </label>
@@ -302,14 +311,19 @@
 
           {#if filteredGrouped.stitching.length > 0}
             <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold">Stitching tags</p>
+              <p
+                class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold"
+              >
+                Stitching tags
+              </p>
               <div class="tag-chooser-grid">
                 {#each filteredGrouped.stitching as tagOption}
                   <label class="tag-chooser-option">
                     <input
                       type="checkbox"
                       checked={tagChooserSelectionIncludes(tagOption)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption, event.currentTarget.checked)}
+                      onchange={(event) =>
+                        toggleTagChooserSelection(tagOption, event.currentTarget.checked)}
                     />
                     <span>{tagOption.description}</span>
                   </label>
@@ -320,14 +334,19 @@
 
           {#if filteredGrouped.unclassified.length > 0}
             <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold">Unclassified tags</p>
+              <p
+                class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold"
+              >
+                Unclassified tags
+              </p>
               <div class="tag-chooser-grid">
                 {#each filteredGrouped.unclassified as tagOption}
                   <label class="tag-chooser-option">
                     <input
                       type="checkbox"
                       checked={tagChooserSelectionIncludes(tagOption)}
-                      onchange={(event) => toggleTagChooserSelection(tagOption, event.currentTarget.checked)}
+                      onchange={(event) =>
+                        toggleTagChooserSelection(tagOption, event.currentTarget.checked)}
                     />
                     <span>{tagOption.description}</span>
                   </label>
@@ -343,8 +362,16 @@
       </div>
 
       <!-- Footer: Done button only -->
-      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;margin-top:0.75rem;">
-        <button type="button" class="menu-button-primary" onclick={handleDone} disabled={modalSaving}>
+      <div
+        class="tag-chooser-footer"
+        style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;margin-top:0.75rem;"
+      >
+        <button
+          type="button"
+          class="menu-button-primary"
+          onclick={handleDone}
+          disabled={modalSaving}
+        >
           {modalSaving ? "Saving..." : "Done"}
         </button>
       </div>

@@ -38,23 +38,17 @@ vi.mock("../lib/stores/toastStore.js", () => ({
 // isolation. Each stub exposes a data-testid so we can assert which step is
 // currently visible.
 vi.mock("../lib/views/AdminDesignersView.svelte", async () => {
-  const { default: AdminDesignersView } = await import(
-    "./__mocks__/AdminDesignersView.svelte"
-  );
+  const { default: AdminDesignersView } = await import("./__mocks__/AdminDesignersView.svelte");
   return { default: AdminDesignersView };
 });
 
 vi.mock("../lib/views/AdminSourcesView.svelte", async () => {
-  const { default: AdminSourcesView } = await import(
-    "./__mocks__/AdminSourcesView.svelte"
-  );
+  const { default: AdminSourcesView } = await import("./__mocks__/AdminSourcesView.svelte");
   return { default: AdminSourcesView };
 });
 
 vi.mock("../lib/views/AdminHoopsView.svelte", async () => {
-  const { default: AdminHoopsView } = await import(
-    "./__mocks__/AdminHoopsView.svelte"
-  );
+  const { default: AdminHoopsView } = await import("./__mocks__/AdminHoopsView.svelte");
   return { default: AdminHoopsView };
 });
 
@@ -83,8 +77,7 @@ function mockInstalledNoConfig() {
     status: {
       execution_mode: "installed",
       data_root: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue",
-      embroidery_dir:
-        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns",
+      embroidery_dir: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns",
       database_path:
         "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
       data_root_missing: false,
@@ -104,8 +97,7 @@ function mockInstalledDataRootMissing() {
     status: {
       execution_mode: "installed",
       data_root: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue",
-      embroidery_dir:
-        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns",
+      embroidery_dir: "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns",
       database_path:
         "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
       data_root_missing: true,
@@ -128,10 +120,8 @@ function mockInstalledWithConfig() {
     status: {
       execution_mode: "installed",
       data_root: "D:/ExistingData",
-      embroidery_dir:
-        "D:/ExistingData/MachineEmbroideryDesigns",
-      database_path:
-        "D:/ExistingData/Database/EmbroideryCatalogue.db",
+      embroidery_dir: "D:/ExistingData/MachineEmbroideryDesigns",
+      database_path: "D:/ExistingData/Database/EmbroideryCatalogue.db",
       data_root_missing: false,
     },
   });
@@ -167,25 +157,15 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    expect(
-      screen.getByText("Welcome to Embroidery Catalogue!")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Let's set up your catalogue")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Welcome to Embroidery Catalogue!")).toBeInTheDocument();
+    expect(screen.getByText("Let's set up your catalogue")).toBeInTheDocument();
     expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     expect(screen.getByText("What are Designers?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Designers are the digitizers or creators/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Designers are the digitizers or creators/)).toBeInTheDocument();
     expect(screen.getByText(/Why do this now\?/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Setting up your frequent designers now/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Setting up your frequent designers now/)).toBeInTheDocument();
     expect(screen.getByText("Are they mandatory?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Not at all! This step is completely optional/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Not at all! This step is completely optional/)).toBeInTheDocument();
 
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-sources-view")).not.toBeInTheDocument();
@@ -213,9 +193,7 @@ describe("InitialSetupView.svelte", () => {
       screen.getByText(/Sources describe where your embroidery designs came from/)
     ).toBeInTheDocument();
     expect(screen.getByText(/Setting up your common sources now/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Not at all! This step is completely optional/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Not at all! This step is completely optional/)).toBeInTheDocument();
 
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
@@ -449,9 +427,7 @@ describe("InitialSetupView.svelte", () => {
   });
 
   it("shows an error message when setup completion fails", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     completeInitialSetupMock.mockRejectedValue(new Error("db locked"));
 
     render(InitialSetupView, {
@@ -467,15 +443,10 @@ describe("InitialSetupView.svelte", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          "Failed to save setup status: Error: db locked. Please try again."
-        )
+        screen.getByText("Failed to save setup status: Error: db locked. Please try again.")
       ).toBeInTheDocument();
     });
-    expect(consoleError).toHaveBeenCalledWith(
-      "initial setup failed:",
-      expect.any(Error)
-    );
+    expect(consoleError).toHaveBeenCalledWith("initial setup failed:", expect.any(Error));
     expect(screen.getByText("Finish")).toBeInTheDocument();
     expect(screen.queryByText("Saving…")).not.toBeInTheDocument();
 
@@ -488,9 +459,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    expect(
-      screen.queryByText(/Failed to save setup status/)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Failed to save setup status/)).not.toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -532,9 +501,7 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
 
     await waitFor(() => {
-      expect(configureFreshDataRootMock).toHaveBeenCalledWith(
-        "D:/EmbroideryCatalogue/Data"
-      );
+      expect(configureFreshDataRootMock).toHaveBeenCalledWith("D:/EmbroideryCatalogue/Data");
     });
     expect(screen.getByTestId("restart-dialog")).toBeInTheDocument();
     expect(screen.queryByTestId("existing-database-notice")).not.toBeInTheDocument();

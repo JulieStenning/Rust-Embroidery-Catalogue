@@ -48,7 +48,7 @@ export function addToast(
   message: string,
   type: Toast["type"] = "info",
   persistent = false,
-  durationMs: number | null = null,
+  durationMs: number | null = null
 ): void {
   const id = nextId++;
   const toast: Toast = { id, message, type, createdAt: Date.now(), persistent };

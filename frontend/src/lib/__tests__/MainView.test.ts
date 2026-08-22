@@ -442,9 +442,7 @@ describe("routing and navigation", () => {
     renderAtHash("#/import");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Bulk Import" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Bulk Import" })).toBeInTheDocument();
     });
   });
 
@@ -473,9 +471,7 @@ describe("routing and navigation", () => {
     renderAtHash("#/about");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Embroidery Catalogue" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Embroidery Catalogue" })).toBeInTheDocument();
     });
     expect(screen.getByText("Version v0.1.0")).toBeInTheDocument();
   });
@@ -484,9 +480,7 @@ describe("routing and navigation", () => {
     renderAtHash("#/admin/settings");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Application Settings" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Application Settings" })).toBeInTheDocument();
     });
   });
 
@@ -502,9 +496,7 @@ describe("routing and navigation", () => {
     renderAtHash("#/admin/tagging-actions");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Tagging Actions" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Tagging Actions" })).toBeInTheDocument();
     });
   });
 
@@ -562,9 +554,7 @@ describe("browse loading, empty and error states", () => {
     renderAtHash("#/designs");
 
     await waitFor(() => {
-      expect(
-        screen.getByText("No designs match your filters.")
-      ).toBeInTheDocument();
+      expect(screen.getByText("No designs match your filters.")).toBeInTheDocument();
     });
   });
 
@@ -574,9 +564,7 @@ describe("browse loading, empty and error states", () => {
     renderAtHash("#/designs");
 
     await waitFor(() => {
-      expect(
-        screen.getByText("No designs match your filters.")
-      ).toBeInTheDocument();
+      expect(screen.getByText("No designs match your filters.")).toBeInTheDocument();
     });
     expect(adapterMock.getBrowseDesigns).toHaveBeenCalled();
   });
@@ -625,9 +613,9 @@ describe("browse card rendering", () => {
     await waitFor(() => {
       expect(container.querySelector(".browse-card-image")).not.toBeNull();
     });
-    expect(
-      container.querySelector(".browse-card-image")?.getAttribute("src")
-    ).toBe("data:image/png;base64,abc");
+    expect(container.querySelector(".browse-card-image")?.getAttribute("src")).toBe(
+      "data:image/png;base64,abc"
+    );
   });
 });
 
@@ -661,8 +649,18 @@ describe("browse filtering and search", () => {
   it("applies the unverified-only filter when the checkbox is toggled", async () => {
     adapterMock.getBrowseDesigns.mockResolvedValue(
       browseResponse([
-        wireCard({ id: 1, filename: "verified.pes", image_tags_verified: true, stitching_tags_verified: true }),
-        wireCard({ id: 2, filename: "unverified.pes", image_tags_verified: false, stitching_tags_verified: false }),
+        wireCard({
+          id: 1,
+          filename: "verified.pes",
+          image_tags_verified: true,
+          stitching_tags_verified: true,
+        }),
+        wireCard({
+          id: 2,
+          filename: "unverified.pes",
+          image_tags_verified: false,
+          stitching_tags_verified: false,
+        }),
       ])
     );
 
@@ -697,11 +695,7 @@ describe("browse filtering and search", () => {
     await waitFor(() => {
       expect(screen.getByText("apple.pes")).toBeInTheDocument();
     });
-    expect(cardTitles(container)).toEqual([
-      "apple.pes",
-      "bee.pes",
-      "cherry.pes",
-    ]);
+    expect(cardTitles(container)).toEqual(["apple.pes", "bee.pes", "cherry.pes"]);
 
     const directionSelect = screen.getByLabelText(/Direction:/, {
       selector: "select",
@@ -709,11 +703,7 @@ describe("browse filtering and search", () => {
     await fireEvent.change(directionSelect, { target: { value: "desc" } });
 
     await waitFor(() => {
-      expect(cardTitles(container)).toEqual([
-        "cherry.pes",
-        "bee.pes",
-        "apple.pes",
-      ]);
+      expect(cardTitles(container)).toEqual(["cherry.pes", "bee.pes", "apple.pes"]);
     });
   });
 
@@ -761,9 +751,9 @@ describe("browse filtering and search", () => {
 
     // Wait until the designer filter option has loaded.
     await waitFor(() => {
-      const label = Array.from(
-        container.querySelectorAll(".browse-additional-filters label")
-      ).find((el) => (el.textContent || "").includes("Rose Studio"));
+      const label = Array.from(container.querySelectorAll(".browse-additional-filters label")).find(
+        (el) => (el.textContent || "").includes("Rose Studio")
+      );
       expect(label).toBeDefined();
     });
 
@@ -795,9 +785,7 @@ describe("browse filtering and search", () => {
     const searchInput = container.querySelector<HTMLInputElement>("#browse-q");
     await fireEvent.input(element(searchInput), { target: { value: "rose" } });
 
-    const form = container.querySelector<HTMLFormElement>(
-      ".browse-search-shell"
-    );
+    const form = container.querySelector<HTMLFormElement>(".browse-search-shell");
     await fireEvent.submit(element(form));
 
     await waitFor(() => {
@@ -806,8 +794,7 @@ describe("browse filtering and search", () => {
     });
 
     const lastPayload = adapterMock.getBrowseDesigns.mock.calls.at(-1)?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     expect(lastPayload?.q).toBe("rose");
     expect(lastPayload?.search_file_name).toBe(true);
     expect(lastPayload?.search_tags).toBe(true);
@@ -817,8 +804,20 @@ describe("browse filtering and search", () => {
   it("enables and uses the Reset filters button", async () => {
     adapterMock.getBrowseDesigns.mockResolvedValue(
       browseResponse([
-        wireCard({ id: 1, filename: "a.pes", image_tags_verified: true, stitching_tags_verified: true, hoop: "Hoop" }),
-        wireCard({ id: 2, filename: "b.pes", image_tags_verified: false, stitching_tags_verified: false, hoop: "Hoop" }),
+        wireCard({
+          id: 1,
+          filename: "a.pes",
+          image_tags_verified: true,
+          stitching_tags_verified: true,
+          hoop: "Hoop",
+        }),
+        wireCard({
+          id: 2,
+          filename: "b.pes",
+          image_tags_verified: false,
+          stitching_tags_verified: false,
+          hoop: "Hoop",
+        }),
       ])
     );
 
@@ -894,9 +893,7 @@ describe("browse bulk selection and actions", () => {
       expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
     });
 
-    const checkbox = container.querySelector<HTMLInputElement>(
-      ".browse-design-checkbox"
-    );
+    const checkbox = container.querySelector<HTMLInputElement>(".browse-design-checkbox");
     await fireEvent.input(element(checkbox));
 
     await waitFor(() => {
@@ -913,17 +910,13 @@ describe("browse bulk selection and actions", () => {
       expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
     });
 
-    const checkbox = container.querySelector<HTMLInputElement>(
-      ".browse-design-checkbox"
-    );
+    const checkbox = container.querySelector<HTMLInputElement>(".browse-design-checkbox");
     await fireEvent.input(element(checkbox));
     await waitFor(() => {
       expect(screen.getByText("1 design selected")).toBeInTheDocument();
     });
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Clear selection" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
 
     await waitFor(() => {
       expect(screen.queryByText("1 design selected")).not.toBeInTheDocument();
@@ -939,9 +932,7 @@ describe("browse bulk selection and actions", () => {
       expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
     });
 
-    const checkbox = container.querySelector<HTMLInputElement>(
-      ".browse-design-checkbox"
-    );
+    const checkbox = container.querySelector<HTMLInputElement>(".browse-design-checkbox");
     await fireEvent.input(element(checkbox));
     await waitFor(() => {
       expect(screen.getByText("1 design selected")).toBeInTheDocument();
@@ -967,27 +958,19 @@ describe("browse bulk selection and actions", () => {
       expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
     });
 
-    const checkbox = container.querySelector<HTMLInputElement>(
-      ".browse-design-checkbox"
-    );
+    const checkbox = container.querySelector<HTMLInputElement>(".browse-design-checkbox");
     await fireEvent.input(element(checkbox));
     await waitFor(() => {
       expect(screen.getByText("1 design selected")).toBeInTheDocument();
     });
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Delete selected" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Delete selected design?" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Delete selected design?" })).toBeInTheDocument();
     });
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Delete 1 design" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Delete 1 design" }));
 
     await waitFor(() => {
       expect(adapterMock.bulkDeleteDesigns).toHaveBeenCalledWith([1], false);
@@ -1011,9 +994,7 @@ describe("admin designers", () => {
     renderAtHash("#/admin/designers");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Manage Designers" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Manage Designers" })).toBeInTheDocument();
     });
     expect(screen.getByText("Rose Studio")).toBeInTheDocument();
     expect(screen.getAllByText("2").length).toBeGreaterThan(0);
@@ -1023,9 +1004,7 @@ describe("admin designers", () => {
     renderAtHash("#/admin/designers");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Manage Designers" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Manage Designers" })).toBeInTheDocument();
     });
 
     const nameInput = screen.getByPlaceholderText("New designer name...");
@@ -1075,14 +1054,10 @@ describe("admin designers", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Confirm delete" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
     });
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Confirm delete" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     await waitFor(() => {
       expect(adapterMock.deleteDesigner).toHaveBeenCalledWith(1);
@@ -1099,9 +1074,7 @@ describe("admin sources", () => {
     renderAtHash("#/admin/sources");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Manage Sources" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Manage Sources" })).toBeInTheDocument();
     });
     expect(screen.getByText("Imported")).toBeInTheDocument();
     expect(screen.getAllByText("3").length).toBeGreaterThan(0);
@@ -1133,9 +1106,7 @@ describe("admin hoops", () => {
     renderAtHash("#/admin/hoops");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Manage Hoops" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Manage Hoops" })).toBeInTheDocument();
     });
     expect(screen.getByText("5x7 hoop")).toBeInTheDocument();
     expect(screen.getByText("130")).toBeInTheDocument();
@@ -1155,16 +1126,10 @@ describe("admin tags", () => {
     renderAtHash("#/admin/tags");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Manage Tags" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Manage Tags" })).toBeInTheDocument();
     });
-    expect(
-      screen.getByRole("heading", { name: "Image Tags" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Stitching Tags" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Image Tags" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Stitching Tags" })).toBeInTheDocument();
 
     expect(screen.getByText("Floral")).toBeInTheDocument();
     expect(screen.getByText("Satin")).toBeInTheDocument();
@@ -1174,9 +1139,7 @@ describe("admin tags", () => {
     renderAtHash("#/admin/tags");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Manage Tags" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Manage Tags" })).toBeInTheDocument();
     });
 
     const descInput = screen.getByPlaceholderText("e.g. Animals, Cross stitch...");

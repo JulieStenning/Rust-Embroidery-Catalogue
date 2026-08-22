@@ -11,7 +11,12 @@ import DOMPurify from "dompurify";
 function neutralizeRelativeLinks(text) {
   return String(text || "").replace(/\[([^\]]+)\]\(([^)]*)\)/g, (match, label, href) => {
     const target = String(href || "").trim();
-    if (!target || target.startsWith("#") || target.startsWith("/") || /^[a-z][a-z0-9+.-]*:/i.test(target)) {
+    if (
+      !target ||
+      target.startsWith("#") ||
+      target.startsWith("/") ||
+      /^[a-z][a-z0-9+.-]*:/i.test(target)
+    ) {
       return match;
     }
     // Relative path (e.g. STITCH_TYPES.md, ../TROUBLESHOOTING.md) — keep label, drop link.

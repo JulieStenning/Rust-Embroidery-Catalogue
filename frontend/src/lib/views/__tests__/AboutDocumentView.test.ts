@@ -57,10 +57,7 @@ vi.mock("../../assets/npm-licences.json", () => ({
 // ---------------------------------------------------------------------------
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
-function element<T extends Element>(
-  value: T | null | undefined,
-  message?: string
-): T {
+function element<T extends Element>(value: T | null | undefined, message?: string): T {
   if (!value) {
     throw new Error(message ?? "Expected element to exist.");
   }
@@ -85,23 +82,15 @@ describe("AboutDocumentView", () => {
     it("renders the three licence tab buttons", () => {
       render(AboutDocumentView, { props: { slug: "licence" } });
 
-      expect(
-        screen.getByRole("button", { name: "Application Licence" })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Rust Dependencies" })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Frontend Dependencies" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Application Licence" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Rust Dependencies" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Frontend Dependencies" })).toBeInTheDocument();
     });
 
     it("shows the Application Licence tab by default with the primary licence text", () => {
       render(AboutDocumentView, { props: { slug: "licence" } });
 
-      expect(
-        screen.getByTestId("licence-application-tab")
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("licence-application-tab")).toBeInTheDocument();
 
       const pre = element(
         document.querySelector("pre.licence-primary-text"),
@@ -135,18 +124,14 @@ describe("AboutDocumentView", () => {
     it("switches to the Frontend Dependencies tab and renders package details cards", async () => {
       render(AboutDocumentView, { props: { slug: "licence" } });
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: "Frontend Dependencies" })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: "Frontend Dependencies" }));
       await tick();
 
       const tab = screen.getByTestId("licence-frontend-tab");
       expect(tab).toBeInTheDocument();
 
       const svelteSummary = element(
-        within(tab)
-          .getByText("svelte", { selector: "span.font-medium" })
-          .closest("summary"),
+        within(tab).getByText("svelte", { selector: "span.font-medium" }).closest("summary"),
         "Expected the svelte licence summary."
       );
       expect(svelteSummary.textContent).toContain("v5.56.9");
@@ -183,15 +168,11 @@ describe("AboutDocumentView", () => {
       const { default: AboutDocumentViewLazy } = await import("../AboutDocumentView.svelte");
       const view = renderLazy(AboutDocumentViewLazy, { props: { slug: "licence" } });
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: "Rust Dependencies" })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: "Rust Dependencies" }));
       await tickLazy();
 
       expect(screen.getByTestId("licence-rust-tab")).toBeInTheDocument();
-      expect(
-        screen.getByText("No Rust licence data is available.")
-      ).toBeInTheDocument();
+      expect(screen.getByText("No Rust licence data is available.")).toBeInTheDocument();
 
       view.unmount();
     });
@@ -205,9 +186,7 @@ describe("AboutDocumentView", () => {
       const { default: AboutDocumentViewLazy } = await import("../AboutDocumentView.svelte");
       const view = renderLazy(AboutDocumentViewLazy, { props: { slug: "licence" } });
 
-      await fireEvent.click(
-        screen.getByRole("button", { name: "Frontend Dependencies" })
-      );
+      await fireEvent.click(screen.getByRole("button", { name: "Frontend Dependencies" }));
       await tickLazy();
 
       expect(screen.getByTestId("licence-frontend-tab")).toBeInTheDocument();
@@ -357,9 +336,7 @@ describe("AboutDocumentView", () => {
       render(AboutDocumentView, { props: { slug: "privacy" } });
 
       await waitFor(() => {
-        expect(
-          screen.getByText("Database error reading privacy document.")
-        ).toBeInTheDocument();
+        expect(screen.getByText("Database error reading privacy document.")).toBeInTheDocument();
       });
       expect(screen.queryByText("Document content is unavailable.")).not.toBeInTheDocument();
     });

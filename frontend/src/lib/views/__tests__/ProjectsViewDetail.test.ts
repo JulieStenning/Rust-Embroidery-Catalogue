@@ -25,20 +25,55 @@ vi.mock("../../stores/toastStore", () => toastMock);
 const detailItem = {
   project: { id: 1, name: "Wedding Collection", description: "Bridesmaid gifts." },
   designs: [
-    { id: 101, filename: "rose-border.pes", filepath: "C:/designs/rose-border.pes", image_data_url: "data:image/png;base64,AAAA", designer_name: "Rose Studio" },
-    { id: 102, filename: "tulip.pes", filepath: "C:/designs/tulip.pes", image_data_url: null, has_image: true, designer_name: "Tulip Co" },
+    {
+      id: 101,
+      filename: "rose-border.pes",
+      filepath: "C:/designs/rose-border.pes",
+      image_data_url: "data:image/png;base64,AAAA",
+      designer_name: "Rose Studio",
+    },
+    {
+      id: 102,
+      filename: "tulip.pes",
+      filepath: "C:/designs/tulip.pes",
+      image_data_url: null,
+      has_image: true,
+      designer_name: "Tulip Co",
+    },
   ],
 };
 
 const detailResponse = () => ({ source: "rust", item: detailItem, error: undefined });
 
-const persistedUpdate = { source: "rust", persisted: true, project_id: 1, message: "Project updated." };
-const persistedDelete = { source: "rust", persisted: true, project_id: 1, message: "Project deleted." };
-const persistedRemove = { source: "rust", persisted: true, project_id: 1, design_id: 101, message: "Design removed from project." };
+const persistedUpdate = {
+  source: "rust",
+  persisted: true,
+  project_id: 1,
+  message: "Project updated.",
+};
+const persistedDelete = {
+  source: "rust",
+  persisted: true,
+  project_id: 1,
+  message: "Project deleted.",
+};
+const persistedRemove = {
+  source: "rust",
+  persisted: true,
+  project_id: 1,
+  design_id: 101,
+  message: "Design removed from project.",
+};
 
 function renderProjects(props: Record<string, unknown> = {}) {
   return render(ProjectsView, {
-    props: { currentUiKind: "project-detail", projectDetailId: 1, projectPrintId: null, navigateTo: () => {}, ...props },
+    props: {
+      currentUiKind: "project-detail",
+      projectDetailId: 1,
+      projectPrintId: null,
+      navigateTo: () => {},
+      ...props,
+    },
   });
 }
 
@@ -55,7 +90,11 @@ describe("ProjectsView detail view", () => {
     adapterMock.updateProject.mockResolvedValue(persistedUpdate);
     adapterMock.deleteProject.mockResolvedValue(persistedDelete);
     adapterMock.removeDesignFromProjectDetail.mockResolvedValue(persistedRemove);
-    adapterMock.getProjectPrintView.mockResolvedValue({ source: "rust", item: null, error: undefined });
+    adapterMock.getProjectPrintView.mockResolvedValue({
+      source: "rust",
+      item: null,
+      error: undefined,
+    });
   });
 
   it("shows the loading message while getProjectDetail is pending", async () => {
@@ -66,7 +105,11 @@ describe("ProjectsView detail view", () => {
   });
 
   it("renders the adapter error when the detail item is null", async () => {
-    adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item: null, error: "Project 999 was deleted." });
+    adapterMock.getProjectDetail.mockResolvedValue({
+      source: "rust",
+      item: null,
+      error: "Project 999 was deleted.",
+    });
     renderProjects({ projectDetailId: 999 });
     await waitFor(() => expect(screen.getByText("Project 999 was deleted.")).toBeInTheDocument());
   });
@@ -74,7 +117,11 @@ describe("ProjectsView detail view", () => {
   it("renders an error message when getProjectDetail rejects", async () => {
     adapterMock.getProjectDetail.mockRejectedValue(new Error("network down"));
     renderProjects();
-    await waitFor(() => expect(screen.getByText(/Could not load project detail: Error: network down/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Could not load project detail: Error: network down/)
+      ).toBeInTheDocument()
+    );
   });
 
   it("renders project details and design cards", async () => {
@@ -124,7 +171,11 @@ describe("ProjectsView detail view", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(adapterMock.updateProject).toHaveBeenCalledWith(1, "Wedding Collection v2", "Bridesmaid gifts.");
+      expect(adapterMock.updateProject).toHaveBeenCalledWith(
+        1,
+        "Wedding Collection v2",
+        "Bridesmaid gifts."
+      );
       expect(toastMock.addToast).toHaveBeenCalledWith("Project updated.", "success");
     });
     await waitFor(() => expect(adapterMock.getProjectDetail).toHaveBeenCalledTimes(2));

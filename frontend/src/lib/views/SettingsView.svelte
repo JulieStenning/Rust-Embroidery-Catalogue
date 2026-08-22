@@ -9,7 +9,7 @@
     cancelCatalogueStorageMigration,
     listenCatalogueStorageMigrationProgress,
     getDbStats,
-    compactDatabase
+    compactDatabase,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   /** @typedef {import("../types/ipc").StorageMigrationProgress} StorageMigrationProgress */
@@ -284,22 +284,32 @@
 
   <div class="settings-layout max-w-3xl space-y-6">
     {#if settingsLoading && !settingsLoaded}
-      <div class="settings-alert settings-alert-info bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-2 text-sm">
+      <div
+        class="settings-alert settings-alert-info bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-2 text-sm"
+      >
         Loading settings...
       </div>
     {/if}
 
-    <form class="settings-card settings-form bg-white rounded shadow p-6 space-y-5" onsubmit={saveSettingsFromBackend}>
+    <form
+      class="settings-card settings-form bg-white rounded shadow p-6 space-y-5"
+      onsubmit={saveSettingsFromBackend}
+    >
       <div>
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
         <p class="text-sm text-gray-600">
-          The Google API key is only required if you want your designs to be tagged automatically by Google AI.
-          <a href={settingsHelpUrl} class="text-indigo-600 hover:underline">Press here for more information.</a>
+          The Google API key is only required if you want your designs to be tagged automatically by
+          Google AI.
+          <a href={settingsHelpUrl} class="text-indigo-600 hover:underline"
+            >Press here for more information.</a
+          >
         </p>
       </div>
 
       <div>
-        <label for="settings-google-api-key" class="block text-sm font-semibold text-gray-700 mb-1">API key</label>
+        <label for="settings-google-api-key" class="block text-sm font-semibold text-gray-700 mb-1"
+          >API key</label
+        >
         <div class="flex items-center gap-2">
           <input
             id="settings-google-api-key"
@@ -318,12 +328,15 @@
             title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
             onclick={toggleSettingsApiKeyVisibility}
           >
-            <span aria-hidden="true" class="settings-eye-icon">{settingsApiKeyRevealed ? "🙈" : "👁"}</span>
+            <span aria-hidden="true" class="settings-eye-icon"
+              >{settingsApiKeyRevealed ? "🙈" : "👁"}</span
+            >
           </button>
         </div>
         <p class="mt-2 text-xs text-gray-500">
           {#if settingsHasGoogleApiKey}
-            A key is currently saved in <code>.env</code>. You can leave it as-is or replace it here.
+            A key is currently saved in <code>.env</code>. You can leave it as-is or replace it
+            here.
           {:else}
             Leave this blank if you only want keyword-based tagging with no Google AI calls.
           {/if}
@@ -333,34 +346,45 @@
       <div class="border-t pt-4">
         <h2 class="text-sm font-semibold text-gray-700 mb-1">AI tagging during import</h2>
         <p class="text-sm text-gray-600 mb-3">
-          Control whether Gemini AI tagging runs automatically when you import designs.
-          Tier 1 (keyword matching) always runs and is free.
-          Tiers 2 and 3 call the Google Gemini API and require an API key.
+          Control whether Gemini AI tagging runs automatically when you import designs. Tier 1
+          (keyword matching) always runs and is free. Tiers 2 and 3 call the Google Gemini API and
+          require an API key.
         </p>
 
         {#if settingsHasGoogleApiKey}
           <div class="bg-amber-50 border border-amber-300 rounded p-3 mb-3 text-sm text-amber-900">
             <strong>⚠ Cost notice:</strong> Gemini usage may incur charges on your Google account.
             Free-tier limits are approximately <strong>15 requests per minute</strong> and
-            <strong>1,500 requests per day</strong>.
-            A historical estimate from February 2026 found that Tier 3 on 4,000 images cost about
-            <strong>$0.33 on the paid tier</strong>; actual pricing may have changed.
-            Check the latest rates at
-            <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener">ai.google.dev/pricing</a>.
+            <strong>1,500 requests per day</strong>. A historical estimate from February 2026 found
+            that Tier 3 on 4,000 images cost about
+            <strong>$0.33 on the paid tier</strong>; actual pricing may have changed. Check the
+            latest rates at
+            <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener"
+              >ai.google.dev/pricing</a
+            >.
           </div>
         {:else}
           <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-3 text-sm text-blue-900">
-            No API key is saved. AI tagging options below will have no effect until you add a key above.
+            No API key is saved. AI tagging options below will have no effect until you add a key
+            above.
           </div>
         {/if}
 
         <div class="space-y-2">
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={settingsAiTier2Auto} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <input
+              type="checkbox"
+              bind:checked={settingsAiTier2Auto}
+              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
             Run <strong>Tier 2</strong> (Gemini text AI from filename) automatically during import
           </label>
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" bind:checked={settingsAiTier3Auto} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            <input
+              type="checkbox"
+              bind:checked={settingsAiTier3Auto}
+              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
             Run <strong>Tier 3</strong> (Gemini vision AI from preview image) automatically during import
           </label>
         </div>
@@ -379,15 +403,17 @@
           class="settings-input border rounded px-3 py-2 text-sm w-48"
         />
         <p class="mt-1 text-xs text-gray-500">
-          Limit AI tagging to this many newly imported designs per import run.
-          Leave blank to tag all newly imported designs.
-          Useful for very large imports where you want to spread Gemini calls over several runs.
+          Limit AI tagging to this many newly imported designs per import run. Leave blank to tag
+          all newly imported designs. Useful for very large imports where you want to spread Gemini
+          calls over several runs.
         </p>
       </div>
 
       <div>
         <label for="settings-ai-delay" class="block text-sm font-semibold text-gray-700 mb-1">
-          Delay between Gemini calls (seconds) <span class="font-normal text-gray-500">(optional)</span>
+          Delay between Gemini calls (seconds) <span class="font-normal text-gray-500"
+            >(optional)</span
+          >
         </label>
         <input
           id="settings-ai-delay"
@@ -399,15 +425,21 @@
           class="settings-input border rounded px-3 py-2 text-sm w-56"
         />
         <p class="mt-1 text-xs text-gray-500">
-          Seconds to wait between API calls. Increase this if you see <em>429 Too Many Requests</em> errors.
-          Default is 5.0 seconds. Also applies to batch tagging actions on the
-          <a href="#/admin/tagging-actions" class="text-indigo-600 hover:underline">Tagging Actions</a> page.
+          Seconds to wait between API calls. Increase this if you see <em>429 Too Many Requests</em>
+          errors. Default is 5.0 seconds. Also applies to batch tagging actions on the
+          <a href="#/admin/tagging-actions" class="text-indigo-600 hover:underline"
+            >Tagging Actions</a
+          > page.
         </p>
       </div>
 
       <div>
-        <label for="settings-import-commit-batch-size" class="block text-sm font-semibold text-gray-700 mb-1">
-          Import database commit batch size <span class="font-normal text-gray-500">(optional)</span>
+        <label
+          for="settings-import-commit-batch-size"
+          class="block text-sm font-semibold text-gray-700 mb-1"
+        >
+          Import database commit batch size <span class="font-normal text-gray-500">(optional)</span
+          >
         </label>
         <input
           id="settings-import-commit-batch-size"
@@ -418,14 +450,17 @@
           class="settings-input border rounded px-3 py-2 text-sm w-56"
         />
         <p class="mt-1 text-xs text-gray-500">
-          Controls how many designs are written or tag-updated before each database commit during import.
-          Leave blank to use the default batch size of 10.
-          Lower values reduce rollback size on failure; higher values reduce commit overhead.
+          Controls how many designs are written or tag-updated before each database commit during
+          import. Leave blank to use the default batch size of 10. Lower values reduce rollback size
+          on failure; higher values reduce commit overhead.
         </p>
       </div>
 
       <div>
-        <label for="settings-db-idle-check-interval" class="block text-sm font-semibold text-gray-700 mb-1">
+        <label
+          for="settings-db-idle-check-interval"
+          class="block text-sm font-semibold text-gray-700 mb-1"
+        >
           Database health check interval (seconds)
         </label>
         <input
@@ -437,17 +472,18 @@
           class="settings-input border rounded px-3 py-2 text-sm w-48"
         />
         <p class="mt-1 text-xs text-gray-500">
-          How often the app checks for database fragmentation (default 1800 = 30 minutes).
-          When free space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without pausing the app.
-          Minimum 5 seconds (for testing).
+          How often the app checks for database fragmentation (default 1800 = 30 minutes). When free
+          space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without pausing the
+          app. Minimum 5 seconds (for testing).
         </p>
       </div>
 
       <div class="border-t pt-4 space-y-3">
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Database Maintenance</h2>
         <p class="text-sm text-gray-600">
-          The catalogue database can grow as designs are added, edited and removed. This shows current storage
-          usage and lets you compact the database to reclaim unused space. Your embroidery files are never modified.
+          The catalogue database can grow as designs are added, edited and removed. This shows
+          current storage usage and lets you compact the database to reclaim unused space. Your
+          embroidery files are never modified.
         </p>
 
         {#if dbStats}
@@ -458,7 +494,9 @@
             </div>
             <div class="bg-gray-50 border rounded p-3">
               <p class="text-xs font-semibold text-gray-500 uppercase">Recoverable</p>
-              <p class="text-lg font-bold text-emerald-600">{formatBytes(dbStats.reclaimable_bytes)}</p>
+              <p class="text-lg font-bold text-emerald-600">
+                {formatBytes(dbStats.reclaimable_bytes)}
+              </p>
             </div>
           </div>
         {:else}
@@ -474,8 +512,8 @@
           {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
         </button>
         <p class="text-xs text-gray-500">
-          Runs a full database optimisation (VACUUM + PRAGMA optimize). This may take a moment for large
-          databases and requires sufficient free disk space.
+          Runs a full database optimisation (VACUUM + PRAGMA optimize). This may take a moment for
+          large databases and requires sufficient free disk space.
         </p>
       </div>
 
@@ -484,7 +522,9 @@
         <p class="text-sm text-gray-600">
           Large catalogue data lives under a single home folder.
           {#if settingsCanConfigureDataRoot}
-            For desktop installs you can point this to a larger drive. Changes apply after restarting the app, and any missing managed files are copied into the new location automatically.
+            For desktop installs you can point this to a larger drive. Changes apply after
+            restarting the app, and any missing managed files are copied into the new location
+            automatically.
           {:else}
             In {settingsAppMode} mode this location follows the application folder automatically.
           {/if}
@@ -492,7 +532,9 @@
 
         {#if settingsCanConfigureDataRoot}
           <div>
-            <label for="settings-data-root" class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</label>
+            <label for="settings-data-root" class="block text-sm font-semibold text-gray-700 mb-1"
+              >Catalogue data location</label
+            >
             <div class="flex items-center gap-2">
               <input
                 id="settings-data-root"
@@ -518,8 +560,14 @@
       </div>
 
       <div class="flex items-center justify-between gap-3">
-        <p class="text-xs text-gray-500">These settings are stored in the catalogue database for this installation.</p>
-        <button type="submit" class="settings-primary-button menu-button-primary" disabled={settingsSaveState === "saving"}>
+        <p class="text-xs text-gray-500">
+          These settings are stored in the catalogue database for this installation.
+        </p>
+        <button
+          type="submit"
+          class="settings-primary-button menu-button-primary"
+          disabled={settingsSaveState === "saving"}
+        >
           {settingsSaveState === "saving" ? "Saving..." : "Save settings"}
         </button>
       </div>
@@ -529,24 +577,33 @@
       <div>
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Storage locations</h2>
         <p class="text-sm text-gray-600">
-          The catalogue database and imported embroidery files live under the catalogue data location shown below.
-          Logs are stored separately so they survive data moves.
+          The catalogue database and imported embroidery files live under the catalogue data
+          location shown below. Logs are stored separately so they survive data moves.
         </p>
       </div>
 
       <div>
         <p class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</p>
-        <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsDataRoot}</code>
+        <code
+          class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
+          >{settingsDataRoot}</code
+        >
       </div>
 
       <div>
         <p class="block text-sm font-semibold text-gray-700 mb-1">Log folder</p>
-        <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsLogFolder}</code>
+        <code
+          class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
+          >{settingsLogFolder}</code
+        >
       </div>
 
       <div>
         <p class="block text-sm font-semibold text-gray-700 mb-1">Database</p>
-        <code class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all">{settingsDatabasePath}</code>
+        <code
+          class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
+          >{settingsDatabasePath}</code
+        >
       </div>
     </div>
   </div>
@@ -563,8 +620,8 @@
     <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-800">Restart required</h2>
       <p class="text-sm text-gray-600">
-        Your new data location has been saved. Embroidery Catalogue needs to restart
-        so it can begin using <span class="font-medium text-gray-800">{settingsDataRoot}</span>.
+        Your new data location has been saved. Embroidery Catalogue needs to restart so it can begin
+        using <span class="font-medium text-gray-800">{settingsDataRoot}</span>.
       </p>
       <div class="flex items-center justify-end gap-2 pt-2">
         <button
@@ -598,12 +655,15 @@
     <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-800">Moving your catalogue…</h2>
       <p class="text-sm text-gray-600">
-        Your database and design library are being moved to the new
-        storage location. Your original embroidery files remain untouched.
+        Your database and design library are being moved to the new storage location. Your original
+        embroidery files remain untouched.
       </p>
 
       {#if migrationError}
-        <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm" data-testid="catalogue-migration-error">
+        <div
+          class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
+          data-testid="catalogue-migration-error"
+        >
           {migrationError}
         </div>
       {/if}

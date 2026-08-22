@@ -57,7 +57,7 @@ describe("dbMaintenanceEvents", () => {
       return Promise.resolve(
         eventName === DB_MAINTENANCE_STARTED
           ? eventMocks.unlistenStarted
-          : eventMocks.unlistenFinished,
+          : eventMocks.unlistenFinished
       );
     });
   });
@@ -70,14 +70,8 @@ describe("dbMaintenanceEvents", () => {
     await initDbMaintenanceEvents();
 
     expect(eventMocks.listen).toHaveBeenCalledTimes(2);
-    expect(eventMocks.listen).toHaveBeenCalledWith(
-      DB_MAINTENANCE_STARTED,
-      expect.any(Function),
-    );
-    expect(eventMocks.listen).toHaveBeenCalledWith(
-      DB_MAINTENANCE_FINISHED,
-      expect.any(Function),
-    );
+    expect(eventMocks.listen).toHaveBeenCalledWith(DB_MAINTENANCE_STARTED, expect.any(Function));
+    expect(eventMocks.listen).toHaveBeenCalledWith(DB_MAINTENANCE_FINISHED, expect.any(Function));
   });
 
   it("logs the started event payload via console.info", async () => {
@@ -95,7 +89,7 @@ describe("dbMaintenanceEvents", () => {
     eventMocks.startedCallback(event);
 
     expect(consoleInfoSpy).toHaveBeenCalledWith(
-      "[db-maintenance] started — free ratio 25.0%, 4096 bytes reclaimable",
+      "[db-maintenance] started — free ratio 25.0%, 4096 bytes reclaimable"
     );
   });
 
@@ -117,7 +111,7 @@ describe("dbMaintenanceEvents", () => {
       "Database optimisation complete — 12,345 pages reclaimed",
       "success",
       false,
-      5000,
+      5000
     );
   });
 

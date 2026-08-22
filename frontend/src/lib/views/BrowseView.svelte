@@ -12,7 +12,7 @@
     listHoops,
     bulkVerifyDesigns,
     bulkAddDesignsToProject,
-    bulkSetTagsForDesigns
+    bulkSetTagsForDesigns,
   } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import Pagination from "../components/Pagination.svelte";
@@ -61,7 +61,9 @@
     (() => {
       const grouped = splitTagsByGroup(browseTagOptions);
       return [...(grouped.image || [])].sort((a, b) =>
-        String(a?.description || "").localeCompare(String(b?.description || ""), undefined, { sensitivity: "base" })
+        String(a?.description || "").localeCompare(String(b?.description || ""), undefined, {
+          sensitivity: "base",
+        })
       );
     })()
   );
@@ -69,7 +71,9 @@
     (() => {
       const grouped = splitTagsByGroup(browseTagOptions);
       return [...(grouped.stitching || [])].sort((a, b) =>
-        String(a?.description || "").localeCompare(String(b?.description || ""), undefined, { sensitivity: "base" })
+        String(a?.description || "").localeCompare(String(b?.description || ""), undefined, {
+          sensitivity: "base",
+        })
       );
     })()
   );
@@ -151,24 +155,24 @@
 
   let browseFiltersAreDefault = $derived(
     browseFilters.q === "" &&
-    browseFilters.allWords === "" &&
-    browseFilters.exactPhrase === "" &&
-    browseFilters.anyWords === "" &&
-    browseFilters.noneWords === "" &&
-    browseFilters.filename === "" &&
-    browseFilters.designerFilters.length === 0 &&
-    browseFilters.imageTagFilters.length === 0 &&
-    browseFilters.stitchingTagFilters.length === 0 &&
-    browseFilters.hoop === "" &&
-    browseFilters.sourceFilters.length === 0 &&
-    browseFilters.rating === "" &&
-    browseFilters.stitched === "" &&
-    !browseFilters.unverifiedOnly &&
-    browseFilters.searchFilename &&
-    browseFilters.searchTags &&
-    browseFilters.searchFolder &&
-    browseFilters.sortBy === "name" &&
-    browseFilters.sortDir === "asc"
+      browseFilters.allWords === "" &&
+      browseFilters.exactPhrase === "" &&
+      browseFilters.anyWords === "" &&
+      browseFilters.noneWords === "" &&
+      browseFilters.filename === "" &&
+      browseFilters.designerFilters.length === 0 &&
+      browseFilters.imageTagFilters.length === 0 &&
+      browseFilters.stitchingTagFilters.length === 0 &&
+      browseFilters.hoop === "" &&
+      browseFilters.sourceFilters.length === 0 &&
+      browseFilters.rating === "" &&
+      browseFilters.stitched === "" &&
+      !browseFilters.unverifiedOnly &&
+      browseFilters.searchFilename &&
+      browseFilters.searchTags &&
+      browseFilters.searchFolder &&
+      browseFilters.sortBy === "name" &&
+      browseFilters.sortDir === "asc"
   );
 
   // Browse Search Parser
@@ -233,7 +237,9 @@
 
   /** @param {string} filepath */
   function extractFolder(filepath) {
-    const path = String(filepath || "").trim().replace(/\\/g, "/");
+    const path = String(filepath || "")
+      .trim()
+      .replace(/\\/g, "/");
     if (!path) return "";
     const segments = path.split("/").filter(Boolean);
     if (segments.length <= 1) return "";
@@ -267,9 +273,7 @@
     const stitchingTags = Array.isArray(item.stitching_tags)
       ? item.stitching_tags.map(String).sort(compareStrings)
       : [];
-    const fallbackTags = Array.isArray(item.tags)
-      ? item.tags.map(mapTagToString)
-      : [];
+    const fallbackTags = Array.isArray(item.tags) ? item.tags.map(mapTagToString) : [];
     const flatTags =
       imageTags.length > 0 || stitchingTags.length > 0
         ? Array.from(new Set([...imageTags, ...stitchingTags]))
@@ -290,12 +294,14 @@
             : [];
 
     const projects = projectsRaw
-      .map(/** @param {string | { name?: string }} project */ (project) => {
-        if (typeof project === "string") {
-          return project.trim();
+      .map(
+        /** @param {string | { name?: string }} project */ (project) => {
+          if (typeof project === "string") {
+            return project.trim();
+          }
+          return String(project?.name || "").trim();
         }
-        return String(project?.name || "").trim();
-      })
+      )
       .filter(Boolean);
 
     return {
@@ -359,7 +365,9 @@
     // Default sorting (name/filename)
     const nameLeft = left.filename;
     const nameRight = right.filename;
-    return nameLeft.localeCompare(nameRight, undefined, { sensitivity: "base" }) * directionMultiplier;
+    return (
+      nameLeft.localeCompare(nameRight, undefined, { sensitivity: "base" }) * directionMultiplier
+    );
   }
 
   /** @param {keyof BrowseFilterState} key @param {BrowseFilterState[keyof BrowseFilterState]} value */
@@ -420,10 +428,18 @@
         search_folder_name: browseFilters.searchFolder,
         unverified_only: browseFilters.unverifiedOnly,
         additional_filters: {
-          designer_filters: Array.isArray(browseFilters.designerFilters) ? browseFilters.designerFilters : [],
-          image_tag_filters: Array.isArray(browseFilters.imageTagFilters) ? browseFilters.imageTagFilters : [],
-          stitching_tag_filters: Array.isArray(browseFilters.stitchingTagFilters) ? browseFilters.stitchingTagFilters : [],
-          source_filters: Array.isArray(browseFilters.sourceFilters) ? browseFilters.sourceFilters : [],
+          designer_filters: Array.isArray(browseFilters.designerFilters)
+            ? browseFilters.designerFilters
+            : [],
+          image_tag_filters: Array.isArray(browseFilters.imageTagFilters)
+            ? browseFilters.imageTagFilters
+            : [],
+          stitching_tag_filters: Array.isArray(browseFilters.stitchingTagFilters)
+            ? browseFilters.stitchingTagFilters
+            : [],
+          source_filters: Array.isArray(browseFilters.sourceFilters)
+            ? browseFilters.sourceFilters
+            : [],
           hoop_size: browseFilters.hoop || null,
           min_rating: browseFilters.rating ? Number(browseFilters.rating) : null,
           stitched_status: stitchedStatus,
@@ -431,9 +447,7 @@
       };
       const result = await getBrowseDesigns(payload);
       const rawItems = getResponseItems(result);
-      const normalizedItems = rawItems
-        .map(normalizeCardItem)
-        .filter((item) => item !== null);
+      const normalizedItems = rawItems.map(normalizeCardItem).filter((item) => item !== null);
       browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
       browseHasLoaded = true;
     } catch {
@@ -460,7 +474,9 @@
     try {
       const result = await getBrowseProjects();
       const items = [...getResponseItems(result)];
-      items.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
+      items.sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+      );
       browseProjects = items;
       browseProjectsLoaded = true;
     } catch (error) {
@@ -482,27 +498,15 @@
       const hoopItems = getResponseItems(hoopResult);
 
       browseDesignerFilterOptions = Array.from(
-        new Set(
-          designerItems
-            .map((item) => String(item?.name || "").trim())
-            .filter(Boolean)
-        )
+        new Set(designerItems.map((item) => String(item?.name || "").trim()).filter(Boolean))
       ).sort((a, b) => a.localeCompare(b));
 
       browseSourceFilterOptions = Array.from(
-        new Set(
-          sourceItems
-            .map((item) => String(item?.name || "").trim())
-            .filter(Boolean)
-        )
+        new Set(sourceItems.map((item) => String(item?.name || "").trim()).filter(Boolean))
       ).sort((a, b) => a.localeCompare(b));
 
       browseHoopFilterOptions = Array.from(
-        new Set(
-          hoopItems
-            .map((item) => String(item?.name || "").trim())
-            .filter(Boolean)
-        )
+        new Set(hoopItems.map((item) => String(item?.name || "").trim()).filter(Boolean))
       ).sort((a, b) => a.localeCompare(b));
     } catch (error) {
       browseDesignerFilterOptions = [];
@@ -517,7 +521,9 @@
   /** @param {number[]} designIds */
   async function loadBrowsePreviews(designIds) {
     const ids = Array.isArray(designIds)
-      ? Array.from(new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)))
+      ? Array.from(
+          new Set(designIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))
+        )
       : [];
 
     if (ids.length === 0) {
@@ -577,7 +583,7 @@
    * Apply accumulated session patches to the browse item list.
    * Patches individual card data in-place so only affected cards re-render.
    * Also invalidates cached previews for patched designs.
-  * @param {Record<number, MutationPatch>} patches
+   * @param {Record<number, MutationPatch>} patches
    */
   function applyPatchesToBrowse(patches) {
     for (const [idStr, patch] of Object.entries(patches)) {
@@ -617,7 +623,9 @@
               if (browseFilters.searchTags) activeFields.push(...item.tags);
               if (browseFilters.searchFolder) activeFields.push(item.folder);
 
-              const termMatchesAnyField = activeFields.some((field) => matchesTerm(field, term.text));
+              const termMatchesAnyField = activeFields.some((field) =>
+                matchesTerm(field, term.text)
+              );
               return term.exclude ? !termMatchesAnyField : termMatchesAnyField;
             });
           });
@@ -626,42 +634,71 @@
 
       // specific filters
       /** @type {string[]} */
-      const designerFilters = Array.isArray(browseFilters.designerFilters) ? browseFilters.designerFilters : [];
+      const designerFilters = Array.isArray(browseFilters.designerFilters)
+        ? browseFilters.designerFilters
+        : [];
       if (designerFilters.length > 0) {
         const activeDesigners = new Set(designerFilters.map((d) => String(d).toLowerCase().trim()));
-        filtered = filtered.filter((item) => activeDesigners.has(String(item.designer).toLowerCase().trim()));
+        filtered = filtered.filter((item) =>
+          activeDesigners.has(String(item.designer).toLowerCase().trim())
+        );
       }
 
       /** @type {string[]} */
-      const imageTagFilters = Array.isArray(browseFilters.imageTagFilters) ? browseFilters.imageTagFilters : [];
+      const imageTagFilters = Array.isArray(browseFilters.imageTagFilters)
+        ? browseFilters.imageTagFilters
+        : [];
       if (imageTagFilters.length > 0) {
-        const activeImageTags = new Set(imageTagFilters.map(/** @param {string} tag */ (tag) => String(tag).toLowerCase().trim()));
+        const activeImageTags = new Set(
+          imageTagFilters.map(/** @param {string} tag */ (tag) => String(tag).toLowerCase().trim())
+        );
         filtered = filtered.filter((item) => {
           const itemImageTags = Array.isArray(item.imageTags) ? item.imageTags : [];
-          return itemImageTags.some(/** @param {string} tag */ (tag) => activeImageTags.has(String(tag).toLowerCase().trim()));
+          return itemImageTags.some(
+            /** @param {string} tag */ (tag) =>
+              activeImageTags.has(String(tag).toLowerCase().trim())
+          );
         });
       }
 
       /** @type {string[]} */
-      const stitchingTagFilters = Array.isArray(browseFilters.stitchingTagFilters) ? browseFilters.stitchingTagFilters : [];
+      const stitchingTagFilters = Array.isArray(browseFilters.stitchingTagFilters)
+        ? browseFilters.stitchingTagFilters
+        : [];
       if (stitchingTagFilters.length > 0) {
-        const activeStitchingTags = new Set(stitchingTagFilters.map(/** @param {string} tag */ (tag) => String(tag).toLowerCase().trim()));
+        const activeStitchingTags = new Set(
+          stitchingTagFilters.map(
+            /** @param {string} tag */ (tag) => String(tag).toLowerCase().trim()
+          )
+        );
         filtered = filtered.filter((item) => {
           const itemStitchingTags = Array.isArray(item.stitchingTags) ? item.stitchingTags : [];
-          return itemStitchingTags.some(/** @param {string} tag */ (tag) => activeStitchingTags.has(String(tag).toLowerCase().trim()));
+          return itemStitchingTags.some(
+            /** @param {string} tag */ (tag) =>
+              activeStitchingTags.has(String(tag).toLowerCase().trim())
+          );
         });
       }
 
       /** @type {string[]} */
-      const sourceFilters = Array.isArray(browseFilters.sourceFilters) ? browseFilters.sourceFilters : [];
+      const sourceFilters = Array.isArray(browseFilters.sourceFilters)
+        ? browseFilters.sourceFilters
+        : [];
       if (sourceFilters.length > 0) {
         const activeSources = new Set(sourceFilters.map((s) => String(s).toLowerCase().trim()));
-        filtered = filtered.filter((item) => activeSources.has(String(item.source).toLowerCase().trim()));
+        filtered = filtered.filter((item) =>
+          activeSources.has(String(item.source).toLowerCase().trim())
+        );
       }
 
       const hoopVal = String(browseFilters.hoop || "").trim();
       if (hoopVal) {
-        filtered = filtered.filter((item) => String(item.hoop || "").toLowerCase().trim() === hoopVal.toLowerCase());
+        filtered = filtered.filter(
+          (item) =>
+            String(item.hoop || "")
+              .toLowerCase()
+              .trim() === hoopVal.toLowerCase()
+        );
       }
 
       const ratingVal = String(browseFilters.rating || "").trim();
@@ -680,7 +717,9 @@
       }
 
       if (browseFilters.unverifiedOnly) {
-        filtered = filtered.filter((item) => !(item.imageTagsVerified && item.stitchingTagsVerified));
+        filtered = filtered.filter(
+          (item) => !(item.imageTagsVerified && item.stitchingTagsVerified)
+        );
       }
 
       // Sorting
@@ -691,7 +730,9 @@
   );
 
   let browsePageSize = $derived(Math.max(1, (browseGridColumns || 5) * BROWSE_PAGE_ROWS));
-  let browseTotalPages = $derived(Math.max(1, Math.ceil(browseFilteredItems.length / browsePageSize)));
+  let browseTotalPages = $derived(
+    Math.max(1, Math.ceil(browseFilteredItems.length / browsePageSize))
+  );
 
   let browsePageItems = $derived(
     (() => {
@@ -706,12 +747,16 @@
 
   let totalFilteredCount = $derived(browseFilteredItems.length);
   let totalCountOnPage = $derived(browsePageItems.length);
-  let selectedCountOnPage = $derived(browsePageItems.filter((item) => browseSelectedIds.has(item.id)).length);
-  let isAllSelectedOnPage = $derived(totalCountOnPage > 0 && selectedCountOnPage === totalCountOnPage);
+  let selectedCountOnPage = $derived(
+    browsePageItems.filter((item) => browseSelectedIds.has(item.id)).length
+  );
+  let isAllSelectedOnPage = $derived(
+    totalCountOnPage > 0 && selectedCountOnPage === totalCountOnPage
+  );
 
-  /** 
-   * @param {number | string} id 
-   * @param {boolean} checked 
+  /**
+   * @param {number | string} id
+   * @param {boolean} checked
    */
   function toggleBrowseCardSelection(id, checked) {
     const targetId = Number(id);
@@ -812,11 +857,21 @@
       for (const tagOption of browseTagOptions) {
         const tagId = Number(tagOption.id);
         if (!Number.isFinite(tagId)) continue;
-        const desc = String(tagOption.description || "").trim().toLowerCase();
+        const desc = String(tagOption.description || "")
+          .trim()
+          .toLowerCase();
 
         let count = 0;
         for (const design of selectedDesigns) {
-          if (Array.isArray(design.tags) && design.tags.some(/** @param {unknown} t */ (t) => String(t || "").trim().toLowerCase() === desc)) {
+          if (
+            Array.isArray(design.tags) &&
+            design.tags.some(
+              /** @param {unknown} t */ (t) =>
+                String(t || "")
+                  .trim()
+                  .toLowerCase() === desc
+            )
+          ) {
             count++;
           }
         }
@@ -960,9 +1015,11 @@
 
     // Note: unclassified tags are treated as image-category for verification
     // purposes (they are "what the design depicts").
-    const imageChanged = categoryChanged(browseBulkTagAddIds) || categoryChanged(browseBulkTagRemoveIds);
+    const imageChanged =
+      categoryChanged(browseBulkTagAddIds) || categoryChanged(browseBulkTagRemoveIds);
     const stitchingChanged =
-      stitchingCategoryChanged(browseBulkTagAddIds) || stitchingCategoryChanged(browseBulkTagRemoveIds);
+      stitchingCategoryChanged(browseBulkTagAddIds) ||
+      stitchingCategoryChanged(browseBulkTagRemoveIds);
 
     let imageTagsVerified;
     let stitchingTagsVerified;
@@ -988,15 +1045,20 @@
 
     browseLoading = true;
     try {
-      const result = /** @type {BulkSetTagsResult} */ (await bulkSetTagsForDesigns(
-        Array.from(browseSelectedIds),
-        addIds,
-        browseBulkTagRemoveIds,
-        clearAll,
-        { imageTagsVerified, stitchingTagsVerified },
-      ));
+      const result = /** @type {BulkSetTagsResult} */ (
+        await bulkSetTagsForDesigns(
+          Array.from(browseSelectedIds),
+          addIds,
+          browseBulkTagRemoveIds,
+          clearAll,
+          { imageTagsVerified, stitchingTagsVerified }
+        )
+      );
       if (result?.persisted) {
-        addToast(`${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`, "success");
+        addToast(
+          `${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`,
+          "success"
+        );
         closeBulkTagModal();
         await loadBrowseItems(true);
       } else {
@@ -1047,16 +1109,21 @@
     let anyFailed = false;
     try {
       for (const projectId of browseBulkProjectSelection) {
-        const result = /** @type {BulkAddToProjectResult} */ (await bulkAddDesignsToProject(projectId, Array.from(browseSelectedIds)));
+        const result = /** @type {BulkAddToProjectResult} */ (
+          await bulkAddDesignsToProject(projectId, Array.from(browseSelectedIds))
+        );
         if (result?.persisted) {
           totalAdded += result.added_count ?? result.updated ?? 0;
         } else {
           anyFailed = true;
         }
       }
-      addToast(anyFailed
-        ? `Some projects could not be updated. ${totalAdded} design(s) added to project(s).`
-        : `${totalAdded} design(s) added to project(s).`, anyFailed ? "warning" : "success");
+      addToast(
+        anyFailed
+          ? `Some projects could not be updated. ${totalAdded} design(s) added to project(s).`
+          : `${totalAdded} design(s) added to project(s).`,
+        anyFailed ? "warning" : "success"
+      );
       closeBulkProjectModal();
       await loadBrowseItems(true);
     } catch (e) {
@@ -1071,9 +1138,14 @@
 
     browseLoading = true;
     try {
-      const result = /** @type {BulkVerifyResult} */ (await bulkVerifyDesigns(Array.from(browseSelectedIds)));
+      const result = /** @type {BulkVerifyResult} */ (
+        await bulkVerifyDesigns(Array.from(browseSelectedIds))
+      );
       if (result?.persisted) {
-        addToast(`${result.verified_count ?? result.updated} design(s) marked verified.`, "success");
+        addToast(
+          `${result.verified_count ?? result.updated} design(s) marked verified.`,
+          "success"
+        );
         await loadBrowseItems(true);
       } else {
         addToast(result?.error || "Could not verify designs.", "error");
@@ -1223,7 +1295,9 @@
 
   /** @param {MouseEvent} event @param {BrowseDesignCard | { id: number | string }} item */
   function handleBrowseCardOpenDetail(event, item) {
-    const anyProjectDropdownOpen = getBrowseCardProjectDropdowns().some((dropdown) => dropdown.hasAttribute("open"));
+    const anyProjectDropdownOpen = getBrowseCardProjectDropdowns().some((dropdown) =>
+      dropdown.hasAttribute("open")
+    );
     if (anyProjectDropdownOpen) {
       event.preventDefault();
       event.stopPropagation();
@@ -1383,17 +1457,22 @@
     }}
   >
     <div class="ui-section-shell browse-general-search space-y-1.5">
-      <label class="ui-section-label browse-general-search-label block text-xs font-semibold text-gray-600 uppercase" for="browse-q">General search</label>
+      <label
+        class="ui-section-label browse-general-search-label block text-xs font-semibold text-gray-600 uppercase"
+        for="browse-q">General search</label
+      >
       <p></p>
       <div class="browse-general-search-row flex items-center gap-2">
         <input
           id="browse-q"
           class="ui-text-input ui-control-text-inset browse-general-input text-sm flex-1 min-w-[20rem] font-mono border rounded px-3 py-2"
-          placeholder='e.g. rose "cross stitch" -applique or *.hus'
+          placeholder="e.g. rose &quot;cross stitch&quot; -applique or *.hus"
           value={browseFilters.q}
           oninput={(event) => updateBrowseFilter("q", event.currentTarget.value)}
         />
-        <label class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700 whitespace-nowrap">
+        <label
+          class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700 whitespace-nowrap"
+        >
           <input
             type="checkbox"
             class="ui-checkbox browse-unverified-checkbox accent-indigo-600 rounded"
@@ -1403,8 +1482,12 @@
           Unverified only
         </label>
       </div>
-      <div class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-gray-700 my-1.5 py-1.5 px-3 bg-gray-50 rounded border border-gray-200">
-        <span class="font-semibold text-gray-600 uppercase text-[11px] tracking-wide">Search in:</span>
+      <div
+        class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-gray-700 my-1.5 py-1.5 px-3 bg-gray-50 rounded border border-gray-200"
+      >
+        <span class="font-semibold text-gray-600 uppercase text-[11px] tracking-wide"
+          >Search in:</span
+        >
         <label class="ui-field-label flex items-center gap-1.5 cursor-pointer select-none">
           <input
             id="search-filename-checkbox"
@@ -1442,7 +1525,10 @@
       </p>
     </div>
 
-    <details class="ui-section-shell browse-additional-filters overflow-visible relative" open={browseAdditionalFiltersOpen}>
+    <details
+      class="ui-section-shell browse-additional-filters overflow-visible relative"
+      open={browseAdditionalFiltersOpen}
+    >
       <summary
         class="ui-section-label browse-additional-summary cursor-pointer text-xs font-semibold text-gray-600 uppercase select-none list-none flex items-center gap-1"
         onclick={(event) => {
@@ -1460,7 +1546,12 @@
           <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
             {#each browseDesignerFilterOptions as opt}
               <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                <input type="checkbox" checked={browseFilters.designerFilters.includes(opt)} onchange={() => toggleBrowseFilter("designerFilters", opt)} class="accent-indigo-600 rounded" />
+                <input
+                  type="checkbox"
+                  checked={browseFilters.designerFilters.includes(opt)}
+                  onchange={() => toggleBrowseFilter("designerFilters", opt)}
+                  class="accent-indigo-600 rounded"
+                />
                 <span>{opt}</span>
               </label>
             {/each}
@@ -1473,7 +1564,12 @@
           <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
             {#each browseImageTagOptions as opt}
               <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                <input type="checkbox" checked={browseFilters.imageTagFilters.includes(opt.description)} onchange={() => toggleBrowseFilter("imageTagFilters", opt.description)} class="accent-indigo-600 rounded" />
+                <input
+                  type="checkbox"
+                  checked={browseFilters.imageTagFilters.includes(opt.description)}
+                  onchange={() => toggleBrowseFilter("imageTagFilters", opt.description)}
+                  class="accent-indigo-600 rounded"
+                />
                 <span>{opt.description}</span>
               </label>
             {/each}
@@ -1486,7 +1582,12 @@
           <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
             {#each browseStitchingTagOptions as opt}
               <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                <input type="checkbox" checked={browseFilters.stitchingTagFilters.includes(opt.description)} onchange={() => toggleBrowseFilter("stitchingTagFilters", opt.description)} class="accent-indigo-600 rounded" />
+                <input
+                  type="checkbox"
+                  checked={browseFilters.stitchingTagFilters.includes(opt.description)}
+                  onchange={() => toggleBrowseFilter("stitchingTagFilters", opt.description)}
+                  class="accent-indigo-600 rounded"
+                />
                 <span>{opt.description}</span>
               </label>
             {/each}
@@ -1499,7 +1600,12 @@
           <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
             {#each browseSourceFilterOptions as opt}
               <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                <input type="checkbox" checked={browseFilters.sourceFilters.includes(opt)} onchange={() => toggleBrowseFilter("sourceFilters", opt)} class="accent-indigo-600 rounded" />
+                <input
+                  type="checkbox"
+                  checked={browseFilters.sourceFilters.includes(opt)}
+                  onchange={() => toggleBrowseFilter("sourceFilters", opt)}
+                  class="accent-indigo-600 rounded"
+                />
                 <span>{opt}</span>
               </label>
             {/each}
@@ -1510,7 +1616,11 @@
         <div class="space-y-2.5 text-xs">
           <label class="block">
             <span class="block font-semibold text-gray-700 mb-1">Hoop size</span>
-            <select class="border rounded px-2.5 py-1.5 w-full bg-white text-xs" value={browseFilters.hoop} onchange={(e) => updateBrowseFilter("hoop", e.currentTarget.value)}>
+            <select
+              class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+              value={browseFilters.hoop}
+              onchange={(e) => updateBrowseFilter("hoop", e.currentTarget.value)}
+            >
               <option value="">Any hoop</option>
               {#each browseHoopFilterOptions as opt}
                 <option value={opt}>{opt}</option>
@@ -1521,7 +1631,11 @@
           <div class="grid grid-cols-2 gap-2">
             <label class="block">
               <span class="block font-semibold text-gray-700 mb-1">Minimum rating</span>
-              <select class="border rounded px-2.5 py-1.5 w-full bg-white text-xs" value={browseFilters.rating} onchange={(e) => updateBrowseFilter("rating", e.currentTarget.value)}>
+              <select
+                class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+                value={browseFilters.rating}
+                onchange={(e) => updateBrowseFilter("rating", e.currentTarget.value)}
+              >
                 <option value="">Any</option>
                 {#each [1, 2, 3, 4, 5] as score}
                   <option value={String(score)}>{score}★</option>
@@ -1530,7 +1644,11 @@
             </label>
             <label class="block">
               <span class="block font-semibold text-gray-700 mb-1">Stitched</span>
-              <select class="border rounded px-2.5 py-1.5 w-full bg-white text-xs" value={browseFilters.stitched} onchange={(e) => updateBrowseFilter("stitched", e.currentTarget.value)}>
+              <select
+                class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+                value={browseFilters.stitched}
+                onchange={(e) => updateBrowseFilter("stitched", e.currentTarget.value)}
+              >
                 <option value="">Any</option>
                 <option value="yes">Stitched</option>
                 <option value="no">Not Stitched</option>
@@ -1542,11 +1660,17 @@
     </details>
 
     <!-- Sorting and Columns -->
-    <div class="flex flex-wrap items-center justify-between gap-3 pt-2 pb-4 text-xs border-t text-gray-600 px-4">
+    <div
+      class="flex flex-wrap items-center justify-between gap-3 pt-2 pb-4 text-xs border-t text-gray-600 px-4"
+    >
       <div class="flex flex-wrap items-center gap-3">
         <label class="flex items-center gap-1.5 font-medium">
           Sort by:
-          <select class="border rounded px-2 py-1 bg-white text-xs" value={browseFilters.sortBy} onchange={(e) => updateBrowseFilter("sortBy", e.currentTarget.value)}>
+          <select
+            class="border rounded px-2 py-1 bg-white text-xs"
+            value={browseFilters.sortBy}
+            onchange={(e) => updateBrowseFilter("sortBy", e.currentTarget.value)}
+          >
             <option value="name">Name</option>
             <option value="rating">Rating</option>
             <option value="stitched">Stitched</option>
@@ -1556,36 +1680,45 @@
         </label>
         <label class="flex items-center gap-1.5 font-medium">
           Direction:
-          <select class="border rounded px-2 py-1 bg-white text-xs" value={browseFilters.sortDir} onchange={(e) => updateBrowseFilter("sortDir", e.currentTarget.value)}>
+          <select
+            class="border rounded px-2 py-1 bg-white text-xs"
+            value={browseFilters.sortDir}
+            onchange={(e) => updateBrowseFilter("sortDir", e.currentTarget.value)}
+          >
             <option value="asc">Ascending</option>
             <option value="desc">Descending</option>
           </select>
         </label>
-        <button type="button" class="text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed" onclick={clearBrowseFilters} disabled={browseFiltersAreDefault}>Reset filters</button>
-       </div>
+        <button
+          type="button"
+          class="text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+          onclick={clearBrowseFilters}
+          disabled={browseFiltersAreDefault}>Reset filters</button
+        >
+      </div>
     </div>
   </form>
 
-  <SelectionHeader 
-    {totalFilteredCount} 
-    {selectedCountOnPage} 
-    {totalCountOnPage} 
-    {isAllSelectedOnPage} 
-    onToggleSelectAllPage={toggleSelectAllBrowseOnPage} 
+  <SelectionHeader
+    {totalFilteredCount}
+    {selectedCountOnPage}
+    {totalCountOnPage}
+    {isAllSelectedOnPage}
+    onToggleSelectAllPage={toggleSelectAllBrowseOnPage}
   />
 
   <!-- Browse Results Grid -->
-  <div
-    bind:this={browseGridContainer}
-    class="browse-grid-rows flex flex-col gap-5"
-  >
+  <div bind:this={browseGridContainer} class="browse-grid-rows flex flex-col gap-5">
     {#if browseLoading && browseItems.length === 0}
       <p class="text-center py-12 text-gray-500 font-medium">Loading designs...</p>
     {:else if browseFilteredItems.length === 0}
       <p class="text-center py-12 text-gray-500 font-medium">No designs match your filters.</p>
     {:else}
       {#each browsePageRows as rowItems, rowIndex (rowIndex)}
-        <div class="browse-grid-row grid gap-4" style={`grid-template-columns: 2rem repeat(${browseGridColumns}, minmax(0, 1fr));`}>
+        <div
+          class="browse-grid-row grid gap-4"
+          style={`grid-template-columns: 2rem repeat(${browseGridColumns}, minmax(0, 1fr));`}
+        >
           <!-- Row selector checkbox -->
           <label
             class="browse-row-selector flex items-center justify-center bg-indigo-50 rounded cursor-pointer select-none"
@@ -1601,21 +1734,32 @@
           </label>
 
           {#each rowItems as item (item.id)}
-            <article class="browse-card border rounded-lg bg-white overflow-hidden shadow-sm flex flex-col hover:shadow transition relative" data-id={item.id}>
+            <article
+              class="browse-card border rounded-lg bg-white overflow-hidden shadow-sm flex flex-col hover:shadow transition relative"
+              data-id={item.id}
+            >
               <!-- Selection checkbox -->
               <label class="absolute top-2.5 left-2.5 z-10 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   class="browse-design-checkbox rounded accent-indigo-650"
                   checked={browseSelectedIds.has(item.id)}
-                  oninput={() => toggleBrowseCardSelection(item.id, !browseSelectedIds.has(item.id))}
-                  disabled={browseSelectionLocked || (browseSelectedIds.size >= BROWSE_BULK_DELETE_MAX && !browseSelectedIds.has(item.id))}
+                  oninput={() =>
+                    toggleBrowseCardSelection(item.id, !browseSelectedIds.has(item.id))}
+                  disabled={browseSelectionLocked ||
+                    (browseSelectedIds.size >= BROWSE_BULK_DELETE_MAX &&
+                      !browseSelectedIds.has(item.id))}
                 />
               </label>
 
-              <button class="browse-card-link w-full text-left flex flex-col flex-1" onclick={(event) => handleBrowseCardOpenDetail(event, item)}>
+              <button
+                class="browse-card-link w-full text-left flex flex-col flex-1"
+                onclick={(event) => handleBrowseCardOpenDetail(event, item)}
+              >
                 {#if browsePreviewById[item.id]}
-                  <div class="browse-card-image-frame bg-gray-50 p-2 flex items-center justify-center h-48 border-b">
+                  <div
+                    class="browse-card-image-frame bg-gray-50 p-2 flex items-center justify-center h-48 border-b"
+                  >
                     <img
                       src={browsePreviewById[item.id]}
                       alt={item.filename}
@@ -1624,14 +1768,21 @@
                     />
                   </div>
                 {:else}
-                  <div class="browse-card-image-frame bg-gray-50 p-2 flex items-center justify-center h-48 border-b text-xs text-gray-400 font-medium italic">
+                  <div
+                    class="browse-card-image-frame bg-gray-50 p-2 flex items-center justify-center h-48 border-b text-xs text-gray-400 font-medium italic"
+                  >
                     {browsePreviewsLoading ? "Loading image..." : "No preview image"}
                   </div>
                 {/if}
                 <div class="browse-card-meta p-4 flex-1 flex flex-col justify-between">
                   <div>
                     <div class="browse-card-title-row flex items-start justify-between gap-1.5">
-                      <p class="browse-card-title text-sm font-semibold text-gray-800 truncate flex-1" title={item.filename}>{item.filename}</p>
+                      <p
+                        class="browse-card-title text-sm font-semibold text-gray-800 truncate flex-1"
+                        title={item.filename}
+                      >
+                        {item.filename}
+                      </p>
                       {#if item.imageTagsVerified && item.stitchingTagsVerified}
                         <span
                           class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-green-500"
@@ -1658,53 +1809,80 @@
                         </span>
                       {/if}
                     </div>
-                    <p class="browse-card-hoop text-xs font-semibold text-indigo-600 mt-1">{item.hoop || "Hoop unknown"}</p>
+                    <p class="browse-card-hoop text-xs font-semibold text-indigo-600 mt-1">
+                      {item.hoop || "Hoop unknown"}
+                    </p>
                     {#if item.projects.length > 0}
-                      <p class="browse-card-projects text-[11px] text-gray-500 mt-1 truncate" title={item.projects.join(", ")}>
+                      <p
+                        class="browse-card-projects text-[11px] text-gray-500 mt-1 truncate"
+                        title={item.projects.join(", ")}
+                      >
                         {item.projects.join(", ")}
                       </p>
                     {/if}
                   </div>
                   <div class="pt-2">
                     {#if item.tags.length > 0}
-                      <p class="browse-card-tags text-[11px] text-gray-500 truncate" title={item.tags.join(", ")}>
+                      <p
+                        class="browse-card-tags text-[11px] text-gray-500 truncate"
+                        title={item.tags.join(", ")}
+                      >
                         {item.tags.join(", ")}
                       </p>
                     {:else}
                       <p class="browse-card-tags text-[11px] text-gray-300 italic">No tags</p>
                     {/if}
-                      <p class="browse-card-rating text-xs mt-1" aria-label={item.rating != null && item.rating > 0 ? `Rating ${item.rating} out of 5` : 'Not rated'}>
-                        {#if item.rating != null && item.rating > 0}
-                          <span class="text-amber-600">★</span>
-                          <span class="text-gray-700 font-bold ml-0.5">{item.rating}</span>
-                        {:else}
-                          <span class="text-gray-400">☆ —</span>
-                        {/if}
-                      </p>
+                    <p
+                      class="browse-card-rating text-xs mt-1"
+                      aria-label={item.rating != null && item.rating > 0
+                        ? `Rating ${item.rating} out of 5`
+                        : "Not rated"}
+                    >
+                      {#if item.rating != null && item.rating > 0}
+                        <span class="text-amber-600">★</span>
+                        <span class="text-gray-700 font-bold ml-0.5">{item.rating}</span>
+                      {:else}
+                        <span class="text-gray-400">☆ —</span>
+                      {/if}
+                    </p>
                   </div>
                 </div>
               </button>
 
               <details
                 class="browse-card-project-details px-4 py-2 bg-gray-50 border-t no-print"
-                ontoggle={(event) => handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
+                ontoggle={(event) =>
+                  handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
               >
-                <summary class="browse-card-project-summary text-xs font-semibold text-gray-500 cursor-pointer hover:text-indigo-600 select-none">
+                <summary
+                  class="browse-card-project-summary text-xs font-semibold text-gray-500 cursor-pointer hover:text-indigo-600 select-none"
+                >
                   + Add to project
                 </summary>
-                <div class="ui-checkbox-list-shell mt-1.5 max-h-36 overflow-auto px-2 py-1.5 border rounded bg-white space-y-1">
+                <div
+                  class="ui-checkbox-list-shell mt-1.5 max-h-36 overflow-auto px-2 py-1.5 border rounded bg-white space-y-1"
+                >
                   {#each browseProjects as project}
-                    <label class="ui-field-label flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                    <label
+                      class="ui-field-label flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         class="ui-checkbox accent-indigo-650 rounded"
                         checked={isBrowseCardProjectChecked(item, project.id)}
-                        onchange={(event) => updateBrowseCardProjectPending(item.id, project.id, event.currentTarget.checked)}
+                        onchange={(event) =>
+                          updateBrowseCardProjectPending(
+                            item.id,
+                            project.id,
+                            event.currentTarget.checked
+                          )}
                       />
                       <span>{project.name}</span>
                     </label>
                   {:else}
-                    <p class="text-[11px] text-gray-500 italic px-1 py-0.5">No projects found. Create one first.</p>
+                    <p class="text-[11px] text-gray-500 italic px-1 py-0.5">
+                      No projects found. Create one first.
+                    </p>
                   {/each}
                 </div>
               </details>
@@ -1719,7 +1897,9 @@
   <Pagination
     currentPage={browseCurrentPage}
     totalPages={browseTotalPages}
-    onPageChange={(/** @type {number} */ page) => { browseCurrentPage = page; }}
+    onPageChange={(/** @type {number} */ page) => {
+      browseCurrentPage = page;
+    }}
     disabled={browseLoading}
     showFirstLast={true}
     windowSize={2}
@@ -1735,15 +1915,25 @@
     class="browse-bulk-bar ui-section-shell no-print fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-lg flex flex-wrap items-center justify-between gap-4 z-40"
   >
     <div class="flex items-center gap-3 text-sm text-gray-700">
-      <span class="font-semibold">{browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected</span>
+      <span class="font-semibold"
+        >{browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected</span
+      >
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="menu-button-secondary ui-action-button text-xs" onclick={openBulkTagModal}>
+      <button
+        type="button"
+        class="menu-button-secondary ui-action-button text-xs"
+        onclick={openBulkTagModal}
+      >
         Choose tags
       </button>
 
-      <button type="button" class="menu-button-secondary ui-action-button text-xs" onclick={runBulkVerify}>
+      <button
+        type="button"
+        class="menu-button-secondary ui-action-button text-xs"
+        onclick={runBulkVerify}
+      >
         Verify tags
       </button>
 
@@ -1761,7 +1951,9 @@
         >
           Add to project…
         </summary>
-        <div class="absolute bottom-full mb-2 right-0 bg-white border rounded shadow-lg p-3 max-h-48 overflow-auto min-w-[12rem] space-y-1.5 z-50">
+        <div
+          class="absolute bottom-full mb-2 right-0 bg-white border rounded shadow-lg p-3 max-h-48 overflow-auto min-w-[12rem] space-y-1.5 z-50"
+        >
           {#if browseProjects.length === 0}
             <p class="text-xs text-gray-500 italic">No projects found. Create one first.</p>
           {:else}
@@ -1771,14 +1963,20 @@
                   type="checkbox"
                   class="ui-checkbox accent-indigo-650 rounded"
                   checked={browseBulkProjectSelection.includes(Number(project.id))}
-                  onchange={(event) => toggleBrowseBulkProjectSelection(project.id, event.currentTarget.checked)}
+                  onchange={(event) =>
+                    toggleBrowseBulkProjectSelection(project.id, event.currentTarget.checked)}
                 />
                 <span>{project.name}</span>
               </label>
             {/each}
           {/if}
           <div class="pt-2 border-t flex justify-end">
-            <button type="button" class="menu-button-primary text-[10px] py-1 px-2.5" onclick={addSelectedToProject} disabled={browseBulkProjectSelection.length === 0}>
+            <button
+              type="button"
+              class="menu-button-primary text-[10px] py-1 px-2.5"
+              onclick={addSelectedToProject}
+              disabled={browseBulkProjectSelection.length === 0}
+            >
               Apply
             </button>
           </div>
@@ -1793,7 +1991,11 @@
         Delete selected
       </button>
 
-      <button type="button" class="menu-button-primary ui-action-button ui-action-button-primary text-xs" onclick={clearBrowseSelection}>
+      <button
+        type="button"
+        class="menu-button-primary ui-action-button ui-action-button-primary text-xs"
+        onclick={clearBrowseSelection}
+      >
         Clear selection
       </button>
     </div>
@@ -1821,7 +2023,10 @@
       class="tag-chooser-dialog"
       style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
     >
-      <div class="tag-chooser-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+      <div
+        class="tag-chooser-header"
+        style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;"
+      >
         <h2 id="bulk-tag-title" class="text-lg font-bold text-gray-800" style="margin:0;">
           Choose tags for selected designs
         </h2>
@@ -1836,7 +2041,9 @@
             <input
               type="checkbox"
               checked={browseBulkClearAll}
-              disabled={browseBulkTagAddIds.length > 0 || browseBulkTagRemoveIds.length > 0 || browseBulkTagIndeterminateIds.length > 0}
+              disabled={browseBulkTagAddIds.length > 0 ||
+                browseBulkTagRemoveIds.length > 0 ||
+                browseBulkTagIndeterminateIds.length > 0}
               onchange={(event) => {
                 browseBulkClearAll = event.currentTarget.checked;
               }}
@@ -1848,7 +2055,9 @@
         <div class="tag-chooser-sections">
           {#if groupedTagOptions.image.length > 0}
             <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">Image tags</p>
+              <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">
+                Image tags
+              </p>
               <div class="tag-chooser-grid">
                 {#each groupedTagOptions.image as tagOption (tagOption.id)}
                   <button
@@ -1869,7 +2078,11 @@
 
           {#if groupedTagOptions.stitching.length > 0}
             <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold">Stitching tags</p>
+              <p
+                class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold"
+              >
+                Stitching tags
+              </p>
               <div class="tag-chooser-grid">
                 {#each groupedTagOptions.stitching as tagOption (tagOption.id)}
                   <button
@@ -1890,7 +2103,11 @@
 
           {#if groupedTagOptions.unclassified.length > 0}
             <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold">Unclassified tags</p>
+              <p
+                class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold"
+              >
+                Unclassified tags
+              </p>
               <div class="tag-chooser-grid">
                 {#each groupedTagOptions.unclassified as tagOption (tagOption.id)}
                   <button
@@ -1910,8 +2127,13 @@
           {/if}
         </div>
       </div>
-      <div class="tag-chooser-footer" style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;">
-        <button type="button" class="menu-button-secondary" onclick={closeBulkTagModal}>Cancel</button>
+      <div
+        class="tag-chooser-footer"
+        style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;"
+      >
+        <button type="button" class="menu-button-secondary" onclick={closeBulkTagModal}
+          >Cancel</button
+        >
         <button type="button" class="menu-button-primary" onclick={applySharedTagChooser}>
           Apply tags
         </button>
@@ -1923,12 +2145,14 @@
 <!-- Shared Delete Modal -->
 <DeleteDesignsModal
   designIds={Array.from(browseSelectedIds)}
-  previewItems={browseItems.filter((item) => browseSelectedIds.has(item.id)).map((item) => ({
-    id: item.id,
-    filename: item.filename,
-    filepath: item.filepath,
-    dataUrl: browsePreviewById[item.id] ?? null,
-  }))}
+  previewItems={browseItems
+    .filter((item) => browseSelectedIds.has(item.id))
+    .map((item) => ({
+      id: item.id,
+      filename: item.filename,
+      filepath: item.filepath,
+      dataUrl: browsePreviewById[item.id] ?? null,
+    }))}
   open={browseDeleteConfirmOpen}
   onClose={closeBrowseDeleteConfirm}
   onDeleted={handleBulkDeleteResult}

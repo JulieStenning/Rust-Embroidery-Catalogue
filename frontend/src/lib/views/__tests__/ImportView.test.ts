@@ -232,7 +232,9 @@ describe("ImportView page chrome and step rendering", () => {
     renderStatic("#/import");
 
     expect(screen.getByLabelText("Source folder path 1")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Enter path to your embroidery designs folder/)).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/Enter path to your embroidery designs folder/)
+    ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Browse/ })).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Scan folder(s)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
@@ -384,15 +386,15 @@ describe("ImportView step 1 folder path management", () => {
     );
 
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("Source folder path 3")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByLabelText("Source folder path 3")).toBeInTheDocument());
 
     // Remove the primary (row 1); row 2 shifts up into the primary slot.
     const removeButtons = screen.getAllByRole("button", { name: "Remove" });
     await fireEvent.click(removeButtons[0]);
     expect(container.querySelector<HTMLInputElement>("#import-root-path")?.value).toBe("D:/B");
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value).toBe("D:/C");
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value
+    ).toBe("D:/C");
     expect(screen.queryByLabelText("Source folder path 3")).not.toBeInTheDocument();
   });
 
@@ -451,11 +453,15 @@ describe("ImportView step 1 folder path management", () => {
 
     await scanFolder(container, "\\\\server\\share\\designs\\");
     await waitFor(() =>
-      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["//server/share/designs"])
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith([
+        "//server/share/designs",
+      ])
     );
 
     await scanFolder(container, "C:");
-    await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/"]));
+    await waitFor(() =>
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/"])
+    );
   });
 
   it("deduplicates root paths case-insensitively", async () => {
@@ -492,9 +498,7 @@ describe("ImportView browse flows", () => {
     );
 
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
-    await waitFor(() =>
-      expect(adapterMocks.browseImportFolder).toHaveBeenCalledWith("")
-    );
+    await waitFor(() => expect(adapterMocks.browseImportFolder).toHaveBeenCalledWith(""));
 
     const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
     await waitFor(() => expect(input.value).toBe("E:/New Designs"));
@@ -554,17 +558,19 @@ describe("ImportView browse flows", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
     // Row 0 becomes D:/A, and D:/B / D:/C are appended as new rows.
-    await waitFor(() =>
-      expect(screen.getByLabelText("Source folder path 2")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByLabelText("Source folder path 2")).toBeInTheDocument());
     expect(screen.getByLabelText("Source folder path 3")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Browse…" })).toHaveLength(3);
 
     // Every row must retain its selected folder in order — the primary row must
     // not be clobbered by the last appended folder.
     expect(container.querySelector<HTMLInputElement>("#import-root-path")?.value).toBe("D:/A");
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value).toBe("D:/B");
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 3"]')?.value).toBe("D:/C");
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 2"]')?.value
+    ).toBe("D:/B");
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="Source folder path 3"]')?.value
+    ).toBe("D:/C");
     expect(adapterMocks.saveImportLastBrowseFolder).toHaveBeenCalledWith("D:/A");
   });
 
@@ -576,9 +582,7 @@ describe("ImportView browse flows", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
     // All four selected folders are represented: primary + 3 appended rows.
-    await waitFor(() =>
-      expect(screen.getByLabelText("Source folder path 4")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByLabelText("Source folder path 4")).toBeInTheDocument());
     expect(screen.getAllByRole("button", { name: "Browse…" })).toHaveLength(4);
 
     const inputs = [
@@ -610,16 +614,17 @@ describe("ImportView browse flows", () => {
     await fireEvent.input(input, { target: { value: "C:/Designs" } });
     await fireEvent.click(screen.getByRole("button", { name: "Add another folder" }));
 
-    adapterMocks.browseImportFolder.mockResolvedValue(
-      browseResponse({ paths: ["D:/Extra"] })
-    );
+    adapterMocks.browseImportFolder.mockResolvedValue(browseResponse({ paths: ["D:/Extra"] }));
     await fireEvent.click(screen.getAllByRole("button", { name: "Browse…" })[1]);
     await waitFor(() => expect(screen.getByLabelText("Source folder path 2")).toBeInTheDocument());
 
     const form = element(container.querySelector<HTMLFormElement>("#importScanForm"));
     await fireEvent.submit(form);
     await waitFor(() =>
-      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs", "D:/Extra"])
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith([
+        "C:/Designs",
+        "D:/Extra",
+      ])
     );
   });
 
@@ -691,7 +696,9 @@ describe("ImportView step 1 preview submission", () => {
     const { container } = renderHarness("#/import");
     await scanFolder(container, "C:/Designs");
 
-    await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalledWith(["C:/Designs"]));
+    await waitFor(() =>
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenCalledWith(["C:/Designs"])
+    );
     await waitFor(() => expect(screen.getByText("Review scanned files")).toBeInTheDocument());
   });
 
@@ -737,9 +744,7 @@ describe("ImportView step 1 preview submission", () => {
     const { container } = renderHarness("#/import");
     await gotoStep2(container, "C:/Designs");
 
-    expect(
-      screen.getByText(/2 folder\(s\) scanned - 3 file\(s\) found\./)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/2 folder\(s\) scanned - 3 file\(s\) found\./)).toBeInTheDocument();
   });
 
   it("shows the invalid_root explanation in the step 2 empty state", async () => {
@@ -987,7 +992,9 @@ describe("ImportView step 2 reference data and overrides", () => {
     await gotoStep2(container);
 
     // The Winter folder is sorted last; the resolved assignment targets it.
-    const overrideShells = container.querySelectorAll<HTMLElement>(".import-step2-folder-overrides");
+    const overrideShells = container.querySelectorAll<HTMLElement>(
+      ".import-step2-folder-overrides"
+    );
     const winterShell = element(overrideShells[overrideShells.length - 1]);
     const designerSelect = element(winterShell.querySelector<HTMLSelectElement>("select"));
     const sourceSelect = element(
@@ -1004,20 +1011,22 @@ describe("ImportView step 2 reference data and overrides", () => {
     const { container } = renderHarness("#/import");
     await gotoStep2(container);
 
-    const overrideShells = container.querySelectorAll<HTMLElement>(".import-step2-folder-overrides");
+    const overrideShells = container.querySelectorAll<HTMLElement>(
+      ".import-step2-folder-overrides"
+    );
     const winterShell = overrideShells[overrideShells.length - 1];
     const designerSelect = element(winterShell.querySelector<HTMLSelectElement>("select"));
 
-    await waitFor(() =>
-      expect(designerSelect.options[0].text).toBe("Keep inferred")
-    );
+    await waitFor(() => expect(designerSelect.options[0].text).toBe("Keep inferred"));
   });
 
   it("sets a per-folder designer override and includes it in the confirm wire", async () => {
     const { container } = renderHarness("#/import");
     await gotoStep2(container);
 
-    const overrideShell = element(container.querySelector<HTMLElement>(".import-step2-folder-overrides"));
+    const overrideShell = element(
+      container.querySelector<HTMLElement>(".import-step2-folder-overrides")
+    );
     const designerSelect = element(overrideShell.querySelector<HTMLSelectElement>("select"));
     await fireEvent.change(designerSelect, { target: { value: "2" } });
     expect(designerSelect.value).toBe("2");
@@ -1148,9 +1157,7 @@ describe("ImportView precheck flow", () => {
     await gotoStep2(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue with 3 designs" }));
-    await waitFor(() =>
-      expect(screen.getByText("Before You Import")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText("Before You Import")).toBeInTheDocument());
 
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
@@ -1178,7 +1185,9 @@ describe("ImportView step 3 actions", () => {
     const { container } = renderHarness("#/import");
     await gotoStep3(container);
 
-    expect(screen.getByText("Google AI tagging is enabled for this installation.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Google AI tagging is enabled for this installation.")
+    ).toBeInTheDocument();
   });
 
   it("completes an import and calls onImportCompleted with the persisted count", async () => {
@@ -1221,10 +1230,7 @@ describe("ImportView step 3 actions", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
     await waitFor(() =>
-      expect(toastMocks.addToast).toHaveBeenCalledWith(
-        "Import failed: no route.",
-        "error"
-      )
+      expect(toastMocks.addToast).toHaveBeenCalledWith("Import failed: no route.", "error")
     );
   });
 
@@ -1279,7 +1285,9 @@ describe("ImportView step 3 actions", () => {
       ).toBeInTheDocument()
     );
 
-    await fireEvent.click(screen.getByRole("button", { name: "Confirm import without hoop setup" }));
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Confirm import without hoop setup" })
+    );
     await waitFor(() =>
       expect(adapterMocks.runPrecheckAction).toHaveBeenLastCalledWith({
         contextToken: "tok-123",
@@ -1288,7 +1296,6 @@ describe("ImportView step 3 actions", () => {
       })
     );
   });
-
 });
 
 // ---------------------------------------------------------------------------
@@ -1309,9 +1316,7 @@ describe("ImportView wizard session survival", () => {
     // store must restore the precheck, selected files, and context token so the
     // "Before You Import" panel renders ready to import again.
     renderHarness("#/import/step3");
-    await waitFor(() =>
-      expect(screen.getByText("Before You Import")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText("Before You Import")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
   });
@@ -1326,9 +1331,7 @@ describe("ImportView wizard session survival", () => {
     // Returning to #/import/step2 after visiting a top-level page restores the
     // scanned preview and the user's file selection.
     renderHarness("#/import/step2");
-    await waitFor(() =>
-      expect(screen.getByText("Review scanned files")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText("Review scanned files")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Continue with 3 designs" })).toBeInTheDocument();
   });
 });
@@ -1390,10 +1393,7 @@ describe("ImportView bulk import progress events", () => {
     expect(eventMocks.listen).not.toHaveBeenCalled();
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
     await waitFor(() => expect(eventMocks.listen).toHaveBeenCalledTimes(1));
-    expect(eventMocks.listen).toHaveBeenCalledWith(
-      "bulk-import-progress",
-      expect.any(Function)
-    );
+    expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function));
 
     resolveAction(actionResponse());
   });
@@ -1484,7 +1484,14 @@ describe("ImportView bulk import progress events", () => {
       payload: Record<string, unknown>;
     }) => void;
 
-    handler({ payload: { stage: "generating_images", processed_count: 2, total_count: 3, persisted_count: 1 } });
+    handler({
+      payload: {
+        stage: "generating_images",
+        processed_count: 2,
+        total_count: 3,
+        persisted_count: 1,
+      },
+    });
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
@@ -1493,7 +1500,9 @@ describe("ImportView bulk import progress events", () => {
       ).toBeInTheDocument()
     );
 
-    handler({ payload: { stage: "batch_committed", processed_count: 3, total_count: 3, committed_count: 3 } });
+    handler({
+      payload: { stage: "batch_committed", processed_count: 3, total_count: 3, committed_count: 3 },
+    });
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
@@ -1521,17 +1530,25 @@ describe("ImportView bulk import progress events", () => {
       payload: Record<string, unknown>;
     }) => void;
 
-    handler({ payload: { stage: "completed", processed_count: 3, total_count: 3, committed_count: 3 } });
+    handler({
+      payload: { stage: "completed", processed_count: 3, total_count: 3, committed_count: 3 },
+    });
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Running Import... Completed 3/3 processed (3 imported)" })
+        screen.getByRole("button", {
+          name: "Running Import... Completed 3/3 processed (3 imported)",
+        })
       ).toBeInTheDocument()
     );
 
-    handler({ payload: { stage: "stopped", processed_count: 1, total_count: 3, committed_count: 1 } });
+    handler({
+      payload: { stage: "stopped", processed_count: 1, total_count: 3, committed_count: 1 },
+    });
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Running Import... Stopped after 1/3 processed (1 imported)" })
+        screen.getByRole("button", {
+          name: "Running Import... Stopped after 1/3 processed (1 imported)",
+        })
       ).toBeInTheDocument()
     );
     resolveAction(actionResponse());
@@ -1553,7 +1570,9 @@ describe("ImportView bulk import progress events", () => {
     const handler = eventMocks.listen.mock.calls[0][1] as (event: {
       payload: Record<string, unknown>;
     }) => void;
-    handler({ payload: { stage: "weird_stage", processed_count: 1, total_count: 4, committed_count: 1 } });
+    handler({
+      payload: { stage: "weird_stage", processed_count: 1, total_count: 4, committed_count: 1 },
+    });
 
     await waitFor(() =>
       expect(
@@ -1587,7 +1606,9 @@ describe("ImportView bulk import progress events", () => {
     );
 
     // A completed event from a different token must not overwrite the status.
-    handler({ payload: { stage: "completed", total_count: 0, committed_count: 99, context_token: "other" } });
+    handler({
+      payload: { stage: "completed", total_count: 0, committed_count: 99, context_token: "other" },
+    });
     await Promise.resolve();
     expect(
       screen.getByRole("button", { name: "Running Import... Starting import for 3 files..." })
@@ -1607,9 +1628,7 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument());
 
     await fireEvent.click(screen.getByRole("button", { name: "Stop" }));
     await waitFor(() => expect(adapterMocks.requestStopBulkImport).toHaveBeenCalledTimes(1));
@@ -1642,15 +1661,11 @@ describe("ImportView loading and disabled states", () => {
     await gotoStep2(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue with 3 designs" }));
-    await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: "rose.pes" })).toBeDisabled()
-    );
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "rose.pes" })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Running…" })).toBeInTheDocument();
 
     resolvePrecheck(precheckResponse());
-    await waitFor(() =>
-      expect(screen.getByText("Before You Import")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText("Before You Import")).toBeInTheDocument());
     // After the precheck resolves, the wizard navigates to step 3 where the
     // action buttons become active with the context token available.
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeEnabled();

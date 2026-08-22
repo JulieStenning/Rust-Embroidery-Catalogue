@@ -25,7 +25,13 @@ vi.mock("../../stores/toastStore", () => toastMock);
 const projectsResponse = (items: unknown[] = []) => ({ source: "rust", items, error: undefined });
 
 const listItems = [
-  { id: 1, name: "Wedding Collection", description: "Bridesmaid gifts.", design_count: 4, date_created: "2026-05-01" },
+  {
+    id: 1,
+    name: "Wedding Collection",
+    description: "Bridesmaid gifts.",
+    design_count: 4,
+    date_created: "2026-05-01",
+  },
   { id: 2, name: "Autumn 2026", description: null, design_count: 1 },
 ];
 
@@ -33,7 +39,13 @@ const emptyStateMatcher = (content: string) => content.includes("No projects yet
 
 function renderProjects(props: Record<string, unknown> = {}) {
   return render(ProjectsView, {
-    props: { currentUiKind: "projects-list", projectDetailId: null, projectPrintId: null, navigateTo: () => {}, ...props },
+    props: {
+      currentUiKind: "projects-list",
+      projectDetailId: null,
+      projectPrintId: null,
+      navigateTo: () => {},
+      ...props,
+    },
   });
 }
 
@@ -60,15 +72,23 @@ describe("ProjectsView list view", () => {
   });
 
   it("renders the adapter error message when getProjectsList returns an error", async () => {
-    adapterMock.getProjectsList.mockResolvedValue({ source: "mock", items: [], error: "Could not load projects: backend down" });
+    adapterMock.getProjectsList.mockResolvedValue({
+      source: "mock",
+      items: [],
+      error: "Could not load projects: backend down",
+    });
     renderProjects();
-    await waitFor(() => expect(screen.getByText(/Could not load projects: backend down/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Could not load projects: backend down/)).toBeInTheDocument()
+    );
   });
 
   it("renders an error message when getProjectsList rejects", async () => {
     adapterMock.getProjectsList.mockRejectedValue(new Error("network down"));
     renderProjects();
-    await waitFor(() => expect(screen.getByText(/Could not load projects: Error: network down/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Could not load projects: Error: network down/)).toBeInTheDocument()
+    );
   });
 
   it("shows the empty state with a Create one link when the list is empty", async () => {
@@ -81,7 +101,9 @@ describe("ProjectsView list view", () => {
   it("navigates to #/projects/new via the + New Project button", async () => {
     const navigateTo = vi.fn();
     renderProjects({ navigateTo });
-    await waitFor(() => expect(screen.getByRole("button", { name: "+ New Project" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "+ New Project" })).toBeInTheDocument()
+    );
     await fireEvent.click(screen.getByRole("button", { name: "+ New Project" }));
     expect(navigateTo).toHaveBeenCalledWith("#/projects/new");
   });

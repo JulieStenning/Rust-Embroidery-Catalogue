@@ -309,9 +309,7 @@ describe("DesignDetailView", () => {
     });
 
     it("renders unrated designs with the 'Unrated' badge", async () => {
-      adapterMocks.getDesignDetail.mockResolvedValue(
-        detailResponse({ rating: null })
-      );
+      adapterMocks.getDesignDetail.mockResolvedValue(detailResponse({ rating: null }));
 
       renderDetail();
 
@@ -363,9 +361,7 @@ describe("DesignDetailView", () => {
       await waitFor(() => {
         expect(screen.getAllByText("Wedding Collection").length).toBeGreaterThan(0);
       });
-      expect(
-        screen.queryByText("Not assigned to any projects.")
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Not assigned to any projects.")).not.toBeInTheDocument();
       // The "Add" dropdown should list available projects.
       expect(screen.getByText("Autumn 2026")).toBeInTheDocument();
     });
@@ -639,10 +635,7 @@ describe("DesignDetailView", () => {
       await user.selectOptions(designerSelect, "");
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Failed to update designer",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Failed to update designer", "error");
       });
       // The dropdown must revert to the previously known-good value.
       expect(designerSelect.value).toBe("7");
@@ -684,10 +677,7 @@ describe("DesignDetailView", () => {
       await user.selectOptions(sourceSelect, "");
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Failed to update source",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Failed to update source", "error");
       });
       // The dropdown must revert to the previously known-good value.
       expect(sourceSelect.value).toBe("3");
@@ -701,9 +691,7 @@ describe("DesignDetailView", () => {
         expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
       });
 
-      const notesTextarea = screen.getByPlaceholderText(
-        "Add notes about this design..."
-      );
+      const notesTextarea = screen.getByPlaceholderText("Add notes about this design...");
       const user = userEvent.setup();
       await user.clear(notesTextarea);
       await user.type(notesTextarea, "New notes added in test.");
@@ -779,9 +767,7 @@ describe("DesignDetailView", () => {
         screen.getByText("Projects").closest(".route-card"),
         "Expected the Projects card to exist."
       );
-      expect(
-        within(projectsSection).getByRole("button", { name: "Add" })
-      ).toBeDisabled();
+      expect(within(projectsSection).getByRole("button", { name: "Add" })).toBeDisabled();
     });
   });
 
@@ -817,9 +803,7 @@ describe("DesignDetailView", () => {
     it("generates a 3D preview for a design with no existing image", async () => {
       renderDetail();
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Generate 3D Preview" })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Generate 3D Preview" })).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
@@ -843,9 +827,7 @@ describe("DesignDetailView", () => {
 
       renderDetail();
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Generate 2D Preview" })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Generate 2D Preview" })).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
@@ -866,9 +848,7 @@ describe("DesignDetailView", () => {
 
       renderDetail();
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Generate 3D Preview" })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Generate 3D Preview" })).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
@@ -896,10 +876,7 @@ describe("DesignDetailView", () => {
       await user.click(screen.getByRole("button", { name: /Show in Explorer/ }));
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Explorer unavailable.",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Explorer unavailable.", "error");
       });
     });
 
@@ -913,19 +890,14 @@ describe("DesignDetailView", () => {
 
       renderDetail();
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Generate 3D Preview" })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Generate 3D Preview" })).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: "Generate 3D Preview" }));
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "3D renderer failed.",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("3D renderer failed.", "error");
       });
       // The image refresh must NOT be triggered on failure.
       expect(adapterMocks.getDesignImageDataUrl).not.toHaveBeenCalled();
@@ -978,10 +950,9 @@ describe("DesignDetailView", () => {
       await user.click(screen.getByRole("button", { name: /Recalculate From File/ }));
 
       await waitFor(() => {
-        expect(sessionMock.designSessionStore.trackMutation).toHaveBeenCalledWith(
-          42,
-          { hoop: "Hoop B" }
-        );
+        expect(sessionMock.designSessionStore.trackMutation).toHaveBeenCalledWith(42, {
+          hoop: "Hoop B",
+        });
       });
     });
 
@@ -1118,9 +1089,7 @@ describe("DesignDetailView", () => {
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: "Delete design" }));
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Delete 1 design" })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Delete 1 design" })).toBeInTheDocument();
       });
       await user.click(screen.getByRole("button", { name: "Delete 1 design" }));
 
@@ -1149,17 +1118,12 @@ describe("DesignDetailView", () => {
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: "Delete design" }));
       await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: "Delete 1 design" })
-        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Delete 1 design" })).toBeInTheDocument();
       });
       await user.click(screen.getByRole("button", { name: "Delete 1 design" }));
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Permission denied",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Permission denied", "error");
       });
       expect(navigateTo).not.toHaveBeenCalled();
     });

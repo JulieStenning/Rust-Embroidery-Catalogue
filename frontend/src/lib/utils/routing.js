@@ -44,7 +44,7 @@ export const HELP_SECTION_IDS = new Set([
   "tagging-actions",
   "projects",
   "maintenance",
-  "troubleshooting"
+  "troubleshooting",
 ]);
 
 /** @param {string} route */
