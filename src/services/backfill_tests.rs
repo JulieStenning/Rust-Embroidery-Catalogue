@@ -954,7 +954,7 @@ async fn log_files_round_trip() {
     assert!(entries.is_empty());
 
     // Nonexistent file
-    let entries = read_log_tail(&Path::new("nonexistent.log"), "info", 10).unwrap();
+    let entries = read_log_tail(Path::new("nonexistent.log"), "info", 10).unwrap();
     assert!(entries.is_empty());
 
     // Write info and error lines
@@ -971,12 +971,12 @@ async fn log_files_round_trip() {
     assert!(tail.last().unwrap().message.contains("line5"));
 
     // Check format: timestamp\ttmessage
-    let content = std::fs::read_to_string(&info_log_path()).unwrap();
+    let content = std::fs::read_to_string(info_log_path()).unwrap();
     assert!(content.contains("line1"));
     assert!(content.contains('\t'));
 
     // Error file
-    let error_content = std::fs::read_to_string(&error_log_path()).unwrap();
+    let error_content = std::fs::read_to_string(error_log_path()).unwrap();
     assert!(error_content.contains("err1"));
 
     // Note: get_backfill_log_entries is not tested here because other

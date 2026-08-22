@@ -458,8 +458,8 @@ fn to_absolute_with_absolute_relative() {
     let result = to_absolute(&relative, &root);
     // On Windows this may differ, but on Unix: root.join(absolute) -> absolute
     assert!(
-        result == PathBuf::from("/some/root/absolute/path")
-            || result == PathBuf::from("/absolute/path")
+        result == *"/some/root/absolute/path"
+            || result == *"/absolute/path"
     );
 }
 

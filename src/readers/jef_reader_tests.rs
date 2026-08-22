@@ -13,7 +13,7 @@ fn test_read_bean_jef_file() {
     let path = r"D:\My Software Development\Rust-Embroidery-Catalogue\tests\Test Designs\Bean.jef";
     let data = std::fs::read(path).expect("Failed to read test JEF file");
     let pattern = read_jef(&data).expect("Failed to parse JEF file");
-    for (_i, _s) in pattern.stitches.iter().enumerate() {
+    for _s in pattern.stitches.iter() {
         // (removed verbose per-stitch debug print)
     }
     assert_eq!(pattern.stitches.len(), 324, "Unexpected stitch count");

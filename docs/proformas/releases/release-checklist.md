@@ -58,6 +58,10 @@
 
 ## 4. Quality Gates
 
+**Preparation**
+
+* [ ]  Commit any changes resulting from the above actions.
+
 **Test Gate**
 
 * [ ]  Run backend tests (`cargo test`) — all suites pass.
@@ -67,7 +71,7 @@
 **Lint / Format / Type-Check Gate**
 
 * [ ]  Run `cargo check` (zero errors).
-* [ ]  Run `cargo clippy --all-targets` (no critical warnings).
+* [ ]  Run `cargo clippy --all-targets` (no critical warnings). Run `cargo clippy --fix --bin "embroidery-catalogue" -p Rust-Embroidery-Catalogue --tests --` to fix any errors.
 * [ ]  Run `cargo fmt --check`.
 * [ ]  Run `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"` (zero errors).
 * [ ]  Run `cmd /c "cd frontend && npm run lint"`.

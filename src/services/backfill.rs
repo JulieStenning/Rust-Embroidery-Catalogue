@@ -613,9 +613,7 @@ fn suggest_tier2_descriptions(
     for description in valid_descriptions {
         let tokenized = description
             .to_ascii_lowercase()
-            .replace('&', " ")
-            .replace('-', " ")
-            .replace('"', " ");
+            .replace(['&', '-', '"'], " ");
         let desc_tokens: Vec<&str> = tokenized
             .split_whitespace()
             .filter(|token| token.len() > 2)
@@ -644,11 +642,10 @@ fn suggest_tier3_descriptions(
     valid_descriptions: &HashSet<String>,
 ) -> Vec<String> {
     let mut tier3 = suggest_tier2_descriptions(filename, filepath, valid_descriptions);
-    if tier3.is_empty() {
-        if valid_descriptions.contains("Don't Know") {
+    if tier3.is_empty()
+        && valid_descriptions.contains("Don't Know") {
             tier3.push("Don't Know".to_string());
         }
-    }
     tier3
 }
 

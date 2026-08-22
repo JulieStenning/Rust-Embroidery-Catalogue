@@ -120,8 +120,8 @@ fn decode_dx(b0: u8, b1: u8, b2: u8) -> f32 {
     x += getbit(b0, 3) * -9;
     x += getbit(b1, 0) * 3;
     x += getbit(b1, 1) * -3;
-    x += getbit(b0, 0) * 1;
-    x += getbit(b0, 1) * -1;
+    x += getbit(b0, 0);
+    x += -getbit(b0, 1);
     x as f32
 }
 
@@ -135,8 +135,8 @@ fn decode_dy(b0: u8, b1: u8, b2: u8) -> f32 {
     y += getbit(b0, 4) * -9;
     y += getbit(b1, 7) * 3;
     y += getbit(b1, 6) * -3;
-    y += getbit(b0, 7) * 1;
-    y += getbit(b0, 6) * -1;
+    y += getbit(b0, 7);
+    y += -getbit(b0, 6);
     -(y as f32) // DST inverts Y
 }
 

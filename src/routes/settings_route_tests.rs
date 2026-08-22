@@ -800,7 +800,7 @@ async fn set_google_api_key_inner_persists_to_db_and_returns_true() {
 
     let result = set_google_api_key_inner(&state, "route-key-456".to_string()).await;
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), true);
+    assert!(result.unwrap());
 
     let mut conn = state.db.acquire().await.unwrap();
     let val = settings::get_setting_with_default(&mut conn, settings::KEY_AI_GOOGLE_API_KEY)

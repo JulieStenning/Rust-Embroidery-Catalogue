@@ -17,7 +17,7 @@ pub(crate) async fn get_settings_view_model_inner(
 pub async fn get_settings_view_model(
     state: State<'_, AppState>,
 ) -> Result<SettingsViewModel, String> {
-    get_settings_view_model_inner(&*state).await
+    get_settings_view_model_inner(&state).await
 }
 
 pub(crate) async fn save_import_last_browse_folder_inner(
@@ -34,7 +34,7 @@ pub async fn save_import_last_browse_folder(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<SaveImportBrowseFolderResult, String> {
-    save_import_last_browse_folder_inner(&*state, path).await
+    save_import_last_browse_folder_inner(&state, path).await
 }
 
 pub(crate) async fn save_settings_view_model_inner(
@@ -51,7 +51,7 @@ pub async fn save_settings_view_model(
     state: State<'_, AppState>,
     request: SaveSettingsRequest,
 ) -> Result<SaveSettingsResult, String> {
-    save_settings_view_model_inner(&*state, request).await
+    save_settings_view_model_inner(&state, request).await
 }
 
 #[tauri::command]
@@ -82,7 +82,7 @@ pub(crate) async fn get_google_api_key_inner(
 pub async fn get_google_api_key(
     state: State<'_, AppState>,
 ) -> Result<Option<String>, String> {
-    get_google_api_key_inner(&*state).await
+    get_google_api_key_inner(&state).await
 }
 
 pub(crate) async fn set_google_api_key_inner(
@@ -105,7 +105,7 @@ pub async fn set_google_api_key(
     state: State<'_, AppState>,
     api_key: String,
 ) -> Result<bool, String> {
-    set_google_api_key_inner(&*state, api_key).await
+    set_google_api_key_inner(&state, api_key).await
 }
 #[cfg(test)]
 #[path = "settings_route_tests.rs"]

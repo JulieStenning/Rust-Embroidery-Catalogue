@@ -220,7 +220,7 @@ async fn process_one_design(
             .map_err(|e| AppError::database(format!("failed to read existing hash: {e}")))?
             .flatten();
 
-    if current_hash.as_ref().map_or(false, |h| !h.is_empty()) {
+    if current_hash.as_ref().is_some_and(|h| !h.is_empty()) {
         let current_size: Option<i64> =
             sqlx::query_scalar("SELECT file_size_bytes FROM designs WHERE id = ?")
                 .bind(candidate.id)
@@ -229,7 +229,7 @@ async fn process_one_design(
                 .map_err(|e| AppError::database(format!("failed to read existing size: {e}")))?
                 .flatten();
 
-        if current_size.map_or(false, |s| s > 0) {
+        if current_size.is_some_and(|s| s > 0) {
             return Ok(ProcessResult { was_missing: false });
         }
     }
@@ -262,7 +262,7 @@ async fn process_one_design(
 
     let file_size: i64 = metadata.len() as i64;
 
-    let hash_needed = current_hash.as_ref().map_or(true, String::is_empty);
+    let hash_needed = current_hash.as_ref().is_none_or(String::is_empty);
     let hash_string = if hash_needed {
         let mut file = fs::File::open(&source_path).map_err(|e| {
             AppError::io(format!(

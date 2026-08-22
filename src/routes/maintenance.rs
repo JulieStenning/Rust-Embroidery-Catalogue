@@ -208,7 +208,7 @@ pub async fn compact_database(
     // Determine the parent directory to check disk space.
     let parent_dir = db_path
         .parent()
-        .filter(|p| p.as_os_str().len() > 0)
+        .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     let check_dir = if parent_dir.exists() {
         parent_dir.to_path_buf()

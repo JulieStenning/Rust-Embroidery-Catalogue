@@ -40,7 +40,7 @@ fn test_signed12_negative() {
     assert_eq!(signed12(0x800), -2048);
     assert_eq!(signed12(0x801), -2047);
     assert_eq!(signed12(0x876), -1930);
-    assert_eq!(signed12(0xABC), (-0x1000 + 0xABC) as i32);
+    assert_eq!(signed12(0xABC), ((-0x1000 + 0xABC)));
 }
 
 #[test]
@@ -497,7 +497,7 @@ fn test_read_pes_metadata_all_fields() {
 #[test]
 fn test_read_pes_metadata_empty_strings_skipped() {
     // All empty strings should not insert into extras
-    let data = vec![0x00; 5]; // 5 zero-length strings
+    let data = [0x00; 5]; // 5 zero-length strings
     let mut cursor = Cursor::new(&data[..]);
     let mut pattern = EmbPattern::new();
     read_pes_metadata(&mut cursor, &mut pattern).expect("metadata read should succeed");
@@ -960,11 +960,11 @@ fn test_read_pes_header_version_8_success() {
 fn build_v9_style_buffer(seek_before_image: i64) -> Vec<u8> {
     let mut buf = vec![0u8; 4]; // padding
     buf.extend_from_slice(&metadata_buffer()); // 5 bytes
-    buf.extend_from_slice(&vec![0u8; 14]); // hoop_name seek
+    buf.extend_from_slice(&[0u8; 14]); // hoop_name seek
     buf.push(0x00); // hoop_name = empty
     buf.extend_from_slice(&vec![0u8; seek_before_image as usize]); // seek before image_file
     buf.push(0x00); // image_file = empty
-    buf.extend_from_slice(&vec![0u8; 34]); // final seek
+    buf.extend_from_slice(&[0u8; 34]); // final seek
     buf.extend_from_slice(&skip_complex_items_zero_buffer()); // 8 bytes
     buf
 }
@@ -1001,15 +1001,15 @@ fn test_read_pes_header_version_10_success() {
 fn test_read_pes_header_version_9_with_hoop_and_image() {
     let mut buf = vec![0u8; 4]; // padding
     buf.extend_from_slice(&metadata_buffer()); // 5 bytes
-    buf.extend_from_slice(&vec![0u8; 14]); // hoop_name seek
+    buf.extend_from_slice(&[0u8; 14]); // hoop_name seek
                                            // hoop_name = "Big Hoop"
     buf.push(8);
     buf.extend_from_slice(b"Big Hoop");
-    buf.extend_from_slice(&vec![0u8; 30]); // seek before image_file
+    buf.extend_from_slice(&[0u8; 30]); // seek before image_file
                                            // image_file = "preview.png"
     buf.push(11);
     buf.extend_from_slice(b"preview.png");
-    buf.extend_from_slice(&vec![0u8; 34]); // final seek
+    buf.extend_from_slice(&[0u8; 34]); // final seek
     buf.extend_from_slice(&skip_complex_items_zero_buffer()); // 8 bytes
 
     let mut cursor = Cursor::new(&buf[..]);
@@ -1028,15 +1028,15 @@ fn test_read_pes_header_version_9_with_hoop_and_image() {
 fn test_read_pes_header_version_10_with_hoop_and_image() {
     let mut buf = vec![0u8; 4]; // padding
     buf.extend_from_slice(&metadata_buffer()); // 5 bytes
-    buf.extend_from_slice(&vec![0u8; 14]); // hoop_name seek
+    buf.extend_from_slice(&[0u8; 14]); // hoop_name seek
                                            // hoop_name = "Big Hoop"
     buf.push(8);
     buf.extend_from_slice(b"Big Hoop");
-    buf.extend_from_slice(&vec![0u8; 38]); // seek before image_file (v10 uses 38)
+    buf.extend_from_slice(&[0u8; 38]); // seek before image_file (v10 uses 38)
                                            // image_file = "preview.png"
     buf.push(11);
     buf.extend_from_slice(b"preview.png");
-    buf.extend_from_slice(&vec![0u8; 34]); // final seek
+    buf.extend_from_slice(&[0u8; 34]); // final seek
     buf.extend_from_slice(&skip_complex_items_zero_buffer()); // 8 bytes
 
     let mut cursor = Cursor::new(&buf[..]);

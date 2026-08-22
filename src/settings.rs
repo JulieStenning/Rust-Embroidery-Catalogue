@@ -66,7 +66,7 @@ mod tests {
             .unwrap();
 
         // 1. Empty state
-        let settings = load_all_settings(&mut *conn).await.unwrap();
+        let settings = load_all_settings(&mut conn).await.unwrap();
         assert!(settings.is_empty());
 
         // 2. Insert out of order and verify they are ordered by key
@@ -86,7 +86,7 @@ mod tests {
             .await
             .unwrap();
 
-        let settings = load_all_settings(&mut *conn).await.unwrap();
+        let settings = load_all_settings(&mut conn).await.unwrap();
         assert_eq!(settings.len(), 2);
         assert_eq!(settings[0].key.as_deref(), Some("a_key"));
         assert_eq!(settings[0].value, "val_a");
@@ -100,7 +100,7 @@ mod tests {
             .execute(&mut *conn)
             .await
             .unwrap();
-        let err = load_all_settings(&mut *conn).await;
+        let err = load_all_settings(&mut conn).await;
         assert!(err.is_err());
     }
 
@@ -115,7 +115,7 @@ mod tests {
             .unwrap();
 
         // 1. Get non-existent key returns None
-        let res = get_setting(&mut *conn, "nonexistent").await.unwrap();
+        let res = get_setting(&mut conn, "nonexistent").await.unwrap();
         assert!(res.is_none());
 
         // 2. Get existent key returns Some
@@ -127,7 +127,7 @@ mod tests {
             .await
             .unwrap();
 
-        let res = get_setting(&mut *conn, "my_key").await.unwrap().unwrap();
+        let res = get_setting(&mut conn, "my_key").await.unwrap().unwrap();
         assert_eq!(res.key.as_deref(), Some("my_key"));
         assert_eq!(res.value, "my_value");
         assert_eq!(res.description.as_deref(), Some("my_desc"));
@@ -137,7 +137,7 @@ mod tests {
             .execute(&mut *conn)
             .await
             .unwrap();
-        let err = get_setting(&mut *conn, "my_key").await;
+        let err = get_setting(&mut conn, "my_key").await;
         assert!(err.is_err());
     }
 
@@ -152,7 +152,7 @@ mod tests {
             .unwrap();
 
         // 1. Update non-existent key returns 0 rows affected
-        let rows = update_setting(&mut *conn, "nonexistent", "new_val")
+        let rows = update_setting(&mut conn, "nonexistent", "new_val")
             .await
             .unwrap();
         assert_eq!(rows, 0);
@@ -166,12 +166,12 @@ mod tests {
             .await
             .unwrap();
 
-        let rows = update_setting(&mut *conn, "my_key", "new_val")
+        let rows = update_setting(&mut conn, "my_key", "new_val")
             .await
             .unwrap();
         assert_eq!(rows, 1);
 
-        let res = get_setting(&mut *conn, "my_key").await.unwrap().unwrap();
+        let res = get_setting(&mut conn, "my_key").await.unwrap().unwrap();
         assert_eq!(res.value, "new_val");
 
         // 3. Error path: drop table and verify it returns Err
@@ -179,7 +179,7 @@ mod tests {
             .execute(&mut *conn)
             .await
             .unwrap();
-        let err = update_setting(&mut *conn, "my_key", "new_val").await;
+        let err = update_setting(&mut conn, "my_key", "new_val").await;
         assert!(err.is_err());
     }
 }

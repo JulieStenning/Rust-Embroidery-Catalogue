@@ -127,7 +127,7 @@ impl<'a> StitchIdentifier<'a> {
         confidence_threshold: f64,
     ) -> Self {
         let raw_filename = if filename.contains("__") {
-            filename.splitn(2, "__").nth(1).unwrap_or(filename)
+            filename.split_once("__").map(|x| x.1).unwrap_or(filename)
         } else {
             filename
         };
@@ -826,12 +826,11 @@ fn split_into_color_blocks(pattern: &EmbPattern) -> Vec<Vec<Stitch>> {
 
     for stitch in &pattern.stitches {
         current_block.push(*stitch);
-        if stitch.stitch_type == StitchType::ColorChange {
-            if !current_block.is_empty() {
+        if stitch.stitch_type == StitchType::ColorChange
+            && !current_block.is_empty() {
                 blocks.push(current_block);
                 current_block = Vec::new();
             }
-        }
     }
     if !current_block.is_empty() {
         blocks.push(current_block);

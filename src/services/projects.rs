@@ -242,7 +242,7 @@ pub async fn create_project(
     request: CreateProjectRequest,
 ) -> Result<ProjectMutationResult, AppError> {
     let name = validate_non_empty(&request.name, "Project name")
-        .map_err(|message| AppError::invalid_input(message))?;
+        .map_err(AppError::invalid_input)?;
     let description = normalize_optional_text(&request.description);
 
     ensure_unique_project_name(&state.db, &name).await?;
@@ -309,7 +309,7 @@ pub async fn update_project(
     request: UpdateProjectRequest,
 ) -> Result<ProjectMutationResult, AppError> {
     let name = validate_non_empty(&request.name, "Project name")
-        .map_err(|message| AppError::invalid_input(message))?;
+        .map_err(AppError::invalid_input)?;
     let description = normalize_optional_text(&request.description);
 
     ensure_project_exists(&state.db, project_id).await?;

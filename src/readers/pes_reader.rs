@@ -203,11 +203,11 @@ fn read_pec_stitches(
 
         let mut jump = false;
         let mut trim = false;
-        let x: i32;
-        let y: i32;
+        
+        
 
         // Decode X
-        if val1 & FLAG_LONG != 0 {
+        let x: i32 = if val1 & FLAG_LONG != 0 {
             if val1 & TRIM_CODE != 0 {
                 trim = true;
             }
@@ -215,10 +215,10 @@ fn read_pec_stitches(
                 jump = true;
             }
             let code = ((val1 as u16) << 8) | (val2 as u16);
-            x = signed12(code);
+            signed12(code)
         } else {
-            x = signed7(val1);
-        }
+            signed7(val1)
+        };
 
         // Decode Y â€” in the long-X case, the next unread byte becomes Y.
         let y_byte1 = if val1 & FLAG_LONG != 0 {
@@ -227,7 +227,7 @@ fn read_pec_stitches(
             val2
         };
 
-        if y_byte1 & FLAG_LONG != 0 {
+        let y: i32 = if y_byte1 & FLAG_LONG != 0 {
             if y_byte1 & TRIM_CODE != 0 {
                 trim = true;
             }
@@ -236,10 +236,10 @@ fn read_pec_stitches(
             }
             let y_byte2 = read_u8(cursor)?;
             let code = ((y_byte1 as u16) << 8) | (y_byte2 as u16);
-            y = signed12(code);
+            signed12(code)
         } else {
-            y = signed7(y_byte1);
-        }
+            signed7(y_byte1)
+        };
 
         if jump {
             pattern.add_stitch_relative(StitchType::Jump, x as f32, y as f32);
@@ -378,8 +378,8 @@ fn read_pec(
     read_pec_stitches(cursor, pattern)?;
 
     // Seek to stitch block end, but only if within file bounds
-    if (stitch_block_end as u64) < cursor.get_ref().len() as u64 {
-        cursor.seek(SeekFrom::Start(stitch_block_end as u64))?;
+    if stitch_block_end < cursor.get_ref().len() as u64 {
+        cursor.seek(SeekFrom::Start(stitch_block_end))?;
 
         // Read PEC graphics (store as metadata)
         let byte_size = pec_graphic_byte_stride as usize * pec_graphic_icon_height as usize;

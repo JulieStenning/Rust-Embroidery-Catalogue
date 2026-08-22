@@ -294,9 +294,8 @@ pub async fn run_migration(
     .with_totals(plan.total_items, plan.total_bytes, items_copied, bytes_copied));
 
     verify_target_tree(source, plan)
-        .map_err(|e| {
+        .inspect_err(|_e| {
             rollback_partial_target(plan);
-            e
         })?;
 
     // Commit point: the new root becomes authoritative. Everything before this
@@ -707,8 +706,8 @@ fn tree_totals_at(dir: &Path) -> (u64, u64) {
 fn same_device_probe(source_root: &Path, target: &Path) -> bool {
     let probe_src = target.join(".migration-device-probe");
     let ok = std::fs::write(&probe_src, b"probe").is_ok()
-        && std::fs::hard_link(&probe_src, &source_root.join(".migration-device-probe-link")).is_ok();
-    let _ = std::fs::remove_file(&source_root.join(".migration-device-probe-link"));
+        && std::fs::hard_link(&probe_src, source_root.join(".migration-device-probe-link")).is_ok();
+    let _ = std::fs::remove_file(source_root.join(".migration-device-probe-link"));
     let _ = std::fs::remove_file(&probe_src);
     ok
 }

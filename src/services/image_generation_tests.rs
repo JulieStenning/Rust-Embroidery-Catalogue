@@ -428,7 +428,7 @@ fn native_analysis_3d_with_soft_profile() {
     let result = analyze_pattern_with_native_renderer(&pattern, true, Some("soft"));
     assert_eq!(result.image_type.as_deref(), Some("3d"));
     assert!(result.error.is_none());
-    assert!(result.image_data.unwrap().len() > 0);
+    assert!(!result.image_data.unwrap().is_empty());
 }
 
 #[test]
