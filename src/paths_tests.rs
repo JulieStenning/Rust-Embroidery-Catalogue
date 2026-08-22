@@ -216,7 +216,10 @@ fn database_recovery_mode_true_when_db_missing() {
 
         // The configured root is registered but the DB file does not exist.
         let paths = installed_paths(&configured);
-        assert!(database_recovery_mode(&paths), "recovery mode should be true");
+        assert!(
+            database_recovery_mode(&paths),
+            "recovery mode should be true"
+        );
 
         let _ = fs::remove_dir_all(&configured);
     });
@@ -236,7 +239,10 @@ fn database_recovery_mode_false_when_db_exists() {
 
         let paths = installed_paths(&configured);
         assert!(paths.database_path.exists());
-        assert!(!database_recovery_mode(&paths), "recovery mode should be false");
+        assert!(
+            !database_recovery_mode(&paths),
+            "recovery mode should be false"
+        );
 
         let _ = fs::remove_dir_all(&configured);
     });
@@ -457,10 +463,7 @@ fn to_absolute_with_absolute_relative() {
     let relative = PathBuf::from("/absolute/path");
     let result = to_absolute(&relative, &root);
     // On Windows this may differ, but on Unix: root.join(absolute) -> absolute
-    assert!(
-        result == *"/some/root/absolute/path"
-            || result == *"/absolute/path"
-    );
+    assert!(result == *"/some/root/absolute/path" || result == *"/absolute/path");
 }
 
 // ---------------------------------------------------------------------------
@@ -967,11 +970,20 @@ fn ensure_catalogue_layout_and_seed_if_missing_seeds_when_empty() {
     fs::create_dir_all(&tmp).expect("create dir");
 
     let seeded = ensure_catalogue_layout_and_seed_if_missing(&tmp).expect("should succeed");
-    assert!(seeded, "Should return true indicating a fresh seed was written");
+    assert!(
+        seeded,
+        "Should return true indicating a fresh seed was written"
+    );
 
     let db_file = tmp.join("Database").join(DATABASE_FILENAME);
-    assert!(db_file.is_file(), "Seed DB should exist at Database/EmbroideryCatalogue.db");
-    assert!(tmp.join("MachineEmbroideryDesigns").is_dir(), "Designs folder should exist");
+    assert!(
+        db_file.is_file(),
+        "Seed DB should exist at Database/EmbroideryCatalogue.db"
+    );
+    assert!(
+        tmp.join("MachineEmbroideryDesigns").is_dir(),
+        "Designs folder should exist"
+    );
     assert!(tmp.join("logs").is_dir(), "Logs folder should exist");
 
     let _ = fs::remove_dir_all(&tmp);
@@ -987,11 +999,20 @@ fn ensure_catalogue_layout_and_seed_if_missing_preserves_existing_database() {
     fs::write(&db_file, original_content).expect("write original db");
 
     let seeded = ensure_catalogue_layout_and_seed_if_missing(&tmp).expect("should succeed");
-    assert!(!seeded, "Should return false indicating existing DB was preserved");
+    assert!(
+        !seeded,
+        "Should return false indicating existing DB was preserved"
+    );
 
     let read_back = fs::read(&db_file).expect("read db");
-    assert_eq!(read_back, original_content, "Existing database content must remain unchanged");
-    assert!(tmp.join("MachineEmbroideryDesigns").is_dir(), "Designs folder should exist");
+    assert_eq!(
+        read_back, original_content,
+        "Existing database content must remain unchanged"
+    );
+    assert!(
+        tmp.join("MachineEmbroideryDesigns").is_dir(),
+        "Designs folder should exist"
+    );
     assert!(tmp.join("logs").is_dir(), "Logs folder should exist");
 
     let _ = fs::remove_dir_all(&tmp);
@@ -1006,12 +1027,21 @@ fn ensure_catalogue_layout_and_seed_if_missing_moves_root_database_to_database_d
     fs::write(&root_db_file, original_content).expect("write original root db");
 
     let seeded = ensure_catalogue_layout_and_seed_if_missing(&tmp).expect("should succeed");
-    assert!(!seeded, "Should return false indicating existing DB was preserved");
+    assert!(
+        !seeded,
+        "Should return false indicating existing DB was preserved"
+    );
 
     let target_db_file = tmp.join("Database").join(DATABASE_FILENAME);
-    assert!(target_db_file.is_file(), "Database should be moved under Database/ folder");
+    assert!(
+        target_db_file.is_file(),
+        "Database should be moved under Database/ folder"
+    );
     let read_back = fs::read(&target_db_file).expect("read moved db");
-    assert_eq!(read_back, original_content, "Moved database content must be preserved");
+    assert_eq!(
+        read_back, original_content,
+        "Moved database content must be preserved"
+    );
 
     let _ = fs::remove_dir_all(&tmp);
 }

@@ -41,7 +41,10 @@ fn relative_subpath_of_empty_for_unc_path() {
 #[test]
 fn database_relative_path_matches_canonical_layout() {
     let rel = database_relative_path();
-    assert_eq!(rel, PathBuf::from("Database").join(crate::paths::DATABASE_FILENAME));
+    assert_eq!(
+        rel,
+        PathBuf::from("Database").join(crate::paths::DATABASE_FILENAME)
+    );
 }
 
 #[test]
@@ -84,7 +87,11 @@ fn validate_database_path_accepts_existing_database() {
     let tmp = unique_tmp_dir("valid-db");
     let db_dir = tmp.join("Database");
     std::fs::create_dir_all(&db_dir).unwrap();
-    std::fs::write(db_dir.join(crate::paths::DATABASE_FILENAME), b"sqlite-bytes").unwrap();
+    std::fs::write(
+        db_dir.join(crate::paths::DATABASE_FILENAME),
+        b"sqlite-bytes",
+    )
+    .unwrap();
 
     let result = validate_database_path(&tmp);
 
@@ -99,7 +106,11 @@ fn validate_database_path_reports_designs_dir_when_present() {
     let tmp = unique_tmp_dir("with-designs");
     std::fs::create_dir_all(tmp.join("Database")).unwrap();
     std::fs::create_dir_all(tmp.join(designs_relative_dir())).unwrap();
-    std::fs::write(tmp.join("Database").join(crate::paths::DATABASE_FILENAME), b"sqlite-bytes").unwrap();
+    std::fs::write(
+        tmp.join("Database").join(crate::paths::DATABASE_FILENAME),
+        b"sqlite-bytes",
+    )
+    .unwrap();
 
     let result = validate_database_path(&tmp);
 

@@ -58,8 +58,9 @@ pub struct DatabaseStatus {
 fn database_status_from_paths(paths: &paths::AppPaths) -> DatabaseStatus {
     let configured_root = paths::read_bootstrap_data_root().ok().flatten();
 
-    let configured_str =
-        configured_root.as_ref().map(|p| p.to_string_lossy().to_string());
+    let configured_str = configured_root
+        .as_ref()
+        .map(|p| p.to_string_lossy().to_string());
     let database_str = Some(paths.database_path.to_string_lossy().to_string());
     let embroidery_str = Some(paths.embroidery_designs_dir.to_string_lossy().to_string());
 
@@ -217,8 +218,8 @@ fn configure_fresh_data_root(data_root: String) -> Result<ConfigureDataRootResul
         return Err("Data root cannot be empty.".to_string());
     }
     let path = std::path::PathBuf::from(trimmed);
-    let seeded_fresh = paths::ensure_catalogue_layout_and_seed_if_missing(&path)
-        .map_err(|err| err.to_string())?;
+    let seeded_fresh =
+        paths::ensure_catalogue_layout_and_seed_if_missing(&path).map_err(|err| err.to_string())?;
     paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())?;
 
     let database_path = path
@@ -338,10 +339,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    tracing::info!(
-        "Logging initialised - log_dir={}",
-        log_dir.display()
-    );
+    tracing::info!("Logging initialised - log_dir={}", log_dir.display());
 
     // Load .env file if present (best-effort; not required in production)
     load_dotenv();
@@ -438,8 +436,7 @@ fn main() {
     } else {
         let fp_pool = app_state.db.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await
-            {
+            if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await {
                 tracing::error!("Startup fingerprint backfill error: {}", err);
             }
         });

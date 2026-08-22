@@ -275,11 +275,8 @@ async fn save_and_get_google_api_key_roundtrips() {
     let key = get_google_api_key(&mut conn).await.unwrap();
     assert_eq!(key, Some("my-secret-key".to_string()));
 
-    save_google_api_key(&mut conn, "   ")
-        .await
-        .unwrap();
+    save_google_api_key(&mut conn, "   ").await.unwrap();
 
     let key_cleared = get_google_api_key(&mut conn).await.unwrap();
     assert_eq!(key_cleared, None);
 }
-

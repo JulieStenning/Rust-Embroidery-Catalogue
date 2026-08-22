@@ -241,9 +241,14 @@ pub async fn run_unified_backfill(
                     tier2_delay_seconds,
                     tier3_delay_seconds,
                 };
-                let tag_result =
-                    apply_tagging_tiers(pool, *design_id, &image_tag_map, &valid_descriptions, &tier_options)
-                        .await;
+                let tag_result = apply_tagging_tiers(
+                    pool,
+                    *design_id,
+                    &image_tag_map,
+                    &valid_descriptions,
+                    &tier_options,
+                )
+                .await;
 
                 if let Err(error) = tag_result {
                     errors += 1;
@@ -647,10 +652,9 @@ fn suggest_tier3_descriptions(
     valid_descriptions: &HashSet<String>,
 ) -> Vec<String> {
     let mut tier3 = suggest_tier2_descriptions(filename, filepath, valid_descriptions);
-    if tier3.is_empty()
-        && valid_descriptions.contains("Don't Know") {
-            tier3.push("Don't Know".to_string());
-        }
+    if tier3.is_empty() && valid_descriptions.contains("Don't Know") {
+        tier3.push("Don't Know".to_string());
+    }
     tier3
 }
 

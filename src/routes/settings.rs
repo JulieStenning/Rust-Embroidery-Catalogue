@@ -79,9 +79,7 @@ pub(crate) async fn get_google_api_key_inner(
 }
 
 #[tauri::command]
-pub async fn get_google_api_key(
-    state: State<'_, AppState>,
-) -> Result<Option<String>, String> {
+pub async fn get_google_api_key(state: State<'_, AppState>) -> Result<Option<String>, String> {
     get_google_api_key_inner(&state).await
 }
 

@@ -426,7 +426,9 @@ pub(crate) fn is_truthy(raw: &str) -> bool {
     )
 }
 
-pub(crate) async fn get_google_api_key(conn: &mut SqliteConnection) -> Result<Option<String>, AppError> {
+pub(crate) async fn get_google_api_key(
+    conn: &mut SqliteConnection,
+) -> Result<Option<String>, AppError> {
     let key = get_setting_with_default(conn, KEY_AI_GOOGLE_API_KEY).await?;
     let trimmed = key.trim();
     if trimmed.is_empty() {
@@ -436,7 +438,10 @@ pub(crate) async fn get_google_api_key(conn: &mut SqliteConnection) -> Result<Op
     }
 }
 
-pub(crate) async fn save_google_api_key(conn: &mut SqliteConnection, value: &str) -> Result<(), AppError> {
+pub(crate) async fn save_google_api_key(
+    conn: &mut SqliteConnection,
+    value: &str,
+) -> Result<(), AppError> {
     upsert_setting(conn, KEY_AI_GOOGLE_API_KEY, value.trim()).await
 }
 #[cfg(test)]

@@ -195,7 +195,10 @@ async fn full_migration_copies_database_and_assets() {
 
         // Target database is valid and has the design.
         assert!(target.join("Database").join(DATABASE_FILENAME).exists());
-        assert!(target.join("MachineEmbroideryDesigns").join("rose.pes").exists());
+        assert!(target
+            .join("MachineEmbroideryDesigns")
+            .join("rose.pes")
+            .exists());
 
         // Source was renamed to a backup, not deleted.
         let backup = tmp.join("source.migrated-backup");
@@ -205,12 +208,10 @@ async fn full_migration_copies_database_and_assets() {
         // Progress events reached "completed".
         assert!(events.iter().any(|e| e.current_phase == "completed"));
         // Final percent is 1.0.
-        assert!(
-            events
-                .iter()
-                .filter(|e| e.current_phase == "completed")
-                .all(|e| e.percent == 1.0)
-        );
+        assert!(events
+            .iter()
+            .filter(|e| e.current_phase == "completed")
+            .all(|e| e.percent == 1.0));
     })
     .await;
 }

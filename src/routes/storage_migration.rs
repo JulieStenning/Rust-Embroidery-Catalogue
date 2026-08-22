@@ -36,8 +36,8 @@ pub async fn start_catalogue_storage_migration(
         .migration_cancel_requested
         .store(false, std::sync::atomic::Ordering::SeqCst);
 
-    let result = run_migration_blocking(app_handle, &state, &target_dir, force.unwrap_or(false))
-        .await;
+    let result =
+        run_migration_blocking(app_handle, &state, &target_dir, force.unwrap_or(false)).await;
 
     state
         .migration_running
@@ -89,10 +89,7 @@ async fn run_migration_blocking(
         runtime.block_on(async move {
             let cancel_flag = cancel_for_task.as_ref();
             storage_migration::run_migration(&source_clone, &plan_clone, cancel_flag, |event| {
-                let _ = handle.emit(
-                    storage_migration::STORAGE_MIGRATION_PROGRESS_EVENT,
-                    &event,
-                );
+                let _ = handle.emit(storage_migration::STORAGE_MIGRATION_PROGRESS_EVENT, &event);
             })
             .await
             .map_err(|e| e.to_string())

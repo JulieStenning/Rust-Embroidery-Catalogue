@@ -167,9 +167,8 @@ pub fn preflight(
                 backup.display()
             ))
         })?;
-        std::fs::create_dir_all(&trimmed_target).map_err(|e| {
-            AppError::io(format!("cannot recreate target after move-aside: {e}"))
-        })?;
+        std::fs::create_dir_all(&trimmed_target)
+            .map_err(|e| AppError::io(format!("cannot recreate target after move-aside: {e}")))?;
         preexisting_target_renamed = Some(backup);
     }
 
@@ -216,16 +215,14 @@ pub async fn run_migration(
     cancel: &AtomicBool,
     mut emit: impl FnMut(StorageMigrationProgress) + Send,
 ) -> Result<StorageMigrationSummary, AppError> {
-    emit(StorageMigrationProgress::new(
-        "database",
-        "Copying database…".to_string(),
-    )
-    .with_totals(
-        plan.total_items,
-        plan.total_bytes,
-        0,
-        plan.database_bytes,
-    ));
+    emit(
+        StorageMigrationProgress::new("database", "Copying database…".to_string()).with_totals(
+            plan.total_items,
+            plan.total_bytes,
+            0,
+            plan.database_bytes,
+        ),
+    );
 
     match migrate_database(source, plan).await {
         Ok(database_ok) => {
@@ -254,8 +251,15 @@ pub async fn run_migration(
     let mut items_copied = 0u64;
     let mut bytes_copied = plan.database_bytes;
 
-    match copy_asset_trees(source, plan, cancel, &mut emit, &mut items_copied, &mut bytes_copied)
-        .await
+    match copy_asset_trees(
+        source,
+        plan,
+        cancel,
+        &mut emit,
+        &mut items_copied,
+        &mut bytes_copied,
+    )
+    .await
     {
         Ok(()) => {}
         Err(MigrationAbort::Cancelled) => {
@@ -287,16 +291,19 @@ pub async fn run_migration(
         }
     }
 
-    emit(StorageMigrationProgress::new(
-        "finalising",
-        "Verifying migrated files…".to_string(),
-    )
-    .with_totals(plan.total_items, plan.total_bytes, items_copied, bytes_copied));
+    emit(
+        StorageMigrationProgress::new("finalising", "Verifying migrated files…".to_string())
+            .with_totals(
+                plan.total_items,
+                plan.total_bytes,
+                items_copied,
+                bytes_copied,
+            ),
+    );
 
-    verify_target_tree(source, plan)
-        .inspect_err(|_e| {
-            rollback_partial_target(plan);
-        })?;
+    verify_target_tree(source, plan).inspect_err(|_e| {
+        rollback_partial_target(plan);
+    })?;
 
     // Commit point: the new root becomes authoritative. Everything before this
     // can be rolled back; everything after must never fail the migration —
@@ -316,16 +323,14 @@ pub async fn run_migration(
         None => "Catalogue moved successfully.".to_string(),
     };
 
-    emit(StorageMigrationProgress::new(
-        "completed",
-        completed_message,
-    )
-    .with_totals(
-        plan.total_items,
-        plan.total_bytes,
-        plan.total_items,
-        plan.total_bytes,
-    ));
+    emit(
+        StorageMigrationProgress::new("completed", completed_message).with_totals(
+            plan.total_items,
+            plan.total_bytes,
+            plan.total_items,
+            plan.total_bytes,
+        ),
+    );
 
     Ok(StorageMigrationSummary {
         success: true,
@@ -458,7 +463,15 @@ async fn copy_asset_trees(
         );
     } else {
         // Cross-device: per-file copy with progress.
-        copy_tree_recursive(src_dir, dst_dir, cancel, emit, plan, items_copied, bytes_copied)?;
+        copy_tree_recursive(
+            src_dir,
+            dst_dir,
+            cancel,
+            emit,
+            plan,
+            items_copied,
+            bytes_copied,
+        )?;
     }
 
     Ok(())
@@ -480,16 +493,21 @@ fn copy_tree_recursive(
 
     for entry in std::fs::read_dir(from).map_err(MigrationAbort::from)? {
         let entry = entry.map_err(MigrationAbort::from)?;
-        let file_type =
-            entry
-                .file_type()
-                .map_err(|e| MigrationAbort::Io(AppError::io(e.to_string())))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|e| MigrationAbort::Io(AppError::io(e.to_string())))?;
         let src_path = entry.path();
         let dst_path = to.join(entry.file_name());
 
         if file_type.is_dir() {
             copy_tree_recursive(
-                &src_path, &dst_path, cancel, emit, plan, items_copied, bytes_copied,
+                &src_path,
+                &dst_path,
+                cancel,
+                emit,
+                plan,
+                items_copied,
+                bytes_copied,
             )?;
             continue;
         }
@@ -504,9 +522,7 @@ fn copy_tree_recursive(
         std::fs::copy(&src_path, &dst_path)
             .map_err(|e| MigrationAbort::Io(AppError::io(format!("copy failed: {e}"))))?;
 
-        let size = std::fs::metadata(&src_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size = std::fs::metadata(&src_path).map(|m| m.len()).unwrap_or(0);
         *items_copied += 1;
         *bytes_copied += size;
 
@@ -567,9 +583,8 @@ fn target_has_entries(dir: &Path) -> bool {
 /// only if the OS cannot determine the local offset (extremely rare). The
 /// format is purely informational.
 fn format_moved_timestamp(dt: time::OffsetDateTime) -> String {
-    let description = time::macros::format_description!(
-        "[day] [month repr:long] [year] [hour]:[minute]"
-    );
+    let description =
+        time::macros::format_description!("[day] [month repr:long] [year] [hour]:[minute]");
     dt.format(&description)
         .unwrap_or_else(|_| "unknown time".to_string())
 }
@@ -645,13 +660,15 @@ fn write_moved_notice(source_root: &Path, target_root: &Path) -> Result<(), AppE
          are no longer used by the application and can be deleted manually once you are\n\
          happy with the move.\n",
         format_moved_timestamp(
-            time::OffsetDateTime::now_local()
-                .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+            time::OffsetDateTime::now_local().unwrap_or_else(|_| time::OffsetDateTime::now_utc())
         ),
         target_root.display()
     );
     std::fs::write(&marker_path, &content).map_err(|e| {
-        AppError::io(format!("failed to write moved-notice marker '{}': {e}", marker_path.display()))
+        AppError::io(format!(
+            "failed to write moved-notice marker '{}': {e}",
+            marker_path.display()
+        ))
     })
 }
 

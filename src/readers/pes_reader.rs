@@ -203,8 +203,6 @@ fn read_pec_stitches(
 
         let mut jump = false;
         let mut trim = false;
-        
-        
 
         // Decode X
         let x: i32 = if val1 & FLAG_LONG != 0 {

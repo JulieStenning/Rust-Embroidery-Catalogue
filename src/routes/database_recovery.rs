@@ -34,8 +34,8 @@ pub fn detect_relocated_data_root(
     configured_data_root: String,
 ) -> Result<DetectedDataRootWire, String> {
     let root = std::path::PathBuf::from(configured_data_root.trim());
-    let found = database_recovery::detect_relocated_data_root(&root)
-        .map_err(|err| err.to_string())?;
+    let found =
+        database_recovery::detect_relocated_data_root(&root).map_err(|err| err.to_string())?;
 
     Ok(DetectedDataRootWire {
         data_root: found.map(|p| p.to_string_lossy().to_string()),

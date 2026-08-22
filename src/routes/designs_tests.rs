@@ -278,7 +278,10 @@ mod helper_tests {
         push_where_clause(&mut builder, &mut has_where);
         assert!(has_where);
         let sql = builder.sql();
-        assert!(sql.as_str().contains(" WHERE "), "sql should have WHERE clause");
+        assert!(
+            sql.as_str().contains(" WHERE "),
+            "sql should have WHERE clause"
+        );
     }
 
     #[test]

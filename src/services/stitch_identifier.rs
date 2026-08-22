@@ -826,11 +826,10 @@ fn split_into_color_blocks(pattern: &EmbPattern) -> Vec<Vec<Stitch>> {
 
     for stitch in &pattern.stitches {
         current_block.push(*stitch);
-        if stitch.stitch_type == StitchType::ColorChange
-            && !current_block.is_empty() {
-                blocks.push(current_block);
-                current_block = Vec::new();
-            }
+        if stitch.stitch_type == StitchType::ColorChange && !current_block.is_empty() {
+            blocks.push(current_block);
+            current_block = Vec::new();
+        }
     }
     if !current_block.is_empty() {
         blocks.push(current_block);

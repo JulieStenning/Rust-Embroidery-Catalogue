@@ -867,5 +867,3 @@ fn browse_data_root_result_serializes_correctly() {
     assert_eq!(json2["path"], serde_json::json!(null));
     assert_eq!(json2["error"], serde_json::json!("failed"));
 }
-
-

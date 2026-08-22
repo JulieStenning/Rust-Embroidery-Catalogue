@@ -517,10 +517,7 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
         ));
     }
 
-    if normalized_full.eq_ignore_ascii_case(&designs_base
-            .to_string_lossy()
-            .replace('\\', "/"))
-    {
+    if normalized_full.eq_ignore_ascii_case(&designs_base.to_string_lossy().replace('\\', "/")) {
         return Ok("/MachineEmbroideryDesigns".to_string());
     }
 
