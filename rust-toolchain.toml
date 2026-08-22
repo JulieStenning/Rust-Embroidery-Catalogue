@@ -1,5 +1,5 @@
 [toolchain]
-channel = "1.80.0"
+channel = "stable"
 components = [
     "rust-analyzer",
     "clippy",
