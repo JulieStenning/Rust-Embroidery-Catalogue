@@ -40,7 +40,7 @@ fn test_signed12_negative() {
     assert_eq!(signed12(0x800), -2048);
     assert_eq!(signed12(0x801), -2047);
     assert_eq!(signed12(0x876), -1930);
-    assert_eq!(signed12(0xABC), ((-0x1000 + 0xABC)));
+    assert_eq!(signed12(0xABC), (-0x1000 + 0xABC));
 }
 
 #[test]
