@@ -36,6 +36,9 @@ cargo update > ./audit-logs/cargo-update-results.txt
 Write-Host "--> Checking back end tests pass" -ForegroundColor Yellow
 cargo test  > ./audit-logs/cargo-test-results.txt
 
+Write-Host "--> Running Cargo Check..." -ForegroundColor Yellow
+cargo check 2>&1 | Out-File ./audit-logs/cargo-check-results.txt
+
 Write-Host "--> Checking Outdated Crates..." -ForegroundColor Yellow
 cargo outdated > ./audit-logs/outdated.txt
 
@@ -47,7 +50,7 @@ npx vitest run --silent  2>&1 | Out-File ./audit-logs/vitest-results.txt
 
 # 2. Rust Quality Gates
 Write-Host "--> Running Rust Checks, Formatting & Clippy..." -ForegroundColor Yellow
-$env:CARGO_TERM_COLOR="never"; cargo check 2>&1 | Out-File ./audit-logs/cargo-check-results.txt
+$env:CARGO_TERM_COLOR="never"; cargo check 2>&1 | Out-File ./audit-logs/cargo-check-results2.txt
 $env:CARGO_TERM_COLOR="never"; cargo clippy --all-targets -- -D warnings 2>&1 | Out-File ./audit-logs/cargo-clippy-results.txt
 $env:CARGO_TERM_COLOR="never"; cargo fmt --check -- -v 2>&1 | Out-File ./audit-logs/rustfmt-results.txt
 
@@ -56,7 +59,8 @@ $env:CARGO_TERM_COLOR="never"; cargo fmt --check -- -v 2>&1 | Out-File ./audit-l
 Write-Host "--> Running Frontend Lint, Format & Type Checks..." -ForegroundColor Yellow
 npx svelte-check --tsconfig frontend/jsconfig.json 2>&1 | Out-File ./audit-logs/svelte-check.txt
 Set-Location frontend; $env:FORCE_COLOR=0; npm run lint 2>&1 | Out-File ../audit-logs/eslint-results.txt; Set-Location ..
-Set-Location frontend; $env:FORCE_COLOR=0; npm run format:check 2>&1 | Out-File ../audit-logs/format-check-results.txt; Set-Location ..
+Write-Host "--> Running Prettier Format Check..." -ForegroundColor Yellow
+npx prettier --check frontend/src 2>&1 | Out-File ./audit-logs/format-prettier-results.txt
 
 # 4. License Asset Generation & Build
 Write-Host "--> Generating License Assets..." -ForegroundColor Yellow

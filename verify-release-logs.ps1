@@ -42,6 +42,8 @@ function Test-LogCondition {
 }
 
 $results = @(
+
+    
     Test-LogCondition "Rust Check" "$logDir/cargo-check-results.txt" `
         { param($c) $c -match 'Finished `dev`' -and $c -notmatch 'error\[E' } `
         "Fix backend type check or borrow errors."
@@ -51,20 +53,24 @@ $results = @(
         "Fix compiler warnings or clippy lints."
 
     Test-LogCondition "Rust Tests" "$logDir/cargo-test-results.txt" `
-        { param($c) $c -match 'test result: ok\.' -and $c -notmatch 'failed;' } `
-        "Fix failing backend unit tests."
+    { param($c) $c -match 'test result: ok\.' -and $c -match '0 failed;' } `
+    "Fix failing backend unit tests."
 
+    Test-LogCondition "Prettier Results" "$logDir/format-prettier-results.txt" `
+        { param($c) $c -match 'All matched files use Prettier code style!' } `
+        "Run 'npm --prefix frontend run format' to format files."
+        
     Test-LogCondition "Rust Formatting" "$logDir/rustfmt-results.txt" `
         { param($c) $c -notmatch 'Diff in' } `
         "Run 'cargo fmt' to format backend code."
 
-    Test-LogCondition "Frontend Vitest" "$logDir/vitest-results.txt" `
-        { param($c) $c -match 'Test Files\s+\d+ passed' -and $c -notmatch 'FAIL' } `
-        "Fix failing frontend unit tests."
-
-    Test-LogCondition "Prettier Check" "$logDir/format-check-results.txt" `
-        { param($c) $c -notmatch 'Code style issues found' } `
-        "Run 'npm --prefix frontend run format' to auto-fix."
+    Test-LogCondition "Frontend Unit Tests" "$logDir/vitest-results.txt" `
+    { 
+        param($c) 
+        $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
+        $clean -match 'Test Files\s+\d+\s+passed' -and $clean -match 'Tests\s+\d+\s+passed' -and $clean -notmatch 'failed'
+    } `
+    "Fix failing frontend Vitest unit tests."
 
     Test-LogCondition "Svelte Type Check" "$logDir/svelte-check.txt" `
         { param($c) $c -match 'found 0 errors' -and $c -notmatch 'Error:' } `
