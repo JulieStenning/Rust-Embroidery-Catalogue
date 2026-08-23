@@ -163,7 +163,7 @@ describe("BackupView", () => {
       expect(
         screen.getByText(
           normalizedText(
-            "Ensure backup folders reside on a separate drive from your library (e.g. an external USB drive or a network folder)."
+            "Ensure backup folders reside on a separate drive from your library."
           )
         )
       ).toBeInTheDocument();

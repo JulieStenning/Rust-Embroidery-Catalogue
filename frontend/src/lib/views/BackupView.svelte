@@ -222,8 +222,7 @@
   >
     <p class="font-semibold">Important</p>
     <p>
-      Ensure backup folders reside on a separate drive from your library (e.g. an external USB drive
-      or a network folder).
+      Ensure backup folders reside on a separate drive from your library.
     </p>
   </div>
 
