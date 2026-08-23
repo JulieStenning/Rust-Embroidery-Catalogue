@@ -87,12 +87,12 @@
 
 **CI Gate**
 
-* [ ]  All CI jobs pass green on release branch.
-* [ ]  Capture CI run URL in release evidence doc.
+* [ ]  All CI jobs pass green on release branch - run `release-check.yaml` in actions in github. Don't worry about the warning about Node.js 20 being depracated. This is to do with actions rather than the app and will disppear once the github team have updated action versions.
+* [ ]  Capture CI run URL in release evidence doc. Copy the URL from github.
 
 ---
 
-## 5. Rollback Readiness
+## 5. Rollback Readiness - Not until first upgrade
 
 * [ ]  Confirm rollback strategy (backup restore + known-good installer).
 * [ ]  Include backup-before-update guidance in release notes.
@@ -116,6 +116,8 @@
 * [ ]  Locate NSIS installer in `target/release/bundle/nsis/`.
 * [ ]  Verify installer filenames contain correct version string.
 * [ ]  Compute SHA-256 checksums and verify artifacts.
+  `Get-ChildItem -Path "target/release/bundle" -Recurse -File -Include *.exe, *.msi | Get-FileHash -Algorithm SHA256 | Format-Table -AutoSize`
+  This passes if 2 SHA256 Hash keys are returned, 1 for the msi and the other for the nsis.
 * [ ]  Complete code signing if required.
 * [ ]  Execute test installation and upgrade in a clean Windows environment.
 

@@ -212,6 +212,66 @@
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@types\\trusted-types",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@types\\trusted-types\\LICENSE"
     },
+    "@typescript-eslint/eslint-plugin@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\eslint-plugin",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\eslint-plugin\\LICENSE"
+    },
+    "@typescript-eslint/parser@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\parser",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\parser\\LICENSE"
+    },
+    "@typescript-eslint/project-service@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\project-service",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\project-service\\LICENSE"
+    },
+    "@typescript-eslint/scope-manager@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\scope-manager",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\scope-manager\\LICENSE"
+    },
+    "@typescript-eslint/tsconfig-utils@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\tsconfig-utils",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\tsconfig-utils\\LICENSE"
+    },
+    "@typescript-eslint/type-utils@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\type-utils",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\type-utils\\LICENSE"
+    },
+    "@typescript-eslint/types@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\types",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\types\\LICENSE"
+    },
+    "@typescript-eslint/typescript-estree@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\LICENSE"
+    },
+    "@typescript-eslint/utils@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\utils",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\utils\\LICENSE"
+    },
+    "@typescript-eslint/visitor-keys@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\visitor-keys",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\visitor-keys\\LICENSE"
+    },
     "acorn-jsx@5.3.2": {
         "licenses": "MIT",
         "repository": "https://github.com/acornjs/acorn-jsx",
@@ -269,6 +329,12 @@
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\balanced-match",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\balanced-match\\LICENSE.md"
     },
+    "balanced-match@4.0.4": {
+        "licenses": "MIT",
+        "repository": "https://github.com/juliangruber/balanced-match",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\node_modules\\balanced-match",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\node_modules\\balanced-match\\LICENSE.md"
+    },
     "brace-expansion@1.1.16": {
         "licenses": "MIT",
         "repository": "https://github.com/juliangruber/brace-expansion",
@@ -276,6 +342,12 @@
         "email": "mail@juliangruber.com",
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\brace-expansion",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\brace-expansion\\LICENSE"
+    },
+    "brace-expansion@5.0.9": {
+        "licenses": "MIT",
+        "repository": "https://github.com/juliangruber/brace-expansion",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\node_modules\\brace-expansion",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\node_modules\\brace-expansion\\LICENSE"
     },
     "callsites@3.1.0": {
         "licenses": "MIT",
@@ -439,6 +511,13 @@
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\eslint-visitor-keys",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\eslint-visitor-keys\\LICENSE"
     },
+    "eslint-visitor-keys@5.0.1": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/eslint/js",
+        "publisher": "Toru Nagashima",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\visitor-keys\\node_modules\\eslint-visitor-keys",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\visitor-keys\\node_modules\\eslint-visitor-keys\\LICENSE"
+    },
     "eslint@9.39.5": {
         "licenses": "MIT",
         "repository": "https://github.com/eslint/eslint",
@@ -601,6 +680,13 @@
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\ignore",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\ignore\\LICENSE-MIT"
     },
+    "ignore@7.0.6": {
+        "licenses": "MIT",
+        "repository": "https://github.com/kaelzhang/node-ignore",
+        "publisher": "kael",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\eslint-plugin\\node_modules\\ignore",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\eslint-plugin\\node_modules\\ignore\\LICENSE-MIT"
+    },
     "import-fresh@3.3.1": {
         "licenses": "MIT",
         "repository": "https://github.com/sindresorhus/import-fresh",
@@ -752,6 +838,14 @@
         "publisher": "Christopher Jeffrey",
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\marked",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\marked\\LICENSE"
+    },
+    "minimatch@10.2.6": {
+        "licenses": "BlueOak-1.0.0",
+        "repository": "https://github.com/isaacs/minimatch",
+        "publisher": "Isaac Z. Schlueter",
+        "email": "i@izs.me",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\node_modules\\minimatch",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\@typescript-eslint\\typescript-estree\\node_modules\\minimatch\\LICENSE.md"
     },
     "minimatch@3.1.5": {
         "licenses": "ISC",
@@ -1025,6 +1119,14 @@
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\tinyglobby",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\tinyglobby\\LICENSE"
     },
+    "ts-api-utils@2.5.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/JoshuaKGoldberg/ts-api-utils",
+        "publisher": "JoshuaKGoldberg",
+        "email": "npm@joshuakgoldberg.com",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\ts-api-utils",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\ts-api-utils\\LICENSE.md"
+    },
     "type-check@0.4.0": {
         "licenses": "MIT",
         "repository": "https://github.com/gkz/type-check",
@@ -1032,6 +1134,12 @@
         "email": "z@georgezahariev.com",
         "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\type-check",
         "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\type-check\\LICENSE"
+    },
+    "typescript-eslint@8.67.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/typescript-eslint/typescript-eslint",
+        "path": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\typescript-eslint",
+        "licenseFile": "D:\\My Software Development\\Rust-Embroidery-Catalogue\\frontend\\node_modules\\typescript-eslint\\LICENSE"
     },
     "typescript@5.9.3": {
         "licenses": "Apache-2.0",
