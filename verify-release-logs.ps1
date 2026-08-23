@@ -43,8 +43,8 @@ function Test-LogCondition {
 
 $results = @(
 
-    
-    Test-LogCondition "Rust Check" "$logDir/cargo-check-results.txt" `
+    # Checking the second file from cargo check because that is the most recent.
+    Test-LogCondition "Rust Check" "$logDir/cargo-check-results2.txt" `
         { param($c) $c -match 'Finished `dev`' -and $c -notmatch 'error\[E' } `
         "Fix backend type check or borrow errors."
 
@@ -52,7 +52,8 @@ $results = @(
         { param($c) $c -match 'Finished `dev`' -and $c -notmatch 'error:' } `
         "Fix compiler warnings or clippy lints."
 
-    Test-LogCondition "Rust Tests" "$logDir/cargo-test-results.txt" `
+    # Checking the second test file because that it is most recent check.
+    Test-LogCondition "Rust Tests" "$logDir/cargo-test-results2.txt" `
     { param($c) $c -match 'test result: ok\.' -and $c -match '0 failed;' } `
     "Fix failing backend unit tests."
 

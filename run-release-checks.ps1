@@ -59,14 +59,18 @@ $env:CARGO_TERM_COLOR="never"; cargo fmt --check -- -v 2>&1 | Out-File ./audit-l
 Write-Host "--> Running Frontend Lint, Format & Type Checks..." -ForegroundColor Yellow
 npx svelte-check --tsconfig frontend/jsconfig.json 2>&1 | Out-File ./audit-logs/svelte-check.txt
 Set-Location frontend; $env:FORCE_COLOR=0; npm run lint 2>&1 | Out-File ../audit-logs/eslint-results.txt; Set-Location ..
-Write-Host "--> Running Prettier Format Check..." -ForegroundColor Yellow
+Write-Host "--> Running Prettier Format Check and updating ugly files..." -ForegroundColor Yellow
+npx prettier --write frontend/src | Out-Null
 npx prettier --check frontend/src 2>&1 | Out-File ./audit-logs/format-prettier-results.txt
 
 # 4. License Asset Generation & Build
 Write-Host "--> Generating License Assets..." -ForegroundColor Yellow
-Set-Location frontend; $env:FORCE_COLOR=0; npm run generate:licences 2>&1 | Out-File ./audit-logs/license-assets.txt; Set-Location ..
+Set-Location frontend; $env:FORCE_COLOR=0; npm run generate:licences 2>&1 | Out-File ../audit-logs/license-assets.txt; Set-Location ..
 Write-Host "--> Executing Release Build. This will take time ..." -ForegroundColor Yellow
-$env:RUST_APP_NO_PAUSE="1"; ./build-rust-release.bat 2>&1 | Tee-Object -FilePath ./audit-logs/build-results.txt
+$env:RUST_APP_NO_PAUSE="1"
+$ErrorActionPreference = "SilentlyContinue"
+./build-rust-release.bat 2>&1 | Tee-Object -FilePath ./audit-logs/build-results.txt
+$ErrorActionPreference = "Continue"
 
 # 5. Checksum Generation
 Write-Host "--> Computing Installer SHA-256 Checksums..." -ForegroundColor Yellow
@@ -74,5 +78,9 @@ Get-ChildItem -Path "target/release/bundle" -Recurse -File -Include *.exe, *.msi
 
 Write-Host "`nAll checks complete! Audit files saved to ./audit-logs/" -ForegroundColor Green
 Get-Content ./audit-logs/checksums.txt
+
+# 6. Execute Release Audit Verification
+Write-Host "--> Verifying Release Audit Logs..." -ForegroundColor Yellow
+./verify-release-logs.ps1
 
 

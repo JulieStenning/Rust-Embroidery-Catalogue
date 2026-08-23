@@ -20,7 +20,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-cargo tauri build --verbose
+cargo tauri build 2>&1 
 set "BUILD_EXIT=%ERRORLEVEL%"
 
 if %BUILD_EXIT% equ 0 (

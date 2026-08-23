@@ -4,6 +4,8 @@
 
 Most of these actions can be run using the powershell script `run-release-checks.ps1`. To run the script, open powershell. Cd to the root location of the repo. Run `.\run-release-checks.ps1` in the powershell window. Links to the individual output files are shown in this document. The files are in the folder audit-logs.
 
+The script `verify-release-logs.ps1` identifies successful and failing scripts.  To run the script, open powershell. Cd to the root location of the repo. Run `.\verify-release-logs.ps1` in the powershell window.
+
 ## 1. Code Attributions & License Registrations
 
 * [ ]  **Rust License Check.** If new Rust crates were added, confirm their SPDX identifiers are included in the accepted array in about.toml. If an unapproved license is detected, the command will fail immediately and display the standard SPDX identifier needing review. See [audit-logs/licences-preview.html](../../../audit-logs/licences-preview.html)
@@ -37,8 +39,8 @@ Most of these actions can be run using the powershell script `run-release-checks
 * [ ]  Check frontend dependencies. See [npm-audit-results](../../../audit-logs/npm-audit-results.txt). Run `npm audit fix` if there are issues and run `npm audit --prefix frontend 2>&1 | Out-File ./audit-logs/npm-audit-results.txt` again. This does not always fix the vulnerabilities. The original developer asks Gemini for help resolving issues.
 * [ ]  **Update Previews:**
 * [ ]  Look for newer compatabile releases of dependencies. See [cargo-update-results](../../../audit-logs/cargo-update-results.txt)
-* [ ]  Test the backend. See [cargo-test-results](../../../audit-logs/cargo-test-results.txt)
-* [ ]  Compile the project and dependencies. See [cargo-check-results](../../../audit-logs/cargo-check-results)
+* [ ]  Test the backend. See [cargo-test-results2](../../../audit-logs/cargo-test-results2.txt) Covered by verification script.
+* [ ]  Compile the project and dependencies. See [cargo-check-results2](../../../audit-logs/cargo-check-results2) Covered by verification script.
 * [ ]  Review available major/minor updates. You may need to install cargo-outdated with
   `cargo install cargo-outdated`
   See [outdated](../../../audit-logs/outdated.txt)
@@ -54,18 +56,18 @@ Most of these actions can be run using the powershell script `run-release-checks
 
 **Test Gate**
 
-* [ ]  Check backend tests pass. See [cargo-test-results2](../../../audit-logs/cargo-test-results2.txt)
-* [ ]  Check frontend tests pass. See [vitest-results](../../../audit-logs/vitest-results.txt)
+* [ ]  Check backend tests pass. See [cargo-test-results2](../../../audit-logs/cargo-test-results2.txt) Covered by verification script.
+* [ ]  Check frontend tests pass. See [vitest-results](../../../audit-logs/vitest-results.txt) Covered by verification script.
 * [ ]  Capture test evidence in the release evidence document.
 
 **Lint / Format / Type-Check Gate**
 
-* [ ]  Compile the project and dependencies. See [cargo-check-results2](../../../audit-logs/cargo-check-results2.txt)
-* [ ]  Analyse code with clippy and check there are no critical warnings. Run`cargo clippy --fix --bin "embroidery-catalogue" -p Rust-Embroidery-Catalogue --tests --` to fix any errors. You may need to manually fix any remaining errors. See [cargo-clippy-results](../../../audit-logs/cargo-clippy-results.txt)
-* [ ]  Check Rust formatting. Fix any errors with `cargo fmt`and confirm with`$env:CARGO_TERM_COLOR="never"; cargo fmt --check -- -v 2>&1 | Out-File ./audit-logs/rustfmt-results.txt` See [rust-fmt-results](../../../audit-logs/rustfmt-results.txt)
-* [ ]  Check Svelte types. There should be no errors. After fixing errors run `npx svelte-check --tsconfig frontend/jsconfig.json 2>&1 | Out-File ./audit-logs/svelte-check.txt` See [svelte-check](../../../audit-logs/svelte-check.txt)
+* [ ]  Compile the project and dependencies. See [cargo-check-results2](../../../audit-logs/cargo-check-results2.txt). Covered by verification script.
+* [ ]  Analyse code with clippy and check there are no critical warnings. Run`cargo clippy --fix --bin "embroidery-catalogue" -p Rust-Embroidery-Catalogue --tests --` to fix any errors. You may need to manually fix any remaining errors. See [cargo-clippy-results](../../../audit-logs/cargo-clippy-results.txt) Covered by verification script.
+* [ ]  Check Rust formatting. Fix any errors with `cargo fmt`and confirm with`$env:CARGO_TERM_COLOR="never"; cargo fmt --check -- -v 2>&1 | Out-File ./audit-logs/rustfmt-results.txt` See [rust-fmt-results](../../../audit-logs/rustfmt-results.txt) Covered by verification script
+* [ ]  Check Svelte types. There should be no errors. After fixing errors run `npx svelte-check --tsconfig frontend/jsconfig.json 2>&1 | Out-File ./audit-logs/svelte-check.txt` See [svelte-check](../../../audit-logs/svelte-check.txt) Covered by verification script.
 * [ ]  Run Linting checks. Try to fix any errors with `cmd /c "cd frontend && npx eslint . --fix"`. Fix any remaining errors. Ru `Set-Location frontend; $env:FORCE_COLOR=0; npm run lint 2>&1 | Out-File ../audit-logs/eslint-results.txt; Set-Location` when errors are fixed. See [eslint-results](../../../audit-logs/eslint-results.txt)
-* [ ]  Run 'npx prettier --check frontend/src. Fix any errors with `npx prettier --write frontend/src`. See [format-prettier-results](../../../audit-logs/format-prettier-results.txt)
+* [ ]  Run 'npx prettier --check frontend/src. Fix any errors with `npx prettier --write frontend/src`. See [format-prettier-results](../../../audit-logs/format-prettier-results.txt) Covered by verification script.
 
   **Migration Gate**
 * [ ]  Classify release type per migration policies.
@@ -94,7 +96,7 @@ Most of these actions can be run using the powershell script `run-release-checks
 * [ ]  **Manual License Asset Verification:** See [license-assets](../../../audit-logs/license-assets.txt)
 * [ ]  Confirm generation of `src/assets/licences.html`.
 * [ ]  Confirm generation of `src/assets/npm-licences.json`.
-* [ ]  **Execute Release Build.** See [build-results](../../../audit-logs/build-results.txt)
+* [ ]  **Execute Release Build.** See [build-results](../../../audit-logs/build-results.txt). Covered by Verification script.
 * [ ]  Verify Vite bundles license assets for rendering in @AboutView.svelte and @AboutDocumentView.svelte.
 
 ---
