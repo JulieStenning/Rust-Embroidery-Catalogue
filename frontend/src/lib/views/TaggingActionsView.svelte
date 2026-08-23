@@ -84,14 +84,14 @@
 
     try {
       if (taggingRunStitching) {
-        const stitchingOptions = /** @type {any} */ ({
+        const stitchingOptions = /** @type {any} */ {
           commit_every: taggingCommitValue,
           batch_size: taggingBatchValue,
           workers: taggingWorkersValue,
           // "all" only when the user opted to overwrite previously processed designs.
           clear_stitching_mode: taggingStitchingOverwrite ? "all" : "unverified",
           image_redo: taggingImageRedo,
-        });
+        };
         const result = await runStitchingBackfill(stitchingOptions);
         if (result?.error) {
           addToast(`Stitching backfill failed: ${result.error}`, "error");

@@ -838,8 +838,7 @@
             class="w-full border rounded px-2.5 py-1.5 text-sm bg-white"
             rows="2"
             bind:value={detailNotes}
-            placeholder="Add notes about this design..."
-          ></textarea>
+            placeholder="Add notes about this design..."></textarea>
           <div class="flex justify-end">
             <button
               class="menu-button-primary text-xs px-2.5 py-1"
