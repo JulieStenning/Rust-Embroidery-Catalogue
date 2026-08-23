@@ -17,6 +17,9 @@ dist/
 .DS_Store
 Thumbs.db
 
+# --- Logs and temporary files ---
+audit-logs/
+
 # --- Data specific ---
 data/
 /dev_data/
