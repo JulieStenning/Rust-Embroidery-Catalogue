@@ -80,11 +80,10 @@
 **Migration Gate**
 
 * [ ]  Classify release type per migration policies.
-* [ ]  Validate all SQL files in `migrations/`.
-* [ ]  Pass clean DB startup smoke test (`sqlx` migrations).
-* [ ]  Pass existing DB upgrade smoke test.
-* [ ]  Verify custom data-root persistence via `config.json` bootstrap location.
-* [ ]  Confirm rollback/backup guidance for destructive migrations.
+* [ ]  Compile and run the release to validate all SQL files in `migrations/`and Pass clean DB startup smoke test .
+* [ ]  Pass existing DB upgrade smoke test by checking pages that use the updates in the database.
+* [ ]  Verify custom data-root persistence via `config.json` bootstrap location. Do this with a fresh installation.
+* [ ]  Confirm rollback/backup guidance for destructive migrations. -- Do this for the first upgrade release
 
 **CI Gate**
 
