@@ -823,12 +823,6 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
         )
     })?;
 
-    tracing::info!(
-        "Copied external file '{}' to managed directory '{}'",
-        source.display(),
-        dest.display()
-    );
-
     // Now compute the stored filepath from the copy destination
     full_path_to_stored_design_filepath(&dest.to_string_lossy())
 }
