@@ -44,7 +44,7 @@ any distributed version is available at the canonical repository URL.
 |---|---|
 | `%LOCALAPPDATA%\EmbroideryCatalogue\database\catalogue.db` | Catalogue database |
 | `%LOCALAPPDATA%\EmbroideryCatalogue\MachineEmbroideryDesigns\` | Imported embroidery files |
-| `%LOCALAPPDATA%\EmbroideryCatalogue\logs\app.log` | Application log |
+| `%LOCALAPPDATA%\EmbroideryCatalogue\logs\app.yyyy-mm-dd.log` | Application log |
 
 This data is stored outside `Program Files` so it survives upgrades and is writable
 without administrator rights.  The uninstaller offers to remove this data or leave it

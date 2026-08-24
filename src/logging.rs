@@ -28,7 +28,15 @@ pub fn init_logging(log_dir: &Path) -> Result<LogGuard, AppError> {
         ))
     })?;
 
-    let file_appender = RollingFileAppender::new(Rotation::DAILY, log_dir, "app.log");
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY)
+        .filename_prefix("app")
+        .filename_suffix("log")
+        .build(log_dir)
+        .map_err(|err| AppError::io(format!(
+            "failed to create rolling file appender in {}: {err}",
+            log_dir.display()
+        )))?;
     let (non_blocking_file, file_guard) = tracing_appender::non_blocking(file_appender);
 
     let file_layer = fmt::layer()
@@ -131,6 +139,17 @@ mod tests {
             .filter_map(|e| e.ok())
             .collect();
         assert!(!entries.is_empty(), "At least one log file should exist");
+
+        // The rolled file must be named `app.<yyyy-mm-dd>.log` so it sorts by
+        // date and opens with the OS default `.log` handler.
+        for entry in &entries {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            assert!(
+                name.starts_with("app.") && name.ends_with(".log"),
+                "log file must be named app.<yyyy-mm-dd>.log, got: {name}"
+            );
+        }
 
         // Drop the guard so pending writes are flushed.
         drop(guard);

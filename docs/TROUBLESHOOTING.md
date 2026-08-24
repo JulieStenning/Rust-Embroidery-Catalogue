@@ -27,7 +27,7 @@ closes immediately, or a Command Prompt window stays open with an error message.
 **Common causes and fixes:**
 
 > **Where logs live:** once the app has started, the runtime log is written to
-> `<data_root>\logs\app.log`.  The data root depends on the execution mode:
+> `<data_root>\logs\app.yyyy-mm-dd.log`.  The data root depends on the execution mode:
 >
 > - **Developer / dev mode (`cargo tauri dev`):** `target\debug\Data\`
 > - **Portable (SD card / USB):** the `Data\` folder next to the executable
