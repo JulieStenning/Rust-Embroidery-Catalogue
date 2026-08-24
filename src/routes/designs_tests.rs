@@ -526,6 +526,157 @@ async fn test_pool() -> SqlitePool {
 }
 
 #[tokio::test]
+async fn get_designs_page_with_pool_returns_paginated_page_and_total() {
+    let pool = test_pool().await;
+
+    // Seed 12 more designs. Names chosen so the default (filename) sort order
+    // differs from insertion order, proving the backend actually sorts.
+    for name in [
+        "alpha.pes",
+        "zeta.pes",
+        "beta.pes",
+        "gamma.pes",
+        "delta.pes",
+        "epsilon.pes",
+        "kappa.pes",
+        "lambda.pes",
+        "mu.pes",
+        "nu.pes",
+        "theta.pes",
+        "omega.pes",
+    ]
+    .iter()
+    {
+        let filepath = format!("Folder/{name}");
+        sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES (?, ?, NULL)")
+            .bind(name)
+            .bind(filepath)
+            .execute(&pool)
+            .await
+            .expect("seed design");
+    }
+
+    // Give the first design (rose.pes, id 1) two tags + a project so we can
+    // assert that aggregation only happens on the returned page rows.
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .expect("seed design tag");
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .expect("seed design tag");
+    sqlx::query("INSERT INTO project_designs (project_id, design_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .expect("seed project design");
+
+    // Page 1: first 5 of 13 (rose.pes + 12) sorted by filename.
+    let page1 = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            page: Some(1),
+            page_size: Some(5),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("paged query should succeed");
+
+    assert_eq!(page1.total, 13);
+    assert_eq!(page1.total_pages, 3);
+    assert_eq!(page1.page, 1);
+    assert_eq!(page1.page_size, 5);
+    assert_eq!(page1.items.len(), 5);
+    assert_eq!(page1.items[0].filename, "alpha.pes");
+    assert_eq!(page1.items[4].filename, "gamma.pes");
+
+    // rose.pes sorts 11th, so it lands on page 3 with its aggregated tags.
+    let page3 = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            page: Some(3),
+            page_size: Some(5),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("page 3 should succeed");
+
+    assert_eq!(page3.page, 3);
+    assert_eq!(page3.items.len(), 3);
+    let rose = page3
+        .items
+        .iter()
+        .find(|item| item.id == 1)
+        .expect("rose.pes should be on page 3");
+    assert!(rose.tags.iter().any(|t| t == "Flowers"));
+    assert!(rose.tags.iter().any(|t| t == "Satin Stitch"));
+    assert!(rose.image_tags.iter().any(|t| t == "Flowers"));
+    assert!(rose.stitching_tags.iter().any(|t| t == "Satin Stitch"));
+    assert_eq!(rose.projects, vec!["Summer Quilt".to_string()]);
+}
+
+#[tokio::test]
+async fn get_designs_page_with_pool_supports_backend_sorting() {
+    let pool = test_pool().await;
+
+    sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES ('a.pes', 'a.pes', 5)")
+        .execute(&pool)
+        .await
+        .expect("seed design");
+    sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES ('b.pes', 'b.pes', 1)")
+        .execute(&pool)
+        .await
+        .expect("seed design");
+    sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES ('c.pes', 'c.pes', 3)")
+        .execute(&pool)
+        .await
+        .expect("seed design");
+
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            sort_by: Some("rating".to_string()),
+            sort_dir: Some("desc".to_string()),
+            page: Some(1),
+            page_size: Some(10),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("sort query should succeed");
+
+    // rose.pes has NULL rating -> COALESCE(d.rating, -1), so it sorts last.
+    assert_eq!(result.items[0].filename, "a.pes");
+    assert_eq!(result.items[1].filename, "c.pes");
+    assert_eq!(result.items[2].filename, "b.pes");
+    assert_eq!(result.items[3].filename, "rose.pes");
+}
+
+#[tokio::test]
+async fn get_designs_page_with_pool_clamps_page_to_valid_range() {
+    let pool = test_pool().await;
+
+    // Only rose.pes exists (total 1), page_size 5 -> total_pages 1.
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            page: Some(99),
+            page_size: Some(5),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query should succeed");
+
+    assert_eq!(result.total, 1);
+    assert_eq!(result.total_pages, 1);
+    assert_eq!(result.page, 1);
+    assert_eq!(result.items.len(), 1);
+}
+
+#[tokio::test]
 async fn update_design_metadata_updates_core_fields() {
     let pool = test_pool().await;
 

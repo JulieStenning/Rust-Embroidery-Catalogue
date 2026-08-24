@@ -171,8 +171,71 @@ const wireCard = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-/** Wraps items in an AdapterListResponse. */
-const browseResponse = (items: unknown[] = []) => ({ source: "rust", items });
+/** Wraps items in an AdapterListResponse (with pagination fields). */
+const browseResponse = (items: unknown[] = []) => ({
+  source: "rust",
+  items,
+  page: 1,
+  page_size: 50,
+  total: items.length,
+  total_pages: Math.max(1, Math.ceil(items.length / 50)),
+});
+
+/**
+ * Configure getBrowseDesigns to behave like the paginated Rust backend for the
+ * small fixture sets used by the browse filter/sort tests: it applies the
+ * search/filter payload and sorts by filename asc/desc before returning.
+ */
+function mockBackendDesigns(all: Array<Record<string, unknown>>) {
+  adapterMock.getBrowseDesigns.mockImplementation(
+    async (payload: Record<string, unknown> = {}) => {
+      let items = all;
+      const q = String(payload?.q || "").trim();
+      if (q) {
+        const searchFile = payload.search_file_name !== false;
+        items = items.filter((item) => {
+          if (searchFile && String(item.filename || "").toLowerCase().includes(q.toLowerCase())) {
+            return true;
+          }
+          return false;
+        });
+      }
+      if (payload.unverified_only) {
+        items = items.filter(
+          (item) => !(item.image_tags_verified && item.stitching_tags_verified)
+        );
+      }
+      const af = (payload.additional_filters || {}) as Record<string, unknown>;
+      const designers = Array.isArray(af.designer_filters)
+        ? af.designer_filters.map(String)
+        : [];
+      if (designers.length > 0) {
+        const set = new Set(designers.map((d) => d.toLowerCase().trim()));
+        items = items.filter((item) =>
+          set.has(String(item.designer || "").toLowerCase().trim())
+        );
+      }
+      const minRating = Number(af.min_rating ?? 0);
+      if (minRating >= 1) {
+        items = items.filter((item) => Number(item.rating ?? 0) >= minRating);
+      }
+      const dir = String(payload.sort_dir || "asc") === "desc" ? -1 : 1;
+      items = [...items].sort((a, b) =>
+        String(a.filename || "").localeCompare(String(b.filename || ""), undefined, {
+          sensitivity: "base",
+        }) * dir
+      );
+      return {
+        source: "rust",
+        page: 1,
+        page_size: 50,
+        total: items.length,
+        total_pages: Math.max(1, Math.ceil(items.length / 50)),
+        items,
+      };
+    }
+  );
+}
 
 /** Full DesignDetail fixture used by the design-detail route test. */
 const baseDetail = {
@@ -625,13 +688,11 @@ describe("browse card rendering", () => {
 // Browse: filtering, search and sorting
 // ---------------------------------------------------------------------------
 describe("browse filtering and search", () => {
-  it("filters the grid client-side as the user types in the general search box", async () => {
-    adapterMock.getBrowseDesigns.mockResolvedValue(
-      browseResponse([
-        wireCard({ id: 1, filename: "rose.pes", hoop: "Hoop A" }),
-        wireCard({ id: 2, filename: "tulip.pes", hoop: "Hoop B" }),
-      ])
-    );
+  it("filters the grid via the general search box when the form is submitted", async () => {
+    mockBackendDesigns([
+      wireCard({ id: 1, filename: "rose.pes", hoop: "Hoop A" }),
+      wireCard({ id: 2, filename: "tulip.pes", hoop: "Hoop B" }),
+    ]);
 
     const { container } = renderAtHash("#/designs");
 
@@ -641,6 +702,7 @@ describe("browse filtering and search", () => {
 
     const searchInput = container.querySelector<HTMLInputElement>("#browse-q");
     await fireEvent.input(element(searchInput), { target: { value: "tulip" } });
+    await fireEvent.submit(element(searchInput).closest("form") as HTMLFormElement);
 
     await waitFor(() => {
       expect(screen.getByText("tulip.pes")).toBeInTheDocument();
@@ -649,22 +711,20 @@ describe("browse filtering and search", () => {
   });
 
   it("applies the unverified-only filter when the checkbox is toggled", async () => {
-    adapterMock.getBrowseDesigns.mockResolvedValue(
-      browseResponse([
-        wireCard({
-          id: 1,
-          filename: "verified.pes",
-          image_tags_verified: true,
-          stitching_tags_verified: true,
-        }),
-        wireCard({
-          id: 2,
-          filename: "unverified.pes",
-          image_tags_verified: false,
-          stitching_tags_verified: false,
-        }),
-      ])
-    );
+    mockBackendDesigns([
+      wireCard({
+        id: 1,
+        filename: "verified.pes",
+        image_tags_verified: true,
+        stitching_tags_verified: true,
+      }),
+      wireCard({
+        id: 2,
+        filename: "unverified.pes",
+        image_tags_verified: false,
+        stitching_tags_verified: false,
+      }),
+    ]);
 
     const { container } = renderAtHash("#/designs");
 
@@ -684,13 +744,11 @@ describe("browse filtering and search", () => {
   });
 
   it("sorts ascending by default and descends when direction changes", async () => {
-    adapterMock.getBrowseDesigns.mockResolvedValue(
-      browseResponse([
-        wireCard({ id: 3, filename: "cherry.pes", hoop: "Hoop" }),
-        wireCard({ id: 1, filename: "apple.pes", hoop: "Hoop" }),
-        wireCard({ id: 2, filename: "bee.pes", hoop: "Hoop" }),
-      ])
-    );
+    mockBackendDesigns([
+      wireCard({ id: 3, filename: "cherry.pes", hoop: "Hoop" }),
+      wireCard({ id: 1, filename: "apple.pes", hoop: "Hoop" }),
+      wireCard({ id: 2, filename: "bee.pes", hoop: "Hoop" }),
+    ]);
 
     const { container } = renderAtHash("#/designs");
 
@@ -710,12 +768,10 @@ describe("browse filtering and search", () => {
   });
 
   it("filters by minimum rating using the rating select", async () => {
-    adapterMock.getBrowseDesigns.mockResolvedValue(
-      browseResponse([
-        wireCard({ id: 1, filename: "four.pes", hoop: "Hoop", rating: 4 }),
-        wireCard({ id: 2, filename: "two.pes", hoop: "Hoop", rating: 2 }),
-      ])
-    );
+    mockBackendDesigns([
+      wireCard({ id: 1, filename: "four.pes", hoop: "Hoop", rating: 4 }),
+      wireCard({ id: 2, filename: "two.pes", hoop: "Hoop", rating: 2 }),
+    ]);
 
     renderAtHash("#/designs");
 
@@ -738,12 +794,10 @@ describe("browse filtering and search", () => {
     adapterMock.listDesigners.mockResolvedValue(
       browseResponse([{ id: 1, name: "Rose Studio", design_count: 1 }])
     );
-    adapterMock.getBrowseDesigns.mockResolvedValue(
-      browseResponse([
-        wireCard({ id: 1, filename: "rose.pes", designer: "Rose Studio", hoop: "Hoop" }),
-        wireCard({ id: 2, filename: "tulip.pes", designer: "Mock", hoop: "Hoop" }),
-      ])
-    );
+    mockBackendDesigns([
+      wireCard({ id: 1, filename: "rose.pes", designer: "Rose Studio", hoop: "Hoop" }),
+      wireCard({ id: 2, filename: "tulip.pes", designer: "Mock", hoop: "Hoop" }),
+    ]);
 
     const { container } = renderAtHash("#/designs");
 
@@ -856,14 +910,27 @@ describe("browse filtering and search", () => {
 // ---------------------------------------------------------------------------
 describe("browse pagination", () => {
   it("paginates a large design set and navigates to the next page", async () => {
-    const many = Array.from({ length: 60 }, (_, index) =>
+    const all = Array.from({ length: 60 }, (_, index) =>
       wireCard({
         id: index + 1,
         filename: `design-${String(index + 1).padStart(3, "0")}.pes`,
         hoop: "Hoop",
       })
     );
-    adapterMock.getBrowseDesigns.mockResolvedValue(browseResponse(many));
+    const PAGE_SIZE = 50;
+    // Backend-paginated mock: return only the requested page's items.
+    adapterMock.getBrowseDesigns.mockImplementation(async (payload: any) => {
+      const requestedPage = Math.max(1, Number(payload?.page ?? 1));
+      const start = (requestedPage - 1) * PAGE_SIZE;
+      return {
+        source: "rust",
+        page: requestedPage,
+        page_size: PAGE_SIZE,
+        total: all.length,
+        total_pages: Math.max(1, Math.ceil(all.length / PAGE_SIZE)),
+        items: all.slice(start, start + PAGE_SIZE),
+      };
+    });
 
     renderAtHash("#/designs");
 

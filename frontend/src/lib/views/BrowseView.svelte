@@ -32,7 +32,7 @@
   /** @typedef {import("../types/ipc").MutationPatch} MutationPatch */
   /** @typedef {{ persisted: boolean, deleted_count: number, files_trashed: number, errors?: Array<string> }} BulkDeleteResult */
   /** @typedef {{ q: string, allWords: string, exactPhrase: string, anyWords: string, noneWords: string, filename: string, designerFilters: Array<string>, imageTagFilters: Array<string>, stitchingTagFilters: Array<string>, hoop: string, sourceFilters: Array<string>, rating: string, stitched: string, unverifiedOnly: boolean, searchFilename: boolean, searchTags: boolean, searchFolder: boolean, sortBy: string, sortDir: string }} BrowseFilterState */
-  /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: Array<string> | string, folder?: string, date_added?: string }} BrowseCardInput */
+  /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: Array<string> | string, folder?: string, date_added?: string | null }} BrowseCardInput */
   /** @typedef {{ persisted: boolean, updated_count?: number, updated?: number, error?: string }} BulkSetTagsResult */
   /** @typedef {{ persisted: boolean, added_count?: number, updated?: number, error?: string }} BulkAddToProjectResult */
   /** @typedef {{ persisted: boolean, verified_count?: number, updated?: number, error?: string }} BulkVerifyResult */
@@ -91,6 +91,8 @@
   let browsePreviewsLoading = $state(false);
   let browsePreviewRequestCounter = 0;
   let browseCurrentPage = $state(1);
+  let browseTotal = $state(0);
+  let browseTotalPages = $state(1);
   let browseAdditionalFiltersOpen = $state(false);
   /** @type {SvelteSet<number>} */
   let browseSelectedIds = $state(new SvelteSet());
@@ -174,66 +176,6 @@
       browseFilters.sortBy === "name" &&
       browseFilters.sortDir === "asc"
   );
-
-  // Browse Search Parser
-  /** @param {string} queryString */
-  function parseQueryWithOr(queryString) {
-    const query = String(queryString || "").trim();
-    if (!query) {
-      return [];
-    }
-
-    const orParts = query.split(/\bOR\b/);
-    const groups = [];
-
-    for (const part of orParts) {
-      const terms = [];
-      const regex = /"([^"]+)"|(-?\S+)/g;
-      let match;
-
-      while ((match = regex.exec(part)) !== null) {
-        if (match[1]) {
-          terms.push({ text: match[1], phrase: true, exclude: false });
-        } else if (match[2]) {
-          const rawTerm = match[2];
-          const exclude = rawTerm.startsWith("-");
-          const text = exclude ? rawTerm.slice(1) : rawTerm;
-          if (text) {
-            terms.push({ text, phrase: false, exclude });
-          }
-        }
-      }
-
-      if (terms.length > 0) {
-        groups.push(terms);
-      }
-    }
-
-    return groups;
-  }
-
-  /** @param {string} term */
-  function isWildcardPattern(term) {
-    return term.includes("*") || term.includes("?");
-  }
-
-  /** @param {string} fieldValue @param {string} term */
-  function matchesTerm(fieldValue, term) {
-    const val = String(fieldValue || "").toLowerCase();
-    const pat = String(term || "").toLowerCase();
-
-    if (isWildcardPattern(pat)) {
-      const escaped = pat.replace(/[-/\\^$*+?.()|[\]{}]/g, (char) => {
-        if (char === "*") return ".*";
-        if (char === "?") return ".";
-        return "\\" + char;
-      });
-      const regex = new RegExp("^" + escaped + "$");
-      return regex.test(val);
-    }
-
-    return val.includes(pat);
-  }
 
   /** @param {string} filepath */
   function extractFolder(filepath) {
@@ -324,52 +266,6 @@
     };
   }
 
-  /** @param {BrowseDesignCard} left @param {BrowseDesignCard} right @param {string} sortBy @param {string} sortDir */
-  function compareBrowseItems(left, right, sortBy, sortDir) {
-    const directionMultiplier = sortDir === "desc" ? -1 : 1;
-
-    if (sortBy === "rating") {
-      const scoreLeft = left.rating ?? -1;
-      const scoreRight = right.rating ?? -1;
-      if (scoreLeft !== scoreRight) {
-        return (scoreLeft - scoreRight) * directionMultiplier;
-      }
-    }
-
-    if (sortBy === "stitched") {
-      const stitchedLeft = left.isStitched ? 1 : 0;
-      const stitchedRight = right.isStitched ? 1 : 0;
-      if (stitchedLeft !== stitchedRight) {
-        return (stitchedLeft - stitchedRight) * directionMultiplier;
-      }
-    }
-
-    if (sortBy === "folder") {
-      const folderLeft = left.folder;
-      const folderRight = right.folder;
-      const comp = folderLeft.localeCompare(folderRight, undefined, { sensitivity: "base" });
-      if (comp !== 0) {
-        return comp * directionMultiplier;
-      }
-    }
-
-    if (sortBy === "date_added") {
-      const dateLeft = left.dateAdded;
-      const dateRight = right.dateAdded;
-      const comp = dateLeft.localeCompare(dateRight);
-      if (comp !== 0) {
-        return comp * directionMultiplier;
-      }
-    }
-
-    // Default sorting (name/filename)
-    const nameLeft = left.filename;
-    const nameRight = right.filename;
-    return (
-      nameLeft.localeCompare(nameRight, undefined, { sensitivity: "base" }) * directionMultiplier
-    );
-  }
-
   /** @param {keyof BrowseFilterState} key @param {BrowseFilterState[keyof BrowseFilterState]} value */
   function updateBrowseFilter(key, value) {
     browseFilters = {
@@ -377,15 +273,13 @@
       [key]: value,
     };
     browseCurrentPage = 1;
-    if (
-      key === "searchFilename" ||
-      key === "searchTags" ||
-      key === "searchFolder" ||
-      key === "unverifiedOnly" ||
-      (key === "q" && !value)
-    ) {
-      loadBrowseItems(true);
+    // The backend is authoritative for filtering and sorting, so every filter
+    // change must re-query it. The live `q` input is deferred to form submit
+    // (except when it is cleared, which resets immediately).
+    if (key === "q" && value) {
+      return;
     }
+    loadBrowseItems(true);
   }
 
   function clearBrowseFilters() {
@@ -427,6 +321,10 @@
         search_tags: browseFilters.searchTags,
         search_folder_name: browseFilters.searchFolder,
         unverified_only: browseFilters.unverifiedOnly,
+        page: browseCurrentPage,
+        page_size: browsePageSize,
+        sort_by: browseFilters.sortBy,
+        sort_dir: browseFilters.sortDir,
         additional_filters: {
           designer_filters: Array.isArray(browseFilters.designerFilters)
             ? browseFilters.designerFilters
@@ -449,10 +347,15 @@
       const rawItems = getResponseItems(result);
       const normalizedItems = rawItems.map(normalizeCardItem).filter((item) => item !== null);
       browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
+      browseTotal = Math.max(0, Number(result?.total ?? 0));
+      browseTotalPages = Math.max(1, Number(result?.total_pages ?? 1));
+      browseCurrentPage = Math.max(1, Number(result?.page ?? browseCurrentPage));
       browseHasLoaded = true;
     } catch {
       browseHasLoaded = true;
       browseItems = [];
+      browseTotal = 0;
+      browseTotalPages = 1;
     } finally {
       browseLoading = false;
     }
@@ -608,144 +511,17 @@
   }
 
   // Derived Browse Computations
-  let browseFilteredItems = $derived(
-    (() => {
-      let filtered = [...browseItems];
-
-      // general search parsing
-      const queryGroups = parseQueryWithOr(browseFilters.q);
-      if (queryGroups.length > 0) {
-        filtered = filtered.filter((item) => {
-          return queryGroups.some((group) => {
-            return group.every((term) => {
-              const activeFields = /** @type {string[]} */ ([]);
-              if (browseFilters.searchFilename) activeFields.push(item.filename);
-              if (browseFilters.searchTags) activeFields.push(...item.tags);
-              if (browseFilters.searchFolder) activeFields.push(item.folder);
-
-              const termMatchesAnyField = activeFields.some((field) =>
-                matchesTerm(field, term.text)
-              );
-              return term.exclude ? !termMatchesAnyField : termMatchesAnyField;
-            });
-          });
-        });
-      }
-
-      // specific filters
-      /** @type {string[]} */
-      const designerFilters = Array.isArray(browseFilters.designerFilters)
-        ? browseFilters.designerFilters
-        : [];
-      if (designerFilters.length > 0) {
-        const activeDesigners = new Set(designerFilters.map((d) => String(d).toLowerCase().trim()));
-        filtered = filtered.filter((item) =>
-          activeDesigners.has(String(item.designer).toLowerCase().trim())
-        );
-      }
-
-      /** @type {string[]} */
-      const imageTagFilters = Array.isArray(browseFilters.imageTagFilters)
-        ? browseFilters.imageTagFilters
-        : [];
-      if (imageTagFilters.length > 0) {
-        const activeImageTags = new Set(
-          imageTagFilters.map(/** @param {string} tag */ (tag) => String(tag).toLowerCase().trim())
-        );
-        filtered = filtered.filter((item) => {
-          const itemImageTags = Array.isArray(item.imageTags) ? item.imageTags : [];
-          return itemImageTags.some(
-            /** @param {string} tag */ (tag) =>
-              activeImageTags.has(String(tag).toLowerCase().trim())
-          );
-        });
-      }
-
-      /** @type {string[]} */
-      const stitchingTagFilters = Array.isArray(browseFilters.stitchingTagFilters)
-        ? browseFilters.stitchingTagFilters
-        : [];
-      if (stitchingTagFilters.length > 0) {
-        const activeStitchingTags = new Set(
-          stitchingTagFilters.map(
-            /** @param {string} tag */ (tag) => String(tag).toLowerCase().trim()
-          )
-        );
-        filtered = filtered.filter((item) => {
-          const itemStitchingTags = Array.isArray(item.stitchingTags) ? item.stitchingTags : [];
-          return itemStitchingTags.some(
-            /** @param {string} tag */ (tag) =>
-              activeStitchingTags.has(String(tag).toLowerCase().trim())
-          );
-        });
-      }
-
-      /** @type {string[]} */
-      const sourceFilters = Array.isArray(browseFilters.sourceFilters)
-        ? browseFilters.sourceFilters
-        : [];
-      if (sourceFilters.length > 0) {
-        const activeSources = new Set(sourceFilters.map((s) => String(s).toLowerCase().trim()));
-        filtered = filtered.filter((item) =>
-          activeSources.has(String(item.source).toLowerCase().trim())
-        );
-      }
-
-      const hoopVal = String(browseFilters.hoop || "").trim();
-      if (hoopVal) {
-        filtered = filtered.filter(
-          (item) =>
-            String(item.hoop || "")
-              .toLowerCase()
-              .trim() === hoopVal.toLowerCase()
-        );
-      }
-
-      const ratingVal = String(browseFilters.rating || "").trim();
-      if (ratingVal) {
-        const score = Number(ratingVal);
-        if (Number.isFinite(score) && score >= 1) {
-          filtered = filtered.filter((item) => Number(item.rating || 0) >= score);
-        }
-      }
-
-      const stitchedVal = String(browseFilters.stitched || "").trim();
-      if (stitchedVal === "yes") {
-        filtered = filtered.filter((item) => item.isStitched);
-      } else if (stitchedVal === "no") {
-        filtered = filtered.filter((item) => !item.isStitched);
-      }
-
-      if (browseFilters.unverifiedOnly) {
-        filtered = filtered.filter(
-          (item) => !(item.imageTagsVerified && item.stitchingTagsVerified)
-        );
-      }
-
-      // Sorting
-      return filtered.sort((left, right) =>
-        compareBrowseItems(left, right, browseFilters.sortBy, browseFilters.sortDir)
-      );
-    })()
-  );
-
+  // The backend is now the single source of truth for filtering, sorting, and
+  // pagination — `browseItems` already holds the fully-filtered current page,
+  // and `browseTotal`/`browseTotalPages` come from the backend COUNT query.
   let browsePageSize = $derived(Math.max(1, (browseGridColumns || 5) * BROWSE_PAGE_ROWS));
-  let browseTotalPages = $derived(
-    Math.max(1, Math.ceil(browseFilteredItems.length / browsePageSize))
-  );
-
-  let browsePageItems = $derived(
-    (() => {
-      const startIndex = (browseCurrentPage - 1) * browsePageSize;
-      return browseFilteredItems.slice(startIndex, startIndex + browsePageSize);
-    })()
-  );
+  let browsePageItems = $derived(browseItems);
 
   let browseSelectedCount = $derived(browseSelectedIds.size);
   let browseSelectionLocked = $derived(browseDeleteConfirmOpen);
   let showBrowseBulkBar = $derived(browseSelectedCount > 0);
 
-  let totalFilteredCount = $derived(browseFilteredItems.length);
+  let totalFilteredCount = $derived(browseTotal);
   let totalCountOnPage = $derived(browsePageItems.length);
   let selectedCountOnPage = $derived(
     browsePageItems.filter((item) => browseSelectedIds.has(item.id)).length
@@ -1278,7 +1054,7 @@
     const designId = Number(item.id);
     if (!Number.isFinite(designId) || designId <= 0) return;
 
-    const ids = browseFilteredItems
+    const ids = browseItems
       .map((browseItem) => Number(browseItem?.id))
       .filter((id) => Number.isFinite(id) && id > 0);
 
@@ -1387,7 +1163,7 @@
   });
 
   $effect(() => {
-    void browseFilteredItems.length;
+    void browseTotal;
     tick().then(() => {
       untrack(() => {
         refreshBrowseGridColumns();
@@ -1711,7 +1487,7 @@
   <div bind:this={browseGridContainer} class="browse-grid-rows flex flex-col gap-5">
     {#if browseLoading && browseItems.length === 0}
       <p class="text-center py-12 text-gray-500 font-medium">Loading designs...</p>
-    {:else if browseFilteredItems.length === 0}
+    {:else if browseItems.length === 0}
       <p class="text-center py-12 text-gray-500 font-medium">No designs match your filters.</p>
     {:else}
       {#each browsePageRows as rowItems, rowIndex (rowIndex)}
@@ -1899,6 +1675,7 @@
     totalPages={browseTotalPages}
     onPageChange={(/** @type {number} */ page) => {
       browseCurrentPage = page;
+      loadBrowseItems(true);
     }}
     disabled={browseLoading}
     showFirstLast={true}

@@ -27,6 +27,7 @@ pub struct BrowseDesignSummary {
     pub image_tags_verified: bool,
     pub stitching_tags_verified: bool,
     pub rating: Option<i64>,
+    pub date_added: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -45,9 +46,10 @@ struct BrowseDesignSummaryRow {
     pub image_tags_verified: bool,
     pub stitching_tags_verified: bool,
     pub rating: Option<i64>,
+    pub date_added: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct BrowseAdditionalFiltersPayload {
     pub designer_filters: Option<Vec<String>>,
     pub image_tag_filters: Option<Vec<String>>,
@@ -58,7 +60,7 @@ pub struct BrowseAdditionalFiltersPayload {
     pub stitched_status: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct GetDesignsPayload {
     pub q: Option<String>,
     pub search_file_name: Option<bool>,
@@ -66,6 +68,19 @@ pub struct GetDesignsPayload {
     pub search_folder_name: Option<bool>,
     pub unverified_only: Option<bool>,
     pub additional_filters: Option<BrowseAdditionalFiltersPayload>,
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
+    pub sort_by: Option<String>,
+    pub sort_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BrowseDesignsPageResult {
+    pub items: Vec<BrowseDesignSummary>,
+    pub page: i64,
+    pub page_size: i64,
+    pub total: i64,
+    pub total_pages: i64,
 }
 
 fn push_where_clause(query_builder: &mut QueryBuilder<Sqlite>, has_where: &mut bool) {
@@ -74,6 +89,160 @@ fn push_where_clause(query_builder: &mut QueryBuilder<Sqlite>, has_where: &mut b
     } else {
         query_builder.push(" WHERE ");
         *has_where = true;
+    }
+}
+
+/// Map the frontend's browse sort selection to a deterministic SQL ORDER BY
+/// clause. The `filename`/`id` tiebreakers keep pagination stable across pages.
+fn browse_sort_clause(sort_by: Option<&str>, sort_dir: Option<&str>) -> String {
+    let direction = match sort_dir {
+        Some(dir) if dir.eq_ignore_ascii_case("desc") => "DESC",
+        _ => "ASC",
+    };
+
+    let column = match sort_by {
+        Some(sort) if sort.eq_ignore_ascii_case("rating") => "COALESCE(d.rating, -1)",
+        Some(sort) if sort.eq_ignore_ascii_case("stitched") => "d.is_stitched",
+        // Approximates the frontend's "folder then filename" ordering, because
+        // the parent directory name is a path prefix of `filepath`.
+        Some(sort) if sort.eq_ignore_ascii_case("folder") => "d.filepath COLLATE NOCASE",
+        Some(sort) if sort.eq_ignore_ascii_case("date_added") => "COALESCE(d.date_added, '')",
+        _ => "d.filename COLLATE NOCASE",
+    };
+
+    format!("{column} {direction}, d.filename COLLATE NOCASE ASC, d.id ASC")
+}
+
+/// Push the filter predicates shared by the COUNT, page-id, and aggregate
+/// queries. Every tag predicate uses a `d.id IN (SELECT ...)` subquery, so the
+/// outer `design_tags`/`tags` join is only needed for aggregation, never for
+/// filtering — which is what lets the COUNT and page-id queries stay cheap.
+fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDesignsPayload) {
+    let mut has_where = false;
+
+    let q_trimmed = payload
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if let Some(q) = q_trimmed {
+        let search_file = payload.search_file_name.unwrap_or(true);
+        let search_tags = payload.search_tags.unwrap_or(true);
+        let search_folder = payload.search_folder_name.unwrap_or(true);
+        let general_groups = parse_general_search_groups(q);
+
+        if search_file || search_tags || search_folder {
+            push_where_clause(query_builder, &mut has_where);
+            push_general_search_clause(
+                query_builder,
+                search_file,
+                search_tags,
+                search_folder,
+                &general_groups,
+            );
+        }
+    }
+
+    if payload.unverified_only.unwrap_or(false) {
+        push_where_clause(query_builder, &mut has_where);
+        query_builder.push("(d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)");
+    }
+
+    if let Some(ref filters) = payload.additional_filters {
+        let designer_filters = filters.designer_filters.as_deref().unwrap_or(&[]);
+        if !designer_filters.is_empty() {
+            push_where_clause(query_builder, &mut has_where);
+            query_builder.push("(");
+            for (index, value) in designer_filters.iter().enumerate() {
+                if index > 0 {
+                    query_builder.push(" OR ");
+                }
+                query_builder.push("LOWER(COALESCE(designers.name, 'Unknown')) = ");
+                query_builder.push_bind(value.trim().to_lowercase());
+            }
+            query_builder.push(")");
+        }
+
+        let image_tag_filters = filters.image_tag_filters.as_deref().unwrap_or(&[]);
+        if !image_tag_filters.is_empty() {
+            push_where_clause(query_builder, &mut has_where);
+            query_builder.push("d.id IN (");
+            query_builder.push(
+                "SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ",
+            );
+            query_builder.push("lower(COALESCE(tags.tag_group, '')) != 'stitching' AND (");
+            for (index, value) in image_tag_filters.iter().enumerate() {
+                if index > 0 {
+                    query_builder.push(" OR ");
+                }
+                query_builder.push("LOWER(tags.description) = ");
+                query_builder.push_bind(value.trim().to_lowercase());
+            }
+            query_builder.push(")");
+            query_builder.push(")");
+        }
+
+        let stitching_tag_filters = filters.stitching_tag_filters.as_deref().unwrap_or(&[]);
+        if !stitching_tag_filters.is_empty() {
+            push_where_clause(query_builder, &mut has_where);
+            query_builder.push("d.id IN (");
+            query_builder.push(
+                "SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ",
+            );
+            query_builder.push("lower(COALESCE(tags.tag_group, '')) = 'stitching' AND (");
+            for (index, value) in stitching_tag_filters.iter().enumerate() {
+                if index > 0 {
+                    query_builder.push(" OR ");
+                }
+                query_builder.push("LOWER(tags.description) = ");
+                query_builder.push_bind(value.trim().to_lowercase());
+            }
+            query_builder.push(")");
+            query_builder.push(")");
+        }
+
+        let source_filters = filters.source_filters.as_deref().unwrap_or(&[]);
+        if !source_filters.is_empty() {
+            push_where_clause(query_builder, &mut has_where);
+            query_builder.push("(");
+            for (index, value) in source_filters.iter().enumerate() {
+                if index > 0 {
+                    query_builder.push(" OR ");
+                }
+                query_builder.push("LOWER(COALESCE(sources.name, 'Unknown')) = ");
+                query_builder.push_bind(value.trim().to_lowercase());
+            }
+            query_builder.push(")");
+        }
+
+        if let Some(ref hoop_size) = filters.hoop_size {
+            let hoop_size_trimmed = hoop_size.trim();
+            if !hoop_size_trimmed.is_empty() {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("LOWER(COALESCE(hoops.name, '')) = ");
+                query_builder.push_bind(hoop_size_trimmed.to_lowercase());
+            }
+        }
+
+        if let Some(min_rating) = filters.min_rating {
+            if min_rating >= 1 {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.rating >= ");
+                query_builder.push_bind(min_rating);
+            }
+        }
+
+        if let Some(ref stitched_status) = filters.stitched_status {
+            let stitched_status_trimmed = stitched_status.trim();
+            if !stitched_status_trimmed.is_empty() && stitched_status_trimmed != "all" {
+                push_where_clause(query_builder, &mut has_where);
+                if stitched_status_trimmed == "yes" {
+                    query_builder.push("d.is_stitched = 1");
+                } else {
+                    query_builder.push("d.is_stitched = 0");
+                }
+            }
+        }
     }
 }
 
@@ -1755,8 +1924,74 @@ fn push_general_search_clause(
 pub async fn get_designs(
     state: State<'_, AppState>,
     payload: Option<GetDesignsPayload>,
-) -> Result<Vec<BrowseDesignSummary>, String> {
-    let mut query_builder = QueryBuilder::<Sqlite>::new(
+) -> Result<BrowseDesignsPageResult, String> {
+    get_designs_page_with_pool(&state.db, payload).await
+}
+
+async fn get_designs_page_with_pool(
+    pool: &SqlitePool,
+    payload: Option<GetDesignsPayload>,
+) -> Result<BrowseDesignsPageResult, String> {
+    let payload = payload.unwrap_or_default();
+    let page = payload.page.unwrap_or(1).max(1);
+    let page_size = payload.page_size.unwrap_or(50).clamp(1, 500);
+    let sort_clause = browse_sort_clause(payload.sort_by.as_deref(), payload.sort_dir.as_deref());
+
+    // 1. Total count for the pagination controls.
+    let mut count_builder = QueryBuilder::<Sqlite>::new(
+        "SELECT COUNT(*) FROM designs d \
+         LEFT JOIN designers ON designers.id = d.designer_id \
+         LEFT JOIN sources ON sources.id = d.source_id \
+         LEFT JOIN hoops ON hoops.id = d.hoop_id",
+    );
+    push_browse_filters(&mut count_builder, &payload);
+    let total: i64 = count_builder
+        .build_query_scalar()
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let total_pages = if total == 0 {
+        1
+    } else {
+        (total + page_size - 1) / page_size
+    };
+    let normalized_page = page.min(total_pages.max(1));
+    let offset = (normalized_page - 1) * page_size;
+
+    // 2. Page ids (cheap: no tag aggregation).
+    let mut ids_builder = QueryBuilder::<Sqlite>::new(
+        "SELECT d.id FROM designs d \
+         LEFT JOIN designers ON designers.id = d.designer_id \
+         LEFT JOIN sources ON sources.id = d.source_id \
+         LEFT JOIN hoops ON hoops.id = d.hoop_id",
+    );
+    push_browse_filters(&mut ids_builder, &payload);
+    ids_builder.push(" ORDER BY ");
+    ids_builder.push(sort_clause.as_str());
+    ids_builder.push(" LIMIT ");
+    ids_builder.push_bind(page_size);
+    ids_builder.push(" OFFSET ");
+    ids_builder.push_bind(offset);
+
+    let page_ids: Vec<i64> = ids_builder
+        .build_query_scalar()
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if page_ids.is_empty() {
+        return Ok(BrowseDesignsPageResult {
+            items: Vec::new(),
+            page: normalized_page,
+            page_size,
+            total,
+            total_pages,
+        });
+    }
+
+    // 3. Aggregate tags/projects only for the page's ids.
+    let mut agg_builder = QueryBuilder::<Sqlite>::new(
         r#"
         SELECT
             d.id AS id,
@@ -1777,145 +2012,29 @@ pub async fn get_designs(
             d.is_stitched AS is_stitched,
             d.image_tags_verified AS image_tags_verified,
             d.stitching_tags_verified AS stitching_tags_verified,
-            d.rating AS rating
+            d.rating AS rating,
+            d.date_added AS date_added
         FROM designs d
         LEFT JOIN designers ON designers.id = d.designer_id
         LEFT JOIN sources ON sources.id = d.source_id
         LEFT JOIN hoops ON hoops.id = d.hoop_id
         LEFT JOIN design_tags ON design_tags.design_id = d.id
         LEFT JOIN tags ON tags.id = design_tags.tag_id
+        WHERE d.id IN (
         "#,
     );
-
-    let mut has_where = false;
-
-    if let Some(ref p) = payload {
-        let q_trimmed =
-            p.q.as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty());
-        if let Some(q) = q_trimmed {
-            let search_file = p.search_file_name.unwrap_or(true);
-            let search_tags = p.search_tags.unwrap_or(true);
-            let search_folder = p.search_folder_name.unwrap_or(true);
-            let general_groups = parse_general_search_groups(q);
-
-            if search_file || search_tags || search_folder {
-                push_where_clause(&mut query_builder, &mut has_where);
-                push_general_search_clause(
-                    &mut query_builder,
-                    search_file,
-                    search_tags,
-                    search_folder,
-                    &general_groups,
-                );
-            }
-        }
-
-        if p.unverified_only.unwrap_or(false) {
-            push_where_clause(&mut query_builder, &mut has_where);
-            query_builder.push("(d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)");
-        }
-
-        if let Some(ref filters) = p.additional_filters {
-            let designer_filters = filters.designer_filters.as_deref().unwrap_or(&[]);
-            if !designer_filters.is_empty() {
-                push_where_clause(&mut query_builder, &mut has_where);
-                query_builder.push("(");
-                for (index, value) in designer_filters.iter().enumerate() {
-                    if index > 0 {
-                        query_builder.push(" OR ");
-                    }
-                    query_builder.push("LOWER(COALESCE(designers.name, 'Unknown')) = ");
-                    query_builder.push_bind(value.trim().to_lowercase());
-                }
-                query_builder.push(")");
-            }
-
-            let image_tag_filters = filters.image_tag_filters.as_deref().unwrap_or(&[]);
-            if !image_tag_filters.is_empty() {
-                push_where_clause(&mut query_builder, &mut has_where);
-                query_builder.push("d.id IN (");
-                query_builder.push("SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ");
-                query_builder.push("lower(COALESCE(tags.tag_group, '')) != 'stitching' AND (");
-                for (index, value) in image_tag_filters.iter().enumerate() {
-                    if index > 0 {
-                        query_builder.push(" OR ");
-                    }
-                    query_builder.push("LOWER(tags.description) = ");
-                    query_builder.push_bind(value.trim().to_lowercase());
-                }
-                query_builder.push(")");
-                query_builder.push(")");
-            }
-
-            let stitching_tag_filters = filters.stitching_tag_filters.as_deref().unwrap_or(&[]);
-            if !stitching_tag_filters.is_empty() {
-                push_where_clause(&mut query_builder, &mut has_where);
-                query_builder.push("d.id IN (");
-                query_builder.push("SELECT design_id FROM design_tags JOIN tags ON tags.id = design_tags.tag_id WHERE ");
-                query_builder.push("lower(COALESCE(tags.tag_group, '')) = 'stitching' AND (");
-                for (index, value) in stitching_tag_filters.iter().enumerate() {
-                    if index > 0 {
-                        query_builder.push(" OR ");
-                    }
-                    query_builder.push("LOWER(tags.description) = ");
-                    query_builder.push_bind(value.trim().to_lowercase());
-                }
-                query_builder.push(")");
-                query_builder.push(")");
-            }
-
-            let source_filters = filters.source_filters.as_deref().unwrap_or(&[]);
-            if !source_filters.is_empty() {
-                push_where_clause(&mut query_builder, &mut has_where);
-                query_builder.push("(");
-                for (index, value) in source_filters.iter().enumerate() {
-                    if index > 0 {
-                        query_builder.push(" OR ");
-                    }
-                    query_builder.push("LOWER(COALESCE(sources.name, 'Unknown')) = ");
-                    query_builder.push_bind(value.trim().to_lowercase());
-                }
-                query_builder.push(")");
-            }
-
-            if let Some(ref hoop_size) = filters.hoop_size {
-                let hoop_size_trimmed = hoop_size.trim();
-                if !hoop_size_trimmed.is_empty() {
-                    push_where_clause(&mut query_builder, &mut has_where);
-                    query_builder.push("LOWER(COALESCE(hoops.name, '')) = ");
-                    query_builder.push_bind(hoop_size_trimmed.to_lowercase());
-                }
-            }
-
-            if let Some(min_rating) = filters.min_rating {
-                if min_rating >= 1 {
-                    push_where_clause(&mut query_builder, &mut has_where);
-                    query_builder.push("d.rating >= ");
-                    query_builder.push_bind(min_rating);
-                }
-            }
-
-            if let Some(ref stitched_status) = filters.stitched_status {
-                let stitched_status_trimmed = stitched_status.trim();
-                if !stitched_status_trimmed.is_empty() && stitched_status_trimmed != "all" {
-                    push_where_clause(&mut query_builder, &mut has_where);
-                    if stitched_status_trimmed == "yes" {
-                        query_builder.push("d.is_stitched = 1");
-                    } else {
-                        query_builder.push("d.is_stitched = 0");
-                    }
-                }
-            }
+    {
+        let mut separated = agg_builder.separated(", ");
+        for design_id in &page_ids {
+            separated.push_bind(*design_id);
         }
     }
+    agg_builder.push(") GROUP BY d.id ORDER BY ");
+    agg_builder.push(sort_clause.as_str());
 
-    query_builder.push(" GROUP BY d.id ORDER BY d.filename COLLATE NOCASE ASC LIMIT 500");
-
-    let rows = query_builder
+    let rows = agg_builder
         .build_query_as::<BrowseDesignSummaryRow>()
-        .fetch_all(&state.db)
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -1964,10 +2083,17 @@ pub async fn get_designs(
             image_tags_verified: row.image_tags_verified,
             stitching_tags_verified: row.stitching_tags_verified,
             rating: row.rating,
+            date_added: row.date_added,
         })
         .collect();
 
-    Ok(items)
+    Ok(BrowseDesignsPageResult {
+        items,
+        page: normalized_page,
+        page_size,
+        total,
+        total_pages,
+    })
 }
 
 #[tauri::command]

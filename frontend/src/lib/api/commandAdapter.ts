@@ -3,6 +3,7 @@ import type {
   AdapterBackfillLogEntriesResponse,
   AdapterBackupViewModelResponse,
   AdapterBrowseBackupFolderResponse,
+  AdapterBrowseDesignsPageResponse,
   AdapterBrowseImportFolderResponse,
   AdapterBrowseOrphanPathResponse,
   AdapterDeleteOrphansResponse,
@@ -222,15 +223,19 @@ function normalizeBrowseItem(
  */
 export async function getBrowseDesigns(
   payload?: SearchPayload
-): Promise<AdapterListResponse<BrowseDesignSummaryWire>> {
+): Promise<AdapterBrowseDesignsPageResponse> {
   try {
-    const designs = await invokeLoose<BrowseDesignSummaryWire[]>("get_designs", { payload });
-    if (Array.isArray(designs)) {
+    const result = await invokeLoose<LooseRecord | null | undefined>("get_designs", { payload });
+    if (result && Array.isArray(result.items)) {
       return {
-        items: designs.map((item, index) =>
+        source: "rust",
+        page: Number(result.page ?? 1),
+        page_size: Number(result.page_size ?? 50),
+        total: Number(result.total ?? 0),
+        total_pages: Number(result.total_pages ?? 1),
+        items: result.items.map((item, index) =>
           normalizeBrowseItem(item as unknown as LooseRecord, index)
         ),
-        source: "rust",
       };
     }
   } catch (error) {
@@ -238,10 +243,14 @@ export async function getBrowseDesigns(
   }
 
   return {
+    source: "mock",
+    page: 1,
+    page_size: 50,
+    total: MOCK_DESIGNS.length,
+    total_pages: Math.max(1, Math.ceil(MOCK_DESIGNS.length / 50)),
     items: MOCK_DESIGNS.map((item, index) =>
       normalizeBrowseItem(item, index, { useSeedTags: true })
     ),
-    source: "mock",
   };
 }
 

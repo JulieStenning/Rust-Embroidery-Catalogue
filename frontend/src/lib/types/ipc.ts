@@ -15,6 +15,10 @@ export interface SearchPayload {
   search_folder_name?: boolean;
   unverified_only?: boolean;
   additional_filters?: BrowseAdditionalFilters;
+  page?: number;
+  page_size?: number;
+  sort_by?: string;
+  sort_dir?: string;
 }
 
 /** Progress streamed from Rust during catalogue storage migration. */
@@ -63,6 +67,7 @@ export interface BrowseDesignSummaryWire {
   image_tags_verified: boolean;
   stitching_tags_verified: boolean;
   rating: number | null;
+  date_added?: string | null;
 }
 
 export interface BrowseDesignCard {
@@ -792,6 +797,16 @@ export interface AdapterOrphansPageResponse {
   total: number;
   total_pages: number;
   items: OrphanPageItem[];
+  error?: string;
+}
+
+export interface AdapterBrowseDesignsPageResponse {
+  source: string;
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  items: BrowseDesignSummaryWire[];
   error?: string;
 }
 

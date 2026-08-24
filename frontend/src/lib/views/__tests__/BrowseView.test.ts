@@ -93,11 +93,236 @@ interface WireDesign {
   project_names?: string[] | string;
 }
 
-/** Wrap items in an AdapterListResponse-style object. */
+/** Wrap items in an AdapterListResponse-style object (with pagination fields). */
 const listResponse = (items: unknown[] = [], source = "rust") => ({
   source,
   items,
+  page: 1,
+  page_size: 50,
+  total: items.length,
+  total_pages: Math.max(1, Math.ceil(items.length / 50)),
 });
+
+// ---------------------------------------------------------------------------
+// Backend-authority mock for getBrowseDesigns
+//
+// BrowseView now delegates filtering, sorting, and pagination to the backend
+// and simply renders the returned page. These helpers simulate the backend so
+// filter/sort tests can verify the UI wiring without a live Rust process.
+// ---------------------------------------------------------------------------
+
+function extractFolderFromPath(filepath: string): string {
+  const path = String(filepath || "")
+    .trim()
+    .replace(/\\/g, "/");
+  if (!path) return "";
+  const segments = path.split("/").filter(Boolean);
+  if (segments.length <= 1) return "";
+  return segments[segments.length - 2];
+}
+
+function parseBackendQuery(q: string): Array<Array<{ text: string; exclude: boolean }>> {
+  const query = String(q || "").trim();
+  if (!query) return [];
+  return query
+    .split(/\bOR\b/)
+    .map((part) => {
+      const terms: Array<{ text: string; exclude: boolean }> = [];
+      const regex = /"([^"]+)"|(-?\S+)/g;
+      let match;
+      while ((match = regex.exec(part)) !== null) {
+        if (match[1]) {
+          terms.push({ text: match[1], exclude: false });
+        } else if (match[2]) {
+          const rawTerm = match[2];
+          const exclude = rawTerm.startsWith("-");
+          const text = exclude ? rawTerm.slice(1) : rawTerm;
+          if (text) terms.push({ text, exclude });
+        }
+      }
+      return terms;
+    })
+    .filter((group) => group.length > 0);
+}
+
+function backendFieldMatches(field: string, token: string): boolean {
+  const val = String(field || "").toLowerCase();
+  const pat = String(token || "").toLowerCase();
+  if (pat.includes("*") || pat.includes("?")) {
+    const escaped = pat.replace(/[-/\\^$*+?.()|[\]{}]/g, (char) => {
+      if (char === "*") return ".*";
+      if (char === "?") return ".";
+      return "\\" + char;
+    });
+    return new RegExp("^" + escaped + "$").test(val);
+  }
+  return val.includes(pat);
+}
+
+function applyBackendFilter(
+  items: Array<Record<string, unknown>>,
+  payload: Record<string, unknown>
+): Array<Record<string, unknown>> {
+  let result = items;
+
+  const q = String(payload?.q || "").trim();
+  if (q) {
+    const searchFile = payload.search_file_name !== false;
+    const searchTags = payload.search_tags !== false;
+    const searchFolder = payload.search_folder_name !== false;
+    const groups = parseBackendQuery(q);
+    if (groups.length > 0) {
+      result = result.filter((item) =>
+        groups.some((group) =>
+          group.every((token) => {
+            const fields: string[] = [];
+            if (searchFile) fields.push(String(item.filename || ""));
+            if (searchTags) {
+              fields.push(...(Array.isArray(item.tags) ? item.tags.map(String) : []));
+            }
+            if (searchFolder) {
+              fields.push(extractFolderFromPath(String(item.filepath || "")));
+            }
+            const matched = fields.some((field) => backendFieldMatches(field, token.text));
+            return token.exclude ? !matched : matched;
+          })
+        )
+      );
+    }
+  }
+
+  if (payload.unverified_only) {
+    result = result.filter(
+      (item) => !(item.image_tags_verified && item.stitching_tags_verified)
+    );
+  }
+
+  const af = (payload.additional_filters || {}) as Record<string, unknown>;
+  const designerFilters = Array.isArray(af.designer_filters)
+    ? af.designer_filters.map(String)
+    : [];
+  if (designerFilters.length > 0) {
+    const set = new Set(designerFilters.map((d) => d.toLowerCase().trim()));
+    result = result.filter((item) =>
+      set.has(String(item.designer || "").toLowerCase().trim())
+    );
+  }
+
+  const imageTagFilters = Array.isArray(af.image_tag_filters)
+    ? af.image_tag_filters.map(String)
+    : [];
+  if (imageTagFilters.length > 0) {
+    const set = new Set(imageTagFilters.map((t) => t.toLowerCase().trim()));
+    result = result.filter((item) =>
+      (Array.isArray(item.image_tags) ? item.image_tags.map(String) : []).some((tag) =>
+        set.has(tag.toLowerCase().trim())
+      )
+    );
+  }
+
+  const stitchingTagFilters = Array.isArray(af.stitching_tag_filters)
+    ? af.stitching_tag_filters.map(String)
+    : [];
+  if (stitchingTagFilters.length > 0) {
+    const set = new Set(stitchingTagFilters.map((t) => t.toLowerCase().trim()));
+    result = result.filter((item) =>
+      (Array.isArray(item.stitching_tags) ? item.stitching_tags.map(String) : []).some(
+        (tag) => set.has(tag.toLowerCase().trim())
+      )
+    );
+  }
+
+  const sourceFilters = Array.isArray(af.source_filters) ? af.source_filters.map(String) : [];
+  if (sourceFilters.length > 0) {
+    const set = new Set(sourceFilters.map((s) => s.toLowerCase().trim()));
+    result = result.filter((item) =>
+      set.has(String(item.source || "").toLowerCase().trim())
+    );
+  }
+
+  const hoop = String(af.hoop_size || "").trim();
+  if (hoop) {
+    result = result.filter(
+      (item) => String(item.hoop || "").toLowerCase().trim() === hoop.toLowerCase()
+    );
+  }
+
+  const minRating = Number(af.min_rating ?? 0);
+  if (minRating >= 1) {
+    result = result.filter((item) => Number(item.rating ?? 0) >= minRating);
+  }
+
+  const stitched = String(af.stitched_status || "").trim();
+  if (stitched === "yes") result = result.filter((item) => item.is_stitched);
+  else if (stitched === "no") result = result.filter((item) => !item.is_stitched);
+
+  return result;
+}
+
+function applyBackendSort(
+  items: Array<Record<string, unknown>>,
+  sortBy: string,
+  sortDir: string
+): Array<Record<string, unknown>> {
+  const dir = sortDir === "desc" ? -1 : 1;
+  return [...items].sort((a, b) => {
+    if (sortBy === "rating") {
+      const x = Number(a.rating ?? -1);
+      const y = Number(b.rating ?? -1);
+      if (x !== y) return (x - y) * dir;
+    }
+    if (sortBy === "stitched") {
+      const x = a.is_stitched ? 1 : 0;
+      const y = b.is_stitched ? 1 : 0;
+      if (x !== y) return (x - y) * dir;
+    }
+    if (sortBy === "folder") {
+      const x = extractFolderFromPath(String(a.filepath || ""));
+      const y = extractFolderFromPath(String(b.filepath || ""));
+      const c = x.localeCompare(y, undefined, { sensitivity: "base" });
+      if (c !== 0) return c * dir;
+    }
+    if (sortBy === "date_added") {
+      const x = String(a.date_added || "");
+      const y = String(b.date_added || "");
+      const c = x.localeCompare(y);
+      if (c !== 0) return c * dir;
+    }
+    return (
+      String(a.filename || "").localeCompare(String(b.filename || ""), undefined, {
+        sensitivity: "base",
+      }) * dir
+    );
+  });
+}
+
+/** Configure getBrowseDesigns to behave like the paginated Rust backend. */
+function mockBackendDesigns(all: Array<Record<string, unknown>>) {
+  adapterMocks.getBrowseDesigns.mockImplementation(
+    async (payload: Record<string, unknown> = {}) => {
+      const filtered = applyBackendFilter(all, payload);
+      const sorted = applyBackendSort(
+        filtered,
+        String(payload.sort_by || "name"),
+        String(payload.sort_dir || "asc")
+      );
+      const pageSize = Math.max(1, Number(payload.page_size ?? 50));
+      const page = Math.max(1, Number(payload.page ?? 1));
+      const total = sorted.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const normalizedPage = Math.min(page, totalPages);
+      const start = (normalizedPage - 1) * pageSize;
+      return {
+        source: "rust",
+        page: normalizedPage,
+        page_size: pageSize,
+        total,
+        total_pages: totalPages,
+        items: sorted.slice(start, start + pageSize),
+      };
+    }
+  );
+}
 
 /** Build a normalized browse-design wire fixture. */
 const design = (overrides: Partial<WireDesign> = {}): Record<string, unknown> => ({
@@ -354,13 +579,11 @@ describe("BrowseView", () => {
 
   describe("search & query parsing", () => {
     it("filters designs with an OR-query", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", tags: ["Floral"] }),
-          design({ id: 2, filename: "leaf.pes", tags: ["Green"] }),
-          design({ id: 3, filename: "tulip.pes", tags: ["Spring"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", tags: ["Floral"] }),
+        design({ id: 2, filename: "leaf.pes", tags: ["Green"] }),
+        design({ id: 3, filename: "tulip.pes", tags: ["Spring"] }),
+      ]);
 
       renderBrowse();
 
@@ -378,12 +601,10 @@ describe("BrowseView", () => {
     });
 
     it("filters designs with an exact-phrase query", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", tags: ["cross stitch"] }),
-          design({ id: 2, filename: "leaf.pes", tags: ["applique"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", tags: ["cross stitch"] }),
+        design({ id: 2, filename: "leaf.pes", tags: ["applique"] }),
+      ]);
 
       renderBrowse();
 
@@ -398,12 +619,10 @@ describe("BrowseView", () => {
     });
 
     it("filters designs with exclusion terms", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", tags: ["floral"] }),
-          design({ id: 2, filename: "leaf.pes", tags: ["applique"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", tags: ["floral"] }),
+        design({ id: 2, filename: "leaf.pes", tags: ["applique"] }),
+      ]);
 
       renderBrowse();
 
@@ -418,12 +637,10 @@ describe("BrowseView", () => {
     });
 
     it("does not apply search to tags when searchTags is off", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", tags: ["floral"] }),
-          design({ id: 2, filename: "leaf.pes", tags: ["green"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", tags: ["floral"] }),
+        design({ id: 2, filename: "leaf.pes", tags: ["green"] }),
+      ]);
 
       renderBrowse();
 
@@ -440,13 +657,11 @@ describe("BrowseView", () => {
     });
 
     it("matches wildcard patterns (* and ?)", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes" }),
-          design({ id: 2, filename: "rose2.pes" }),
-          design({ id: 3, filename: "leaf.pes" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes" }),
+        design({ id: 2, filename: "rose2.pes" }),
+        design({ id: 3, filename: "leaf.pes" }),
+      ]);
 
       renderBrowse();
 
@@ -497,12 +712,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by designer checkbox", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", designer: "Rose Studio" }),
-          design({ id: 2, filename: "leaf.pes", designer: "Nature Co" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", designer: "Rose Studio" }),
+        design({ id: 2, filename: "leaf.pes", designer: "Nature Co" }),
+      ]);
       adapterMocks.listDesigners.mockResolvedValue(
         listResponse([entity(1, "Rose Studio"), entity(2, "Nature Co")])
       );
@@ -529,12 +742,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by image tag", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", image_tags: ["Floral"] }),
-          design({ id: 2, filename: "leaf.pes", image_tags: ["Green"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", image_tags: ["Floral"] }),
+        design({ id: 2, filename: "leaf.pes", image_tags: ["Green"] }),
+      ]);
       adapterMocks.getBrowseTags.mockResolvedValue(
         listResponse([tagOption(1, "Floral", "image"), tagOption(2, "Green", "image")])
       );
@@ -564,12 +775,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by stitching tag", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", stitching_tags: ["Satin"] }),
-          design({ id: 2, filename: "leaf.pes", stitching_tags: ["Cross"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", stitching_tags: ["Satin"] }),
+        design({ id: 2, filename: "leaf.pes", stitching_tags: ["Cross"] }),
+      ]);
       adapterMocks.getBrowseTags.mockResolvedValue(
         listResponse([tagOption(1, "Satin", "stitching"), tagOption(2, "Cross", "stitching")])
       );
@@ -599,12 +808,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by source", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", source: "Imported" }),
-          design({ id: 2, filename: "leaf.pes", source: "Purchased" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", source: "Imported" }),
+        design({ id: 2, filename: "leaf.pes", source: "Purchased" }),
+      ]);
       adapterMocks.listSources.mockResolvedValue(
         listResponse([entity(1, "Imported"), entity(2, "Purchased")])
       );
@@ -628,12 +835,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by hoop size dropdown", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", hoop: "Hoop A" }),
-          design({ id: 2, filename: "leaf.pes", hoop: "Hoop B" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", hoop: "Hoop A" }),
+        design({ id: 2, filename: "leaf.pes", hoop: "Hoop B" }),
+      ]);
       adapterMocks.listHoops.mockResolvedValue(
         listResponse([hoopEntity(1, "Hoop A"), hoopEntity(2, "Hoop B")])
       );
@@ -653,12 +858,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by minimum rating", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "five.pes", rating: 5 }),
-          design({ id: 2, filename: "two.pes", rating: 2 }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "five.pes", rating: 5 }),
+        design({ id: 2, filename: "two.pes", rating: 2 }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -678,12 +881,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by stitched status 'yes'", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "stitched.pes", is_stitched: true }),
-          design({ id: 2, filename: "plain.pes", is_stitched: false }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "stitched.pes", is_stitched: true }),
+        design({ id: 2, filename: "plain.pes", is_stitched: false }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -703,12 +904,10 @@ describe("BrowseView", () => {
     });
 
     it("filters by 'Not Stitched' status", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "stitched.pes", is_stitched: true }),
-          design({ id: 2, filename: "plain.pes", is_stitched: false }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "stitched.pes", is_stitched: true }),
+        design({ id: 2, filename: "plain.pes", is_stitched: false }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -728,22 +927,20 @@ describe("BrowseView", () => {
     });
 
     it("filters by 'unverified only' checkbox", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({
-            id: 1,
-            filename: "unverified.pes",
-            image_tags_verified: false,
-            stitching_tags_verified: false,
-          }),
-          design({
-            id: 2,
-            filename: "verified.pes",
-            image_tags_verified: true,
-            stitching_tags_verified: true,
-          }),
-        ])
-      );
+      mockBackendDesigns([
+        design({
+          id: 1,
+          filename: "unverified.pes",
+          image_tags_verified: false,
+          stitching_tags_verified: false,
+        }),
+        design({
+          id: 2,
+          filename: "verified.pes",
+          image_tags_verified: true,
+          stitching_tags_verified: true,
+        }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -774,12 +971,10 @@ describe("BrowseView", () => {
     }
 
     it("sorts by name ascending by default", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "zeta.pes" }),
-          design({ id: 2, filename: "alpha.pes" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "zeta.pes" }),
+        design({ id: 2, filename: "alpha.pes" }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -790,12 +985,10 @@ describe("BrowseView", () => {
     });
 
     it("re-renders card order when the sort dropdown changes", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "zeta.pes", rating: 2 }),
-          design({ id: 2, filename: "alpha.pes", rating: 5 }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "zeta.pes", rating: 2 }),
+        design({ id: 2, filename: "alpha.pes", rating: 5 }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -819,12 +1012,10 @@ describe("BrowseView", () => {
     });
 
     it("sorts by name descending", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "zeta.pes" }),
-          design({ id: 2, filename: "alpha.pes" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "zeta.pes" }),
+        design({ id: 2, filename: "alpha.pes" }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -845,12 +1036,10 @@ describe("BrowseView", () => {
     it("sorts by rating", async () => {
       // Data chosen so name-asc order (alpha, zeta) is opposite to rating-asc
       // order (zeta(2) before alpha(5)), proving the sort really changed.
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "zeta.pes", rating: 2 }),
-          design({ id: 2, filename: "alpha.pes", rating: 5 }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "zeta.pes", rating: 2 }),
+        design({ id: 2, filename: "alpha.pes", rating: 5 }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -867,12 +1056,10 @@ describe("BrowseView", () => {
 
     it("sorts by rating descending", async () => {
       // Same opposite-order fixture; desc rating puts alpha(5) first.
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "zeta.pes", rating: 2 }),
-          design({ id: 2, filename: "alpha.pes", rating: 5 }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "zeta.pes", rating: 2 }),
+        design({ id: 2, filename: "alpha.pes", rating: 5 }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -891,12 +1078,10 @@ describe("BrowseView", () => {
     });
 
     it("sorts by stitched status", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "stitched.pes", is_stitched: true }),
-          design({ id: 2, filename: "plain.pes", is_stitched: false }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "stitched.pes", is_stitched: true }),
+        design({ id: 2, filename: "plain.pes", is_stitched: false }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -912,12 +1097,10 @@ describe("BrowseView", () => {
     });
 
     it("sorts by folder", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "b.pes", filepath: "C:/designs/Zeta/b.pes" }),
-          design({ id: 2, filename: "a.pes", filepath: "C:/designs/Alpha/a.pes" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "b.pes", filepath: "C:/designs/Zeta/b.pes" }),
+        design({ id: 2, filename: "a.pes", filepath: "C:/designs/Alpha/a.pes" }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -933,12 +1116,10 @@ describe("BrowseView", () => {
     });
 
     it("sorts by date added", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "old.pes", date_added: "2020-01-01" }),
-          design({ id: 2, filename: "new.pes", date_added: "2026-01-01" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "old.pes", date_added: "2020-01-01" }),
+        design({ id: 2, filename: "new.pes", date_added: "2026-01-01" }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -954,12 +1135,10 @@ describe("BrowseView", () => {
     });
 
     it("sorts by date added descending", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "old.pes", date_added: "2020-01-01" }),
-          design({ id: 2, filename: "new.pes", date_added: "2026-01-01" }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "old.pes", date_added: "2020-01-01" }),
+        design({ id: 2, filename: "new.pes", date_added: "2026-01-01" }),
+      ]);
 
       renderBrowse();
       await settle();
@@ -1566,7 +1745,20 @@ describe("BrowseView", () => {
       const many = Array.from({ length: count }, (_, i) =>
         design({ id: i + 1, filename: `design-${i + 1}.pes` })
       );
-      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse(many));
+      // Backend-paginated response: echo the requested page back and compute
+      // total_pages from PAGE_SIZE, since the browse page size is now sent to
+      // the backend rather than sliced client-side.
+      adapterMocks.getBrowseDesigns.mockImplementation(async (payload: any) => {
+        const requestedPage = Math.max(1, Number(payload?.page ?? 1));
+        return {
+          source: "rust",
+          page: requestedPage,
+          page_size: PAGE_SIZE,
+          total: count,
+          total_pages: Math.max(1, Math.ceil(count / PAGE_SIZE)),
+          items: many,
+        };
+      });
       renderBrowse();
     }
 
@@ -2171,12 +2363,10 @@ describe("BrowseView", () => {
     });
 
     it("submits the search form to apply filters", async () => {
-      adapterMocks.getBrowseDesigns.mockResolvedValue(
-        listResponse([
-          design({ id: 1, filename: "rose.pes", tags: ["floral"] }),
-          design({ id: 2, filename: "leaf.pes", tags: ["green"] }),
-        ])
-      );
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", tags: ["floral"] }),
+        design({ id: 2, filename: "leaf.pes", tags: ["green"] }),
+      ]);
 
       renderBrowse();
       await settle();

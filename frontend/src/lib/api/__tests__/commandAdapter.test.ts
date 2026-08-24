@@ -159,37 +159,63 @@ describe("commandAdapter getBrowseDesigns", () => {
   beforeEach(() => invokeMock.mockReset());
 
   it("maps a Rust payload into normalized browse items", async () => {
-    invokeMock.mockResolvedValue([
-      {
-        id: 10,
-        filename: "a.pes",
-        filepath: "/a/a.pes",
-        designer: "D1",
-        source: "S1",
-        projects: ["P1"],
-        tags: ["Flowers"],
-        image_tags: ["image-tag"],
-        stitching_tags: ["stitch-tag"],
-        hoop: "Hoop A",
-        rating: "4",
-        is_stitched: true,
-        image_tags_verified: true,
-        stitching_tags_verified: true,
-      },
-      {
-        id: 11,
-        name: "b.pes",
-        project_names: "P1, P2",
-        tags: [],
-        rating: 9,
-        is_stitched: false,
-      },
-    ]);
+    invokeMock.mockResolvedValue({
+      items: [
+        {
+          id: 10,
+          filename: "a.pes",
+          filepath: "/a/a.pes",
+          designer: "D1",
+          source: "S1",
+          projects: ["P1"],
+          tags: ["Flowers"],
+          image_tags: ["image-tag"],
+          stitching_tags: ["stitch-tag"],
+          hoop: "Hoop A",
+          rating: "4",
+          is_stitched: true,
+          image_tags_verified: true,
+          stitching_tags_verified: true,
+        },
+        {
+          id: 11,
+          name: "b.pes",
+          project_names: "P1, P2",
+          tags: [],
+          rating: 9,
+          is_stitched: false,
+        },
+      ],
+      page: 2,
+      page_size: 25,
+      total: 60,
+      total_pages: 3,
+    });
 
-    const result = await getBrowseDesigns();
+    const result = await getBrowseDesigns({
+      q: "rose",
+      page: 2,
+      page_size: 25,
+      sort_by: "rating",
+      sort_dir: "desc",
+    });
 
     expect(result.source).toBe("rust");
-    expect(invokeMock).toHaveBeenCalledWith("get_designs", { payload: undefined });
+    // The payload is a nested serde struct, so its keys are snake_case exactly
+    // as the Rust GetDesignsPayload expects.
+    expect(invokeMock).toHaveBeenCalledWith("get_designs", {
+      payload: {
+        q: "rose",
+        page: 2,
+        page_size: 25,
+        sort_by: "rating",
+        sort_dir: "desc",
+      },
+    });
+    expect(result.page).toBe(2);
+    expect(result.page_size).toBe(25);
+    expect(result.total).toBe(60);
+    expect(result.total_pages).toBe(3);
     expect(result.items).toHaveLength(2);
     expect(result.items[0]).toMatchObject({
       id: 10,
