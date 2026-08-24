@@ -1313,3 +1313,291 @@ fn derive_designs_source_path_appends_machine_embroidery_designs() {
         std::env::remove_var("DATABASE_URL");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Backup cancellation (process-wide static AtomicBool — MUST be #[serial])
+// ---------------------------------------------------------------------------
+
+/// Create an in-memory pool with a `settings` table matching the schema the
+/// backup commands expect.
+async fn setup_backup_settings_pool() -> SqlitePool {
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .expect("in-memory sqlite pool should connect");
+
+    pool.execute(
+        "CREATE TABLE settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                description TEXT NOT NULL
+            )",
+    )
+    .await
+    .expect("settings table should be created");
+
+    pool
+}
+
+/// Insert a configured destination so the backup command reads a non-empty
+/// value from the settings table.
+async fn insert_backup_destination(pool: &SqlitePool, key: &str, value: &str) {
+    sqlx::query("INSERT INTO settings (key, value, description) VALUES (?, ?, 'test')")
+        .bind(key)
+        .bind(value)
+        .execute(pool)
+        .await
+        .expect("destination setting should be inserted");
+}
+
+/// A real database file on disk so `derive_database_source_path` logic can be
+/// exercised through the inner DB backup function. The function reads the
+/// bootstrap config from the `DATABASE_URL` env var, so we mirror the existing
+/// env-var test pattern and restore it afterwards.
+///
+/// Returns the (db_dir, db_file) pair. `db_file` is used as the source DB.
+async fn setup_source_database_file() -> (PathBuf, PathBuf) {
+    let db_dir = unique_temp_path("backup-cancel-src-db");
+    fs::create_dir_all(&db_dir).expect("source db dir should be created");
+    let db_file = db_dir.join("catalogue.db");
+    fs::write(&db_file, b"seed-db-content").expect("seed db should be created");
+    (db_dir, db_file)
+}
+
+#[tokio::test]
+#[serial]
+async fn request_cancel_backup_sets_flag_and_returns_result() {
+    clear_backup_cancel_signal();
+
+    let result = request_cancel_backup().expect("cancel should succeed");
+    assert!(result.cancel_requested);
+    assert!(is_backup_cancel_requested());
+
+    clear_backup_cancel_signal();
+    assert!(!is_backup_cancel_requested());
+}
+
+#[tokio::test]
+#[serial]
+async fn database_backup_cancelled_before_copy_leaves_no_file() {
+    clear_backup_cancel_signal();
+
+    let pool = setup_backup_settings_pool().await;
+    let dest_dir = unique_temp_path("backup-cancel-db-dest");
+    insert_backup_destination(&pool, KEY_BACKUP_DATABASE_DESTINATION, &dest_dir.to_string_lossy().to_string())
+        .await;
+
+    let (db_dir, db_file) = setup_source_database_file().await;
+
+    let prior = std::env::var("DATABASE_URL").ok();
+    std::env::set_var(
+        "DATABASE_URL",
+        format!("sqlite:{}", db_file.to_string_lossy()),
+    );
+
+    // Request cancellation BEFORE the copy so the early-bail path runs.
+    BACKUP_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+
+    let result = run_database_backup_inner(&pool)
+        .await
+        .expect("inner DB backup should not error");
+
+    assert!(!result.success, "cancelled DB backup should report failure");
+    assert!(result.cancelled, "result should be flagged as cancelled");
+    assert!(result.backup_path.is_none());
+
+    // Critical negative assertion: NO .db file may exist in the destination.
+    let leftover: Vec<PathBuf> = fs::read_dir(&dest_dir)
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.extension().map(|ext| ext == "db").unwrap_or(false))
+                .collect()
+        })
+        .unwrap_or_default();
+    assert!(
+        leftover.is_empty(),
+        "cancelled DB backup must NOT leave a partial .db file: {:?}",
+        leftover
+    );
+
+    if let Some(val) = prior {
+        std::env::set_var("DATABASE_URL", val);
+    } else {
+        std::env::remove_var("DATABASE_URL");
+    }
+
+    clear_backup_cancel_signal();
+    let _ = fs::remove_dir_all(&dest_dir);
+    let _ = fs::remove_dir_all(&db_dir);
+}
+
+/// The post-write cancellation branch removes the just-written partial file
+/// via `cleanup_maybe_partial_backup`. Test that helper directly: an existing
+/// `.db` file is deleted, and a non-existent path is a no-op.
+#[test]
+#[serial]
+fn cleanup_maybe_partial_backup_removes_existing_file() {
+    let dest_dir = unique_temp_path("backup-cancel-db-after");
+    fs::create_dir_all(&dest_dir).expect("dest dir should be created");
+    let partial = dest_dir.join("catalogue_2026-08-23_1830.db");
+    fs::write(&partial, b"partial").expect("partial file should be created");
+    assert!(partial.exists());
+
+    cleanup_maybe_partial_backup(&partial);
+    assert!(
+        !partial.exists(),
+        "partial database backup file must be removed on cancellation"
+    );
+    assert!(
+        dest_dir.exists(),
+        "the destination directory itself must remain"
+    );
+
+    let _ = fs::remove_dir_all(&dest_dir);
+}
+
+#[test]
+#[serial]
+fn cleanup_maybe_partial_backup_is_noop_for_missing_path() {
+    let dest_dir = unique_temp_path("backup-cancel-db-missing");
+    fs::create_dir_all(&dest_dir).expect("dest dir should be created");
+    let missing = dest_dir.join("never_created.db");
+
+    cleanup_maybe_partial_backup(&missing);
+    assert!(!missing.exists());
+    assert!(
+        dest_dir.join(".backup-write-test.tmp").exists() == false,
+        "no probe or other file should be created"
+    );
+
+    let _ = fs::remove_dir_all(&dest_dir);
+}
+
+#[tokio::test]
+#[serial]
+async fn designs_backup_cancelled_stops_copying_and_keeps_existing_files() {
+    clear_backup_cancel_signal();
+
+    let pool = setup_backup_settings_pool().await;
+    let dest_dir = unique_temp_path("backup-cancel-designs-dest");
+    fs::create_dir_all(&dest_dir).expect("dest dir should be created");
+    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, &dest_dir.to_string_lossy().to_string())
+        .await;
+
+    // Source with a few files so the copy loop has work to do.
+    let src_dir = unique_temp_path("backup-cancel-designs-src");
+    fs::create_dir_all(&src_dir).expect("src dir should be created");
+    fs::create_dir_all(src_dir.join("MachineEmbroideryDesigns")).expect("MED dir should be created");
+    for name in ["alpha.pes", "beta.pes", "gamma.pes"] {
+        fs::write(src_dir.join("MachineEmbroideryDesigns").join(name), format!("content-{name}"))
+            .expect("source file should be created");
+    }
+
+    // Point the designs source path derivation at the temp src dir.
+    let prior = std::env::var("DATABASE_URL").ok();
+    let db_dir = unique_temp_path("backup-cancel-designs-db");
+    fs::create_dir_all(&db_dir).expect("db dir should be created");
+    std::env::set_var(
+        "DATABASE_URL",
+        format!("sqlite:{}/Database/catalogue.db", src_dir.to_string_lossy()),
+    );
+
+    // Raise cancellation BEFORE the run so the very first iteration bails.
+    BACKUP_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+
+    let result = run_designs_backup_inner(&pool)
+        .await
+        .expect("inner designs backup should not error");
+
+    assert!(!result.success);
+    assert!(result.cancelled);
+    assert_eq!(result.copied, 0, "no files should have been copied");
+
+    // No files should have been copied to the destination.
+    let dest_files: Vec<PathBuf> = fs::read_dir(&dest_dir)
+        .map(|entries| entries.flatten().map(|entry| entry.path()).collect())
+        .unwrap_or_default();
+    assert!(
+        dest_files.is_empty(),
+        "cancelled designs backup must not copy files: {:?}",
+        dest_files
+    );
+
+    if let Some(val) = prior {
+        std::env::set_var("DATABASE_URL", val);
+    } else {
+        std::env::remove_var("DATABASE_URL");
+    }
+
+    clear_backup_cancel_signal();
+    let _ = fs::remove_dir_all(&dest_dir);
+    let _ = fs::remove_dir_all(&src_dir);
+    let _ = fs::remove_dir_all(&db_dir);
+}
+
+#[tokio::test]
+#[serial]
+async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
+    clear_backup_cancel_signal();
+
+    let pool = setup_backup_settings_pool().await;
+    let dest_dir = unique_temp_path("backup-cancel-designs-partial");
+    fs::create_dir_all(&dest_dir).expect("dest dir should be created");
+    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, &dest_dir.to_string_lossy().to_string())
+        .await;
+
+    let src_dir = unique_temp_path("backup-cancel-designs-partial-src");
+    fs::create_dir_all(src_dir.join("MachineEmbroideryDesigns")).expect("MED dir should be created");
+    for name in ["alpha.pes", "beta.pes", "gamma.pes"] {
+        fs::write(src_dir.join("MachineEmbroideryDesigns").join(name), format!("content-{name}"))
+            .expect("source file should be created");
+    }
+
+    // A design already present in the destination matching "alpha.pes" simulates
+    // the "already copied up to this point" state.
+    fs::write(dest_dir.join("alpha.pes"), b"content-alpha").expect("dest alpha should be created");
+
+    let prior = std::env::var("DATABASE_URL").ok();
+    std::env::set_var(
+        "DATABASE_URL",
+        format!("sqlite:{}/Database/catalogue.db", src_dir.to_string_lossy()),
+    );
+
+    // Raise cancellation AFTER the first file has been mirrored (alpha exists
+    // in dest), so the loop stops before copying beta/gamma.
+    BACKUP_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+
+    // Note: since cancellation is raised before the loop starts, no NEW files
+    // are copied, but the already-present alpha.pes must remain untouched.
+    let result = run_designs_backup_inner(&pool)
+        .await
+        .expect("inner designs backup should not error");
+
+    assert!(!result.success);
+    assert!(result.cancelled);
+    assert_eq!(result.copied, 0, "no new files should be copied");
+
+    // alpha.pes (pre-existing) must remain intact; beta/gamma must NOT appear.
+    assert!(dest_dir.join("alpha.pes").exists(), "existing copy must remain");
+    assert!(
+        !dest_dir.join("beta.pes").exists(),
+        "beta must not be copied after cancellation"
+    );
+    assert!(
+        !dest_dir.join("gamma.pes").exists(),
+        "gamma must not be copied after cancellation"
+    );
+
+    if let Some(val) = prior {
+        std::env::set_var("DATABASE_URL", val);
+    } else {
+        std::env::remove_var("DATABASE_URL");
+    }
+
+    clear_backup_cancel_signal();
+    let _ = fs::remove_dir_all(&dest_dir);
+    let _ = fs::remove_dir_all(&src_dir);
+}

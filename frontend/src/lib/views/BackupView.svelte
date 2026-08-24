@@ -7,9 +7,11 @@
     runDatabaseBackup,
     runDesignsBackup,
     runBothBackups,
+    requestCancelBackup,
     getSettingsViewModel,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import CancelBackupModal from "../components/CancelBackupModal.svelte";
 
   let backupDbDestination = $state("");
   let backupDesignsDestination = $state("");
@@ -23,6 +25,12 @@
   let backupDesignsRunning = $state(false);
 
   let settingsDataRoot = $state("");
+
+  // Cancellation UI state. The confirmation modal never pauses background
+  // execution — the running backup command continues until the user confirms.
+  let showCancelConfirm = $state(false);
+  let cancelling = $state(false);
+  let activeBackupAction = $state(/** @type {"database" | "designs" | "both" | null} */ (null));
 
   let backupHasUnsavedChanges = $derived(
     backupDbDestination.trim() !== backupSavedDbDestination.trim() ||
@@ -152,10 +160,18 @@
     const runsDesigns = action === "designs" || action === "both";
     if (runsDatabase) backupDatabaseRunning = true;
     if (runsDesigns) backupDesignsRunning = true;
+    activeBackupAction = action;
 
     try {
       if (action === "database") {
         const result = await runDatabaseBackup();
+        if (result.cancelled) {
+          addToast(
+            "Database backup cancelled. The partial backup file was removed.",
+            "warning"
+          );
+          return;
+        }
         if (!result.success) {
           addToast(result.error || "Database backup failed.", "error");
           return;
@@ -171,6 +187,13 @@
 
       if (action === "designs") {
         const result = await runDesignsBackup();
+        if (result.cancelled) {
+          addToast(
+            "Designs backup cancelled. Already copied files were kept.",
+            "info"
+          );
+          return;
+        }
         if (!result.success) {
           addToast(result.error || "Designs backup failed.", "error");
           return;
@@ -184,6 +207,34 @@
       }
 
       const result = await runBothBackups();
+      const dbCancelled = Boolean(result?.database?.cancelled);
+      const designsCancelled = Boolean(result?.designs?.cancelled);
+
+      // Prefer explicit cancellation messaging when either phase was cancelled.
+      if (dbCancelled && designsCancelled) {
+        addToast(
+          "Backup cancelled. Partially created database backup files were removed; already copied design files were kept.",
+          "warning"
+        );
+        return;
+      }
+
+      if (dbCancelled) {
+        addToast(
+          "Database backup cancelled. The partial backup file was removed; design files already copied were kept.",
+          "warning"
+        );
+        return;
+      }
+
+      if (designsCancelled) {
+        addToast(
+          "Designs backup cancelled. Already copied design files were kept.",
+          "warning"
+        );
+        return;
+      }
+
       const dbOk = Boolean(result?.database?.success);
       const designsOk = Boolean(result?.designs?.success);
 
@@ -201,7 +252,39 @@
     } finally {
       if (runsDatabase) backupDatabaseRunning = false;
       if (runsDesigns) backupDesignsRunning = false;
+      activeBackupAction = null;
+      showCancelConfirm = false;
+      cancelling = false;
     }
+  }
+
+  /** Open the confirmation modal when the user clicks "Cancel Backup". */
+  function requestCancel() {
+    if (!backupAnyRunning) return;
+    showCancelConfirm = true;
+  }
+
+  /** User confirmed cancellation: raise the backend flag (non-blocking). */
+  async function confirmCancel() {
+    if (!backupAnyRunning || cancelling) return;
+    showCancelConfirm = false;
+    cancelling = true;
+    try {
+      const result = await requestCancelBackup();
+      if (!result.cancel_requested) {
+        addToast("Could not request backup cancellation.", "error");
+        cancelling = false;
+      }
+      // On success the in-flight run command resolves with cancelled: true and
+      // its finally block clears `cancelling`. Nothing else to do here.
+    } catch (error) {
+      addToast(`Could not request backup cancellation: ${error}`, "error");
+      cancelling = false;
+    }
+  }
+
+  function closeCancelModal() {
+    showCancelConfirm = false;
   }
 
   onMount(() => {
@@ -319,15 +402,27 @@
           >
         </p>
       </div>
-      <button
-        type="button"
-        class="settings-primary-button menu-button-primary"
-        disabled={!backupHasDbDestination || backupAnyRunning}
-        title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
-        onclick={() => runBackupAction("database")}
-      >
-        {backupDatabaseRunning ? "Backing up database..." : "Backup database now"}
-      </button>
+
+      {#if backupAnyRunning}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled
+          title="A backup is already running"
+        >
+          {backupDatabaseRunning ? "Backing up database..." : "Database backup idle"}
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={!backupHasDbDestination}
+          title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
+          onclick={() => runBackupAction("database")}
+        >
+          Backup database now
+        </button>
+      {/if}
     </div>
 
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
@@ -349,15 +444,27 @@
           >
         </p>
       </div>
-      <button
-        type="button"
-        class="settings-primary-button menu-button-primary"
-        disabled={!backupHasDesignsDestination || backupAnyRunning}
-        title={!backupHasDesignsDestination ? "Set a designs backup destination first" : undefined}
-        onclick={() => runBackupAction("designs")}
-      >
-        {backupDesignsRunning ? "Running incremental backup..." : "Run incremental backup"}
-      </button>
+
+      {#if backupAnyRunning}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled
+          title="A backup is already running"
+        >
+          {backupDesignsRunning ? "Running incremental backup..." : "Designs backup idle"}
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={!backupHasDesignsDestination}
+          title={!backupHasDesignsDestination ? "Set a designs backup destination first" : undefined}
+          onclick={() => runBackupAction("designs")}
+        >
+          Run incremental backup
+        </button>
+      {/if}
     </div>
 
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
@@ -365,17 +472,38 @@
       <p class="text-sm text-gray-600">
         Run the database backup and the incremental designs backup in one step.
       </p>
-      <button
-        type="button"
-        class="settings-primary-button menu-button-primary"
-        disabled={!backupHasDbDestination || !backupHasDesignsDestination || backupAnyRunning}
-        title={!backupHasDbDestination || !backupHasDesignsDestination
-          ? "Set both backup destinations first"
-          : undefined}
-        onclick={() => runBackupAction("both")}
-      >
-        {backupAnyRunning ? "Backup in progress..." : "Run both backups"}
-      </button>
+
+      {#if backupAnyRunning}
+        <button
+          type="button"
+          class="menu-button-primary"
+          style="background-color:#dc2626;border-color:#dc2626;"
+          disabled={cancelling}
+          onclick={requestCancel}
+          data-testid="cancel-backup-button"
+        >
+          {cancelling ? "Cancelling..." : "Cancel Backup"}
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={!backupHasDbDestination || !backupHasDesignsDestination}
+          title={!backupHasDbDestination || !backupHasDesignsDestination
+            ? "Set both backup destinations first"
+            : undefined}
+          onclick={() => runBackupAction("both")}
+        >
+          Run both backups
+        </button>
+      {/if}
     </div>
   </div>
+
+  <CancelBackupModal
+    open={showCancelConfirm}
+    activeKind={activeBackupAction}
+    onClose={closeCancelModal}
+    onConfirm={confirmCancel}
+  />
 </section>

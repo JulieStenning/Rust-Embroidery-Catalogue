@@ -613,6 +613,7 @@ fn main() {
             routes::maintenance::get_backup_view_model,
             routes::maintenance::save_backup_settings,
             routes::maintenance::browse_backup_folder,
+            routes::maintenance::request_cancel_backup,
             routes::maintenance::run_database_backup,
             routes::maintenance::run_designs_backup,
             routes::maintenance::run_both_backups,

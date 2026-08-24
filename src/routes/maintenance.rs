@@ -11,12 +11,21 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, State};
 
 const KEY_BACKUP_DATABASE_DESTINATION: &str = "backup.database_destination";
 const KEY_BACKUP_DESIGNS_DESTINATION: &str = "backup.designs_destination";
 const FILE_COMPARE_TIME_TOLERANCE_SECS: i64 = 2;
+
+/// Cooperative cancellation flag observed by the running backup loops.
+///
+/// Follows the same process-wide atomic pattern as `backfill::STOP_REQUESTED`
+/// and `bulk_import::BULK_IMPORT_STOP_REQUESTED`. Each public run command
+/// clears the signal once at entry; the inner helpers observe but never clear
+/// it so `run_both_backups` sees a single cancellation across both phases.
+static BACKUP_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BackupViewModel {
@@ -53,6 +62,8 @@ pub struct DatabaseBackupResult {
     pub size_bytes: u64,
     pub completed_at: String,
     pub error: Option<String>,
+    /// True when the run was aborted by the user via `request_cancel_backup`.
+    pub cancelled: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,6 +77,14 @@ pub struct DesignsBackupResult {
     pub total_bytes_copied: u64,
     pub completed_at: String,
     pub error: Option<String>,
+    /// True when the run was aborted by the user via `request_cancel_backup`.
+    pub cancelled: bool,
+}
+
+/// Result of raising the cooperative backup cancellation flag.
+#[derive(Debug, Clone, Serialize)]
+pub struct CancelBackupResult {
+    pub cancel_requested: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -167,6 +186,31 @@ pub struct CompactResult {
 fn database_path_from_bootstrap() -> PathBuf {
     let config = BootstrapConfig::from_env();
     PathBuf::from(strip_sqlite_prefix(&config.database_url))
+}
+
+/// Raise the cooperative backup cancellation flag.
+///
+/// The running backup loop observes the flag and aborts at the next safe
+/// boundary: database partial files are removed; already-copied design files
+/// are left intact.
+#[tauri::command]
+pub fn request_cancel_backup() -> Result<CancelBackupResult, String> {
+    BACKUP_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+    tracing::info!("[backup] Cancel requested by user");
+    Ok(CancelBackupResult {
+        cancel_requested: true,
+    })
+}
+
+/// Clear the cooperative backup cancellation flag. Called once at the start
+/// of each public run command so a fresh run never inherits a stale flag.
+fn clear_backup_cancel_signal() {
+    BACKUP_CANCEL_REQUESTED.store(false, Ordering::SeqCst);
+}
+
+/// Check whether a backup cancellation has been requested.
+fn is_backup_cancel_requested() -> bool {
+    BACKUP_CANCEL_REQUESTED.load(Ordering::SeqCst)
 }
 
 /// Return current storage metrics for the database: file size on disk plus
@@ -407,11 +451,49 @@ pub fn browse_backup_folder(start_dir: Option<String>) -> BrowseBackupFolderResu
     }
 }
 
+/// Identifier helpers used by the cancellation-aware result constructors.
+fn cancelled_database_backup(completed_at: &str, error: Option<String>) -> DatabaseBackupResult {
+    DatabaseBackupResult {
+        success: false,
+        backup_path: None,
+        size_bytes: 0,
+        completed_at: completed_at.to_string(),
+        error,
+        cancelled: true,
+    }
+}
+
+fn cancelled_designs_backup(completed_at: &str, error: Option<String>) -> DesignsBackupResult {
+    DesignsBackupResult {
+        success: false,
+        scanned: 0,
+        copied: 0,
+        updated: 0,
+        unchanged: 0,
+        archived: 0,
+        total_bytes_copied: 0,
+        completed_at: completed_at.to_string(),
+        error,
+        cancelled: true,
+    }
+}
+
+/// Clear the cancellation flag and run the database backup.
 #[tauri::command]
 pub async fn run_database_backup(
     state: State<'_, AppState>,
 ) -> Result<DatabaseBackupResult, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    clear_backup_cancel_signal();
+    run_database_backup_inner(&state.db).await
+}
+
+/// Core database backup logic. Observes (but never clears) the cancellation
+/// flag so `run_both_backups` can share one signal across both phases.
+///
+/// On cancellation the partially written `.db` file in the destination is
+/// removed immediately and a `cancelled` result is returned.
+async fn run_database_backup_inner(pool: &SqlitePool) -> Result<DatabaseBackupResult, String> {
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     let completed_at = current_epoch_seconds_string();
 
     let db_destination_raw = get_setting_with_default(&mut conn, KEY_BACKUP_DATABASE_DESTINATION)
@@ -427,6 +509,7 @@ pub async fn run_database_backup(
             error: Some(
                 "No database backup destination configured. Save a destination first.".to_string(),
             ),
+            cancelled: false,
         });
     }
 
@@ -441,6 +524,7 @@ pub async fn run_database_backup(
                 "Database source not found: {}",
                 normalize_path_string(&source_db_path)
             )),
+            cancelled: false,
         });
     }
 
@@ -452,6 +536,7 @@ pub async fn run_database_backup(
             size_bytes: 0,
             completed_at,
             error: Some(error),
+            cancelled: false,
         });
     }
 
@@ -461,6 +546,15 @@ pub async fn run_database_backup(
     let destination_path =
         unique_path_with_suffix(destination_dir.join(format!("catalogue_{}.db", timestamp)));
 
+    // Bail out before writing anything if cancellation was requested early.
+    if is_backup_cancel_requested() {
+        tracing::info!("[backup] Database backup cancelled before copy");
+        return Ok(cancelled_database_backup(
+            &completed_at,
+            Some("Database backup cancelled.".to_string()),
+        ));
+    }
+
     let escaped_destination = destination_path.to_string_lossy().replace('\'', "''");
     let vacuum_sql = format!("VACUUM INTO '{}'", escaped_destination);
     let db_backup_result = sqlx::query(sqlx::AssertSqlSafe(vacuum_sql))
@@ -468,15 +562,44 @@ pub async fn run_database_backup(
         .await;
 
     if db_backup_result.is_err() {
+        if is_backup_cancel_requested() {
+            cleanup_maybe_partial_backup(&destination_path);
+            tracing::info!("[backup] Database backup cancelled during fallback copy");
+            return Ok(cancelled_database_backup(
+                &completed_at,
+                Some("Database backup cancelled.".to_string()),
+            ));
+        }
+
         if let Err(copy_error) = fs::copy(&source_db_path, &destination_path) {
+            if is_backup_cancel_requested() {
+                cleanup_maybe_partial_backup(&destination_path);
+                tracing::info!("[backup] Database backup cancelled after failed copy");
+                return Ok(cancelled_database_backup(
+                    &completed_at,
+                    Some("Database backup cancelled.".to_string()),
+                ));
+            }
+
             return Ok(DatabaseBackupResult {
                 success: false,
                 backup_path: None,
                 size_bytes: 0,
                 completed_at,
                 error: Some(format!("Could not create database backup: {}", copy_error)),
+                cancelled: false,
             });
         }
+    }
+
+    // Cancellation after the write finished: remove the partial file and report.
+    if is_backup_cancel_requested() {
+        cleanup_maybe_partial_backup(&destination_path);
+        tracing::info!("[backup] Database backup cancelled after copy completed");
+        return Ok(cancelled_database_backup(
+            &completed_at,
+            Some("Database backup cancelled.".to_string()),
+        ));
     }
 
     let size_bytes = fs::metadata(&destination_path)
@@ -489,12 +612,43 @@ pub async fn run_database_backup(
         size_bytes,
         completed_at,
         error: None,
+        cancelled: false,
     })
 }
 
+/// Best-effort removal of a partially written database backup file.
+fn cleanup_maybe_partial_backup(destination_path: &Path) {
+    if destination_path.exists() {
+        if let Err(error) = fs::remove_file(destination_path) {
+            tracing::error!(
+                "[backup] Could not remove partial database backup '{}': {}",
+                normalize_path_string(destination_path),
+                error
+            );
+        } else {
+            tracing::info!(
+                "[backup] Removed partial database backup '{}'",
+                normalize_path_string(destination_path)
+            );
+        }
+    }
+}
+
+/// Clear the cancellation flag and run the designs backup.
 #[tauri::command]
 pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBackupResult, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    clear_backup_cancel_signal();
+    run_designs_backup_inner(&state.db).await
+}
+
+/// Core designs backup logic. Observes (but never clears) the cancellation
+/// flag so `run_both_backups` can share one signal across both phases.
+///
+/// On cancellation the copy loop stops at the next file boundary. Files
+/// already copied remain in the destination; the archive and directory
+/// cleanup phases are skipped so cancellation never moves or removes output.
+async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResult, String> {
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     let completed_at = current_epoch_seconds_string();
 
     let destination_raw = get_setting_with_default(&mut conn, KEY_BACKUP_DESIGNS_DESTINATION)
@@ -514,6 +668,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
             error: Some(
                 "No designs backup destination configured. Save a destination first.".to_string(),
             ),
+            cancelled: false,
         });
     }
 
@@ -532,6 +687,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
                 "Designs source folder not found: {}",
                 normalize_path_string(&source_root)
             )),
+            cancelled: false,
         });
     }
 
@@ -547,6 +703,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
             total_bytes_copied: 0,
             completed_at,
             error: Some(error),
+            cancelled: false,
         });
     }
 
@@ -563,6 +720,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
                 total_bytes_copied: 0,
                 completed_at,
                 error: Some(format!("Could not scan designs source: {}", error)),
+                cancelled: false,
             })
         }
     };
@@ -580,6 +738,7 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
                 total_bytes_copied: 0,
                 completed_at,
                 error: Some(format!("Could not scan backup destination: {}", error)),
+                cancelled: false,
             })
         }
     };
@@ -591,6 +750,13 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
     let mut total_bytes_copied = 0u64;
 
     for (relative_path, source_snapshot) in &source_map {
+        // Stop copying further files as soon as cancellation is requested;
+        // already-copied files are left in place.
+        if is_backup_cancel_requested() {
+            tracing::info!("[backup] Designs backup cancellation observed during copy loop");
+            break;
+        }
+
         let destination_path = destination_root.join(relative_path);
 
         let should_copy = match backup_map.get(relative_path) {
@@ -635,6 +801,24 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
                 );
             }
         }
+    }
+
+    // If cancellation arrived, skip the archive (rename/move) phase entirely
+    // and report a cancelled result. Never move or remove destination output.
+    if is_backup_cancel_requested() {
+        tracing::info!("[backup] Designs backup cancelled; skipping archive phase");
+        return Ok(DesignsBackupResult {
+            success: false,
+            scanned: source_map.len(),
+            copied,
+            updated,
+            unchanged,
+            archived: 0,
+            total_bytes_copied,
+            completed_at,
+            error: Some("Designs backup cancelled.".to_string()),
+            cancelled: true,
+        });
     }
 
     let source_keys = source_map.keys().cloned().collect::<HashSet<PathBuf>>();
@@ -697,13 +881,24 @@ pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBac
         total_bytes_copied,
         completed_at,
         error: None,
+        cancelled: false,
     })
 }
 
+/// Clear the cancellation flag once, then run both phases sequentially against
+/// the same shared flag. If cancellation is requested during the database
+/// phase, the designs phase is skipped entirely and reported as cancelled.
 #[tauri::command]
 pub async fn run_both_backups(state: State<'_, AppState>) -> Result<BothBackupsResult, String> {
-    let database = run_database_backup(state.clone()).await?;
-    let designs = run_designs_backup(state).await?;
+    clear_backup_cancel_signal();
+
+    let database = run_database_backup_inner(&state.db).await?;
+
+    let designs = if is_backup_cancel_requested() {
+        cancelled_designs_backup(&current_epoch_seconds_string(), None)
+    } else {
+        run_designs_backup_inner(&state.db).await?
+    };
 
     Ok(BothBackupsResult { database, designs })
 }

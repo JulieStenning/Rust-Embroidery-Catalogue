@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
+import { tick } from "svelte";
 import BackupView from "../BackupView.svelte";
 
 const adapterMocks = vi.hoisted(() => ({
@@ -10,6 +11,7 @@ const adapterMocks = vi.hoisted(() => ({
   runDatabaseBackup: vi.fn(),
   runDesignsBackup: vi.fn(),
   runBothBackups: vi.fn(),
+  requestCancelBackup: vi.fn(),
   getSettingsViewModel: vi.fn(),
 }));
 
@@ -64,6 +66,7 @@ const dbResult = (o: Record<string, unknown> = {}) => ({
   size_bytes: 5242880,
   completed_at: "2026-08-01T21:00:00Z",
   error: "",
+  cancelled: false,
   ...o,
 });
 
@@ -78,6 +81,7 @@ const designsResult = (o: Record<string, unknown> = {}) => ({
   total_bytes_copied: 1048576,
   completed_at: "2026-08-01T21:00:00Z",
   error: "",
+  cancelled: false,
   ...o,
 });
 
@@ -89,6 +93,7 @@ const bothResult = (o: Record<string, unknown> = {}) => ({
     size_bytes: 1024,
     completed_at: "",
     error: "",
+    cancelled: false,
   },
   designs: {
     success: true,
@@ -100,6 +105,7 @@ const bothResult = (o: Record<string, unknown> = {}) => ({
     total_bytes_copied: 0,
     completed_at: "",
     error: "",
+    cancelled: false,
   },
   ...o,
 });
@@ -132,6 +138,10 @@ function mockDefaults() {
   adapterMocks.runDatabaseBackup.mockResolvedValue(dbResult());
   adapterMocks.runDesignsBackup.mockResolvedValue(designsResult());
   adapterMocks.runBothBackups.mockResolvedValue(bothResult());
+  adapterMocks.requestCancelBackup.mockResolvedValue({
+    source: "rust",
+    cancel_requested: true,
+  });
 }
 
 describe("BackupView", () => {
@@ -761,7 +771,7 @@ describe("BackupView", () => {
       );
     });
 
-    it("shows 'Backup in progress...' while both are running", async () => {
+    it("shows 'Cancel Backup' while any backup is running", async () => {
       let resolve!: (v: unknown) => void;
       adapterMocks.runBothBackups.mockReturnValue(
         new Promise((r) => {
@@ -774,8 +784,17 @@ describe("BackupView", () => {
       await waitFor(() => card.getByRole("button", { name: "Run both backups" }));
       await fireEvent.click(card.getByRole("button", { name: "Run both backups" }));
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Backup in progress..." })).toBeInTheDocument()
+        expect(
+          screen.getByRole("button", { name: "Cancel Backup" })
+        ).toBeInTheDocument()
       );
+
+      // The per-card run buttons are replaced while a backup is running.
+      expect(screen.getByRole("button", { name: "Backing up database..." })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Running incremental backup..." })
+      ).toBeInTheDocument();
+
       resolve(bothResult());
       await waitFor(() =>
         expect(screen.getByRole("button", { name: "Run both backups" })).toBeInTheDocument()
@@ -795,25 +814,189 @@ describe("BackupView", () => {
       await waitFor(() => card.getByRole("button", { name: "Backup database now" }));
       await fireEvent.click(card.getByRole("button", { name: "Backup database now" }));
 
-      // While the database backup is running, the other two action buttons
-      // are disabled. Note: the "Backup Both" button text changes to
-      // "Backup in progress..." during a running backup.
+      // While the database backup is running, the other per-card run buttons
+      // are replaced by disabled idle labels, and the "Backup Both" card shows
+      // the "Cancel Backup" control instead of "Run both backups".
       const designsBtn = screen.getByRole("button", {
-        name: "Run incremental backup",
+        name: "Designs backup idle",
       }) as HTMLButtonElement;
       const bothBtn = screen.getByRole("button", {
-        name: "Backup in progress...",
+        name: "Cancel Backup",
       }) as HTMLButtonElement;
       expect(designsBtn).toBeDisabled();
-      expect(bothBtn).toBeDisabled();
+      expect(bothBtn).toBeEnabled();
 
-      // The designs backup button is disabled so clicking it does nothing.
+      // The disabled designs button does nothing on click.
       await fireEvent.click(designsBtn);
       expect(adapterMocks.runDesignsBackup).not.toHaveBeenCalled();
 
       resolveDatabase(dbResult());
       await waitFor(() =>
         expect(screen.getByRole("button", { name: "Backup database now" })).toBeInTheDocument()
+      );
+    });
+  });
+
+  describe("backup cancellation", () => {
+    /**
+     * Render the view and start a database backup whose promise we control.
+     * Returns the resolve function for the pending backup promise.
+     */
+    async function startRunningBackup() {
+      let resolve!: (v: unknown) => void;
+      adapterMocks.runDatabaseBackup.mockReturnValue(
+        new Promise((r) => {
+          resolve = r;
+        })
+      );
+      render(BackupView);
+      const button = await waitFor(() => {
+        const found = screen.getByRole("button", { name: "Backup database now" });
+        return found as HTMLButtonElement;
+      });
+      await fireEvent.click(button);
+      return resolve;
+    }
+
+    function cancelButton() {
+      return screen.getByTestId("cancel-backup-button") as HTMLButtonElement;
+    }
+
+    it("requires confirmation before raising the cancel flag", async () => {
+      const resolve = await startRunningBackup();
+      await waitFor(() => expect(cancelButton()).toBeInTheDocument());
+      await fireEvent.click(cancelButton());
+
+      // Modal appears with the prompt and explanatory text; no backend call yet.
+      const dialog = screen.getByRole("dialog");
+      expect(
+        within(dialog).getByText("Are you sure you want to cancel the backup?")
+      ).toBeInTheDocument();
+
+      // The explanatory notes exist both as <p> and inside the modal body
+      // container, so assert on the body's normalized textContent (see
+      // .clinerules: scope the query, don't fight multi-region text).
+      const modalBody = dialog.querySelector(".cancel-backup-modal-body");
+      const bodyText = (modalBody?.textContent ?? "").replace(/\s+/g, " ").trim();
+      expect(bodyText).toContain(
+        "If the database copy is currently running, any partially created database backup file will be aborted and removed."
+      );
+      // This backup is database-only (activeKind === "database"), so the
+      // designs note must NOT appear — proving the conditional rendering.
+      expect(bodyText).not.toContain("Any design files already copied");
+      expect(adapterMocks.requestCancelBackup).not.toHaveBeenCalled();
+
+      resolve(dbResult());
+    });
+
+    it("dismissing the dialog does not request cancellation", async () => {
+      const resolve = await startRunningBackup();
+      await waitFor(() => expect(cancelButton()).toBeInTheDocument());
+      await fireEvent.click(cancelButton());
+      await tick();
+
+      await fireEvent.click(screen.getByRole("button", { name: "Continue backup" }));
+      await tick();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(adapterMocks.requestCancelBackup).not.toHaveBeenCalled();
+
+      resolve(dbResult());
+    });
+
+    it("confirming raises the cancel flag and closes the dialog", async () => {
+      const resolve = await startRunningBackup();
+      await waitFor(() => expect(cancelButton()).toBeInTheDocument());
+      await fireEvent.click(cancelButton());
+      await tick();
+
+      await fireEvent.click(screen.getByRole("button", { name: "Cancel backup" }));
+      await waitFor(() => expect(adapterMocks.requestCancelBackup).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+      resolve(dbResult());
+    });
+
+    it("shows a warning toast when the running database backup resolves cancelled", async () => {
+      render(BackupView);
+      adapterMocks.runDatabaseBackup.mockResolvedValue(
+        dbResult({ success: false, cancelled: true })
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Backup database now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Backup database now" }));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "Database backup cancelled. The partial backup file was removed.",
+          "warning"
+        )
+      );
+    });
+
+    it("shows an info toast when the running designs backup resolves cancelled", async () => {
+      render(BackupView);
+      adapterMocks.runDesignsBackup.mockResolvedValue(
+        designsResult({ success: false, cancelled: true })
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Run incremental backup" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Run incremental backup" }));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "Designs backup cancelled. Already copied files were kept.",
+          "info"
+        )
+      );
+    });
+
+    it("shows a combined warning toast when both phases are cancelled", async () => {
+      render(BackupView);
+      adapterMocks.runBothBackups.mockResolvedValue(
+        bothResult({
+          database: { success: false, cancelled: true },
+          designs: { success: false, cancelled: true },
+        })
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Run both backups" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "Backup cancelled. Partially created database backup files were removed; already copied design files were kept.",
+          "warning"
+        )
+      );
+    });
+
+    it("shows a warning toast when only the database phase is cancelled", async () => {
+      render(BackupView);
+      adapterMocks.runBothBackups.mockResolvedValue(
+        bothResult({
+          database: { success: false, cancelled: true },
+          designs: { success: true, cancelled: false },
+        })
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Run both backups" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "Database backup cancelled. The partial backup file was removed; design files already copied were kept.",
+          "warning"
+        )
+      );
+    });
+
+    it("shows a warning toast when only the designs phase is cancelled", async () => {
+      render(BackupView);
+      adapterMocks.runBothBackups.mockResolvedValue(
+        bothResult({
+          database: { success: true, cancelled: false },
+          designs: { success: false, cancelled: true },
+        })
+      );
+      await waitFor(() => screen.getByRole("button", { name: "Run both backups" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "Designs backup cancelled. Already copied design files were kept.",
+          "warning"
+        )
       );
     });
   });

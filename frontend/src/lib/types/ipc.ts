@@ -742,6 +742,7 @@ export interface DatabaseBackupResult {
   size_bytes: number;
   completed_at: string;
   error: string;
+  cancelled: boolean;
 }
 
 export interface DesignsBackupResult {
@@ -754,6 +755,12 @@ export interface DesignsBackupResult {
   total_bytes_copied: number;
   completed_at: string;
   error: string;
+  cancelled: boolean;
+}
+
+/** Result of raising the cooperative backup cancellation flag in Rust. */
+export interface CancelBackupResult {
+  cancel_requested: boolean;
 }
 
 export interface AdapterRunBothBackupsResponse {

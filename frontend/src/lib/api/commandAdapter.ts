@@ -44,6 +44,7 @@ import type {
   BrowseDesignPreview,
   BrowseDesignSummaryWire,
   BrowseTagOption,
+  CancelBackupResult,
   CompactResult,
   ConfigureDataRootResult,
   DatabaseBackupResult,
@@ -2250,6 +2251,7 @@ export async function runDatabaseBackup(): Promise<{ source: string } & Database
       size_bytes: Number(result?.size_bytes ?? 0),
       completed_at: String(result?.completed_at || ""),
       error: result?.error ? String(result.error) : "",
+      cancelled: Boolean(result?.cancelled),
     };
   } catch (error) {
     return {
@@ -2258,6 +2260,32 @@ export async function runDatabaseBackup(): Promise<{ source: string } & Database
       backup_path: "",
       size_bytes: 0,
       completed_at: "",
+      error: String(error),
+      cancelled: false,
+    };
+  }
+}
+
+/**
+ * Raise the cooperative backup cancellation flag on the Rust backend.
+ *
+ * The running backup command observes the flag at its next safe boundary:
+ * a partially created database backup file is removed, while already-copied
+ * design files are left in the destination folder.
+ */
+export async function requestCancelBackup(): Promise<
+  { source: string } & CancelBackupResult & { error?: string }
+> {
+  try {
+    const result = await invokeLoose<CancelBackupResult>("request_cancel_backup");
+    return {
+      source: "rust",
+      cancel_requested: Boolean(result?.cancel_requested),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      cancel_requested: false,
       error: String(error),
     };
   }
@@ -2277,6 +2305,7 @@ export async function runDesignsBackup(): Promise<{ source: string } & DesignsBa
       total_bytes_copied: Number(result?.total_bytes_copied ?? 0),
       completed_at: String(result?.completed_at || ""),
       error: result?.error ? String(result.error) : "",
+      cancelled: Boolean(result?.cancelled),
     };
   } catch (error) {
     return {
@@ -2290,6 +2319,7 @@ export async function runDesignsBackup(): Promise<{ source: string } & DesignsBa
       total_bytes_copied: 0,
       completed_at: "",
       error: String(error),
+      cancelled: false,
     };
   }
 }
@@ -2300,10 +2330,16 @@ export async function runBothBackups(): Promise<AdapterRunBothBackupsResponse> {
       database?: DatabaseBackupResult | null;
       designs?: DesignsBackupResult | null;
     }>("run_both_backups");
+    const database = result?.database
+      ? { ...result.database, cancelled: Boolean(result.database.cancelled) }
+      : null;
+    const designs = result?.designs
+      ? { ...result.designs, cancelled: Boolean(result.designs.cancelled) }
+      : null;
     return {
       source: "rust",
-      database: result?.database || null,
-      designs: result?.designs || null,
+      database,
+      designs,
     };
   } catch (error) {
     return {

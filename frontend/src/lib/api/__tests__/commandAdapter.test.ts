@@ -59,6 +59,7 @@ import {
   removeDesignTag,
   renderDesign3dPreview,
   reparseDesignFile,
+  requestCancelBackup,
   requestStopBulkImport,
   runBothBackups,
   runDatabaseBackup,
@@ -1928,6 +1929,27 @@ describe("commandAdapter backups", () => {
     expect(invokeMock).toHaveBeenCalledWith("browse_backup_folder", { startDir: null });
   });
 
+  it("requestCancelBackup invokes the cancel command and maps the result", async () => {
+    invokeMock.mockResolvedValue({ cancel_requested: true });
+
+    const result = await requestCancelBackup();
+
+    // The adapter must call the exact Rust command name on the wire.
+    expect(invokeMock).toHaveBeenCalledWith("request_cancel_backup");
+    expect(result.source).toBe("rust");
+    expect(result.cancel_requested).toBe(true);
+  });
+
+  it("requestCancelBackup falls back on error", async () => {
+    mockReject(new Error("cancel failed"));
+
+    const result = await requestCancelBackup();
+
+    expect(result.source).toBe("mock");
+    expect(result.cancel_requested).toBe(false);
+    expect(result.error).toContain("cancel failed");
+  });
+
   it("runDatabaseBackup maps the Rust result and falls back on error", async () => {
     invokeMock.mockResolvedValue({
       success: true,
@@ -1935,18 +1957,36 @@ describe("commandAdapter backups", () => {
       size_bytes: 100,
       completed_at: "2026",
       error: "",
+      cancelled: false,
     });
 
     const ok = await runDatabaseBackup();
     expect(ok.source).toBe("rust");
     expect(ok.success).toBe(true);
     expect(ok.backup_path).toBe("C:/bak/db.sqlite");
+    expect(ok.cancelled).toBe(false);
 
     mockReject(new Error("backup failed"));
     const bad = await runDatabaseBackup();
     expect(bad.source).toBe("mock");
     expect(bad.success).toBe(false);
+    expect(bad.cancelled).toBe(false);
     expect(bad.error).toContain("backup failed");
+  });
+
+  it("runDatabaseBackup maps a cancelled result", async () => {
+    invokeMock.mockResolvedValue({
+      success: false,
+      backup_path: "",
+      size_bytes: 0,
+      completed_at: "2026",
+      error: "Database backup cancelled.",
+      cancelled: true,
+    });
+
+    const result = await runDatabaseBackup();
+    expect(result.cancelled).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("runDesignsBackup maps the Rust result and falls back on error", async () => {
@@ -1960,23 +2000,52 @@ describe("commandAdapter backups", () => {
       total_bytes_copied: 999,
       completed_at: "2026",
       error: "",
+      cancelled: false,
     });
 
     const ok = await runDesignsBackup();
     expect(ok.source).toBe("rust");
     expect(ok.copied).toBe(5);
     expect(ok.total_bytes_copied).toBe(999);
+    expect(ok.cancelled).toBe(false);
 
     mockReject(new Error("designs backup failed"));
     const bad = await runDesignsBackup();
     expect(bad.source).toBe("mock");
     expect(bad.success).toBe(false);
+    expect(bad.cancelled).toBe(false);
     expect(bad.error).toContain("designs backup failed");
+  });
+
+  it("runDesignsBackup maps a cancelled result", async () => {
+    invokeMock.mockResolvedValue({
+      success: false,
+      scanned: 10,
+      copied: 3,
+      updated: 0,
+      unchanged: 0,
+      archived: 0,
+      total_bytes_copied: 0,
+      completed_at: "2026",
+      error: "Designs backup cancelled.",
+      cancelled: true,
+    });
+
+    const result = await runDesignsBackup();
+    expect(result.cancelled).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("runBothBackups maps database and designs results", async () => {
     invokeMock.mockResolvedValue({
-      database: { success: true, backup_path: "C:/db", size_bytes: 1, completed_at: "", error: "" },
+      database: {
+        success: true,
+        backup_path: "C:/db",
+        size_bytes: 1,
+        completed_at: "",
+        error: "",
+        cancelled: false,
+      },
       designs: {
         success: true,
         scanned: 1,
@@ -1987,6 +2056,7 @@ describe("commandAdapter backups", () => {
         total_bytes_copied: 1,
         completed_at: "",
         error: "",
+        cancelled: false,
       },
     });
 
@@ -1995,6 +2065,39 @@ describe("commandAdapter backups", () => {
     expect(result.source).toBe("rust");
     expect(result.database?.success).toBe(true);
     expect(result.designs?.scanned).toBe(1);
+    expect(result.database?.cancelled).toBe(false);
+    expect(result.designs?.cancelled).toBe(false);
+  });
+
+  it("runBothBackups maps cancelled phases", async () => {
+    invokeMock.mockResolvedValue({
+      database: {
+        success: false,
+        backup_path: "",
+        size_bytes: 0,
+        completed_at: "",
+        error: "Database backup cancelled.",
+        cancelled: true,
+      },
+      designs: {
+        success: false,
+        scanned: 0,
+        copied: 0,
+        updated: 0,
+        unchanged: 0,
+        archived: 0,
+        total_bytes_copied: 0,
+        completed_at: "",
+        error: "Designs backup cancelled.",
+        cancelled: true,
+      },
+    });
+
+    const result = await runBothBackups();
+
+    expect(result.source).toBe("rust");
+    expect(result.database?.cancelled).toBe(true);
+    expect(result.designs?.cancelled).toBe(true);
   });
 
   it("runBothBackups falls back to null results on error", async () => {

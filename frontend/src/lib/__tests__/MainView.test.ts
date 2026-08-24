@@ -92,6 +92,7 @@ const adapterMock = vi.hoisted(() => ({
   runDatabaseBackup: vi.fn(),
   runDesignsBackup: vi.fn(),
   runBothBackups: vi.fn(),
+  requestCancelBackup: vi.fn(),
   // Orphans
   scanOrphans: vi.fn(),
   getOrphansPage: vi.fn(),
@@ -396,6 +397,7 @@ beforeEach(() => {
     "runDatabaseBackup",
     "runDesignsBackup",
     "runBothBackups",
+    "requestCancelBackup",
     "scanOrphans",
     "getOrphansPage",
     "deleteOrphans",
