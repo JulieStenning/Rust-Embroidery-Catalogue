@@ -655,6 +655,89 @@ async fn get_designs_page_with_pool_supports_backend_sorting() {
 }
 
 #[tokio::test]
+async fn hoop_unknown_sentinel_filters_null_hoop_designs() {
+    let pool = test_pool().await;
+
+    // rose.pes (seeded by test_pool) has hoop_id = 1 (Hoop A). Add one design
+    // with no hoop and one assigned to the same Hoop A.
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, hoop_id) VALUES ('unknown.pes', 'Folder/unknown.pes', NULL)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed unknown-hoop design");
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, hoop_id) VALUES ('hooped.pes', 'Folder/hooped.pes', 1)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed assigned-hoop design");
+
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                hoop_size: Some("__hoop_unknown__".to_string()),
+                ..Default::default()
+            }),
+            page: Some(1),
+            page_size: Some(50),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("hoop-unknown filter should succeed");
+
+    assert_eq!(result.total, 1);
+    assert_eq!(result.items.len(), 1);
+    assert_eq!(result.items[0].filename, "unknown.pes");
+    assert!(result.items[0].hoop.is_none());
+}
+
+#[tokio::test]
+async fn hoop_unknown_sentinel_combines_with_name_search() {
+    let pool = test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, hoop_id) VALUES ('unknown.pes', 'Folder/unknown.pes', NULL)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed unknown-hoop design");
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, hoop_id) VALUES ('other-unknown.pes', 'Folder/other-unknown.pes', NULL)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed second unknown-hoop design");
+
+    // Sentinel + a filename search that only matches one of the two null-hoop
+    // designs, proving the predicates intersect cleanly.
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            q: Some("other".to_string()),
+            search_file_name: Some(true),
+            search_tags: Some(false),
+            search_folder_name: Some(false),
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                hoop_size: Some("__hoop_unknown__".to_string()),
+                ..Default::default()
+            }),
+            page: Some(1),
+            page_size: Some(50),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("combined filter should succeed");
+
+    assert_eq!(result.total, 1);
+    assert_eq!(result.items.len(), 1);
+    assert_eq!(result.items[0].filename, "other-unknown.pes");
+}
+
+#[tokio::test]
 async fn get_designs_page_with_pool_clamps_page_to_valid_range() {
     let pool = test_pool().await;
 

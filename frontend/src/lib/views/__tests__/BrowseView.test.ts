@@ -241,7 +241,9 @@ function applyBackendFilter(
   }
 
   const hoop = String(af.hoop_size || "").trim();
-  if (hoop) {
+  if (hoop === "__hoop_unknown__") {
+    result = result.filter((item) => !String(item.hoop || "").trim());
+  } else if (hoop) {
     result = result.filter(
       (item) => String(item.hoop || "").toLowerCase().trim() === hoop.toLowerCase()
     );
@@ -851,6 +853,27 @@ describe("BrowseView", () => {
       await fireEvent.change(hoopSelect as HTMLSelectElement, { target: { value: "Hoop B" } });
 
       // Flush Svelte's synchronous reactive chain before querying the DOM.
+      await tick();
+
+      expect(await screen.findByText("leaf.pes")).toBeInTheDocument();
+      expect(screen.queryByText("rose.pes")).not.toBeInTheDocument();
+    });
+
+    it("filters by 'Hoop unknown' option in the hoop size dropdown", async () => {
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes", hoop: "Hoop A" }),
+        design({ id: 2, filename: "leaf.pes", hoop: "" }),
+      ]);
+      adapterMocks.listHoops.mockResolvedValue(listResponse([hoopEntity(1, "Hoop A")]));
+
+      renderBrowse();
+      await settle();
+
+      const hoopSelect = screen.getByText("Hoop size").closest("label")?.querySelector("select");
+      await fireEvent.change(hoopSelect as HTMLSelectElement, {
+        target: { value: "__hoop_unknown__" },
+      });
+
       await tick();
 
       expect(await screen.findByText("leaf.pes")).toBeInTheDocument();

@@ -7,6 +7,7 @@
     deleteHoop as removeHoop,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { HOOP_UNKNOWN_FILTER } from "../utils/hoopConstants.js";
 
   /** @typedef {{ id: number, name: string, maxWidthMm: number, maxHeightMm: number, designCount: number }} HoopRow */
 
@@ -41,6 +42,11 @@
     return Array.isArray(items) ? items : [];
   }
 
+  /** @param {string} name @returns {boolean} */
+  function isReservedHoopName(name) {
+    return name.trim().toLowerCase() === HOOP_UNKNOWN_FILTER.toLowerCase();
+  }
+
   async function loadHoops(force = false) {
     if (adminLoading && !force) return;
 
@@ -69,6 +75,10 @@
     const w = Number(newHoopWidth);
     const h = Number(newHoopHeight);
     if (!name || w <= 0 || h <= 0) return;
+    if (isReservedHoopName(name)) {
+      addToast(`"${HOOP_UNKNOWN_FILTER}" is reserved for the system and cannot be used as a hoop name.`, "error");
+      return;
+    }
 
     const result = await createHoop(name, w, h);
     if (!result?.persisted) {
@@ -107,6 +117,10 @@
     const h = Number(editingHoopHeight);
     if (!name || w <= 0 || h <= 0) {
       addToast("Enter hoop details.", "error");
+      return;
+    }
+    if (isReservedHoopName(name)) {
+      addToast(`"${HOOP_UNKNOWN_FILTER}" is reserved for the system and cannot be used as a hoop name.`, "error");
       return;
     }
 

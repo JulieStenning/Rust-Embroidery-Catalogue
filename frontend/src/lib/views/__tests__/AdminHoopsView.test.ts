@@ -158,6 +158,64 @@ describe("AdminHoopsView.svelte", () => {
     expect(addToastMock).toHaveBeenCalledWith("Hoop added.", "success");
   });
 
+  it("rejects adding a hoop with the reserved system name", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("5x7 Hoop")).toBeInTheDocument();
+    });
+
+    await fillAddForm("__hoop_unknown__", 100, 100);
+
+    await waitFor(() => {
+      expect(addToastMock).toHaveBeenCalledWith(
+        '"__hoop_unknown__" is reserved for the system and cannot be used as a hoop name.',
+        "error"
+      );
+    });
+    expect(createHoopMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a case-variant of the reserved hoop name", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("5x7 Hoop")).toBeInTheDocument();
+    });
+
+    await fillAddForm("__HOOP_UNKNOWN__", 100, 100);
+
+    await waitFor(() => {
+      expect(addToastMock).toHaveBeenCalledWith(
+        '"__hoop_unknown__" is reserved for the system and cannot be used as a hoop name.',
+        "error"
+      );
+    });
+    expect(createHoopMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects renaming a hoop to the reserved system name", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("8x12 Hoop")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[1]);
+
+    const nameInput = await waitFor(() => screen.getByDisplayValue("8x12 Hoop"));
+    await fireEvent.input(nameInput, { target: { value: "__hoop_unknown__" } });
+    await fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(addToastMock).toHaveBeenCalledWith(
+        '"__hoop_unknown__" is reserved for the system and cannot be used as a hoop name.',
+        "error"
+      );
+    });
+    expect(updateHoopMock).not.toHaveBeenCalled();
+  });
+
   it("shows an error toast when createHoop is not persisted", async () => {
     createHoopMock.mockResolvedValue({ persisted: false, error: "boom", source: "mock" });
 

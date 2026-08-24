@@ -83,6 +83,12 @@ pub struct BrowseDesignsPageResult {
     pub total_pages: i64,
 }
 
+/// Sentinel for the hoop browse filter: selecting it matches designs whose
+/// minimum fitting hoop could not be calculated (`designs.hoop_id IS NULL`).
+/// Must stay in sync with `HOOP_UNKNOWN_FILTER` in
+/// `frontend/src/lib/utils/hoopConstants.js`.
+const HOOP_UNKNOWN_SENTINEL: &str = "__hoop_unknown__";
+
 fn push_where_clause(query_builder: &mut QueryBuilder<Sqlite>, has_where: &mut bool) {
     if *has_where {
         query_builder.push(" AND ");
@@ -217,7 +223,10 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
 
         if let Some(ref hoop_size) = filters.hoop_size {
             let hoop_size_trimmed = hoop_size.trim();
-            if !hoop_size_trimmed.is_empty() {
+            if hoop_size_trimmed == HOOP_UNKNOWN_SENTINEL {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.hoop_id IS NULL");
+            } else if !hoop_size_trimmed.is_empty() {
                 push_where_clause(query_builder, &mut has_where);
                 query_builder.push("LOWER(COALESCE(hoops.name, '')) = ");
                 query_builder.push_bind(hoop_size_trimmed.to_lowercase());
