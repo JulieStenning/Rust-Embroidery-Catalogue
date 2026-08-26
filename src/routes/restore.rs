@@ -248,6 +248,29 @@ pub async fn restore_both(
     if state.restore_in_progress.load(Ordering::SeqCst) {
         return Err("A restore is already in progress.".to_string());
     }
+    // Resolve + validate the designs backup folder BEFORE restoring the database,
+    // so "Restore Both" fails fast with a clear message instead of half-restoring
+    // the database and then failing on the designs phase. This runs before the
+    // restore gate is set so read_backup_setting can still read the pool.
+    let source_raw = match request.designs_source_dir.map(|dir| dir.trim().to_string()) {
+        Some(dir) if !dir.is_empty() => dir,
+        _ => read_backup_setting(&state, mnt::KEY_BACKUP_DESIGNS_DESTINATION).await?,
+    };
+    let source_root = PathBuf::from(source_raw.trim());
+    if source_root.as_os_str().is_empty() {
+        let message =
+            "No designs backup folder configured. Save a designs backup destination first."
+                .to_string();
+        tracing::error!("[restore] {message}");
+        return Err(message);
+    }
+    if !source_root.is_dir() {
+        let message = format!("Designs backup folder not found: {}", source_root.display());
+        tracing::error!("[restore] {message}");
+        return Err(message);
+    }
+    let dest_root = mnt::derive_designs_source_path();
+
     state.restore_in_progress.store(true, Ordering::SeqCst);
     let _guard = RestoreGuard(&state.restore_in_progress);
 
@@ -299,17 +322,6 @@ pub async fn restore_both(
     }
 
     // Designs sync.
-    let source_raw = match request.designs_source_dir.map(|dir| dir.trim().to_string()) {
-        Some(dir) if !dir.is_empty() => dir,
-        _ => read_backup_setting(&state, mnt::KEY_BACKUP_DESIGNS_DESTINATION).await?,
-    };
-    let source_root = PathBuf::from(source_raw.trim());
-    if !source_root.is_dir() {
-        let message = format!("Designs backup folder not found: {}", source_root.display());
-        tracing::error!("[restore] {message}");
-        return Err(message);
-    }
-    let dest_root = mnt::derive_designs_source_path();
     let mut progress = |p: restore::RestoreProgress| emit_progress(&app_handle, p);
     let designs =
         match restore::perform_designs_restore(

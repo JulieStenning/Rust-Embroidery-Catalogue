@@ -412,6 +412,10 @@
         const result = await restoreBoth(restoreDbFile.trim(), {
           designsSourceDir: restoreDesignsSource.trim() || undefined,
         });
+        if (result.error) {
+          addToast(result.error, "error", true);
+          return;
+        }
         if (!result?.database?.success) {
           applyRestoreDatabaseResult(result?.database);
           return;
@@ -422,6 +426,8 @@
             `Designs restored: ${result.designs.copied} copied, ${result.designs.skipped} skipped.`,
             "success"
           );
+        } else if (result?.designs?.error) {
+          addToast(`Designs restore failed: ${result.designs.error}`, "error", true);
         }
         const unmatched = result?.unmatched;
         if (unmatched && Number(unmatched.unmatched) > 0) {

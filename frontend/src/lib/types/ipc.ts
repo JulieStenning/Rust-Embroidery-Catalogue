@@ -819,6 +819,8 @@ export interface RestoreBothResult {
   database: RestoreDatabaseResult | null;
   designs: RestoreDesignsResult | null;
   unmatched: DetectUnmatchedFilesResult | null;
+  /** Set when the whole restore_both call fails (e.g. designs folder missing). */
+  error?: string;
 }
 
 /** Payload streamed on `catalogue-restore-progress`. */

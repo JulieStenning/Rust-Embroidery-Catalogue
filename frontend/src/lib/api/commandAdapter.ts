@@ -2552,6 +2552,7 @@ export async function restoreBoth(
       database: null,
       designs: null,
       unmatched: null,
+      error: String(error),
     };
   }
 }

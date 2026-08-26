@@ -2921,6 +2921,14 @@ describe("restore adapters", () => {
     expect(result.unmatched?.unmatched).toBe(1);
   });
 
+  it("restoreBoth preserves the error message on invoke failure", async () => {
+    mockReject(new Error("Designs backup folder not found: H:/Old"));
+    const result = await restoreBoth("C:/backups/cat.db", { designsSourceDir: "C:/backups" });
+    expect(result.source).toBe("mock");
+    expect(result.error).toContain("Designs backup folder not found");
+    expect(result.database).toBeNull();
+  });
+
   it("detectDesignFilesAbsentFromDatabase maps result", async () => {
     invokeMock.mockResolvedValue({ checked: 5, unmatched: 1, sample: ["a.pes"] });
     const result = await detectDesignFilesAbsentFromDatabase();

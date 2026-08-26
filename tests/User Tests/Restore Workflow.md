@@ -38,44 +38,44 @@ Some of these tests are carried out via the automated unit tests. These are iden
 
 ## 3. Incremental Designs Restore (Skipping Existing Disk Files) - Automated
 
-* [ ]  Ensure your live design folder (`MachineEmbroideryDesigns`) contains existing files that match the backup folder.
-* [ ]  Click **Sync designs from backup** on @BackupView.svelte.
-* [ ]  Observe the metrics streamed in @RestoreProgressPanel.svelte.
-* [ ]  Verify that files already present on disk are counted under **Skipped** (saving disk I/O).
-* [ ]  Verify that any missing or modified files are counted under **Copied/Updated**.
-* [ ]  Verify a success toast notification appears detailing total scanned, copied, and skipped files.
+* [X]  Ensure your live design folder (`MachineEmbroideryDesigns`) contains existing files that match the backup folder.
+* [X]  Click **Sync designs from backup** on @BackupView.svelte.
+* [X]  Observe the metrics streamed in @RestoreProgressPanel.svelte.
+* [X]  Verify that files already present on disk are counted under **Skipped** (saving disk I/O).
+* [X]  Verify that any missing or modified files are counted under **Copied/Updated**.
+* [X]  Verify a success toast notification appears detailing total scanned, copied, and skipped files.
 
 ---
 
 ## 4. Restore Both (Combined Execution) - Automated
 
-* [ ]  Select a valid database backup file. - Automated
-* [ ]  Click **Restore Both**. - Automated
-* [ ]  Verify the system executes the Database Restore phase first. - Automated
-* [ ]  Verify the system seamlessly transitions into the Incremental Designs Restore phase without user intervention. - Needs manual test
-* [ ]  Confirm both progress indicators update accurately throughout the operation. - Automated
+* [X]  Select a valid database backup file. - Automated
+* [X]  Click **Restore Both**. - Automated
+* [X]  Verify the system executes the Database Restore phase first. - Automated
+* [X]  Verify the system seamlessly transitions into the Incremental Designs Restore phase without user intervention. - Needs manual test
+* [X]  Confirm both progress indicators update accurately throughout the operation. - Automated
 
 ---
 
 ## 5. Unmatched Files Reconciliation (Files on Disk absent from Restored DB) - Automated
 
-* [ ]  Add a new dummy design file (e.g., `test_unmatched.pes`) directly into your live designs directory on disk.
-* [ ]  Restore an older database backup that does **not** contain a record for `test_unmatched.pes`.
-* [ ]  Upon completion of the restore, verify an inline @Notice.svelte banner appears on @BackupView.svelte stating that unmatched files were detected on disk.
-* [ ]  Verify the banner presents two action buttons: **Import Unmatched Files** and **Dismiss**.
-* [ ]  Click **Dismiss** on one run to verify the notice clears gracefully.
-* [ ]  Trigger the restore again and click **Import Unmatched Files**:
-* [ ]  Verify the background batch import process parses the unmatched file without launching a full wizard.
-* [ ]  Verify the imported design now appears when browsing @MainView.svelte.
+* [X]  Add a new dummy design file (e.g., `test_unmatched.pes`) directly into your live designs directory on disk.
+* [X]  Restore an older database backup that does **not** contain a record for `test_unmatched.pes`.
+* [X]  Upon completion of the restore, verify an inline @Notice.svelte banner appears on @BackupView.svelte stating that unmatched files were detected on disk.
+* [X]  Verify the banner presents two action buttons: **Import Unmatched Files** and **Dismiss**.
+* [X]  Click **Dismiss** on one run to verify the notice clears gracefully.
+* [X]  Trigger the restore again and click **Import Unmatched Files**:
+* [X]  Verify the background batch import process parses the unmatched file without launching a full wizard.
+* [X]  Verify the imported design now appears when browsing @MainView.svelte.
 
 ---
 
 ## 6. Edge Case: Non-Existent or Invalid Folder Paths - Needs Manual Test
 
-* [ ]  Manually edit the **Designs backup folder** path in the UI field to a non-existent drive or folder (e.g., `Z:\NonExistentFolder`). - Automated
-* [ ]  Click **Sync designs from backup**. - Automated
-* [ ]  Verify the application catches the invalid path gracefully. - Automated
-* [ ]  Verify an error notification (via @ToastContainer.svelte or progress panel) displays a clear message without crashing the application. - Automated
+* [X]  Manually edit the **Designs backup folder** path in the UI field to a non-existent drive or folder (e.g., `Z:\NonExistentFolder`). - Automated
+* [X]  Click **Sync designs from backup**. - Automated
+* [X]  Verify the application catches the invalid path gracefully. - Automated
+* [X]  Verify an error notification (via @ToastContainer.svelte or progress panel) displays a clear message without crashing the application. - Automated
 * [ ]  Attempt to trigger **Restore Both** with an invalid designs path. - Needs manual test
 * [ ]  Verify the database restore step completes safely (or halts cleanly) and reports the directory error for the design phase. - Needs manual test
 
