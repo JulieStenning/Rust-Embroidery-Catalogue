@@ -233,6 +233,20 @@ pub async fn restore_designs_incremental(
         outcome.skipped,
     );
 
+    emit_progress(
+        &app_handle,
+        restore::RestoreProgress {
+            phase: "completed".to_string(),
+            db_status: "restored".to_string(),
+            scanned: outcome.scanned,
+            copied: outcome.copied + outcome.updated,
+            skipped: outcome.skipped,
+            total_bytes: outcome.total_bytes_copied,
+            percent: 1.0,
+            error: None,
+        },
+    );
+
     Ok(outcome)
 }
 
@@ -357,6 +371,20 @@ pub async fn restore_both(
         designs.copied,
         designs.skipped,
         unmatched.as_ref().map(|u| u.unmatched),
+    );
+
+    emit_progress(
+        &app_handle,
+        restore::RestoreProgress {
+            phase: "completed".to_string(),
+            db_status: "restored".to_string(),
+            scanned: designs.scanned,
+            copied: designs.copied + designs.updated,
+            skipped: designs.skipped,
+            total_bytes: designs.total_bytes_copied,
+            percent: 1.0,
+            error: None,
+        },
     );
 
     Ok(RestoreBothResult {

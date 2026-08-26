@@ -202,8 +202,8 @@ async fn perform_designs_restore_copies_new_skips_identical_updates_changed() {
     assert_eq!(outcome.skipped, 1);
     assert_eq!(outcome.updated, 1);
     assert!(outcome.success);
-    // Progress is emitted once per copied/updated file (skipped files emit none),
-    // so exactly two events: the copy of `new.pes` and the update of `changed.pes`.
+    // Progress is emitted once per iteration (copies, updates, and skips), so the
+    // three files in this run each emit an event.
     assert!(emitted >= 2);
 
     // The changed file on disk now has the source content.

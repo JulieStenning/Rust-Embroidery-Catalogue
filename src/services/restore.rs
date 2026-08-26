@@ -355,6 +355,18 @@ pub async fn perform_designs_restore(
         match dest_map.get(relative) {
             Some(existing) if mnt::files_match(existing, source) => {
                 skipped += 1;
+                let total = source_map.len().max(1) as f64;
+                let processed = copied + updated + skipped;
+                progress(RestoreProgress {
+                    phase: "designs".to_string(),
+                    db_status: "syncing".to_string(),
+                    scanned: source_map.len() as u64,
+                    copied: copied + updated,
+                    skipped,
+                    total_bytes: total_bytes_copied,
+                    percent: (processed as f64 / total).min(1.0),
+                    error: None,
+                });
                 continue;
             }
             _ => {}
