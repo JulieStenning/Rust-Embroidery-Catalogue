@@ -132,7 +132,7 @@ describe("MainView.svelte", () => {
     expect(screen.getByText("Sources")).toBeInTheDocument();
     expect(screen.getByText("Hoops")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
-    expect(screen.getByText("Backup")).toBeInTheDocument();
+    expect(screen.getByText("Backup/Restore")).toBeInTheDocument();
     expect(screen.getByText("Tagging Actions")).toBeInTheDocument();
     expect(screen.getByText("Orphans")).toBeInTheDocument();
   });
@@ -424,7 +424,7 @@ describe("MainView.svelte", () => {
     ["#/admin/sources", "Sources"],
     ["#/admin/hoops", "Hoops"],
     ["#/admin/settings", "Settings"],
-    ["#/admin/maintenance/backup", "Backup"],
+    ["#/admin/maintenance/backup", "Backup/Restore"],
     ["#/admin/tagging-actions", "Tagging Actions"],
     ["#/admin/orphans", "Orphans"],
   ])("marks admin link %s active when route matches", (route, label) => {

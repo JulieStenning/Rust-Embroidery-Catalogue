@@ -145,7 +145,7 @@
       <a href="#/admin/hoops" class={adminLinkClass("#/admin/hoops")}>Hoops</a>
       <a href="#/admin/settings" class={adminLinkClass("#/admin/settings")}>Settings</a>
       <a href="#/admin/maintenance/backup" class={adminLinkClass("#/admin/maintenance/backup")}
-        >Backup</a
+        >Backup/Restore</a
       >
       <a href="#/admin/tagging-actions" class={adminLinkClass("#/admin/tagging-actions")}
         >Tagging Actions</a
