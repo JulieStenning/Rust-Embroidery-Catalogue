@@ -1081,7 +1081,7 @@ describe("BackupView", () => {
     }
 
     /** Confirm a destructive restore in the confirm modal. @param {string} label */
-    async function confirmRestoreModal(label) {
+    async function confirmRestoreModal(label: string) {
       const dialog = screen.getByRole("dialog");
       await fireEvent.click(within(dialog).getByRole("button", { name: label }));
       await tick();

@@ -2424,7 +2424,7 @@ export async function browseRestoreFile(
  * Normalize a raw Rust database-restore outcome into the adapter shape.
  * @param {{[k:string]: unknown}} result
  */
-function normalizeRestoreDatabase(result) {
+function normalizeRestoreDatabase(result: LooseRecord) {
   return {
     success: Boolean(result?.success),
     restored_path: String(result?.restored_path || ""),
