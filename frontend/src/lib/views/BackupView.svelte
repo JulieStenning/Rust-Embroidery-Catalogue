@@ -685,12 +685,6 @@
               >{backupDbSourcePath}</code
             >
           </p>
-          <p>
-            Saved destination folder: <code
-              class="settings-code inline-block border rounded px-2 py-1 font-mono"
-              >{backupSavedDbDestination || "(not set)"}</code
-            >
-          </p>
           <p>Last backup: {formatEpoch(lastDbBackupAt) || "—"}</p>
         </div>
 
@@ -726,12 +720,6 @@
         <p>
           Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
             >{backupDesignsSourcePath}</code
-          >
-        </p>
-        <p>
-          Saved destination folder: <code
-            class="settings-code inline-block border rounded px-2 py-1 font-mono"
-            >{backupSavedDesignsDestination || "(not set)"}</code
           >
         </p>
         <p>Last sync: {formatEpoch(lastDesignsBackupAt) || "—"}</p>

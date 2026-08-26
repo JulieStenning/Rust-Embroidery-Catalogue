@@ -296,12 +296,12 @@ describe("BackupView", () => {
       expect(screen.getByText(DESIGNS_SRC)).toBeInTheDocument();
     });
 
-    it("renders '(not set)' labels when destinations are empty", async () => {
+    it("shows no '(not set)' placeholders in backup cards when destinations are empty", async () => {
       adapterMocks.getBackupViewModel.mockResolvedValue(
         backupResponse(backupModel({ db_destination: "", designs_destination: "" }))
       );
       render(BackupView);
-      await waitFor(() => expect(screen.getAllByText("(not set)")).toHaveLength(2));
+      await waitFor(() => expect(screen.queryAllByText("(not set)")).toHaveLength(0));
     });
 
     it("handles null response by defaulting to empty destinations", async () => {
@@ -309,7 +309,7 @@ describe("BackupView", () => {
       render(BackupView);
       const dbInput = (await screen.findByLabelText("Database backup folder")) as HTMLInputElement;
       await waitFor(() => expect(dbInput.value).toBe(""));
-      expect(screen.getAllByText("(not set)")).toHaveLength(2);
+      expect(screen.queryAllByText("(not set)")).toHaveLength(0);
     });
 
     it("uses data_root fallback for source paths when model has no source path", async () => {
