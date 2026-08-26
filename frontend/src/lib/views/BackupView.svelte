@@ -1004,6 +1004,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    vertical-align: bottom;
+    vertical-align: middle;
   }
 </style>
