@@ -46,15 +46,15 @@
   let restoreDatabaseRunning = $state(false);
   let restoreDesignsRunning = $state(false);
   let restoreAnyRunning = $derived(restoreDatabaseRunning || restoreDesignsRunning);
-  let restoreSchemaVersion = $state(null);
-  let restorePreviousSchemaVersion = $state(null);
+  let restoreSchemaVersion = $state(/** @type {number | null} */ (null));
+  let restorePreviousSchemaVersion = $state(/** @type {number | null} */ (null));
   let restoreRolledBack = $state(false);
   let restoreError = $state("");
   // Unmatched-files (post-restore reconciliation) prompt.
   let showUnmatchedPrompt = $state(false);
   let unmatchedCount = $state(0);
   let unmatchedChecked = $state(0);
-  let unmatchedSample = $state([]);
+  let unmatchedSample = $state(/** @type {string[]} */ ([]));
   let importingUnmatched = $state(false);
   /** @type {import("@tauri-apps/api/event").UnlistenFn | null} */
   let unlistenRestore = $state(null);
@@ -336,7 +336,9 @@
     }
   }
 
-  /** Show the schema-change warning after a successful database restore. */
+  /** Show the schema-change warning after a successful database restore.
+   * @param {import("../types/ipc").RestoreDatabaseResult | null | undefined} result
+   */
   function applyRestoreDatabaseResult(result) {
     restoreSchemaVersion = result?.schema_version_hint ?? null;
     restorePreviousSchemaVersion = result?.previous_schema_version_hint ?? null;
@@ -354,7 +356,9 @@
     addToast(`Database restored (${count} designs).`, "success");
   }
 
-  /** Run a restore action ("database", "designs", or "both"). */
+  /** Run a restore action ("database", "designs", or "both").
+   * @param {"database" | "designs" | "both"} action
+   */
   async function runRestoreAction(action) {
     if (restoreAnyRunning) return;
 
