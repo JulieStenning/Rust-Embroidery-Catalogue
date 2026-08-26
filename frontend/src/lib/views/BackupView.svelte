@@ -578,8 +578,8 @@
       role="tab"
       aria-selected={activeTab === "restore"}
       class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
-      class:border-amber-500={activeTab === "restore"}
-      class:text-amber-700={activeTab === "restore"}
+      class:border-indigo-600={activeTab === "restore"}
+      class:text-indigo-700={activeTab === "restore"}
       class:border-transparent={activeTab !== "restore"}
       class:text-gray-500={activeTab !== "restore"}
       onclick={() => selectTab("restore")}
