@@ -13,6 +13,11 @@ const adapterMocks = vi.hoisted(() => ({
   runBothBackups: vi.fn(),
   requestCancelBackup: vi.fn(),
   getSettingsViewModel: vi.fn(),
+  browseRestoreFile: vi.fn(),
+  restoreDatabase: vi.fn(),
+  restoreDesignsIncremental: vi.fn(),
+  restoreBoth: vi.fn(),
+  importUnmatchedDesignFiles: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -142,6 +147,62 @@ function mockDefaults() {
     source: "rust",
     cancel_requested: true,
   });
+  adapterMocks.browseRestoreFile.mockResolvedValue({
+    source: "rust",
+    path: null,
+    error: null,
+  });
+  adapterMocks.restoreDatabase.mockResolvedValue({
+    source: "rust",
+    success: true,
+    restored_path: "C:\\x.db",
+    rollback_copy_path: "C:\\x.pre-restore-1.db",
+    design_count: 12,
+    schema_version_hint: 3,
+    previous_schema_version_hint: 3,
+    rolled_back: false,
+    error: null,
+  });
+  adapterMocks.restoreDesignsIncremental.mockResolvedValue({
+    source: "rust",
+    success: true,
+    scanned: 20,
+    copied: 4,
+    updated: 1,
+    skipped: 15,
+    total_bytes_copied: 1024,
+    error: null,
+  });
+  adapterMocks.restoreBoth.mockResolvedValue({
+    source: "rust",
+    database: {
+      success: true,
+      restored_path: "C:\\x.db",
+      rollback_copy_path: "C:\\x.pre-restore-1.db",
+      design_count: 12,
+      schema_version_hint: 3,
+      previous_schema_version_hint: 3,
+      rolled_back: false,
+      error: null,
+    },
+    designs: {
+      success: true,
+      scanned: 20,
+      copied: 4,
+      updated: 1,
+      skipped: 15,
+      total_bytes_copied: 1024,
+      error: null,
+    },
+    unmatched: null,
+  });
+  adapterMocks.importUnmatchedDesignFiles.mockResolvedValue({
+    source: "rust",
+    detected: 0,
+    imported: 0,
+    failed: 0,
+    failed_samples: [],
+  });
 }
 
 describe("BackupView", () => {
@@ -240,7 +301,7 @@ describe("BackupView", () => {
         backupResponse(backupModel({ db_destination: "", designs_destination: "" }))
       );
       render(BackupView);
-      await waitFor(() => expect(screen.getAllByText("(not set)")).toHaveLength(2));
+      await waitFor(() => expect(screen.getAllByText("(not set)")).toHaveLength(4));
     });
 
     it("handles null response by defaulting to empty destinations", async () => {
@@ -248,7 +309,7 @@ describe("BackupView", () => {
       render(BackupView);
       const dbInput = (await screen.findByLabelText("Database backup folder")) as HTMLInputElement;
       await waitFor(() => expect(dbInput.value).toBe(""));
-      expect(screen.getAllByText("(not set)")).toHaveLength(2);
+      expect(screen.getAllByText("(not set)")).toHaveLength(4);
     });
 
     it("uses data_root fallback for source paths when model has no source path", async () => {
@@ -348,7 +409,7 @@ describe("BackupView", () => {
         })
       );
       expect(toastMocks.addToast).toHaveBeenCalledWith("Backup destinations saved.", "success");
-      expect(screen.getByText("D:\\NewDb")).toBeInTheDocument();
+      expect(dbInput.value).toBe("D:\\NewDb");
       expect(screen.getByRole("button", { name: "Save destinations" })).toBeDisabled();
     });
 
@@ -387,7 +448,6 @@ describe("BackupView", () => {
       await fireEvent.submit(element(document.querySelector("form")));
       await waitFor(() => expect(toastMocks.addToast).toHaveBeenCalledWith("Saved.", "success"));
       expect(dbInput.value).toBe("X:\\TrimmedDb");
-      expect(screen.getByText("X:\\TrimmedDb")).toBeInTheDocument();
     });
   });
 
@@ -996,6 +1056,277 @@ describe("BackupView", () => {
         expect(toastMocks.addToast).toHaveBeenCalledWith(
           "Designs backup cancelled. Already copied design files were kept.",
           "warning"
+        )
+      );
+    });
+  });
+
+  describe("restore", () => {
+    it("file picker defaults to the configured database backup folder", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "C:\\backups\\catalogue_2026-08-01.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalledWith(DB_DEST));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Restore database now" })).toBeEnabled()
+      );
+    });
+
+    it("restores the database and reports success", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "C:\\backups\\catalogue_2026-08-01.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+
+      await fireEvent.click(screen.getByRole("button", { name: "Restore database now" }));
+      await waitFor(() =>
+        expect(adapterMocks.restoreDatabase).toHaveBeenCalledWith("C:\\backups\\catalogue_2026-08-01.db")
+      );
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          expect.stringContaining("Database restored"),
+          "success"
+        )
+      );
+    });
+
+    it("syncs designs from the configured backup folder", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      await fireEvent.click(screen.getByRole("button", { name: "Sync designs from backup" }));
+      await waitFor(() =>
+        expect(adapterMocks.restoreDesignsIncremental).toHaveBeenCalledWith({
+          designsSourceDir: DESIGNS_DEST,
+        })
+      );
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          expect.stringContaining("Designs restored"),
+          "success"
+        )
+      );
+    });
+
+    it("shows the unmatched-files prompt after restoring both and imports on request", async () => {
+      adapterMocks.restoreBoth.mockResolvedValue({
+        source: "rust",
+        database: {
+          success: true,
+          restored_path: "C:\\x.db",
+          rollback_copy_path: null,
+          design_count: 5,
+          schema_version_hint: null,
+          previous_schema_version_hint: null,
+          rolled_back: false,
+          error: null,
+        },
+        designs: {
+          success: true,
+          scanned: 5,
+          copied: 2,
+          updated: 0,
+          skipped: 3,
+          total_bytes_copied: 0,
+          error: null,
+        },
+        unmatched: {
+          checked: 5,
+          unmatched: 2,
+          sample: ["MachineEmbroideryDesigns/a.pes", "MachineEmbroideryDesigns/b.pes"],
+        },
+      });
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "C:\\backups\\catalogue_2026-08-01.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+
+      await fireEvent.click(screen.getByRole("button", { name: "Restore both" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
+      );
+
+      await fireEvent.click(screen.getByRole("button", { name: /Import 2 file/ }));
+      await waitFor(() => expect(adapterMocks.importUnmatchedDesignFiles).toHaveBeenCalled());
+    });
+
+    it("dismisses the unmatched-files prompt", async () => {
+      adapterMocks.restoreBoth.mockResolvedValue({
+        source: "rust",
+        database: {
+          success: true,
+          restored_path: "C:\\x.db",
+          rollback_copy_path: null,
+          design_count: 5,
+          schema_version_hint: null,
+          previous_schema_version_hint: null,
+          rolled_back: false,
+          error: null,
+        },
+        designs: {
+          success: true,
+          scanned: 5,
+          copied: 2,
+          updated: 0,
+          skipped: 3,
+          total_bytes_copied: 0,
+          error: null,
+        },
+        unmatched: { checked: 5, unmatched: 2, sample: [] },
+      });
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "C:\\backups\\catalogue_2026-08-01.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+
+      await fireEvent.click(screen.getByRole("button", { name: "Restore both" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
+      );
+
+      await fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+      await tick();
+      expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
+    });
+
+    it("shows no error and keeps restore disabled when the file picker is cancelled", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: null,
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+      expect(toastMocks.addToast).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Restore database now" })).toBeDisabled();
+    });
+
+    it("displays the selected database backup file path", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "H:\\Catalogue Backups\\Database\\EmbroideryCatalogue.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+      const input = element(document.querySelector("#restore-db-file")) as HTMLInputElement;
+      await waitFor(() =>
+        expect(input.value).toBe("H:\\Catalogue Backups\\Database\\EmbroideryCatalogue.db")
+      );
+    });
+
+    it("shows a schema-version warning when the restored database differs", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "C:\\backups\\catalogue_2026-08-01.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+
+      adapterMocks.restoreDatabase.mockResolvedValue({
+        source: "rust",
+        success: true,
+        restored_path: "C:\\x.db",
+        rollback_copy_path: null,
+        design_count: 5,
+        schema_version_hint: 7,
+        previous_schema_version_hint: 3,
+        rolled_back: false,
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Restore database now" }));
+      await waitFor(() => screen.getByText("Schema version changed"));
+      expect(screen.getByText(/reports schema version 7/)).toBeInTheDocument();
+    });
+
+    it("shows a rollback banner and error toast when a corrupt backup is rejected", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "C:\\backups\\corrupt_test.db",
+        error: null,
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
+
+      adapterMocks.restoreDatabase.mockResolvedValue({
+        source: "rust",
+        success: false,
+        restored_path: "",
+        rollback_copy_path: "C:\\x.pre-restore-1.db",
+        design_count: 0,
+        schema_version_hint: null,
+        previous_schema_version_hint: null,
+        rolled_back: true,
+        error: "The backup file was corrupt; the database was restored from the safety snapshot.",
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Restore database now" }));
+      await waitFor(() => screen.getByText("Restore rolled back"));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "The backup file was corrupt; the database was restored from the safety snapshot.",
+          "error",
+          true
+        )
+      );
+    });
+
+    it("shows an error toast when the designs backup folder is invalid", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      adapterMocks.restoreDesignsIncremental.mockResolvedValue({
+        source: "rust",
+        success: false,
+        scanned: 0,
+        copied: 0,
+        updated: 0,
+        skipped: 0,
+        total_bytes_copied: 0,
+        error: "Designs backup folder not found: Z:\\NonExistentFolder",
+      });
+      await fireEvent.click(screen.getByRole("button", { name: "Sync designs from backup" }));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          "Designs backup folder not found: Z:\\NonExistentFolder",
+          "error"
         )
       );
     });

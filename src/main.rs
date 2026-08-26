@@ -88,11 +88,59 @@ fn database_status_from_paths(paths: &paths::AppPaths) -> DatabaseStatus {
 
 // ---------------------------------------------------------------------------
 
+/// Holds the live SQLite pool in a way that can be swapped at runtime for a
+/// database restore.
+///
+/// Cloning the holder is cheap (an `Arc`), and `pool()` clones the underlying
+/// `SqlitePool` handle so commands keep a stable pool across `.await` points.
+/// A restore takes the current pool out (closing it), replaces the database
+/// file on disk, and installs a fresh pool via `replace`.
+#[derive(Clone, Default)]
+pub struct PoolHolder {
+    inner: std::sync::Arc<std::sync::Mutex<Option<SqlitePool>>>,
+}
+
+impl PoolHolder {
+    /// Wrap a freshly-created pool.
+    pub fn new(pool: SqlitePool) -> Self {
+        Self {
+            inner: std::sync::Arc::new(std::sync::Mutex::new(Some(pool))),
+        }
+    }
+
+    /// Clone the currently installed pool, or `None` if a restore has removed it.
+    pub fn pool(&self) -> Option<SqlitePool> {
+        self.inner
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().cloned())
+    }
+
+    /// Remove and return the current pool so it can be closed before a restore
+    /// swaps the underlying database file. Returns `None` if already absent.
+    pub fn take(&self) -> Option<SqlitePool> {
+        self.inner.lock().ok().and_then(|mut guard| guard.take())
+    }
+
+    /// Install a new pool after a restore, dropping (and thereby closing) any
+    /// previous one. Safe to call even if no pool is currently installed.
+    pub fn replace(&self, new: SqlitePool) {
+        let previous = self
+            .inner
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.replace(new));
+        // A `SqlitePool` closes itself when the last handle is dropped.
+        drop(previous);
+    }
+}
+
 /// Shared application state managed by Tauri.
-/// `SqlitePool` is `Send + Sync`, so no `Mutex` wrapper is needed.
+/// The pool is held in a `PoolHolder` so a restore can close and replace it;
+/// commands obtain a cheap clone via `AppState::db_pool`.
 pub struct AppState {
-    /// Connection pool for the SQLite database.
-    pub db: SqlitePool,
+    /// Connection pool for the SQLite database (swappable at runtime).
+    pub db: PoolHolder,
     /// Status of the configured database (Connected / Missing / Uninitialized).
     pub database_status: DatabaseStatus,
     /// Resolved application paths (Portable vs Installed mode).
@@ -107,6 +155,23 @@ pub struct AppState {
     pub migration_running: AtomicBool,
     /// Cooperative cancellation flag observed by the running migration loop.
     pub migration_cancel_requested: std::sync::Arc<AtomicBool>,
+    /// True while a database restore is closing/swapping the live pool, so other
+    /// commands fail fast instead of acquiring a closed pool.
+    pub restore_in_progress: AtomicBool,
+}
+
+impl AppState {
+    /// Clone the current live database pool for use by a command. Fails fast
+    /// while a database restore is swapping the pool so no command touches a
+    /// closed pool.
+    pub fn db_pool(&self) -> Result<SqlitePool, String> {
+        if self.restore_in_progress.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("The database is being restored; please retry shortly.".to_string());
+        }
+        self.db
+            .pool()
+            .ok_or_else(|| "The database pool is unavailable.".to_string())
+    }
 }
 
 // â”€â”€â”€ AppStatus (exposed to frontend) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -277,7 +342,8 @@ fn restart_application(app_handle: tauri::AppHandle) -> Result<bool, String> {
 /// Check whether the initial setup wizard has been completed or skipped.
 #[tauri::command]
 async fn check_initial_setup(state: State<'_, AppState>) -> Result<bool, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     initial_setup::is_initial_setup_completed(&mut conn)
         .await
         .map_err(|err| err.to_string())
@@ -286,7 +352,8 @@ async fn check_initial_setup(state: State<'_, AppState>) -> Result<bool, String>
 /// Persist that the user has completed or skipped the initial setup wizard.
 #[tauri::command]
 async fn complete_initial_setup(state: State<'_, AppState>) -> Result<(), String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     initial_setup::set_initial_setup_completed(&mut conn, true)
         .await
         .map(|_| ())
@@ -416,7 +483,7 @@ fn main() {
     };
 
     let app_state = AppState {
-        db: pool,
+        db: PoolHolder::new(pool),
         database_status,
         paths: app_paths,
         log_guard,
@@ -424,6 +491,7 @@ fn main() {
         maintenance_running: AtomicBool::new(false),
         migration_running: AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+        restore_in_progress: AtomicBool::new(false),
     };
 
     // Launch a lightweight background backfill for orphan fingerprint data
@@ -434,14 +502,19 @@ fn main() {
         // import pool, health monitor) should run against the in-memory pool.
         tracing::info!("Skipping background DB initialisation during database recovery mode.");
     } else {
-        let fp_pool = app_state.db.clone();
+        let fp_pool = match app_state.db_pool() {
+            Ok(pool) => pool,
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(1);
+            }
+        };
+        routes::bulk_import::initialize_bulk_import_db_pool(fp_pool.clone());
         tauri::async_runtime::spawn(async move {
             if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await {
                 tracing::error!("Startup fingerprint backfill error: {}", err);
             }
         });
-
-        routes::bulk_import::initialize_bulk_import_db_pool(app_state.db.clone());
         let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
         tracing::info!(
             "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
@@ -463,7 +536,9 @@ fn main() {
             // an idle timer. All compaction is fire-and-forget and non-blocking.
             {
                 let state = app.state::<AppState>();
-                let pool = state.db.clone();
+                let pool = state
+                    .db_pool()
+                    .expect("database pool available during setup");
                 let maintenance_flag =
                     std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
                 let shutdown_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -624,6 +699,13 @@ fn main() {
             routes::maintenance::delete_orphans,
             routes::maintenance::delete_all_orphans,
             routes::maintenance::browse_orphan_path,
+            routes::restore::browse_restore_file,
+            routes::restore::restore_database,
+            routes::restore::restore_designs_incremental,
+            routes::restore::restore_both,
+            routes::restore::detect_design_files_absent_from_database,
+            routes::restore::import_unmatched_design_files,
+            routes::restore::request_cancel_restore,
         ])
         // tauri::generate_context!() reads tauri.conf.json from the project root
         .build(tauri::generate_context!())
@@ -636,7 +718,7 @@ fn main() {
         // pool first â€” preventing the "pool timed out waiting for an open
         // connection" error.
         let state = app.state::<AppState>();
-        let pool = state.db.clone();
+        let pool = state.db_pool().expect("database pool available at startup");
         let maintenance_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let shutdown_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let startup_handle = app.handle().clone();
@@ -669,7 +751,7 @@ fn main() {
 
                 // Close the SQLite connection pool so VACUUM / WAL checkpoints
                 // finish cleanly before the process exits.
-                let pool = &state.db;
+                let pool = state.db_pool().expect("database pool available on exit");
                 let pool_clone = pool.clone();
                 tauri::async_runtime::spawn(async move {
                     pool_clone.close().await;

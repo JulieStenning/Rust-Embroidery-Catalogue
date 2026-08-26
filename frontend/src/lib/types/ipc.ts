@@ -782,6 +782,74 @@ export interface AdapterScanOrphansResponse {
   error?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Restore (inverse of backup)
+// ---------------------------------------------------------------------------
+
+export interface BrowseRestoreFileResponse {
+  source: string;
+  path: string | null;
+  error: string | null;
+}
+
+export interface RestoreDatabaseResult {
+  success: boolean;
+  restored_path: string;
+  rollback_copy_path: string | null;
+  design_count: number;
+  /** `PRAGMA user_version` of the restored database (schema hint). */
+  schema_version_hint: number | null;
+  /** `PRAGMA user_version` of the live database before the swap. */
+  previous_schema_version_hint: number | null;
+  rolled_back: boolean;
+  error: string | null;
+}
+
+export interface RestoreDesignsResult {
+  success: boolean;
+  scanned: number;
+  copied: number;
+  updated: number;
+  skipped: number;
+  total_bytes_copied: number;
+  error: string | null;
+}
+
+export interface RestoreBothResult {
+  database: RestoreDatabaseResult | null;
+  designs: RestoreDesignsResult | null;
+  unmatched: DetectUnmatchedFilesResult | null;
+}
+
+/** Payload streamed on `catalogue-restore-progress`. */
+export interface RestoreProgress {
+  phase: string;
+  db_status: string;
+  scanned: number;
+  copied: number;
+  skipped: number;
+  total_bytes: number;
+  percent: number;
+  error: string | null;
+}
+
+export interface DetectUnmatchedFilesResult {
+  checked: number;
+  unmatched: number;
+  sample: string[];
+}
+
+export interface ImportUnmatchedFilesResult {
+  detected: number;
+  imported: number;
+  failed: number;
+  failed_samples: string[];
+}
+
+export interface CancelRestoreResult {
+  cancel_requested: boolean;
+}
+
 export interface OrphanPageItem {
   id: number;
   filename: string;

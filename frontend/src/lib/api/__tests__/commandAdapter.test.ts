@@ -65,6 +65,12 @@ import {
   runDatabaseBackup,
   runDesignsBackup,
   runPrecheckAction,
+  restoreBoth,
+  restoreDatabase,
+  restoreDesignsIncremental,
+  browseRestoreFile,
+  detectDesignFilesAbsentFromDatabase,
+  importUnmatchedDesignFiles,
   runStitchingBackfill,
   runUnifiedBackfill,
   saveBackupSettings,
@@ -2832,3 +2838,103 @@ describe("commandAdapter initial setup & app status", () => {
     });
   });
 });
+
+describe("restore adapters", () => {
+  it("browseRestoreFile maps Rust result and passes camelCase startDir", async () => {
+    invokeMock.mockResolvedValue({ path: "C:/backups/cat.db", error: null });
+    const ok = await browseRestoreFile("C:/start");
+    expect(invokeMock).toHaveBeenCalledWith("browse_restore_file", {
+      startDir: "C:/start",
+    });
+    expect(ok).toEqual({ source: "rust", path: "C:/backups/cat.db", error: null });
+
+    mockReject(new Error("picker failed"));
+    const bad = await browseRestoreFile("C:/start");
+    expect(bad.source).toBe("mock");
+    expect(bad.path).toBeNull();
+    expect(bad.error).toContain("picker failed");
+  });
+
+  it("restoreDatabase passes camelCase dbFile", async () => {
+    invokeMock.mockResolvedValue({
+      success: true,
+      restored_path: "C:/live.db",
+      rollback_copy_path: "C:/live.pre-restore-1.db",
+      design_count: 3,
+      schema_version_hint: 4,
+      previous_schema_version_hint: 3,
+      rolled_back: false,
+      error: null,
+    });
+    const result = await restoreDatabase("C:/backups/cat.db");
+    expect(invokeMock).toHaveBeenCalledWith("restore_database", {
+      request: { db_file: "C:/backups/cat.db" },
+    });
+    expect(result.source).toBe("rust");
+    expect(result.success).toBe(true);
+    expect(result.design_count).toBe(3);
+    expect(result.schema_version_hint).toBe(4);
+    expect(result.previous_schema_version_hint).toBe(3);
+  });
+
+  it("restoreDesignsIncremental passes camelCase designsSourceDir", async () => {
+    invokeMock.mockResolvedValue({
+      success: true,
+      scanned: 5,
+      copied: 2,
+      updated: 1,
+      skipped: 2,
+      total_bytes_copied: 100,
+      error: null,
+    });
+    const result = await restoreDesignsIncremental({ designsSourceDir: "C:/backups" });
+    expect(invokeMock).toHaveBeenCalledWith("restore_designs_incremental", {
+      request: { designs_source_dir: "C:/backups" },
+    });
+    expect(result.source).toBe("rust");
+    expect(result.copied).toBe(2);
+  });
+
+  it("restoreBoth passes camelCase dbFile + designsSourceDir", async () => {
+    invokeMock.mockResolvedValue({
+      database: {
+        success: true,
+        restored_path: "C:/live.db",
+        rollback_copy_path: null,
+        design_count: 3,
+        schema_version_hint: null,
+        previous_schema_version_hint: null,
+        rolled_back: false,
+        error: null,
+      },
+      designs: { success: true, scanned: 5, copied: 2, updated: 0, skipped: 3, total_bytes_copied: 0, error: null },
+      unmatched: { checked: 5, unmatched: 1, sample: ["a.pes"] },
+    });
+    const result = await restoreBoth("C:/backups/cat.db", { designsSourceDir: "C:/backups" });
+    expect(invokeMock).toHaveBeenCalledWith("restore_both", {
+      request: {
+        db_file: "C:/backups/cat.db",
+        designs_source_dir: "C:/backups",
+      },
+    });
+    expect(result.source).toBe("rust");
+    expect(result.unmatched?.unmatched).toBe(1);
+  });
+
+  it("detectDesignFilesAbsentFromDatabase maps result", async () => {
+    invokeMock.mockResolvedValue({ checked: 5, unmatched: 1, sample: ["a.pes"] });
+    const result = await detectDesignFilesAbsentFromDatabase();
+    expect(invokeMock).toHaveBeenCalledWith("detect_design_files_absent_from_database");
+    expect(result.source).toBe("rust");
+    expect(result.unmatched).toBe(1);
+  });
+
+  it("importUnmatchedDesignFiles maps result", async () => {
+    invokeMock.mockResolvedValue({ detected: 1, imported: 1, failed: 0, failed_samples: [] });
+    const result = await importUnmatchedDesignFiles();
+    expect(invokeMock).toHaveBeenCalledWith("import_unmatched_design_files");
+    expect(result.source).toBe("rust");
+    expect(result.imported).toBe(1);
+  });
+});
+

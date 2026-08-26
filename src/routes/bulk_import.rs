@@ -20,7 +20,7 @@ const BULK_IMPORT_CONTEXT_MAX_ENTRIES: usize = 128;
 static BULK_IMPORT_CONTEXT_STORE: OnceLock<Mutex<HashMap<String, StoredBulkImportContext>>> =
     OnceLock::new();
 static BULK_IMPORT_CONTEXT_COUNTER: AtomicU64 = AtomicU64::new(1);
-static BULK_IMPORT_DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
+static BULK_IMPORT_DB_POOL: Mutex<Option<SqlitePool>> = Mutex::new(None);
 static BULK_IMPORT_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 static BULK_IMPORT_CONTEXT_RESET_COUNTER: AtomicU64 = AtomicU64::new(0);
 static BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS: AtomicU64 = AtomicU64::new(0);
@@ -334,7 +334,13 @@ fn canonicalize_bulk_import_confirm_wire(
 }
 
 pub fn initialize_bulk_import_db_pool(pool: SqlitePool) {
-    let _ = BULK_IMPORT_DB_POOL.set(pool);
+    if let Ok(mut guard) = BULK_IMPORT_DB_POOL.lock() { *guard = Some(pool); }
+}
+
+/// Replace the cached bulk-import pool after a database restore swaps the live
+/// connection pool, so subsequent imports target the restored database.
+pub fn update_bulk_import_db_pool(pool: SqlitePool) {
+    initialize_bulk_import_db_pool(pool);
 }
 
 pub fn initialize_bulk_import_app_handle(app_handle: tauri::AppHandle) {
@@ -342,7 +348,7 @@ pub fn initialize_bulk_import_app_handle(app_handle: tauri::AppHandle) {
 }
 
 fn get_bulk_import_db_pool() -> Option<SqlitePool> {
-    BULK_IMPORT_DB_POOL.get().cloned()
+    BULK_IMPORT_DB_POOL.lock().ok().and_then(|guard| guard.as_ref().cloned())
 }
 
 fn get_bulk_import_app_handle() -> Option<&'static tauri::AppHandle> {
@@ -640,7 +646,7 @@ fn compute_prospective_stored_filepath(
 }
 
 /// Compute BLAKE3 hash of a file. Returns hex-encoded string.
-fn compute_file_hash_blake3(file_path: &Path) -> Result<String, String> {
+pub(crate) fn compute_file_hash_blake3(file_path: &Path) -> Result<String, String> {
     let mut file = File::open(file_path).map_err(|e| {
         format!(
             "Failed to open file for hashing '{}': {}",
@@ -669,7 +675,7 @@ fn compute_file_hash_blake3(file_path: &Path) -> Result<String, String> {
 }
 
 /// Get file size in bytes via metadata.
-fn compute_file_size(file_path: &Path) -> Result<i64, String> {
+pub(crate) fn compute_file_size(file_path: &Path) -> Result<i64, String> {
     let metadata = fs::metadata(file_path).map_err(|e| {
         format!(
             "Failed to read metadata for '{}': {}",
@@ -1408,6 +1414,12 @@ fn clear_bulk_import_context_store_internal(reason: &str) -> BulkImportContextSt
 
 pub fn reset_bulk_import_context_store_for_startup() -> BulkImportContextStoreResetResult {
     clear_bulk_import_context_store_internal("startup")
+}
+
+/// Clear any in-flight bulk-import contexts after a database restore, so a
+/// pre-restore context token cannot be reused against the restored database.
+pub fn reset_bulk_import_context_store_for_restore() -> BulkImportContextStoreResetResult {
+    clear_bulk_import_context_store_internal("restore")
 }
 
 pub fn store_bulk_import_context(confirm_wire: BulkImportConfirmWire) -> String {

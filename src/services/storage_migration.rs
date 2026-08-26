@@ -389,7 +389,7 @@ async fn migrate_database(source: &AppPaths, plan: &MigrationPlan) -> Result<boo
 
 /// Open the migrated database read-only and run `integrity_check` plus a
 /// trivial design-count query. Returns `Ok(true)` when valid.
-async fn verify_database_at(db_path: &Path) -> Result<bool, AppError> {
+pub(crate) async fn verify_database_at(db_path: &Path) -> Result<bool, AppError> {
     if !db_path.exists() {
         return Ok(false);
     }

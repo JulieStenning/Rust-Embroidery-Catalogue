@@ -69,7 +69,7 @@ async fn run_migration_blocking(
     let plan = storage_migration::preflight(source, &target, force).map_err(|e| e.to_string())?;
 
     // WAL checkpoint so the main .db is complete before the copy.
-    storage_migration::checkpoint_live_database(&state.db)
+    storage_migration::checkpoint_live_database(&state.db_pool()?)
         .await
         .map_err(|e| e.to_string())?;
 

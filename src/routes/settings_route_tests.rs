@@ -75,7 +75,7 @@ fn make_app_paths_portable(tmp_dir: &std::path::Path) -> crate::paths::AppPaths 
 
 fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
     AppState {
-        db: pool,
+        db: crate::PoolHolder::new(pool),
         database_status: crate::DatabaseStatus {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(paths.data_root.to_string_lossy().to_string()),
@@ -89,6 +89,7 @@ fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
         maintenance_running: AtomicBool::new(false),
         migration_running: AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+        restore_in_progress: AtomicBool::new(false),
     }
 }
 
@@ -518,7 +519,7 @@ async fn get_settings_view_model_inner_reads_google_api_key_from_db() {
     let paths = make_app_paths_installed(&tmp);
     let state = make_app_state(pool, paths);
 
-    let mut conn = state.db.acquire().await.unwrap();
+    let mut conn = state.db_pool().expect("pool").acquire().await.unwrap();
     settings::upsert_setting(&mut conn, settings::KEY_AI_GOOGLE_API_KEY, "my-test-key")
         .await
         .unwrap();
@@ -555,7 +556,7 @@ async fn save_import_last_browse_folder_inner_persists_and_trims() {
     assert_eq!(result.path, "D:/my/folder");
 
     // Verify in DB
-    let mut conn = state.db.acquire().await.expect("connection");
+    let mut conn = state.db_pool().expect("pool").acquire().await.expect("connection");
     let setting = crate::settings::get_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER)
         .await
         .expect("get setting")
@@ -608,7 +609,7 @@ async fn save_settings_view_model_inner_persists_all_fields() {
     assert_eq!(result.message, "Settings saved successfully.");
 
     // Verify settings in DB
-    let mut conn = state.db.acquire().await.expect("connection");
+    let mut conn = state.db_pool().expect("pool").acquire().await.expect("connection");
 
     async fn read_setting(conn: &mut SqliteConnection, key: &str) -> String {
         crate::settings::get_setting(conn, key)
@@ -774,7 +775,7 @@ async fn get_google_api_key_inner_returns_value_when_set() {
     let paths = make_app_paths_installed(&tmp);
     let state = make_app_state(pool, paths);
 
-    let mut conn = state.db.acquire().await.unwrap();
+    let mut conn = state.db_pool().expect("pool").acquire().await.unwrap();
     settings::upsert_setting(&mut conn, settings::KEY_AI_GOOGLE_API_KEY, "my-test-key")
         .await
         .unwrap();
@@ -806,7 +807,7 @@ async fn set_google_api_key_inner_persists_to_db_and_returns_true() {
     assert!(result.is_ok());
     assert!(result.unwrap());
 
-    let mut conn = state.db.acquire().await.unwrap();
+    let mut conn = state.db_pool().expect("pool").acquire().await.unwrap();
     let val = settings::get_setting_with_default(&mut conn, settings::KEY_AI_GOOGLE_API_KEY)
         .await
         .unwrap();

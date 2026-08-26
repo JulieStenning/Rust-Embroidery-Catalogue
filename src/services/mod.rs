@@ -14,6 +14,7 @@ pub mod import;
 pub mod maintenance;
 pub mod portable;
 pub mod projects;
+pub mod restore;
 pub mod scanning;
 pub mod settings;
 pub mod stitch_identifier;

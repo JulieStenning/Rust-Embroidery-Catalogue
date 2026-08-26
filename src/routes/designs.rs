@@ -1934,7 +1934,7 @@ pub async fn get_designs(
     state: State<'_, AppState>,
     payload: Option<GetDesignsPayload>,
 ) -> Result<BrowseDesignsPageResult, String> {
-    get_designs_page_with_pool(&state.db, payload).await
+    get_designs_page_with_pool(&state.db_pool()?, payload).await
 }
 
 async fn get_designs_page_with_pool(
@@ -2117,7 +2117,8 @@ pub async fn bulk_verify_designs(
         });
     }
 
-    let mut tx = state.db.begin().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut verified_count = 0usize;
 
     for design_id in &design_ids {
@@ -2153,7 +2154,7 @@ pub async fn get_projects_for_browse(
 		ORDER BY p.name COLLATE NOCASE ASC
 		"#,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.db_pool()?)
     .await
     .map_err(|e| e.to_string())
 }
@@ -2172,7 +2173,7 @@ pub async fn get_tags_for_browse(
 		ORDER BY t.description COLLATE NOCASE ASC
 		"#,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.db_pool()?)
     .await
     .map_err(|e| e.to_string())
 }
@@ -2195,7 +2196,8 @@ pub async fn bulk_add_designs_to_project(
         });
     }
 
-    let mut tx = state.db.begin().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut added_count = 0usize;
 
     for design_id in &design_ids {
@@ -2346,7 +2348,7 @@ pub async fn bulk_set_tags_for_designs(
     design_ids: Vec<i64>,
     request: BulkApplyTagsRequest,
 ) -> Result<BulkSetTagsResult, String> {
-    bulk_set_tags_for_designs_with_pool(&state.db, &design_ids, request).await
+    bulk_set_tags_for_designs_with_pool(&state.db_pool()?, &design_ids, request).await
 }
 
 #[tauri::command]
@@ -2369,7 +2371,7 @@ pub async fn get_design_previews_for_browse(
 
     let rows = builder
         .build_query_as::<BrowseDesignPreviewRow>()
-        .fetch_all(&state.db)
+        .fetch_all(&state.db_pool()?)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -2403,7 +2405,7 @@ pub async fn get_design_detail(
     state: State<'_, AppState>,
     design_id: i64,
 ) -> Result<Option<DesignDetail>, String> {
-    get_design_detail_with_pool(&state.db, design_id).await
+    get_design_detail_with_pool(&state.db_pool()?, design_id).await
 }
 
 #[tauri::command]
@@ -2411,7 +2413,7 @@ pub async fn get_design_image_data_url(
     state: State<'_, AppState>,
     design_id: i64,
 ) -> Result<Option<DesignImageData>, String> {
-    get_design_image_data_with_pool(&state.db, design_id).await
+    get_design_image_data_with_pool(&state.db_pool()?, design_id).await
 }
 
 #[tauri::command]
@@ -2421,7 +2423,7 @@ pub async fn update_design_metadata(
     design_id: i64,
     request: UpdateDesignMetadataRequest,
 ) -> Result<DesignCommandResult, String> {
-    let result = update_design_metadata_with_pool(&state.db, design_id, request).await?;
+    let result = update_design_metadata_with_pool(&state.db_pool()?, design_id, request).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2439,7 +2441,7 @@ pub async fn set_design_rating(
     design_id: i64,
     request: SetDesignRatingRequest,
 ) -> Result<DesignCommandResult, String> {
-    let result = set_design_rating_with_pool(&state.db, design_id, request.rating).await?;
+    let result = set_design_rating_with_pool(&state.db_pool()?, design_id, request.rating).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2457,7 +2459,7 @@ pub async fn set_design_stitched(
     design_id: i64,
     request: SetDesignStitchedRequest,
 ) -> Result<DesignCommandResult, String> {
-    let result = set_design_stitched_with_pool(&state.db, design_id, request.is_stitched).await?;
+    let result = set_design_stitched_with_pool(&state.db_pool()?, design_id, request.is_stitched).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2476,7 +2478,7 @@ pub async fn set_design_verification(
     request: SetDesignVerificationRequest,
 ) -> Result<DesignCommandResult, String> {
     let result = set_design_verification_with_pool(
-        &state.db,
+        &state.db_pool()?,
         design_id,
         request.image_tags_verified,
         request.stitching_tags_verified,
@@ -2503,7 +2505,7 @@ pub async fn set_design_tags(
     request: SetDesignTagsRequest,
 ) -> Result<DesignCommandResult, String> {
     let result = set_design_tags_with_pool(
-        &state.db,
+        &state.db_pool()?,
         design_id,
         request.tag_ids,
         request.image_tags_verified,
@@ -2530,7 +2532,7 @@ pub async fn remove_design_tag(
     design_id: i64,
     tag_id: i64,
 ) -> Result<DesignCommandResult, String> {
-    let result = remove_design_tag_with_pool(&state.db, design_id, tag_id).await?;
+    let result = remove_design_tag_with_pool(&state.db_pool()?, design_id, tag_id).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2548,7 +2550,7 @@ pub async fn add_design_to_project(
     design_id: i64,
     request: SetDesignProjectRequest,
 ) -> Result<DesignCommandResult, String> {
-    let result = add_design_to_project_with_pool(&state.db, design_id, request.project_id).await?;
+    let result = add_design_to_project_with_pool(&state.db_pool()?, design_id, request.project_id).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2566,7 +2568,7 @@ pub async fn remove_design_from_project(
     design_id: i64,
     project_id: i64,
 ) -> Result<DesignCommandResult, String> {
-    let result = remove_design_from_project_with_pool(&state.db, design_id, project_id).await?;
+    let result = remove_design_from_project_with_pool(&state.db_pool()?, design_id, project_id).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2584,7 +2586,7 @@ pub async fn delete_design(
     design_id: i64,
     delete_file: bool,
 ) -> Result<DesignCommandResult, String> {
-    let result = delete_design_with_pool(&state.db, design_id, delete_file).await?;
+    let result = delete_design_with_pool(&state.db_pool()?, design_id, delete_file).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2594,7 +2596,7 @@ pub async fn delete_design(
     );
     // Reclaim freelist pages asynchronously after the delete commits, so the
     // UI never blocks on database file compaction.
-    schedule_incremental_vacuum(state.db.clone());
+    schedule_incremental_vacuum(state.db_pool()?);
     Ok(result)
 }
 
@@ -2605,7 +2607,7 @@ pub async fn bulk_delete_designs(
     request: BulkDeleteDesignsRequest,
 ) -> Result<BulkDeleteDesignsResult, String> {
     let result =
-        bulk_delete_designs_with_pool(&state.db, &request.design_ids, request.delete_files).await?;
+        bulk_delete_designs_with_pool(&state.db_pool()?, &request.design_ids, request.delete_files).await?;
     // Emit events for each deleted design
     for design_id in &request.design_ids {
         let _ = app_handle.emit(
@@ -2618,7 +2620,7 @@ pub async fn bulk_delete_designs(
     }
     // Reclaim freelist pages asynchronously after the bulk delete commits, so
     // the UI never blocks on database file compaction.
-    schedule_incremental_vacuum(state.db.clone());
+    schedule_incremental_vacuum(state.db_pool()?);
     Ok(result)
 }
 
@@ -2627,7 +2629,7 @@ pub async fn open_design_in_editor(
     state: State<'_, AppState>,
     design_id: i64,
 ) -> Result<LaunchDesignResult, String> {
-    open_design_in_editor_with_pool(&state.db, design_id).await
+    open_design_in_editor_with_pool(&state.db_pool()?, design_id).await
 }
 
 #[tauri::command]
@@ -2635,7 +2637,7 @@ pub async fn open_design_in_explorer(
     state: State<'_, AppState>,
     design_id: i64,
 ) -> Result<LaunchDesignResult, String> {
-    open_design_in_explorer_with_pool(&state.db, design_id).await
+    open_design_in_explorer_with_pool(&state.db_pool()?, design_id).await
 }
 
 #[tauri::command]
@@ -2645,7 +2647,7 @@ pub async fn render_design_3d_preview(
     request: Option<RenderPreviewRequest>,
 ) -> Result<Render3dPreviewResult, String> {
     let preview_3d = request.map(|r| r.preview_3d).unwrap_or(true);
-    render_design_3d_preview_with_pool(&state.db, design_id, preview_3d).await
+    render_design_3d_preview_with_pool(&state.db_pool()?, design_id, preview_3d).await
 }
 
 #[tauri::command]
@@ -2654,7 +2656,7 @@ pub async fn reparse_design_file(
     state: State<'_, AppState>,
     design_id: i64,
 ) -> Result<ReparseDesignResult, String> {
-    let result = reparse_design_file_with_pool(&state.db, design_id).await?;
+    let result = reparse_design_file_with_pool(&state.db_pool()?, design_id).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({

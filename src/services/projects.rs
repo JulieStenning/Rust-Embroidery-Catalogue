@@ -232,7 +232,7 @@ pub async fn get_projects_list(state: &AppState) -> Result<Vec<ProjectSummary>, 
 		ORDER BY p.name COLLATE NOCASE ASC
 		"#,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.db_pool().map_err(AppError::database)?)
     .await
     .map_err(|e| AppError::database(e.to_string()))
 }
@@ -245,14 +245,14 @@ pub async fn create_project(
         validate_non_empty(&request.name, "Project name").map_err(AppError::invalid_input)?;
     let description = normalize_optional_text(&request.description);
 
-    ensure_unique_project_name(&state.db, &name).await?;
+    ensure_unique_project_name(&state.db_pool().map_err(AppError::database)?, &name).await?;
 
     let result = sqlx::query(
         "INSERT INTO projects (name, description, date_created) VALUES (?, ?, date('now'))",
     )
     .bind(&name)
     .bind(description)
-    .execute(&state.db)
+    .execute(&state.db_pool().map_err(AppError::database)?)
     .await
     .map_err(|e| AppError::database(e.to_string()))?;
 
@@ -266,7 +266,7 @@ pub async fn get_project_detail(
     state: &AppState,
     project_id: i64,
 ) -> Result<ProjectDetailView, AppError> {
-    let project = ensure_project_exists(&state.db, project_id).await?;
+    let project = ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
 
     let design_rows = sqlx::query_as::<_, ProjectDesignCardRow>(
         r#"
@@ -285,7 +285,7 @@ pub async fn get_project_detail(
 		"#,
     )
     .bind(project_id)
-    .fetch_all(&state.db)
+    .fetch_all(&state.db_pool().map_err(AppError::database)?)
     .await
     .map_err(|e| AppError::database(e.to_string()))?;
 
@@ -312,14 +312,14 @@ pub async fn update_project(
         validate_non_empty(&request.name, "Project name").map_err(AppError::invalid_input)?;
     let description = normalize_optional_text(&request.description);
 
-    ensure_project_exists(&state.db, project_id).await?;
-    ensure_unique_project_name_except_id(&state.db, project_id, &name).await?;
+    ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
+    ensure_unique_project_name_except_id(&state.db_pool().map_err(AppError::database)?, project_id, &name).await?;
 
     sqlx::query("UPDATE projects SET name = ?, description = ? WHERE id = ?")
         .bind(&name)
         .bind(description)
         .bind(project_id)
-        .execute(&state.db)
+        .execute(&state.db_pool().map_err(AppError::database)?)
         .await
         .map_err(|e| AppError::database(e.to_string()))?;
 
@@ -333,11 +333,11 @@ pub async fn delete_project(
     state: &AppState,
     project_id: i64,
 ) -> Result<ProjectMutationResult, AppError> {
-    ensure_project_exists(&state.db, project_id).await?;
+    ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
 
     sqlx::query("DELETE FROM projects WHERE id = ?")
         .bind(project_id)
-        .execute(&state.db)
+        .execute(&state.db_pool().map_err(AppError::database)?)
         .await
         .map_err(|e| AppError::database(e.to_string()))?;
 
@@ -356,12 +356,12 @@ pub async fn remove_design_from_project_detail(
         return Err(AppError::invalid_input("Design id must be a positive id."));
     }
 
-    ensure_project_exists(&state.db, project_id).await?;
+    ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
 
     sqlx::query("DELETE FROM project_designs WHERE project_id = ? AND design_id = ?")
         .bind(project_id)
         .bind(design_id)
-        .execute(&state.db)
+        .execute(&state.db_pool().map_err(AppError::database)?)
         .await
         .map_err(|e| AppError::database(e.to_string()))?;
 
@@ -376,7 +376,7 @@ pub async fn get_project_print_view(
     state: &AppState,
     project_id: i64,
 ) -> Result<ProjectPrintView, AppError> {
-    let project = ensure_project_exists(&state.db, project_id).await?;
+    let project = ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
 
     let design_rows = sqlx::query_as::<_, ProjectPrintDesignRow>(
         r#"
@@ -404,7 +404,7 @@ pub async fn get_project_print_view(
 		"#,
     )
     .bind(project_id)
-    .fetch_all(&state.db)
+    .fetch_all(&state.db_pool().map_err(AppError::database)?)
     .await
     .map_err(|e| AppError::database(e.to_string()))?;
 

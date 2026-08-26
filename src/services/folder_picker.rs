@@ -110,6 +110,20 @@ pub fn browse_folder_with_error(
     browse_folder(start_dir, allow_multi)
 }
 
+/// Open a native file picker restricted to SQLite database (`.db`) files,
+/// defaulting to `start_dir` when it exists on disk (otherwise rfd falls back
+/// to its system default). Used by the Restore flow to choose a database
+/// backup snapshot. A `None` result means the user cancelled.
+pub fn pick_db_backup_file(start_dir: Option<&str>) -> Result<BrowseFolderResult, AppError> {
+    let mut dialog = FileDialog::new().add_filter("SQLite database", &["db"]);
+
+    if let Some(dir) = resolve_start_dir(start_dir) {
+        dialog = dialog.set_directory(&dir);
+    }
+
+    Ok(map_single_result(dialog.pick_file()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

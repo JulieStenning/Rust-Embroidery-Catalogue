@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import {
     getBackupViewModel,
     saveBackupSettings,
@@ -9,9 +9,17 @@
     runBothBackups,
     requestCancelBackup,
     getSettingsViewModel,
+    browseRestoreFile,
+    restoreDatabase,
+    restoreDesignsIncremental,
+    restoreBoth,
+    importUnmatchedDesignFiles,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
+  import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
+  import RestoreProgressPanel from "../components/RestoreProgressPanel.svelte";
 
   let backupDbDestination = $state("");
   let backupDesignsDestination = $state("");
@@ -31,6 +39,31 @@
   let showCancelConfirm = $state(false);
   let cancelling = $state(false);
   let activeBackupAction = $state(/** @type {"database" | "designs" | "both" | null} */ (null));
+
+  // ── Restore state ─────────────────────────────────────────────────────────
+  let restoreDbFile = $state(""); // selected database backup (.db) file
+  let restoreDesignsSource = $state(""); // designs backup folder to restore from
+  let restoreDatabaseRunning = $state(false);
+  let restoreDesignsRunning = $state(false);
+  let restoreAnyRunning = $derived(restoreDatabaseRunning || restoreDesignsRunning);
+  let restoreSchemaVersion = $state(null);
+  let restorePreviousSchemaVersion = $state(null);
+  let restoreRolledBack = $state(false);
+  let restoreError = $state("");
+  // Unmatched-files (post-restore reconciliation) prompt.
+  let showUnmatchedPrompt = $state(false);
+  let unmatchedCount = $state(0);
+  let unmatchedChecked = $state(0);
+  let unmatchedSample = $state([]);
+  let importingUnmatched = $state(false);
+  /** @type {import("@tauri-apps/api/event").UnlistenFn | null} */
+  let unlistenRestore = $state(null);
+
+  let restoreSchemaChanged = $derived(
+    restoreSchemaVersion !== null &&
+      restorePreviousSchemaVersion !== null &&
+      Number(restoreSchemaVersion) !== Number(restorePreviousSchemaVersion)
+  );
 
   let backupHasUnsavedChanges = $derived(
     backupDbDestination.trim() !== backupSavedDbDestination.trim() ||
@@ -60,6 +93,7 @@
       backupDesignsDestination = String(model?.designs_destination || "");
       backupSavedDbDestination = backupDbDestination;
       backupSavedDesignsDestination = backupDesignsDestination;
+      restoreDesignsSource = backupSavedDesignsDestination;
 
       const fallbackDataRoot = settingsDataRoot ? String(settingsDataRoot) : "";
       backupDbSourcePath = String(
@@ -287,8 +321,162 @@
     showCancelConfirm = false;
   }
 
-  onMount(() => {
+  // ── Restore handlers ─────────────────────────────────────────────────────
+
+  /** Open the database backup file picker, defaulting to the configured folder. */
+  async function chooseRestoreDbFile() {
+    const startDir = restoreDbFile || backupSavedDbDestination || "";
+    const result = await browseRestoreFile(startDir);
+    if (result.path) {
+      restoreDbFile = result.path;
+      return;
+    }
+    if (result.error) {
+      addToast(result.error, "error");
+    }
+  }
+
+  /** Show the schema-change warning after a successful database restore. */
+  function applyRestoreDatabaseResult(result) {
+    restoreSchemaVersion = result?.schema_version_hint ?? null;
+    restorePreviousSchemaVersion = result?.previous_schema_version_hint ?? null;
+    restoreRolledBack = Boolean(result?.rolled_back);
+
+    if (result?.rolled_back) {
+      addToast(result?.error || "Database restore failed and was rolled back.", "error", true);
+      return;
+    }
+    if (!result?.success) {
+      addToast(result?.error || "Database restore failed.", "error", true);
+      return;
+    }
+    const count = Number(result?.design_count || 0).toLocaleString();
+    addToast(`Database restored (${count} designs).`, "success");
+  }
+
+  /** Run a restore action ("database", "designs", or "both"). */
+  async function runRestoreAction(action) {
+    if (restoreAnyRunning) return;
+
+    const runsDatabase = action === "database" || action === "both";
+    const runsDesigns = action === "designs" || action === "both";
+
+    if (runsDatabase && !restoreDbFile.trim()) {
+      addToast("Choose a database backup (.db) file first.", "error");
+      return;
+    }
+    if (runsDesigns && !restoreDesignsSource.trim() && !backupHasDesignsDestination) {
+      addToast(
+        "No designs backup folder is configured. Save a designs backup destination first.",
+        "error"
+      );
+      return;
+    }
+
+    if (runsDatabase) restoreDatabaseRunning = true;
+    if (runsDesigns) restoreDesignsRunning = true;
+    restoreError = "";
+    restoreRolledBack = false;
+    restoreSchemaVersion = null;
+    restorePreviousSchemaVersion = null;
+    showUnmatchedPrompt = false;
+    resetRestoreProgress();
+
+    try {
+      if (action === "database") {
+        const result = await restoreDatabase(restoreDbFile.trim());
+        applyRestoreDatabaseResult(result);
+        return;
+      }
+
+      if (action === "designs") {
+        const result = await restoreDesignsIncremental({
+          designsSourceDir: restoreDesignsSource.trim() || undefined,
+        });
+        if (!result.success) {
+          addToast(result.error || "Designs restore failed.", "error");
+          return;
+        }
+        addToast(
+          `Designs restored: ${result.copied} copied, ${result.skipped} skipped.`,
+          "success"
+        );
+        return;
+      }
+
+      if (action === "both") {
+        const result = await restoreBoth(restoreDbFile.trim(), {
+          designsSourceDir: restoreDesignsSource.trim() || undefined,
+        });
+        if (!result?.database?.success) {
+          applyRestoreDatabaseResult(result?.database);
+          return;
+        }
+        applyRestoreDatabaseResult(result.database);
+        if (result?.designs?.success) {
+          addToast(
+            `Designs restored: ${result.designs.copied} copied, ${result.designs.skipped} skipped.`,
+            "success"
+          );
+        }
+        const unmatched = result?.unmatched;
+        if (unmatched && Number(unmatched.unmatched) > 0) {
+          unmatchedCount = Number(unmatched.unmatched) || 0;
+          unmatchedChecked = Number(unmatched.checked) || 0;
+          unmatchedSample = Array.isArray(unmatched.sample) ? unmatched.sample : [];
+          showUnmatchedPrompt = true;
+        }
+        return;
+      }
+    } catch (error) {
+      restoreError = String(error);
+      addToast(`Restore failed: ${error}`, "error", true);
+    } finally {
+      if (runsDatabase) restoreDatabaseRunning = false;
+      if (runsDesigns) restoreDesignsRunning = false;
+    }
+  }
+
+  /** Batch-import unmatched design files as new catalogue records. */
+  async function handleImportUnmatched() {
+    if (importingUnmatched) return;
+    importingUnmatched = true;
+    try {
+      const result = await importUnmatchedDesignFiles();
+      const message =
+        result.failed > 0
+          ? `Imported ${result.imported} file(s); ${result.failed} failed.`
+          : `Imported ${result.imported} unmatched file(s).`;
+      addToast(message, result.failed > 0 ? "warning" : "success");
+      showUnmatchedPrompt = false;
+    } catch (error) {
+      addToast(`Import failed: ${error}`, "error");
+    } finally {
+      importingUnmatched = false;
+    }
+  }
+
+  function dismissUnmatched() {
+    showUnmatchedPrompt = false;
+    unmatchedCount = 0;
+    unmatchedChecked = 0;
+    unmatchedSample = [];
+  }
+
+  onMount(async () => {
     loadBackupFromBackend();
+    try {
+      unlistenRestore = await initRestoreProgressEvents();
+    } catch (error) {
+      console.info("Restore progress events unavailable.", error);
+    }
+  });
+
+  onDestroy(() => {
+    if (unlistenRestore) {
+      unlistenRestore();
+    }
+    resetRestoreProgress();
   });
 </script>
 
@@ -506,4 +694,181 @@
     onClose={closeCancelModal}
     onConfirm={confirmCancel}
   />
+
+  <div class="border-t border-gray-200 pt-6 mt-2">
+    <h2 class="text-lg font-semibold text-gray-800 mb-1">Restore</h2>
+    <p class="text-sm text-gray-500 mb-4">
+      Restore a database backup snapshot and/or sync design files back from a backup folder. A safety
+      copy of your current database is kept before any overwrite.
+    </p>
+  </div>
+
+  <RestoreProgressPanel />
+
+  {#if restoreSchemaChanged}
+    <div
+      class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
+    >
+      <p class="font-semibold">Schema version changed</p>
+      <p>
+        The restored database reports schema version {restoreSchemaVersion} (previous was
+        {restorePreviousSchemaVersion}). No automated migrations were run; if this backup is from an
+        older version of the app, some newer features may be unavailable.
+      </p>
+    </div>
+  {/if}
+
+  {#if restoreRolledBack}
+    <div
+      class="backup-important mb-2 bg-red-50 border border-red-300 text-red-900 rounded px-4 py-3 text-sm"
+    >
+      <p class="font-semibold">Restore rolled back</p>
+      <p>Your previous database was automatically restored after the restore failed verification.</p>
+    </div>
+  {/if}
+
+  <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+    <h2 class="text-base font-semibold text-gray-800">Restore Database</h2>
+    <p class="text-sm text-gray-600">
+      Replace the live catalogue database with a backup snapshot. A safety copy of the current
+      database is kept before overwriting.
+    </p>
+    <div class="flex gap-2 items-center">
+      <input
+        id="restore-db-file"
+        type="text"
+        readonly
+        bind:value={restoreDbFile}
+        placeholder="Choose an EmbroideryCatalogue.db backup file…"
+        spellcheck="false"
+        class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+      />
+      <button
+        type="button"
+        class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+        onclick={chooseRestoreDbFile}
+        disabled={restoreAnyRunning}
+      >
+        Choose file…
+      </button>
+    </div>
+    <div class="text-xs text-gray-500">
+      <p>
+        Defaults to:
+        <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+          >{backupSavedDbDestination || "(not set)"}</code
+        >
+      </p>
+    </div>
+    {#if restoreAnyRunning}
+      <button type="button" class="settings-primary-button menu-button-primary" disabled
+        title="A restore is already running"
+        >Restore database idle</button
+      >
+    {:else}
+      <button
+        type="button"
+        class="settings-primary-button menu-button-primary"
+        disabled={!restoreDbFile.trim()}
+        title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
+        onclick={() => runRestoreAction("database")}
+      >
+        Restore database now
+      </button>
+    {/if}
+  </div>
+
+  <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+    <h2 class="text-base font-semibold text-gray-800">Sync Designs from Backup</h2>
+    <p class="text-sm text-gray-600">
+      Copies design <strong>files</strong> from the backup folder back into
+      <code>MachineEmbroideryDesigns</code>, skipping files already present there (same size and
+      timestamp). This restores <strong>files only</strong> — it does <strong>not</strong> add or
+      change database records.
+    </p>
+    <div class="text-xs text-gray-500 space-y-0.5">
+      <p>
+        Backup source folder:
+        <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+          >{restoreDesignsSource || backupSavedDesignsDestination || "(not set)"}</code
+        >
+      </p>
+    </div>
+    {#if restoreAnyRunning}
+      <button type="button" class="settings-primary-button menu-button-primary" disabled
+        title="A restore is already running"
+        >Sync designs idle</button
+      >
+    {:else}
+      <button
+        type="button"
+        class="settings-primary-button menu-button-primary"
+        disabled={!restoreDesignsSource.trim() && !backupHasDesignsDestination}
+        title={
+          !restoreDesignsSource.trim() && !backupHasDesignsDestination
+            ? "Set a designs backup folder first"
+            : undefined
+        }
+        onclick={() => runRestoreAction("designs")}
+      >
+        Sync designs from backup
+      </button>
+    {/if}
+  </div>
+
+  <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+    <h2 class="text-base font-semibold text-gray-800">Restore Both</h2>
+    <p class="text-sm text-gray-600">
+      Restore the database, then sync design files, and finally check for design files on disk that have no
+      database record (you can import those afterwards).
+    </p>
+    {#if restoreAnyRunning}
+      <button type="button" class="settings-primary-button menu-button-primary" disabled
+        title="A restore is already running"
+        >Restore both idle</button
+      >
+    {:else}
+      <button
+        type="button"
+        class="settings-primary-button menu-button-primary"
+        disabled={!restoreDbFile.trim() || (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
+        title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
+        onclick={() => runRestoreAction("both")}
+      >
+        Restore both
+      </button>
+    {/if}
+  </div>
+
+  {#if showUnmatchedPrompt}
+    <div
+      class="settings-card backup-card bg-white rounded shadow p-6 space-y-3"
+      data-testid="unmatched-files-prompt"
+    >
+      <h2 class="text-base font-semibold text-gray-800">Unmatched files found</h2>
+      <p class="text-sm text-gray-600">
+        {unmatchedCount} design file(s) on disk have no record in the restored database
+        {unmatchedChecked > 0 ? `(scanned ${unmatchedChecked})` : ""}. You can import them as new
+        catalogue records.
+      </p>
+      {#if unmatchedSample.length > 0}
+        <ul class="text-xs text-gray-500 list-disc pl-5 space-y-0.5 max-h-32 overflow-auto">
+          {#each unmatchedSample as path}
+            <li class="font-mono break-all">{path}</li>
+          {/each}
+        </ul>
+      {/if}
+      <div class="flex gap-2 pt-1">
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={importingUnmatched}
+          onclick={handleImportUnmatched}
+        >
+          {importingUnmatched ? "Importing…" : `Import ${unmatchedCount} file(s)`}
+        </button>
+        <button type="button" class="menu-button-secondary" onclick={dismissUnmatched}>Dismiss</button>
+      </div>
+    </div>
+  {/if}
 </section>

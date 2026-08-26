@@ -51,9 +51,21 @@ The easiest way to back up is to use the **Backup** page inside the app:
 
 ### In-app restore
 
-There is currently **no in-app Restore button**.
+The **Backup** page also includes a **Restore** section:
 
-Restore is currently a manual file operation (see [Restore the catalogue](#restore-the-catalogue)).
+1. **Restore Database** — choose an `EmbroideryCatalogue.db` (or `.db`) backup snapshot. The app
+   closes the live database connection, keeps a **safety copy** of your current database
+   (`<database>.pre-restore-<timestamp>.db`), swaps in the selected backup, and re-opens + verifies
+   it. If verification fails, it **automatically rolls back** to the safety copy.
+2. **Sync Designs from Backup** — incrementally copies design files back from the configured
+   Designs backup folder into `MachineEmbroideryDesigns`. Files already present with an identical
+   size + modification time are skipped.
+3. **Restore Both** — runs both of the above, then checks for **unmatched files** (design files on
+   disk that have no record in the restored database) and offers to import them as new catalogue
+   records.
+
+> **Note:** No automated database migrations are run after a restore. If the backup is from an
+> older version of the app, the app shows a mild warning when the restored schema version differs.
 
 ### Why unchanged files are skipped
 

@@ -68,8 +68,8 @@ pub fn browse_settings_data_root(
 pub(crate) async fn get_google_api_key_inner(
     app_state: &AppState,
 ) -> Result<Option<String>, String> {
-    let mut conn = app_state
-        .db
+    let pool = app_state.db_pool()?;
+    let mut conn = pool
         .acquire()
         .await
         .map_err(|err| err.to_string())?;
@@ -87,8 +87,8 @@ pub(crate) async fn set_google_api_key_inner(
     app_state: &AppState,
     api_key: String,
 ) -> Result<bool, String> {
-    let mut conn = app_state
-        .db
+    let pool = app_state.db_pool()?;
+    let mut conn = pool
         .acquire()
         .await
         .map_err(|err| err.to_string())?;

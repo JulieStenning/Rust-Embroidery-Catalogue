@@ -118,7 +118,7 @@ fn make_app_state(pool: SqlitePool) -> AppState {
     let tmp_dir = std::env::temp_dir().join("proj-service-test");
     std::fs::create_dir_all(&tmp_dir).ok();
     AppState {
-        db: pool,
+        db: crate::PoolHolder::new(pool),
         database_status: crate::DatabaseStatus {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
@@ -150,6 +150,7 @@ fn make_app_state(pool: SqlitePool) -> AppState {
         maintenance_running: AtomicBool::new(false),
         migration_running: AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+        restore_in_progress: AtomicBool::new(false),
     }
 }
 
@@ -566,7 +567,7 @@ async fn create_project_creates_and_returns_new_id() {
         "SELECT id, name, description FROM projects WHERE id = ?",
     )
     .bind(result.project_id)
-    .fetch_one(&state.db)
+    .fetch_one(&state.db_pool().expect("pool"))
     .await
     .expect("row should exist");
 
@@ -591,7 +592,7 @@ async fn create_project_trims_name() {
 
     let name = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = ?")
         .bind(result.project_id)
-        .fetch_one(&state.db)
+        .fetch_one(&state.db_pool().expect("pool"))
         .await
         .expect("name should exist");
 
@@ -616,7 +617,7 @@ async fn create_project_normalizes_whitespace_description_to_none() {
     let description =
         sqlx::query_scalar::<_, Option<String>>("SELECT description FROM projects WHERE id = ?")
             .bind(result.project_id)
-            .fetch_one(&state.db)
+            .fetch_one(&state.db_pool().expect("pool"))
             .await
             .expect("row should exist");
 
@@ -806,7 +807,7 @@ async fn update_project_successfully_updates_name_and_description() {
     let row = sqlx::query_as::<_, (String, Option<String>)>(
         "SELECT name, description FROM projects WHERE id = 1",
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.db_pool().expect("pool"))
     .await
     .expect("row should exist");
 
@@ -836,7 +837,7 @@ async fn update_project_normalizes_whitespace_description_to_none() {
 
     let description =
         sqlx::query_scalar::<_, Option<String>>("SELECT description FROM projects WHERE id = 1")
-            .fetch_one(&state.db)
+            .fetch_one(&state.db_pool().expect("pool"))
             .await
             .expect("row should exist");
 
@@ -982,7 +983,7 @@ async fn delete_project_removes_project_successfully() {
     assert_eq!(result.message, "Project deleted.");
 
     let remaining = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM projects WHERE id = 1")
-        .fetch_one(&state.db)
+        .fetch_one(&state.db_pool().expect("pool"))
         .await
         .expect("query should succeed");
     assert_eq!(remaining, 0);
@@ -1008,7 +1009,7 @@ async fn delete_project_cascades_project_design_links() {
 
     let links =
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM project_designs WHERE project_id = 1")
-            .fetch_one(&state.db)
+            .fetch_one(&state.db_pool().expect("pool"))
             .await
             .expect("query should succeed");
     assert_eq!(links, 0);
@@ -1067,7 +1068,7 @@ async fn remove_design_removes_link_successfully() {
     let count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM project_designs WHERE project_id = 1 AND design_id = 10",
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.db_pool().expect("pool"))
     .await
     .expect("query should succeed");
     assert_eq!(count, 0);

@@ -103,7 +103,7 @@ pub async fn list_designers_with_pool(pool: &SqlitePool) -> Result<Vec<AdminDesi
 
 #[tauri::command]
 pub async fn list_designers(state: State<'_, AppState>) -> Result<Vec<AdminDesigner>, String> {
-    list_designers_with_pool(&state.db).await
+    list_designers_with_pool(&state.db_pool()?).await
 }
 
 #[tauri::command]
@@ -111,7 +111,7 @@ pub async fn create_designer(
     state: State<'_, AppState>,
     request: CreateDesignerRequest,
 ) -> Result<AdminDesigner, String> {
-    create_designer_with_pool(&state.db, request).await
+    create_designer_with_pool(&state.db_pool()?, request).await
 }
 
 async fn create_designer_with_pool(
@@ -128,7 +128,7 @@ pub async fn update_designer(
     state: State<'_, AppState>,
     request: UpdateDesignerRequest,
 ) -> Result<AdminDesigner, String> {
-    update_designer_with_pool(&state.db, request).await
+    update_designer_with_pool(&state.db_pool()?, request).await
 }
 
 async fn update_designer_with_pool(
@@ -142,7 +142,7 @@ async fn update_designer_with_pool(
 
 #[tauri::command]
 pub async fn delete_designer(state: State<'_, AppState>, designer_id: i64) -> Result<(), String> {
-    delete_designer_with_pool(&state.db, designer_id).await
+    delete_designer_with_pool(&state.db_pool()?, designer_id).await
 }
 
 async fn delete_designer_with_pool(pool: &SqlitePool, designer_id: i64) -> Result<(), String> {
@@ -159,7 +159,7 @@ pub async fn list_sources_with_pool(pool: &SqlitePool) -> Result<Vec<AdminSource
 
 #[tauri::command]
 pub async fn list_sources(state: State<'_, AppState>) -> Result<Vec<AdminSource>, String> {
-    list_sources_with_pool(&state.db).await
+    list_sources_with_pool(&state.db_pool()?).await
 }
 
 #[tauri::command]
@@ -167,7 +167,7 @@ pub async fn create_source(
     state: State<'_, AppState>,
     request: CreateSourceRequest,
 ) -> Result<AdminSource, String> {
-    create_source_with_pool(&state.db, request).await
+    create_source_with_pool(&state.db_pool()?, request).await
 }
 
 async fn create_source_with_pool(
@@ -184,7 +184,7 @@ pub async fn update_source(
     state: State<'_, AppState>,
     request: UpdateSourceRequest,
 ) -> Result<AdminSource, String> {
-    update_source_with_pool(&state.db, request).await
+    update_source_with_pool(&state.db_pool()?, request).await
 }
 
 async fn update_source_with_pool(
@@ -198,7 +198,7 @@ async fn update_source_with_pool(
 
 #[tauri::command]
 pub async fn delete_source(state: State<'_, AppState>, source_id: i64) -> Result<(), String> {
-    delete_source_with_pool(&state.db, source_id).await
+    delete_source_with_pool(&state.db_pool()?, source_id).await
 }
 
 async fn delete_source_with_pool(pool: &SqlitePool, source_id: i64) -> Result<(), String> {
@@ -215,7 +215,7 @@ pub async fn list_tags_with_pool(pool: &SqlitePool) -> Result<Vec<AdminTag>, Str
 
 #[tauri::command]
 pub async fn list_tags(state: State<'_, AppState>) -> Result<Vec<AdminTag>, String> {
-    list_tags_with_pool(&state.db).await
+    list_tags_with_pool(&state.db_pool()?).await
 }
 
 #[tauri::command]
@@ -223,7 +223,7 @@ pub async fn create_tag(
     state: State<'_, AppState>,
     request: CreateTagRequest,
 ) -> Result<AdminTag, String> {
-    create_tag_with_pool(&state.db, request).await
+    create_tag_with_pool(&state.db_pool()?, request).await
 }
 
 async fn create_tag_with_pool(
@@ -240,7 +240,7 @@ pub async fn set_tag_group(
     state: State<'_, AppState>,
     request: SetTagGroupRequest,
 ) -> Result<AdminTag, String> {
-    set_tag_group_with_pool(&state.db, request).await
+    set_tag_group_with_pool(&state.db_pool()?, request).await
 }
 
 async fn set_tag_group_with_pool(
@@ -257,7 +257,7 @@ pub async fn update_tag(
     state: State<'_, AppState>,
     request: UpdateTagRequest,
 ) -> Result<AdminTag, String> {
-    update_tag_with_pool(&state.db, request).await
+    update_tag_with_pool(&state.db_pool()?, request).await
 }
 
 async fn update_tag_with_pool(
@@ -271,7 +271,7 @@ async fn update_tag_with_pool(
 
 #[tauri::command]
 pub async fn delete_tag(state: State<'_, AppState>, tag_id: i64) -> Result<(), String> {
-    delete_tag_with_pool(&state.db, tag_id).await
+    delete_tag_with_pool(&state.db_pool()?, tag_id).await
 }
 
 async fn delete_tag_with_pool(pool: &SqlitePool, tag_id: i64) -> Result<(), String> {
@@ -288,7 +288,7 @@ pub async fn list_hoops_with_pool(pool: &SqlitePool) -> Result<Vec<AdminHoop>, S
 
 #[tauri::command]
 pub async fn list_hoops(state: State<'_, AppState>) -> Result<Vec<AdminHoop>, String> {
-    list_hoops_with_pool(&state.db).await
+    list_hoops_with_pool(&state.db_pool()?).await
 }
 
 #[tauri::command]
@@ -296,7 +296,7 @@ pub async fn create_hoop(
     state: State<'_, AppState>,
     request: CreateHoopRequest,
 ) -> Result<AdminHoop, String> {
-    create_hoop_with_pool(&state.db, request).await
+    create_hoop_with_pool(&state.db_pool()?, request).await
 }
 
 async fn create_hoop_with_pool(
@@ -313,7 +313,7 @@ pub async fn update_hoop(
     state: State<'_, AppState>,
     request: UpdateHoopRequest,
 ) -> Result<AdminHoop, String> {
-    update_hoop_with_pool(&state.db, request).await
+    update_hoop_with_pool(&state.db_pool()?, request).await
 }
 
 async fn update_hoop_with_pool(
@@ -327,7 +327,7 @@ async fn update_hoop_with_pool(
 
 #[tauri::command]
 pub async fn delete_hoop(state: State<'_, AppState>, hoop_id: i64) -> Result<(), String> {
-    delete_hoop_with_pool(&state.db, hoop_id).await
+    delete_hoop_with_pool(&state.db_pool()?, hoop_id).await
 }
 
 async fn delete_hoop_with_pool(pool: &SqlitePool, hoop_id: i64) -> Result<(), String> {

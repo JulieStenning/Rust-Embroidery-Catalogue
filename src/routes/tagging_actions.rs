@@ -40,7 +40,8 @@ const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 pub async fn get_tagging_actions_view_model(
     state: State<'_, AppState>,
 ) -> Result<TaggingActionsViewModel, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
     let ai_tier2_auto = is_truthy(
         &get_setting_with_default(&mut conn, KEY_AI_TIER2_AUTO)
@@ -86,7 +87,8 @@ pub async fn run_unified_backfill(
     state: State<'_, AppState>,
     request: backfill::UnifiedBackfillRequest,
 ) -> Result<backfill::UnifiedBackfillSummary, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY)
         .await
         .map_err(|e| e.to_string())?;
@@ -109,7 +111,7 @@ pub async fn run_unified_backfill(
         }
     }
 
-    backfill::run_unified_backfill(&state.db, request, has_api_key)
+    backfill::run_unified_backfill(&state.db_pool()?, request, has_api_key)
         .await
         .map_err(|err| err.to_string())
 }
@@ -124,7 +126,7 @@ pub async fn get_backfill_log_entries(
     state: State<'_, AppState>,
     limit: Option<i64>,
 ) -> Result<Vec<backfill::BackfillLogEntry>, String> {
-    backfill::get_backfill_log_entries(&state.db, limit.unwrap_or(20)).await
+    backfill::get_backfill_log_entries(&state.db_pool()?, limit.unwrap_or(20)).await
 }
 
 #[tauri::command]
@@ -150,7 +152,7 @@ pub async fn run_stitching_backfill(
         delay_seconds: None,
         vision_delay_seconds: None,
     };
-    backfill::run_unified_backfill(&state.db, request, false)
+    backfill::run_unified_backfill(&state.db_pool()?, request, false)
         .await
         .map_err(|err| err.to_string())
 }
@@ -160,7 +162,7 @@ pub async fn run_fingerprint_backfill(
     state: State<'_, AppState>,
     commit_every: Option<i64>,
 ) -> Result<fingerprint::FingerprintSummary, String> {
-    fingerprint::run_fingerprint_backfill(&state.db, commit_every.unwrap_or(100))
+    fingerprint::run_fingerprint_backfill(&state.db_pool()?, commit_every.unwrap_or(100))
         .await
         .map_err(|err| err.to_string())
 }
@@ -286,7 +288,7 @@ mod tests {
 
     fn make_app_state(pool: SqlitePool, tmp_dir: &std::path::Path) -> AppState {
         AppState {
-            db: pool,
+            db: crate::PoolHolder::new(pool),
             database_status: crate::DatabaseStatus {
                 status: crate::DatabaseStatusKind::Connected,
                 configured_data_root: Some(tmp_dir.to_string_lossy().to_string()),
@@ -318,6 +320,7 @@ mod tests {
             maintenance_running: AtomicBool::new(false),
             migration_running: AtomicBool::new(false),
             migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+            restore_in_progress: AtomicBool::new(false),
         }
     }
 
@@ -369,7 +372,7 @@ mod tests {
 
         // Set ai.google_api_key in database
         {
-            let mut conn = state.db.acquire().await.unwrap();
+            let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
             sqlx::query("UPDATE settings SET value = 'test-api-key' WHERE key = ?")
                 .bind(KEY_AI_GOOGLE_API_KEY)
                 .execute(&mut *conn)
@@ -386,7 +389,7 @@ mod tests {
 
         // Update settings in database to check truthiness
         {
-            let mut conn = state.db.acquire().await.unwrap();
+            let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
             sqlx::query("UPDATE settings SET value = '1' WHERE key = ?")
                 .bind(KEY_AI_TIER2_AUTO)
                 .execute(&mut *conn)
@@ -428,7 +431,7 @@ mod tests {
 
         // Set ai.google_api_key in database
         {
-            let mut conn = state.db.acquire().await.unwrap();
+            let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
             sqlx::query("UPDATE settings SET value = 'test-api-key' WHERE key = ?")
                 .bind(KEY_AI_GOOGLE_API_KEY)
                 .execute(&mut *conn)
@@ -487,7 +490,7 @@ mod tests {
 
         // Ensure ai.google_api_key in database is empty
         {
-            let mut conn = state.db.acquire().await.unwrap();
+            let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
             sqlx::query("UPDATE settings SET value = '' WHERE key = ?")
                 .bind(KEY_AI_GOOGLE_API_KEY)
                 .execute(&mut *conn)

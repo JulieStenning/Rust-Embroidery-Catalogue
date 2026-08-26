@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, State};
 
-const KEY_BACKUP_DATABASE_DESTINATION: &str = "backup.database_destination";
-const KEY_BACKUP_DESIGNS_DESTINATION: &str = "backup.designs_destination";
+pub(crate) const KEY_BACKUP_DATABASE_DESTINATION: &str = "backup.database_destination";
+pub(crate) const KEY_BACKUP_DESIGNS_DESTINATION: &str = "backup.designs_destination";
 const FILE_COMPARE_TIME_TOLERANCE_SECS: i64 = 2;
 
 /// Cooperative cancellation flag observed by the running backup loops.
@@ -149,10 +149,10 @@ pub struct OrphanPathDebugItem {
 }
 
 #[derive(Debug, Clone)]
-struct FileSnapshot {
-    full_path: PathBuf,
-    size: u64,
-    modified: Option<SystemTime>,
+pub(crate) struct FileSnapshot {
+    pub(crate) full_path: PathBuf,
+    pub(crate) size: u64,
+    pub(crate) modified: Option<SystemTime>,
 }
 
 #[tauri::command]
@@ -223,7 +223,7 @@ pub async fn get_db_stats(state: State<'_, AppState>) -> Result<DbStats, String>
         .map_err(|e| format!("Failed to read database metadata: {e}"))?
         .len();
 
-    let snapshot = db_health::get_freelist_metrics(&state.db).await?;
+    let snapshot = db_health::get_freelist_metrics(&state.db_pool()?).await?;
 
     Ok(DbStats {
         file_size_bytes,
@@ -285,19 +285,19 @@ pub async fn compact_database(
 
     // Run the full VACUUM (blocking rewrite) then PRAGMA optimize.
     sqlx::query("VACUUM")
-        .execute(&state.db)
+        .execute(&state.db_pool()?)
         .await
         .map_err(|e| format!("VACUUM failed: {e}"))?;
 
     sqlx::query("PRAGMA optimize")
-        .execute(&state.db)
+        .execute(&state.db_pool()?)
         .await
         .map_err(|e| format!("PRAGMA optimize failed: {e}"))?;
 
     let duration_ms = started.elapsed().as_millis() as u64;
 
     // Re-measure the freelist delta for reporting.
-    let snapshot = db_health::get_freelist_metrics(&state.db).await?;
+    let snapshot = db_health::get_freelist_metrics(&state.db_pool()?).await?;
     let file_size_after = fs::metadata(&db_path)
         .map(|m| m.len())
         .unwrap_or(file_size_before);
@@ -323,10 +323,10 @@ pub async fn compact_database(
 
 #[tauri::command]
 pub async fn scan_orphans(state: State<'_, AppState>) -> Result<OrphanScanResult, String> {
-    let pool = &state.db;
+    let pool = state.db_pool()?;
     let base_path = derive_designs_source_path();
 
-    scan_orphans_with_pool(pool, &base_path).await
+    scan_orphans_with_pool(&pool, &base_path).await
 }
 
 #[tauri::command]
@@ -334,10 +334,10 @@ pub async fn get_orphans_page(
     state: State<'_, AppState>,
     request: Option<GetOrphansPageRequest>,
 ) -> Result<OrphansPageResult, String> {
-    let pool = &state.db;
+    let pool = state.db_pool()?;
     let base_path = derive_designs_source_path();
 
-    get_orphans_page_with_pool(pool, &base_path, request).await
+    get_orphans_page_with_pool(&pool, &base_path, request).await
 }
 
 #[tauri::command]
@@ -345,27 +345,27 @@ pub async fn delete_orphans(
     state: State<'_, AppState>,
     request: DeleteOrphansRequest,
 ) -> Result<DeleteOrphansResult, String> {
-    let pool = &state.db;
-    let deleted = delete_design_ids_with_pool(pool, &request.design_ids).await?;
+    let pool = state.db_pool()?;
+    let deleted = delete_design_ids_with_pool(&pool, &request.design_ids).await?;
 
     // Reclaim freelist pages asynchronously after the orphan delete commits,
     // so the UI never blocks on database file compaction.
-    schedule_incremental_vacuum(state.db.clone());
+    schedule_incremental_vacuum(pool.clone());
 
     Ok(DeleteOrphansResult { deleted })
 }
 
 #[tauri::command]
 pub async fn delete_all_orphans(state: State<'_, AppState>) -> Result<DeleteOrphansResult, String> {
-    let pool = &state.db;
+    let pool = state.db_pool()?;
     let base_path = derive_designs_source_path();
 
-    let orphan_ids = find_orphan_ids_with_pool(pool, &base_path).await?;
-    let deleted = delete_design_ids_with_pool(pool, &orphan_ids).await?;
+    let orphan_ids = find_orphan_ids_with_pool(&pool, &base_path).await?;
+    let deleted = delete_design_ids_with_pool(&pool, &orphan_ids).await?;
 
     // Reclaim freelist pages asynchronously after the orphan delete commits,
     // so the UI never blocks on database file compaction.
-    schedule_incremental_vacuum(state.db.clone());
+    schedule_incremental_vacuum(pool.clone());
 
     Ok(DeleteOrphansResult { deleted })
 }
@@ -388,7 +388,8 @@ pub fn browse_orphan_path(filepath: String) -> Result<BrowseOrphanPathResult, St
 
 #[tauri::command]
 pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupViewModel, String> {
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
     let db_destination = get_setting_with_default(&mut conn, KEY_BACKUP_DATABASE_DESTINATION)
         .await
@@ -416,7 +417,8 @@ pub async fn save_backup_settings(
     let db_destination = request.db_destination.trim().to_string();
     let designs_destination = request.designs_destination.trim().to_string();
 
-    let mut conn = state.db.acquire().await.map_err(|e| e.to_string())?;
+    let pool = state.db_pool()?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
     upsert_setting(&mut conn, KEY_BACKUP_DATABASE_DESTINATION, &db_destination)
         .await
@@ -484,7 +486,7 @@ pub async fn run_database_backup(
     state: State<'_, AppState>,
 ) -> Result<DatabaseBackupResult, String> {
     clear_backup_cancel_signal();
-    run_database_backup_inner(&state.db).await
+    run_database_backup_inner(&state.db_pool()?).await
 }
 
 /// Core database backup logic. Observes (but never clears) the cancellation
@@ -638,7 +640,7 @@ fn cleanup_maybe_partial_backup(destination_path: &Path) {
 #[tauri::command]
 pub async fn run_designs_backup(state: State<'_, AppState>) -> Result<DesignsBackupResult, String> {
     clear_backup_cancel_signal();
-    run_designs_backup_inner(&state.db).await
+    run_designs_backup_inner(&state.db_pool()?).await
 }
 
 /// Core designs backup logic. Observes (but never clears) the cancellation
@@ -892,18 +894,18 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
 pub async fn run_both_backups(state: State<'_, AppState>) -> Result<BothBackupsResult, String> {
     clear_backup_cancel_signal();
 
-    let database = run_database_backup_inner(&state.db).await?;
+    let database = run_database_backup_inner(&state.db_pool()?).await?;
 
     let designs = if is_backup_cancel_requested() {
         cancelled_designs_backup(&current_epoch_seconds_string(), None)
     } else {
-        run_designs_backup_inner(&state.db).await?
+        run_designs_backup_inner(&state.db_pool()?).await?
     };
 
     Ok(BothBackupsResult { database, designs })
 }
 
-async fn get_setting_with_default(
+pub(crate) async fn get_setting_with_default(
     conn: &mut SqliteConnection,
     key: &str,
 ) -> Result<String, sqlx::Error> {
@@ -940,12 +942,12 @@ fn setting_description_for_key(key: &str) -> &'static str {
     }
 }
 
-fn derive_database_source_path() -> PathBuf {
+pub(crate) fn derive_database_source_path() -> PathBuf {
     let config = BootstrapConfig::from_env();
     PathBuf::from(strip_sqlite_prefix(&config.database_url))
 }
 
-fn derive_data_root_path() -> PathBuf {
+pub(crate) fn derive_data_root_path() -> PathBuf {
     let db_path = derive_database_source_path();
 
     let root = if let Some(parent) = db_path.parent() {
@@ -965,11 +967,11 @@ fn derive_data_root_path() -> PathBuf {
     root.canonicalize().unwrap_or(root)
 }
 
-fn derive_designs_source_path() -> PathBuf {
+pub(crate) fn derive_designs_source_path() -> PathBuf {
     derive_data_root_path().join("MachineEmbroideryDesigns")
 }
 
-fn resolve_design_full_path(base_path: &Path, stored_filepath: &str) -> PathBuf {
+pub(crate) fn resolve_design_full_path(base_path: &Path, stored_filepath: &str) -> PathBuf {
     // Normalise the stored path: trim whitespace and normalise separators.
     let candidate = stored_filepath.trim().replace('\\', "/");
 
@@ -1242,11 +1244,11 @@ fn strip_sqlite_prefix(database_url: &str) -> &str {
         .unwrap_or(database_url)
 }
 
-fn normalize_path_string(path: &Path) -> String {
+pub(crate) fn normalize_path_string(path: &Path) -> String {
     path.to_string_lossy().to_string()
 }
 
-fn current_epoch_seconds_string() -> String {
+pub(crate) fn current_epoch_seconds_string() -> String {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs().to_string())
@@ -1293,7 +1295,7 @@ fn unique_path_with_suffix(base_path: PathBuf) -> PathBuf {
     base_path
 }
 
-fn ensure_writable_directory(path: &Path) -> Result<(), String> {
+pub(crate) fn ensure_writable_directory(path: &Path) -> Result<(), String> {
     fs::create_dir_all(path).map_err(|error| {
         format!(
             "Could not create destination '{}': {}",
@@ -1333,7 +1335,7 @@ async fn sqlite_localtime_format(
     Ok(value)
 }
 
-fn collect_file_snapshots(
+pub(crate) fn collect_file_snapshots(
     root: &Path,
     skip_deleted_tree: bool,
 ) -> Result<HashMap<PathBuf, FileSnapshot>, String> {
@@ -1346,7 +1348,7 @@ fn collect_file_snapshots(
     Ok(map)
 }
 
-fn collect_file_snapshots_recursive(
+pub(crate) fn collect_file_snapshots_recursive(
     root: &Path,
     current: &Path,
     skip_deleted_tree: bool,
@@ -1386,7 +1388,7 @@ fn collect_file_snapshots_recursive(
     Ok(())
 }
 
-fn files_match(left: &FileSnapshot, right: &FileSnapshot) -> bool {
+pub(crate) fn files_match(left: &FileSnapshot, right: &FileSnapshot) -> bool {
     if left.size != right.size {
         return false;
     }
