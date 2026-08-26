@@ -212,9 +212,9 @@ describe("BackupView", () => {
   });
 
   describe("page chrome", () => {
-    it("renders the page heading 'Backup'", () => {
+    it("renders the page heading 'Backup & Restore'", () => {
       render(BackupView);
-      expect(screen.getByRole("heading", { name: "Backup" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Backup & Restore" })).toBeInTheDocument();
     });
 
     it("renders the description paragraph", () => {
@@ -222,7 +222,7 @@ describe("BackupView", () => {
       expect(
         screen.getByText(
           normalizedText(
-            "Back up your catalogue database and embroidery design files to folders of your choice. The database backup saves your catalogue data, settings, tags, and projects. The designs backup saves the actual embroidery files."
+            "Back up your catalogue database and embroidery design files to folders of your choice, or restore them from an earlier snapshot. The database backup saves your catalogue data, settings, tags, and projects; the designs backup saves the actual embroidery files."
           )
         )
       ).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe("BackupView", () => {
       expect(screen.getByRole("heading", { name: "Backup Destinations" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Database Backup" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Designs Backup" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Backup Both" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Backup Everything Now" })).toBeInTheDocument();
     });
 
     it("renders the destination input labels", () => {
@@ -269,9 +269,9 @@ describe("BackupView", () => {
 
     it("renders the three backup action buttons", () => {
       render(BackupView);
-      expect(screen.getByRole("button", { name: "Backup database now" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Backup Database Now" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Run incremental backup" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Run both backups" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Backup Everything Now" })).toBeInTheDocument();
     });
   });
 
@@ -301,7 +301,7 @@ describe("BackupView", () => {
         backupResponse(backupModel({ db_destination: "", designs_destination: "" }))
       );
       render(BackupView);
-      await waitFor(() => expect(screen.getAllByText("(not set)")).toHaveLength(4));
+      await waitFor(() => expect(screen.getAllByText("(not set)")).toHaveLength(2));
     });
 
     it("handles null response by defaulting to empty destinations", async () => {
@@ -309,7 +309,7 @@ describe("BackupView", () => {
       render(BackupView);
       const dbInput = (await screen.findByLabelText("Database backup folder")) as HTMLInputElement;
       await waitFor(() => expect(dbInput.value).toBe(""));
-      expect(screen.getAllByText("(not set)")).toHaveLength(4);
+      expect(screen.getAllByText("(not set)")).toHaveLength(2);
     });
 
     it("uses data_root fallback for source paths when model has no source path", async () => {
@@ -475,6 +475,13 @@ describe("BackupView", () => {
       render(BackupView);
       const dbInput = (await screen.findByLabelText("Database backup folder")) as HTMLInputElement;
       await waitFor(() => expect(dbInput.value).toBe(DB_DEST));
+      // Auto-save echoes the picked destination back so it stays in the input.
+      adapterMocks.saveBackupSettings.mockResolvedValue({
+        saved: true,
+        message: "Backup destinations saved.",
+        db_destination: "E:\\NewDbFolder",
+        designs_destination: DESIGNS_DEST,
+      });
       await fireEvent.click(screen.getAllByRole("button", { name: /Browse/ })[0]);
       await waitFor(() => expect(dbInput.value).toBe("E:\\NewDbFolder"));
     });
@@ -488,6 +495,12 @@ describe("BackupView", () => {
       render(BackupView);
       const designsInput = screen.getByLabelText("Designs backup folder") as HTMLInputElement;
       await waitFor(() => expect(designsInput.value).toBe(DESIGNS_DEST));
+      adapterMocks.saveBackupSettings.mockResolvedValue({
+        saved: true,
+        message: "Backup destinations saved.",
+        db_destination: DB_DEST,
+        designs_destination: "E:\\NewDesignsFolder",
+      });
       await fireEvent.click(screen.getAllByRole("button", { name: /Browse/ })[1]);
       await waitFor(() => expect(designsInput.value).toBe("E:\\NewDesignsFolder"));
     });
@@ -511,8 +524,8 @@ describe("BackupView", () => {
     async function dbButton() {
       const heading = screen.getByRole("heading", { name: "Database Backup" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Backup database now" }));
-      return card.getByRole("button", { name: "Backup database now" }) as HTMLButtonElement;
+      await waitFor(() => card.getByRole("button", { name: "Backup Database Now" }));
+      return card.getByRole("button", { name: "Backup Database Now" }) as HTMLButtonElement;
     }
 
     it("disables the button when no DB destination is saved", async () => {
@@ -616,10 +629,10 @@ describe("BackupView", () => {
 
   describe("backup both card", () => {
     async function bothButton() {
-      const heading = screen.getByRole("heading", { name: "Backup Both" });
+      const heading = screen.getByRole("heading", { name: "Backup Everything Now" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Run both backups" }));
-      return card.getByRole("button", { name: "Run both backups" }) as HTMLButtonElement;
+      await waitFor(() => card.getByRole("button", { name: "Backup Everything Now" }));
+      return card.getByRole("button", { name: "Backup Everything Now" }) as HTMLButtonElement;
     }
 
     it("disables the button when either destination is missing", async () => {
@@ -738,8 +751,8 @@ describe("BackupView", () => {
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Database Backup" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Backup database now" }));
-      await fireEvent.click(card.getByRole("button", { name: "Backup database now" }));
+      await waitFor(() => card.getByRole("button", { name: "Backup Database Now" }));
+      await fireEvent.click(card.getByRole("button", { name: "Backup Database Now" }));
       expect(adapterMocks.runDatabaseBackup).not.toHaveBeenCalled();
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
@@ -772,10 +785,10 @@ describe("BackupView", () => {
         backupResponse(backupModel({ designs_destination: "" }))
       );
       render(BackupView);
-      const heading = screen.getByRole("heading", { name: "Backup Both" });
+      const heading = screen.getByRole("heading", { name: "Backup Everything Now" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Run both backups" }));
-      await fireEvent.click(card.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() => card.getByRole("button", { name: "Backup Everything Now" }));
+      await fireEvent.click(card.getByRole("button", { name: "Backup Everything Now" }));
       expect(adapterMocks.runBothBackups).not.toHaveBeenCalled();
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
@@ -797,14 +810,14 @@ describe("BackupView", () => {
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Database Backup" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Backup database now" }));
-      await fireEvent.click(card.getByRole("button", { name: "Backup database now" }));
+      await waitFor(() => card.getByRole("button", { name: "Backup Database Now" }));
+      await fireEvent.click(card.getByRole("button", { name: "Backup Database Now" }));
       await waitFor(() =>
         expect(screen.getByRole("button", { name: "Backing up database..." })).toBeInTheDocument()
       );
       resolve(dbResult());
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Backup database now" })).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: "Backup Database Now" })).toBeInTheDocument()
       );
     });
 
@@ -839,10 +852,10 @@ describe("BackupView", () => {
         })
       );
       render(BackupView);
-      const heading = screen.getByRole("heading", { name: "Backup Both" });
+      const heading = screen.getByRole("heading", { name: "Backup Everything Now" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Run both backups" }));
-      await fireEvent.click(card.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() => card.getByRole("button", { name: "Backup Everything Now" }));
+      await fireEvent.click(card.getByRole("button", { name: "Backup Everything Now" }));
       await waitFor(() =>
         expect(
           screen.getByRole("button", { name: "Cancel Backup" })
@@ -857,7 +870,7 @@ describe("BackupView", () => {
 
       resolve(bothResult());
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Run both backups" })).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: "Backup Everything Now" })).toBeInTheDocument()
       );
     });
 
@@ -871,12 +884,12 @@ describe("BackupView", () => {
       render(BackupView);
       const heading = screen.getByRole("heading", { name: "Database Backup" });
       const card = within(element(heading.closest(".settings-card")));
-      await waitFor(() => card.getByRole("button", { name: "Backup database now" }));
-      await fireEvent.click(card.getByRole("button", { name: "Backup database now" }));
+      await waitFor(() => card.getByRole("button", { name: "Backup Database Now" }));
+      await fireEvent.click(card.getByRole("button", { name: "Backup Database Now" }));
 
       // While the database backup is running, the other per-card run buttons
       // are replaced by disabled idle labels, and the "Backup Both" card shows
-      // the "Cancel Backup" control instead of "Run both backups".
+      // the "Cancel Backup" control instead of "Backup Everything Now".
       const designsBtn = screen.getByRole("button", {
         name: "Designs backup idle",
       }) as HTMLButtonElement;
@@ -892,7 +905,7 @@ describe("BackupView", () => {
 
       resolveDatabase(dbResult());
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Backup database now" })).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: "Backup Database Now" })).toBeInTheDocument()
       );
     });
   });
@@ -911,7 +924,7 @@ describe("BackupView", () => {
       );
       render(BackupView);
       const button = await waitFor(() => {
-        const found = screen.getByRole("button", { name: "Backup database now" });
+        const found = screen.getByRole("button", { name: "Backup Database Now" });
         return found as HTMLButtonElement;
       });
       await fireEvent.click(button);
@@ -981,8 +994,8 @@ describe("BackupView", () => {
       adapterMocks.runDatabaseBackup.mockResolvedValue(
         dbResult({ success: false, cancelled: true })
       );
-      await waitFor(() => screen.getByRole("button", { name: "Backup database now" }));
-      await fireEvent.click(screen.getByRole("button", { name: "Backup database now" }));
+      await waitFor(() => screen.getByRole("button", { name: "Backup Database Now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Backup Database Now" }));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
           "Database backup cancelled. The partial backup file was removed.",
@@ -1014,8 +1027,8 @@ describe("BackupView", () => {
           designs: { success: false, cancelled: true },
         })
       );
-      await waitFor(() => screen.getByRole("button", { name: "Run both backups" }));
-      await fireEvent.click(screen.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() => screen.getByRole("button", { name: "Backup Everything Now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Backup Everything Now" }));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
           "Backup cancelled. Partially created database backup files were removed; already copied design files were kept.",
@@ -1032,8 +1045,8 @@ describe("BackupView", () => {
           designs: { success: true, cancelled: false },
         })
       );
-      await waitFor(() => screen.getByRole("button", { name: "Run both backups" }));
-      await fireEvent.click(screen.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() => screen.getByRole("button", { name: "Backup Everything Now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Backup Everything Now" }));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
           "Database backup cancelled. The partial backup file was removed; design files already copied were kept.",
@@ -1050,8 +1063,8 @@ describe("BackupView", () => {
           designs: { success: false, cancelled: true },
         })
       );
-      await waitFor(() => screen.getByRole("button", { name: "Run both backups" }));
-      await fireEvent.click(screen.getByRole("button", { name: "Run both backups" }));
+      await waitFor(() => screen.getByRole("button", { name: "Backup Everything Now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Backup Everything Now" }));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
           "Designs backup cancelled. Already copied design files were kept.",
@@ -1062,9 +1075,23 @@ describe("BackupView", () => {
   });
 
   describe("restore", () => {
+    async function switchToRestoreTab() {
+      await fireEvent.click(screen.getByRole("tab", { name: "Restore" }));
+      await tick();
+    }
+
+    /** Confirm a destructive restore in the confirm modal. @param {string} label */
+    async function confirmRestoreModal(label) {
+      const dialog = screen.getByRole("dialog");
+      await fireEvent.click(within(dialog).getByRole("button", { name: label }));
+      await tick();
+    }
+
     it("file picker defaults to the configured database backup folder", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1075,13 +1102,14 @@ describe("BackupView", () => {
       await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalledWith(DB_DEST));
 
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Restore database now" })).toBeEnabled()
+        expect(screen.getByRole("button", { name: "Restore Database Now" })).toBeEnabled()
       );
     });
 
     it("restores the database and reports success", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1091,7 +1119,8 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
       await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
 
-      await fireEvent.click(screen.getByRole("button", { name: "Restore database now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Restore Database Now" }));
+      await confirmRestoreModal("Restore database");
       await waitFor(() =>
         expect(adapterMocks.restoreDatabase).toHaveBeenCalledWith("C:\\backups\\catalogue_2026-08-01.db")
       );
@@ -1106,6 +1135,7 @@ describe("BackupView", () => {
     it("syncs designs from the configured backup folder", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       await fireEvent.click(screen.getByRole("button", { name: "Sync designs from backup" }));
       await waitFor(() =>
@@ -1151,6 +1181,7 @@ describe("BackupView", () => {
       });
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1160,7 +1191,8 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
       await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
 
-      await fireEvent.click(screen.getByRole("button", { name: "Restore both" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Restore Both" }));
+      await confirmRestoreModal("Restore both");
       await waitFor(() =>
         expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
       );
@@ -1195,6 +1227,7 @@ describe("BackupView", () => {
       });
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1204,7 +1237,8 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
       await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
 
-      await fireEvent.click(screen.getByRole("button", { name: "Restore both" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Restore Both" }));
+      await confirmRestoreModal("Restore both");
       await waitFor(() =>
         expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
       );
@@ -1217,6 +1251,7 @@ describe("BackupView", () => {
     it("shows no error and keeps restore disabled when the file picker is cancelled", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1226,12 +1261,13 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
       await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
       expect(toastMocks.addToast).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "Restore database now" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Restore Database Now" })).toBeDisabled();
     });
 
     it("displays the selected database backup file path", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1249,6 +1285,7 @@ describe("BackupView", () => {
     it("shows a schema-version warning when the restored database differs", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1269,7 +1306,8 @@ describe("BackupView", () => {
         rolled_back: false,
         error: null,
       });
-      await fireEvent.click(screen.getByRole("button", { name: "Restore database now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Restore Database Now" }));
+      await confirmRestoreModal("Restore database");
       await waitFor(() => screen.getByText("Schema version changed"));
       expect(screen.getByText(/reports schema version 7/)).toBeInTheDocument();
     });
@@ -1277,6 +1315,7 @@ describe("BackupView", () => {
     it("shows a rollback banner and error toast when a corrupt backup is rejected", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.browseRestoreFile.mockResolvedValue({
         source: "rust",
@@ -1297,7 +1336,8 @@ describe("BackupView", () => {
         rolled_back: true,
         error: "The backup file was corrupt; the database was restored from the safety snapshot.",
       });
-      await fireEvent.click(screen.getByRole("button", { name: "Restore database now" }));
+      await fireEvent.click(screen.getByRole("button", { name: "Restore Database Now" }));
+      await confirmRestoreModal("Restore database");
       await waitFor(() => screen.getByText("Restore rolled back"));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
@@ -1311,6 +1351,7 @@ describe("BackupView", () => {
     it("shows an error toast when the designs backup folder is invalid", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
 
       adapterMocks.restoreDesignsIncremental.mockResolvedValue({
         source: "rust",

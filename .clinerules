@@ -175,6 +175,9 @@ When making changes to Svelte components or Rust backend files:
 - **A `.d.ts` file with any top-level `import`/`export` is a module, not an ambient script.** Its `declare module "*.ext" { … }` blocks become *module augmentations* and silently stop applying globally — the wildcard import types never apply, and `svelte-check`/TS report "Cannot find module". Keep a file of global wildcard declarations a pure *script* (no top-level import/export) and pull in library types with a triple-slash reference (e.g. `/// <reference types="vite/client" />` for `*?raw`).
 - **A concrete module import always wins over an ambient wildcard declaration.** TypeScript prefers the *actual inferred type* of a real JSON/data file over your `declare module "*.json"` shape (resulting in errors like `Property 'x' does not exist on type { … } | { … }`). Don't fight the ambient declaration — route the import through a typed accessor function whose parameter carries the desired shape (e.g. a JSDoc `Record<string, T>`), and call `String(record.field || …)` defensively since emitted record fields are optional.
 
+### 7. Button colour / visual consistency
+- **Primary action buttons use the app's purple/indigo + white look** — the `settings-primary-button menu-button-primary` classes (indigo `#4f46d8` background, white text). Do **not** add ad-hoc inline `style="background-color:…"` overrides that drift the colour (e.g. amber `#d97706`). This includes restore/confirm actions: restore buttons and their confirmation-modal button are purple + white, not orange/amber.
+
 ---
 
 ## 🧪 Svelte 5 View Testing Rules

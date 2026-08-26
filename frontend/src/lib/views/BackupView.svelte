@@ -19,6 +19,7 @@
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
+  import ConfirmRestoreModal from "../components/ConfirmRestoreModal.svelte";
   import RestoreProgressPanel from "../components/RestoreProgressPanel.svelte";
 
   let backupDbDestination = $state("");
@@ -39,6 +40,13 @@
   let showCancelConfirm = $state(false);
   let cancelling = $state(false);
   let activeBackupAction = $state(/** @type {"database" | "designs" | "both" | null} */ (null));
+
+  // ── Tabbed layout + last-run metadata ─────────────────────────────────────
+  let activeTab = $state(/** @type {"backup" | "restore"} */ ("backup"));
+  let lastDbBackupAt = $state(""); // epoch-seconds string of last successful DB backup
+  let lastDesignsBackupAt = $state(""); // epoch-seconds string of last successful designs backup
+  // Which destructive restore action is awaiting confirmation (database/both).
+  let confirmRestoreAction = $state(/** @type {"database" | "both" | null} */ (null));
 
   // ── Restore state ─────────────────────────────────────────────────────────
   let restoreDbFile = $state(""); // selected database backup (.db) file
@@ -94,6 +102,8 @@
       backupSavedDbDestination = backupDbDestination;
       backupSavedDesignsDestination = backupDesignsDestination;
       restoreDesignsSource = backupSavedDesignsDestination;
+      lastDbBackupAt = String(model?.db_last_backup_at || "");
+      lastDesignsBackupAt = String(model?.designs_last_backup_at || "");
 
       const fallbackDataRoot = settingsDataRoot ? String(settingsDataRoot) : "";
       backupDbSourcePath = String(
@@ -126,6 +136,8 @@
       } else {
         backupDesignsDestination = result.path;
       }
+      // Auto-save the newly selected destination immediately (no extra click).
+      await persistBackupDestinations();
       return;
     }
 
@@ -134,15 +146,8 @@
     }
   }
 
-  /** @param {SubmitEvent} event */
-  async function saveBackupDestinations(event) {
-    event.preventDefault();
-
-    if (!backupHasUnsavedChanges) {
-      addToast("There are no destination changes to save.", "error");
-      return;
-    }
-
+  /** Persist the current destination inputs to the backend settings table. */
+  async function persistBackupDestinations() {
     const result = await saveBackupSettings({
       dbDestination: backupDbDestination,
       designsDestination: backupDesignsDestination,
@@ -156,10 +161,62 @@
       backupDbDestination = backupSavedDbDestination;
       backupDesignsDestination = backupSavedDesignsDestination;
       addToast(result.message || "Backup destinations saved.", "success");
-      return;
+      return true;
     }
 
     addToast(result.message || "Could not save backup destinations.", "error");
+    return false;
+  }
+
+  /** @param {SubmitEvent} event */
+  async function saveBackupDestinations(event) {
+    event.preventDefault();
+
+    if (!backupHasUnsavedChanges) {
+      addToast("There are no destination changes to save.", "error");
+      return;
+    }
+
+    await persistBackupDestinations();
+  }
+
+  /** Switch between the Backup and Restore tabs. @param {"backup" | "restore"} tab */
+  function selectTab(tab) {
+    activeTab = tab;
+  }
+
+  /**
+   * Format an epoch-seconds string as a readable local date/time, or "" when empty/invalid.
+   * @param {string} epochStr
+   */
+  function formatEpoch(epochStr) {
+    const n = Number(epochStr);
+    if (!epochStr || !Number.isFinite(n) || n <= 0) return "";
+    return new Date(n * 1000).toLocaleString();
+  }
+
+  /**
+   * Begin a destructive restore action. Designs sync runs immediately; database
+   * and full restores open the confirmation modal first.
+   * @param {"database" | "designs" | "both"} action
+   */
+  function requestRestore(action) {
+    if (action === "designs") {
+      runRestoreAction("designs");
+      return;
+    }
+    confirmRestoreAction = action;
+  }
+
+  /** User confirmed the destructive restore from the modal. */
+  function confirmRestore() {
+    const action = confirmRestoreAction;
+    confirmRestoreAction = null;
+    if (action) runRestoreAction(action);
+  }
+
+  function cancelRestoreConfirm() {
+    confirmRestoreAction = null;
   }
 
   /** @param {"database" | "designs" | "both"} action */
@@ -212,6 +269,7 @@
         }
 
         const mb = (Number(result.size_bytes || 0) / (1024 * 1024)).toFixed(2);
+        lastDbBackupAt = String(result.completed_at || "");
         addToast(
           `Database backup created: ${result.backup_path || "(path unavailable)"} (${mb} MB).`,
           "success"
@@ -233,6 +291,7 @@
           return;
         }
 
+        lastDesignsBackupAt = String(result.completed_at || "");
         addToast(
           `Designs backup complete: scanned ${result.scanned}, copied ${result.copied}, updated ${result.updated}, unchanged ${result.unchanged}, archived ${result.archived}.`,
           "success"
@@ -273,6 +332,8 @@
       const designsOk = Boolean(result?.designs?.success);
 
       if (dbOk && designsOk) {
+        lastDbBackupAt = String(result?.database?.completed_at || "");
+        lastDesignsBackupAt = String(result?.designs?.completed_at || "");
         addToast("Both backups completed successfully.", "success");
         return;
       }
@@ -491,23 +552,53 @@
 </script>
 
 <section class="backup-page space-y-4">
-  <h1 class="ui-page-title backup-title mb-2">Backup</h1>
+  <h1 class="ui-page-title backup-title mb-2">Backup &amp; Restore</h1>
   <p class="text-sm text-gray-500 mb-4">
-    Back up your catalogue database and embroidery design files to folders of your choice. The
-    database backup saves your catalogue data, settings, tags, and projects. The designs backup
-    saves the actual embroidery files.
+    Back up your catalogue database and embroidery design files to folders of your choice, or restore
+    them from an earlier snapshot. The database backup saves your catalogue data, settings, tags, and
+    projects; the designs backup saves the actual embroidery files.
   </p>
 
-  <div
-    class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
-  >
-    <p class="font-semibold">Important</p>
-    <p>
-      Ensure backup folders reside on a separate drive from your library.
-    </p>
+  <div class="flex gap-2 border-b border-gray-200 mb-4" role="tablist" aria-label="Backup and restore">
+    <button
+      type="button"
+      role="tab"
+      aria-selected={activeTab === "backup"}
+      class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
+      class:border-indigo-600={activeTab === "backup"}
+      class:text-indigo-700={activeTab === "backup"}
+      class:border-transparent={activeTab !== "backup"}
+      class:text-gray-500={activeTab !== "backup"}
+      onclick={() => selectTab("backup")}
+    >
+      Backup
+    </button>
+    <button
+      type="button"
+      role="tab"
+      aria-selected={activeTab === "restore"}
+      class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
+      class:border-amber-500={activeTab === "restore"}
+      class:text-amber-700={activeTab === "restore"}
+      class:border-transparent={activeTab !== "restore"}
+      class:text-gray-500={activeTab !== "restore"}
+      onclick={() => selectTab("restore")}
+    >
+      Restore
+    </button>
   </div>
 
-  <div class="settings-layout max-w-3xl space-y-6">
+  {#if activeTab === "backup"}
+    <div
+      class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
+    >
+      <p class="font-semibold">Important</p>
+      <p>
+        Ensure backup folders reside on a separate drive from your library.
+      </p>
+    </div>
+
+    <div class="settings-layout max-w-3xl space-y-6">
     <form
       class="settings-card backup-card bg-white rounded shadow p-6 space-y-5"
       onsubmit={saveBackupDestinations}
@@ -582,46 +673,48 @@
       </div>
     </form>
 
-    <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
-      <p class="text-sm text-gray-600">
-        Creates a timestamped copy of your SQLite database catalogue file.
-      </p>
-      <div class="text-xs text-gray-500 space-y-0.5">
-        <p>
-          Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
-            >{backupDbSourcePath}</code
-          >
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
+        <p class="text-sm text-gray-600">
+          Creates a timestamped copy of your SQLite database catalogue file.
         </p>
-        <p>
-          Saved destination folder: <code
-            class="settings-code inline-block border rounded px-2 py-1 font-mono"
-            >{backupSavedDbDestination || "(not set)"}</code
-          >
-        </p>
-      </div>
+        <div class="text-xs text-gray-500 space-y-0.5">
+          <p>
+            Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+              >{backupDbSourcePath}</code
+            >
+          </p>
+          <p>
+            Saved destination folder: <code
+              class="settings-code inline-block border rounded px-2 py-1 font-mono"
+              >{backupSavedDbDestination || "(not set)"}</code
+            >
+          </p>
+          <p>Last backup: {formatEpoch(lastDbBackupAt) || "—"}</p>
+        </div>
 
-      {#if backupAnyRunning}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled
-          title="A backup is already running"
-        >
-          {backupDatabaseRunning ? "Backing up database..." : "Database backup idle"}
-        </button>
-      {:else}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled={!backupHasDbDestination}
-          title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
-          onclick={() => runBackupAction("database")}
-        >
-          Backup database now
-        </button>
-      {/if}
-    </div>
+        {#if backupAnyRunning}
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled
+            title="A backup is already running"
+          >
+            {backupDatabaseRunning ? "Backing up database..." : "Database backup idle"}
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled={!backupHasDbDestination}
+            title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
+            onclick={() => runBackupAction("database")}
+          >
+            Backup Database Now
+          </button>
+        {/if}
+      </div>
 
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
       <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
@@ -641,6 +734,7 @@
             >{backupSavedDesignsDestination || "(not set)"}</code
           >
         </p>
+        <p>Last sync: {formatEpoch(lastDesignsBackupAt) || "—"}</p>
       </div>
 
       {#if backupAnyRunning}
@@ -665,8 +759,10 @@
       {/if}
     </div>
 
+    </div>
+
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Backup Both</h2>
+      <h2 class="text-base font-semibold text-gray-800">Backup Everything Now</h2>
       <p class="text-sm text-gray-600">
         Run the database backup and the incremental designs backup in one step.
       </p>
@@ -692,11 +788,12 @@
             : undefined}
           onclick={() => runBackupAction("both")}
         >
-          Run both backups
+          Backup Everything Now
         </button>
       {/if}
     </div>
   </div>
+  {/if}
 
   <CancelBackupModal
     open={showCancelConfirm}
@@ -705,15 +802,26 @@
     onConfirm={confirmCancel}
   />
 
-  <div class="border-t border-gray-200 pt-6 mt-2">
-    <h2 class="text-lg font-semibold text-gray-800 mb-1">Restore</h2>
-    <p class="text-sm text-gray-500 mb-4">
-      Restore a database backup snapshot and/or sync design files back from a backup folder. A safety
-      copy of your current database is kept before any overwrite.
-    </p>
-  </div>
+  <ConfirmRestoreModal
+    open={confirmRestoreAction !== null}
+    activeKind={confirmRestoreAction}
+    onClose={cancelRestoreConfirm}
+    onConfirm={confirmRestore}
+  />
 
-  <RestoreProgressPanel />
+  {#if activeTab === "restore"}
+    <div
+      class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm"
+    >
+      <p class="font-semibold">Restore</p>
+      <p>
+        Restore a database backup snapshot and/or sync design files back from a backup folder.
+        Restoring overwrites live data — a safety copy of your current database is kept before any
+        overwrite and is restored automatically if verification fails.
+      </p>
+    </div>
+
+    <RestoreProgressPanel />
 
   {#if restoreSchemaChanged}
     <div
@@ -737,8 +845,9 @@
     </div>
   {/if}
 
-  <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-    <h2 class="text-base font-semibold text-gray-800">Restore Database</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+      <h2 class="text-base font-semibold text-gray-800">Restore Database</h2>
     <p class="text-sm text-gray-600">
       Replace the live catalogue database with a backup snapshot. A safety copy of the current
       database is kept before overwriting.
@@ -781,9 +890,9 @@
         class="settings-primary-button menu-button-primary"
         disabled={!restoreDbFile.trim()}
         title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
-        onclick={() => runRestoreAction("database")}
+        onclick={() => requestRestore("database")}
       >
-        Restore database now
+        Restore Database Now
       </button>
     {/if}
   </div>
@@ -819,11 +928,13 @@
             ? "Set a designs backup folder first"
             : undefined
         }
-        onclick={() => runRestoreAction("designs")}
+        onclick={() => requestRestore("designs")}
       >
         Sync designs from backup
       </button>
     {/if}
+  </div>
+
   </div>
 
   <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
@@ -843,9 +954,9 @@
         class="settings-primary-button menu-button-primary"
         disabled={!restoreDbFile.trim() || (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
         title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
-        onclick={() => runRestoreAction("both")}
+        onclick={() => requestRestore("both")}
       >
-        Restore both
+        Restore Both
       </button>
     {/if}
   </div>
@@ -881,4 +992,18 @@
       </div>
     </div>
   {/if}
+  {/if}
 </section>
+
+<style>
+  /* Visually truncate long raw paths (e.g. \\?\D:\...) while keeping the full
+     string in state for the backend commands. Scoped to this component. */
+  .settings-code {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+</style>

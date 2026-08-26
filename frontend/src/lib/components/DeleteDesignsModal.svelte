@@ -118,11 +118,11 @@
 
     <div
       class="delete-modal-dialog"
-      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
+      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));background:#ffffff;border-radius:0.5rem;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden;"
     >
       <div
         class="delete-modal-header"
-        style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;"
+        style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:1rem 1.5rem 0;"
       >
         <h2 id="delete-modal-title" class="text-lg font-bold text-gray-800" style="margin:0;">
           Delete selected design{selectedCount === 1 ? "" : "s"}?

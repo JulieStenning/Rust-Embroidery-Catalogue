@@ -553,7 +553,7 @@ describe("routing and navigation", () => {
     renderAtHash("#/admin/maintenance/backup");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Backup" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Backup & Restore" })).toBeInTheDocument();
     });
   });
 

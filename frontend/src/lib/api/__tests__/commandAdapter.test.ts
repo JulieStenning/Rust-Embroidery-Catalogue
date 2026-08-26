@@ -1889,6 +1889,8 @@ describe("commandAdapter backups", () => {
     designs_destination: "C:/backup/designs",
     db_source_path: "C:/data/db.sqlite",
     designs_source_path: "C:/data/embroidery",
+    db_last_backup_at: "1756000000",
+    designs_last_backup_at: "",
   };
 
   it("getBackupViewModel maps the Rust model and falls back on error", async () => {
@@ -1897,10 +1899,13 @@ describe("commandAdapter backups", () => {
     const ok = await getBackupViewModel();
     expect(ok.source).toBe("rust");
     expect(ok.model.db_destination).toBe("C:/backup/db");
+    expect(ok.model.db_last_backup_at).toBe("1756000000");
+    expect(ok.model.designs_last_backup_at).toBe("");
 
     mockReject(new Error("backup vm failed"));
     const bad = await getBackupViewModel();
     expect(bad.source).toBe("mock");
+    expect(bad.model.db_last_backup_at).toBe("");
     expect(bad.error).toContain("backup vm failed");
   });
 

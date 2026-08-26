@@ -2174,6 +2174,8 @@ export async function getBackupViewModel(): Promise<AdapterBackupViewModelRespon
         designs_destination: String(model?.designs_destination || ""),
         db_source_path: String(model?.db_source_path || ""),
         designs_source_path: String(model?.designs_source_path || ""),
+        db_last_backup_at: String(model?.db_last_backup_at || ""),
+        designs_last_backup_at: String(model?.designs_last_backup_at || ""),
       },
     };
   } catch (error) {
@@ -2185,6 +2187,8 @@ export async function getBackupViewModel(): Promise<AdapterBackupViewModelRespon
         designs_destination: "",
         db_source_path: "",
         designs_source_path: "",
+        db_last_backup_at: "",
+        designs_last_backup_at: "",
       },
       error: String(error),
     };

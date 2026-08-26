@@ -17,6 +17,8 @@ use tauri::{Emitter, State};
 
 pub(crate) const KEY_BACKUP_DATABASE_DESTINATION: &str = "backup.database_destination";
 pub(crate) const KEY_BACKUP_DESIGNS_DESTINATION: &str = "backup.designs_destination";
+const KEY_BACKUP_DATABASE_LAST_RUN_AT: &str = "backup.database_last_run_at";
+const KEY_BACKUP_DESIGNS_LAST_RUN_AT: &str = "backup.designs_last_run_at";
 const FILE_COMPARE_TIME_TOLERANCE_SECS: i64 = 2;
 
 /// Cooperative cancellation flag observed by the running backup loops.
@@ -33,6 +35,10 @@ pub struct BackupViewModel {
     pub designs_destination: String,
     pub db_source_path: String,
     pub designs_source_path: String,
+    /// Epoch-seconds string of the last successful database backup (if any).
+    pub db_last_backup_at: String,
+    /// Epoch-seconds string of the last successful designs backup (if any).
+    pub designs_last_backup_at: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -397,6 +403,12 @@ pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupV
     let designs_destination = get_setting_with_default(&mut conn, KEY_BACKUP_DESIGNS_DESTINATION)
         .await
         .map_err(|e| e.to_string())?;
+    let db_last_backup_at = get_setting_with_default(&mut conn, KEY_BACKUP_DATABASE_LAST_RUN_AT)
+        .await
+        .map_err(|e| e.to_string())?;
+    let designs_last_backup_at = get_setting_with_default(&mut conn, KEY_BACKUP_DESIGNS_LAST_RUN_AT)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let db_source = derive_database_source_path();
     let designs_source = derive_designs_source_path();
@@ -406,6 +418,8 @@ pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupV
         designs_destination,
         db_source_path: normalize_path_string(&db_source),
         designs_source_path: normalize_path_string(&designs_source),
+        db_last_backup_at,
+        designs_last_backup_at,
     })
 }
 
@@ -607,6 +621,9 @@ async fn run_database_backup_inner(pool: &SqlitePool) -> Result<DatabaseBackupRe
     let size_bytes = fs::metadata(&destination_path)
         .map(|metadata| metadata.len())
         .unwrap_or(0);
+
+    // Record the last-run timestamp so the UI can display it (persisted in settings).
+    let _ = upsert_setting(&mut conn, KEY_BACKUP_DATABASE_LAST_RUN_AT, &completed_at).await;
 
     Ok(DatabaseBackupResult {
         success: true,
@@ -872,6 +889,9 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
             error
         );
     }
+
+    // Record the last-run timestamp so the UI can display it (persisted in settings).
+    let _ = upsert_setting(&mut conn, KEY_BACKUP_DESIGNS_LAST_RUN_AT, &completed_at).await;
 
     Ok(DesignsBackupResult {
         success: true,
@@ -1244,8 +1264,39 @@ fn strip_sqlite_prefix(database_url: &str) -> &str {
         .unwrap_or(database_url)
 }
 
+/// Convert a filesystem path to a consistent, readable display string.
+///
+/// The two backup source-path derivations differ on Windows: the database path
+/// comes from the bootstrap URL (stored with forward slashes) while the designs
+/// path is produced by `derive_data_root_path().canonicalize()`, which adds the
+/// `\\?\` verbatim prefix. This normalises both to native backslashes and strips
+/// the verbatim marker so the UI shows a consistent `D:\...` path.
+///
+/// Display-only — the result is never round-tripped into a file operation, so
+/// normalising here is safe.
 pub(crate) fn normalize_path_string(path: &Path) -> String {
-    path.to_string_lossy().to_string()
+    let raw = path.to_string_lossy().to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        // Strip Windows verbatim prefixes (`\\?\` and `\\?\UNC\`), mirroring the
+        // transform in `designs::normalize_windows_explorer_target`.
+        let without_verbatim = if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
+            format!(r"\\{}", rest)
+        } else if let Some(rest) = raw.strip_prefix(r"\\?\") {
+            rest.to_string()
+        } else {
+            raw
+        };
+
+        // Normalise separators to native backslashes.
+        return without_verbatim.replace('/', r"\");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        raw
+    }
 }
 
 pub(crate) fn current_epoch_seconds_string() -> String {

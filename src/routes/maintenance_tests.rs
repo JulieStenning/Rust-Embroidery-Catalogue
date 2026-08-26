@@ -99,6 +99,31 @@ fn normalize_path_string_handles_unicode() {
     assert!(result.contains("Ã¼ber"));
 }
 
+#[cfg(target_os = "windows")]
+#[test]
+fn normalize_path_string_strips_verbatim_prefix_and_uses_backslashes() {
+    // `canonicalize()`-style verbatim path (designs source).
+    let verbatim = PathBuf::from(r"\\?\D:\My Software Development\MachineEmbroideryDesigns");
+    assert_eq!(
+        normalize_path_string(&verbatim),
+        r"D:\My Software Development\MachineEmbroideryDesigns"
+    );
+
+    // Bootstrap-URL style path with forward slashes (database source).
+    let forward = PathBuf::from(r"D:/My Software Development/Database/EmbroideryCatalogue.db");
+    assert_eq!(
+        normalize_path_string(&forward),
+        r"D:\My Software Development\Database\EmbroideryCatalogue.db"
+    );
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn normalize_path_string_handles_verbatim_unc() {
+    let unc = PathBuf::from(r"\\?\UNC\server\share\file.pes");
+    assert_eq!(normalize_path_string(&unc), r"\\server\share\file.pes");
+}
+
 #[test]
 fn current_epoch_seconds_string_returns_numeric_string() {
     let result = current_epoch_seconds_string();

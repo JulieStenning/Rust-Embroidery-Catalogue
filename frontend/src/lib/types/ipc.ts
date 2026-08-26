@@ -712,6 +712,10 @@ export interface BackupViewModel {
   designs_destination: string;
   db_source_path: string;
   designs_source_path: string;
+  /** Epoch-seconds string of the last successful database backup (if any). */
+  db_last_backup_at: string;
+  /** Epoch-seconds string of the last successful designs backup (if any). */
+  designs_last_backup_at: string;
 }
 
 export interface AdapterBackupViewModelResponse {
