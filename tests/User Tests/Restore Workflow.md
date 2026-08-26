@@ -76,27 +76,27 @@ Some of these tests are carried out via the automated unit tests. These are iden
 * [X]  Click **Sync designs from backup**. - Automated
 * [X]  Verify the application catches the invalid path gracefully. - Automated
 * [X]  Verify an error notification (via @ToastContainer.svelte or progress panel) displays a clear message without crashing the application. - Automated
-* [ ]  Attempt to trigger **Restore Both** with an invalid designs path. - Needs manual test
-* [ ]  Verify the database restore step completes safely (or halts cleanly) and reports the directory error for the design phase. - Needs manual test
+* [X]  Attempt to trigger **Restore Both** with an invalid designs path. - Needs manual test
+* [X]  Verify the database restore does not happen and reports the directory error for the design phase. - Needs manual test
 
 ---
 
 ## 7. Edge Case: Corrupt Database File & Automatic Rollback - Automated
 
-* [ ]  Click **Choose database backup...** and select the prepared `corrupt_test.db` file.
-* [ ]  Click **Restore database**.
-* [ ]  Observe the execution process:
-* [ ]  Verify the backend creates a safety snapshot of the live database prior to testing the candidate file.
-* [ ]  Verify `PRAGMA integrity_check` / validation fails on the corrupt file.
-* [ ]  Verify the backend performs an **automatic rollback**, restoring the live database from the safety snapshot.
-* [ ]  Verify an error message appears in @BackupView.svelte informing you that the backup file was corrupt and the database was safely rolled back.
-* [ ]  Navigate to @MainView.svelte and confirm the library remains fully functional and uncorrupted.
+* [X]  Click **Choose database backup...** and select the prepared `corrupt_test.db` file. - Automated test does this with a file constructed by the test
+* [X]  Click **Restore database**.
+* [X]  Observe the execution process:
+* [X]  Verify the backend creates a safety snapshot of the live database prior to testing the candidate file.
+* [X]  Verify `PRAGMA integrity_check` / validation fails on the corrupt file.
+* [X]  Verify the backend performs an **automatic rollback**, restoring the live database from the safety snapshot.
+* [X]  Verify an error message appears in @BackupView.svelte informing you that the backup file was corrupt and the database was safely rolled back.
+* [X]  Navigate to @MainView.svelte and confirm the library remains fully functional and uncorrupted.
 
 ---
 
 ## 8. Edge Case: Out-of-Sync / Differing Schema Version - Automated
 
-* [ ]  Select a database backup created from a different or older application schema version (where `PRAGMA user_version` differs).
-* [ ]  Perform a database restore.
-* [ ]  Verify the restore completes without throwing a hard database error.
-* [ ]  Verify a mild informational warning banner appears in @BackupView.svelte indicating a schema version mismatch without running forced auto-migrations.
+* [X]  Select a database backup created from a different or older application schema version (where `PRAGMA user_version` differs).
+* [X]  Perform a database restore.
+* [X]  Verify the restore completes without throwing a hard database error.
+* [X]  Verify a mild informational warning banner appears in @BackupView.svelte indicating a schema version mismatch without running forced auto-migrations.
