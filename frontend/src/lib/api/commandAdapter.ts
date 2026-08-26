@@ -2036,6 +2036,7 @@ function buildUnifiedBackfillWireRequest(
       stitching: null,
       images: request.run_images ? { enabled: true, redo: Boolean(request.image_redo) } : null,
       color_counts: request.run_color_counts ? { enabled: true } : null,
+      hoop_dimensions: request.run_hoop_dimensions ? { enabled: true } : null,
       fingerprinting: null,
     },
     batch_size: Number(request.batch_size ?? 100),

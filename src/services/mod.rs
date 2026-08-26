@@ -6,6 +6,7 @@ pub mod backfill;
 pub mod compaction;
 pub mod database_recovery;
 pub mod db_health;
+pub mod design_metadata;
 pub mod fingerprint;
 pub mod folder_picker;
 pub mod gemini_client;

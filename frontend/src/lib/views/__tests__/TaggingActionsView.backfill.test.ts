@@ -82,6 +82,7 @@ describe("TaggingActionsView run unified backfill", () => {
         run_images: false,
         image_redo: false,
         run_color_counts: false,
+        run_hoop_dimensions: false,
         commit_every: 100,
         batch_size: 100,
         workers: 4,
@@ -110,10 +111,25 @@ describe("TaggingActionsView run unified backfill", () => {
         run_images: true,
         image_redo: true,
         run_color_counts: true,
+        run_hoop_dimensions: false,
         commit_every: 100,
         batch_size: 100,
         workers: 4,
       });
+    });
+  });
+
+  it("passes run_hoop_dimensions when Recalculate hoops / dimensions is checked", async () => {
+    render(TaggingActionsView);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Recalculate hoops/ }));
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({ run_hoop_dimensions: true })
+      );
     });
   });
 
@@ -271,6 +287,7 @@ describe("TaggingActionsView run unified backfill", () => {
         run_images: false,
         image_redo: false,
         run_color_counts: false,
+        run_hoop_dimensions: false,
         commit_every: 100,
         batch_size: 100,
         workers: 4,

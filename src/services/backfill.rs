@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
+use crate::services::design_metadata;
 use crate::services::stitch_identifier;
 use crate::services::tagging;
 use serde::{Deserialize, Serialize};
@@ -55,6 +55,7 @@ pub struct UnifiedBackfillActions {
     pub stitching: Option<StitchingActionOptions>,
     pub images: Option<ImageActionOptions>,
     pub color_counts: Option<ColorCountsActionOptions>,
+    pub hoop_dimensions: Option<HoopDimensionsActionOptions>,
     pub fingerprinting: Option<FingerprintActionOptions>,
 }
 
@@ -81,6 +82,11 @@ pub struct ImageActionOptions {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ColorCountsActionOptions {
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct HoopDimensionsActionOptions {
     pub enabled: Option<bool>,
 }
 
@@ -160,6 +166,7 @@ pub async fn run_unified_backfill(
         stitching: None,
         images: None,
         color_counts: None,
+        hoop_dimensions: None,
         fingerprinting: None,
     });
 
@@ -396,6 +403,27 @@ pub async fn run_unified_backfill(
                     errors += 1;
                     log_error(format!(
                         "Colour-count action failed design_id={} error={}",
+                        design_id, error
+                    ));
+                }
+            }
+        }
+    }
+
+    if let Some(hoop_dimensions_action) = actions.hoop_dimensions {
+        if hoop_dimensions_action.enabled.unwrap_or(true) {
+            actions_run.push("hoop_dimensions".to_string());
+            let hoop_candidates = select_hoop_dimension_candidates(pool, batch_size).await?;
+            for design_id in hoop_candidates {
+                if STOP_REQUESTED.load(Ordering::SeqCst) {
+                    break;
+                }
+                touched_design_ids.insert(design_id);
+                processed += 1;
+                if let Err(error) = update_hoop_dimensions_only(pool, design_id).await {
+                    errors += 1;
+                    log_error(format!(
+                        "Hoop/dimension action failed design_id={} error={}",
                         design_id, error
                     ));
                 }
@@ -929,15 +957,8 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
-    let result = generate_preview(&ImageGenerationRequest {
-        file_path: resolved_path.to_string_lossy().to_string(),
-        preview_3d: false,
-        preview_3d_profile: None,
-    });
-
-    if let Some(error) = result.error {
-        return Err(AppError::invalid_input(error));
-    }
+    let result = design_metadata::parse_design_file(&resolved_path)
+        .map_err(|e| AppError::invalid_input(e))?;
 
     sqlx::query(
         "UPDATE designs
@@ -952,8 +973,8 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
     )
     .bind(result.image_data)
     .bind(result.image_type)
-    .bind(result.width_mm.map(|value| value.round() as i64))
-    .bind(result.height_mm.map(|value| value.round() as i64))
+    .bind(result.width_mm)
+    .bind(result.height_mm)
     .bind(result.stitch_count)
     .bind(result.color_count)
     .bind(result.color_change_count)
@@ -1048,15 +1069,8 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
-    let result = generate_preview(&ImageGenerationRequest {
-        file_path: resolved_path.to_string_lossy().to_string(),
-        preview_3d: false,
-        preview_3d_profile: None,
-    });
-
-    if let Some(error) = result.error {
-        return Err(AppError::invalid_input(error));
-    }
+    let result = design_metadata::parse_design_file(&resolved_path)
+        .map_err(|e| AppError::invalid_input(e))?;
 
     sqlx::query(
         "UPDATE designs
@@ -1086,6 +1100,81 @@ async fn get_i64_setting(pool: &SqlitePool, key: &str) -> Result<Option<i64>, Ap
 
     Ok(value.and_then(|raw| raw.trim().parse::<i64>().ok()))
 }
+
+async fn select_hoop_dimension_candidates(
+    pool: &SqlitePool,
+    limit: i64,
+) -> Result<Vec<i64>, AppError> {
+    let rows = sqlx::query(
+        "SELECT id
+\t\t FROM designs
+\t\t WHERE width_mm IS NULL OR height_mm IS NULL OR hoop_id IS NULL
+\t\t ORDER BY id ASC
+\t\t LIMIT ?",
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        AppError::database(format!(
+            "failed to select hoop dimension candidates: {e}"
+        ))
+    })?;
+
+    let mut ids = Vec::new();
+    for row in rows {
+        ids.push(
+            row.try_get::<i64, _>("id").map_err(|e| {
+                AppError::database(format!("failed to read hoop dimension candidate id: {e}"))
+            })?,
+        );
+    }
+    Ok(ids)
+}
+
+async fn update_hoop_dimensions_only(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
+    let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
+        .bind(design_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| {
+            AppError::database(format!("failed to read filepath for hoop dimensions: {e}"))
+        })?;
+
+    let Some(row) = row else {
+        return Ok(());
+    };
+
+    let filepath: String = row
+        .try_get("filepath")
+        .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
+    let resolved_path = resolve_stored_design_path(&filepath);
+    let parsed = design_metadata::parse_design_file(&resolved_path)
+        .map_err(|e| AppError::invalid_input(e))?;
+
+    let hoop_id =
+        design_metadata::recommend_hoop_for_design(pool, parsed.width_mm, parsed.height_mm)
+            .await
+            .map_err(|e| AppError::database(e))?;
+
+    sqlx::query(
+        "UPDATE designs
+\t\t SET width_mm = ?,
+\t\t     height_mm = ?,
+\t\t     hoop_id = ?
+\t\t WHERE id = ?",
+    )
+    .bind(parsed.width_mm)
+    .bind(parsed.height_mm)
+    .bind(hoop_id)
+    .bind(design_id)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::database(format!("failed to update hoop dimensions: {e}")))?;
+
+    Ok(())
+}
+
 
 async fn get_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, AppError> {
     let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")

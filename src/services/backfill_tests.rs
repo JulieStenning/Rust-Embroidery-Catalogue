@@ -15,8 +15,9 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, tagging_tier INTEGER)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, tagging_tier INTEGER)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
+        "CREATE TABLE hoops (id INTEGER PRIMARY KEY, name TEXT NOT NULL, max_width_mm REAL NOT NULL, max_height_mm REAL NOT NULL)",
     ] {
         sqlx::query(sql).execute(&pool).await.expect("schema");
     }
@@ -68,6 +69,7 @@ async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
                 stitching: None,
                 images: None,
                 color_counts: None,
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -933,6 +935,35 @@ async fn select_color_count_candidates_excludes_designs_with_all_counts() {
     assert!(ids.contains(&3));
 }
 
+// ─────────────────────────────────────────────────────────────
+// DB helper: select_hoop_dimension_candidates
+// ─────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn select_hoop_dimension_candidates_picks_designs_missing_dimensions_or_hoop() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await; // designs 1,2,3 with null width/height/hoop
+
+    let ids = select_hoop_dimension_candidates(&pool, 100).await.unwrap();
+    assert_eq!(ids.len(), 3);
+}
+
+#[tokio::test]
+async fn select_hoop_dimension_candidates_excludes_designs_with_dimensions_and_hoop() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    sqlx::query("UPDATE designs SET width_mm = 100, height_mm = 80, hoop_id = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let ids = select_hoop_dimension_candidates(&pool, 100).await.unwrap();
+    assert!(!ids.contains(&1));
+    assert!(ids.contains(&2));
+    assert!(ids.contains(&3));
+}
+
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Log file helpers: truncate_logs_for_new_run / read_log_tail / append_log_line / log_info / log_error
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1106,6 +1137,7 @@ async fn run_unified_backfill_retag_all_tags_everything() {
                 stitching: None,
                 images: None,
                 color_counts: None,
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -1141,6 +1173,7 @@ async fn run_unified_backfill_retag_all_unverified_skips_verified() {
                 stitching: None,
                 images: None,
                 color_counts: None,
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -1189,6 +1222,7 @@ async fn run_unified_backfill_stop_signal_detected_by_summary() {
                 stitching: None,
                 images: None,
                 color_counts: None,
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -1235,6 +1269,7 @@ async fn run_unified_backfill_combined_actions() {
                 color_counts: Some(ColorCountsActionOptions {
                     enabled: Some(true),
                 }),
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -1251,6 +1286,44 @@ async fn run_unified_backfill_combined_actions() {
     assert!(summary.actions.contains(&"tagging".to_string()));
     assert!(summary.actions.contains(&"stitching".to_string()));
     assert!(summary.actions.contains(&"color_counts".to_string()));
+    assert!(summary.processed > 0);
+}
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_hoop_dimensions_action_runs() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+
+    let summary = run_unified_backfill(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: Some(TaggingActionOptions {
+                    action: Some("tag_untagged".to_string()),
+                    tiers: Some(vec![1]),
+                    enabled: Some(false),
+                }),
+                stitching: None,
+                images: None,
+                color_counts: None,
+                hoop_dimensions: Some(HoopDimensionsActionOptions {
+                    enabled: Some(true),
+                }),
+                fingerprinting: None,
+            }),
+            batch_size: Some(100),
+            commit_every: Some(100),
+            workers: Some(1),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+    )
+    .await
+    .expect("run succeeds");
+
+    assert!(summary.actions.contains(&"hoop_dimensions".to_string()));
     assert!(summary.processed > 0);
 }
 
@@ -1280,6 +1353,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
                 color_counts: Some(ColorCountsActionOptions {
                     enabled: Some(false),
                 }),
+                hoop_dimensions: None,
                 fingerprinting: Some(FingerprintActionOptions {
                     enabled: Some(false),
                 }),
@@ -1327,6 +1401,7 @@ async fn run_unified_backfill_stitching_clear_unverified_removes_from_unverified
                 }),
                 images: None,
                 color_counts: None,
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -1376,6 +1451,7 @@ async fn run_unified_backfill_stitching_clear_all_removes_from_verified_designs(
                 }),
                 images: None,
                 color_counts: None,
+                hoop_dimensions: None,
                 fingerprinting: None,
             }),
             batch_size: Some(100),

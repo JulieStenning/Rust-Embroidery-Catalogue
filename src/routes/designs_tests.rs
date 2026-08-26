@@ -2322,7 +2322,7 @@ async fn recommend_hoop_selects_smallest_fitting_hoop() {
         .await
         .expect("insert large hoop");
 
-    let result = recommend_hoop_for_design(&pool, Some(40), Some(35))
+    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(40), Some(35))
         .await
         .expect("hoop recommendation should succeed");
 
@@ -2348,7 +2348,7 @@ async fn recommend_hoop_tries_rotated_orientation() {
         .await
         .expect("insert tall hoop");
 
-    let result = recommend_hoop_for_design(&pool, Some(60), Some(30))
+    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(60), Some(30))
         .await
         .expect("hoop recommendation should succeed");
 
@@ -2373,7 +2373,7 @@ async fn recommend_hoop_returns_none_when_no_hoop_fits() {
 
     // Use dimensions larger than ALL seeded hoops (Hoop A is 126x126),
     // so no hoop fits in either orientation.
-    let result = recommend_hoop_for_design(&pool, Some(300), Some(300))
+    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(300), Some(300))
         .await
         .expect("hoop recommendation should succeed");
     assert!(result.is_none());
@@ -2382,12 +2382,12 @@ async fn recommend_hoop_returns_none_when_no_hoop_fits() {
 #[tokio::test]
 async fn recommend_hoop_returns_none_when_dimensions_missing() {
     let pool = test_pool().await;
-    let result = recommend_hoop_for_design(&pool, None, Some(10))
+    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, None, Some(10))
         .await
         .expect("hoop recommendation should succeed");
     assert!(result.is_none());
 
-    let result = recommend_hoop_for_design(&pool, Some(10), None)
+    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(10), None)
         .await
         .expect("hoop recommendation should succeed");
     assert!(result.is_none());

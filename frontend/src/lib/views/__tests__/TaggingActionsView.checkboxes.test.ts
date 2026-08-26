@@ -181,4 +181,17 @@ describe("TaggingActionsView checkbox interactions", () => {
     await user.click(colourCounts);
     expect(colourCounts).toBeChecked();
   });
+
+  it("toggles the hoops / dimensions checkbox", async () => {
+    render(TaggingActionsView);
+
+    const hoops = await screen.findByRole("checkbox", {
+      name: /Recalculate hoops/,
+    });
+    expect(hoops).not.toBeChecked();
+
+    const user = userEvent.setup();
+    await user.click(hoops);
+    expect(hoops).toBeChecked();
+  });
 });

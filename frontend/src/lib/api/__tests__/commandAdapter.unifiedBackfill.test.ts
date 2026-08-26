@@ -22,6 +22,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
       run_images: true,
       image_redo: false,
       run_color_counts: false,
+      run_hoop_dimensions: false,
       commit_every: 50,
       batch_size: 33,
       workers: 2,
@@ -34,6 +35,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
           stitching: null,
           images: { enabled: true, redo: false },
           color_counts: null,
+          hoop_dimensions: null,
           fingerprinting: null,
         },
         batch_size: 33,
@@ -51,6 +53,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
       run_images: true,
       image_redo: true,
       run_color_counts: true,
+      run_hoop_dimensions: true,
       commit_every: 100,
       batch_size: 100,
       workers: 4,
@@ -63,6 +66,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
           stitching: null,
           images: { enabled: true, redo: true },
           color_counts: { enabled: true },
+          hoop_dimensions: { enabled: true },
           fingerprinting: null,
         },
         batch_size: 100,
@@ -80,6 +84,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
       run_images: false,
       image_redo: false,
       run_color_counts: false,
+      run_hoop_dimensions: false,
       commit_every: 100,
       batch_size: 100,
       workers: 4,
@@ -92,6 +97,38 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
           stitching: null,
           images: null,
           color_counts: null,
+          hoop_dimensions: null,
+          fingerprinting: null,
+        },
+        batch_size: 100,
+        commit_every: 100,
+        workers: 4,
+      },
+    });
+  });
+
+  it("maps run_hoop_dimensions to the hoop_dimensions action when only it is enabled", async () => {
+    await runUnifiedBackfill({
+      action_mode: "tag_untagged",
+      run_tier2: false,
+      run_tier3: false,
+      run_images: false,
+      image_redo: false,
+      run_color_counts: false,
+      run_hoop_dimensions: true,
+      commit_every: 100,
+      batch_size: 100,
+      workers: 4,
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("run_unified_backfill", {
+      request: {
+        actions: {
+          tagging: null,
+          stitching: null,
+          images: null,
+          color_counts: null,
+          hoop_dimensions: { enabled: true },
           fingerprinting: null,
         },
         batch_size: 100,

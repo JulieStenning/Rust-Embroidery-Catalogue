@@ -628,6 +628,7 @@ export interface UnifiedBackfillRequest {
   run_images: boolean;
   image_redo: boolean;
   run_color_counts: boolean;
+  run_hoop_dimensions: boolean;
   commit_every: number;
   batch_size: number;
   workers: number;
@@ -653,6 +654,9 @@ export interface UnifiedBackfillActionsWire {
     enabled?: boolean;
   } | null;
   color_counts?: {
+    enabled?: boolean;
+  } | null;
+  hoop_dimensions?: {
     enabled?: boolean;
   } | null;
   fingerprinting?: {

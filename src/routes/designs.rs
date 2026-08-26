@@ -1,5 +1,6 @@
 use crate::config::BootstrapConfig;
 use crate::services::compaction::schedule_incremental_vacuum;
+use crate::services::design_metadata;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -972,50 +973,6 @@ async fn render_design_3d_preview_with_pool(
     })
 }
 
-/// Select the smallest hoop that fits the given design dimensions, trying
-/// both orientations.  Mirrors the recommendation logic used during bulk
-/// import so recalculated dimensions yield a consistent "Recommended hoop".
-async fn recommend_hoop_for_design(
-    pool: &SqlitePool,
-    width_mm: Option<i64>,
-    height_mm: Option<i64>,
-) -> Result<Option<i64>, String> {
-    let (Some(width_mm), Some(height_mm)) = (width_mm, height_mm) else {
-        return Ok(None);
-    };
-
-    let hoop_id = sqlx::query_scalar::<_, i64>(
-        r#"
-            SELECT h.id
-            FROM hoops h
-            WHERE
-                (
-                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
-                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
-                )
-                OR (
-                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
-                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
-                )
-            ORDER BY
-                (CAST(h.max_width_mm AS REAL) * CAST(h.max_height_mm AS REAL)) ASC,
-                CAST(h.max_width_mm AS REAL) ASC,
-                CAST(h.max_height_mm AS REAL) ASC,
-                h.name COLLATE NOCASE ASC
-            LIMIT 1
-            "#,
-    )
-    .bind(width_mm)
-    .bind(height_mm)
-    .bind(height_mm)
-    .bind(width_mm)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    Ok(hoop_id)
-}
-
 /// Re-read the binary design file from disk and refresh the stored technical
 /// metadata (dimensions, stitch count, colour counts, recommended hoop).
 ///
@@ -1032,28 +989,22 @@ async fn reparse_design_file_with_pool(
         return Err("Design file not found on disk for metadata recalculation.".to_string());
     }
 
-    let generation_result = generate_preview(&ImageGenerationRequest {
-        file_path: full_path.to_string_lossy().to_string(),
-        preview_3d: false,
-        preview_3d_profile: None,
-    });
+    let parsed = design_metadata::parse_design_file(&full_path)
+        .map_err(|error| format!("Could not re-parse the design file: {}", error))?;
 
-    if let Some(error) = generation_result.error {
-        return Err(format!("Could not re-parse the design file: {}", error));
-    }
-
-    let width_mm = round_mm_to_i64(generation_result.width_mm);
-    let height_mm = round_mm_to_i64(generation_result.height_mm);
-    let hoop_id = recommend_hoop_for_design(pool, width_mm, height_mm).await?;
+    let width_mm = parsed.width_mm;
+    let height_mm = parsed.height_mm;
+    let hoop_id =
+        design_metadata::recommend_hoop_for_design(pool, width_mm, height_mm).await?;
 
     sqlx::query(
         "UPDATE designs SET width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, hoop_id = ? WHERE id = ?",
     )
     .bind(width_mm)
     .bind(height_mm)
-    .bind(generation_result.stitch_count)
-    .bind(generation_result.color_count)
-    .bind(generation_result.color_change_count)
+    .bind(parsed.stitch_count)
+    .bind(parsed.color_count)
+    .bind(parsed.color_change_count)
     .bind(hoop_id)
     .bind(design_id)
     .execute(pool)
@@ -1073,9 +1024,9 @@ async fn reparse_design_file_with_pool(
         design_id,
         width_mm,
         height_mm,
-        stitch_count: generation_result.stitch_count,
-        color_count: generation_result.color_count,
-        color_change_count: generation_result.color_change_count,
+        stitch_count: parsed.stitch_count,
+        color_count: parsed.color_count,
+        color_change_count: parsed.color_change_count,
         hoop_id,
         hoop,
         message: "Design metadata recalculated from file.".to_string(),

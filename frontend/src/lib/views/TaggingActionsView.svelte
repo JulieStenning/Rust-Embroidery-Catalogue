@@ -22,6 +22,7 @@
   let taggingRunStitching = $state(false);
   let taggingRunImages = $state(false);
   let taggingRunColorCounts = $state(false);
+  let taggingRunHoopDimensions = $state(false);
 
   // Sub-options / child controls (all default false, disabled until parent checked).
   let taggingRetagAll = $state(false);
@@ -47,7 +48,11 @@
 
   // Run button is only enabled when at least one top-level action is selected.
   let taggingAnyActionSelected = $derived(
-    taggingRunTagging || taggingRunStitching || taggingRunImages || taggingRunColorCounts
+    taggingRunTagging ||
+      taggingRunStitching ||
+      taggingRunImages ||
+      taggingRunColorCounts ||
+      taggingRunHoopDimensions
   );
 
   async function loadTaggingViewModel(force = false) {
@@ -101,7 +106,7 @@
         addToast(`Stitching backfill complete.`, "success");
       }
 
-      if (taggingRunTagging || taggingRunImages || taggingRunColorCounts) {
+      if (taggingRunTagging || taggingRunImages || taggingRunColorCounts || taggingRunHoopDimensions) {
         const result = await runUnifiedBackfill({
           action_mode: taggingRetagAll ? "tag_all" : "tag_untagged",
           run_tier2: taggingHasGoogleApiKey && taggingRunTier2,
@@ -109,6 +114,7 @@
           run_images: taggingRunImages,
           image_redo: taggingImageRedo,
           run_color_counts: taggingRunColorCounts,
+          run_hoop_dimensions: taggingRunHoopDimensions,
           commit_every: taggingCommitValue,
           batch_size: taggingBatchValue,
           workers: taggingWorkersValue,
@@ -323,6 +329,21 @@
             <span class="font-semibold">Recalculate colour / stitch counts</span>
             <p class="text-gray-500 text-xs mt-0.5">
               Refresh thread colors, stitch totals, and color changes from the design files
+            </p>
+          </div>
+        </label>
+
+        <!-- Recalculate hoops / dimensions -->
+        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={taggingRunHoopDimensions}
+            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <div>
+            <span class="font-semibold">Recalculate hoops / dimensions</span>
+            <p class="text-gray-500 text-xs mt-0.5">
+              Refresh design dimensions (width/height) and recommended hoop from the design files
             </p>
           </div>
         </label>
