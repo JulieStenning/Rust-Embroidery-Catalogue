@@ -31,6 +31,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/svelte";
 import { tick } from "svelte";
 import MainView from "../MainView.svelte";
 import { beginBusy, endBusy, resetBusy } from "../stores/busyStore.js";
+import { browseSessionStore } from "../stores/browseSessionStore.js";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter module — this prevents real Tauri `invoke` calls.
@@ -40,6 +41,7 @@ import { beginBusy, endBusy, resetBusy } from "../stores/busyStore.js";
 const adapterMock = vi.hoisted(() => ({
   // Browse
   getBrowseDesigns: vi.fn(),
+  getDesignIds: vi.fn(),
   getBrowseDesignPreviews: vi.fn(),
   getBrowseProjects: vi.fn(),
   getBrowseTags: vi.fn(),
@@ -325,9 +327,13 @@ function element<T extends Element>(value: T | null | undefined, message?: strin
 beforeEach(() => {
   vi.clearAllMocks();
   window.location.hash = "#/designs";
+  // The browse session store is a module singleton; reset it so a previous
+  // test's filters/page cannot leak into the freshly-mounted browse view.
+  browseSessionStore.clear();
 
   // Browse data defaults
   adapterMock.getBrowseDesigns.mockResolvedValue(browseResponse());
+  adapterMock.getDesignIds.mockResolvedValue([]);
   adapterMock.getBrowseDesignPreviews.mockResolvedValue(browseResponse());
   adapterMock.getBrowseTags.mockResolvedValue(browseResponse());
   adapterMock.getBrowseProjects.mockResolvedValue(browseResponse());

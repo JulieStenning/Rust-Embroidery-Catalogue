@@ -655,6 +655,69 @@ async fn get_designs_page_with_pool_supports_backend_sorting() {
 }
 
 #[tokio::test]
+async fn get_design_ids_with_pool_returns_full_filtered_ids_in_sort_order() {
+    let pool = test_pool().await;
+
+    for name in ["zeta.pes", "alpha.pes", "gamma.pes"] {
+        let filepath = format!("Folder/{name}");
+        sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES (?, ?, NULL)")
+            .bind(name)
+            .bind(filepath)
+            .execute(&pool)
+            .await
+            .expect("seed design");
+    }
+
+    let result = get_design_ids_with_pool(&pool, None)
+        .await
+        .expect("ids query should succeed");
+
+    // Default sort (filename) → alpha, gamma, rose, zeta. IDs must match the
+    // same deterministic ORDER BY the paginated page query uses.
+    let expected: Vec<i64> = sqlx::query_scalar(
+        "SELECT id FROM designs ORDER BY filename COLLATE NOCASE ASC, id ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("read sorted ids");
+
+    assert_eq!(result.ids, expected);
+    assert_eq!(result.ids.len(), 4);
+}
+
+#[tokio::test]
+async fn get_design_ids_with_pool_applies_filters() {
+    let pool = test_pool().await;
+
+    sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES ('a.pes', 'a.pes', 5)")
+        .execute(&pool)
+        .await
+        .expect("seed design");
+    sqlx::query("INSERT INTO designs (filename, filepath, rating) VALUES ('b.pes', 'b.pes', 1)")
+        .execute(&pool)
+        .await
+        .expect("seed design");
+
+    // min_rating >= 4 keeps only a.pes (rating 5); rose.pes has a NULL rating
+    // and b.pes has rating 1, so both are excluded.
+    let result = get_design_ids_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                min_rating: Some(4),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("filtered ids query should succeed");
+
+    assert_eq!(result.ids.len(), 1);
+    assert_eq!(result.ids[0], 2); // a.pes is id 2 (rose.pes is id 1)
+}
+
+#[tokio::test]
 async fn hoop_unknown_sentinel_filters_null_hoop_designs() {
     let pool = test_pool().await;
 

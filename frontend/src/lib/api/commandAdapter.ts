@@ -263,6 +263,31 @@ export async function getBrowseDesigns(
 }
 
 /**
+ * Fetch the full ordered list of design IDs matching the current browse
+ * filters/sort (no pagination). This drives the detail view's Prev/Next
+ * navigation across the whole filtered result set rather than just the current
+ * page. Falls back to an empty list when the command surface is unavailable;
+ * BrowseView then falls back to the current page's IDs.
+ * @param {SearchPayload} [payload]
+ */
+export async function getDesignIds(payload?: SearchPayload): Promise<number[]> {
+  try {
+    const result = await invokeLoose<{ ids?: Array<number | string> } | null | undefined>(
+      "get_design_ids",
+      { payload }
+    );
+    if (result && Array.isArray(result.ids)) {
+      return result.ids
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id));
+    }
+  } catch (error) {
+    console.info("get_design_ids not available yet.", error);
+  }
+  return [];
+}
+
+/**
  * Try to load a single design detail from Rust command surface.
  * Falls back to mock data while detail command migration is in progress.
  * @param {number | string} designId

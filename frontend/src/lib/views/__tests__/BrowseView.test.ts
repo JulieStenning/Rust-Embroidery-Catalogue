@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
 import { tick } from "svelte";
 import BrowseView from "../BrowseView.svelte";
+import { browseSessionStore } from "../../stores/browseSessionStore.js";
 import { deleteResultHolder } from "./__mocks__/deleteResultHolder.js";
 
 // ---------------------------------------------------------------------------
@@ -11,6 +12,7 @@ import { deleteResultHolder } from "./__mocks__/deleteResultHolder.js";
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
   getBrowseDesigns: vi.fn(),
+  getDesignIds: vi.fn(),
   getBrowseDesignPreviews: vi.fn(),
   getBrowseProjects: vi.fn(),
   getBrowseTags: vi.fn(),
@@ -365,7 +367,6 @@ function renderBrowse(overrides: Record<string, unknown> = {}) {
     props: {
       navigateTo,
       browseNeedsRefresh: false,
-      detailBrowseIds: [],
       detailDesignId: null,
       ...overrides,
     },
@@ -406,8 +407,12 @@ describe("BrowseView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    // The browse session store is a module singleton; reset it so restored
+    // filters/page from a previous test cannot leak into this one.
+    browseSessionStore.clear();
     // Default adapter mocks — one design, no projects/tags, no previews.
     adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([design()]));
+    adapterMocks.getDesignIds.mockResolvedValue([]);
     adapterMocks.getBrowseDesignPreviews.mockResolvedValue(listResponse([]));
     adapterMocks.getBrowseProjects.mockResolvedValue(listResponse([]));
     adapterMocks.getBrowseTags.mockResolvedValue(listResponse([]));

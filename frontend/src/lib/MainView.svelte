@@ -17,6 +17,7 @@
   import AdminSourcesView from "./views/AdminSourcesView.svelte";
   import AdminHoopsView from "./views/AdminHoopsView.svelte";
   import { busyState } from "./stores/busyStore.js";
+  import { browseSessionStore } from "./stores/browseSessionStore.js";
   import {
     normalizeHash,
     parseDesignDetailId,
@@ -74,14 +75,15 @@
   let browseNeedsRefresh = $state(false);
 
   // Detail navigation browse context. `detailBrowseIds` is the ordered list of
-  // design IDs currently shown (set by BrowseView when a design is opened); the
-  // current position is DERIVED from the live route's design id rather than
-  // stored separately. Storing it as `$state` caused it to freeze at its last
-  // BrowseView value while the (unmounted) BrowseView could no longer update it,
-  // so Next/Prev kept re-navigating to the same neighbour and the counter never
-  // advanced.
-  /** @type {number[]} */
-  let detailBrowseIds = $state([]);
+  // design IDs matching the active browse filters (kept in the browse session
+  // store and refreshed by BrowseView via `get_design_ids`); the current
+  // position is DERIVED from the live route's design id rather than stored
+  // separately. The store survives the browse→detail→browse round-trip, so
+  // Prev/Next walk the whole filtered result set and the counter tracks the
+  // current position.
+  let detailBrowseIds = $derived(
+    Array.isArray($browseSessionStore.designIds) ? $browseSessionStore.designIds : []
+  );
   let detailBrowseIndex = $derived(
     detailDesignId == null ? -1 : detailBrowseIds.indexOf(detailDesignId)
   );
@@ -262,7 +264,6 @@
       {navigateTo}
       {detailDesignId}
       bind:browseNeedsRefresh
-      bind:detailBrowseIds
     />
   {:else if currentUiKind === "settings"}
     <SettingsView />

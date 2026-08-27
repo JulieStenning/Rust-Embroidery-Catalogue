@@ -1888,6 +1888,49 @@ pub async fn get_designs(
     get_designs_page_with_pool(&state.db_pool()?, payload).await
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct DesignIdsResult {
+    pub ids: Vec<i64>,
+}
+
+/// Fetch the full ordered list of design IDs matching the same browse filters
+/// and sort as the paginated page query (no LIMIT/OFFSET). This is what the
+/// detail view's Prev/Next navigation walks, so it covers the entire filtered
+/// result set rather than just the current page.
+#[tauri::command]
+pub async fn get_design_ids(
+    state: State<'_, AppState>,
+    payload: Option<GetDesignsPayload>,
+) -> Result<DesignIdsResult, String> {
+    get_design_ids_with_pool(&state.db_pool()?, payload).await
+}
+
+async fn get_design_ids_with_pool(
+    pool: &SqlitePool,
+    payload: Option<GetDesignsPayload>,
+) -> Result<DesignIdsResult, String> {
+    let payload = payload.unwrap_or_default();
+    let sort_clause = browse_sort_clause(payload.sort_by.as_deref(), payload.sort_dir.as_deref());
+
+    let mut ids_builder = QueryBuilder::<Sqlite>::new(
+        "SELECT d.id FROM designs d \
+         LEFT JOIN designers ON designers.id = d.designer_id \
+         LEFT JOIN sources ON sources.id = d.source_id \
+         LEFT JOIN hoops ON hoops.id = d.hoop_id",
+    );
+    push_browse_filters(&mut ids_builder, &payload);
+    ids_builder.push(" ORDER BY ");
+    ids_builder.push(sort_clause.as_str());
+
+    let ids: Vec<i64> = ids_builder
+        .build_query_scalar()
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(DesignIdsResult { ids })
+}
+
 async fn get_designs_page_with_pool(
     pool: &SqlitePool,
     payload: Option<GetDesignsPayload>,

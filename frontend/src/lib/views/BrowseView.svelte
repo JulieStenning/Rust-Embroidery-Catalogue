@@ -1,7 +1,9 @@
 <script>
-  import { tick, untrack } from "svelte";
+  import { tick, untrack, onMount, onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import {
     getBrowseDesigns,
+    getDesignIds,
     getBrowseDesignPreviews,
     getBrowseProjects,
     getBrowseTags,
@@ -20,6 +22,7 @@
   import { SvelteSet } from "svelte/reactivity";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
   import { tagChangeStore } from "../stores/tagChangeStore.js";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
@@ -33,7 +36,7 @@
   /** @typedef {import("../types/ipc").SearchPayload} SearchPayload */
   /** @typedef {import("../types/ipc").MutationPatch} MutationPatch */
   /** @typedef {{ persisted: boolean, deleted_count: number, files_trashed: number, errors?: Array<string> }} BulkDeleteResult */
-  /** @typedef {{ q: string, allWords: string, exactPhrase: string, anyWords: string, noneWords: string, filename: string, designerFilters: Array<string>, imageTagFilters: Array<string>, stitchingTagFilters: Array<string>, hoop: string, sourceFilters: Array<string>, rating: string, stitched: string, unverifiedOnly: boolean, searchFilename: boolean, searchTags: boolean, searchFolder: boolean, sortBy: string, sortDir: string }} BrowseFilterState */
+  /** @typedef {import("../types/ipc").BrowseFilterState} BrowseFilterState */
   /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: Array<string> | string, folder?: string, date_added?: string | null }} BrowseCardInput */
   /** @typedef {{ persisted: boolean, updated_count?: number, updated?: number, error?: string }} BulkSetTagsResult */
   /** @typedef {{ persisted: boolean, added_count?: number, updated?: number, error?: string }} BulkAddToProjectResult */
@@ -43,7 +46,6 @@
   let {
     navigateTo,
     browseNeedsRefresh = $bindable(false),
-    detailBrowseIds = $bindable([]),
     detailDesignId,
   } = $props();
 
@@ -181,6 +183,75 @@
       browseFilters.sortDir === "asc"
   );
 
+  // --- Browse session persistence -----------------------------------------
+  // BrowseView's search/filter/page state is destroyed whenever the route
+  // leaves "browse" (e.g. opening a design in DesignDetailView). We restore it
+  // from browseSessionStore on mount and mirror every change back so the user
+  // returns to their exact search results, filters, page, and (optionally)
+  // scroll position after the detail round-trip.
+  /** @type {number[]} */
+  let browseDesignIds = $state([]);
+  let browseSessionRestored = $state(false);
+  let scrollRestorePending = $state(true);
+
+  /** @param {BrowseFilterState} f */
+  function cloneBrowseFilters(f) {
+    return {
+      ...f,
+      designerFilters: Array.isArray(f.designerFilters) ? [...f.designerFilters] : [],
+      imageTagFilters: Array.isArray(f.imageTagFilters) ? [...f.imageTagFilters] : [],
+      stitchingTagFilters: Array.isArray(f.stitchingTagFilters)
+        ? [...f.stitchingTagFilters]
+        : [],
+      sourceFilters: Array.isArray(f.sourceFilters) ? [...f.sourceFilters] : [],
+    };
+  }
+
+  /** Capture the current browse scroll position for restoration on return. */
+  function captureBrowseScroll() {
+    const y = typeof window !== "undefined" ? Number(window.scrollY || 0) : 0;
+    browseSessionStore.patchSession({ scrollY: y });
+  }
+
+  /** Restore the saved scroll position once, after the first page has rendered. */
+  function restoreBrowseScrollOnce() {
+    if (!scrollRestorePending) return;
+    scrollRestorePending = false;
+    const savedY = Number(get(browseSessionStore).scrollY || 0);
+    if (savedY > 0) {
+      tick().then(() => {
+        if (typeof window !== "undefined") {
+          window.scrollTo(0, savedY);
+        }
+      });
+    }
+  }
+
+  // Restore the snapshot the first time this instance mounts, then mirror every
+  // subsequent state change back into the store so it survives unmount.
+  $effect(() => {
+    if (!browseSessionRestored) {
+      browseSessionRestored = true;
+      const snap = get(browseSessionStore);
+      if (snap.filters) {
+        browseFilters = cloneBrowseFilters(snap.filters);
+        browseCurrentPage = Math.max(1, Number(snap.currentPage) || 1);
+        browseTotal = Math.max(0, Number(snap.total) || 0);
+        browseTotalPages = Math.max(1, Number(snap.totalPages) || 1);
+      }
+      if (Array.isArray(snap.designIds)) {
+        browseDesignIds = [...snap.designIds];
+      }
+    }
+    browseSessionStore.patchSession({
+      filters: cloneBrowseFilters(browseFilters),
+      currentPage: browseCurrentPage,
+      total: browseTotal,
+      totalPages: browseTotalPages,
+      designIds: browseDesignIds,
+    });
+  });
+
   /** @param {string} filepath */
   function extractFolder(filepath) {
     const path = String(filepath || "")
@@ -289,6 +360,8 @@
   function clearBrowseFilters() {
     browseFilters = defaultBrowseFilters();
     browseCurrentPage = 1;
+    // A deliberate reset should not resurrect stale browse context on remount.
+    browseSessionStore.clear();
     loadBrowseItems(true);
   }
 
@@ -347,7 +420,10 @@
           stitched_status: stitchedStatus,
         },
       };
-      const result = await getBrowseDesigns(payload);
+      const [result, fullIds] = await Promise.all([
+        getBrowseDesigns(payload),
+        Promise.resolve(getDesignIds(payload)).catch(() => []),
+      ]);
       const rawItems = getResponseItems(result);
       const normalizedItems = rawItems.map(normalizeCardItem).filter((item) => item !== null);
       browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
@@ -355,6 +431,14 @@
       browseTotalPages = Math.max(1, Number(result?.total_pages ?? 1));
       browseCurrentPage = Math.max(1, Number(result?.page ?? browseCurrentPage));
       browseHasLoaded = true;
+      // The full filtered id list drives the detail view's Prev/Next across the
+      // whole result set. If the ids query is unavailable/empty, fall back to
+      // the current page's ids (previous behaviour).
+      browseDesignIds =
+        Array.isArray(fullIds) && fullIds.length > 0
+          ? fullIds.map(Number).filter((id) => Number.isFinite(id))
+          : normalizedItems.map((item) => item.id).filter((id) => Number.isFinite(id));
+      restoreBrowseScrollOnce();
     } catch {
       browseHasLoaded = true;
       browseItems = [];
@@ -1064,16 +1148,10 @@
     const designId = Number(item.id);
     if (!Number.isFinite(designId) || designId <= 0) return;
 
-    const ids = browseItems
-      .map((browseItem) => Number(browseItem?.id))
-      .filter((id) => Number.isFinite(id) && id > 0);
-
-    if (ids.length > 0) {
-      detailBrowseIds = ids;
-    } else {
-      detailBrowseIds = [];
-    }
-
+    // The full filtered id list is already in the browse session store (kept
+    // fresh by loadBrowseItems); MainView derives the detail view's Prev/Next
+    // context from it. Capture scroll so it can be restored on return.
+    captureBrowseScroll();
     navigateTo(`#/designs/${item.id}`);
   }
 
@@ -1092,18 +1170,6 @@
   }
 
   // Reactive effects for routing/loading
-  $effect(() => {
-    const id = detailDesignId;
-    if (id !== null && id !== undefined) {
-      untrack(() => {
-        openDesignDetail({ id });
-      });
-    } else {
-      untrack(() => {
-        detailBrowseIds = [];
-      });
-    }
-  });
 
   $effect(() => {
     // Apply any accumulated session patches from DesignDetails edits
@@ -1225,6 +1291,17 @@
       }
     }
   }
+
+  // Capture the scroll position when leaving browse so it can be restored on
+  // the next visit (e.g. returning from the design detail view).
+  onDestroy(() => {
+    captureBrowseScroll();
+  });
+
+  // Restore any persisted browse context once the first page has rendered.
+  onMount(() => {
+    restoreBrowseScrollOnce();
+  });
 </script>
 
 <svelte:window onresize={refreshBrowseGridColumns} />

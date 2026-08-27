@@ -39,6 +39,14 @@ const sessionMock = vi.hoisted(() => ({
 }));
 vi.mock("../../stores/designSessionStore", () => sessionMock);
 
+// Mock the browse session store — the delete flow calls removeDesignId().
+const browseSessionMock = vi.hoisted(() => ({
+  browseSessionStore: {
+    removeDesignId: vi.fn(),
+  },
+}));
+vi.mock("../../stores/browseSessionStore", () => browseSessionMock);
+
 // ---------------------------------------------------------------------------
 // Fixture: a fully-populated DesignDetail returned by the mocked adapter
 // ---------------------------------------------------------------------------
@@ -1106,7 +1114,7 @@ describe("DesignDetailView", () => {
       });
     });
 
-    it("confirms deletion, notifies the parent and navigates to browse", async () => {
+    it("confirms deletion, notifies the parent and navigates to the previous design", async () => {
       const navigateTo = vi.fn();
       const onDesignDeleted = vi.fn();
       renderDetail({ navigateTo, onDesignDeleted });
@@ -1125,7 +1133,54 @@ describe("DesignDetailView", () => {
         expect(adapterMocks.bulkDeleteDesigns).toHaveBeenCalledWith([42], false);
       });
       expect(onDesignDeleted).toHaveBeenCalled();
+      // Default fixture is detailBrowseIds [41,42,43], index 1 (design 42), so the
+      // deleted design's previous neighbour is 41.
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/41");
+      expect(browseSessionMock.browseSessionStore.removeDesignId).toHaveBeenCalledWith(42);
+    });
+
+    it("navigates to the next design when deleting the first design", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ detailBrowseIds: [42, 43], detailBrowseIndex: 0, navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Delete design" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Delete 1 design" })).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: "Delete 1 design" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.bulkDeleteDesigns).toHaveBeenCalledWith([42], false);
+      });
+      // Design 42 is at index 0 with no previous neighbour, so navigate to 43.
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/43");
+      expect(browseSessionMock.browseSessionStore.removeDesignId).toHaveBeenCalledWith(42);
+    });
+
+    it("navigates to the browse page when deleting the only design", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ detailBrowseIds: [42], detailBrowseIndex: 0, navigateTo });
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Delete design" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Delete 1 design" })).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: "Delete 1 design" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.bulkDeleteDesigns).toHaveBeenCalledWith([42], false);
+      });
+      // No previous or next neighbour, so fall back to the browse page.
       expect(navigateTo).toHaveBeenCalledWith("#/designs");
+      expect(browseSessionMock.browseSessionStore.removeDesignId).toHaveBeenCalledWith(42);
     });
 
     it("shows an error toast and does not navigate when deletion fails", async () => {
@@ -1154,6 +1209,7 @@ describe("DesignDetailView", () => {
         expect(toastMock.addToast).toHaveBeenCalledWith("Permission denied", "error");
       });
       expect(navigateTo).not.toHaveBeenCalled();
+      expect(browseSessionMock.browseSessionStore.removeDesignId).not.toHaveBeenCalled();
     });
   });
 

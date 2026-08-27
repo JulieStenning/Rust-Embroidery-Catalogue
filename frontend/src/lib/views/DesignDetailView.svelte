@@ -19,6 +19,7 @@
   import TagSelectionModal from "../components/TagSelectionModal.svelte";
   import TechnicalDataGrid from "../components/TechnicalDataGrid.svelte";
   import { designSessionStore } from "../stores/designSessionStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
   import { addToast } from "../stores/toastStore.js";
   /** @typedef {import("../types/ipc").DesignDetail} DesignDetailItem */
   /** @typedef {import("../types/ipc").DesignTagDetail} DesignTagDetail */
@@ -446,8 +447,32 @@
   function handleDetailDeleteResult(result) {
     detailDeleteModalOpen = false;
     if (result.persisted) {
+      // Prefer the previous neighbour (as if the user pressed "Prev"), else the
+      // next neighbour, else fall back to the browse page when it was the only
+      // design in the current (filtered) set.
+      let target = "#/designs";
+      if (detailBrowseIndex >= 0) {
+        const prevId = Number(detailBrowseIds[detailBrowseIndex - 1]);
+        const nextId = Number(detailBrowseIds[detailBrowseIndex + 1]);
+        const neighbour =
+          Number.isFinite(prevId) && prevId > 0
+            ? prevId
+            : Number.isFinite(nextId) && nextId > 0
+              ? nextId
+              : null;
+        if (neighbour != null) {
+          target = `#/designs/${neighbour}`;
+        }
+      }
+
       onDesignDeleted();
-      navigateTo("#/designs");
+      // Remove the deleted id from the browse session so Prev/Next and the
+      // position counter skip it while the user stays in the detail view.
+      const deletedId = detailItem?.id ?? detailDesignId;
+      if (deletedId != null && Number.isFinite(Number(deletedId))) {
+        browseSessionStore.removeDesignId(Number(deletedId));
+      }
+      navigateTo(target);
     } else {
       addToast(result.errors?.[0] || "Could not delete design.", "error");
     }

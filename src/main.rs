@@ -609,6 +609,7 @@ fn main() {
             routes::about::get_about_documents,
             routes::about::get_about_document,
             routes::designs::get_designs,
+            routes::designs::get_design_ids,
             routes::designs::get_design_detail,
             routes::designs::bulk_verify_designs,
             routes::designs::get_projects_for_browse,

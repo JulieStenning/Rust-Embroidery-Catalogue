@@ -36,6 +36,7 @@ import {
   getBrowseProjects,
   getBrowseTags,
   getDbStats,
+  getDesignIds,
   getDesignDetail,
   getDesignImageDataUrl,
   getGoogleApiKey,
@@ -263,6 +264,37 @@ describe("commandAdapter getBrowseDesigns", () => {
 
     expect(result.source).toBe("mock");
     expect(result.items).toHaveLength(3);
+  });
+});
+
+describe("commandAdapter getDesignIds", () => {
+  beforeEach(() => invokeMock.mockReset());
+
+  it("maps a Rust id array into a plain number array", async () => {
+    invokeMock.mockResolvedValue({ ids: [1, 2, 3] });
+
+    const result = await getDesignIds({
+      q: "rose",
+      sort_by: "rating",
+      sort_dir: "desc",
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("get_design_ids", {
+      payload: { q: "rose", sort_by: "rating", sort_dir: "desc" },
+    });
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  it("returns an empty array when the command rejects", async () => {
+    mockReject(new Error("down"));
+
+    expect(await getDesignIds()).toEqual([]);
+  });
+
+  it("returns an empty array when the command returns no ids", async () => {
+    invokeMock.mockResolvedValue(null);
+
+    expect(await getDesignIds()).toEqual([]);
   });
 });
 

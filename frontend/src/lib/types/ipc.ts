@@ -21,6 +21,33 @@ export interface SearchPayload {
   sort_dir?: string;
 }
 
+/**
+ * Frontend-only browse filter state (kept in the browse session store so the
+ * browse view survives the detail round-trip). Mirrors BrowseView's local
+ * `browseFilters` object.
+ */
+export interface BrowseFilterState {
+  q: string;
+  allWords: string;
+  exactPhrase: string;
+  anyWords: string;
+  noneWords: string;
+  filename: string;
+  designerFilters: string[];
+  imageTagFilters: string[];
+  stitchingTagFilters: string[];
+  hoop: string;
+  sourceFilters: string[];
+  rating: string;
+  stitched: string;
+  unverifiedOnly: boolean;
+  searchFilename: boolean;
+  searchTags: boolean;
+  searchFolder: boolean;
+  sortBy: string;
+  sortDir: string;
+}
+
 /** Progress streamed from Rust during catalogue storage migration. */
 export interface StorageMigrationProgress {
   current_phase:
