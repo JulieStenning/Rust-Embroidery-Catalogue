@@ -44,7 +44,6 @@
     navigateTo,
     browseNeedsRefresh = $bindable(false),
     detailBrowseIds = $bindable([]),
-    detailBrowseIndex = $bindable(-1),
     detailDesignId,
   } = $props();
 
@@ -1071,10 +1070,8 @@
 
     if (ids.length > 0) {
       detailBrowseIds = ids;
-      detailBrowseIndex = ids.indexOf(designId);
     } else {
       detailBrowseIds = [];
-      detailBrowseIndex = -1;
     }
 
     navigateTo(`#/designs/${item.id}`);
@@ -1104,7 +1101,6 @@
     } else {
       untrack(() => {
         detailBrowseIds = [];
-        detailBrowseIndex = -1;
       });
     }
   });

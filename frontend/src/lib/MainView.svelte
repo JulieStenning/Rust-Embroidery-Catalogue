@@ -73,10 +73,18 @@
 
   let browseNeedsRefresh = $state(false);
 
-  // Detail navigation browse context (bridged to BrowseView via bindable props)
+  // Detail navigation browse context. `detailBrowseIds` is the ordered list of
+  // design IDs currently shown (set by BrowseView when a design is opened); the
+  // current position is DERIVED from the live route's design id rather than
+  // stored separately. Storing it as `$state` caused it to freeze at its last
+  // BrowseView value while the (unmounted) BrowseView could no longer update it,
+  // so Next/Prev kept re-navigating to the same neighbour and the counter never
+  // advanced.
   /** @type {number[]} */
   let detailBrowseIds = $state([]);
-  let detailBrowseIndex = $state(-1);
+  let detailBrowseIndex = $derived(
+    detailDesignId == null ? -1 : detailBrowseIds.indexOf(detailDesignId)
+  );
 
   /**
    * `ImportView` callback prop — invoked when the import wizard finishes.
@@ -255,7 +263,6 @@
       {detailDesignId}
       bind:browseNeedsRefresh
       bind:detailBrowseIds
-      bind:detailBrowseIndex
     />
   {:else if currentUiKind === "settings"}
     <SettingsView />

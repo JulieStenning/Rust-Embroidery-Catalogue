@@ -366,7 +366,6 @@ function renderBrowse(overrides: Record<string, unknown> = {}) {
       navigateTo,
       browseNeedsRefresh: false,
       detailBrowseIds: [],
-      detailBrowseIndex: -1,
       detailDesignId: null,
       ...overrides,
     },

@@ -398,6 +398,34 @@ describe("DesignDetailView", () => {
       const nextButton = screen.getByTitle("Next design");
       expect(nextButton).toBeDisabled();
     });
+
+    it("navigates to the next design in the browse list", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ detailBrowseIndex: 1, navigateTo });
+
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTitle("Next design"));
+
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/43");
+    });
+
+    it("navigates to the previous design in the browse list", async () => {
+      const navigateTo = vi.fn();
+      renderDetail({ detailBrowseIndex: 1, navigateTo });
+
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTitle("Previous design"));
+
+      expect(navigateTo).toHaveBeenCalledWith("#/designs/41");
+    });
   });
 
   describe("star rating interactions", () => {
