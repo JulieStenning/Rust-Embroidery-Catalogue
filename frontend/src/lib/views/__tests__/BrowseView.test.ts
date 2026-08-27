@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
 import { tick } from "svelte";
+import { get } from "svelte/store";
 import BrowseView from "../BrowseView.svelte";
 import { browseSessionStore } from "../../stores/browseSessionStore.js";
 import { deleteResultHolder } from "./__mocks__/deleteResultHolder.js";
@@ -462,6 +463,37 @@ describe("BrowseView", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
+    // Restore the default window scroll position (tests may stub scrollY).
+    Object.defineProperty(window, "scrollY", { configurable: true, get: () => 0 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Scroll position preservation
+  // -------------------------------------------------------------------------
+  describe("scroll preservation", () => {
+    it("captures the window scroll position into the store on scroll", async () => {
+      Object.defineProperty(window, "scrollY", { configurable: true, get: () => 1500 });
+      renderBrowse();
+      await settle();
+
+      window.dispatchEvent(new Event("scroll"));
+      await tick();
+
+      expect(get(browseSessionStore).scrollY).toBe(1500);
+    });
+
+    it("restores the saved scroll position after the browse list loads", async () => {
+      browseSessionStore.patchSession({ scrollY: 1500 });
+      const scrollToSpy = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+      renderBrowse();
+      await settle();
+
+      await waitFor(() => {
+        expect(scrollToSpy).toHaveBeenCalledWith(0, 1500);
+      });
+    });
   });
 
   // -------------------------------------------------------------------------

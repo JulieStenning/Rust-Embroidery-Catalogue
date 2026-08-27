@@ -1292,15 +1292,22 @@
     }
   }
 
-  // Capture the scroll position when leaving browse so it can be restored on
-  // the next visit (e.g. returning from the design detail view).
-  onDestroy(() => {
-    captureBrowseScroll();
+  // Keep the browse scroll position in sync with the store so it survives the
+  // detail round-trip and menu navigation. A passive window scroll listener
+  // writes the latest position on every scroll; restoreBrowseScrollOnce()
+  // (called from loadBrowseItems after the cards render) reads it back on
+  // return. captureBrowseScroll() in openDesignDetail also captures the exact
+  // position at click time as a final safety net.
+  onMount(() => {
+    if (typeof window !== "undefined") {
+      window.addEventListener("scroll", captureBrowseScroll, { passive: true });
+    }
   });
 
-  // Restore any persisted browse context once the first page has rendered.
-  onMount(() => {
-    restoreBrowseScrollOnce();
+  onDestroy(() => {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("scroll", captureBrowseScroll);
+    }
   });
 </script>
 
