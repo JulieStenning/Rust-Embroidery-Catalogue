@@ -5,6 +5,8 @@ import { tick } from "svelte";
 import ImportView from "../ImportView.svelte";
 import ImportTestHarness from "./ImportTestHarness.svelte";
 import { importSessionStore } from "../../stores/importSessionStore";
+import { busyState, resetBusy } from "../../stores/busyStore";
+import { get } from "svelte/store";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -202,6 +204,7 @@ async function gotoStep3(container: HTMLElement, path = "C:\\Designs") {
 beforeEach(() => {
   vi.clearAllMocks();
   importSessionStore.clear();
+  resetBusy();
 
   adapterMocks.listDesigners.mockResolvedValue(listResponse(defaultDesigners()));
   adapterMocks.listSources.mockResolvedValue(listResponse(defaultSources()));
@@ -217,6 +220,62 @@ beforeEach(() => {
   adapterMocks.browseImportFolder.mockResolvedValue(browseResponse());
   adapterMocks.saveImportLastBrowseFolder.mockResolvedValue({ source: "rust", persisted: true });
   eventMocks.listen.mockResolvedValue(() => {});
+});
+
+// ---------------------------------------------------------------------------
+// Busy lock during import scans
+// ---------------------------------------------------------------------------
+describe("ImportView busy lock during scans", () => {
+  it("raises the global busy lock while scanning folders and clears it after", async () => {
+    let resolveScan: (value: unknown) => void = () => {};
+    adapterMocks.previewImportFromRoots.mockImplementation(
+      () =>
+        new Promise((res) => {
+          resolveScan = res;
+        })
+    );
+
+    const { container, view } = renderHarness("#/import");
+    expect(get(busyState).active).toBe(false);
+
+    await scanFolder(container, "C:\\Designs");
+    await tick();
+    expect(get(busyState).active).toBe(true);
+
+    resolveScan(previewResponse());
+    await waitFor(() => {
+      expect(screen.getByText("Review scanned files")).toBeInTheDocument();
+    });
+    expect(get(busyState).active).toBe(false);
+
+    view.unmount();
+  });
+
+  it("raises the global busy lock during precheck and clears it after", async () => {
+    let resolvePrecheck: (value: unknown) => void = () => {};
+    adapterMocks.precheckImportWire.mockImplementation(
+      () =>
+        new Promise((res) => {
+          resolvePrecheck = res;
+        })
+    );
+
+    const { container, view } = renderHarness("#/import");
+    await gotoStep2(container, "C:\\Designs");
+    expect(get(busyState).active).toBe(false);
+
+    await fireEvent.click(screen.getByRole("button", { name: /Continue with \d+ designs/ }));
+    await tick();
+    expect(get(busyState).active).toBe(true);
+
+    resolvePrecheck(precheckResponse());
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Import Designs" })).toBeInTheDocument();
+    });
+    expect(get(busyState).active).toBe(false);
+
+    view.unmount();
+  });
 });
 
 // ---------------------------------------------------------------------------

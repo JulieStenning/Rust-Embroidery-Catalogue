@@ -16,6 +16,7 @@
     importUnmatchedDesignFiles,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
@@ -40,6 +41,10 @@
   let showCancelConfirm = $state(false);
   let cancelling = $state(false);
   let activeBackupAction = $state(/** @type {"database" | "designs" | "both" | null} */ (null));
+
+  // Global UI lock: reflects busyState.active so secondary controls can be
+  // disabled while a long-running task runs.
+  let busyActive = $derived($busyState.active);
 
   // ── Tabbed layout + last-run metadata ─────────────────────────────────────
   let activeTab = $state(/** @type {"backup" | "restore"} */ ("backup"));
@@ -252,6 +257,7 @@
     if (runsDatabase) backupDatabaseRunning = true;
     if (runsDesigns) backupDesignsRunning = true;
     activeBackupAction = action;
+    beginBusy("Backing up catalogue");
 
     try {
       if (action === "database") {
@@ -350,6 +356,7 @@
       activeBackupAction = null;
       showCancelConfirm = false;
       cancelling = false;
+      endBusy();
     }
   }
 
@@ -446,6 +453,7 @@
     restorePreviousSchemaVersion = null;
     showUnmatchedPrompt = false;
     resetRestoreProgress();
+    beginBusy("Restoring catalogue");
 
     try {
       if (action === "database") {
@@ -505,6 +513,7 @@
     } finally {
       if (runsDatabase) restoreDatabaseRunning = false;
       if (runsDesigns) restoreDesignsRunning = false;
+      endBusy();
     }
   }
 
@@ -512,6 +521,7 @@
   async function handleImportUnmatched() {
     if (importingUnmatched) return;
     importingUnmatched = true;
+    beginBusy("Importing unmatched design files");
     try {
       const result = await importUnmatchedDesignFiles();
       const message =
@@ -524,6 +534,7 @@
       addToast(`Import failed: ${error}`, "error");
     } finally {
       importingUnmatched = false;
+      endBusy();
     }
   }
 
@@ -570,6 +581,7 @@
       class:border-transparent={activeTab !== "backup"}
       class:text-gray-500={activeTab !== "backup"}
       onclick={() => selectTab("backup")}
+      disabled={busyActive}
     >
       Backup
     </button>
@@ -583,6 +595,7 @@
       class:border-transparent={activeTab !== "restore"}
       class:text-gray-500={activeTab !== "restore"}
       onclick={() => selectTab("restore")}
+      disabled={busyActive}
     >
       Restore
     </button>
@@ -625,6 +638,7 @@
             type="button"
             class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
             onclick={() => browseBackupDestination("database")}
+            disabled={busyActive}
           >
             Browse…
           </button>
@@ -652,6 +666,7 @@
             type="button"
             class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
             onclick={() => browseBackupDestination("designs")}
+            disabled={busyActive}
           >
             Browse…
           </button>
@@ -665,7 +680,7 @@
         <button
           type="submit"
           class="settings-primary-button menu-button-primary"
-          disabled={!backupHasUnsavedChanges}
+          disabled={!backupHasUnsavedChanges || busyActive}
           title={!backupHasUnsavedChanges ? "No unsaved destination changes" : undefined}
         >
           Save destinations
@@ -854,7 +869,7 @@
         type="button"
         class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
         onclick={chooseRestoreDbFile}
-        disabled={restoreAnyRunning}
+        disabled={restoreAnyRunning || busyActive}
       >
         Choose file…
       </button>
@@ -971,12 +986,18 @@
         <button
           type="button"
           class="settings-primary-button menu-button-primary"
-          disabled={importingUnmatched}
+          disabled={importingUnmatched || busyActive}
           onclick={handleImportUnmatched}
         >
           {importingUnmatched ? "Importing…" : `Import ${unmatchedCount} file(s)`}
         </button>
-        <button type="button" class="menu-button-secondary" onclick={dismissUnmatched}>Dismiss</button>
+        <button
+          type="button"
+          class="menu-button-secondary"
+          onclick={dismissUnmatched}
+          disabled={busyActive}
+          >Dismiss</button
+        >
       </div>
     </div>
   {/if}

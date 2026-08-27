@@ -5,6 +5,7 @@
     totalCountOnPage: number;
     isAllSelectedOnPage: boolean;
     onToggleSelectAllPage: (checked: boolean) => void;
+    busyActive?: boolean;
   }
 
   let {
@@ -13,6 +14,7 @@
     totalCountOnPage = 0,
     isAllSelectedOnPage = false,
     onToggleSelectAllPage,
+    busyActive = false,
   }: Props = $props();
 </script>
 
@@ -36,7 +38,7 @@
         checked={isAllSelectedOnPage}
         onchange={(e: Event) =>
           onToggleSelectAllPage((e.currentTarget as HTMLInputElement).checked)}
-        disabled={totalCountOnPage === 0}
+        disabled={totalCountOnPage === 0 || busyActive}
       />
       Select all on page
     </label>

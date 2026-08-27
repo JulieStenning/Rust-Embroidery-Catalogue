@@ -10,6 +10,11 @@
   } from "../api/commandAdapter";
   import Pagination from "../components/Pagination.svelte";
   import { addToast } from "../stores/toastStore.js";
+  import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
+
+  // Global UI lock: reflects busyState.active so secondary controls can be
+  // disabled while a long-running task runs.
+  let busyActive = $derived($busyState.active);
 
   let orphansLoading = $state(false);
   let orphansLoaded = $state(false);
@@ -95,16 +100,21 @@
     );
     if (!confirmed) return;
 
-    const result = await removeOrphans(orphanSelectedIds);
-    if (!result?.persisted) {
-      addToast(`Could not delete selected orphans: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    beginBusy("Deleting orphan records");
+    try {
+      const result = await removeOrphans(orphanSelectedIds);
+      if (!result?.persisted) {
+        addToast(`Could not delete selected orphans: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    addToast(`${result.deleted} record(s) deleted.`, "success");
-    await loadOrphansPage(orphanPage, true);
-    if (orphanPage > orphanTotalPages) {
-      await loadOrphansPage(orphanTotalPages, true);
+      addToast(`${result.deleted} record(s) deleted.`, "success");
+      await loadOrphansPage(orphanPage, true);
+      if (orphanPage > orphanTotalPages) {
+        await loadOrphansPage(orphanTotalPages, true);
+      }
+    } finally {
+      endBusy();
     }
   }
 
@@ -119,14 +129,19 @@
     );
     if (!confirmed) return;
 
-    const result = await removeAllOrphans();
-    if (!result?.persisted) {
-      addToast(`Could not delete all orphans: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    beginBusy("Deleting all orphan records");
+    try {
+      const result = await removeAllOrphans();
+      if (!result?.persisted) {
+        addToast(`Could not delete all orphans: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    addToast(`${result.deleted} record(s) deleted.`, "success");
-    await loadOrphansPage(1, true);
+      addToast(`${result.deleted} record(s) deleted.`, "success");
+      await loadOrphansPage(1, true);
+    } finally {
+      endBusy();
+    }
   }
 
   /** @param {number} page */
@@ -146,6 +161,7 @@
   async function triggerDiskScan() {
     if (orphansLoading) return;
     orphansLoading = true;
+    beginBusy("Scanning disk for orphaned records");
     addToast("Scanning disk for orphaned records...", "info");
     try {
       const result = await scanOrphans();
@@ -162,6 +178,8 @@
     } catch (e) {
       addToast(`Could not complete scan: ${e}`, "error");
       orphansLoading = false;
+    } finally {
+      endBusy();
     }
   }
 
@@ -193,7 +211,7 @@
         type="button"
         class="menu-button-primary"
         onclick={triggerDiskScan}
-        disabled={orphansLoading}
+        disabled={orphansLoading || busyActive}
       >
         {orphansLoading ? "Scanning..." : "Scan Disk"}
       </button>
@@ -201,7 +219,7 @@
         type="button"
         class="menu-button-secondary"
         onclick={() => loadOrphansPage(orphanPage, true)}
-        disabled={orphansLoading}
+        disabled={orphansLoading || busyActive}
       >
         Refresh
       </button>
@@ -209,7 +227,7 @@
         type="button"
         class="menu-button-secondary"
         onclick={selectAllOrphansOnPage}
-        disabled={orphansLoading || orphanItems.length === 0}
+        disabled={orphansLoading || busyActive || orphanItems.length === 0}
       >
         Select all
       </button>
@@ -217,7 +235,7 @@
         type="button"
         class="menu-button-secondary"
         onclick={deselectAllOrphansOnPage}
-        disabled={orphansLoading || orphanSelectedIds.length === 0}
+        disabled={orphansLoading || busyActive || orphanSelectedIds.length === 0}
       >
         Deselect all
       </button>
@@ -225,7 +243,7 @@
         type="button"
         class="menu-button-secondary"
         onclick={deleteSelectedOrphans}
-        disabled={orphansLoading || orphanSelectedIds.length === 0}
+        disabled={orphansLoading || busyActive || orphanSelectedIds.length === 0}
       >
         Delete selected ({orphanSelectedIds.length})
       </button>
@@ -233,7 +251,7 @@
         type="button"
         class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
         onclick={deleteEveryOrphan}
-        disabled={orphansLoading || orphanTotal === 0}
+        disabled={orphansLoading || busyActive || orphanTotal === 0}
       >
         Delete all ({orphanTotal})
       </button>

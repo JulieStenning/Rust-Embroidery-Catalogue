@@ -16,6 +16,7 @@
   import AdminDesignersView from "./views/AdminDesignersView.svelte";
   import AdminSourcesView from "./views/AdminSourcesView.svelte";
   import AdminHoopsView from "./views/AdminHoopsView.svelte";
+  import { busyState } from "./stores/busyStore.js";
   import {
     normalizeHash,
     parseDesignDetailId,
@@ -31,6 +32,20 @@
   let currentRoute = $state("");
   let previousRoute = $state("");
   let currentUiKind = $derived(resolveCurrentUiKind(currentRoute));
+
+  // Global UI lock: while any long-running task (import, backup/restore,
+  // bulk tagging, storage migration, …) is active, navigation and the footer
+  // links are disabled so the user cannot route away mid-task.
+  let busyActive = $derived($busyState.active);
+
+  /** Prevent a nav/footer link from routing away while a task is running. */
+  /** @param {MouseEvent} event */
+  function guardNavClick(event) {
+    if (busyActive) {
+      event.preventDefault();
+    }
+  }
+
 
   // Utility/reference pages (About, Licensing/AI-Tagging docs, Help, Settings)
   // are cross-linked from many places. Show a context-aware "Back" button that
@@ -79,6 +94,11 @@
     const newHash = window.location.hash || "#/designs";
     const nextRoute = normalizeHash(newHash);
     if (nextRoute !== currentRoute) {
+      // Navigation is allowed to proceed even while a long-running task is
+      // active — this includes the active view's own step-advance / completion
+      // transitions (e.g. import scan → step 2), which must NOT be blocked.
+      // User-facing routing is disabled at the control layer instead, via
+      // `aria-disabled` + `guardNavClick` + the disabled Back button.
       previousRoute = currentRoute;
       currentRoute = nextRoute;
     }
@@ -102,6 +122,11 @@
 
   /** @param {string} target */
   function navigateTo(target) {
+    // Do NOT block routing while a task is busy: this function is shared with
+    // the active view's own step-advance / completion navigation (e.g. the
+    // import wizard calling navigateTo("#/import/step2") at the end of a scan).
+    // User-facing navigation is disabled at the control layer instead, via
+    // `aria-disabled` + `guardNavClick` + the disabled Back button.
     window.location.hash = target;
   }
 
@@ -109,13 +134,15 @@
   function linkClass(target) {
     const isActive =
       currentRoute === target || (target === "#/import" && currentUiKind === "import");
-    return `menu-link ${isActive ? "menu-link-active" : ""}`;
+    const disabled = busyActive ? " menu-link-disabled" : "";
+    return `menu-link ${isActive ? "menu-link-active" : ""}${disabled}`;
   }
 
   /** @param {string} target */
   function adminLinkClass(target) {
     const isActive = currentRoute === target;
-    return `menu-link menu-link-admin ${isActive ? "menu-link-active" : ""}`;
+    const disabled = busyActive ? " menu-link-disabled" : "";
+    return `menu-link menu-link-admin ${isActive ? "menu-link-active" : ""}${disabled}`;
   }
 
   syncRouteFromHash();
@@ -127,30 +154,85 @@
 <nav class="menu-shell text-white shadow font-sans">
   <div class="menu-shell-inner max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
     <div class="menu-primary-group flex items-center gap-4">
-      <a href="#/designs" class="menu-brand flex items-center gap-1.5 font-bold text-lg text-white">
+      <a
+        href="#/designs"
+        class="menu-brand flex items-center gap-1.5 font-bold text-lg text-white"
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+      >
         <span aria-hidden="true">🧵</span>
         <span>Embroidery Catalogue</span>
       </a>
-      <a href="#/designs" class={linkClass("#/designs")}>Browse</a>
-      <a href="#/import" class={linkClass("#/import")}>Import</a>
-      <a href="#/projects" class={linkClass("#/projects")}>Projects</a>
-      <a href="#/help" class={linkClass("#/help")}>Help</a>
+      <a href="#/designs" class={linkClass("#/designs")} aria-disabled={busyActive} onclick={guardNavClick}
+        >Browse</a
+      >
+      <a href="#/import" class={linkClass("#/import")} aria-disabled={busyActive} onclick={guardNavClick}
+        >Import</a
+      >
+      <a href="#/projects" class={linkClass("#/projects")} aria-disabled={busyActive} onclick={guardNavClick}
+        >Projects</a
+      >
+      <a href="#/help" class={linkClass("#/help")} aria-disabled={busyActive} onclick={guardNavClick}>Help</a>
     </div>
 
     <div class="menu-admin-group flex items-center gap-3 text-xs text-indigo-200">
       <span class="menu-admin-label opacity-70" aria-hidden="true">Admin:</span>
-      <a href="#/admin/designers" class={adminLinkClass("#/admin/designers")}>Designers</a>
-      <a href="#/admin/tags" class={adminLinkClass("#/admin/tags")}>Tags</a>
-      <a href="#/admin/sources" class={adminLinkClass("#/admin/sources")}>Sources</a>
-      <a href="#/admin/hoops" class={adminLinkClass("#/admin/hoops")}>Hoops</a>
-      <a href="#/admin/settings" class={adminLinkClass("#/admin/settings")}>Settings</a>
-      <a href="#/admin/maintenance/backup" class={adminLinkClass("#/admin/maintenance/backup")}
+      <a
+        href="#/admin/designers"
+        class={adminLinkClass("#/admin/designers")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+        >Designers</a
+      >
+      <a
+        href="#/admin/tags"
+        class={adminLinkClass("#/admin/tags")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+        >Tags</a
+      >
+      <a
+        href="#/admin/sources"
+        class={adminLinkClass("#/admin/sources")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+        >Sources</a
+      >
+      <a
+        href="#/admin/hoops"
+        class={adminLinkClass("#/admin/hoops")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+        >Hoops</a
+      >
+      <a
+        href="#/admin/settings"
+        class={adminLinkClass("#/admin/settings")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+        >Settings</a
+      >
+      <a
+        href="#/admin/maintenance/backup"
+        class={adminLinkClass("#/admin/maintenance/backup")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
         >Backup/Restore</a
       >
-      <a href="#/admin/tagging-actions" class={adminLinkClass("#/admin/tagging-actions")}
+      <a
+        href="#/admin/tagging-actions"
+        class={adminLinkClass("#/admin/tagging-actions")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
         >Tagging Actions</a
       >
-      <a href="#/admin/orphans" class={adminLinkClass("#/admin/orphans")}>Orphans</a>
+      <a
+        href="#/admin/orphans"
+        class={adminLinkClass("#/admin/orphans")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}
+        >Orphans</a
+      >
     </div>
   </div>
 </nav>
@@ -158,7 +240,11 @@
 <main class="max-w-7xl mx-auto px-4 py-6 font-sans">
   {#if showBackButton}
     <div class="ui-action-button-group flex flex-wrap gap-2 mb-4 no-print">
-      <button type="button" class="menu-button-secondary ui-action-button" onclick={goBack}
+      <button
+        type="button"
+        class="menu-button-secondary ui-action-button"
+        onclick={goBack}
+        disabled={busyActive}
         >&larr; Back</button
       >
     </div>
@@ -241,8 +327,20 @@
   <div class="border-t border-gray-300 pt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
     <span>Embroidery Catalogue</span>
     <span aria-hidden="true">•</span>
-    <a href="#/about" class="hover:underline text-indigo-650 font-medium">About</a>
+    <a
+      href="#/about"
+      class="hover:underline text-indigo-650 font-medium"
+      aria-disabled={busyActive}
+      onclick={guardNavClick}
+      >About</a
+    >
     <span aria-hidden="true">•</span>
-    <a href="#/about/licence" class="hover:underline text-indigo-650 font-medium">Licence</a>
+    <a
+      href="#/about/licence"
+      class="hover:underline text-indigo-650 font-medium"
+      aria-disabled={busyActive}
+      onclick={guardNavClick}
+      >Licence</a
+    >
   </div>
 </footer>

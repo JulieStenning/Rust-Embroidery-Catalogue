@@ -22,6 +22,7 @@
   import { designSessionStore } from "../stores/designSessionStore.js";
   import { tagChangeStore } from "../stores/tagChangeStore.js";
   import { addToast } from "../stores/toastStore.js";
+  import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { portalToBody } from "../utils/portal.js";
   import { HOOP_UNKNOWN_FILTER } from "../utils/hoopConstants.js";
 
@@ -52,6 +53,9 @@
   let browseItems = $state([]);
   let browseLoading = $state(false);
   let browseHasLoaded = $state(false);
+  // Global UI lock: reflects busyState.active so secondary controls can be
+  // disabled while a long-running task runs.
+  let busyActive = $derived($busyState.active);
   /** @type {ProjectListItem[]} */
   let browseProjects = $state([]);
   let browseProjectsLoaded = $state(false);
@@ -821,6 +825,7 @@
     }
 
     browseLoading = true;
+    beginBusy("Applying bulk tags");
     try {
       const result = /** @type {BulkSetTagsResult} */ (
         await bulkSetTagsForDesigns(
@@ -847,6 +852,7 @@
       closeBulkTagModal();
     } finally {
       browseLoading = false;
+      endBusy();
     }
   }
 
@@ -884,6 +890,7 @@
     browseLoading = true;
     let totalAdded = 0;
     let anyFailed = false;
+    beginBusy("Adding designs to projects");
     try {
       for (const projectId of browseBulkProjectSelection) {
         const result = /** @type {BulkAddToProjectResult} */ (
@@ -907,6 +914,7 @@
       addToast(`Bulk project add failed: ${e}`, "error");
     } finally {
       browseLoading = false;
+      endBusy();
     }
   }
 
@@ -914,6 +922,7 @@
     if (browseSelectedIds.size === 0) return;
 
     browseLoading = true;
+    beginBusy("Verifying designs");
     try {
       const result = /** @type {BulkVerifyResult} */ (
         await bulkVerifyDesigns(Array.from(browseSelectedIds))
@@ -931,6 +940,7 @@
       addToast(`Verification failed: ${e}`, "error");
     } finally {
       browseLoading = false;
+      endBusy();
     }
   }
 
@@ -1483,6 +1493,7 @@
     {totalCountOnPage}
     {isAllSelectedOnPage}
     onToggleSelectAllPage={toggleSelectAllBrowseOnPage}
+    busyActive={busyActive || browseLoading}
   />
 
   <!-- Browse Results Grid -->
@@ -1679,7 +1690,7 @@
       browseCurrentPage = page;
       loadBrowseItems(true);
     }}
-    disabled={browseLoading}
+    disabled={browseLoading || busyActive}
     showFirstLast={true}
     windowSize={2}
     ariaLabel="Browse pagination"

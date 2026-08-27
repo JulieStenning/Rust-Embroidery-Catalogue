@@ -288,6 +288,21 @@
   text-underline-offset: 1px;
 }
 
+/* Global UI lock: while a long-running task is active, nav / footer links are
+   disabled. We keep pointer-events enabled so the not-allowed cursor is
+   actually observable on hover (pointer-events: none would suppress it). */
+.menu-link[aria-disabled="true"],
+.menu-link-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.menu-link[aria-disabled="true"]:hover,
+.menu-link-disabled:hover {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+}
+
 .menu-button-primary,
 .menu-button-secondary,
 .ui-action-button,

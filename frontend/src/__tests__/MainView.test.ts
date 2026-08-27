@@ -1,7 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
+import { tick } from "svelte";
 import MainView from "../lib/MainView.svelte";
+import { beginBusy, endBusy, resetBusy } from "../lib/stores/busyStore.js";
 
 // ---------------------------------------------------------------------------
 // Mock normalizeHash as a passthrough (minus query strings). The real
@@ -108,6 +110,7 @@ function setHash(hash: string) {
 describe("MainView.svelte", () => {
   beforeEach(() => {
     window.location.hash = "#/designs";
+    resetBusy();
   });
 
   // --- Nav shell & brand ---------------------------------------------------
@@ -135,6 +138,70 @@ describe("MainView.svelte", () => {
     expect(screen.getByText("Backup/Restore")).toBeInTheDocument();
     expect(screen.getByText("Tagging Actions")).toBeInTheDocument();
     expect(screen.getByText("Orphans")).toBeInTheDocument();
+  });
+
+  // --- Global UI lock (busy state) -----------------------------------------
+
+  describe("global UI lock during long-running tasks", () => {
+    it("adds aria-disabled + menu-link-disabled to every nav link while busy", async () => {
+      beginBusy("Backing up");
+      render(MainView);
+
+      // Primary nav
+      expect(screen.getByText("Browse")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Browse").className).toContain("menu-link-disabled");
+      expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Projects")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Help")).toHaveAttribute("aria-disabled", "true");
+      // Admin nav
+      expect(screen.getByText("Designers")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Tagging Actions")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Orphans")).toHaveAttribute("aria-disabled", "true");
+      // Footer
+      expect(screen.getByText("About")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("blocks a nav-link CLICK while busy via the control-layer guard", () => {
+      beginBusy("Backing up");
+      render(MainView);
+      expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+      // The menu links are disabled at the control layer: guardNavClick calls
+      // preventDefault() while busy, so the link's default hash navigation is
+      // suppressed and the Import view is NOT mounted.
+      fireEvent.click(screen.getByText("Import"));
+      expect(screen.queryByTestId("import-view")).not.toBeInTheDocument();
+      expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+    });
+
+    it("allows PROGRAMMATIC routing to proceed while busy (wizard step-advance / completion navigation)", async () => {
+      beginBusy("Importing designs");
+      render(MainView);
+      expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+      // The active view's own navigateTo (e.g. import scan → #/import/step2,
+      // or completion → #/designs) must be honoured, not snapped back.
+      setHash("#/import");
+      await waitFor(() => {
+        expect(screen.getByTestId("import-view")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("browse-view")).not.toBeInTheDocument();
+    });
+
+    it("reactively clears the lock once busy ends, restoring normal navigation", async () => {
+      render(MainView);
+      expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
+
+      beginBusy("Backing up");
+      await tick();
+      expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
+
+      endBusy();
+      await tick();
+      expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
+      expect(screen.getByText("Import").className).not.toContain("menu-link-disabled");
+    });
   });
 
   // --- Main view routing ----------------------------------------------------

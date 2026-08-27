@@ -1,5 +1,6 @@
 <script>
   import { bulkDeleteDesigns } from "../api/commandAdapter";
+  import { beginBusy, endBusy } from "../stores/busyStore.js";
 
   /**
    * Shared unified deletion modal used by both the Browse page and the Design Detail page.
@@ -58,6 +59,7 @@
     if (busy || designIds.length === 0) return;
 
     busy = true;
+    beginBusy("Deleting designs");
     try {
       const result = await bulkDeleteDesigns(designIds, deleteFile);
       if (result.persisted) {
@@ -77,6 +79,8 @@
         files_trashed: 0,
         errors: [String(error)],
       });
+    } finally {
+      endBusy();
     }
   }
 
@@ -145,6 +149,7 @@
               name="delete-file-action"
               class="accent-indigo-600"
               checked={!deleteFile}
+              disabled={busy}
               onchange={() => {
                 deleteFile = false;
               }}
@@ -157,6 +162,7 @@
               name="delete-file-action"
               class="accent-indigo-600"
               checked={deleteFile}
+              disabled={busy}
               onchange={() => {
                 deleteFile = true;
               }}

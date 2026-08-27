@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import TaggingActionsView from "../TaggingActionsView.svelte";
+import { resetBusy } from "../../stores/busyStore.js";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
@@ -39,6 +40,7 @@ const viewModel = () => ({
 describe("TaggingActionsView stop behaviour", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetBusy();
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",

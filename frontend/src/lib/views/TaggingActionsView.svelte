@@ -8,10 +8,14 @@
     runStitchingBackfill,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
 
   let taggingActionsLoaded = $state(false);
   let taggingActionsLoading = $state(false);
   let taggingRunInFlight = $state(false);
+  // Global UI lock: reflects busyState.active so secondary controls can be
+  // disabled while a long-running task runs.
+  let busyActive = $derived($busyState.active);
   let taggingHasGoogleApiKey = $state(false);
   let taggingBatchSize = $state("100");
   let taggingCommitEvery = $state("100");
@@ -85,6 +89,7 @@
 
     taggingRunInFlight = true;
     taggingLastSummary = null;
+    beginBusy("Running tagging actions");
     addToast("Running selected actions...", "info");
 
     try {
@@ -140,6 +145,7 @@
       addToast(`Backfill run failed: ${e}`, "error");
     } finally {
       taggingRunInFlight = false;
+      endBusy();
     }
   }
 
@@ -197,6 +203,7 @@
           <input
             type="checkbox"
             bind:checked={taggingRunTagging}
+            disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div>
@@ -219,7 +226,7 @@
             <input
               type="checkbox"
               bind:checked={taggingRetagAll}
-              disabled={!taggingRunTagging}
+              disabled={!taggingRunTagging || busyActive}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span>Re-tag designs that already have tags (instead of only untagged designs)</span>
@@ -228,7 +235,7 @@
             <input
               type="checkbox"
               bind:checked={taggingRunTier2}
-              disabled={!taggingRunTagging || !taggingHasGoogleApiKey}
+              disabled={!taggingRunTagging || !taggingHasGoogleApiKey || busyActive}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span
@@ -241,7 +248,7 @@
             <input
               type="checkbox"
               bind:checked={taggingRunTier3}
-              disabled={!taggingRunTagging || !taggingHasGoogleApiKey}
+              disabled={!taggingRunTagging || !taggingHasGoogleApiKey || busyActive}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span
@@ -266,6 +273,7 @@
           <input
             type="checkbox"
             bind:checked={taggingRunStitching}
+            disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div>
@@ -282,7 +290,7 @@
             <input
               type="checkbox"
               bind:checked={taggingStitchingOverwrite}
-              disabled={!taggingRunStitching}
+              disabled={!taggingRunStitching || busyActive}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span>Overwrite stitching tags on designs that have already been processed</span>
@@ -296,6 +304,7 @@
           <input
             type="checkbox"
             bind:checked={taggingRunImages}
+            disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div>
@@ -309,7 +318,7 @@
             <input
               type="checkbox"
               bind:checked={taggingImageRedo}
-              disabled={!taggingRunImages}
+              disabled={!taggingRunImages || busyActive}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span>Regenerate images for all designs, not just those without images</span>
@@ -323,6 +332,7 @@
           <input
             type="checkbox"
             bind:checked={taggingRunColorCounts}
+            disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div>
@@ -338,6 +348,7 @@
           <input
             type="checkbox"
             bind:checked={taggingRunHoopDimensions}
+            disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div>
@@ -355,7 +366,7 @@
       <button
         class="menu-button-primary"
         onclick={runTaggingActions}
-        disabled={taggingRunInFlight || taggingActionsLoading || !taggingAnyActionSelected}
+        disabled={taggingRunInFlight || taggingActionsLoading || busyActive || !taggingAnyActionSelected}
       >
         {taggingRunInFlight ? "Running..." : "Run selected actions"}
       </button>

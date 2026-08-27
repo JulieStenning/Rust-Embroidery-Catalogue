@@ -28,7 +28,9 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/svelte";
+import { tick } from "svelte";
 import MainView from "../MainView.svelte";
+import { beginBusy, endBusy, resetBusy } from "../stores/busyStore.js";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter module — this prevents real Tauri `invoke` calls.
@@ -472,6 +474,32 @@ beforeEach(() => {
   for (const key of genericFnKeys) {
     adapterMock[key].mockResolvedValue(persisted);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Global UI lock during long-running tasks
+// ---------------------------------------------------------------------------
+describe("global UI lock during long-running tasks", () => {
+  beforeEach(() => resetBusy());
+
+  it("reactively disables the primary and admin nav links while a task runs", async () => {
+    render(MainView);
+    await waitFor(() => {
+      expect(screen.getByText("Browse")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
+
+    beginBusy("Backing up");
+    await tick();
+    expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Import").className).toContain("menu-link-disabled");
+    expect(screen.getByText("Orphans")).toHaveAttribute("aria-disabled", "true");
+
+    endBusy();
+    await tick();
+    expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("Import").className).not.toContain("menu-link-disabled");
+  });
 });
 
 // ---------------------------------------------------------------------------

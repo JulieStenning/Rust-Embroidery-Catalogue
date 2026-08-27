@@ -14,6 +14,7 @@
     getSettingsViewModel,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
@@ -61,6 +62,9 @@
   let importNowInProgress = $derived(
     importActionLoading && importActionInProgress === "import_now"
   );
+  // Global UI lock: reflects busyState.active so secondary controls can be
+  // disabled while a long-running task runs.
+  let busyActive = $derived($busyState.active);
   let importRouteStep = $derived(parseImportWizardStep(currentRoute));
 
   // Guards the stale-context recovery path so an expired token can never loop.
@@ -506,6 +510,7 @@
     importLoading = true;
     importActionMessage = "";
     importActionNeedsSkipHoopsConfirm = false;
+    beginBusy("Checking import selections");
 
     try {
       const result = await precheckImportWire(buildImportConfirmWire());
@@ -521,6 +526,7 @@
       navigateTo("#/import/step2");
     } finally {
       importLoading = false;
+      endBusy();
     }
   }
 
@@ -590,6 +596,7 @@
     if (importNowAction) {
       importStopRequestPending = false;
       importProgressStatus = "";
+      beginBusy("Importing designs");
       await startImportProgressUpdates(importContextToken);
     }
 
@@ -643,6 +650,7 @@
     } finally {
       if (importNowAction) {
         await stopImportProgressUpdates();
+        endBusy();
       }
       importStopRequestPending = false;
       importActionInProgress = "";
@@ -695,6 +703,7 @@
     importLoading = true;
     importActionMessage = "";
     importActionNeedsSkipHoopsConfirm = false;
+    beginBusy("Scanning import folders");
 
     try {
       const result = await previewImportFromRoots(getActiveImportRoots());
@@ -723,6 +732,7 @@
       navigateTo("#/import/step1");
     } finally {
       importLoading = false;
+      endBusy();
     }
   }
 
@@ -1061,7 +1071,7 @@
                 type="button"
                 class="ui-action-button menu-button-secondary py-2"
                 onclick={() => browseImportRootPath(-1)}
-                disabled={importLoading || importActionLoading || importBrowseLoading}
+                disabled={importLoading || importActionLoading || importBrowseLoading || busyActive}
               >
                 {importBrowseLoading ? "Browsing…" : "Browse…"}
               </button>
@@ -1072,6 +1082,7 @@
                 disabled={importLoading ||
                   importActionLoading ||
                   importBrowseLoading ||
+                  busyActive ||
                   !String(importRootPath || "").trim()}
                 title="Remove this folder"
               >
@@ -1213,7 +1224,7 @@
             <button
               class="menu-button-primary ui-action-button ui-action-button-primary"
               onclick={runImportPrecheck}
-              disabled={importLoading || importActionLoading || importSelectedFiles.length === 0}
+              disabled={importLoading || importActionLoading || busyActive || importSelectedFiles.length === 0}
             >
               {#if importLoading}
                 Running…
@@ -1229,7 +1240,7 @@
               type="button"
               class="menu-button-secondary ui-action-button"
               onclick={() => navigateTo("#/import/step1")}
-              disabled={importLoading || importActionLoading}
+              disabled={importLoading || importActionLoading || busyActive}
             >
               Cancel
             </button>
@@ -1237,7 +1248,7 @@
               type="button"
               class={`px-3 py-1.5 rounded border text-xs font-semibold ${importStep2CanSelectAll ? "bg-white hover:bg-gray-50 text-indigo-600" : "text-gray-400 bg-gray-50 cursor-not-allowed"}`}
               onclick={selectAllImportFiles}
-              disabled={importLoading || importActionLoading || !importStep2CanSelectAll}
+              disabled={importLoading || importActionLoading || busyActive || !importStep2CanSelectAll}
             >
               Select all
             </button>
@@ -1245,7 +1256,7 @@
               type="button"
               class={`px-3 py-1.5 rounded border text-xs font-semibold ${importStep2CanDeselectAll ? "bg-white hover:bg-gray-50 text-indigo-600" : "text-gray-400 bg-gray-50 cursor-not-allowed"}`}
               onclick={clearImportFileSelection}
-              disabled={importLoading || importActionLoading || !importStep2CanDeselectAll}
+              disabled={importLoading || importActionLoading || busyActive || !importStep2CanDeselectAll}
             >
               Deselect all
             </button>
@@ -1461,7 +1472,7 @@
           <button
             class="menu-button-primary ui-action-button ui-action-button-primary"
             onclick={() => executeImportPrecheckAction("import_now")}
-            disabled={importActionLoading || !importContextToken}
+            disabled={importActionLoading || busyActive || !importContextToken}
           >
             {#if importActionLoading && importActionInProgress === "import_now"}
               {#if importProgressStatus}
@@ -1500,7 +1511,7 @@
             <button
               class="menu-button-primary ui-action-button ui-action-button-primary text-xs"
               onclick={() => executeImportPrecheckAction("import_now", true)}
-              disabled={importActionLoading || !importContextToken}
+              disabled={importActionLoading || busyActive || !importContextToken}
             >
               Confirm import without hoop setup
             </button>

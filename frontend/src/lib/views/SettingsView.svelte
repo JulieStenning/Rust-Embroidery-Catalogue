@@ -12,6 +12,7 @@
     compactDatabase,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   /** @typedef {import("../types/ipc").StorageMigrationProgress} StorageMigrationProgress */
 
   /** @typedef {import("../types/ipc").SettingsViewModel} SettingsViewModel */
@@ -48,6 +49,10 @@
   let migrationError = $state("");
   /** @type {(() => void) | null} */
   let unlistenMigration = null;
+
+  // Global UI lock: reflects busyState.active so secondary controls can be
+  // disabled while a long-running task runs.
+  let busyActive = $derived($busyState.active);
 
   let settingsHasGoogleApiKey = $derived(settingsGoogleApiKey.trim().length > 0);
 
@@ -99,6 +104,7 @@
   async function runManualCompaction() {
     if (isCompacting) return;
     isCompacting = true;
+    beginBusy("Compacting database");
     try {
       const result = await compactDatabase();
       if (result.result) {
@@ -117,6 +123,7 @@
       addToast(`Could not compact database: ${error}`, "error");
     } finally {
       isCompacting = false;
+      endBusy();
     }
   }
 
@@ -174,13 +181,16 @@
     migrationProgress = progress;
     if (progress.current_phase === "cancelled") {
       migrating = false;
+      endBusy();
       addToast("Catalogue migration cancelled.", "info");
     } else if (progress.current_phase === "error") {
       migrating = false;
+      endBusy();
       migrationError = progress.error || progress.status_message || "Migration failed.";
       addToast(migrationError, "error");
     } else if (progress.current_phase === "completed") {
       migrating = false;
+      endBusy();
       addToast("Catalogue storage migrated successfully.", "success");
     }
   }
@@ -198,6 +208,7 @@
     migrating = true;
     migrationError = "";
     migrationProgress = null;
+    beginBusy("Migrating catalogue storage");
     try {
       unlistenMigration = await listenCatalogueStorageMigrationProgress(onMigrationProgress);
     } catch (error) {
@@ -208,6 +219,7 @@
     const started = await startCatalogueStorageMigration(result.path);
     if (started.error) {
       migrating = false;
+      endBusy();
       migrationError = started.error;
       addToast(`Could not start catalogue migration: ${started.error}`, "error");
       await stopListeningToMigration();
@@ -218,6 +230,7 @@
       settingsSaveState = "idle";
       showRestartConfirm = true;
       migrating = false;
+      endBusy();
       await closeMigrationModal();
     }
   }
@@ -227,6 +240,7 @@
     migrating = false;
     migrationError = "";
     migrationProgress = null;
+    endBusy();
     await stopListeningToMigration();
   }
 
@@ -507,7 +521,7 @@
           type="button"
           class="settings-primary-button menu-button-primary"
           onclick={runManualCompaction}
-          disabled={isCompacting}
+          disabled={isCompacting || busyActive}
         >
           {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
         </button>
@@ -548,6 +562,7 @@
                 type="button"
                 class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
                 onclick={browseDataRootFromBackend}
+                disabled={busyActive}
               >
                 Browse…
               </button>
@@ -566,7 +581,7 @@
         <button
           type="submit"
           class="settings-primary-button menu-button-primary"
-          disabled={settingsSaveState === "saving"}
+          disabled={settingsSaveState === "saving" || busyActive}
         >
           {settingsSaveState === "saving" ? "Saving..." : "Save settings"}
         </button>
@@ -627,7 +642,7 @@
         <button
           type="button"
           onclick={handleRestart}
-          disabled={restarting}
+          disabled={restarting || busyActive}
           class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
                  hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
