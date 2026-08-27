@@ -921,7 +921,7 @@
       );
       if (result?.persisted) {
         addToast(
-          `${result.updated_count ?? result.updated} design(s) tag-updated in Rust database.`,
+          `Updated tags for ${result.updated_count ?? result.updated} design(s).`,
           "success"
         );
         closeBulkTagModal();

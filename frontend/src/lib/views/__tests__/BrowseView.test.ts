@@ -1449,7 +1449,7 @@ describe("BrowseView", () => {
       });
 
       expect(toastMock.addToast).toHaveBeenCalledWith(
-        "1 design(s) tag-updated in Rust database.",
+        "Updated tags for 1 design(s).",
         "success"
       );
     });
