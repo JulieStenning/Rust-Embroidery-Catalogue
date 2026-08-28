@@ -1626,3 +1626,71 @@ async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
     let _ = fs::remove_dir_all(&dest_dir);
     let _ = fs::remove_dir_all(&src_dir);
 }
+
+
+// ---------------------------------------------------------------------------
+// cancelled backup constructors
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cancelled_database_backup_marks_result_cancelled() {
+    let result =
+        cancelled_database_backup("12345", Some("Database backup cancelled.".to_string()));
+    assert!(result.cancelled);
+    assert!(!result.success);
+    assert_eq!(result.completed_at, "12345");
+    assert_eq!(result.error.as_deref(), Some("Database backup cancelled."));
+    assert_eq!(result.size_bytes, 0);
+    assert!(result.backup_path.is_none());
+}
+
+#[test]
+fn cancelled_designs_backup_marks_result_cancelled() {
+    let result = cancelled_designs_backup("54321", None);
+    assert!(result.cancelled);
+    assert!(!result.success);
+    assert_eq!(result.completed_at, "54321");
+    assert!(result.error.is_none());
+    assert_eq!(result.scanned, 0);
+    assert_eq!(result.copied, 0);
+    assert_eq!(result.updated, 0);
+    assert_eq!(result.archived, 0);
+    assert_eq!(result.total_bytes_copied, 0);
+}
+
+// ---------------------------------------------------------------------------
+// browse_orphan_path (external launch disabled)
+// ---------------------------------------------------------------------------
+
+#[test]
+#[serial]
+fn browse_orphan_path_resolves_folder_with_external_launch_disabled() {
+    let prior_db = std::env::var("DATABASE_URL").ok();
+    let prior_disable = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+
+    let tmp = std::env::temp_dir().join("maint-browse-orphan-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).unwrap();
+    std::fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).unwrap();
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+    std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", "1");
+
+    let result = browse_orphan_path("SomeFolder/missing.pes".to_string())
+        .expect("browse_orphan_path should not error");
+    assert!(result.ok);
+    assert!(!result.opened.is_empty());
+
+    match prior_db {
+        Some(v) => std::env::set_var("DATABASE_URL", v),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    match prior_disable {
+        Some(v) => std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", v),
+        None => std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}

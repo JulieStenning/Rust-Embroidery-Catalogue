@@ -383,3 +383,19 @@ async fn progress_percent_reflects_bytes() {
     })
     .await;
 }
+
+#[test]
+fn progress_with_totals_zero_bytes_and_error_method() {
+    // total_bytes == 0 → percent clamps to 1.0 (zero-totals fast path).
+    let p = StorageMigrationProgress::new("assets", "msg".to_string()).with_totals(10, 0, 10, 0);
+    assert_eq!(p.percent, 1.0);
+    assert_eq!(p.total_items, 10);
+    assert_eq!(p.total_bytes, 0);
+    assert_eq!(p.items_copied, 10);
+    assert_eq!(p.bytes_copied, 0);
+
+    // error() surfaces a message on the error field.
+    let e = StorageMigrationProgress::new("error", "boom".to_string()).error("detail".to_string());
+    assert_eq!(e.current_phase, "error");
+    assert_eq!(e.error.as_deref(), Some("detail"));
+}

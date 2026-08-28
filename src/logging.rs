@@ -112,9 +112,9 @@ mod tests {
     /// Test that init_logging creates the directory and writes at least one log file.
     ///
     /// NOTE: Only one test can call init_logging per process because
-    /// tracing_subscriber::registry().init() is a global-once operation.
-    /// A second call would panic, so all assertions are combined into this
-    /// single test.
+    /// tracing_subscriber::registry().try_init() is a global-once operation.
+    /// A second call returns an error (it does not panic), which this test
+    /// asserts below, so all assertions are combined into this single test.
     #[test]
     fn test_init_logging_creates_directory_and_log_files() {
         let log_dir = test_log_dir();
@@ -154,7 +154,44 @@ mod tests {
         // Drop the guard so pending writes are flushed.
         drop(guard);
 
+        // Second initialisation: the global tracing subscriber is already set,
+        // so try_init() returns Err and init_logging maps it to
+        // AppError::invalid_input (it does not panic).
+        let second = init_logging(&log_dir);
+        match second {
+            Err(AppError::InvalidInput { message }) => assert!(
+                message.contains("failed to initialize tracing subscriber"),
+                "unexpected invalid-input message: {message}"
+            ),
+            _ => panic!("second init_logging should fail with InvalidInput"),
+        }
+
         // Clean up after ourselves.
         let _ = std::fs::remove_dir_all(&log_dir);
+    }
+
+    /// Test that init_logging returns an AppError::Io when the log directory
+    /// cannot be created (here, because a regular file occupies the parent path).
+    /// This fails before any global subscriber is touched, so it is independent
+    /// of the single-init constraint above.
+    #[test]
+    fn test_init_logging_returns_io_error_when_dir_cannot_be_created() {
+        // A regular file in the way of the directory path forces create_dir_all
+        // to fail.
+        let base = std::env::temp_dir().join("embroidery_logging_test_blocker");
+        let _ = std::fs::remove_file(&base);
+        std::fs::write(&base, []).expect("create blocker file");
+        let log_dir = base.join("subdir");
+
+        let result = init_logging(&log_dir);
+        match result {
+            Err(AppError::Io { message }) => assert!(
+                message.contains("failed to create log dir"),
+                "unexpected io message: {message}"
+            ),
+            _ => panic!("expected AppError::Io when log dir cannot be created"),
+        }
+
+        let _ = std::fs::remove_file(&base);
     }
 }

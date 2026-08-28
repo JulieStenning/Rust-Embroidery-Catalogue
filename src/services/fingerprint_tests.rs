@@ -504,3 +504,46 @@ async fn test_backfill_select_candidates_error() {
     let res = run_fingerprint_backfill(&pool, 10).await;
     assert!(res.is_err());
 }
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
+async fn test_process_one_design_fully_hashed_short_circuits() {
+    let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+    backfill::clear_stop_signal();
+
+    let pool = make_test_pool().await;
+    let temp_path = write_temp_file("hashed.pes", b"ignored content");
+
+    // Both hash and size are already populated, so process_one_design must
+    // short-circuit and never re-read the on-disk file.
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, file_hash_blake3, file_size_bytes) VALUES (1, 'hashed.pes', ?, 'deadbeef', 42)",
+    )
+    .bind(temp_path.to_string_lossy().to_string())
+    .execute(&pool)
+    .await
+    .expect("insert");
+
+    let candidate = FingerprintCandidate {
+        id: 1,
+        filepath: temp_path.to_string_lossy().to_string(),
+    };
+    let result = process_one_design(&pool, candidate)
+        .await
+        .expect("should succeed without re-hashing");
+    assert!(!result.was_missing);
+
+    // Stored values must be untouched.
+    let size: i64 = sqlx::query_scalar("SELECT file_size_bytes FROM designs WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(size, 42);
+    let hash: String = sqlx::query_scalar("SELECT file_hash_blake3 FROM designs WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(hash, "deadbeef");
+
+    let _ = fs::remove_file(&temp_path);
+}

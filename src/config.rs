@@ -89,6 +89,7 @@ mod tests {
     use super::*;
     use crate::paths::{AppPaths, ExecutionMode};
     use std::path::PathBuf;
+use serial_test::serial;
 
     // ─── normalize_database_url ──────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ mod tests {
     // ─── debug_bootstrap_config ──────────────────────────────────────────────
 
     #[test]
+#[serial]
     fn debug_bootstrap_config_returns_config_from_env() {
         let prior = std::env::var("DATABASE_URL").ok();
         let test_url = "sqlite:debug_test/test.db";
@@ -158,6 +160,7 @@ mod tests {
     // ─── BootstrapConfig::from_env ───────────────────────────────────────────
 
     #[test]
+#[serial]
     fn from_env_falls_back_to_default_when_env_var_missing() {
         // Temporarily remove DATABASE_URL so the fallback is exercised.
         let prior = std::env::var("DATABASE_URL").ok();
@@ -173,6 +176,7 @@ mod tests {
     }
 
     #[test]
+#[serial]
     fn from_env_honours_explicit_env_var() {
         let prior = std::env::var("DATABASE_URL").ok();
         let test_url = "sqlite:test_data/test.db";

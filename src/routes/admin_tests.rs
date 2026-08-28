@@ -9,6 +9,8 @@
 use super::*;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::Row;
+use std::sync::atomic::AtomicBool;
+use tauri::Manager;
 
 async fn test_pool() -> SqlitePool {
     let pool = SqlitePoolOptions::new()
@@ -1986,4 +1988,189 @@ async fn delete_hoop_not_found() {
     assert!(result
         .expect_err("expected not-found error")
         .contains("not found"));
+}
+
+
+
+// ========================================================================
+// Tauri command wrapper tests (via tauri::test::mock_app)
+// ========================================================================
+//
+// These exercise the thin `#[tauri::command]` wrappers that only forward to
+// the `_with_pool` functions and call `state.db_pool()`. They reach the
+// `state.db_pool()` code path that the pure service tests cannot.
+
+/// Build a minimal AppState backed by an in-memory SQLite pool.
+fn command_app_state(pool: SqlitePool) -> AppState {
+    let tmp_dir = std::env::temp_dir().join("admin-route-command-test");
+    std::fs::create_dir_all(&tmp_dir).ok();
+    AppState {
+        db: crate::PoolHolder::new(pool),
+        database_status: crate::DatabaseStatus {
+            status: crate::DatabaseStatusKind::Connected,
+            configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
+            database_path: Some(
+                tmp_dir.join("Database").join("test.db").to_string_lossy().to_string(),
+            ),
+            embroidery_dir: Some(
+                tmp_dir.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+            ),
+            data_root_missing: false,
+        },
+        paths: crate::paths::AppPaths {
+            mode: crate::paths::ExecutionMode::Installed,
+            data_root: tmp_dir.clone(),
+            embroidery_designs_dir: tmp_dir.join("MachineEmbroideryDesigns"),
+            database_dir: tmp_dir.join("Database"),
+            database_path: tmp_dir.join("Database").join("test.db"),
+            log_dir: tmp_dir.join("logs"),
+        },
+        log_guard: crate::logging::LogGuard::dummy_for_test(),
+        shutdown_requested: AtomicBool::new(false),
+        maintenance_running: AtomicBool::new(false),
+        migration_running: AtomicBool::new(false),
+        migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+        restore_in_progress: AtomicBool::new(false),
+    }
+}
+
+#[tokio::test]
+async fn command_wrappers_designer_lifecycle() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+
+    assert_eq!(list_designers(app.state::<AppState>()).await.unwrap().len(), 0);
+
+    let created = create_designer(
+        app.state::<AppState>(),
+        CreateDesignerRequest { name: "Jane".into() },
+    )
+    .await
+    .expect("create designer via command");
+    assert_eq!(created.name, "Jane");
+
+    let updated = update_designer(
+        app.state::<AppState>(),
+        UpdateDesignerRequest { designer_id: created.id, name: "Janet".into() },
+    )
+    .await
+    .expect("update designer via command");
+    assert_eq!(updated.name, "Janet");
+
+    assert_eq!(list_designers(app.state::<AppState>()).await.unwrap().len(), 1);
+
+    delete_designer(app.state::<AppState>(), created.id)
+        .await
+        .expect("delete designer via command");
+    assert_eq!(list_designers(app.state::<AppState>()).await.unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn command_wrappers_source_lifecycle() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+
+    assert_eq!(list_sources(app.state::<AppState>()).await.unwrap().len(), 0);
+
+    let created = create_source(
+        app.state::<AppState>(),
+        CreateSourceRequest { name: "In-House".into() },
+    )
+    .await
+    .expect("create source via command");
+    assert_eq!(created.name, "In-House");
+
+    let updated = update_source(
+        app.state::<AppState>(),
+        UpdateSourceRequest { source_id: created.id, name: "House".into() },
+    )
+    .await
+    .expect("update source via command");
+    assert_eq!(updated.name, "House");
+
+    assert_eq!(list_sources(app.state::<AppState>()).await.unwrap().len(), 1);
+
+    delete_source(app.state::<AppState>(), created.id)
+        .await
+        .expect("delete source via command");
+    assert_eq!(list_sources(app.state::<AppState>()).await.unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn command_wrappers_tag_lifecycle() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+
+    assert_eq!(list_tags(app.state::<AppState>()).await.unwrap().len(), 0);
+
+    let created = create_tag(
+        app.state::<AppState>(),
+        CreateTagRequest { description: "Borders".into(), tag_group: "image".into() },
+    )
+    .await
+    .expect("create tag via command");
+    assert_eq!(created.description, "Borders");
+
+    let grouped = set_tag_group(
+        app.state::<AppState>(),
+        SetTagGroupRequest { tag_id: created.id, tag_group: "stitching".into() },
+    )
+    .await
+    .expect("set tag group via command");
+    assert_eq!(grouped.tag_group.as_deref(), Some("stitching"));
+
+    let renamed = update_tag(
+        app.state::<AppState>(),
+        UpdateTagRequest { tag_id: created.id, description: "Frames".into() },
+    )
+    .await
+    .expect("update tag via command");
+    assert_eq!(renamed.description, "Frames");
+
+    assert_eq!(list_tags(app.state::<AppState>()).await.unwrap().len(), 1);
+
+    delete_tag(app.state::<AppState>(), created.id)
+        .await
+        .expect("delete tag via command");
+    assert_eq!(list_tags(app.state::<AppState>()).await.unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn command_wrappers_hoop_lifecycle() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+
+    assert_eq!(list_hoops(app.state::<AppState>()).await.unwrap().len(), 0);
+
+    let created = create_hoop(
+        app.state::<AppState>(),
+        CreateHoopRequest { name: "4x4".into(), max_width_mm: 100.0, max_height_mm: 100.0 },
+    )
+    .await
+    .expect("create hoop via command");
+    assert_eq!(created.name, "4x4");
+
+    let updated = update_hoop(
+        app.state::<AppState>(),
+        UpdateHoopRequest {
+            hoop_id: created.id,
+            name: "5x7".into(),
+            max_width_mm: 130.0,
+            max_height_mm: 180.0,
+        },
+    )
+    .await
+    .expect("update hoop via command");
+    assert_eq!(updated.name, "5x7");
+
+    assert_eq!(list_hoops(app.state::<AppState>()).await.unwrap().len(), 1);
+
+    delete_hoop(app.state::<AppState>(), created.id)
+        .await
+        .expect("delete hoop via command");
+    assert_eq!(list_hoops(app.state::<AppState>()).await.unwrap().len(), 0);
 }

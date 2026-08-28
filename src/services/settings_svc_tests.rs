@@ -280,3 +280,52 @@ async fn save_and_get_google_api_key_roundtrips() {
     let key_cleared = get_google_api_key(&mut conn).await.unwrap();
     assert_eq!(key_cleared, None);
 }
+
+#[tokio::test]
+async fn get_settings_view_model_inner_reflects_dev_mode() {
+    let pool = setup_pool().await;
+    let tmp = std::env::temp_dir().join("settings-svc-dev-test");
+    std::fs::create_dir_all(&tmp).ok();
+
+    let app_state = AppState {
+        db: crate::PoolHolder::new(pool),
+        database_status: crate::DatabaseStatus {
+            status: crate::DatabaseStatusKind::Connected,
+            configured_data_root: Some(tmp.to_string_lossy().to_string()),
+            database_path: Some(
+                tmp.join("Database")
+                    .join("test.db")
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+            embroidery_dir: Some(
+                tmp.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+            ),
+            data_root_missing: false,
+        },
+        paths: crate::paths::AppPaths {
+            mode: crate::paths::ExecutionMode::Dev,
+            data_root: tmp.clone(),
+            embroidery_designs_dir: tmp.join("MachineEmbroideryDesigns"),
+            database_dir: tmp.join("Database"),
+            database_path: tmp.join("Database").join("test.db"),
+            log_dir: tmp.join("logs"),
+        },
+        log_guard: crate::logging::LogGuard::dummy_for_test(),
+        shutdown_requested: std::sync::atomic::AtomicBool::new(false),
+        maintenance_running: std::sync::atomic::AtomicBool::new(false),
+        migration_running: std::sync::atomic::AtomicBool::new(false),
+        migration_cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        restore_in_progress: std::sync::atomic::AtomicBool::new(false),
+    };
+
+    // Dev mode should be reflected in the view model, exercising the
+    // ExecutionMode::Dev branches of the app_mode/can_configure matches.
+    let vm = get_settings_view_model_inner(&app_state).await.unwrap();
+    assert_eq!(vm.app_mode, "dev");
+    assert!(vm.can_configure_data_root);
+    assert!(!vm.has_google_api_key);
+    assert_eq!(vm.preview_3d_profile, "balanced");
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}

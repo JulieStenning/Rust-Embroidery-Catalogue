@@ -8,40 +8,47 @@ This file tracks modules, frontend components, and backend logic where test cove
 
 ## Backend (Rust / Tauri)
 
-| Module / File Path               | Line % | Function % | Region % | Date       | Status             | Reason Accepted                                       |
-| :------------------------------- | :----- | :--------- | :------- | :--------- | :----------------- |:------------------------------------------------------|
-| src/database/migrations.rs       | 72.73% | 100.00%    | 80.00%   | 2026-08-08 | [ACCEPTED]         | OS/Filesystem                                         |
-| src/logging.rs                   | 86.89% | 75.00%     | 86.52%   | 2026-08-08 | [ACCEPTED]         |                                                       |
-| src/main.rs                      | 22.55% | 18.42%     | 21.85%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
-| src/routes/admin.rs              | 62.42% | 50.00%     | 60.79%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
-| src/routes/bulk_import.rs        | 82.62% | 71.84%     | 79.75%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
-| src/routes/designs.rs            | 51.18% | 32.39%     | 47.57%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
-| src/routes/maintenance.rs        | 43.72% | 34.85%     | 45.63%   | 2026-08-08 | [ACCEPTED]         | Thin glue + OS/Filesystem                             |
-| src/routes/projects.rs           | 0%     | 0%         | 0%       | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
-| src/routes/settings.rs           | 47.27% | 31.58%     | 40.00%   | 2026-08-08 | [ACCEPTED]         | Thin glue                                             |
-| src/routes/tagging_actions.rs    | 94.88% | 67.39%     | 91.67%   | 2026-08-08 | [ACCEPTED]         |                                                       |
-| src/services/about_documents.rs  | 73.33% | 91.67%     | 73.47%   | 2026-08-08 | [ACCEPTED]         |                                                       |
-| src/services/admin.rs            | 94.17% | 61.43%     | 82.07%   | 2026-08-08 | [ACCEPTED]         | Derive artifacts + high line coverage                 |
-| src/services/backfill.rs         | 78.67% | 56.52%     | 72.30%   | 2026-08-08 | [ACCEPTED]         | OS/Filesystem                                         |
-| src/services/db_health.rs        | 72.69% | 84.38%     | 68.85%   | 2026-08-08 | [ACCEPTED]         |                                                       |
-| src/services/fingerprint.rs      | 93.46% | 66.67%     | 91.84%   | 2026-08-08 | [ACCEPTED]         | OS/Filesystem                                         |
-| src/services/maintenance.rs      | 95.24% | 66.67%     | 89.33%   | 2026-08-08 | [ACCEPTED]         |                                                       |
-| src/services/projects.rs         | 96.61% | 75.61%     | 88.11%   | 2026-08-08 | [ACCEPTED]         | Derive artifacts + high line coverage                 |
-| src/services/settings.rs         | 95.90% | 76.92%     | 88.12%   | 2026-08-08 | [ACCEPTED]         | Derive artifacts + high line coverage + OS/Filesystem |
-| src/utils.rs                     | 90.00% | 75.00%     | 84.62%   | 2026-08-08 | [ACCEPTED]         | Dev tooling                                           |
+| Module / File Path                | Line % | Function % | Region % | Date       | Status           | Reason Accepted                                       |
+| :-------------------------------- | :----- | :--------- | :------- | :--------- | :--------------- | :---------------------------------------------------- |
+| src/database/migrations.rs         | 88.37%  | 100.00%     | 96.67%    | 2026-08-27  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/logging.rs                     | 94.51%  | 90.00%      | 94.89%    | 2026-08-27  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/main.rs                        | 37.60%  | 42.31%      | 35.34%    | 2026-08-27  | [ACCEPTED]        | Thin glue                                              |
+| src/paths.rs                       | 79.74%  | 73.17%      | 80.25%    | 2026-08-27  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/routes/admin.rs                | 92.63%  | 79.82%      | 86.78%    | 2026-08-28  | [ACCEPTED]        | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
+| src/routes/bulk_import.rs          | 82.86%  | 71.75%      | 79.85%    | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/routes/database_recovery.rs    | 92.68%  | 57.14%      | 86.79%    | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/routes/designs.rs              | 69.18%  | 43.04%      | 67.95%    | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/routes/maintenance.rs          | 50.43%  | 39.58%      | 51.97%    | 2026-08-28  | [ACCEPTED]        | Thin glue + OS/Filesystem                              |
+| src/routes/projects.rs             | 0%      | 0%          | 0%        | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/routes/restore.rs              | 7.17%  | 14.29%      | 6.96%    | 2026-08-28  | [ACCEPTED]        | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
+| src/routes/settings.rs             | 81.73%  | 60.61%      | 70.37%    | 2026-08-28  | [ACCEPTED]        | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
+| src/routes/storage_migration.rs    | 8.00%   | 7.14%       | 4.67%     | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/routes/tagging_actions.rs      | 87.95%  | 47.06%      | 76.00%    | 2026-08-28  | [ACCEPTED]        | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
+| src/services/about_documents.rs    | 92.52%  | 94.12%      | 96.20%    | 2026-08-28  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/services/admin.rs              | 94.53%  | 61.43%      | 81.31%    | 2026-08-28  | [ACCEPTED]        | High line coverage; DB error paths + dead branches     |
+| src/services/backfill.rs           | 81.97%  | 58.14%      | 77.43%    | 2026-08-28  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/services/db_health.rs          | 75.43%  | 84.38%      | 68.25%    | 2026-08-28  | [ACCEPTED]        | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
+| src/services/design_metadata.rs    | 98.28%  | 83.33%      | 93.75%    | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/services/fingerprint.rs        | 92.59%  | 70.37%      | 91.46%    | 2026-08-28  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/services/maintenance.rs        | 95.45%  | 66.67%      | 89.19%    | 2026-08-28  | [ACCEPTED]        | Thin glue                                              |
+| src/services/projects.rs           | 96.00%  | 74.36%      | 85.68%    | 2026-08-28  | [ACCEPTED]        | Derive artifacts + high line coverage                  |
+| src/services/restore.rs            | 78.68%  | 66.67%      | 74.32%    | 2026-08-28  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/services/settings.rs           | 88.74%  | 65.79%      | 82.75%    | 2026-08-28  | [ACCEPTED]        | Derive artifacts + high line coverage + OS/Filesystem  |
+| src/services/storage_migration.rs  | 69.29%  | 54.55%      | 67.05%    | 2026-08-28  | [ACCEPTED]        | OS/Filesystem                                          |
+| src/utils.rs                       | 90.00%  | 75.00%      | 84.62%    | 2026-08-28  | [ACCEPTED]        | Dev tooling                                            |
 
 ---
 
 ## Frontend (@Svelte Modules)
 
-| Module / File Path                     | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Status             | Reason Accepted |
-| :------------------------------------- | :-------------- | :------------------ | :------------------------- | :--------- | :----------------- |:----------------|
-| src/lib/views/BrowseView.svelte        | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED]         |                 |
-| src/lib/views/DesignDetailView.svelte  | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED]         |                 |
-| src/lib/views/ImportView.svelte        | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED]         |                 |
-| src/lib/views/OrphansView.svelte       | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [ACCEPTED]         |                 |
-| src/lib/views/ProjectsView.svelte      | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [ACCEPTED]         |                 |
-| src/lib/views/TagsView.svelte          | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [ACCEPTED]         |                 |
+| Module / File Path                    | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Status     | Reason Accepted |
+| :------------------------------------ | :-------------- | :------------------ | :------------------------- | :--------- | :--------- | :-------------- |
+| src/lib/views/BrowseView.svelte       | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED] |                 |
+| src/lib/views/DesignDetailView.svelte | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED] |                 |
+| src/lib/views/ImportView.svelte       | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED] |                 |
+| src/lib/views/OrphansView.svelte      | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [ACCEPTED] |                 |
+| src/lib/views/ProjectsView.svelte     | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [ACCEPTED] |                 |
+| src/lib/views/TagsView.svelte         | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [ACCEPTED] |                 |
 
 ---
 

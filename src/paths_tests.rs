@@ -1045,3 +1045,126 @@ fn ensure_catalogue_layout_and_seed_if_missing_moves_root_database_to_database_d
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+
+// ---------------------------------------------------------------------------
+// seed_database_if_allowed
+// ---------------------------------------------------------------------------
+
+#[test]
+fn seed_database_if_allowed_refuses_to_overwrite_existing_database() {
+    let tmp = tmp_dir("seed_if_allowed_refuse");
+    let db_dir = tmp.join("Database");
+    fs::create_dir_all(&db_dir).expect("create Database dir");
+    let db_file = db_dir.join(DATABASE_FILENAME);
+    let original = b"EXISTING_USER_DATA";
+    fs::write(&db_file, original).expect("write existing db");
+
+    let result = seed_database_if_allowed(&tmp, false);
+    assert!(result.is_err(), "should refuse to overwrite an existing database");
+
+    // The existing database must remain untouched.
+    assert_eq!(fs::read(&db_file).expect("read db"), original);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn seed_database_if_allowed_seeds_when_no_database_present() {
+    let tmp = tmp_dir("seed_if_allowed_fresh");
+    fs::create_dir_all(&tmp).expect("create dir");
+
+    seed_database_if_allowed(&tmp, false).expect("seed should succeed");
+
+    let db_file = tmp.join("Database").join(DATABASE_FILENAME);
+    assert!(db_file.is_file(), "seed DB should be written");
+    assert_eq!(fs::read(&db_file).expect("read db"), SEED_DB_BYTES);
+    assert!(tmp.join("MachineEmbroideryDesigns").is_dir());
+    assert!(tmp.join("logs").is_dir());
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn seed_database_if_allowed_overwrites_existing_database_when_requested() {
+    let tmp = tmp_dir("seed_if_allowed_overwrite");
+    let db_dir = tmp.join("Database");
+    fs::create_dir_all(&db_dir).expect("create Database dir");
+    let db_file = db_dir.join(DATABASE_FILENAME);
+    fs::write(&db_file, b"OLD_DATA").expect("write old db");
+
+    seed_database_if_allowed(&tmp, true).expect("overwrite should succeed");
+
+    assert_eq!(fs::read(&db_file).expect("read db"), SEED_DB_BYTES);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// copy_seed_database_to
+// ---------------------------------------------------------------------------
+
+#[test]
+fn copy_seed_database_to_seeds_fresh_catalogue() {
+    let tmp = tmp_dir("copy_seed_to");
+    fs::create_dir_all(&tmp).expect("create dir");
+
+    copy_seed_database_to(&tmp).expect("copy should succeed");
+
+    let db_file = tmp.join("Database").join(DATABASE_FILENAME);
+    assert!(db_file.is_file(), "seed DB should exist");
+    assert_eq!(fs::read(&db_file).expect("read db"), SEED_DB_BYTES);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// copy_seed_database_if_missing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn copy_seed_database_if_missing_skips_existing_database() {
+    let tmp = tmp_dir("copy_seed_if_missing_skip");
+    fs::create_dir_all(&tmp).expect("create dir");
+    let db_file = tmp.join(DATABASE_FILENAME);
+    let original = b"KEEP_ME";
+    fs::write(&db_file, original).expect("write existing db");
+
+    copy_seed_database_if_missing(&db_file);
+
+    assert_eq!(fs::read(&db_file).expect("read db"), original);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn copy_seed_database_if_missing_writes_seed_when_absent() {
+    let tmp = tmp_dir("copy_seed_if_missing_write");
+    fs::create_dir_all(&tmp).expect("create dir");
+    let db_file = tmp.join(DATABASE_FILENAME);
+
+    copy_seed_database_if_missing(&db_file);
+
+    assert!(db_file.is_file(), "seed DB should be written");
+    assert_eq!(fs::read(&db_file).expect("read db"), SEED_DB_BYTES);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// create_catalogue_layout
+// ---------------------------------------------------------------------------
+
+#[test]
+fn create_catalogue_layout_creates_designs_logs_and_database_dirs() {
+    let tmp = tmp_dir("create_catalogue_layout");
+    fs::create_dir_all(&tmp).expect("create dir");
+
+    create_catalogue_layout(&tmp).expect("layout should be created");
+
+    assert!(tmp.join("MachineEmbroideryDesigns").is_dir());
+    assert!(tmp.join("logs").is_dir());
+    assert!(tmp.join("Database").is_dir());
+
+    let _ = fs::remove_dir_all(&tmp);
+}

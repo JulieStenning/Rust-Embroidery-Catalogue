@@ -147,4 +147,65 @@ mod tests {
         let path = resolve_document_path(root, "docs/file.html");
         assert_eq!(path, Path::new("/base/docs/file.html"));
     }
+
+    #[test]
+    fn resolve_document_returns_spec_for_known_slug() {
+        let doc = resolve_document("disclaimer").expect("disclaimer should resolve");
+        assert_eq!(doc.slug, "disclaimer");
+        assert_eq!(doc.title, "Disclaimer");
+        assert_eq!(doc.filename, "DISCLAIMER.html");
+        assert!(resolve_document("privacy").is_some());
+        assert!(resolve_document("data-storage").is_some());
+        assert!(resolve_document("unknown").is_none());
+    }
+
+    #[test]
+    fn get_about_documents_lists_all_supported_documents() {
+        let docs = get_about_documents();
+        assert_eq!(docs.len(), 5);
+        let slugs: Vec<&str> = docs.iter().map(|d| d.slug.as_str()).collect();
+        assert_eq!(
+            slugs,
+            vec!["disclaimer", "privacy", "security", "ai-tagging", "data-storage"]
+        );
+        for doc in &docs {
+            assert!(!doc.title.is_empty());
+            assert!(!doc.description.is_empty());
+            assert!(!doc.filename.is_empty());
+            // available must reflect the real on-disk state of the bundled file.
+            let path = resolve_document_path(&project_root(), &doc.filename);
+            assert_eq!(
+                doc.available,
+                path.exists(),
+                "availability mismatch for {}",
+                doc.slug
+            );
+        }
+    }
+
+    #[test]
+    fn get_about_document_returns_detail_for_known_slug() {
+        let detail =
+            get_about_document("disclaimer".to_string()).expect("disclaimer should load");
+        assert_eq!(detail.slug, "disclaimer");
+        assert_eq!(detail.title, "Disclaimer");
+        assert_eq!(detail.filename, "DISCLAIMER.html");
+        assert!(!detail.document_text.is_empty());
+
+        // Slug is trimmed and lowercased before resolution.
+        let normalized =
+            get_about_document("  AI-TAGGING  ".to_string()).expect("ai-tagging should load");
+        assert_eq!(normalized.slug, "ai-tagging");
+        assert_eq!(normalized.title, "AI Tagging Guide");
+        assert!(!normalized.document_text.is_empty());
+    }
+
+    #[test]
+    fn get_about_document_errors_on_unknown_slug() {
+        let err = get_about_document("nonsense".to_string()).unwrap_err();
+        assert_eq!(
+            err,
+            AppError::not_found("document", Some("nonsense".to_string()))
+        );
+    }
 }

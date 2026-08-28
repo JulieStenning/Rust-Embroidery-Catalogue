@@ -2276,3 +2276,213 @@ fn load_default_stitching_tag_id_direct() {
         .expect("default stitching tag id should load");
     assert!(default_id.is_some(), "expected a default stitching tag id");
 }
+
+
+// ---------------------------------------------------------------------------
+// load_tag_catalog / load_designers / load_sources (import inference loaders)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn load_tag_catalog_returns_seeded_tags() {
+    let pool = tauri::async_runtime::block_on(import_test_pool());
+    let tags = tauri::async_runtime::block_on(load_tag_catalog(&pool)).expect("load tags");
+    assert_eq!(tags.len(), 4);
+    let descriptions: Vec<&str> = tags.iter().map(|(_, d)| d.as_str()).collect();
+    assert!(descriptions.contains(&"Alphabets"));
+    assert!(descriptions.contains(&"Line Outline"));
+}
+
+#[test]
+fn load_designers_for_import_inference_returns_empty() {
+    let pool = tauri::async_runtime::block_on(import_test_pool());
+    let designers = tauri::async_runtime::block_on(load_designers_for_import_inference(&pool))
+        .expect("load designers");
+    assert!(designers.is_empty());
+}
+
+#[test]
+fn load_sources_for_import_inference_returns_empty() {
+    let pool = tauri::async_runtime::block_on(import_test_pool());
+    let sources = tauri::async_runtime::block_on(load_sources_for_import_inference(&pool))
+        .expect("load sources");
+    assert!(sources.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// infer_assignment_ids_from_folder_path
+// ---------------------------------------------------------------------------
+
+#[test]
+fn infer_assignment_ids_from_folder_path_matches_designer_and_source() {
+    let designers = vec![(1, "Jane Doe".to_string())];
+    let sources = vec![(2, "In-House".to_string())];
+    let (designer_id, source_id) =
+        infer_assignment_ids_from_folder_path("C:/imports/Jane Doe/In-House", &designers, &sources);
+    assert_eq!(designer_id, Some(1));
+    assert_eq!(source_id, Some(2));
+}
+
+#[test]
+fn infer_assignment_ids_from_folder_path_returns_none_when_no_match() {
+    let designers = vec![(1, "Jane Doe".to_string())];
+    let sources = vec![(2, "In-House".to_string())];
+    let (designer_id, source_id) =
+        infer_assignment_ids_from_folder_path("C:/unrelated/folder", &designers, &sources);
+    assert_eq!(designer_id, None);
+    assert_eq!(source_id, None);
+}
+
+// ---------------------------------------------------------------------------
+// reset_bulk_import_context_store_for_restore
+// ---------------------------------------------------------------------------
+
+#[test]
+#[serial]
+fn reset_bulk_import_context_store_for_restore_clears_stored_contexts() {
+    let wire = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec!["C:/imports".to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: Vec::new(),
+            selected_files: Vec::new(),
+            create_on_import: false,
+        },
+        context_token: None,
+        canonical_confirm: false,
+    };
+    let token = store_bulk_import_context(wire);
+    assert!(get_bulk_import_context(&token).is_some());
+
+    let result = reset_bulk_import_context_store_for_restore();
+    assert_eq!(result.reason, "restore");
+    assert!(get_bulk_import_context(&token).is_none());
+}
+
+// ---------------------------------------------------------------------------
+// derive_data_root_from_database_url
+// ---------------------------------------------------------------------------
+
+#[test]
+#[serial]
+fn derive_data_root_from_database_url_uses_database_parent() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join("bi-derive-root-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let root = derive_data_root_from_database_url();
+    let expected = tmp.canonicalize().unwrap_or_else(|_| tmp.clone());
+    assert_eq!(root, expected);
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// compute_prospective_stored_filepath
+// ---------------------------------------------------------------------------
+
+#[test]
+fn compute_prospective_stored_filepath_uses_longest_root_leaf() {
+    let full_path = "C:/imports/projects/design.pes";
+    let root_paths = vec!["C:/imports".to_string(), "C:/imports/projects".to_string()];
+    let result = compute_prospective_stored_filepath(full_path, &root_paths)
+        .expect("prospective path should compute");
+    assert_eq!(result, "/MachineEmbroideryDesigns/projects/design.pes");
+}
+
+#[test]
+fn compute_prospective_stored_filepath_drive_root_places_directly() {
+    let full_path = "C:/file.pes";
+    let root_paths = vec!["C:/".to_string()];
+    let result = compute_prospective_stored_filepath(full_path, &root_paths)
+        .expect("drive-root prospective path should compute");
+    assert_eq!(result, "/MachineEmbroideryDesigns/file.pes");
+}
+
+// ---------------------------------------------------------------------------
+// full_path_to_stored_design_filepath / is_path_under_designs_base
+// ---------------------------------------------------------------------------
+
+#[test]
+#[serial]
+fn full_path_to_stored_design_filepath_maps_in_library_and_rejects_outside() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join("bi-stored-path-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let in_lib = get_designs_base_path().join("sub").join("design.pes");
+    let stored = full_path_to_stored_design_filepath(&in_lib.to_string_lossy())
+        .expect("in-library file should map to a stored path");
+    assert_eq!(stored, "/MachineEmbroideryDesigns/sub/design.pes");
+
+    assert!(
+        full_path_to_stored_design_filepath("C:/elsewhere/design.pes").is_err(),
+        "outside file should be rejected"
+    );
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// ensure_file_in_designs_base (copy path)
+// ---------------------------------------------------------------------------
+
+#[test]
+#[serial]
+fn ensure_file_in_designs_base_copies_outside_file_into_library() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join("bi-ensure-in-base-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    // Create a source file OUTSIDE the managed designs base.
+    let source_dir = tmp.join("outside_src");
+    std::fs::create_dir_all(&source_dir).expect("create source dir");
+    let source_file = source_dir.join("Bean.pes");
+    std::fs::write(&source_file, b"PES data").expect("write source file");
+
+    let root_paths = vec![source_dir.to_string_lossy().to_string()];
+    let stored = ensure_file_in_designs_base(&source_file.to_string_lossy(), &root_paths)
+        .expect("file should be copied into the library");
+
+    assert!(stored.starts_with("/MachineEmbroideryDesigns/"));
+    assert!(stored.ends_with("Bean.pes"));
+
+    // The copy should exist on disk inside the managed designs base.
+    let rel = stored.trim_start_matches("/MachineEmbroideryDesigns/");
+    assert!(
+        get_designs_base_path().join(rel).exists(),
+        "copied file should exist in the designs base"
+    );
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}

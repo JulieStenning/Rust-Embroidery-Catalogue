@@ -367,6 +367,8 @@ mod parser_tests {
 use super::*;
 use serial_test::serial;
 use sqlx::sqlite::SqlitePoolOptions;
+use std::sync::atomic::AtomicBool;
+use tauri::Manager;
 
 async fn test_pool() -> SqlitePool {
     let pool = SqlitePoolOptions::new()
@@ -2478,4 +2480,188 @@ fn normalize_windows_explorer_target_strips_verbatim_local_prefix() {
 fn normalize_windows_explorer_target_converts_forward_slashes() {
     let result = normalize_windows_explorer_target(&PathBuf::from("C:/data/file.pes"));
     assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
+}
+
+
+// ---------------------------------------------------------------------------
+// push_browse_filters - all filter branches via get_designs_page_with_pool
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn get_designs_page_with_pool_applies_all_filter_types() {
+    let pool = test_pool().await;
+
+    // rose.pes is id 1 (seeded). Add a design matching every filter type.
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, designer_id, source_id, hoop_id, is_stitched, image_tags_verified, stitching_tags_verified, rating) \
+         VALUES ('flower.pes', 'Folder/flower.pes', 1, 1, 1, 1, 0, 0, 5)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design");
+    let flower_id: i64 = sqlx::query_scalar("SELECT id FROM designs WHERE filename = 'flower.pes'")
+        .fetch_one(&pool)
+        .await
+        .expect("read design id");
+    // Flowers (tag 1) is image group, Satin Stitch (tag 2) is stitching group.
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (?, 1), (?, 2)")
+        .bind(flower_id)
+        .bind(flower_id)
+        .execute(&pool)
+        .await
+        .expect("seed design tags");
+
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            q: Some("flower".to_string()),
+            search_file_name: Some(true),
+            search_tags: Some(true),
+            search_folder_name: Some(true),
+            unverified_only: Some(true),
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                designer_filters: Some(vec!["Acme Designer".to_string()]),
+                image_tag_filters: Some(vec!["Flowers".to_string()]),
+                stitching_tag_filters: Some(vec!["Satin Stitch".to_string()]),
+                source_filters: Some(vec!["USB Import".to_string()]),
+                hoop_size: Some("Hoop A".to_string()),
+                min_rating: Some(4),
+                stitched_status: Some("yes".to_string()),
+            }),
+            page: Some(1),
+            page_size: Some(50),
+            sort_by: Some("filename".to_string()),
+            sort_dir: Some("asc".to_string()),
+        }),
+    )
+    .await
+    .expect("filtered browse query should succeed");
+
+    assert_eq!(result.total, 1);
+    assert_eq!(result.items.len(), 1);
+    assert_eq!(result.items[0].filename, "flower.pes");
+}
+
+// ---------------------------------------------------------------------------
+// classify_tag_ids
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn classify_tag_ids_splits_image_and_stitching_tags() {
+    let pool = test_pool().await;
+    // Flowers (id 1) is the image group, Satin Stitch (id 2) is stitching.
+    let (image_ids, stitching_ids) =
+        classify_tag_ids(&pool, &[1, 2]).await.expect("classify tag ids");
+    assert_eq!(image_ids, vec![1]);
+    assert_eq!(stitching_ids, vec![2]);
+}
+
+
+// ---------------------------------------------------------------------------
+// Tauri command wrapper tests (via tauri::test::mock_app)
+// ---------------------------------------------------------------------------
+
+/// Build a minimal AppState backed by an in-memory SQLite pool.
+fn command_app_state(pool: SqlitePool) -> AppState {
+    let tmp_dir = std::env::temp_dir().join("designs-route-command-test");
+    std::fs::create_dir_all(&tmp_dir).ok();
+    AppState {
+        db: crate::PoolHolder::new(pool),
+        database_status: crate::DatabaseStatus {
+            status: crate::DatabaseStatusKind::Connected,
+            configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
+            database_path: Some(
+                tmp_dir.join("Database").join("test.db").to_string_lossy().to_string(),
+            ),
+            embroidery_dir: Some(
+                tmp_dir.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+            ),
+            data_root_missing: false,
+        },
+        paths: crate::paths::AppPaths {
+            mode: crate::paths::ExecutionMode::Installed,
+            data_root: tmp_dir.clone(),
+            embroidery_designs_dir: tmp_dir.join("MachineEmbroideryDesigns"),
+            database_dir: tmp_dir.join("Database"),
+            database_path: tmp_dir.join("Database").join("test.db"),
+            log_dir: tmp_dir.join("logs"),
+        },
+        log_guard: crate::logging::LogGuard::dummy_for_test(),
+        shutdown_requested: AtomicBool::new(false),
+        maintenance_running: AtomicBool::new(false),
+        migration_running: AtomicBool::new(false),
+        migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+        restore_in_progress: AtomicBool::new(false),
+    }
+}
+
+#[tokio::test]
+async fn command_get_projects_for_browse_returns_seeded_projects() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+    let state = app.state::<AppState>();
+    let projects = get_projects_for_browse(state).await.expect("get projects");
+    assert_eq!(projects.len(), 2); // Summer Quilt + Gift Ideas
+}
+
+#[tokio::test]
+async fn command_get_tags_for_browse_returns_seeded_tags() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+    let state = app.state::<AppState>();
+    let tags = get_tags_for_browse(state).await.expect("get tags");
+    assert_eq!(tags.len(), 2); // Flowers + Satin Stitch
+}
+
+#[tokio::test]
+async fn command_bulk_add_designs_to_project_adds_designs() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool.clone()));
+    let state = app.state::<AppState>();
+    let result = bulk_add_designs_to_project(state, 1, vec![1]).await.expect("bulk add");
+    assert_eq!(result.project_id, 1);
+    assert_eq!(result.requested_count, 1);
+    assert_eq!(result.added_count, 1);
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM project_designs WHERE project_id = 1 AND design_id = 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count links");
+    assert_eq!(count, 1);
+}
+
+#[tokio::test]
+async fn command_get_design_previews_for_browse_returns_data_urls() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+    let state = app.state::<AppState>();
+    let previews = get_design_previews_for_browse(state, vec![1])
+        .await
+        .expect("get previews");
+    assert_eq!(previews.len(), 1);
+    assert_eq!(previews[0].id, 1);
+    assert!(previews[0].data_url.is_none()); // rose.pes has no image data
+}
+
+#[tokio::test]
+async fn command_bulk_verify_designs_marks_designs_verified() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool.clone()));
+    let state = app.state::<AppState>();
+    let result = bulk_verify_designs(state, vec![1]).await.expect("bulk verify");
+    assert_eq!(result.requested_count, 1);
+    assert_eq!(result.verified_count, 1);
+    let verified: i64 = sqlx::query_scalar(
+        "SELECT image_tags_verified + stitching_tags_verified FROM designs WHERE id = 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("read verification flags");
+    assert_eq!(verified, 2);
 }

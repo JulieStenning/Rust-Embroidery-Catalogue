@@ -499,3 +499,119 @@ async fn run_migrations_handles_seeded_schema_with_only_idempotent_migrations() 
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+// ---------------------------------------------------------------------------
+// run_migrations — locked-retry loop (transient SQLITE_BUSY then success)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn run_migrations_retries_after_transient_lock_then_succeeds() {
+    let tmp = unique_tmp_dir("locked-retry");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("locked_retry.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    // Two separate single-connection pools on the same on-disk file.
+    let pool_a = on_disk_pool(&db_path).await;
+    let pool_b = on_disk_pool(&db_path).await;
+
+    // Disable the internal busy timeout so a concurrent write returns
+    // SQLITE_BUSY (code 5) immediately instead of blocking.
+    sqlx::query("PRAGMA busy_timeout = 0")
+        .execute(&pool_a)
+        .await
+        .expect("busy_timeout 0 on pool A");
+    sqlx::query("PRAGMA busy_timeout = 0")
+        .execute(&pool_b)
+        .await
+        .expect("busy_timeout 0 on pool B");
+
+    // Hold an uncommitted write transaction on pool B so that migration 1's
+    // first write (creating _sqlx_migrations / the initial tables) on pool A
+    // hits SQLITE_BUSY.
+    let mut tx_b = pool_b.begin().await.expect("begin tx B");
+    sqlx::query("CREATE TABLE _lock_retry_t(x)")
+        .execute(&mut *tx_b)
+        .await
+        .expect("acquire write lock in tx B");
+
+    // Run migrations in a spawned task. Attempt 1 should fail with a lock
+    // error, sleep RETRY_DELAY_MS, then succeed once we release the lock.
+    let pool_a_task = pool_a.clone();
+    let migrate = tokio::spawn(async move { run_migrations(&pool_a_task).await });
+
+    // Let the first migration attempt hit the lock, then release it well
+    // before the 750ms retry delay elapses.
+    sleep(Duration::from_millis(100)).await;
+    tx_b.commit().await.expect("commit tx B and release lock");
+
+    let result = migrate.await.expect("migration task should not panic");
+    assert!(
+        result.is_ok(),
+        "migrations should succeed after the transient lock is released: {:?}",
+        result
+    );
+
+    pool_a.close().await;
+    pool_b.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// run_migrations — exhausted-retry path (persistent lock → AppError)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn run_migrations_returns_error_after_retries_exhausted() {
+    let tmp = unique_tmp_dir("locked-exhaust");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("locked_exhaust.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool_a = on_disk_pool(&db_path).await;
+    let pool_b = on_disk_pool(&db_path).await;
+
+    sqlx::query("PRAGMA busy_timeout = 0")
+        .execute(&pool_a)
+        .await
+        .expect("busy_timeout 0 on pool A");
+    sqlx::query("PRAGMA busy_timeout = 0")
+        .execute(&pool_b)
+        .await
+        .expect("busy_timeout 0 on pool B");
+
+    // Hold the write lock for the entire migration run so every retry
+    // (6 attempts × 750ms) fails; on the final attempt attempt < MAX_ATTEMPTS
+    // is false and run_migrations returns AppError::Database.
+    let mut tx_b = pool_b.begin().await.expect("begin tx B");
+    sqlx::query("CREATE TABLE _lock_exhaust_t(x)")
+        .execute(&mut *tx_b)
+        .await
+        .expect("acquire write lock in tx B");
+
+    let pool_a_task = pool_a.clone();
+    let migrate = tokio::spawn(async move { run_migrations(&pool_a_task).await });
+
+    let result = migrate.await.expect("migration task should not panic");
+    assert!(
+        result.is_err(),
+        "migrations should fail after exhausting all retry attempts"
+    );
+
+    match &result {
+        Err(AppError::Database { message }) => assert!(
+            message.contains("database migration failed"),
+            "unexpected database error message: {}",
+            message
+        ),
+        other => panic!("expected AppError::Database, got: {:?}", other),
+    }
+
+    // Release the lock now that the migration task has finished, then clean up.
+    tx_b.rollback().await.ok();
+
+    pool_a.close().await;
+    pool_b.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+

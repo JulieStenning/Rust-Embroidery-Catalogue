@@ -1636,3 +1636,99 @@ async fn get_backfill_log_entries_empty_when_no_logs() {
         .unwrap();
     assert!(entries.is_empty());
 }
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_file_dependent_actions_write_back() {
+    let pool = make_test_pool().await;
+
+    // Seed a large hoop and a stitching tag so detection has somewhere to write.
+    sqlx::query(
+        "INSERT INTO hoops (id, name, max_width_mm, max_height_mm) VALUES (1, 'Large', 500.0, 500.0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO tags (id, description, tag_group) VALUES (10, 'Line Outline', 'stitching')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Point a design at a real embroidery fixture so file parsing succeeds.
+    let design_path = std::env::current_dir()
+        .unwrap()
+        .join("tests")
+        .join("Test Designs")
+        .join("Bean.pes");
+    assert!(
+        design_path.exists(),
+        "fixture missing: {}",
+        design_path.display()
+    );
+
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified)
+         VALUES (1, 'Bean.pes', ?, 0, 0)",
+    )
+    .bind(design_path.to_string_lossy().to_string())
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let summary = run_unified_backfill(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: None,
+                stitching: Some(StitchingActionOptions {
+                    clear_stitching_mode: Some("unverified".to_string()),
+                    enabled: Some(true),
+                }),
+                images: Some(ImageActionOptions {
+                    redo: Some(true),
+                    enabled: Some(true),
+                }),
+                color_counts: Some(ColorCountsActionOptions { enabled: Some(true) }),
+                hoop_dimensions: Some(HoopDimensionsActionOptions { enabled: Some(true) }),
+                fingerprinting: None,
+            }),
+            batch_size: Some(100),
+            commit_every: Some(100),
+            workers: Some(1),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+    )
+    .await
+    .expect("run succeeds");
+
+    for action in ["stitching", "images", "color_counts", "hoop_dimensions"] {
+        assert!(
+            summary.actions.iter().any(|a| a == action),
+            "missing action {action}"
+        );
+    }
+    assert!(summary.processed > 0);
+
+    // File-derived metadata should now be persisted on the design row, proving
+    // the file-parsing success paths of the colour-count and hoop-dimension
+    // loops executed.
+    let row = sqlx::query(
+        "SELECT width_mm, height_mm, stitch_count, color_count, image_type FROM designs WHERE id = 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let width: Option<i64> = row.try_get("width_mm").unwrap();
+    let height: Option<i64> = row.try_get("height_mm").unwrap();
+    let stitch_count: Option<i64> = row.try_get("stitch_count").unwrap();
+    let color_count: Option<i64> = row.try_get("color_count").unwrap();
+    let image_type: Option<String> = row.try_get("image_type").unwrap();
+    assert!(width.is_some() && height.is_some(), "expected dimensions written");
+    assert!(
+        stitch_count.is_some() && color_count.is_some(),
+        "expected colour counts written"
+    );
+    assert!(image_type.is_some(), "expected preview image written");
+}

@@ -449,3 +449,7 @@ pub async fn import_unmatched_design_files(
     }
 }
 
+
+#[cfg(test)]
+#[path = "restore_tests.rs"]
+mod tests;

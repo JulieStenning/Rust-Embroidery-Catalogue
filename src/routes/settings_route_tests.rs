@@ -11,6 +11,7 @@ use crate::utils::test_support::lock_env;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::{SqliteConnection, SqlitePool};
 use std::sync::atomic::AtomicBool;
+use tauri::Manager;
 
 // â”€â”€â”€ Helper: create a settings table in an in-memory pool â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -867,4 +868,131 @@ fn browse_data_root_result_serializes_correctly() {
     let json2 = serde_json::to_value(&none_path).expect("serialize");
     assert_eq!(json2["path"], serde_json::json!(null));
     assert_eq!(json2["error"], serde_json::json!("failed"));
+}
+
+
+// ---------------------------------------------------------------------------
+// Tauri command wrapper tests (via tauri::test::mock_app)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn command_get_settings_view_model_returns_installed_defaults() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-cmd-vm-{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).ok();
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let app = tauri::test::mock_app();
+    app.manage(make_app_state(pool, paths));
+    let state = app.state::<AppState>();
+    let vm = get_settings_view_model(state).await.expect("view model");
+    assert!(vm.can_configure_data_root);
+    assert_eq!(vm.app_mode, "installed");
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn command_save_import_last_browse_folder_persists() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-cmd-save-last-{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).ok();
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let app = tauri::test::mock_app();
+    app.manage(make_app_state(pool.clone(), paths));
+    let state = app.state::<AppState>();
+    let result = save_import_last_browse_folder(state, "  D:/my/folder  ".to_string())
+        .await
+        .expect("save should succeed");
+    assert!(result.saved);
+    assert_eq!(result.path, "D:/my/folder");
+    let mut conn = pool.acquire().await.unwrap();
+    let setting =
+        crate::settings::get_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER)
+            .await
+            .expect("get setting")
+            .expect("setting should exist");
+    assert_eq!(setting.value, "D:/my/folder");
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn command_save_settings_view_model_persists() {
+    let _guard = lock_env();
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-cmd-save-all-{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).ok();
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let original_dir = std::env::current_dir().expect("current dir");
+    std::env::set_current_dir(&tmp).expect("switch to tmp");
+    let app = tauri::test::mock_app();
+    app.manage(make_app_state(pool, paths));
+    let state = app.state::<AppState>();
+    let request = SaveSettingsRequest {
+        preview_3d_profile: "HIGH_CONTRAST".to_string(),
+        google_api_key: String::new(),
+        ai_tier2_auto: true,
+        ai_tier3_auto: false,
+        ai_batch_size: "  25  ".to_string(),
+        ai_delay: "  1.5  ".to_string(),
+        import_commit_batch_size: "  100  ".to_string(),
+        data_root: String::new(),
+        db_idle_check_interval_secs: "1800".to_string(),
+    };
+    let result = save_settings_view_model(state, request)
+        .await
+        .expect("save should succeed");
+    assert!(result.saved);
+    assert_eq!(result.message, "Settings saved successfully.");
+    std::env::set_current_dir(&original_dir).expect("restore dir");
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn command_get_google_api_key_returns_none_when_unset() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-cmd-gapi-{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).ok();
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let app = tauri::test::mock_app();
+    app.manage(make_app_state(pool, paths));
+    let state = app.state::<AppState>();
+    let result = get_google_api_key(state).await.expect("get key");
+    assert_eq!(result, None);
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn command_set_google_api_key_persists() {
+    let tmp = std::env::temp_dir().join(format!(
+        "settings-route-cmd-set-key-{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).ok();
+    let pool = make_pool_and_table().await;
+    let paths = make_app_paths_installed(&tmp);
+    let app = tauri::test::mock_app();
+    app.manage(make_app_state(pool.clone(), paths));
+    let state = app.state::<AppState>();
+    let result = set_google_api_key(state, "route-key-456".to_string())
+        .await
+        .expect("set key");
+    assert!(result);
+    let mut conn = pool.acquire().await.unwrap();
+    let val = settings::get_setting_with_default(&mut conn, settings::KEY_AI_GOOGLE_API_KEY)
+        .await
+        .unwrap();
+    assert_eq!(val, "route-key-456");
+    let _ = std::fs::remove_dir_all(&tmp);
 }

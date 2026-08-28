@@ -98,3 +98,7 @@ async fn run_migration_blocking(
     .await
     .map_err(|e| format!("migration thread panicked: {e}"))?
 }
+
+#[cfg(test)]
+#[path = "storage_migration_tests.rs"]
+mod tests;

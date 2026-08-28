@@ -89,3 +89,8 @@ pub fn seed_database_to_data_root(
 /// Minimal state stub is not needed here — all commands are pure path logic.
 #[allow(dead_code)]
 fn _state_marker(_state: State<'_, AppState>) {}
+
+
+#[cfg(test)]
+#[path = "database_recovery_tests.rs"]
+mod tests;

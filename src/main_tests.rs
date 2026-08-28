@@ -606,3 +606,190 @@ fn set_configured_data_root_rejects_relative_path() {
         assert!(err.contains("absolute"));
     });
 }
+
+// ---------------------------------------------------------------------------
+// database_status_from_paths — all branches
+// ---------------------------------------------------------------------------
+
+#[test]
+fn database_status_uninitialized_when_no_configured_root() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: PathBuf::from("C:/nope/Data"),
+            embroidery_designs_dir: PathBuf::from("C:/nope/Data/MachineEmbroideryDesigns"),
+            database_dir: PathBuf::from("C:/nope/Data/Database"),
+            database_path: PathBuf::from("C:/nope/Data/Database/EmbroideryCatalogue.db"),
+            log_dir: PathBuf::from("C:/nope/Data/logs"),
+        };
+
+        let status = database_status_from_paths(&paths);
+
+        assert!(
+            matches!(&status.status, DatabaseStatusKind::Uninitialized),
+            "expected Uninitialized when no data root is configured"
+        );
+        assert_eq!(status.configured_data_root, None);
+        assert!(!status.data_root_missing);
+        assert!(status.database_path.is_some());
+        assert!(status.embroidery_dir.is_some());
+    });
+}
+
+#[test]
+fn database_status_missing_when_configured_root_absent_on_disk() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        // Configure a data root that does NOT exist on disk.
+        let root = std::env::temp_dir().join("embroidery_db_status_missing_root");
+        let _ = std::fs::remove_dir_all(&root);
+        let root_str = root.to_string_lossy().to_string();
+        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: root.clone(),
+            embroidery_designs_dir: root.join("MachineEmbroideryDesigns"),
+            database_dir: root.join("Database"),
+            database_path: root.join("Database").join("EmbroideryCatalogue.db"),
+            log_dir: root.join("logs"),
+        };
+
+        let status = database_status_from_paths(&paths);
+
+        assert!(
+            matches!(&status.status, DatabaseStatusKind::Missing),
+            "expected Missing when the configured root is absent on disk"
+        );
+        assert!(
+            status.data_root_missing,
+            "Installed mode with an absent root should set data_root_missing"
+        );
+        assert_eq!(status.configured_data_root.as_deref(), Some(root_str.as_str()));
+    });
+}
+
+#[test]
+fn database_status_missing_when_database_file_absent() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        // Configure a data root that EXISTS, but no DB file under it.
+        let root = std::env::temp_dir().join("embroidery_db_status_root_present");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create root dir");
+        let root_str = root.to_string_lossy().to_string();
+        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+
+        let db_path = root.join("Database").join("EmbroideryCatalogue.db");
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: root.clone(),
+            embroidery_designs_dir: root.join("MachineEmbroideryDesigns"),
+            database_dir: root.join("Database"),
+            database_path: db_path.clone(),
+            log_dir: root.join("logs"),
+        };
+
+        let status = database_status_from_paths(&paths);
+
+        assert!(
+            matches!(&status.status, DatabaseStatusKind::Missing),
+            "expected Missing when the DB file is absent"
+        );
+        assert!(
+            !status.data_root_missing,
+            "root exists so data_root_missing should be false"
+        );
+        assert_eq!(status.configured_data_root.as_deref(), Some(root_str.as_str()));
+    });
+}
+
+#[test]
+fn database_status_connected_when_database_present() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let root = std::env::temp_dir().join("embroidery_db_status_connected");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("Database")).expect("create Database dir");
+        let root_str = root.to_string_lossy().to_string();
+        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+
+        let db_path = root.join("Database").join("EmbroideryCatalogue.db");
+        std::fs::write(&db_path, []).expect("create DB file");
+
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: root.clone(),
+            embroidery_designs_dir: root.join("MachineEmbroideryDesigns"),
+            database_dir: root.join("Database"),
+            database_path: db_path,
+            log_dir: root.join("logs"),
+        };
+
+        let status = database_status_from_paths(&paths);
+
+        assert!(
+            matches!(&status.status, DatabaseStatusKind::Connected),
+            "expected Connected when the DB file is present"
+        );
+        assert!(!status.data_root_missing);
+        assert_eq!(status.configured_data_root.as_deref(), Some(root_str.as_str()));
+    });
+}
+
+
+// ---------------------------------------------------------------------------
+// AppState::db_pool — error branches
+// ---------------------------------------------------------------------------
+
+/// Build an `AppState` with the given pool holder for exercising `db_pool`.
+fn test_app_state(pool: PoolHolder, restore_in_progress: bool) -> AppState {
+    AppState {
+        db: pool,
+        database_status: DatabaseStatus {
+            status: DatabaseStatusKind::Uninitialized,
+            configured_data_root: None,
+            database_path: None,
+            embroidery_dir: None,
+            data_root_missing: false,
+        },
+        paths: paths::AppPaths {
+            mode: paths::ExecutionMode::Dev,
+            data_root: PathBuf::from("D:/dev_data"),
+            embroidery_designs_dir: PathBuf::from("D:/dev_data/MachineEmbroideryDesigns"),
+            database_dir: PathBuf::from("D:/dev_data/Database"),
+            database_path: PathBuf::from("D:/dev_data/Database/EmbroideryCatalogue.db"),
+            log_dir: PathBuf::from("D:/dev_data/logs"),
+        },
+        log_guard: logging::LogGuard::dummy_for_test(),
+        shutdown_requested: AtomicBool::new(false),
+        maintenance_running: AtomicBool::new(false),
+        migration_running: AtomicBool::new(false),
+        migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
+        restore_in_progress: AtomicBool::new(restore_in_progress),
+    }
+}
+
+#[test]
+fn db_pool_errors_when_restore_in_progress() {
+    let state = test_app_state(PoolHolder::default(), true);
+    let err = state.db_pool().expect_err("db_pool should fail during a restore");
+    assert!(
+        err.contains("being restored"),
+        "unexpected restore error message: {err}"
+    );
+}
+
+#[test]
+fn db_pool_errors_when_pool_unavailable() {
+    let state = test_app_state(PoolHolder::default(), false);
+    let err = state
+        .db_pool()
+        .expect_err("db_pool should fail with no pool installed");
+    assert!(
+        err.contains("unavailable"),
+        "unexpected unavailable error message: {err}"
+    );
+}
+

@@ -509,3 +509,43 @@ async fn import_unmatched_design_files_imports_real_design() {
     pool.close().await;
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn restore_progress_new_initializes_defaults() {
+    let p = RestoreProgress::new("designs", "syncing");
+    assert_eq!(p.phase, "designs");
+    assert_eq!(p.db_status, "syncing");
+    assert_eq!(p.scanned, 0);
+    assert_eq!(p.copied, 0);
+    assert_eq!(p.skipped, 0);
+    assert_eq!(p.total_bytes, 0);
+    assert_eq!(p.percent, 0.0);
+    assert!(p.error.is_none());
+}
+
+#[tokio::test]
+async fn validate_backup_file_rejects_non_file() {
+    let tmp = unique_temp_dir("validate-dir");
+    // A directory is not a file → rejected by the "not a file" branch.
+    let err = validate_backup_file(&tmp).unwrap_err();
+    assert!(err.contains("not a file"), "unexpected error: {err}");
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn perform_database_restore_errors_when_live_db_missing() {
+    let tmp = unique_temp_dir("no-live-db");
+    let paths = make_app_paths(&tmp);
+
+    let backup = tmp.join("backup.db");
+    fs::write(&backup, b"sqlite").unwrap();
+
+    // No live database exists at app_paths.database_path → error before the
+    // pool is touched, so an empty holder is sufficient.
+    let holder = PoolHolder::default();
+    let result = perform_database_restore(&holder, &paths, &backup).await;
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("Live database not found"), "unexpected error: {err}");
+    let _ = fs::remove_dir_all(&tmp);
+}
