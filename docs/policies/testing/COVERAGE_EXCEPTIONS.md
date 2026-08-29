@@ -43,12 +43,16 @@ This file tracks modules, frontend components, and backend logic where test cove
 
 | Module / File Path                    | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Status     | Reason Accepted |
 | :------------------------------------ | :-------------- | :------------------ | :------------------------- | :--------- | :--------- | :-------------- |
-| src/lib/views/BrowseView.svelte       | 92.45%          | 89.91%              | 71.55%                     | 2026-08-08 | [ACCEPTED] |                 |
-| src/lib/views/DesignDetailView.svelte | 90.34%          | 83.80%              | 67.42%                     | 2026-08-08 | [ACCEPTED] |                 |
-| src/lib/views/ImportView.svelte       | 96.18%          | 94.20%              | 77.26%                     | 2026-08-08 | [ACCEPTED] |                 |
-| src/lib/views/OrphansView.svelte      | 96.09%          | 100%                | 79.54%                     | 2026-08-08 | [ACCEPTED] |                 |
-| src/lib/views/ProjectsView.svelte     | 96.76%          | 93.93%              | 69.81%                     | 2026-08-08 | [ACCEPTED] |                 |
-| src/lib/views/TagsView.svelte         | 86.66%          | 100%                | 67.34%                     | 2026-08-08 | [ACCEPTED] |                 |
+| src/lib/views/BrowseView.svelte       | 92.45%          | 89.91%              | 71.55%                     | 2026-08-29 | [ACCEPTED] |                 |
+| src/lib/views/BrowseView.svelte       | 92.48%          | 91.45%              | 73.84%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + template fallbacks |
+| src/lib/views/DesignDetailView.svelte | 90.34%          | 83.80%              | 67.42%                     | 2026-08-29 | [ACCEPTED] |                 |
+| src/lib/views/DesignDetailView.svelte | 93.41%          | 90.82%              | 80.11%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + stale-token checks |
+| src/lib/views/ImportView.svelte       | 96.18%          | 94.20%              | 77.26%                     | 2026-08-29 | [ACCEPTED] |                 |
+| src/lib/views/ImportView.svelte       | 94.1%           | 95.62%              | 78.79%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + fallback branches |
+| src/lib/views/ProjectsView.svelte     | 96.76%          | 93.93%              | 69.81%                     | 2026-08-29 | [ACCEPTED] |                 |
+| src/lib/views/ProjectsView.svelte     | 95.88%          | 93.85%              | 85.65%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + stale-token checks |
+| src/lib/views/TagsView.svelte         | 86.66%          | 100%                | 67.34%                     | 2026-08-29 | [ACCEPTED] |                 |
+| src/lib/views/TagsView.svelte         | 99%             | 100%                | 85.71%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are SSR guards + re-entrancy guard |
 
 ---
 

@@ -2541,6 +2541,34 @@ describe("BrowseView", () => {
       });
     });
   });
+
+
+  describe("card normalization edge cases", () => {
+    it("handles mixed/absent field types in a raw wire item without crashing", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          {
+            id: 123,
+            filename: "rose.pes",
+            filepath: "",
+            designer: "",
+            source: "",
+            hoop: "",
+            rating: null,
+            projects: "Wedding Collection, Autumn 2026",
+            image_tags: "Floral, Blue",
+            tags: "Sparkle",
+          },
+        ])
+      );
+
+      renderBrowse();
+
+      // The comma-separated projects string is split, normalized, and re-joined.
+      expect(await screen.findByText("rose.pes")).toBeInTheDocument();
+      expect(screen.getByText("Wedding Collection, Autumn 2026")).toBeInTheDocument();
+    });
+  });
 });
 
 // Helper to select the first page items.

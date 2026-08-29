@@ -147,4 +147,57 @@ describe("ProjectsView print view", () => {
       printSpy.mockRestore();
     }
   });
+
+  it("shows Project not found when the print item has no project", async () => {
+    adapterMock.getProjectPrintView.mockResolvedValue({ source: "rust", item: {}, error: undefined });
+    renderProjects();
+    await waitFor(() => expect(screen.getByText("Project not found.")).toBeInTheDocument());
+  });
+
+  it("shows the default error when the print item is null", async () => {
+    adapterMock.getProjectPrintView.mockResolvedValue({ source: "rust", item: null, error: undefined });
+    renderProjects();
+    await waitFor(() =>
+      expect(screen.getByText("Could not load project print view for id 1.")).toBeInTheDocument()
+    );
+  });
+
+  it("renders fallback placeholders for a design with only a filename", async () => {
+    adapterMock.getProjectPrintView.mockResolvedValue(
+      printResponse({
+        project: { name: "Minimal", description: null },
+        designs: [{ id: 5, filename: "tiny.pes" }],
+      })
+    );
+    renderProjects();
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Minimal" })).toBeInTheDocument()
+    );
+
+    // No description, no image, and no optional metadata rows are rendered.
+    expect(screen.queryByText("Bridesmaid gifts.")).not.toBeInTheDocument();
+    expect(screen.getByText("No image")).toBeInTheDocument();
+    expect(screen.queryByText(/mm/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Hoop:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Stitches:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Colours:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Colour changes:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Designer:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rating:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Stitched:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pretty floral border./)).not.toBeInTheDocument();
+  });
+
+  it("renders an empty star rating for a non-positive rating", async () => {
+    adapterMock.getProjectPrintView.mockResolvedValue(
+      printResponse({ designs: [{ ...printItem.designs[0], rating: -1 }] })
+    );
+    renderProjects();
+    await waitFor(() => expect(screen.getByText("Rose Studio")).toBeInTheDocument());
+
+    // A truthy but non-positive rating renders the row but ratingToStars returns "".
+    const ratingRow = screen.getByText(/Rating:/).closest("p");
+    expect(ratingRow).not.toBeNull();
+    expect(ratingRow?.textContent).toContain("Rating:");
+  });
 });

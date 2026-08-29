@@ -123,4 +123,19 @@ describe("ProjectsView list view", () => {
     const tile = screen.getByRole("link", { name: "Open project Wedding Collection" });
     expect(tile).toHaveAttribute("href", "#/projects/1");
   });
+
+  it("defaults to an empty list when the response has no items array", async () => {
+    adapterMock.getProjectsList.mockResolvedValue({ source: "rust", error: undefined });
+    renderProjects();
+    await waitFor(() => expect(screen.getByText(emptyStateMatcher)).toBeInTheDocument());
+  });
+
+  it("defaults a missing design count to zero", async () => {
+    adapterMock.getProjectsList.mockResolvedValue(
+      projectsResponse([{ id: 3, name: "Sparse", description: null, design_count: null }])
+    );
+    renderProjects();
+    await waitFor(() => expect(screen.getByText("Sparse")).toBeInTheDocument());
+    expect(screen.getByText("0 designs")).toBeInTheDocument();
+  });
 });

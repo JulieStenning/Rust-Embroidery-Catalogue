@@ -353,4 +353,114 @@ describe("TagsView", () => {
       expect(adapterMocks.listTags).toHaveBeenCalledTimes(2);
     });
   });
+
+  it("does not call createTag when the description is blank or whitespace", async () => {
+    render(TagsView);
+
+    await screen.findByRole("heading", { name: "Manage Tags" });
+
+    const descInput = screen.getByPlaceholderText("e.g. Animals, Cross stitch...");
+    await fireEvent.input(descInput, { target: { value: "   " } });
+    await fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    // The whitespace-only description fails the `if (!desc) return;` guard.
+    expect(adapterMocks.createTag).not.toHaveBeenCalled();
+  });
+
+  it("shows an error toast when createTag fails to persist", async () => {
+    adapterMocks.createTag.mockResolvedValue({ persisted: false, error: "boom" });
+
+    render(TagsView);
+
+    await screen.findByRole("heading", { name: "Manage Tags" });
+
+    const descInput = screen.getByPlaceholderText("e.g. Animals, Cross stitch...");
+    await fireEvent.input(descInput, { target: { value: "Bees" } });
+    await fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith("Could not add tag: boom", "error");
+    });
+  });
+
+  it("shows an error toast and clears tags when listTags returns an error", async () => {
+    adapterMocks.listTags.mockResolvedValue({ error: "database unavailable" });
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith(
+        "Failed to load tags: database unavailable",
+        "error"
+      );
+    });
+
+    // Both lists are cleared on a failed load.
+    expect(screen.queryByText("No image tags yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No stitching tags yet.")).toBeInTheDocument();
+  });
+
+  it("shows an error toast when listTags throws", async () => {
+    adapterMocks.listTags.mockRejectedValue(new Error("network down"));
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to load tags"),
+        "error"
+      );
+    });
+  });
+
+  it("hydrates saved collapsible panel states from localStorage on mount", async () => {
+    window.localStorage.setItem("admin.tags.collapsible.image", "closed");
+    window.localStorage.setItem("admin.tags.collapsible.stitching", "open");
+
+    render(TagsView);
+
+    await screen.findByRole("heading", { name: "Manage Tags" });
+
+    const imageDetails = screen.getByRole("heading", { name: "Image Tags" }).closest("details");
+    const stitchingDetails = screen
+      .getByRole("heading", { name: "Stitching Tags" })
+      .closest("details");
+    expect(imageDetails).not.toBeNull();
+    expect(stitchingDetails).not.toBeNull();
+
+    // "closed" removes the open attribute; "open" keeps it.
+    expect(imageDetails!.hasAttribute("open")).toBe(false);
+    expect(stitchingDetails!.hasAttribute("open")).toBe(true);
+  });
+
+  it("persists the stitching panel toggle state to localStorage", async () => {
+    render(TagsView);
+
+    await screen.findByRole("heading", { name: "Manage Tags" });
+
+    const stitchingHeading = screen.getByRole("heading", { name: "Stitching Tags" });
+    const stitchingDetails = stitchingHeading.closest("details");
+    expect(stitchingDetails).not.toBeNull();
+
+    // jsdom does not implement native <details> toggling, so simulate the
+    // toggle by removing the open attribute and dispatching a bubbling event.
+    stitchingDetails!.removeAttribute("open");
+    fireEvent(stitchingDetails!, new Event("toggle", { bubbles: true }));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("admin.tags.collapsible.stitching")).toBe("closed");
+    });
+  });
+
+  it("defensively maps tags with missing fields without crashing", async () => {
+    adapterMocks.listTags.mockResolvedValue(listResponse([{ id: 9 }]));
+
+    render(TagsView);
+
+    // The minimal tag has no description/group/count/is_system; the defensive
+    // ternaries must fall back to safe defaults rather than crash.
+    await screen.findByRole("heading", { name: "Manage Tags" });
+    expect(adapterMocks.listTags).toHaveBeenCalled();
+  });
+
 });

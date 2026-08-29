@@ -223,4 +223,118 @@ describe("ProjectsView detail view", () => {
       confirmSpy.mockRestore();
     }
   });
+
+  it("renders the default error message when the detail item is null without an error", async () => {
+    adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item: null, error: undefined });
+    renderProjects({ projectDetailId: 999 });
+    await waitFor(() => expect(screen.getByText("Could not load project 999.")).toBeInTheDocument());
+  });
+
+  it("shows an error toast when saving with a blank project name", async () => {
+    const { container } = renderProjects();
+    await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+
+    const nameInput = container.querySelector<HTMLInputElement>(".projects-title-input");
+    await fireEvent.input(element(nameInput), { target: { value: "" } });
+
+    const form = container.querySelector("form");
+    await fireEvent.submit(element(form));
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith("Project name is required.", "error");
+    });
+    expect(adapterMock.updateProject).not.toHaveBeenCalled();
+  });
+
+  it("shows an error toast and does not refresh when updateProject fails", async () => {
+    adapterMock.updateProject.mockResolvedValue({
+      source: "mock",
+      persisted: false,
+      project_id: 1,
+      message: "Could not update project: boom",
+      error: "boom",
+    });
+    const { container } = renderProjects();
+    await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+
+    const nameInput = container.querySelector<HTMLInputElement>(".projects-title-input");
+    await fireEvent.input(element(nameInput), { target: { value: "Wedding Collection v2" } });
+
+    const form = container.querySelector("form");
+    await fireEvent.submit(element(form));
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith("Could not update project: boom", "error");
+    });
+    // The detail view is not reloaded on failure.
+    expect(adapterMock.getProjectDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error toast and stays on the page when deleteProject fails", async () => {
+    adapterMock.deleteProject.mockResolvedValue({
+      source: "mock",
+      persisted: false,
+      project_id: 1,
+      message: "Could not delete project: boom",
+      error: "boom",
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const navigateTo = vi.fn();
+    try {
+      renderProjects({ navigateTo });
+      await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+      await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not delete project: boom", "error");
+      });
+      expect(navigateTo).not.toHaveBeenCalled();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("shows an error toast and does not reload when removing a design fails", async () => {
+    adapterMock.removeDesignFromProjectDetail.mockResolvedValue({
+      source: "mock",
+      persisted: false,
+      project_id: 1,
+      design_id: 101,
+      message: "Could not remove design: boom",
+      error: "boom",
+    });
+    renderProjects();
+    await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]);
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith("Could not remove design: boom", "error");
+    });
+    expect(adapterMock.getProjectDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a No image placeholder and omits the designer when they are absent", async () => {
+    const item = {
+      project: { id: 1, name: "Wedding Collection", description: "Bridesmaid gifts." },
+      designs: [
+        { id: 103, filename: "plain.pes", filepath: "C:/designs/plain.pes", image_data_url: null, has_image: false },
+      ],
+    };
+    adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item, error: undefined });
+    renderProjects();
+    await waitFor(() => expect(screen.getByText("plain.pes")).toBeInTheDocument());
+    expect(screen.getByText("No image")).toBeInTheDocument();
+    expect(screen.queryByText("Rose Studio")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty designs message when the project has no designs array", async () => {
+    const item = {
+      project: { id: 1, name: "Wedding Collection", description: "Bridesmaid gifts." },
+      designs: null,
+    };
+    adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item, error: undefined });
+    renderProjects();
+    await waitFor(() => expect(screen.getByText(/Designs \(0\)/)).toBeInTheDocument());
+    expect(screen.getByText("No designs in this project yet.")).toBeInTheDocument();
+  });
 });

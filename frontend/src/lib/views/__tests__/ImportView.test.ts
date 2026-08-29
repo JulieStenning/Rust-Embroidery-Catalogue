@@ -1755,4 +1755,41 @@ describe("ImportView loading and disabled states", () => {
     resolveSources(listResponse(defaultSources()));
     await waitFor(() => expect(designerSelect).toBeEnabled());
   });
+
+  it("defaults to empty designer/source lists when the API returns no items array", async () => {
+    adapterMocks.listDesigners.mockResolvedValue({ source: "rust" });
+    adapterMocks.listSources.mockResolvedValue({ source: "rust" });
+
+    const { view } = renderStatic("#/import");
+    await waitFor(() => expect(adapterMocks.listDesigners).toHaveBeenCalled());
+
+    // The component must not crash when the reference-data response omits items.
+    expect(screen.getByRole("heading", { name: "Bulk Import" })).toBeInTheDocument();
+    view.unmount();
+  });
+
+  it("restores a rich session snapshot on mount, covering defensive fallbacks", async () => {
+    importSessionStore.patchSession({
+      rootPath: "C:/Designs",
+      rootPaths: undefined as unknown as string[],
+      previewSource: "rust",
+      previewMessage: "preview message",
+      precheck: { context_token: "tok-999", ready_for_confirm: true },
+      precheckSource: "rust",
+      precheckMessage: "custom precheck message",
+      selectedFiles: undefined as unknown as string[],
+      perFolderAssignmentByPath: undefined as unknown as Record<
+        string,
+        { designerId: string; sourceId: string }
+      >,
+      actionSource: "rust",
+      actionMessage: "done",
+    });
+
+    const { view } = renderStatic("#/import");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Bulk Import" })).toBeInTheDocument()
+    );
+    view.unmount();
+  });
 });

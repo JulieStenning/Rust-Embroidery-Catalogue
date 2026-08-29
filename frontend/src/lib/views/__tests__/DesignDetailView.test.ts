@@ -1246,4 +1246,295 @@ describe("DesignDetailView", () => {
       expect(screen.getByText("Show file path")).toBeInTheDocument();
     });
   });
+
+  describe("mutation failure paths", () => {
+    it("shows an error toast when the rating update fails to persist", async () => {
+      adapterMocks.setDesignRating.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Rating update failed.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "3 stars" }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith("Rating update failed.", "error");
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+
+    it("shows an error toast when the stitched toggle fails to persist", async () => {
+      adapterMocks.setDesignStitched.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Could not update stitched status.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Stitched/ }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Could not update stitched status.",
+          "error"
+        );
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+
+    it("shows an error toast when the image verification toggle fails to persist", async () => {
+      adapterMocks.setDesignVerification.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Could not update verification.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Image Unverified/ }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Could not update verification.",
+          "error"
+        );
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+
+    it("shows an error toast when the stitching verification toggle fails to persist", async () => {
+      adapterMocks.setDesignVerification.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Could not update verification.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Stitching Unverified/ }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Could not update verification.",
+          "error"
+        );
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+
+    it("shows an error toast when adding to a project fails to persist", async () => {
+      adapterMocks.addDesignToProject.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Could not add to project.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const projectsSection = element(
+        screen.getByText("Projects").closest(".route-card"),
+        "Expected the Projects card to exist."
+      );
+      const user = userEvent.setup();
+      await user.selectOptions(within(projectsSection).getByRole("combobox"), "2");
+      await user.click(within(projectsSection).getByRole("button", { name: "Add" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.addDesignToProject).toHaveBeenCalledWith(42, 2);
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not add to project.", "error");
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+
+    it("shows an error toast when removing from a project fails to persist", async () => {
+      adapterMocks.removeDesignFromProject.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Could not remove from project.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const projectsSection = element(
+        screen.getByText("Projects").closest(".route-card"),
+        "Expected the Projects card to exist."
+      );
+      const user = userEvent.setup();
+      await user.click(within(projectsSection).getByTitle("Remove from project"));
+
+      await waitFor(() => {
+        expect(adapterMocks.removeDesignFromProject).toHaveBeenCalledWith(42, 1);
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Could not remove from project.",
+          "error"
+        );
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+
+    it("shows an error toast when opening the editor fails", async () => {
+      adapterMocks.openDesignInEditor.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        result: { success: false },
+        message: "Could not open editor.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("Open in Editor")).toBeInTheDocument());
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Open in Editor/ }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not open editor.", "error");
+      });
+    });
+
+    it("shows an error toast when the verification update after tag removal fails", async () => {
+      adapterMocks.setDesignVerification.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Verification update failed.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("Floral")).toBeInTheDocument());
+
+      const floralPill = element(
+        screen.getByText("Floral").closest("span.group"),
+        "Expected the Floral pill to exist."
+      );
+      const user = userEvent.setup();
+      await user.click(within(floralPill).getByTitle("Remove tag"));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith("Verification update failed.", "error");
+      });
+    });
+
+    it("shows an error toast when saving notes fails", async () => {
+      adapterMocks.updateDesignMetadata.mockResolvedValue({
+        source: "rust",
+        persisted: false,
+        design_id: 42,
+        message: "Could not save notes.",
+      });
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const notes = screen.getByPlaceholderText("Add notes about this design...");
+      const user = userEvent.setup();
+      await user.type(notes, "Updated notes.");
+      await user.click(screen.getByRole("button", { name: "Save Notes" }));
+
+      await waitFor(() => {
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not save notes.", "error");
+      });
+      expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("missing optional fields", () => {
+    it("renders fallback values for missing technical fields", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          hoop: null,
+          dateAdded: null,
+          widthMm: null,
+          heightMm: null,
+          stitchCount: null,
+          colorCount: null,
+          colorChangeCount: null,
+          designer: null,
+          designerId: null,
+          source: null,
+          sourceId: null,
+          rating: null,
+          isStitched: false,
+          tags: [],
+          projects: [],
+          availableProjects: [],
+          allTags: [],
+        })
+      );
+
+      renderDetail();
+
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      // Hoop and Date Added fall back to "Unknown"; Dimensions/Stitches/Colours to "?".
+      expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("?").length).toBeGreaterThan(0);
+
+      // Empty tags/projects/available-projects show their empty-state placeholders.
+      expect(screen.getByText("No tags assigned.")).toBeInTheDocument();
+      expect(screen.getByText("Not assigned to any projects.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add" })).not.toBeInTheDocument();
+    });
+
+    it("saves with null designer/source when cleared and no option lists present", async () => {
+      adapterMocks.updateDesignMetadata.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        design_id: 42,
+        message: "Design updated.",
+      });
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          designer: null,
+          designerId: null,
+          source: null,
+          sourceId: null,
+          designers: undefined,
+          sources: undefined,
+        })
+      );
+      renderDetail();
+      await waitFor(() => expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument());
+
+      const notes = screen.getByPlaceholderText("Add notes about this design...");
+      const user = userEvent.setup();
+      await user.clear(notes);
+      await user.type(notes, "Updated notes.");
+      await user.click(screen.getByRole("button", { name: "Save Notes" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
+          notes: "Updated notes.",
+          designer_id: null,
+          source_id: null,
+        });
+      });
+    });
+
+    it("renders an inline preview and Unknown fallbacks when the design has an image but no filename", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          filename: null,
+          filepath: null,
+          imageDataUrl: "data:image/png;base64,AAAA",
+        })
+      );
+      renderDetail();
+      await waitFor(() =>
+        expect(screen.getByAltText("Design preview")).toBeInTheDocument()
+      );
+      // Filename and filepath both fall back to "Unknown".
+      expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
 });

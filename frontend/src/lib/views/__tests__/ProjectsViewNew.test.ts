@@ -98,4 +98,19 @@ describe("ProjectsView new project view", () => {
     expect((nameInput as HTMLInputElement).value).toBe("Christ's");
     expect(navigateTo).not.toHaveBeenCalled();
   });
+
+  it("shows an error toast when submitting with a blank name", async () => {
+    const { container } = renderProjects();
+
+    // The Create button is disabled while the name is blank, so submit the
+    // form directly to exercise the submitNewProject validation guard.
+    const form = container.querySelector("form");
+    expect(form).not.toBeNull();
+    await fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith("Project name is required.", "error");
+    });
+    expect(adapterMock.createProject).not.toHaveBeenCalled();
+  });
 });
