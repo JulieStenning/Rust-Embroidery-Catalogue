@@ -66,3 +66,4 @@ dev-datax
 cargo_deny_report.txt
 auto_tagging.py
 gemini_client.py
+src-tauri/resources/tags insert.sql
