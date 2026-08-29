@@ -529,6 +529,7 @@ fn main() {
         .manage(app_state)
         .setup(|app| {
             routes::bulk_import::initialize_bulk_import_app_handle(app.handle().clone());
+            routes::tagging_actions::initialize_backfill_app_handle(app.handle().clone());
 
             // â”€â”€ Database health monitor: startup check + idle interval â”€â”€â”€â”€â”€â”€
             // Reads the configured idle interval from the DB (default 1800s),

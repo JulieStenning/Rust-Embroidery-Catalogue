@@ -41,9 +41,13 @@ pub(crate) async fn save_settings_view_model_inner(
     app_state: &AppState,
     request: SaveSettingsRequest,
 ) -> Result<SaveSettingsResult, String> {
-    settings::save_settings_view_model_inner(app_state, request)
-        .await
-        .map_err(|err| err.to_string())
+    let result = settings::save_settings_view_model_inner(app_state, request).await;
+    if let Err(err) = &result {
+        // Capture the underlying cause (e.g. a DB write failure) in the logs so
+        // the user can retry and report the exact error when the toast dismisses.
+        tracing::error!("Failed to save settings: {}", err);
+    }
+    result.map_err(|err| err.to_string())
 }
 
 #[tauri::command]

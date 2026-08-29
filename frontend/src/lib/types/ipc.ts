@@ -871,6 +871,17 @@ export interface RestoreProgress {
   error: string | null;
 }
 
+/**
+ * Payload streamed on `backfill-progress` from the unified backfill run.
+ * `stage` is one of `started`, `batch_committed`, `stopped` or `completed`.
+ */
+export interface BackfillProgress {
+  stage: string;
+  processed: number;
+  errors: number;
+  current_action: string;
+}
+
 export interface DetectUnmatchedFilesResult {
   checked: number;
   unmatched: number;

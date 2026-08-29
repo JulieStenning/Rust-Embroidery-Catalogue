@@ -2,7 +2,8 @@ use crate::services::{auto_tagging, backfill, fingerprint, maintenance};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
-use tauri::State;
+use std::sync::OnceLock;
+use tauri::{Emitter, State};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct TaggingActionRequest {
@@ -35,6 +36,26 @@ const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 const KEY_AI_DELAY: &str = "ai.delay";
 const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
 const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
+
+/// Tauri event name streamed to the frontend during a unified backfill run.
+pub const BACKFILL_PROGRESS_EVENT: &str = "backfill-progress";
+
+/// Global app handle used to emit live progress events during a backfill run.
+/// Mirrors the bulk-import pattern; set once at app setup.
+static BACKFILL_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+/// Register the app handle so backfill runs can stream progress events.
+pub fn initialize_backfill_app_handle(app_handle: tauri::AppHandle) {
+    let _ = BACKFILL_APP_HANDLE.set(app_handle);
+}
+
+fn emit_backfill_progress(progress: &backfill::BackfillProgress) {
+    if let Some(handle) = BACKFILL_APP_HANDLE.get() {
+        if let Err(error) = handle.emit(BACKFILL_PROGRESS_EVENT, progress) {
+            tracing::error!("Failed to emit backfill progress event: {error}");
+        }
+    }
+}
 
 #[tauri::command]
 pub async fn get_tagging_actions_view_model(
@@ -111,9 +132,14 @@ pub async fn run_unified_backfill(
         }
     }
 
-    backfill::run_unified_backfill(&state.db_pool()?, request, has_api_key)
-        .await
-        .map_err(|err| err.to_string())
+    backfill::run_unified_backfill_with_progress(
+        &state.db_pool()?,
+        request,
+        has_api_key,
+        &mut |progress| emit_backfill_progress(&progress),
+    )
+    .await
+    .map_err(|err| err.to_string())
 }
 
 #[tauri::command]

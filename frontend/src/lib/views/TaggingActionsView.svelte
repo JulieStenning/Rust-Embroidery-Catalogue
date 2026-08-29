@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import {
     getTaggingActionsViewModel,
     runUnifiedBackfill,
@@ -9,6 +9,54 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
+  import { initBackfillProgressEvents } from "../services/backfillEvents";
+  import {
+    backfillProgressStore,
+    resetBackfillProgress,
+  } from "../stores/backfillProgressStore";
+
+  let backfillProgressUnlisten: (() => void) | null = null;
+
+  // Live progress streamed from Rust during a backfill run ("Processed N…").
+  let backfillProgress = $derived($backfillProgressStore);
+  let backfillStatusText = $derived.by(() => {
+    const p = backfillProgress;
+    if (!p.active) return "";
+    if (p.stage === "started") return "Starting backfill…";
+    if (p.stage === "batch_committed") {
+      return `${backfillActionLabel(p.currentAction)} — Processed ${p.processed} design${p.processed === 1 ? "" : "s"}${
+        p.errors > 0 ? ` (${p.errors} error${p.errors === 1 ? "" : "s"})` : ""
+      }…`;
+    }
+    if (p.stage === "completed") {
+      return `${backfillActionLabel(p.currentAction)} — Completed ${p.processed} design${p.processed === 1 ? "" : "s"}${
+        p.errors > 0 ? ` (${p.errors} error${p.errors === 1 ? "" : "s"})` : ""
+      }`;
+    }
+    if (p.stage === "stopped") {
+      return `Backfill stopped after ${p.processed} design${p.processed === 1 ? "" : "s"}${
+        p.errors > 0 ? ` (${p.errors} error${p.errors === 1 ? "" : "s"})` : ""
+      }`;
+    }
+    return "";
+  });
+
+  function backfillActionLabel(action: string): string {
+    switch (action) {
+      case "tagging":
+        return "Tagging";
+      case "stitching":
+        return "Stitch detection";
+      case "images":
+        return "Image generation";
+      case "color_counts":
+        return "Colour / stitch counts";
+      case "hoop_dimensions":
+        return "Hoops / dimensions";
+      default:
+        return "Backfill";
+    }
+  }
 
   let taggingActionsLoaded = $state(false);
   let taggingActionsLoading = $state(false);
@@ -89,6 +137,7 @@
 
     taggingRunInFlight = true;
     taggingLastSummary = null;
+    resetBackfillProgress();
     beginBusy("Running tagging actions");
     addToast("Running selected actions...", "info");
 
@@ -168,9 +217,23 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
+    resetBackfillProgress();
     loadTaggingViewModel();
     loadTaggingLogEntries();
+    try {
+      backfillProgressUnlisten = await initBackfillProgressEvents();
+    } catch (error) {
+      console.info("Backfill progress events unavailable.", error);
+    }
+  });
+
+  onDestroy(() => {
+    if (backfillProgressUnlisten) {
+      backfillProgressUnlisten();
+      backfillProgressUnlisten = null;
+    }
+    resetBackfillProgress();
   });
 </script>
 
@@ -378,6 +441,18 @@
         Stop
       </button>
     </div>
+
+    <!-- Live progress -->
+    {#if backfillStatusText}
+      <div
+        class="bg-white rounded shadow p-4 text-sm"
+        role="status"
+        data-testid="backfill-progress"
+      >
+        <p class="font-semibold text-gray-800">Progress</p>
+        <p class="text-gray-700">{backfillStatusText}</p>
+      </div>
+    {/if}
 
     <!-- Last summary -->
     {#if taggingLastSummary}

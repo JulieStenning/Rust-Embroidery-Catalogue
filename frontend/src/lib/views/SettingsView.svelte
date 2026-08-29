@@ -145,6 +145,22 @@
     }
   }
 
+  /**
+   * Normalise a number-input bound value to a string for the Rust IPC layer.
+   *
+   * Svelte coerces `bind:value` on `<input type="number">` to a number (or
+   * `null` when emptied), even though the field state is a string. The Rust
+   * `SaveSettingsRequest` expects these as strings, so convert defensively:
+   *   - null / undefined / "" -> "" (leave blank)
+   *   - 0 / 6 / 0.5 -> "0" / "6" / "0.5"
+   * @param {unknown} value
+   * @returns {string}
+   */
+  function settingsNumericToString(value) {
+    if (value === null || value === undefined || value === "") return "";
+    return String(value);
+  }
+
   /** @param {Event} event */
   async function saveSettingsFromBackend(event) {
     event.preventDefault();
@@ -156,11 +172,11 @@
         google_api_key: settingsGoogleApiKey,
         ai_tier2_auto: settingsAiTier2Auto,
         ai_tier3_auto: settingsAiTier3Auto,
-        ai_batch_size: settingsAiBatchSize,
-        ai_delay: settingsAiDelay,
-        import_commit_batch_size: settingsImportCommitBatchSize,
+        ai_batch_size: settingsNumericToString(settingsAiBatchSize),
+        ai_delay: settingsNumericToString(settingsAiDelay),
+        import_commit_batch_size: settingsNumericToString(settingsImportCommitBatchSize),
         data_root: settingsDataRoot,
-        db_idle_check_interval_secs: settingsDbIdleCheckIntervalSecs,
+        db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
       };
 
       const result = await saveSettings(request);

@@ -26,7 +26,10 @@ This is especially useful after large imports, folder cleanups, or app upgrades.
 3. If using AI tiers (Tier 2 or Tier 3), confirm your API key is configured in **Admin -> Settings**.
 4. Start with a small run if this is your first time using combined actions.
 
-> Tip: If your library is very large, run in smaller batches over multiple sessions.
+> Tip: A single run processes **all** designs that match the selected action(s);
+> batch size is just the internal chunk size. If your library is very large, keep
+> the page open while it runs, or use **Stop running** to interrupt and re-run later
+> (progress resumes from where it stopped).
 
 ---
 
@@ -121,17 +124,30 @@ The page exposes advanced controls:
 - **Commit every**
 - **Workers**
 
+What each control does:
+
+- **Batch size** is the number of designs fetched and processed together in one
+  internal chunk. It does **not** limit how many designs a run touches — the run
+  pages through the whole candidate set one batch at a time until every matching
+  design has been processed.
+- **Commit every** is the cadence at which the run reports progress/commits.
+- **Workers** controls parallel processing concurrency.
+
 Practical guidance:
 
 - Keep defaults for most runs.
 - Use lower values if your machine is resource-constrained.
 - Increase **Workers** carefully; higher values can increase CPU and disk load.
+- To process only a subset, tick exactly the actions you need and use **Stop
+  running** to halt once enough designs have been handled.
 
 ---
 
 ## Progress, stopping, and logs
 
 - The progress area shows a running/completed summary.
+- While a run is active, a live **Progress** message (e.g. "Tagging — Processed 450 designs…")
+  updates after each commit so you can see it working through your library.
 - Use **Stop running** to request a graceful stop.
 - Use **Download error log** to review design-level failures.
 
@@ -176,7 +192,7 @@ Error log notes:
 | Tier 2/3 not available | Check API key in Settings and save. |
 | Many failures in log | Verify source files still exist and are readable, then rerun affected actions. |
 | Browser closed during run | Reopen Tagging Actions and rerun. Keep the page open until completion. |
-| Performance is slow | Lower workers and run smaller batches. |
+| Performance is slow | Lower workers and a smaller batch size, or press **Stop running** and re-run later. |
 
 For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 

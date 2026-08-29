@@ -9,8 +9,9 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::task::JoinSet;
 use tokio::time::sleep;
 
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
@@ -22,8 +23,17 @@ pub(crate) struct TaggingTierOptions {
     pub tier1_enabled: bool,
     pub tier2_enabled: bool,
     pub tier3_enabled: bool,
+    /// Seconds to wait between Tier 2 calls, but only when Tier 2 makes a real
+    /// outbound Gemini request (`tier2_network`). For local-only Tier 2 the
+    /// delay is skipped so 8k-design runs aren't throttled by a fixed sleep.
     pub tier2_delay_seconds: f64,
     pub tier3_delay_seconds: f64,
+    /// Whether Tier 2 performs a real network call that needs rate-limit pacing.
+    /// Currently the Gemini client is unimplemented, so this is always `false`.
+    pub tier2_network: bool,
+    /// Whether Tier 3 performs a real network call that needs rate-limit pacing.
+    /// Currently the Gemini client is unimplemented, so this is always `false`.
+    pub tier3_network: bool,
 }
 
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
@@ -110,6 +120,18 @@ pub struct UnifiedBackfillSummary {
     pub stitching_tag_count_after: i64,
 }
 
+/// Live progress streamed to the frontend during a unified backfill run so the
+/// Tagging Actions screen can show a "Processed N designs — <action>…" message
+/// that updates after each commit. `stage` is one of `started`,
+/// `batch_committed`, `stopped` or `completed`.
+#[derive(Debug, Clone, Serialize)]
+pub struct BackfillProgress {
+    pub stage: String,
+    pub processed: i64,
+    pub errors: i64,
+    pub current_action: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct StopBackfillResult {
     pub status: String,
@@ -148,10 +170,41 @@ pub fn stop_requested_store(value: bool) {
     STOP_REQUESTED.store(value, Ordering::SeqCst);
 }
 
+/// Build and forward a [`BackfillProgress`] snapshot to the caller's callback.
+/// `processed`/`errors` are passed by value so the helper does not borrow the
+/// counters and therefore never blocks their mutation between commits.
+fn emit_progress(
+    progress: &mut (dyn FnMut(BackfillProgress) + Send),
+    stage: &str,
+    current_action: &str,
+    processed: i64,
+    errors: i64,
+) {
+    progress(BackfillProgress {
+        stage: stage.to_string(),
+        processed,
+        errors,
+        current_action: current_action.to_string(),
+    });
+}
+
 pub async fn run_unified_backfill(
     pool: &SqlitePool,
     request: UnifiedBackfillRequest,
     has_api_key: bool,
+) -> Result<UnifiedBackfillSummary, AppError> {
+    run_unified_backfill_with_progress(pool, request, has_api_key, &mut |_| {}).await
+}
+
+/// Same as [`run_unified_backfill`], but streams live [`BackfillProgress`]
+/// updates to `progress` (e.g. after each commit) so the UI can display a
+/// running status message. Callers that do not need live progress can use the
+/// plain [`run_unified_backfill`] wrapper.
+pub async fn run_unified_backfill_with_progress(
+    pool: &SqlitePool,
+    request: UnifiedBackfillRequest,
+    has_api_key: bool,
+    progress: &mut (dyn FnMut(BackfillProgress) + Send),
 ) -> Result<UnifiedBackfillSummary, AppError> {
     clear_stop_signal();
     truncate_logs_for_new_run()?;
@@ -214,6 +267,8 @@ pub async fn run_unified_backfill(
     let mut actions_run: Vec<String> = Vec::new();
     let mut touched_design_ids = HashSet::<i64>::new();
 
+    emit_progress(progress, "started", "backfill", processed, errors);
+
     if let Some(tagging_action) = actions.tagging {
         if tagging_action.enabled.unwrap_or(true) {
             actions_run.push("tagging".to_string());
@@ -225,49 +280,106 @@ pub async fn run_unified_backfill(
 
             let image_tag_map = get_image_tag_lookup(pool).await?;
             let valid_descriptions = image_tag_map.keys().cloned().collect::<HashSet<String>>();
-            let design_ids = select_tagging_design_ids(pool, mode, batch_size).await?;
-            log_info(format!(
-                "Tagging action={} candidates={} tiers={:?}",
-                mode,
-                design_ids.len(),
-                tiers
-            ));
+            // Shared (read-only) data for the concurrent worker tasks.
+            let image_map = Arc::new(image_tag_map);
+            let valid = Arc::new(valid_descriptions);
+            let pool_arc = Arc::new(pool.clone());
+            let tier_options = TaggingTierOptions {
+                tier1_enabled,
+                tier2_enabled,
+                tier3_enabled,
+                tier2_delay_seconds,
+                tier3_delay_seconds,
+                // No real Gemini network calls exist yet, so the artificial per-tier
+                // delays are disabled (see apply_tagging_tiers). This keeps large
+                // Tier 2 runs fast instead of sleeping ~5s per design.
+                tier2_network: false,
+                tier3_network: false,
+            };
+            let workers_usize = workers.max(1) as usize;
 
-            for (index, design_id) in design_ids.iter().enumerate() {
+            // Page through ALL matching designs in ascending-id batches of
+            // `batch_size`, processing each batch with up to `workers` concurrent
+            // tasks. Previously the query ran once with `LIMIT batch_size` and a
+            // serial loop, so an "ALL" mode like retag_all could only ever touch
+            // the first batch and the Workers control was never used.
+            let mut tagging_cursor: i64 = 0;
+            let mut tagging_total: i64 = 0;
+            loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     log_info("Stop signal observed during tagging loop".to_string());
                     break;
                 }
 
-                touched_design_ids.insert(*design_id);
-                processed += 1;
-                let tier_options = TaggingTierOptions {
-                    tier1_enabled,
-                    tier2_enabled,
-                    tier3_enabled,
-                    tier2_delay_seconds,
-                    tier3_delay_seconds,
-                };
-                let tag_result = apply_tagging_tiers(
-                    pool,
-                    *design_id,
-                    &image_tag_map,
-                    &valid_descriptions,
-                    &tier_options,
-                )
-                .await;
-
-                if let Err(error) = tag_result {
-                    errors += 1;
-                    log_error(format!(
-                        "Tagging failed design_id={} error={}",
-                        design_id, error
-                    ));
+                let design_ids =
+                    select_tagging_design_ids(pool, mode, batch_size, tagging_cursor).await?;
+                if design_ids.is_empty() {
+                    break;
                 }
+                if let Some(last) = design_ids.last() {
+                    tagging_cursor = *last;
+                }
+                tagging_total += design_ids.len() as i64;
+                log_info(format!(
+                    "Tagging batch action={} batch_candidates={} cumulative={} tiers={:?}",
+                    mode,
+                    design_ids.len(),
+                    tagging_total,
+                    tiers
+                ));
 
-                if ((index as i64) + 1) % commit_every == 0 {
-                    // SQLx autocommit mode keeps each statement durable.
-                    // This branch exists to preserve parity with commit cadence semantics.
+                // Run this batch's designs concurrently, bounded by `workers`.
+                let mut set = JoinSet::new();
+                let mut remaining = design_ids.iter().copied();
+                for _ in 0..workers_usize {
+                    if let Some(design_id) = remaining.next() {
+                        spawn_tagging_task(
+                            &mut set,
+                            design_id,
+                            pool_arc.clone(),
+                            image_map.clone(),
+                            valid.clone(),
+                            tier_options,
+                        );
+                    }
+                }
+                while let Some(joined) = set.join_next().await {
+                    match joined {
+                        Ok((design_id, tag_result)) => {
+                            touched_design_ids.insert(design_id);
+                            processed += 1;
+                            if let Err(error) = tag_result {
+                                errors += 1;
+                                log_error(format!(
+                                    "Tagging failed design_id={} error={}",
+                                    design_id, error
+                                ));
+                            }
+                            if processed % commit_every == 0 {
+                                emit_progress(
+                                    progress,
+                                    "batch_committed",
+                                    "tagging",
+                                    processed,
+                                    errors,
+                                );
+                            }
+                        }
+                        Err(join_err) => {
+                            errors += 1;
+                            log_error(format!("Tagging task failed: {join_err}"));
+                        }
+                    }
+                    if let Some(design_id) = remaining.next() {
+                        spawn_tagging_task(
+                            &mut set,
+                            design_id,
+                            pool_arc.clone(),
+                            image_map.clone(),
+                            valid.clone(),
+                            tier_options,
+                        );
+                    }
                 }
             }
         }
@@ -297,59 +409,82 @@ pub async fn run_unified_backfill(
                     clear_mode, after_clear_count, cleared_count
                 ));
             }
-            let stitching_candidates = select_stitching_candidates(pool, batch_size).await?;
-            log_info(format!(
-                "{} stitching candidates selected for detection",
-                stitching_candidates.len()
-            ));
             let stitching_tag_lookup = get_stitching_tag_lookup(pool).await?;
             let valid_stitching_descriptions = stitching_tag_lookup
                 .keys()
                 .cloned()
                 .collect::<HashSet<String>>();
             let default_stitching_tag_id = get_default_stitching_tag_id(pool).await?;
-            for candidate in stitching_candidates {
+            // Page through ALL matching designs in ascending-id batches of
+            // `batch_size`, mirroring the fingerprint backfill.
+            let mut stitching_cursor: i64 = 0;
+            let mut stitching_total: i64 = 0;
+            loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                touched_design_ids.insert(candidate.id);
-                processed += 1;
-
-                let resolved_design_path = resolve_stored_design_path(&candidate.filepath);
-                let detected_descriptions = stitch_identifier::suggest_stitching_from_pattern_file(
-                    &resolved_design_path.to_string_lossy(),
-                    &candidate.filename,
-                    &candidate.filepath,
-                    &valid_stitching_descriptions,
-                    Some(0.70),
-                );
-
-                let mut detected_tag_ids = Vec::new();
-                for description in &detected_descriptions {
-                    if let Some(tag_id) = stitching_tag_lookup.get(description) {
-                        detected_tag_ids.push(*tag_id);
-                    }
+                let stitching_candidates =
+                    select_stitching_candidates(pool, batch_size, stitching_cursor).await?;
+                if stitching_candidates.is_empty() {
+                    break;
                 }
-
-                if detected_tag_ids.is_empty() {
-                    if let Some(tag_id) = default_stitching_tag_id {
-                        detected_tag_ids.push(tag_id);
-                    }
+                if let Some(last) = stitching_candidates.last() {
+                    stitching_cursor = last.id;
                 }
+                stitching_total += stitching_candidates.len() as i64;
+                log_info(format!(
+                    "{} stitching candidates selected for detection (batch={} cumulative={})",
+                    stitching_candidates.len(),
+                    stitching_candidates.len(),
+                    stitching_total
+                ));
+                for candidate in stitching_candidates {
+                    if STOP_REQUESTED.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    touched_design_ids.insert(candidate.id);
+                    processed += 1;
 
-                if let Err(error) =
-                    apply_stitching_tags(pool, candidate.id, &detected_tag_ids).await
-                {
-                    errors += 1;
-                    log_error(format!(
-                        "Stitching update failed design_id={} error={}",
-                        candidate.id, error
-                    ));
-                } else if !detected_descriptions.is_empty() {
-                    log_info(format!(
-                        "Stitching detected design_id={} tags={:?}",
-                        candidate.id, detected_descriptions
-                    ));
+                    let resolved_design_path = resolve_stored_design_path(&candidate.filepath);
+                    let detected_descriptions = stitch_identifier::suggest_stitching_from_pattern_file(
+                        &resolved_design_path.to_string_lossy(),
+                        &candidate.filename,
+                        &candidate.filepath,
+                        &valid_stitching_descriptions,
+                        Some(0.70),
+                    );
+
+                    let mut detected_tag_ids = Vec::new();
+                    for description in &detected_descriptions {
+                        if let Some(tag_id) = stitching_tag_lookup.get(description) {
+                            detected_tag_ids.push(*tag_id);
+                        }
+                    }
+
+                    if detected_tag_ids.is_empty() {
+                        if let Some(tag_id) = default_stitching_tag_id {
+                            detected_tag_ids.push(tag_id);
+                        }
+                    }
+
+                    if let Err(error) =
+                        apply_stitching_tags(pool, candidate.id, &detected_tag_ids).await
+                    {
+                        errors += 1;
+                        log_error(format!(
+                            "Stitching update failed design_id={} error={}",
+                            candidate.id, error
+                        ));
+                    } else if !detected_descriptions.is_empty() {
+                        log_info(format!(
+                            "Stitching detected design_id={} tags={:?}",
+                            candidate.id, detected_descriptions
+                        ));
+                    }
+
+                    if processed % commit_every == 0 {
+                        emit_progress(progress, "batch_committed", "stitching", processed, errors);
+                    }
                 }
             }
 
@@ -364,26 +499,46 @@ pub async fn run_unified_backfill(
     if let Some(images_action) = actions.images {
         if images_action.enabled.unwrap_or(true) {
             actions_run.push("images".to_string());
-            let image_candidates =
-                select_image_candidates(pool, images_action.redo.unwrap_or(false), batch_size)
-                    .await?;
-            for design_id in image_candidates {
+            let mut image_cursor: i64 = 0;
+            loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                touched_design_ids.insert(design_id);
-                processed += 1;
-
-                if images_action.redo.unwrap_or(false) {
-                    let _ = clear_image_fields(pool, design_id).await;
+                let image_candidates = select_image_candidates(
+                    pool,
+                    images_action.redo.unwrap_or(false),
+                    batch_size,
+                    image_cursor,
+                )
+                .await?;
+                if image_candidates.is_empty() {
+                    break;
                 }
+                if let Some(last) = image_candidates.last() {
+                    image_cursor = *last;
+                }
+                for design_id in image_candidates {
+                    if STOP_REQUESTED.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    touched_design_ids.insert(design_id);
+                    processed += 1;
 
-                if let Err(error) = generate_and_store_preview(pool, design_id).await {
-                    errors += 1;
-                    log_error(format!(
-                        "Image action failed design_id={} error={}",
-                        design_id, error
-                    ));
+                    if images_action.redo.unwrap_or(false) {
+                        let _ = clear_image_fields(pool, design_id).await;
+                    }
+
+                    if let Err(error) = generate_and_store_preview(pool, design_id).await {
+                        errors += 1;
+                        log_error(format!(
+                            "Image action failed design_id={} error={}",
+                            design_id, error
+                        ));
+                    }
+
+                    if processed % commit_every == 0 {
+                        emit_progress(progress, "batch_committed", "images", processed, errors);
+                    }
                 }
             }
         }
@@ -392,19 +547,36 @@ pub async fn run_unified_backfill(
     if let Some(color_counts_action) = actions.color_counts {
         if color_counts_action.enabled.unwrap_or(true) {
             actions_run.push("color_counts".to_string());
-            let color_candidates = select_color_count_candidates(pool, batch_size).await?;
-            for design_id in color_candidates {
+            let mut color_cursor: i64 = 0;
+            loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                touched_design_ids.insert(design_id);
-                processed += 1;
-                if let Err(error) = update_color_counts_only(pool, design_id).await {
-                    errors += 1;
-                    log_error(format!(
-                        "Colour-count action failed design_id={} error={}",
-                        design_id, error
-                    ));
+                let color_candidates =
+                    select_color_count_candidates(pool, batch_size, color_cursor).await?;
+                if color_candidates.is_empty() {
+                    break;
+                }
+                if let Some(last) = color_candidates.last() {
+                    color_cursor = *last;
+                }
+                for design_id in color_candidates {
+                    if STOP_REQUESTED.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    touched_design_ids.insert(design_id);
+                    processed += 1;
+                    if let Err(error) = update_color_counts_only(pool, design_id).await {
+                        errors += 1;
+                        log_error(format!(
+                            "Colour-count action failed design_id={} error={}",
+                            design_id, error
+                        ));
+                    }
+
+                    if processed % commit_every == 0 {
+                        emit_progress(progress, "batch_committed", "color_counts", processed, errors);
+                    }
                 }
             }
         }
@@ -413,19 +585,36 @@ pub async fn run_unified_backfill(
     if let Some(hoop_dimensions_action) = actions.hoop_dimensions {
         if hoop_dimensions_action.enabled.unwrap_or(true) {
             actions_run.push("hoop_dimensions".to_string());
-            let hoop_candidates = select_hoop_dimension_candidates(pool, batch_size).await?;
-            for design_id in hoop_candidates {
+            let mut hoop_cursor: i64 = 0;
+            loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                touched_design_ids.insert(design_id);
-                processed += 1;
-                if let Err(error) = update_hoop_dimensions_only(pool, design_id).await {
-                    errors += 1;
-                    log_error(format!(
-                        "Hoop/dimension action failed design_id={} error={}",
-                        design_id, error
-                    ));
+                let hoop_candidates =
+                    select_hoop_dimension_candidates(pool, batch_size, hoop_cursor).await?;
+                if hoop_candidates.is_empty() {
+                    break;
+                }
+                if let Some(last) = hoop_candidates.last() {
+                    hoop_cursor = *last;
+                }
+                for design_id in hoop_candidates {
+                    if STOP_REQUESTED.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    touched_design_ids.insert(design_id);
+                    processed += 1;
+                    if let Err(error) = update_hoop_dimensions_only(pool, design_id).await {
+                        errors += 1;
+                        log_error(format!(
+                            "Hoop/dimension action failed design_id={} error={}",
+                            design_id, error
+                        ));
+                    }
+
+                    if processed % commit_every == 0 {
+                        emit_progress(progress, "batch_committed", "hoop_dimensions", processed, errors);
+                    }
                 }
             }
         }
@@ -455,6 +644,14 @@ pub async fn run_unified_backfill(
         "Run complete processed={} errors={} stopped={} actions={:?}",
         processed, errors, stopped, actions_run
     ));
+
+    emit_progress(
+        progress,
+        if stopped { "stopped" } else { "completed" },
+        "backfill",
+        processed,
+        errors,
+    );
 
     let stitching_tag_count_after = count_stitching_tags(pool).await?;
 
@@ -542,11 +739,16 @@ async fn select_tagging_design_ids(
     pool: &SqlitePool,
     mode: &str,
     limit: i64,
+    min_id: i64,
 ) -> Result<Vec<i64>, AppError> {
+    // `min_id` is a keyset cursor so the caller can page through ALL matching
+    // designs in ascending-id batches (see the pagination loop in
+    // `run_unified_backfill`). Without it, an "ALL" mode such as `retag_all`
+    // re-selects the same first `limit` rows on every run.
     let sql = match mode {
-        TAG_ACTION_RETAG_ALL => "SELECT id FROM designs ORDER BY id ASC LIMIT ?",
+        TAG_ACTION_RETAG_ALL => "SELECT id FROM designs WHERE id > ? ORDER BY id ASC LIMIT ?",
         TAG_ACTION_RETAG_ALL_UNVERIFIED => {
-            "SELECT id FROM designs WHERE COALESCE(image_tags_verified, 0) = 0 ORDER BY id ASC LIMIT ?"
+            "SELECT id FROM designs WHERE COALESCE(image_tags_verified, 0) = 0 AND id > ? ORDER BY id ASC LIMIT ?"
         }
         _ => {
             "SELECT d.id
@@ -557,12 +759,14 @@ async fn select_tagging_design_ids(
 			   JOIN tags t ON t.id = dt.tag_id
 			   WHERE dt.design_id = d.id AND lower(COALESCE(t.tag_group, '')) = 'image'
 			 )
+			 AND d.id > ?
 			 ORDER BY d.id ASC
 			 LIMIT ?"
         }
     };
 
     let rows = sqlx::query(sql)
+        .bind(min_id)
         .bind(limit)
         .fetch_all(pool)
         .await
@@ -579,6 +783,26 @@ async fn select_tagging_design_ids(
     Ok(ids)
 }
 
+/// Spawn a single concurrent tagging task for `design_id`. The shared read-only
+/// data (tag lookup, valid descriptions) and the connection pool are passed via
+/// cheap `Arc` clones so each worker can run independently. Returns the design id
+/// together with the tier-application result so the caller can update counters.
+fn spawn_tagging_task(
+    set: &mut JoinSet<(i64, Result<(), AppError>)>,
+    design_id: i64,
+    pool: Arc<SqlitePool>,
+    image_tag_map: Arc<HashMap<String, i64>>,
+    valid_descriptions: Arc<HashSet<String>>,
+    tier_options: TaggingTierOptions,
+) {
+    set.spawn(async move {
+        let result =
+            apply_tagging_tiers(&pool, design_id, &image_tag_map, &valid_descriptions, &tier_options)
+                .await;
+        (design_id, result)
+    });
+}
+
 async fn apply_tagging_tiers(
     pool: &SqlitePool,
     design_id: i64,
@@ -586,7 +810,14 @@ async fn apply_tagging_tiers(
     valid_descriptions: &HashSet<String>,
     tier_options: &TaggingTierOptions,
 ) -> Result<(), AppError> {
-    let row = sqlx::query("SELECT filename, filepath, image_data FROM designs WHERE id = ?")
+    // Only fetch the preview image when Tier 3 (vision) is enabled, so large
+    // BLOBs aren't read for every design in a Tier 1/Tier 2 run.
+    let select_sql = if tier_options.tier3_enabled {
+        "SELECT filename, filepath, image_data FROM designs WHERE id = ?"
+    } else {
+        "SELECT filename, filepath FROM designs WHERE id = ?"
+    };
+    let row = sqlx::query(select_sql)
         .bind(design_id)
         .fetch_optional(pool)
         .await
@@ -602,9 +833,12 @@ async fn apply_tagging_tiers(
     let filepath: String = row
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
-    let image_data: Option<Vec<u8>> = row
-        .try_get("image_data")
-        .map_err(|e| AppError::database(format!("failed to read image data: {e}")))?;
+    let image_data: Option<Vec<u8>> = if tier_options.tier3_enabled {
+        row.try_get("image_data")
+            .map_err(|e| AppError::database(format!("failed to read image data: {e}")))?
+    } else {
+        None
+    };
 
     if tier_options.tier1_enabled {
         let tier1 = tagging::suggest_tier1_descriptions(&filename, &filepath, valid_descriptions);
@@ -614,7 +848,9 @@ async fn apply_tagging_tiers(
     }
 
     if tier_options.tier2_enabled {
-        if tier_options.tier2_delay_seconds > 0.0 {
+        // The delay only paces a real outbound Gemini call. Local-only Tier 2
+        // (the current behaviour) does not sleep, so large runs aren't throttled.
+        if tier_options.tier2_network && tier_options.tier2_delay_seconds > 0.0 {
             sleep(Duration::from_secs_f64(tier_options.tier2_delay_seconds)).await;
         }
         let tier2 = suggest_tier2_descriptions(&filename, &filepath, valid_descriptions);
@@ -624,7 +860,7 @@ async fn apply_tagging_tiers(
     }
 
     if tier_options.tier3_enabled && image_data.is_some() {
-        if tier_options.tier3_delay_seconds > 0.0 {
+        if tier_options.tier3_network && tier_options.tier3_delay_seconds > 0.0 {
             sleep(Duration::from_secs_f64(tier_options.tier3_delay_seconds)).await;
         }
         let tier3 = suggest_tier3_descriptions(&filename, &filepath, valid_descriptions);
@@ -791,6 +1027,7 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
 async fn select_stitching_candidates(
     pool: &SqlitePool,
     limit: i64,
+    min_id: i64,
 ) -> Result<Vec<StitchingCandidate>, AppError> {
     let rows = sqlx::query(
         "SELECT d.id, d.filename, d.filepath
@@ -801,9 +1038,11 @@ async fn select_stitching_candidates(
 		   JOIN tags t ON t.id = dt.tag_id
 		   WHERE dt.design_id = d.id AND lower(COALESCE(t.tag_group, '')) = 'stitching'
 		 )
+		 AND d.id > ?
 		 ORDER BY d.id ASC
 		 LIMIT ?",
     )
+    .bind(min_id)
     .bind(limit)
     .fetch_all(pool)
     .await
@@ -902,14 +1141,16 @@ async fn select_image_candidates(
     pool: &SqlitePool,
     redo: bool,
     limit: i64,
+    min_id: i64,
 ) -> Result<Vec<i64>, AppError> {
     let sql = if redo {
-        "SELECT id FROM designs ORDER BY id ASC LIMIT ?"
+        "SELECT id FROM designs WHERE id > ? ORDER BY id ASC LIMIT ?"
     } else {
-        "SELECT id FROM designs WHERE image_data IS NULL ORDER BY id ASC LIMIT ?"
+        "SELECT id FROM designs WHERE image_data IS NULL AND id > ? ORDER BY id ASC LIMIT ?"
     };
 
     let rows = sqlx::query(sql)
+        .bind(min_id)
         .bind(limit)
         .fetch_all(pool)
         .await
@@ -1028,14 +1269,17 @@ fn resolve_stored_design_path(stored_filepath: &str) -> PathBuf {
 async fn select_color_count_candidates(
     pool: &SqlitePool,
     limit: i64,
+    min_id: i64,
 ) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query(
         "SELECT id
 		 FROM designs
-		 WHERE stitch_count IS NULL OR color_count IS NULL OR color_change_count IS NULL
+		 WHERE (stitch_count IS NULL OR color_count IS NULL OR color_change_count IS NULL)
+		 AND id > ?
 		 ORDER BY id ASC
 		 LIMIT ?",
     )
+    .bind(min_id)
     .bind(limit)
     .fetch_all(pool)
     .await
@@ -1104,14 +1348,16 @@ async fn get_i64_setting(pool: &SqlitePool, key: &str) -> Result<Option<i64>, Ap
 async fn select_hoop_dimension_candidates(
     pool: &SqlitePool,
     limit: i64,
+    min_id: i64,
 ) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query(
         "SELECT id
 \t\t FROM designs
-\t\t WHERE width_mm IS NULL OR height_mm IS NULL OR hoop_id IS NULL
+\t\t WHERE (width_mm IS NULL OR height_mm IS NULL OR hoop_id IS NULL) AND id > ?
 \t\t ORDER BY id ASC
 \t\t LIMIT ?",
     )
+    .bind(min_id)
     .bind(limit)
     .fetch_all(pool)
     .await

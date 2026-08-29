@@ -20,6 +20,12 @@ vi.mock("../../api/commandAdapter", () => adapterMocks);
 const toastMock = vi.hoisted(() => ({ addToast: vi.fn() }));
 vi.mock("../../stores/toastStore.js", () => toastMock);
 
+// The view installs a backfill-progress listener on mount. Provide a benign
+// mock so it resolves cleanly and never touches real Tauri internals in jsdom.
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: () => Promise.resolve(() => {}),
+}));
+
 /** Helper that constructs the tagging actions view model returned by the adapter. */
 const viewModel = (overrides = {}) => ({
   source: "rust",

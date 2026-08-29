@@ -81,6 +81,8 @@ spread the API calls across multiple runs.  Leave the field blank to use the def
 
 You can also set an **AI delay** in Settings.  This is the pause between Gemini requests
 (default 5 seconds) and helps avoid rate-limit errors.  Leave it blank to use the default.
+The delay only paces an actual outbound Gemini call — the current build's Tier 2/3 are
+local-only, so this setting currently has no effect on tagging runs.
 
 You can also set an **Import database commit batch size** in Settings.  This controls how
 many designs are written or tag-updated before each database commit during import.
@@ -125,11 +127,15 @@ For a full walkthrough of combined backfill runs (tagging, stitch types, images,
 - **Tiers** — choose which tagging tiers to run.  Tier 1 is always included.  Tiers 2 and 3
   are only available when an API key is configured — if no key is present, any selection of
   tiers 2 or 3 is ignored and only Tier 1 runs.
-- **Batch size** — limit to this many designs per run (defaults to the value in Settings).
-  Useful for spreading large libraries across multiple sessions.
-- **Tier 2 delay** — pause between Tier 2 (text) requests (default 5 seconds).
-- **Tier 3 delay** — pause between Tier 3 (vision) requests (default 2 seconds).
+- **Batch size** — the number of designs fetched and processed together per chunk
+  (defaults to the value in Settings). A run pages through ALL matching designs, so
+  batch size does not cap how many designs are touched.
+- **Tier 2 delay** — pause between Tier 2 (text) requests. Only applies to a real
+  outbound Gemini call; local-only Tier 2 (the current behaviour) does not sleep.
+- **Tier 3 delay** — pause between Tier 3 (vision) requests. Same as Tier 2 — only
+  applies to a real outbound Gemini call.
 - **Workers** — number of concurrent processing workers (default 4; range 1–32).
+  Designs within a batch are tagged concurrently using this many workers.
 
 ### Warnings and tips
 

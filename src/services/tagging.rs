@@ -24,9 +24,10 @@ use std::collections::HashSet;
 // "kitten" from "Cats", "floral" from "Flowers").  Everything else is handled
 // generically by singular ↔ plural token overlap.
 
-const SYNONYM_MAP: [(&str, &str); 5] = [
+const SYNONYM_MAP: [(&str, &str); 6] = [
     ("kitten", "Cats"),
     ("puppy", "Dogs"),
+    ("font", "Alphabets"),
     ("xmas", "Christmas"),
     ("floral", "Flowers"),
     ("baby", "Children & Toys"),
@@ -272,6 +273,17 @@ mod tests {
         assert!(
             matched.contains(&"Alphabets & Monograms".to_string()),
             "folder 'Monogram' should match 'Alphabets & Monograms' via inflection (no synonym needed): {:?}",
+            matched
+        );
+    }
+
+    #[test]
+    fn suggest_tier1_synonym_maps_font_to_alphabets() {
+        let valid = HashSet::from(["Alphabets & Monograms".to_string()]);
+        let matched = suggest_tier1_descriptions("", "C:/imports/Font/design.pes", &valid);
+        assert!(
+            matched.contains(&"Alphabets & Monograms".to_string()),
+            "folder 'Font' should match 'Alphabets & Monograms' via the 'font' synonym: {:?}",
             matched
         );
     }

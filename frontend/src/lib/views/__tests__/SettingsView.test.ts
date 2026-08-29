@@ -282,6 +282,44 @@ describe("SettingsView.svelte", () => {
     expect(addToastMock).toHaveBeenCalledWith("All good.", "success");
   });
 
+  it("sends numeric settings as strings even after the user types a number", async () => {
+    // Svelte coerces bind:value on number inputs to a number, so after typing
+    // `0` into the delay field the state becomes the number 0. This regression
+    // test reproduces the original IPC bug (invalid type: integer 0, expected a
+    // string) and asserts the request still carries strings to Rust.
+    saveSettingsMock.mockResolvedValue({
+      source: "rust",
+      saved: true,
+      message: "All good.",
+      persisted: true,
+    });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const delayInput = screen.getByLabelText(/Delay between Gemini calls/);
+    await fireEvent.input(delayInput, { target: { value: "0" } });
+    await tick();
+
+    const form = document.querySelector("form");
+    if (!form) throw new Error("Settings form not found");
+    await fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith({
+        google_api_key: "AIza-SY-Key",
+        ai_tier2_auto: true,
+        ai_tier3_auto: false,
+        ai_batch_size: "100",
+        ai_delay: "0",
+        import_commit_batch_size: "10",
+        data_root: "D:\\EmbroideryData",
+        db_idle_check_interval_secs: "1800",
+      });
+    });
+  });
+
   it("shows an error toast when save reports failure", async () => {
     saveSettingsMock.mockResolvedValue({
       source: "mock",

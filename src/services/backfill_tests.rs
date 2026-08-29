@@ -95,6 +95,164 @@ async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
 
 #[tokio::test]
 #[serial]
+async fn run_unified_backfill_retag_all_processes_all_designs_beyond_batch_size() {
+    clear_stop_signal();
+    let pool = make_test_pool().await;
+    // seed_basic provides the 'Cats' image tag plus designs 1..=3. Add more so
+    // the total exceeds the batch size, proving pagination reaches EVERY design
+    // (previously a single `LIMIT batch_size` run only ever touched the first batch).
+    seed_basic(&pool).await;
+    for id in 4..=250_i64 {
+        sqlx::query(
+            "INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, 0, 0)",
+        )
+        .bind(id)
+        .bind(format!("design_{id}.pes"))
+        .bind(format!("tests/Test Designs/design_{id}.pes"))
+        .execute(&pool)
+        .await
+        .expect("seed extra design");
+    }
+
+    let summary = run_unified_backfill(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: Some(TaggingActionOptions {
+                    action: Some("retag_all".to_string()),
+                    tiers: Some(vec![1]),
+                    enabled: Some(true),
+                }),
+                stitching: None,
+                images: None,
+                color_counts: None,
+                hoop_dimensions: None,
+                fingerprinting: None,
+            }),
+            batch_size: Some(100),
+            commit_every: Some(100),
+            workers: Some(1),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+    )
+    .await
+    .expect("run succeeds");
+
+    // All 250 designs must be processed, not just the first batch of 100.
+    assert_eq!(summary.processed, 250, "retag_all must reach every design");
+    assert_eq!(summary.errors, 0);
+    clear_stop_signal();
+}
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_streams_progress_events() {
+    clear_stop_signal();
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await; // designs 1..=3
+
+    let mut events: Vec<BackfillProgress> = Vec::new();
+    let summary = run_unified_backfill_with_progress(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: Some(TaggingActionOptions {
+                    action: Some("retag_all".to_string()),
+                    tiers: Some(vec![1]),
+                    enabled: Some(true),
+                }),
+                stitching: None,
+                images: None,
+                color_counts: None,
+                hoop_dimensions: None,
+                fingerprinting: None,
+            }),
+            batch_size: Some(100),
+            commit_every: Some(2),
+            workers: Some(1),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+        &mut |p| events.push(p.clone()),
+    )
+    .await
+    .expect("run succeeds");
+
+    // Expect started + at least one batch_committed (at processed == commit_every)
+    // + a final completed event carrying the true processed count.
+    assert!(
+        events.len() >= 3,
+        "expected started + commit + completed events, got {events:?}"
+    );
+    assert_eq!(events.first().unwrap().stage, "started");
+    assert!(
+        events.iter().any(|e| e.stage == "batch_committed"),
+        "expected a batch_committed event, got {events:?}"
+    );
+    let last = events.last().unwrap();
+    assert_eq!(last.stage, "completed");
+    assert_eq!(last.processed, summary.processed);
+    clear_stop_signal();
+}
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_retag_all_respects_workers_concurrency() {
+    clear_stop_signal();
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await; // designs 1..=3
+    for id in 4..=40_i64 {
+        sqlx::query(
+            "INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, 0, 0)",
+        )
+        .bind(id)
+        .bind(format!("design_{id}.pes"))
+        .bind(format!("tests/Test Designs/design_{id}.pes"))
+        .execute(&pool)
+        .await
+        .expect("seed extra design");
+    }
+
+    let summary = run_unified_backfill(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: Some(TaggingActionOptions {
+                    action: Some("retag_all".to_string()),
+                    tiers: Some(vec![1]),
+                    enabled: Some(true),
+                }),
+                stitching: None,
+                images: None,
+                color_counts: None,
+                hoop_dimensions: None,
+                fingerprinting: None,
+            }),
+            batch_size: Some(10),
+            commit_every: Some(10),
+            workers: Some(4),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+    )
+    .await
+    .expect("run succeeds");
+
+    // 40 designs across 4 batches of 10, each processed with up to 4 workers.
+    assert_eq!(
+        summary.processed, 40,
+        "concurrent run must reach every design"
+    );
+    assert_eq!(summary.errors, 0);
+    clear_stop_signal();
+}
+
+#[tokio::test]
+#[serial]
 async fn stop_state_transitions_are_stable() {
     clear_stop_signal();
     let first = request_stop();
@@ -471,7 +629,7 @@ async fn select_tagging_untagged_excludes_designs_with_image_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 has an image tag
 
-    let ids = select_tagging_design_ids(&pool, "tag_untagged", 100)
+    let ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0)
         .await
         .unwrap();
     assert!(ids.contains(&1));
@@ -484,7 +642,7 @@ async fn select_tagging_retag_all_includes_all() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    let ids = select_tagging_design_ids(&pool, "retag_all", 100)
+    let ids = select_tagging_design_ids(&pool, "retag_all", 100, 0)
         .await
         .unwrap();
     assert_eq!(ids.len(), 3);
@@ -495,7 +653,7 @@ async fn select_tagging_retag_all_unverified_includes_only_unverified() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 has tags_checked=1, 1 and 3 have 0
 
-    let ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100)
+    let ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0)
         .await
         .unwrap();
     assert!(ids.contains(&1));
@@ -508,7 +666,7 @@ async fn select_tagging_respects_limit() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    let ids = select_tagging_design_ids(&pool, "tag_untagged", 1)
+    let ids = select_tagging_design_ids(&pool, "tag_untagged", 1, 0)
         .await
         .unwrap();
     assert!(ids.len() <= 1);
@@ -702,7 +860,7 @@ async fn select_stitching_candidates_excludes_designs_with_stitching_tags() {
         .await
         .unwrap();
 
-    let candidates = select_stitching_candidates(&pool, 100).await.unwrap();
+    let candidates = select_stitching_candidates(&pool, 100, 0).await.unwrap();
     let ids: Vec<i64> = candidates.iter().map(|c| c.id).collect();
     assert!(ids.contains(&1));
     assert!(ids.contains(&2));
@@ -857,7 +1015,7 @@ async fn select_image_candidates_normal_picks_designs_with_null_image() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let ids = select_image_candidates(&pool, false, 100).await.unwrap();
+    let ids = select_image_candidates(&pool, false, 100, 0).await.unwrap();
     assert_eq!(ids, vec![2]);
 }
 
@@ -867,7 +1025,7 @@ async fn select_image_candidates_redo_includes_all() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let ids = select_image_candidates(&pool, true, 100).await.unwrap();
+    let ids = select_image_candidates(&pool, true, 100, 0).await.unwrap();
     assert_eq!(ids.len(), 2);
 }
 
@@ -916,7 +1074,7 @@ async fn select_color_count_candidates_picks_designs_with_null_counts() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1,2,3 with null stitch/color/color_change
 
-    let ids = select_color_count_candidates(&pool, 100).await.unwrap();
+    let ids = select_color_count_candidates(&pool, 100, 0).await.unwrap();
     assert_eq!(ids.len(), 3);
 }
 
@@ -929,7 +1087,7 @@ async fn select_color_count_candidates_excludes_designs_with_all_counts() {
             .await
             .unwrap();
 
-    let ids = select_color_count_candidates(&pool, 100).await.unwrap();
+    let ids = select_color_count_candidates(&pool, 100, 0).await.unwrap();
     assert!(!ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
@@ -944,7 +1102,7 @@ async fn select_hoop_dimension_candidates_picks_designs_missing_dimensions_or_ho
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1,2,3 with null width/height/hoop
 
-    let ids = select_hoop_dimension_candidates(&pool, 100).await.unwrap();
+    let ids = select_hoop_dimension_candidates(&pool, 100, 0).await.unwrap();
     assert_eq!(ids.len(), 3);
 }
 
@@ -957,7 +1115,7 @@ async fn select_hoop_dimension_candidates_excludes_designs_with_dimensions_and_h
         .await
         .unwrap();
 
-    let ids = select_hoop_dimension_candidates(&pool, 100).await.unwrap();
+    let ids = select_hoop_dimension_candidates(&pool, 100, 0).await.unwrap();
     assert!(!ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
@@ -1037,6 +1195,8 @@ async fn apply_tagging_tiers_tier1_match_populates_tags() {
         tier3_enabled: false,
         tier2_delay_seconds: 0.0,
         tier3_delay_seconds: 0.0,
+        tier2_network: false,
+        tier3_network: false,
     };
     apply_tagging_tiers(&pool, 1, &map, &valid, &tier_options)
         .await
@@ -1081,6 +1241,8 @@ async fn apply_tagging_tiers_tier1_falls_to_tier2() {
         tier3_enabled: false,
         tier2_delay_seconds: 0.0,
         tier3_delay_seconds: 0.0,
+        tier2_network: false,
+        tier3_network: false,
     };
     apply_tagging_tiers(&pool, 10, &map, &valid, &tier_options)
         .await
@@ -1110,6 +1272,8 @@ async fn apply_tagging_tiers_nonexistent_design_returns_ok() {
         tier3_enabled: false,
         tier2_delay_seconds: 0.0,
         tier3_delay_seconds: 0.0,
+        tier2_network: false,
+        tier3_network: false,
     };
     let result = apply_tagging_tiers(&pool, 999, &map, &valid, &tier_options).await;
     assert!(result.is_ok());
