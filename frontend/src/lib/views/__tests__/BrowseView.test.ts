@@ -627,8 +627,7 @@ describe("BrowseView", () => {
 
       const q = await screen.findByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus');
       await fireEvent.input(q, { target: { value: "Floral OR Green" } });
-      // OR triggers a full reload via updateBrowseFilter? It doesn't auto-apply.
-      // Simulate submit to apply the filter locally.
+      // Submit applies the query immediately (and cancels the pending debounce).
       await fireEvent.submit(q.closest("form") as HTMLFormElement);
 
       await waitFor(() => {
@@ -2512,11 +2511,11 @@ describe("BrowseView", () => {
   });
 
   // -------------------------------------------------------------------------
-  // updateBrowseFilter: empty-q immediate reload
+  // updateBrowseFilter: q input (debounced as-you-type + immediate clear)
   // -------------------------------------------------------------------------
 
-  describe("updateBrowseFilter q-empty reload", () => {
-    it("auto-reloads when the q filter is cleared", async () => {
+  describe("updateBrowseFilter q input", () => {
+    it("reloads as the user types (debounced) and immediately when cleared", async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([design({ id: 1, filename: "rose.pes" })])
       );
@@ -2529,15 +2528,20 @@ describe("BrowseView", () => {
 
       const q = screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus');
 
-      // Typing a query does NOT auto-apply (only submit does).
+      // Typing schedules a debounced reload; nothing fires synchronously yet.
       await fireEvent.input(q, { target: { value: "rose" } });
       await tick();
       expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(1);
 
-      // Clearing q triggers the `(key === "q" && !value)` branch → auto-reload.
-      await fireEvent.input(q, { target: { value: "" } });
+      // The debounce fires shortly afterwards → as-you-type results.
       await waitFor(() => {
         expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(2);
+      });
+
+      // Clearing q triggers the immediate-reset branch → reload right away.
+      await fireEvent.input(q, { target: { value: "" } });
+      await waitFor(() => {
+        expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(3);
       });
     });
   });

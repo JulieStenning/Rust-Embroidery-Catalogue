@@ -54,6 +54,9 @@
   let browseItems = $state([]);
   let browseLoading = $state(false);
   let browseHasLoaded = $state(false);
+  /** Debounce handle for the live general-search `q` input. */
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let browseQTimer = null;
   // Global UI lock: reflects busyState.active so secondary controls can be
   // disabled while a long-running task runs.
   let busyActive = $derived($busyState.active);
@@ -135,6 +138,8 @@
   const BROWSE_BREAKPOINT_MD = 768;
   const BROWSE_BREAKPOINT_LG = 1024;
   const BROWSE_ROW_SELECTOR_WIDTH = 28;
+  /** Debounce delay (ms) before a live `q` keystroke re-queries the backend. */
+  const BROWSE_Q_DEBOUNCE_MS = 250;
 
   /** @returns {BrowseFilterState} */
   const defaultBrowseFilters = () => ({
@@ -349,9 +354,22 @@
     };
     browseCurrentPage = 1;
     // The backend is authoritative for filtering and sorting, so every filter
-    // change must re-query it. The live `q` input is deferred to form submit
-    // (except when it is cleared, which resets immediately).
-    if (key === "q" && value) {
+    // change must re-query it. The live `q` input is debounced so results
+    // appear as the user types without a DB round-trip per keystroke; clearing
+    // the query resets immediately.
+    if (key === "q") {
+      if (browseQTimer) {
+        clearTimeout(browseQTimer);
+        browseQTimer = null;
+      }
+      if (value) {
+        browseQTimer = setTimeout(() => {
+          browseQTimer = null;
+          loadBrowseItems(true);
+        }, BROWSE_Q_DEBOUNCE_MS);
+        return;
+      }
+      loadBrowseItems(true);
       return;
     }
     loadBrowseItems(true);
@@ -366,6 +384,10 @@
   }
 
   function applyBrowseFilters() {
+    if (browseQTimer) {
+      clearTimeout(browseQTimer);
+      browseQTimer = null;
+    }
     browseCurrentPage = 1;
     loadBrowseItems(true);
   }
@@ -1307,6 +1329,10 @@
   onDestroy(() => {
     if (typeof window !== "undefined") {
       window.removeEventListener("scroll", captureBrowseScroll);
+    }
+    if (browseQTimer) {
+      clearTimeout(browseQTimer);
+      browseQTimer = null;
     }
   });
 </script>

@@ -744,6 +744,30 @@ describe("browse filtering and search", () => {
     expect(screen.queryByText("rose.pes")).not.toBeInTheDocument();
   });
 
+  it("filters the grid as the user types (debounced) without pressing enter", async () => {
+    mockBackendDesigns([
+      wireCard({ id: 1, filename: "rose.pes", hoop: "Hoop A" }),
+      wireCard({ id: 2, filename: "tulip.pes", hoop: "Hoop B" }),
+    ]);
+
+    const { container } = renderAtHash("#/designs");
+
+    await waitFor(() => {
+      expect(screen.getByText("rose.pes")).toBeInTheDocument();
+    });
+
+    const searchInput = container.querySelector<HTMLInputElement>("#browse-q");
+    await fireEvent.input(element(searchInput), { target: { value: "tulip" } });
+
+    // No submit: the debounced re-query replaces the grid with matching designs.
+    // (tulip.pes is already in the initial unfiltered grid, so wait for the
+    // non-match rose.pes to disappear to prove the re-query actually ran.)
+    await waitFor(() => {
+      expect(screen.queryByText("rose.pes")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("tulip.pes")).toBeInTheDocument();
+  });
+
   it("applies the unverified-only filter when the checkbox is toggled", async () => {
     mockBackendDesigns([
       wireCard({
