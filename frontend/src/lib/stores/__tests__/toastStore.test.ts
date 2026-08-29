@@ -92,6 +92,51 @@ describe("toastStore", () => {
       expect(currentToasts()).toHaveLength(1);
     });
 
+    it("defaults 'error' toasts to persistent so the message stays readable", () => {
+      const spy = vi.spyOn(globalThis, "setTimeout");
+
+      addToast("Something failed", "error");
+
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+
+      const [toast] = currentToasts();
+      expect(toast.type).toBe("error");
+      expect(toast.persistent).toBe(true);
+
+      // The toast remains after all timers have passed.
+      vi.advanceTimersByTime(100_000);
+      expect(currentToasts()).toHaveLength(1);
+    });
+
+    it("defaults 'warning' toasts to persistent so the message stays readable", () => {
+      const spy = vi.spyOn(globalThis, "setTimeout");
+
+      addToast("Heads up", "warning");
+
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+
+      const [toast] = currentToasts();
+      expect(toast.type).toBe("warning");
+      expect(toast.persistent).toBe(true);
+
+      vi.advanceTimersByTime(100_000);
+      expect(currentToasts()).toHaveLength(1);
+    });
+
+    it("honours an explicit persistent=false on an error toast (still auto-dismisses)", () => {
+      addToast("Transient error", "error", false, 100);
+
+      expect(currentToasts()).toHaveLength(1);
+
+      vi.advanceTimersByTime(99);
+      expect(currentToasts()).toHaveLength(1);
+
+      vi.advanceTimersByTime(1);
+      expect(currentToasts()).toHaveLength(0);
+    });
+
     it("uses a custom durationMs when provided", () => {
       const spy = vi.spyOn(globalThis, "setTimeout");
 

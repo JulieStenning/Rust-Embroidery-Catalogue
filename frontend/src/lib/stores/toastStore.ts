@@ -41,22 +41,31 @@ export const toasts = writable<Toast[]>([]);
  *
  * @param message   - The text to display.
  * @param type      - One of "success", "error", "info", or "warning".
- * @param persistent - When true the toast will not auto-dismiss (default false).
+ * @param persistent - When set, forces the toast to persist (no auto-dismiss).
+ *                     When omitted, "error" and "warning" toasts persist by
+ *                     default so their messages stay readable; other types
+ *                     auto-dismiss.
  * @param durationMs - Optional override for auto-dismiss duration in ms (default 2800).
  */
 export function addToast(
   message: string,
   type: Toast["type"] = "info",
-  persistent = false,
+  persistent: boolean | null = null,
   durationMs: number | null = null
 ): void {
+  // When the caller does not specify persistence, error and warning messages
+  // stay on screen until manually dismissed (they carry important information).
+  // An explicit `persistent` value always wins.
+  const effectivePersistent =
+    persistent ?? (type === "error" || type === "warning");
+
   const id = nextId++;
-  const toast: Toast = { id, message, type, createdAt: Date.now(), persistent };
+  const toast: Toast = { id, message, type, createdAt: Date.now(), persistent: effectivePersistent };
 
   toasts.update((list) => [...list, toast]);
 
   // Schedule auto-dismiss (skip if persistent)
-  if (!persistent) {
+  if (!effectivePersistent) {
     const ms = durationMs ?? AUTO_DISMISS_MS;
     setTimeout(() => {
       removeToast(id);
