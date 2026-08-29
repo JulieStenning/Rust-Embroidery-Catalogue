@@ -1724,6 +1724,9 @@ async fn get_design_image_data_with_pool(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeneralSearchToken {
     pub text: String,
+    /// SQLite LIKE fragment with glob semantics applied (see `like_pattern`).
+    /// Lowercased so it can be bound directly against `LOWER(...)` columns.
+    pub pattern: String,
     pub phrase: bool,
     pub exclude: bool,
     pub is_extension: bool,
@@ -1808,10 +1811,50 @@ fn parse_general_token(raw: &str) -> GeneralSearchToken {
 
     GeneralSearchToken {
         text: final_text,
+        pattern: like_pattern(normalized),
         phrase,
         exclude,
         is_extension,
     }
+}
+
+/// Build a SQLite LIKE fragment from a user term using glob semantics.
+///
+/// - A bare term (no `*`) matches as a substring: `Sig4` → `%sig4%`.
+/// - A `*` acts as `%` (zero-or-more characters) and un-anchors the edge it
+///   touches:
+///   - `Sig4*` → `sig4%` (starts with "Sig4")
+///   - `*Sig4` → `%sig4` (ends with "Sig4")
+///   - `*Sig4*` → `%sig4%` (contains "Sig4")
+///   - `*.hus` → `%.hus` (ends with the ".hus" extension)
+fn like_pattern(term: &str) -> String {
+    let lower = term.to_lowercase();
+    if lower.contains('*') {
+        lower.replace('*', "%")
+    } else {
+        format!("%{lower}%")
+    }
+}
+
+/// SQLite expression yielding the filepath of a design with the catalogue
+/// library-root container stripped.
+///
+/// Stored filepaths are canonicalised to `/MachineEmbroideryDesigns/<sub>/<file>`
+/// (or an absolute legacy path containing that container). Matching folder names
+/// against the raw filepath makes any term contained in `MachineEmbroideryDesigns`
+/// (e.g. "Sig" from "deSigns", "Design", "Machine") match every design. This
+/// expression removes the top-level container so a folder-name search only ever
+/// matches the subfolder portion below the library root. The marker string is the
+/// same one already used by `normalize_stored_design_filepath` /
+/// `full_path_to_stored_design_filepath`.
+fn library_folder_sql_expr(column: &str) -> String {
+    let marker = "/machineembroiderydesigns/";
+    format!(
+        "CASE WHEN instr(lower({column}), '{marker}') > 0 \
+         THEN substr({column}, instr(lower({column}), '{marker}') + {marker_len}) \
+         ELSE {column} END",
+        marker_len = marker.len()
+    )
 }
 
 fn push_general_search_clause(
@@ -1841,7 +1884,7 @@ fn push_general_search_clause(
                 query_builder.push(" AND ");
             }
 
-            let pattern = format!("%{}%", token.text.to_lowercase());
+            let pattern = token.pattern.clone();
             if token.exclude {
                 query_builder.push("NOT (");
             }
@@ -1867,7 +1910,9 @@ fn push_general_search_clause(
                 if added {
                     query_builder.push(" OR ");
                 }
-                query_builder.push("LOWER(d.filepath) LIKE ");
+                let folder_expr = library_folder_sql_expr("d.filepath");
+                let folder_search_sql = format!("LOWER({folder_expr}) LIKE ");
+                query_builder.push(&folder_search_sql);
                 query_builder.push_bind(pattern);
             }
 

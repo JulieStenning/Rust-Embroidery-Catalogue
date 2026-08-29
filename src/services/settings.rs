@@ -29,6 +29,7 @@ pub struct SettingsViewModel {
     pub import_last_browse_folder: String,
     pub can_configure_data_root: bool,
     pub data_root: String,
+    pub library_root: String,
     pub database_path: String,
     pub log_folder: String,
     pub app_mode: String,
@@ -95,6 +96,11 @@ pub(crate) async fn get_settings_view_model_inner(
     let has_google_api_key = !google_api_key.trim().is_empty();
 
     let data_root = app_state.paths.data_root.to_string_lossy().to_string();
+    let library_root = app_state
+        .paths
+        .embroidery_designs_dir
+        .to_string_lossy()
+        .to_string();
     let database_path = app_state.paths.database_path.to_string_lossy().to_string();
     let log_folder = app_state.paths.log_dir.to_string_lossy().to_string();
     let can_configure_data_root = match app_state.paths.mode {
@@ -118,6 +124,7 @@ pub(crate) async fn get_settings_view_model_inner(
         import_last_browse_folder,
         can_configure_data_root,
         data_root,
+        library_root,
         database_path,
         log_folder,
         app_mode,

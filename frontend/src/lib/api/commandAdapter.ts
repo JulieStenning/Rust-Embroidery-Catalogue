@@ -1779,6 +1779,7 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
       import_last_browse_folder: "",
       can_configure_data_root: false,
       data_root: "",
+      library_root: "",
       database_path: "",
       log_folder: "",
       app_mode: "development",

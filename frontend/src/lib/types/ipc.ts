@@ -275,6 +275,7 @@ export interface SettingsViewModel {
   import_last_browse_folder: string;
   can_configure_data_root: boolean;
   data_root: string;
+  library_root: string;
   database_path: string;
   log_folder: string;
   app_mode: string;

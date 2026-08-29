@@ -269,6 +269,48 @@ mod helper_tests {
         assert!(token.is_extension);
     }
 
+    #[test]
+    fn parse_general_token_plain_pattern_is_substring() {
+        let token = parse_general_token("rose");
+        assert_eq!(token.text, "rose");
+        assert_eq!(token.pattern, "%rose%");
+        assert!(!token.is_extension);
+    }
+
+    #[test]
+    fn parse_general_token_trailing_wildcard_is_prefix_pattern() {
+        let token = parse_general_token("Sig4*");
+        assert_eq!(token.text, "Sig4*");
+        assert_eq!(token.pattern, "sig4%");
+        assert!(!token.is_extension);
+    }
+
+    #[test]
+    fn parse_general_token_leading_wildcard_is_suffix_pattern() {
+        let token = parse_general_token("*Sig4");
+        assert_eq!(token.pattern, "%sig4");
+    }
+
+    #[test]
+    fn parse_general_token_both_wildcards_is_substring_pattern() {
+        let token = parse_general_token("*Sig4*");
+        assert_eq!(token.pattern, "%sig4%");
+    }
+
+    #[test]
+    fn parse_general_token_internal_wildcard_anchors_both_edges() {
+        let token = parse_general_token("Sig*4");
+        assert_eq!(token.pattern, "sig%4");
+    }
+
+    #[test]
+    fn parse_general_token_extension_pattern_ends_with_dot_ext() {
+        let token = parse_general_token("*.hus");
+        assert_eq!(token.text, "hus");
+        assert_eq!(token.pattern, "%.hus");
+        assert!(token.is_extension);
+    }
+
     // â”€â”€â”€ push_where_clause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     #[test]
@@ -2278,6 +2320,7 @@ fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
     let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
     let tokens = vec![GeneralSearchToken {
         text: "rose".to_string(),
+        pattern: "%rose%".to_string(),
         phrase: false,
         exclude: false,
         is_extension: false,
@@ -2290,7 +2333,11 @@ fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
     assert!(sql.as_str().contains("LOWER(d.filename) LIKE"));
     assert!(sql.as_str().contains("design_tags"));
     assert!(sql.as_str().contains("LOWER(tags.description) LIKE"));
-    assert!(sql.as_str().contains("LOWER(d.filepath) LIKE"));
+    // Folder search matches the folder path relative to the library root: the
+    // MachineEmbroideryDesigns container is stripped so it cannot false-match.
+    assert!(sql.as_str().contains("/machineembroiderydesigns/"));
+    assert!(sql.as_str().contains("LOWER("));
+    assert!(sql.as_str().contains("LIKE "));
     // The bind values are stored as parameters, so count the `?` placeholders.
     assert!(sql.as_str().matches("LIKE ").count() >= 3);
 }
@@ -2300,6 +2347,7 @@ fn push_general_search_clause_with_exclusion_adds_not() {
     let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
     let tokens = vec![GeneralSearchToken {
         text: "applique".to_string(),
+        pattern: "%applique%".to_string(),
         phrase: false,
         exclude: true,
         is_extension: false,
@@ -2319,12 +2367,14 @@ fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
     let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
     let group_a = vec![GeneralSearchToken {
         text: "rose".to_string(),
+        pattern: "%rose%".to_string(),
         phrase: false,
         exclude: false,
         is_extension: false,
     }];
     let group_b = vec![GeneralSearchToken {
         text: "hus".to_string(),
+        pattern: "%.hus".to_string(),
         phrase: false,
         exclude: false,
         is_extension: true,
@@ -2347,18 +2397,159 @@ fn push_general_search_clause_empty_groups_is_noop() {
     assert_eq!(builder.sql().as_str(), original.as_str());
 }
 
+#[tokio::test]
+async fn library_folder_sql_expr_strips_root_container() {
+    let pool = test_pool().await;
+    let expr = library_folder_sql_expr("filepath");
+    let cases = [
+        // Canonical stored form: the MachineEmbroideryDesigns container is removed,
+        // leaving the subfolder path (and trailing filename) to match against.
+        ("/MachineEmbroideryDesigns/Sig/rose.pes", "Sig/rose.pes"),
+        ("/MachineEmbroideryDesigns/A/B/file.pes", "A/B/file.pes"),
+        ("/MachineEmbroideryDesigns/rose.pes", "rose.pes"),
+        // Legacy absolute path containing the container.
+        ("D:/Data/MachineEmbroideryDesigns/Sig/rose.pes", "Sig/rose.pes"),
+        // A path without the container is left untouched.
+        ("/other/place/thing.pes", "/other/place/thing.pes"),
+    ];
+    for (input, expected) in cases {
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT ");
+        builder.push(&expr);
+        builder.push(" AS folder FROM (SELECT ? AS filepath)");
+        let row = builder
+            .build()
+            .bind(input)
+            .fetch_one(&pool)
+            .await
+            .expect("folder query should run");
+        let folder: String = sqlx::Row::get(&row, "folder");
+        assert_eq!(folder, expected, "folder for {input}");
+    }
+}
+
+#[tokio::test]
+async fn folder_only_search_does_not_false_match_on_root_container() {
+    let pool = test_pool().await;
+    sqlx::query("INSERT INTO designs (filename, filepath) VALUES ('rose.pes', '/MachineEmbroideryDesigns/Sig/rose.pes')")
+        .execute(&pool)
+        .await
+        .expect("seed sig design");
+    sqlx::query("INSERT INTO designs (filename, filepath) VALUES ('lily.pes', '/MachineEmbroideryDesigns/Other/lily.pes')")
+        .execute(&pool)
+        .await
+        .expect("seed other design");
+
+    // "Sig" only appears as a subfolder name; it must not match every design via
+    // the "deSigns" substring inside the MachineEmbroideryDesigns container.
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            q: Some("sig".to_string()),
+            search_file_name: Some(false),
+            search_tags: Some(false),
+            search_folder_name: Some(true),
+            page: Some(1),
+            page_size: Some(10),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("sig search should succeed");
+
+    assert_eq!(result.total, 1);
+    assert_eq!(result.items.len(), 1);
+    assert_eq!(result.items[0].filename, "rose.pes");
+
+    // "design" is a substring of MachineEmbroideryDesigns but names no subfolder
+    // here, so a folder-only search must return nothing.
+    let none = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            q: Some("design".to_string()),
+            search_file_name: Some(false),
+            search_tags: Some(false),
+            search_folder_name: Some(true),
+            page: Some(1),
+            page_size: Some(10),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("design search should succeed");
+    assert_eq!(none.total, 0);
+}
+
+#[tokio::test]
+async fn glob_wildcard_search_prefix_suffix_and_extension() {
+    let pool = test_pool().await;
+    let rows = [
+        ("Sig4Rose.pes", "/MachineEmbroideryDesigns/Sig/Sig4Rose.pes"),
+        ("Sig4Lily.pes", "/MachineEmbroideryDesigns/Sig/Sig4Lily.pes"),
+        ("OtherSig4.pes", "/MachineEmbroideryDesigns/Sig/OtherSig4.pes"),
+        ("RoseSig4", "/MachineEmbroideryDesigns/Sig/RoseSig4"),
+        ("rose.hus", "/MachineEmbroideryDesigns/Ext/rose.hus"),
+    ];
+    for (filename, filepath) in rows {
+        sqlx::query("INSERT INTO designs (filename, filepath) VALUES (?, ?)")
+            .bind(filename)
+            .bind(filepath)
+            .execute(&pool)
+            .await
+            .expect("seed design");
+    }
+
+    let run_search = |q: &str| {
+        get_designs_page_with_pool(
+            &pool,
+            Some(GetDesignsPayload {
+                q: Some(q.to_string()),
+                search_file_name: Some(true),
+                search_tags: Some(false),
+                search_folder_name: Some(false),
+                page: Some(1),
+                page_size: Some(10),
+                ..Default::default()
+            }),
+        )
+    };
+
+    // Bare term: substring match (Sig4Rose, Sig4Lily, OtherSig4, RoseSig4).
+    let all = run_search("Sig4").await.expect("search should succeed");
+    assert_eq!(all.total, 4);
+
+    // Trailing '*': starts with "Sig4" -> only Sig4Rose, Sig4Lily.
+    let prefix = run_search("Sig4*").await.expect("search should succeed");
+    assert_eq!(prefix.total, 2);
+    let names: Vec<&str> = prefix.items.iter().map(|i| i.filename.as_str()).collect();
+    assert!(names.contains(&"Sig4Rose.pes"));
+    assert!(names.contains(&"Sig4Lily.pes"));
+    assert!(!names.contains(&"OtherSig4.pes"));
+
+    // Leading '*': ends with "Sig4" -> only RoseSig4.
+    let suffix = run_search("*Sig4").await.expect("search should succeed");
+    assert_eq!(suffix.total, 1);
+    assert_eq!(suffix.items[0].filename, "RoseSig4");
+
+    // '*.hus': ends with the ".hus" extension -> only rose.hus.
+    let ext = run_search("*.hus").await.expect("search should succeed");
+    assert_eq!(ext.total, 1);
+    assert_eq!(ext.items[0].filename, "rose.hus");
+}
+
 #[test]
 fn push_general_search_clause_and_between_tokens_within_group() {
     let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
     let tokens = vec![
         GeneralSearchToken {
             text: "rose".to_string(),
+            pattern: "%rose%".to_string(),
             phrase: false,
             exclude: false,
             is_extension: false,
         },
         GeneralSearchToken {
             text: "satin".to_string(),
+            pattern: "%satin%".to_string(),
             phrase: false,
             exclude: false,
             is_extension: false,

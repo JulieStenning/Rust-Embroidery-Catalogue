@@ -53,6 +53,7 @@ const defaultModel: SettingsViewModel = {
   import_last_browse_folder: "",
   can_configure_data_root: true,
   data_root: "D:\\EmbroideryData",
+  library_root: "D:\\EmbroideryData\\MachineEmbroideryDesigns",
   database_path: "D:\\EmbroideryData\\catalogue.db",
   log_folder: "D:\\EmbroideryData\\logs",
   app_mode: "development",
@@ -131,7 +132,7 @@ describe("SettingsView.svelte", () => {
     expect(screen.getByLabelText(/Tier 3/)).not.toBeChecked();
 
     const dataRootInput = screen.getByLabelText("Catalogue data location");
-    expect(dataRootInput).toHaveValue("D:\\EmbroideryData");
+    expect(dataRootInput).toHaveValue("D:\\EmbroideryData\\MachineEmbroideryDesigns");
     expect(screen.getByRole("button", { name: "Browse…" })).toBeInTheDocument();
     expect(screen.getByText("D:\\EmbroideryData\\logs")).toBeInTheDocument();
     expect(screen.getByText("D:\\EmbroideryData\\catalogue.db")).toBeInTheDocument();
@@ -364,12 +365,53 @@ describe("SettingsView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
 
     await waitFor(() => {
-      expect(browseSettingsDataRootMock).toHaveBeenCalledWith("D:\\EmbroideryData");
+      expect(browseSettingsDataRootMock).toHaveBeenCalledWith(
+        "D:\\EmbroideryData\\MachineEmbroideryDesigns"
+      );
     });
     expect(listenCatalogueStorageMigrationProgressMock).toHaveBeenCalledTimes(1);
     expect(startCatalogueStorageMigrationMock).toHaveBeenCalledWith("E:\\NewData");
-    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("E:\\NewData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue(
+      "E:\\NewData\\MachineEmbroideryDesigns"
+    );
     expect(screen.getByTestId("settings-restart-dialog")).toBeInTheDocument();
+  });
+
+  it("normalises a picked MachineEmbroideryDesigns folder to its parent data root", async () => {
+    browseSettingsDataRootMock.mockResolvedValue({
+      source: "rust",
+      path: "E:\\NewData\\MachineEmbroideryDesigns",
+      error: null,
+    });
+    listenCatalogueStorageMigrationProgressMock.mockResolvedValue(() => {});
+    startCatalogueStorageMigrationMock.mockResolvedValue({
+      source: "rust",
+      summary: {
+        success: true,
+        source_root: "D:\\EmbroideryData",
+        target_root: "E:\\NewData",
+        database_bytes: 10,
+        asset_items: 3,
+        asset_bytes: 40,
+        requires_restart: true,
+      },
+    });
+    restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    // The user picked the design library itself, so the migration must target
+    // its parent to avoid double-nesting the catalogue layout.
+    await waitFor(() => {
+      expect(startCatalogueStorageMigrationMock).toHaveBeenCalledWith("E:\\NewData");
+    });
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue(
+      "E:\\NewData\\MachineEmbroideryDesigns"
+    );
   });
 
   it("shows an error toast and retains the old path when the migration cannot start", async () => {
@@ -397,7 +439,9 @@ describe("SettingsView.svelte", () => {
         "error"
       );
     });
-    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("D:\\EmbroideryData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue(
+      "D:\\EmbroideryData\\MachineEmbroideryDesigns"
+    );
     expect(screen.queryByTestId("settings-restart-dialog")).not.toBeInTheDocument();
     // The migration dialog stays visible to surface the error message.
     expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
@@ -438,7 +482,9 @@ describe("SettingsView.svelte", () => {
     await tick();
 
     expect(screen.queryByTestId("catalogue-migration-dialog")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("D:\\EmbroideryData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue(
+      "D:\\EmbroideryData\\MachineEmbroideryDesigns"
+    );
   });
 
   it("shows an error toast when restarting fails after the migration succeeds", async () => {
@@ -591,7 +637,9 @@ describe("SettingsView.svelte", () => {
 
     await tick();
     expect(addToastMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Catalogue data location")).toHaveValue("D:\\EmbroideryData");
+    expect(screen.getByLabelText("Catalogue data location")).toHaveValue(
+      "D:\\EmbroideryData\\MachineEmbroideryDesigns"
+    );
   });
 
   // -- Database compaction -------------------------------------------------

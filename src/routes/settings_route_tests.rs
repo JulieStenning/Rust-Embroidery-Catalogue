@@ -670,6 +670,7 @@ fn settings_view_model_serializes_all_fields() {
         import_last_browse_folder: "".to_string(),
         can_configure_data_root: true,
         data_root: "/data".to_string(),
+        library_root: "/data/MachineEmbroideryDesigns".to_string(),
         database_path: "/data/db.sqlite".to_string(),
         log_folder: "/data/logs".to_string(),
         app_mode: "installed".to_string(),
@@ -689,12 +690,13 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("import_last_browse_folder"));
     assert!(map.contains_key("can_configure_data_root"));
     assert!(map.contains_key("data_root"));
+    assert!(map.contains_key("library_root"));
     assert!(map.contains_key("database_path"));
     assert!(map.contains_key("log_folder"));
     assert!(map.contains_key("app_mode"));
     assert!(map.contains_key("ai_tagging_help_url"));
     assert!(map.contains_key("db_idle_check_interval_secs"));
-    assert_eq!(map.len(), 16);
+    assert_eq!(map.len(), 17);
 }
 
 #[test]

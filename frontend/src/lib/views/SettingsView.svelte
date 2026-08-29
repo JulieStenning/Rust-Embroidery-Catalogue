@@ -37,6 +37,7 @@
 
   let settingsCanConfigureDataRoot = $state(false);
   let settingsDataRoot = $state("");
+  let settingsLibraryRoot = $state("");
   let settingsDatabasePath = $state("");
   let settingsLogFolder = $state("");
   let settingsAppMode = $state("development");
@@ -71,6 +72,7 @@
     settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
+    settingsLibraryRoot = String(model?.library_root || model?.data_root || "");
     settingsDatabasePath = String(model?.database_path || "");
     settingsLogFolder = String(model?.log_folder || "");
     settingsAppMode = String(model?.app_mode || "development");
@@ -195,14 +197,52 @@
     }
   }
 
+  /**
+   * Reduce a user-picked catalogue folder to the internal storage data root.
+   *
+   * The persisted data root is the parent folder that contains `Database/`,
+   * `MachineEmbroideryDesigns/` and `logs/`. The Settings field now lets the user
+   * point directly at the `MachineEmbroideryDesigns` design library, so when the
+   * picked folder's last segment is that library folder we reduce it to its
+   * parent — otherwise the migration would double-nest the layout.
+   * @param {string} picked
+   * @returns {string}
+   */
+  function normalizePickedDataRoot(picked) {
+    const raw = String(picked || "").trim();
+    if (!raw) return "";
+    const norm = raw.replace(/\\/g, "/").replace(/\/+$/, "");
+    const lower = norm.toLowerCase();
+    const marker = "/machineembroiderydesigns";
+    if (lower === marker || lower.endsWith(marker)) {
+      const idx = lower.lastIndexOf(marker);
+      const parent = norm.slice(0, idx).replace(/\/+$/, "");
+      // Preserve the platform separators used by the rest of the UI.
+      return parent ? parent.replace(/\//g, "\\") : "";
+    }
+    return raw;
+  }
+
+  /** @param {string} dataRoot */
+  function libraryRootForDataRoot(dataRoot) {
+    const trimmed = String(dataRoot || "").trim().replace(/[\\/]+$/, "");
+    if (!trimmed) return "";
+    const sep = trimmed.includes("/") ? "/" : "\\";
+    return `${trimmed}${sep}MachineEmbroideryDesigns`;
+  }
+
   async function browseDataRootFromBackend() {
-    const result = await browseSettingsDataRoot(settingsDataRoot);
+    const result = await browseSettingsDataRoot(settingsLibraryRoot || settingsDataRoot);
     if (!result.path) {
       if (result.error) {
         addToast(result.error, "error");
       }
       return;
     }
+
+    // Normalise the picked folder to the internal data root so the catalogue
+    // layout (Database/, MachineEmbroideryDesigns/, logs/) is not double-nested.
+    const newDataRoot = normalizePickedDataRoot(result.path);
 
     // Begin the full catalogue migration to the freshly picked target.
     migrating = true;
@@ -216,7 +256,7 @@
       unlistenMigration = null;
     }
 
-    const started = await startCatalogueStorageMigration(result.path);
+    const started = await startCatalogueStorageMigration(newDataRoot);
     if (started.error) {
       migrating = false;
       endBusy();
@@ -226,7 +266,8 @@
       return;
     }
     if (started.summary) {
-      settingsDataRoot = result.path;
+      settingsDataRoot = newDataRoot;
+      settingsLibraryRoot = libraryRootForDataRoot(newDataRoot);
       settingsSaveState = "idle";
       showRestartConfirm = true;
       migrating = false;
@@ -553,8 +594,8 @@
               <input
                 id="settings-data-root"
                 type="text"
-                bind:value={settingsDataRoot}
-                placeholder="D:\\EmbroideryCatalogueData"
+                bind:value={settingsLibraryRoot}
+                placeholder="D:\\EmbroideryCatalogueData\\MachineEmbroideryDesigns"
                 spellcheck="false"
                 class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
               />
@@ -568,7 +609,8 @@
               </button>
             </div>
             <p class="mt-1 text-xs text-gray-500">
-              This home folder contains both the catalogue database and the managed design library.
+              This is the design library folder that directly holds your imported files
+              (MachineEmbroideryDesigns). Choose it or its parent to relocate the catalogue.
             </p>
           </div>
         {/if}
