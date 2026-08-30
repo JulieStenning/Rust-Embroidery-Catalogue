@@ -19,6 +19,8 @@ const cancelCatalogueStorageMigrationMock = vi.hoisted(() => vi.fn());
 const listenCatalogueStorageMigrationProgressMock = vi.hoisted(() => vi.fn());
 const getDbStatsMock = vi.hoisted(() => vi.fn());
 const compactDatabaseMock = vi.hoisted(() => vi.fn());
+const listGeminiModelsMock = vi.hoisted(() => vi.fn());
+const testGeminiModelMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../api/commandAdapter", () => ({
@@ -32,6 +34,8 @@ vi.mock("../../api/commandAdapter", () => ({
   listenCatalogueStorageMigrationProgress: listenCatalogueStorageMigrationProgressMock,
   getDbStats: getDbStatsMock,
   compactDatabase: compactDatabaseMock,
+  listGeminiModels: listGeminiModelsMock,
+  testGeminiModel: testGeminiModelMock,
 }));
 
 vi.mock("../../stores/toastStore.js", () => ({
@@ -49,6 +53,10 @@ const defaultModel: SettingsViewModel = {
   ai_tier3_auto: false,
   ai_batch_size: "100",
   ai_delay: "6.0",
+  ai_gemini_model: "",
+  ai_commit_every: "",
+  ai_workers: "",
+  ai_free_tier: false,
   import_commit_batch_size: "10",
   import_last_browse_folder: "",
   can_configure_data_root: true,
@@ -274,6 +282,10 @@ describe("SettingsView.svelte", () => {
         ai_tier3_auto: false,
         ai_batch_size: "100",
         ai_delay: "6.0",
+        ai_gemini_model: "",
+        ai_commit_every: "",
+        ai_workers: "",
+        ai_free_tier: false,
         import_commit_batch_size: "10",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
@@ -313,11 +325,85 @@ describe("SettingsView.svelte", () => {
         ai_tier3_auto: false,
         ai_batch_size: "100",
         ai_delay: "0",
+        ai_gemini_model: "",
+        ai_commit_every: "",
+        ai_workers: "",
+        ai_free_tier: false,
         import_commit_batch_size: "10",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
     });
+  });
+
+  it("sends ai_free_tier true when the free-tier checkbox is ticked", async () => {
+    saveSettingsMock.mockResolvedValue({
+      source: "rust",
+      saved: true,
+      message: "All good.",
+      persisted: true,
+    });
+
+    renderView();
+    await waitForSettingsLoaded();
+
+    const freeTier = screen.getByLabelText(/free tier/i);
+    await fireEvent.click(freeTier);
+    await tick();
+
+    const form = document.querySelector("form");
+    if (!form) throw new Error("Settings form not found");
+    await fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ ai_free_tier: true })
+      );
+    });
+  });
+
+  it("updates the workers placeholder to the free-tier default when free tier is ticked", async () => {
+    renderView();
+    await waitForSettingsLoaded();
+
+    const workersInput = screen.getByLabelText(/Workers/);
+    expect(workersInput.getAttribute("placeholder")).toContain("4");
+
+    const freeTier = screen.getByLabelText(/free tier/i);
+    await fireEvent.click(freeTier);
+    await tick();
+
+    expect(workersInput.getAttribute("placeholder")).toContain("2 (free tier)");
+  });
+
+  it("sorts the Gemini model dropdown flash-first and shows a recommendation hint", async () => {
+    listGeminiModelsMock.mockResolvedValue({
+      source: "rust",
+      models: ["gemini-2.0-pro", "gemini-flash", "gemini-2.5-flash", "gemini-1.5-pro"],
+    });
+
+    renderView();
+    await waitForSettingsLoaded();
+
+    // The model dropdown populates via $effect once an API key is present.
+    await waitFor(() => {
+      const opts = Array.from(
+        screen.getByRole("combobox", { name: /Gemini model/ }).querySelectorAll("option")
+      );
+      expect(opts).toHaveLength(5);
+    });
+
+    const select = screen.getByRole("combobox", { name: /Gemini model/ });
+    const names = Array.from(select.querySelectorAll("option")).map((o) => o.textContent || "");
+    expect(names[0]).toContain("Auto-select");
+    // Flash-first: preferred aliases, then versioned *-flash, then the rest.
+    expect(names.slice(1)).toEqual([
+      "gemini-flash",
+      "gemini-2.5-flash",
+      "gemini-1.5-pro",
+      "gemini-2.0-pro",
+    ]);
+    expect(screen.getByText(/Flash models are recommended/)).toBeInTheDocument();
   });
 
   it("shows an error toast when save reports failure", async () => {

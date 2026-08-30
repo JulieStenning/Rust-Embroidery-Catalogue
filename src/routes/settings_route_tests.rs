@@ -409,6 +409,7 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
     assert_eq!(vm.preview_3d_profile, "balanced");
     assert!(!vm.ai_tier2_auto);
     assert!(!vm.ai_tier3_auto);
+    assert!(!vm.ai_free_tier);
     assert_eq!(vm.ai_batch_size, "");
     assert_eq!(vm.ai_delay, "");
     assert_eq!(vm.import_commit_batch_size, "");
@@ -557,7 +558,12 @@ async fn save_import_last_browse_folder_inner_persists_and_trims() {
     assert_eq!(result.path, "D:/my/folder");
 
     // Verify in DB
-    let mut conn = state.db_pool().expect("pool").acquire().await.expect("connection");
+    let mut conn = state
+        .db_pool()
+        .expect("pool")
+        .acquire()
+        .await
+        .expect("connection");
     let setting = crate::settings::get_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER)
         .await
         .expect("get setting")
@@ -598,6 +604,10 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         ai_tier3_auto: false,
         ai_batch_size: "  25  ".to_string(),
         ai_delay: "  1.5  ".to_string(),
+        ai_gemini_model: "".to_string(),
+        ai_commit_every: "".to_string(),
+        ai_workers: "".to_string(),
+        ai_free_tier: true,
         import_commit_batch_size: "  100  ".to_string(),
         data_root: String::new(),
         db_idle_check_interval_secs: "1800".to_string(),
@@ -610,7 +620,12 @@ async fn save_settings_view_model_inner_persists_all_fields() {
     assert_eq!(result.message, "Settings saved successfully.");
 
     // Verify settings in DB
-    let mut conn = state.db_pool().expect("pool").acquire().await.expect("connection");
+    let mut conn = state
+        .db_pool()
+        .expect("pool")
+        .acquire()
+        .await
+        .expect("connection");
 
     async fn read_setting(conn: &mut SqliteConnection, key: &str) -> String {
         crate::settings::get_setting(conn, key)
@@ -637,6 +652,10 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         "25"
     );
     assert_eq!(read_setting(&mut conn, settings::KEY_AI_DELAY).await, "1.5");
+    assert_eq!(
+        read_setting(&mut conn, settings::KEY_AI_FREE_TIER).await,
+        "true"
+    );
     assert_eq!(
         read_setting(&mut conn, settings::KEY_IMPORT_COMMIT_BATCH_SIZE).await,
         "100"
@@ -666,6 +685,10 @@ fn settings_view_model_serializes_all_fields() {
         ai_tier3_auto: false,
         ai_batch_size: "".to_string(),
         ai_delay: "".to_string(),
+        ai_gemini_model: "".to_string(),
+        ai_commit_every: "".to_string(),
+        ai_workers: "".to_string(),
+        ai_free_tier: false,
         import_commit_batch_size: "".to_string(),
         import_last_browse_folder: "".to_string(),
         can_configure_data_root: true,
@@ -686,6 +709,10 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("ai_tier3_auto"));
     assert!(map.contains_key("ai_batch_size"));
     assert!(map.contains_key("ai_delay"));
+    assert!(map.contains_key("ai_gemini_model"));
+    assert!(map.contains_key("ai_commit_every"));
+    assert!(map.contains_key("ai_workers"));
+    assert!(map.contains_key("ai_free_tier"));
     assert!(map.contains_key("import_commit_batch_size"));
     assert!(map.contains_key("import_last_browse_folder"));
     assert!(map.contains_key("can_configure_data_root"));
@@ -696,7 +723,7 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("app_mode"));
     assert!(map.contains_key("ai_tagging_help_url"));
     assert!(map.contains_key("db_idle_check_interval_secs"));
-    assert_eq!(map.len(), 17);
+    assert_eq!(map.len(), 21);
 }
 
 #[test]
@@ -872,7 +899,6 @@ fn browse_data_root_result_serializes_correctly() {
     assert_eq!(json2["error"], serde_json::json!("failed"));
 }
 
-
 // ---------------------------------------------------------------------------
 // Tauri command wrapper tests (via tauri::test::mock_app)
 // ---------------------------------------------------------------------------
@@ -881,7 +907,10 @@ fn browse_data_root_result_serializes_correctly() {
 async fn command_get_settings_view_model_returns_installed_defaults() {
     let tmp = std::env::temp_dir().join(format!(
         "settings-route-cmd-vm-{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::create_dir_all(&tmp).ok();
     let pool = make_pool_and_table().await;
@@ -899,7 +928,10 @@ async fn command_get_settings_view_model_returns_installed_defaults() {
 async fn command_save_import_last_browse_folder_persists() {
     let tmp = std::env::temp_dir().join(format!(
         "settings-route-cmd-save-last-{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::create_dir_all(&tmp).ok();
     let pool = make_pool_and_table().await;
@@ -913,11 +945,10 @@ async fn command_save_import_last_browse_folder_persists() {
     assert!(result.saved);
     assert_eq!(result.path, "D:/my/folder");
     let mut conn = pool.acquire().await.unwrap();
-    let setting =
-        crate::settings::get_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER)
-            .await
-            .expect("get setting")
-            .expect("setting should exist");
+    let setting = crate::settings::get_setting(&mut conn, settings::KEY_IMPORT_LAST_BROWSE_FOLDER)
+        .await
+        .expect("get setting")
+        .expect("setting should exist");
     assert_eq!(setting.value, "D:/my/folder");
     let _ = std::fs::remove_dir_all(&tmp);
 }
@@ -928,7 +959,10 @@ async fn command_save_settings_view_model_persists() {
     let _guard = lock_env();
     let tmp = std::env::temp_dir().join(format!(
         "settings-route-cmd-save-all-{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::create_dir_all(&tmp).ok();
     let pool = make_pool_and_table().await;
@@ -945,6 +979,10 @@ async fn command_save_settings_view_model_persists() {
         ai_tier3_auto: false,
         ai_batch_size: "  25  ".to_string(),
         ai_delay: "  1.5  ".to_string(),
+        ai_gemini_model: "".to_string(),
+        ai_commit_every: "".to_string(),
+        ai_workers: "".to_string(),
+        ai_free_tier: true,
         import_commit_batch_size: "  100  ".to_string(),
         data_root: String::new(),
         db_idle_check_interval_secs: "1800".to_string(),
@@ -962,7 +1000,10 @@ async fn command_save_settings_view_model_persists() {
 async fn command_get_google_api_key_returns_none_when_unset() {
     let tmp = std::env::temp_dir().join(format!(
         "settings-route-cmd-gapi-{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::create_dir_all(&tmp).ok();
     let pool = make_pool_and_table().await;
@@ -979,7 +1020,10 @@ async fn command_get_google_api_key_returns_none_when_unset() {
 async fn command_set_google_api_key_persists() {
     let tmp = std::env::temp_dir().join(format!(
         "settings-route-cmd-set-key-{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::create_dir_all(&tmp).ok();
     let pool = make_pool_and_table().await;

@@ -187,10 +187,12 @@ async fn test_get_tagging_actions_view_model() {
     assert!(!vm.ai_tier3_auto);
     assert_eq!(vm.ai_batch_size, "");
     assert_eq!(vm.ai_delay, "");
+    assert!(!vm.ai_free_tier);
     assert_eq!(vm.import_commit_batch_size, "");
     assert_eq!(vm.default_batch_size, 100);
     assert_eq!(vm.default_commit_every, 100);
     assert_eq!(vm.default_workers, 4);
+    assert_eq!(vm.default_delay, 5.0);
 
     // Update settings in database to check truthiness
     {
@@ -216,6 +218,40 @@ async fn test_get_tagging_actions_view_model() {
     assert!(vm2.ai_tier2_auto);
     assert!(vm2.ai_tier3_auto);
     assert_eq!(vm2.ai_batch_size, "50");
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
+async fn tagging_actions_view_model_free_tier_uses_conservative_defaults() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    let tmp = std::env::temp_dir().join("tagging-actions-test-free-tier");
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool, &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // Declare the key is on the free tier.
+    {
+        let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
+        sqlx::query(
+            "INSERT OR REPLACE INTO settings (key, value, description) VALUES (?, 'true', '')",
+        )
+        .bind(KEY_AI_FREE_TIER)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
+    }
+
+    let vm = get_tagging_actions_view_model(state.clone()).await.unwrap();
+    assert!(vm.ai_free_tier);
+    assert_eq!(vm.default_workers, 2);
+    assert_eq!(vm.default_delay, 10.0);
 
     let _ = std::fs::remove_dir_all(&tmp);
 }

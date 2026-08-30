@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
+import userEvent from "@testing-library/user-event";
 import { tick } from "svelte";
 import TaggingActionsView from "../TaggingActionsView.svelte";
 import {
@@ -54,37 +55,28 @@ describe("TaggingActionsView live progress", () => {
     resetBackfillProgress();
   });
 
-  it("shows a live message when a batch is committed", async () => {
+  it("shows 'Getting ready for tagging' then the live count on the Run button", async () => {
+    // Keep the run in flight so taggingRunInFlight stays true.
+    adapterMocks.runUnifiedBackfill.mockReturnValue(new Promise(() => {}));
     render(TaggingActionsView);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+
+    // Before any design completes, the button shows the "getting ready" state.
+    expect(
+      screen.getByRole("button", { name: /Getting ready for tagging/ })
+    ).toBeInTheDocument();
+
     backfillProgressStore.set({
       active: true,
-      stage: "batch_committed",
-      processed: 450,
-      errors: 2,
+      stage: "processing",
+      processed: 12,
+      errors: 0,
       currentAction: "tagging",
     });
     await tick();
-    const panel = screen.getByTestId("backfill-progress");
-    expect(panel).toHaveTextContent("Tagging — Processed 450 designs (2 errors)…");
-  });
-
-  it("shows a completed message", async () => {
-    render(TaggingActionsView);
-    backfillProgressStore.set({
-      active: true,
-      stage: "completed",
-      processed: 3,
-      errors: 0,
-      currentAction: "backfill",
-    });
-    await tick();
-    const panel = screen.getByTestId("backfill-progress");
-    expect(panel).toHaveTextContent("Backfill — Completed 3 designs");
-  });
-
-  it("hides the panel when no progress has been reported", async () => {
-    render(TaggingActionsView);
-    await tick();
-    expect(screen.queryByTestId("backfill-progress")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Processing no. 12" })).toBeInTheDocument();
   });
 });

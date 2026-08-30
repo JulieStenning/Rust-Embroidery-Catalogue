@@ -176,6 +176,7 @@ async fn run_unified_backfill_streams_progress_events() {
             vision_delay_seconds: Some(0.0),
         },
         false,
+        None,
         &mut |p| events.push(p.clone()),
     )
     .await
@@ -188,6 +189,10 @@ async fn run_unified_backfill_streams_progress_events() {
         "expected started + commit + completed events, got {events:?}"
     );
     assert_eq!(events.first().unwrap().stage, "started");
+    assert!(
+        events.iter().any(|e| e.stage == "processing"),
+        "expected live per-design processing events, got {events:?}"
+    );
     assert!(
         events.iter().any(|e| e.stage == "batch_committed"),
         "expected a batch_committed event, got {events:?}"
@@ -270,6 +275,48 @@ fn normalize_tag_mode_covers_all_cases() {
         TAG_ACTION_RETAG_ALL_UNVERIFIED
     );
     assert_eq!(normalize_tag_mode(Some("unknown")), TAG_ACTION_UNTAGGED);
+}
+
+#[test]
+fn free_tier_rate_limit_message_paid_tier_keeps_existing_guidance() {
+    let error = crate::error::AppError::invalid_input("Gemini API error 429: quota".to_string());
+    let msg = free_tier_rate_limit_message(&error, false);
+    assert!(msg.contains("Increase the AI delay or lower Workers"));
+    assert!(!msg.contains("Free-tier"));
+}
+
+#[test]
+fn free_tier_rate_limit_message_uses_retry_after() {
+    let error = crate::error::AppError::invalid_input(
+        "Gemini API error 429: limit (retry_after=120)".to_string(),
+    );
+    let msg = free_tier_rate_limit_message(&error, true);
+    assert!(msg.contains("Free-tier Gemini rate limit reached (429)"));
+    assert!(msg.contains("wait about 2 minutes"));
+    assert!(!msg.contains("Increase the AI delay"));
+}
+
+#[test]
+fn free_tier_rate_limit_message_falls_back_to_generic_wait() {
+    let error = crate::error::AppError::invalid_input("Gemini API error 429: limit".to_string());
+    let msg = free_tier_rate_limit_message(&error, true);
+    assert!(msg.contains("wait a few minutes or until tomorrow"));
+}
+
+#[test]
+fn default_workers_for_reflects_free_tier() {
+    // Free-tier keys are rate-limited (~15 req/min), so blank fields default to a
+    // conservative concurrency rather than the normal 4.
+    assert_eq!(default_workers_for(true), 2);
+    assert_eq!(default_workers_for(false), 4);
+}
+
+#[test]
+fn default_delay_for_reflects_free_tier() {
+    // Paid keys aren't rate-limited, so the paid default is no delay; the free-tier
+    // default (10s paired with 2 workers) keeps throughput under ~15 requests/minute.
+    assert_eq!(default_delay_for(true), 10.0);
+    assert_eq!(default_delay_for(false), 0.0);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -677,7 +724,7 @@ async fn select_tagging_respects_limit() {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tokio::test]
-async fn apply_image_tags_and_tier_writes_tag_and_tier() {
+async fn flush_tagging_batch_writes_tag_and_tier() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
@@ -685,7 +732,7 @@ async fn apply_image_tags_and_tier_writes_tag_and_tier() {
     map.insert("Cats".to_string(), 1);
     map.insert("Don't Know".to_string(), 3);
 
-    apply_image_tags_and_tier(&pool, 1, &map, vec!["Cats".to_string()], 1)
+    flush_tagging_batch(&pool, &map, vec![(1, vec!["Cats".to_string()], 1)])
         .await
         .unwrap();
 
@@ -706,11 +753,11 @@ async fn apply_image_tags_and_tier_writes_tag_and_tier() {
 }
 
 #[tokio::test]
-async fn apply_image_tags_and_tier_empty_descriptions_noop() {
+async fn flush_tagging_batch_empty_descriptions_noop() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    apply_image_tags_and_tier(&pool, 1, &HashMap::new(), vec![], 1)
+    flush_tagging_batch(&pool, &HashMap::new(), vec![(1, vec![], 1)])
         .await
         .unwrap();
 
@@ -718,7 +765,7 @@ async fn apply_image_tags_and_tier_empty_descriptions_noop() {
 }
 
 #[tokio::test]
-async fn apply_image_tags_and_tier_replaces_existing_image_tags() {
+async fn flush_tagging_batch_replaces_existing_image_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 already has Cats tag
 
@@ -727,7 +774,7 @@ async fn apply_image_tags_and_tier_replaces_existing_image_tags() {
     map.insert("Don't Know".to_string(), 3);
 
     // Replace Cats with Don't Know
-    apply_image_tags_and_tier(&pool, 2, &map, vec!["Don't Know".to_string()], 2)
+    flush_tagging_batch(&pool, &map, vec![(2, vec!["Don't Know".to_string()], 2)])
         .await
         .unwrap();
 
@@ -1102,7 +1149,9 @@ async fn select_hoop_dimension_candidates_picks_designs_missing_dimensions_or_ho
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1,2,3 with null width/height/hoop
 
-    let ids = select_hoop_dimension_candidates(&pool, 100, 0).await.unwrap();
+    let ids = select_hoop_dimension_candidates(&pool, 100, 0)
+        .await
+        .unwrap();
     assert_eq!(ids.len(), 3);
 }
 
@@ -1115,12 +1164,13 @@ async fn select_hoop_dimension_candidates_excludes_designs_with_dimensions_and_h
         .await
         .unwrap();
 
-    let ids = select_hoop_dimension_candidates(&pool, 100, 0).await.unwrap();
+    let ids = select_hoop_dimension_candidates(&pool, 100, 0)
+        .await
+        .unwrap();
     assert!(!ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
 }
-
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Log file helpers: truncate_logs_for_new_run / read_log_tail / append_log_line / log_info / log_error
@@ -1179,7 +1229,7 @@ async fn log_files_round_trip() {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tokio::test]
-async fn apply_tagging_tiers_tier1_match_populates_tags() {
+async fn compute_tagging_tiers_tier1_match_returns_suggestion() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
     // design 1: "cute_cat.pes" â€” tier1 should match "Cats" via keyword map
@@ -1198,27 +1248,25 @@ async fn apply_tagging_tiers_tier1_match_populates_tags() {
         tier2_network: false,
         tier3_network: false,
     };
-    apply_tagging_tiers(&pool, 1, &map, &valid, &tier_options)
+    let result = compute_tagging_tiers(&pool, 1, &valid, &tier_options, None)
         .await
         .unwrap();
 
-    // Should have applied Cats tag
-    let count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 1 AND tag_id = 1")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(count, 1);
+    // Compute-only: returns the suggestion; the write happens later in a batched
+    // transaction (covered by the apply_image_tags_and_tier tests).
+    let (descriptions, tier) = result.expect("tier1 should produce a suggestion");
+    assert_eq!(tier, 1);
+    assert!(descriptions.iter().any(|d| d == "Cats"));
 }
 
 #[tokio::test]
-async fn apply_tagging_tiers_tier1_falls_to_tier2() {
+async fn compute_tagging_tiers_tier1_falls_to_tier2() {
     let pool = make_test_pool().await;
     // design with no keyword match but token match works in tier2
     sqlx::query("INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, 0, 0)")
         .bind(10_i64)
-        .bind("red_rose.pes")
-        .bind("tests/Test Designs/red_rose.pes")
+        .bind("abstract_blob.pes")
+        .bind("tests/Test Designs/abstract_blob.pes")
         .execute(&pool)
         .await
         .unwrap();
@@ -1244,7 +1292,7 @@ async fn apply_tagging_tiers_tier1_falls_to_tier2() {
         tier2_network: false,
         tier3_network: false,
     };
-    apply_tagging_tiers(&pool, 10, &map, &valid, &tier_options)
+    let result = compute_tagging_tiers(&pool, 10, &valid, &tier_options, None)
         .await
         .unwrap();
 
@@ -1253,18 +1301,14 @@ async fn apply_tagging_tiers_tier1_falls_to_tier2() {
     // Actually "roses" â†’ split into ["roses"] â†’ "roses" not in "red rose" + "tests/..."
     // Wait, the combined string would be "red_rose.pes" "tests/Test Designs/red_rose.pes"
     // "roses" â€” no. So it should fall back to "Don't Know"
-    let tier: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 10")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
     // tier 1 would have no match, tier 2 would match with fallback "Don't Know" (tag 3)
-    assert!(tier.is_some());
+    let (_descriptions, tier) = result.expect("tier2 should produce a fallback suggestion");
+    assert_eq!(tier, 2);
 }
 
 #[tokio::test]
-async fn apply_tagging_tiers_nonexistent_design_returns_ok() {
+async fn compute_tagging_tiers_nonexistent_design_returns_none() {
     let pool = make_test_pool().await;
-    let map = HashMap::new();
     let valid = HashSet::new();
     let tier_options = TaggingTierOptions {
         tier1_enabled: true,
@@ -1275,8 +1319,54 @@ async fn apply_tagging_tiers_nonexistent_design_returns_ok() {
         tier2_network: false,
         tier3_network: false,
     };
-    let result = apply_tagging_tiers(&pool, 999, &map, &valid, &tier_options).await;
-    assert!(result.is_ok());
+    let result = compute_tagging_tiers(&pool, 999, &valid, &tier_options, None).await;
+    assert!(matches!(result, Ok(None)));
+}
+
+#[tokio::test]
+async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await; // designs 1..=3
+
+    let mut map = HashMap::new();
+    map.insert("Cats".to_string(), 1);
+    map.insert("Don't Know".to_string(), 3);
+
+    // Two designs' writes share a single transaction.
+    flush_tagging_batch(
+        &pool,
+        &map,
+        vec![
+            (1, vec!["Cats".to_string()], 1),
+            (3, vec!["Don't Know".to_string()], 2),
+        ],
+    )
+    .await
+    .unwrap();
+
+    let cat_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 1 AND tag_id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(cat_count, 1);
+    let tier: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(tier, Some(1));
+
+    let dk_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 3 AND tag_id = 3")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(dk_count, 1);
+    let tier3: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 3")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(tier3, Some(2));
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1403,6 +1493,78 @@ async fn run_unified_backfill_stop_signal_detected_by_summary() {
     // No stop was requested during the run, so stopped should be false
     assert!(!summary.stopped);
     assert!(summary.processed >= 2);
+}
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_stop_aborts_current_tagging_batch() {
+    clear_stop_signal();
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await; // designs 1..=3
+
+    // A single huge batch. A stop requested mid-run MUST abort the current
+    // batch immediately rather than drain it. `commit_every` is small so the
+    // first progress event fires after just 50 designs — well before the batch
+    // could finish — and the callback requests a stop deterministically (no
+    // timing races). Without the mid-batch abort, the run would reach every
+    // design and `processed` would equal TOTAL.
+    const TOTAL: i64 = 10_000;
+    for id in 4..=(TOTAL + 3) {
+        sqlx::query(
+            "INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, 0, 0)",
+        )
+        .bind(id)
+        .bind(format!("design_{id}.pes"))
+        .bind(format!("tests/Test Designs/design_{id}.pes"))
+        .execute(&pool)
+        .await
+        .expect("seed extra design");
+    }
+
+    let stopped_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stopped_flag2 = stopped_flag.clone();
+    let summary = run_unified_backfill_with_progress(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: Some(TaggingActionOptions {
+                    action: Some("retag_all".to_string()),
+                    tiers: Some(vec![1]),
+                    enabled: Some(true),
+                }),
+                stitching: None,
+                images: None,
+                color_counts: None,
+                hoop_dimensions: None,
+                fingerprinting: None,
+            }),
+            batch_size: Some(TOTAL),
+            commit_every: Some(50),
+            workers: Some(4),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+        None,
+        &mut move |_event: BackfillProgress| {
+            // Only the first progress event requests the stop; the run is past
+            // its synchronous start-clear and into the tagging loop by then.
+            if !stopped_flag2.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                request_stop();
+            }
+        },
+    )
+    .await
+    .expect("run succeeds");
+
+    assert!(summary.stopped, "stop must be reported as stopped");
+    assert!(
+        summary.processed < TOTAL,
+        "stop must abort the current batch without draining it (processed={}, total={})",
+        summary.processed,
+        TOTAL
+    );
+    clear_stop_signal();
 }
 
 #[tokio::test]
@@ -1813,10 +1975,12 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
     .execute(&pool)
     .await
     .unwrap();
-    sqlx::query("INSERT INTO tags (id, description, tag_group) VALUES (10, 'Line Outline', 'stitching')")
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO tags (id, description, tag_group) VALUES (10, 'Line Outline', 'stitching')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     // Point a design at a real embroidery fixture so file parsing succeeds.
     let design_path = std::env::current_dir()
@@ -1852,8 +2016,12 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
                     redo: Some(true),
                     enabled: Some(true),
                 }),
-                color_counts: Some(ColorCountsActionOptions { enabled: Some(true) }),
-                hoop_dimensions: Some(HoopDimensionsActionOptions { enabled: Some(true) }),
+                color_counts: Some(ColorCountsActionOptions {
+                    enabled: Some(true),
+                }),
+                hoop_dimensions: Some(HoopDimensionsActionOptions {
+                    enabled: Some(true),
+                }),
                 fingerprinting: None,
             }),
             batch_size: Some(100),
@@ -1889,7 +2057,10 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
     let stitch_count: Option<i64> = row.try_get("stitch_count").unwrap();
     let color_count: Option<i64> = row.try_get("color_count").unwrap();
     let image_type: Option<String> = row.try_get("image_type").unwrap();
-    assert!(width.is_some() && height.is_some(), "expected dimensions written");
+    assert!(
+        width.is_some() && height.is_some(),
+        "expected dimensions written"
+    );
     assert!(
         stitch_count.is_some() && color_count.is_some(),
         "expected colour counts written"

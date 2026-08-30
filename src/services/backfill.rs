@@ -1,5 +1,6 @@
 use crate::error::AppError;
 use crate::services::design_metadata;
+use crate::services::gemini_client::GeminiClient;
 use crate::services::stitch_identifier;
 use crate::services::tagging;
 use serde::{Deserialize, Serialize};
@@ -12,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::task::JoinSet;
-use tokio::time::sleep;
+use tokio::time::{interval, sleep};
 
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
@@ -39,11 +40,16 @@ pub(crate) struct TaggingTierOptions {
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
-const DEFAULT_DELAY_SECONDS: f64 = 5.0;
+/// Paid-tier default delay (seconds) between Gemini requests: 0 — paid keys are not
+/// rate-limited the way free keys are, so no artificial pacing is needed (concurrency
+/// is bounded by Workers). The free tier uses a conservative delay instead.
+const DEFAULT_DELAY_SECONDS: f64 = 0.0;
 const DEFAULT_VISION_DELAY_SECONDS: f64 = 2.0;
 const DEFAULT_BATCH_SIZE: i64 = 100;
 const DEFAULT_COMMIT_EVERY: i64 = 100;
 const DEFAULT_WORKERS: i64 = 4;
+const FREE_TIER_WORKERS: i64 = 2;
+const FREE_TIER_DELAY_SECONDS: f64 = 10.0;
 #[cfg(test)]
 const LOG_DIR: &str = "logs";
 const ERROR_LOG_FILE: &str = "backfill_errors.log";
@@ -193,17 +199,19 @@ pub async fn run_unified_backfill(
     request: UnifiedBackfillRequest,
     has_api_key: bool,
 ) -> Result<UnifiedBackfillSummary, AppError> {
-    run_unified_backfill_with_progress(pool, request, has_api_key, &mut |_| {}).await
+    run_unified_backfill_with_progress(pool, request, has_api_key, None, &mut |_| {}).await
 }
 
 /// Same as [`run_unified_backfill`], but streams live [`BackfillProgress`]
 /// updates to `progress` (e.g. after each commit) so the UI can display a
-/// running status message. Callers that do not need live progress can use the
-/// plain [`run_unified_backfill`] wrapper.
+/// running status message, and accepts the actual API key (`api_key`) used to
+/// drive real Gemini Tier 2/3 calls when present. Callers that do not need live
+/// progress or AI tagging can use the plain [`run_unified_backfill`] wrapper.
 pub async fn run_unified_backfill_with_progress(
     pool: &SqlitePool,
     request: UnifiedBackfillRequest,
     has_api_key: bool,
+    api_key: Option<String>,
     progress: &mut (dyn FnMut(BackfillProgress) + Send),
 ) -> Result<UnifiedBackfillSummary, AppError> {
     clear_stop_signal();
@@ -232,16 +240,35 @@ pub async fn run_unified_backfill_with_progress(
     );
     let commit_every = resolve_i64_option(
         request.commit_every,
-        get_i64_setting(pool, "import.commit_batch_size").await?,
+        get_i64_setting(pool, "ai.commit_every").await?,
         DEFAULT_COMMIT_EVERY,
         1,
         100_000,
     );
-    let workers = request.workers.unwrap_or(DEFAULT_WORKERS).clamp(1, 32);
+    // Whether the configured Gemini API key is on the free tier (user-declared in
+    // Settings). Free-tier keys are rate-limited (~15 req/min, ~1,500/day), so when
+    // the tier is free a blank workers/delay default to a conservative pair, and a
+    // 429 is a hard stop (never retried) with a clear "wait" message.
+    let free_tier = get_string_setting(pool, "ai.free_tier")
+        .await?
+        .map(|raw| {
+            matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "y"
+            )
+        })
+        .unwrap_or(false);
+    let workers = resolve_i64_option(
+        request.workers,
+        get_i64_setting(pool, "ai.workers").await?,
+        default_workers_for(free_tier),
+        1,
+        32,
+    );
     let tier2_delay_seconds = resolve_f64_option(
         request.delay_seconds,
         get_f64_setting(pool, "ai.delay").await?,
-        DEFAULT_DELAY_SECONDS,
+        default_delay_for(free_tier),
         0.0,
         120.0,
     );
@@ -284,19 +311,39 @@ pub async fn run_unified_backfill_with_progress(
             let image_map = Arc::new(image_tag_map);
             let valid = Arc::new(valid_descriptions);
             let pool_arc = Arc::new(pool.clone());
+            // Build the Gemini client only when a non-empty API key is present;
+            // otherwise Tier 2/3 fall back to local heuristics and never sleep.
+            let gemini = api_key
+                .as_ref()
+                .map(|key| key.trim().to_string())
+                .filter(|key| !key.is_empty())
+                .map(GeminiClient::new)
+                .map(Arc::new);
             let tier_options = TaggingTierOptions {
                 tier1_enabled,
                 tier2_enabled,
                 tier3_enabled,
                 tier2_delay_seconds,
                 tier3_delay_seconds,
-                // No real Gemini network calls exist yet, so the artificial per-tier
-                // delays are disabled (see apply_tagging_tiers). This keeps large
-                // Tier 2 runs fast instead of sleeping ~5s per design.
-                tier2_network: false,
-                tier3_network: false,
+                // Pace real Gemini network calls only; local-only tiers never sleep.
+                tier2_network: gemini.is_some() && tier2_enabled,
+                tier3_network: gemini.is_some() && tier3_enabled,
             };
             let workers_usize = workers.max(1) as usize;
+            let commit_every_usize = commit_every.max(1) as usize;
+
+            // Resolve the Gemini model up front (fail fast) so a configured model
+            // that has been retired/removed is detected before any designs are
+            // processed, rather than mid-run after thousands of calls.
+            if gemini.is_some() && (tier2_enabled || tier3_enabled) {
+                let configured_model = get_string_setting(pool, "ai.gemini_model").await?;
+                if let Some(client) = gemini.as_deref() {
+                    let resolved = client
+                        .resolve_model(configured_model.as_deref(), tier3_enabled)
+                        .await?;
+                    log_info(format!("Tagging using Gemini model: {resolved}"));
+                }
+            }
 
             // Page through ALL matching designs in ascending-id batches of
             // `batch_size`, processing each batch with up to `workers` concurrent
@@ -329,6 +376,10 @@ pub async fn run_unified_backfill_with_progress(
                 ));
 
                 // Run this batch's designs concurrently, bounded by `workers`.
+                // Worker tasks only COMPUTE suggestions (read-only); the single
+                // writer below applies them in one transaction per `commit_every`
+                // so a 100k-design run makes ~100k/commit_every commits instead
+                // of one autocommit per statement.
                 let mut set = JoinSet::new();
                 let mut remaining = design_ids.iter().copied();
                 for _ in 0..workers_usize {
@@ -337,49 +388,122 @@ pub async fn run_unified_backfill_with_progress(
                             &mut set,
                             design_id,
                             pool_arc.clone(),
-                            image_map.clone(),
                             valid.clone(),
                             tier_options,
+                            gemini.clone(),
                         );
                     }
                 }
-                while let Some(joined) = set.join_next().await {
-                    match joined {
-                        Ok((design_id, tag_result)) => {
-                            touched_design_ids.insert(design_id);
-                            processed += 1;
-                            if let Err(error) = tag_result {
-                                errors += 1;
-                                log_error(format!(
-                                    "Tagging failed design_id={} error={}",
-                                    design_id, error
-                                ));
-                            }
-                            if processed % commit_every == 0 {
-                                emit_progress(
-                                    progress,
-                                    "batch_committed",
-                                    "tagging",
-                                    processed,
-                                    errors,
-                                );
+                // Completed suggestions awaiting a batched write.
+                let mut pending: Vec<(i64, Vec<String>, i64)> = Vec::new();
+                // Join results, but keep the loop stop-interruptible so a Stop
+                // request aborts the current batch immediately instead of
+                // draining it. A short interval polls STOP_REQUESTED while
+                // tasks are in flight (e.g. mid Gemini delay); on stop we
+                // cancel every in-flight task and break. Suggestions that
+                // already finished are flushed in a transaction right after the
+                // loop, so nothing completed is lost.
+                let mut stop_poll = interval(Duration::from_millis(100));
+                loop {
+                    tokio::select! {
+                        biased;
+                        _ = stop_poll.tick() => {
+                            if STOP_REQUESTED.load(Ordering::SeqCst) {
+                                set.abort_all();
+                                log_info("Stop signal observed; aborting current tagging batch".to_string());
+                                break;
                             }
                         }
-                        Err(join_err) => {
-                            errors += 1;
-                            log_error(format!("Tagging task failed: {join_err}"));
+                        joined = set.join_next() => {
+                            match joined {
+                                None => break, // batch fully drained
+                                Some(joined) => {
+                                    let before = processed;
+                                    match joined {
+                                        Ok((design_id, Ok(Some((descriptions, tier))))) => {
+                                            touched_design_ids.insert(design_id);
+                                            processed += 1;
+                                            pending.push((design_id, descriptions, tier));
+                                        }
+                                        Ok((design_id, Ok(None))) => {
+                                            // No tier produced a suggestion — nothing to write.
+                                            touched_design_ids.insert(design_id);
+                                            processed += 1;
+                                        }
+                                        Ok((design_id, Err(error))) => {
+                                            touched_design_ids.insert(design_id);
+                                            processed += 1;
+                                            if crate::services::gemini_client::is_rate_limit_error(&error) {
+                                                // A 429/quota error is a run-level failure — every
+                                                // remaining design would keep failing. Commit what
+                                                // we already computed, then abort and point the
+                                                // user at the log.
+                                                flush_tagging_batch(
+                                                    pool,
+                                                    &image_map,
+                                                    std::mem::take(&mut pending),
+                                                )
+                                                .await?;
+                                                log_error(format!(
+                                                    "Tagging aborted on design_id={} due to Gemini rate limit: {error}",
+                                                    design_id
+                                                ));
+                                                return Err(AppError::invalid_input(
+                                                    free_tier_rate_limit_message(&error, free_tier),
+                                                ));
+                                            }
+                                            errors += 1;
+                                            log_error(format!(
+                                                "Tagging failed design_id={} error={}",
+                                                design_id, error
+                                            ));
+                                        }
+                                        Err(join_err) => {
+                                            errors += 1;
+                                            log_error(format!("Tagging task failed: {join_err}"));
+                                        }
+                                    }
+                                    if processed > before {
+                                        emit_progress(progress, "processing", "tagging", processed, errors);
+                                    }
+                                    // Commit every `commit_every` successful writes in a single
+                                    // transaction, then report progress.
+                                    if pending.len() >= commit_every_usize {
+                                        flush_tagging_batch(pool, &image_map, std::mem::take(&mut pending)).await?;
+                                    }
+                                    if processed % commit_every == 0 {
+                                        emit_progress(
+                                            progress,
+                                            "batch_committed",
+                                            "tagging",
+                                            processed,
+                                            errors,
+                                        );
+                                    }
+                                    if STOP_REQUESTED.load(Ordering::SeqCst) {
+                                        set.abort_all();
+                                        log_info("Stop signal observed; aborting current tagging batch".to_string());
+                                        break;
+                                    }
+                                    if let Some(design_id) = remaining.next() {
+                                        spawn_tagging_task(
+                                            &mut set,
+                                            design_id,
+                                            pool_arc.clone(),
+                                            valid.clone(),
+                                            tier_options,
+                                            gemini.clone(),
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
-                    if let Some(design_id) = remaining.next() {
-                        spawn_tagging_task(
-                            &mut set,
-                            design_id,
-                            pool_arc.clone(),
-                            image_map.clone(),
-                            valid.clone(),
-                            tier_options,
-                        );
-                    }
+                }
+                // Flush any remaining suggestions (incl. on stop) so the tags
+                // computed so far are committed before the next batch / run end.
+                if !pending.is_empty() {
+                    flush_tagging_batch(pool, &image_map, pending).await?;
                 }
             }
         }
@@ -446,13 +570,14 @@ pub async fn run_unified_backfill_with_progress(
                     processed += 1;
 
                     let resolved_design_path = resolve_stored_design_path(&candidate.filepath);
-                    let detected_descriptions = stitch_identifier::suggest_stitching_from_pattern_file(
-                        &resolved_design_path.to_string_lossy(),
-                        &candidate.filename,
-                        &candidate.filepath,
-                        &valid_stitching_descriptions,
-                        Some(0.70),
-                    );
+                    let detected_descriptions =
+                        stitch_identifier::suggest_stitching_from_pattern_file(
+                            &resolved_design_path.to_string_lossy(),
+                            &candidate.filename,
+                            &candidate.filepath,
+                            &valid_stitching_descriptions,
+                            Some(0.70),
+                        );
 
                     let mut detected_tag_ids = Vec::new();
                     for description in &detected_descriptions {
@@ -482,6 +607,7 @@ pub async fn run_unified_backfill_with_progress(
                         ));
                     }
 
+                    emit_progress(progress, "processing", "stitching", processed, errors);
                     if processed % commit_every == 0 {
                         emit_progress(progress, "batch_committed", "stitching", processed, errors);
                     }
@@ -536,6 +662,7 @@ pub async fn run_unified_backfill_with_progress(
                         ));
                     }
 
+                    emit_progress(progress, "processing", "images", processed, errors);
                     if processed % commit_every == 0 {
                         emit_progress(progress, "batch_committed", "images", processed, errors);
                     }
@@ -574,8 +701,15 @@ pub async fn run_unified_backfill_with_progress(
                         ));
                     }
 
+                    emit_progress(progress, "processing", "color_counts", processed, errors);
                     if processed % commit_every == 0 {
-                        emit_progress(progress, "batch_committed", "color_counts", processed, errors);
+                        emit_progress(
+                            progress,
+                            "batch_committed",
+                            "color_counts",
+                            processed,
+                            errors,
+                        );
                     }
                 }
             }
@@ -612,8 +746,15 @@ pub async fn run_unified_backfill_with_progress(
                         ));
                     }
 
+                    emit_progress(progress, "processing", "hoop_dimensions", processed, errors);
                     if processed % commit_every == 0 {
-                        emit_progress(progress, "batch_committed", "hoop_dimensions", processed, errors);
+                        emit_progress(
+                            progress,
+                            "batch_committed",
+                            "hoop_dimensions",
+                            processed,
+                            errors,
+                        );
                     }
                 }
             }
@@ -783,33 +924,49 @@ async fn select_tagging_design_ids(
     Ok(ids)
 }
 
-/// Spawn a single concurrent tagging task for `design_id`. The shared read-only
-/// data (tag lookup, valid descriptions) and the connection pool are passed via
-/// cheap `Arc` clones so each worker can run independently. Returns the design id
-/// together with the tier-application result so the caller can update counters.
+/// Output of a single compute-only tagging worker task: the design id plus the
+/// computed `(descriptions, tier)` suggestion, or `None` (no suggestion) / `Err`.
+type TaggingWorkerOutput = (i64, Result<Option<(Vec<String>, i64)>, AppError>);
+
+/// Spawn a single concurrent tagging task for `design_id`. Workers only COMPUTE
+/// the suggestion (a read-only operation — no DB writes); the caller applies the
+/// returned result later in a batched transaction. Shared read-only data (valid
+/// descriptions) and the connection pool are passed via cheap `Arc` clones so each
+/// worker can run independently. Returns `Some((descriptions, tier))` when a tier
+/// produced a suggestion, or `None` when none did.
 fn spawn_tagging_task(
-    set: &mut JoinSet<(i64, Result<(), AppError>)>,
+    set: &mut JoinSet<TaggingWorkerOutput>,
     design_id: i64,
     pool: Arc<SqlitePool>,
-    image_tag_map: Arc<HashMap<String, i64>>,
     valid_descriptions: Arc<HashSet<String>>,
     tier_options: TaggingTierOptions,
+    gemini: Option<Arc<GeminiClient>>,
 ) {
     set.spawn(async move {
-        let result =
-            apply_tagging_tiers(&pool, design_id, &image_tag_map, &valid_descriptions, &tier_options)
-                .await;
+        let result = compute_tagging_tiers(
+            &pool,
+            design_id,
+            &valid_descriptions,
+            &tier_options,
+            gemini.as_deref(),
+        )
+        .await;
         (design_id, result)
     });
 }
 
-async fn apply_tagging_tiers(
+/// Compute the tagging suggestion for a single design WITHOUT writing to the
+/// database. Returns the suggested tag descriptions and the tier that produced
+/// them (1/2/3), or `None` if no tier produced a suggestion. The caller applies
+/// the result later in a batched transaction (see the tagging loop), so a run
+/// can commit thousands of designs' writes in a handful of transactions.
+async fn compute_tagging_tiers(
     pool: &SqlitePool,
     design_id: i64,
-    image_tag_map: &HashMap<String, i64>,
     valid_descriptions: &HashSet<String>,
     tier_options: &TaggingTierOptions,
-) -> Result<(), AppError> {
+    gemini: Option<&GeminiClient>,
+) -> Result<Option<(Vec<String>, i64)>, AppError> {
     // Only fetch the preview image when Tier 3 (vision) is enabled, so large
     // BLOBs aren't read for every design in a Tier 1/Tier 2 run.
     let select_sql = if tier_options.tier3_enabled {
@@ -824,7 +981,7 @@ async fn apply_tagging_tiers(
         .map_err(|e| AppError::database(format!("failed to read design row for tagging: {e}")))?;
 
     let Some(row) = row else {
-        return Ok(());
+        return Ok(None);
     };
 
     let filename: String = row
@@ -843,19 +1000,25 @@ async fn apply_tagging_tiers(
     if tier_options.tier1_enabled {
         let tier1 = tagging::suggest_tier1_descriptions(&filename, &filepath, valid_descriptions);
         if !tier1.is_empty() {
-            return apply_image_tags_and_tier(pool, design_id, image_tag_map, tier1, 1).await;
+            return Ok(Some((tier1, 1)));
         }
     }
 
     if tier_options.tier2_enabled {
         // The delay only paces a real outbound Gemini call. Local-only Tier 2
-        // (the current behaviour) does not sleep, so large runs aren't throttled.
+        // does not sleep, so large runs aren't throttled.
         if tier_options.tier2_network && tier_options.tier2_delay_seconds > 0.0 {
             sleep(Duration::from_secs_f64(tier_options.tier2_delay_seconds)).await;
         }
-        let tier2 = suggest_tier2_descriptions(&filename, &filepath, valid_descriptions);
+        let tier2 = if let Some(client) = gemini {
+            client
+                .suggest_tags_text(&filename, valid_descriptions)
+                .await?
+        } else {
+            suggest_tier2_descriptions(&filename, &filepath, valid_descriptions)
+        };
         if !tier2.is_empty() {
-            return apply_image_tags_and_tier(pool, design_id, image_tag_map, tier2, 2).await;
+            return Ok(Some((tier2, 2)));
         }
     }
 
@@ -863,13 +1026,23 @@ async fn apply_tagging_tiers(
         if tier_options.tier3_network && tier_options.tier3_delay_seconds > 0.0 {
             sleep(Duration::from_secs_f64(tier_options.tier3_delay_seconds)).await;
         }
-        let tier3 = suggest_tier3_descriptions(&filename, &filepath, valid_descriptions);
+        let tier3 = if let Some(client) = gemini {
+            client
+                .suggest_tags_vision(
+                    &filename,
+                    image_data.as_deref().unwrap_or_default(),
+                    valid_descriptions,
+                )
+                .await?
+        } else {
+            suggest_tier3_descriptions(&filename, &filepath, valid_descriptions)
+        };
         if !tier3.is_empty() {
-            return apply_image_tags_and_tier(pool, design_id, image_tag_map, tier3, 3).await;
+            return Ok(Some((tier3, 3)));
         }
     }
 
-    Ok(())
+    Ok(None)
 }
 
 fn suggest_tier2_descriptions(
@@ -922,45 +1095,57 @@ fn suggest_tier3_descriptions(
     tier3
 }
 
-async fn apply_image_tags_and_tier(
+/// Apply a set of computed tagging suggestions in a single SQLite transaction.
+/// This is the actual commit batching: `commit_every` designs' writes share one
+/// transaction (one journal + fsync) instead of one autocommit per statement.
+async fn flush_tagging_batch(
     pool: &SqlitePool,
-    design_id: i64,
     image_tag_map: &HashMap<String, i64>,
-    descriptions: Vec<String>,
-    tier: i64,
+    results: Vec<(i64, Vec<String>, i64)>,
 ) -> Result<(), AppError> {
-    if descriptions.is_empty() {
+    if results.is_empty() {
         return Ok(());
     }
+    let mut tx = pool.begin().await.map_err(|e| {
+        AppError::database(format!("failed to begin tagging batch transaction: {e}"))
+    })?;
 
-    sqlx::query(
-        "DELETE FROM design_tags
+    for (design_id, descriptions, tier) in results {
+        if descriptions.is_empty() {
+            continue;
+        }
+        sqlx::query(
+            "DELETE FROM design_tags
 		 WHERE design_id = ?
 		   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'image')",
-    )
-    .bind(design_id)
-    .execute(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
+        )
+        .bind(design_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
 
-    for description in descriptions {
-        if let Some(tag_id) = image_tag_map.get(&description) {
-            sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
-                .bind(design_id)
-                .bind(*tag_id)
-                .execute(pool)
-                .await
-                .map_err(|e| AppError::database(format!("failed to insert image tag: {e}")))?;
+        for description in descriptions {
+            if let Some(tag_id) = image_tag_map.get(&description) {
+                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                    .bind(design_id)
+                    .bind(*tag_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| AppError::database(format!("failed to insert image tag: {e}")))?;
+            }
         }
+
+        sqlx::query("UPDATE designs SET tagging_tier = ?, image_tags_verified = 0 WHERE id = ?")
+            .bind(tier)
+            .bind(design_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| AppError::database(format!("failed to update tagging tier: {e}")))?;
     }
 
-    sqlx::query("UPDATE designs SET tagging_tier = ?, image_tags_verified = 0 WHERE id = ?")
-        .bind(tier)
-        .bind(design_id)
-        .execute(pool)
+    tx.commit()
         .await
-        .map_err(|e| AppError::database(format!("failed to update tagging tier: {e}")))?;
-
+        .map_err(|e| AppError::database(format!("failed to commit tagging batch: {e}")))?;
     Ok(())
 }
 
@@ -1345,6 +1530,61 @@ async fn get_i64_setting(pool: &SqlitePool, key: &str) -> Result<Option<i64>, Ap
     Ok(value.and_then(|raw| raw.trim().parse::<i64>().ok()))
 }
 
+async fn get_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<String>, AppError> {
+    let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")
+        .bind(key)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to read string setting {key}: {e}")))?
+        .and_then(|row| row.try_get::<String, _>("value").ok());
+
+    Ok(value)
+}
+
+/// Build the message shown when a Gemini run aborts on a rate-limit (429).
+/// On the free tier we stop hard (no retry) and tell the user roughly how long
+/// to wait, using the API's `Retry-After` seconds when available. On paid tier
+/// we keep the existing guidance (raise delay / lower workers).
+fn free_tier_rate_limit_message(error: &AppError, free_tier: bool) -> String {
+    if !free_tier {
+        return "Gemini tagging aborted: rate limit / quota exceeded (429). No further designs were tagged. Increase the AI delay or lower Workers in Settings. The backfill log has full details."
+            .to_string();
+    }
+    let wait = crate::services::gemini_client::retry_after_seconds(error)
+        .map(|seconds| {
+            format!(
+                "wait about {} minutes (per the API) or until tomorrow",
+                seconds.div_ceil(60)
+            )
+        })
+        .unwrap_or_else(|| "wait a few minutes or until tomorrow".to_string());
+    format!(
+        "Free-tier Gemini rate limit reached (429). No further designs were tagged. {wait} before retrying."
+    )
+}
+
+/// Default concurrent workers for a run. Free-tier keys are rate-limited, so a
+/// lower concurrency (used when the field is blank) keeps the run under roughly
+/// 15 requests/minute.
+fn default_workers_for(free_tier: bool) -> i64 {
+    if free_tier {
+        FREE_TIER_WORKERS
+    } else {
+        DEFAULT_WORKERS
+    }
+}
+
+/// Default seconds between Gemini requests. Paid keys aren't rate-limited, so the paid
+/// default is no delay (0); only the free tier paces requests (`FREE_TIER_DELAY_SECONDS`
+/// paired with `FREE_TIER_WORKERS`) to stay under the ~15 requests/minute limit.
+fn default_delay_for(free_tier: bool) -> f64 {
+    if free_tier {
+        FREE_TIER_DELAY_SECONDS
+    } else {
+        DEFAULT_DELAY_SECONDS
+    }
+}
+
 async fn select_hoop_dimension_candidates(
     pool: &SqlitePool,
     limit: i64,
@@ -1361,19 +1601,13 @@ async fn select_hoop_dimension_candidates(
     .bind(limit)
     .fetch_all(pool)
     .await
-    .map_err(|e| {
-        AppError::database(format!(
-            "failed to select hoop dimension candidates: {e}"
-        ))
-    })?;
+    .map_err(|e| AppError::database(format!("failed to select hoop dimension candidates: {e}")))?;
 
     let mut ids = Vec::new();
     for row in rows {
-        ids.push(
-            row.try_get::<i64, _>("id").map_err(|e| {
-                AppError::database(format!("failed to read hoop dimension candidate id: {e}"))
-            })?,
-        );
+        ids.push(row.try_get::<i64, _>("id").map_err(|e| {
+            AppError::database(format!("failed to read hoop dimension candidate id: {e}"))
+        })?);
     }
     Ok(ids)
 }
@@ -1420,7 +1654,6 @@ async fn update_hoop_dimensions_only(pool: &SqlitePool, design_id: i64) -> Resul
 
     Ok(())
 }
-
 
 async fn get_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, AppError> {
     let value = sqlx::query("SELECT value FROM settings WHERE key = ? LIMIT 1")

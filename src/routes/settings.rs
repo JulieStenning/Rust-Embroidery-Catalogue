@@ -1,8 +1,10 @@
+use crate::services::gemini_client::GeminiClient;
 use crate::services::settings::{
     self, BrowseDataRootResult, SaveImportBrowseFolderResult, SaveSettingsRequest,
     SaveSettingsResult, SettingsViewModel,
 };
 use crate::AppState;
+use serde::Serialize;
 use tauri::{Manager, State};
 
 pub(crate) async fn get_settings_view_model_inner(
@@ -56,6 +58,43 @@ pub async fn save_settings_view_model(
     request: SaveSettingsRequest,
 ) -> Result<SaveSettingsResult, String> {
     save_settings_view_model_inner(&state, request).await
+}
+
+/// Result of the Settings "Test model" button.
+#[derive(Debug, Clone, Serialize)]
+pub struct GeminiModelTestResult {
+    pub ok: bool,
+    pub message: String,
+}
+
+/// List Gemini models available to `api_key` that support `generateContent`
+/// (short names, sorted). Populates the Settings model dropdown.
+#[tauri::command]
+pub async fn list_gemini_models(api_key: String) -> Result<Vec<String>, String> {
+    GeminiClient::new(api_key)
+        .list_models()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Validate that `model` is available to `api_key` and supports
+/// `generateContent`. Used by the Settings "Test model" button.
+#[tauri::command]
+pub async fn test_gemini_model(
+    api_key: String,
+    model: String,
+) -> Result<GeminiModelTestResult, String> {
+    let client = GeminiClient::new(api_key);
+    match client.validate_model(&model).await {
+        Ok(()) => Ok(GeminiModelTestResult {
+            ok: true,
+            message: format!("Model '{model}' is available and supports generateContent."),
+        }),
+        Err(error) => Ok(GeminiModelTestResult {
+            ok: false,
+            message: error.to_string(),
+        }),
+    }
 }
 
 #[tauri::command]

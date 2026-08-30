@@ -47,6 +47,7 @@ import {
   getSettingsViewModel,
   getTaggingActionsViewModel,
   listDesigners,
+  listGeminiModels,
   listHoops,
   listSources,
   listTags,
@@ -86,6 +87,7 @@ import {
   setDesignVerification,
   setTagGroup,
   stopUnifiedBackfill,
+  testGeminiModel,
   updateDesignMetadata,
   updateDesigner,
   updateHoop,
@@ -1549,6 +1551,10 @@ describe("commandAdapter settings", () => {
       ai_tier3_auto: false,
       ai_batch_size: "1",
       ai_delay: "2",
+      ai_gemini_model: "",
+      ai_commit_every: "",
+      ai_workers: "",
+      ai_free_tier: false,
       import_commit_batch_size: "3",
       data_root: "C:/x",
       preview_3d_profile: "balanced",
@@ -1573,6 +1579,10 @@ describe("commandAdapter settings", () => {
       ai_tier3_auto: false,
       ai_batch_size: "1",
       ai_delay: "2",
+      ai_gemini_model: "",
+      ai_commit_every: "",
+      ai_workers: "",
+      ai_free_tier: false,
       import_commit_batch_size: "3",
       data_root: "C:/x",
     };
@@ -1621,6 +1631,29 @@ describe("commandAdapter settings", () => {
     expect(result.source).toBe("rust");
     expect(result.path).toBeNull();
     expect(result.error).toBe("cancelled");
+  });
+
+  it("listGeminiModels passes apiKey and returns the model list", async () => {
+    invokeMock.mockResolvedValue(["gemini-2.0-flash", "gemini-2.5-pro"]);
+
+    const result = await listGeminiModels("k");
+
+    expect(invokeMock).toHaveBeenCalledWith("list_gemini_models", { apiKey: "k" });
+    expect(result.source).toBe("rust");
+    expect(result.models).toEqual(["gemini-2.0-flash", "gemini-2.5-pro"]);
+  });
+
+  it("testGeminiModel passes apiKey and model and returns the result", async () => {
+    invokeMock.mockResolvedValue({ ok: true, message: "available" });
+
+    const result = await testGeminiModel("k", "gemini-2.0-flash");
+
+    expect(invokeMock).toHaveBeenCalledWith("test_gemini_model", {
+      apiKey: "k",
+      model: "gemini-2.0-flash",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("available");
   });
 
   it("getGoogleApiKey returns the key from Rust with the exact command name", async () => {
@@ -1694,6 +1727,7 @@ describe("commandAdapter settings", () => {
       default_batch_size: 50,
       default_commit_every: 60,
       default_workers: 2,
+      default_delay: 8,
     });
 
     const result = await getTaggingActionsViewModel();
@@ -1701,6 +1735,7 @@ describe("commandAdapter settings", () => {
     expect(result.source).toBe("rust");
     expect(result.model.default_batch_size).toBe(50);
     expect(result.model.default_workers).toBe(2);
+    expect(result.model.default_delay).toBe(8);
   });
 
   it("getTaggingActionsViewModel falls back to the default mock model on error", async () => {
@@ -1715,10 +1750,14 @@ describe("commandAdapter settings", () => {
       ai_tier3_auto: false,
       ai_batch_size: "",
       ai_delay: "",
+      ai_commit_every: "",
+      ai_workers: "",
+      ai_free_tier: false,
       import_commit_batch_size: "",
       default_batch_size: 100,
       default_commit_every: 100,
       default_workers: 4,
+      default_delay: 5,
     });
     expect(result.error).toContain("vm failed");
   });

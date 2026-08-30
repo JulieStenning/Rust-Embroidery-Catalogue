@@ -3,6 +3,8 @@
   import {
     getSettingsViewModel,
     saveSettings,
+    listGeminiModels,
+    testGeminiModel,
     browseSettingsDataRoot,
     restartApplication,
     startCatalogueStorageMigration,
@@ -30,6 +32,14 @@
   let settingsAiTier3Auto = $state(false);
   let settingsAiBatchSize = $state("");
   let settingsAiDelay = $state("");
+  let settingsAiGeminiModel = $state("");
+  let settingsAiCommitEvery = $state("");
+  let settingsAiWorkers = $state("");
+  let settingsAiFreeTier = $state(false);
+  let settingsGeminiModels = $state([]);
+  let settingsModelsLoading = $state(false);
+  let settingsModelTesting = $state(false);
+  let settingsModelTestMessage = $state("");
   let settingsImportCommitBatchSize = $state("");
   let settingsDbIdleCheckIntervalSecs = $state("1800");
   let dbStats = $state(/** @type {DbStats | null} */ (null));
@@ -57,6 +67,11 @@
 
   let settingsHasGoogleApiKey = $derived(settingsGoogleApiKey.trim().length > 0);
 
+  // Effective defaults for blank fields: free-tier keys use a conservative
+  // workers/delay pair so runs stay under the ~15 requests/minute limit.
+  let settingsDefaultWorkers = $derived(settingsAiFreeTier ? 2 : 4);
+  let settingsDefaultDelay = $derived(settingsAiFreeTier ? "10" : "0");
+
   function toggleSettingsApiKeyVisibility() {
     settingsApiKeyRevealed = !settingsApiKeyRevealed;
   }
@@ -68,6 +83,10 @@
     settingsAiTier3Auto = Boolean(model?.ai_tier3_auto);
     settingsAiBatchSize = String(model?.ai_batch_size || "");
     settingsAiDelay = String(model?.ai_delay || "");
+    settingsAiGeminiModel = String(model?.ai_gemini_model || "");
+    settingsAiCommitEvery = String(model?.ai_commit_every || "");
+    settingsAiWorkers = String(model?.ai_workers || "");
+    settingsAiFreeTier = Boolean(model?.ai_free_tier);
     settingsImportCommitBatchSize = String(model?.import_commit_batch_size || "");
     settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
@@ -78,6 +97,76 @@
     settingsAppMode = String(model?.app_mode || "development");
     settingsHelpUrl = String(model?.ai_tagging_help_url || "#/help");
   }
+
+  /** Load available Gemini models for the current API key into the dropdown. */
+  async function loadGeminiModels() {
+    if (!settingsHasGoogleApiKey) {
+      settingsGeminiModels = [];
+      return;
+    }
+    settingsModelsLoading = true;
+    try {
+      const result = await listGeminiModels(settingsGoogleApiKey.trim());
+      settingsGeminiModels = sortModelsFlashFirst(Array.isArray(result?.models) ? result.models : []);
+      if (result?.error) {
+        addToast(`Could not list Gemini models: ${result.error}`, "error");
+      }
+    } catch (error) {
+      addToast(`Could not list Gemini models: ${error}`, "error");
+    } finally {
+      settingsModelsLoading = false;
+    }
+  }
+
+  /**
+   * Sort the available Gemini models so flash models come first (preferred
+   * `gemini-flash*` aliases, then other `*-flash`, then the rest), matching the
+   * backend's auto-selection preference. Flash is recommended for tagging: it is
+   * the fastest and cheapest tier for the tiny text/vision prompts used here.
+   * @param {string[]} models
+   * @returns {string[]}
+   */
+  function sortModelsFlashFirst(models) {
+    const rank = (name) => {
+      const lower = String(name || "").toLowerCase();
+      if (lower.startsWith("gemini-flash")) return 0;
+      if (lower.includes("flash")) return 1;
+      return 2;
+    };
+    return [...models].sort(
+      (a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b))
+    );
+  }
+
+  /** Validate the currently selected Gemini model against the API key. */
+  async function testSelectedModel() {
+    const model = settingsAiGeminiModel.trim();
+    if (!model) {
+      addToast("Enter or pick a Gemini model to test.", "warning");
+      return;
+    }
+    settingsModelTesting = true;
+    settingsModelTestMessage = "";
+    try {
+      const result = await testGeminiModel(settingsGoogleApiKey.trim(), model);
+      settingsModelTestMessage = result.message;
+      addToast(result.message, result.ok ? "success" : "error");
+    } catch (error) {
+      addToast(`Could not test Gemini model: ${error}`, "error");
+    } finally {
+      settingsModelTesting = false;
+    }
+  }
+
+  // Refresh the model dropdown whenever a key is present (and when it changes).
+  $effect(() => {
+    if (settingsHasGoogleApiKey) {
+      loadGeminiModels();
+    } else {
+      settingsGeminiModels = [];
+      settingsModelTestMessage = "";
+    }
+  });
 
   /** @param {number} bytes */
   function formatBytes(bytes) {
@@ -174,6 +263,10 @@
         ai_tier3_auto: settingsAiTier3Auto,
         ai_batch_size: settingsNumericToString(settingsAiBatchSize),
         ai_delay: settingsNumericToString(settingsAiDelay),
+        ai_gemini_model: settingsAiGeminiModel,
+        ai_commit_every: settingsNumericToString(settingsAiCommitEvery),
+        ai_workers: settingsNumericToString(settingsAiWorkers),
+        ai_free_tier: settingsAiFreeTier,
         import_commit_batch_size: settingsNumericToString(settingsImportCommitBatchSize),
         data_root: settingsDataRoot,
         db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
@@ -458,26 +551,78 @@
             />
             Run <strong>Tier 3</strong> (Gemini vision AI from preview image) automatically during import
           </label>
+          <label class="flex flex-col gap-1 text-sm text-gray-700 cursor-pointer">
+            <span class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                bind:checked={settingsAiFreeTier}
+                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              My Google API key is on the <strong>free tier</strong>
+            </span>
+            <span class="text-xs text-gray-500"
+              >Tick this only if your key is on the free tier - it has stricter rate limits.</span
+            >
+          </label>
         </div>
       </div>
 
-      <div>
-        <label for="settings-ai-batch-size" class="block text-sm font-semibold text-gray-700 mb-1">
-          AI tagging batch size <span class="font-normal text-gray-500">(optional)</span>
-        </label>
-        <input
-          id="settings-ai-batch-size"
-          type="number"
-          min="1"
-          bind:value={settingsAiBatchSize}
-          placeholder="e.g. 100 — leave blank to tag all"
-          class="settings-input border rounded px-3 py-2 text-sm w-48"
-        />
-        <p class="mt-1 text-xs text-gray-500">
-          Limit AI tagging to this many newly imported designs per import run. Leave blank to tag
-          all newly imported designs. Useful for very large imports where you want to spread Gemini
-          calls over several runs.
-        </p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label
+            for="settings-ai-batch-size"
+            class="block text-sm font-semibold text-gray-700 mb-1"
+          >
+            AI tagging batch size <span class="font-normal text-gray-500">(optional)</span>
+          </label>
+          <input
+            id="settings-ai-batch-size"
+            type="number"
+            min="1"
+            bind:value={settingsAiBatchSize}
+            placeholder="e.g. 100"
+            class="settings-input border rounded px-3 py-2 text-sm w-full"
+          />
+          <p class="mt-1 text-xs text-gray-500">Designs processed per batch (default 100).</p>
+        </div>
+        <div>
+          <label
+            for="settings-ai-commit-every"
+            class="block text-sm font-semibold text-gray-700 mb-1"
+          >
+            Commit every <span class="font-normal text-gray-500">(optional)</span>
+          </label>
+          <input
+            id="settings-ai-commit-every"
+            type="number"
+            min="1"
+            bind:value={settingsAiCommitEvery}
+            placeholder="e.g. 100"
+            class="settings-input border rounded px-3 py-2 text-sm w-full"
+          />
+          <p class="mt-1 text-xs text-gray-500">Progress/commit cadence during a run (default 100).</p>
+        </div>
+        <div>
+          <label
+            for="settings-ai-workers"
+            class="block text-sm font-semibold text-gray-700 mb-1"
+          >
+            Workers <span class="font-normal text-gray-500">(optional)</span>
+          </label>
+          <input
+            id="settings-ai-workers"
+            type="number"
+            min="1"
+            max="32"
+            bind:value={settingsAiWorkers}
+            placeholder={`e.g. ${settingsDefaultWorkers}${settingsAiFreeTier ? " (free tier)" : ""}`}
+            class="settings-input border rounded px-3 py-2 text-sm w-full"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            Designs tagged in parallel (default {settingsDefaultWorkers}). Lower to avoid Gemini
+            rate-limit (429) errors.
+          </p>
+        </div>
       </div>
 
       <div>
@@ -492,16 +637,64 @@
           min="0"
           step="0.5"
           bind:value={settingsAiDelay}
-          placeholder="e.g. 6.0 — leave blank for default (5.0 s)"
+          placeholder={`e.g. ${settingsDefaultDelay}`}
           class="settings-input border rounded px-3 py-2 text-sm w-56"
         />
         <p class="mt-1 text-xs text-gray-500">
           Seconds to wait between API calls. Increase this if you see <em>429 Too Many Requests</em>
-          errors. Default is 5.0 seconds. Also applies to batch tagging actions on the
+          errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
+          batch tagging actions on the
           <a href="#/admin/tagging-actions" class="text-indigo-600 hover:underline"
             >Tagging Actions</a
           > page.
         </p>
+      </div>
+
+      <div>
+        <label for="settings-ai-model" class="block text-sm font-semibold text-gray-700 mb-1">
+          Gemini model <span class="font-normal text-gray-500">(optional)</span>
+        </label>
+        <div class="flex flex-wrap items-center gap-2">
+          <select
+            id="settings-ai-model"
+            bind:value={settingsAiGeminiModel}
+            disabled={!settingsHasGoogleApiKey || busyActive}
+            class="settings-input border rounded px-3 py-2 text-sm w-72"
+          >
+            <option value="">Auto-select (recommended)</option>
+            {#each settingsGeminiModels as modelName}
+              <option value={modelName}>{modelName}</option>
+            {/each}
+          </select>
+          <button
+            type="button"
+            class="menu-button-secondary px-3 py-2 text-sm"
+            onclick={loadGeminiModels}
+            disabled={!settingsHasGoogleApiKey || settingsModelsLoading || busyActive}
+          >
+            {settingsModelsLoading ? "Loading…" : "Refresh"}
+          </button>
+          <button
+            type="button"
+            class="menu-button-secondary px-3 py-2 text-sm"
+            onclick={testSelectedModel}
+            disabled={!settingsHasGoogleApiKey || settingsModelTesting || busyActive}
+          >
+            {settingsModelTesting ? "Testing…" : "Test model"}
+          </button>
+        </div>
+        <p class="mt-1 text-xs text-gray-500">
+          Model used for Tier 2 (text) and Tier 3 (vision) tagging. Leave blank to let the app
+          auto-select an available Gemini model. If a model you pick is later retired, the app
+          falls back to auto-selection at run time.
+        </p>
+        <p class="mt-1 text-xs text-gray-500">
+          <strong>Flash models are recommended</strong> — they are the fastest and cheapest for
+          tagging. Pro/thinking models cost more and run slower for the same small tag prompt.
+        </p>
+        {#if settingsModelTestMessage}
+          <p class="mt-1 text-xs text-gray-600">{settingsModelTestMessage}</p>
+        {/if}
       </div>
 
       <div>

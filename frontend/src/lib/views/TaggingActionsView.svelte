@@ -19,44 +19,15 @@
 
   // Live progress streamed from Rust during a backfill run ("Processed N…").
   let backfillProgress = $derived($backfillProgressStore);
-  let backfillStatusText = $derived.by(() => {
+  // Live counter for the Run button: "Getting ready for tagging" while the run is
+  // setting up, then "Processing no. N" as each design is completed.
+  let taggingRunButtonLabel = $derived.by(() => {
     const p = backfillProgress;
-    if (!p.active) return "";
-    if (p.stage === "started") return "Starting backfill…";
-    if (p.stage === "batch_committed") {
-      return `${backfillActionLabel(p.currentAction)} — Processed ${p.processed} design${p.processed === 1 ? "" : "s"}${
-        p.errors > 0 ? ` (${p.errors} error${p.errors === 1 ? "" : "s"})` : ""
-      }…`;
+    if (p.active && p.processed > 0) {
+      return `Processing no. ${p.processed}`;
     }
-    if (p.stage === "completed") {
-      return `${backfillActionLabel(p.currentAction)} — Completed ${p.processed} design${p.processed === 1 ? "" : "s"}${
-        p.errors > 0 ? ` (${p.errors} error${p.errors === 1 ? "" : "s"})` : ""
-      }`;
-    }
-    if (p.stage === "stopped") {
-      return `Backfill stopped after ${p.processed} design${p.processed === 1 ? "" : "s"}${
-        p.errors > 0 ? ` (${p.errors} error${p.errors === 1 ? "" : "s"})` : ""
-      }`;
-    }
-    return "";
+    return "Getting ready for tagging";
   });
-
-  function backfillActionLabel(action: string): string {
-    switch (action) {
-      case "tagging":
-        return "Tagging";
-      case "stitching":
-        return "Stitch detection";
-      case "images":
-        return "Image generation";
-      case "color_counts":
-        return "Colour / stitch counts";
-      case "hoop_dimensions":
-        return "Hoops / dimensions";
-      default:
-        return "Backfill";
-    }
-  }
 
   let taggingActionsLoaded = $state(false);
   let taggingActionsLoading = $state(false);
@@ -68,6 +39,7 @@
   let taggingBatchSize = $state("100");
   let taggingCommitEvery = $state("100");
   let taggingWorkers = $state("4");
+  let taggingFreeTier = $state(false);
 
   // Top-level action toggles (all default unchecked for safety).
   let taggingRunTagging = $state(false);
@@ -118,6 +90,12 @@
         (result?.model as import("../types/ipc").TaggingActionsViewModel | null | undefined) ||
         null;
       taggingHasGoogleApiKey = Boolean(model?.has_google_api_key);
+      // Batch size / commit every / workers come from the Settings page (shared
+      // with import); these are the defaults used for the run.
+      taggingBatchSize = String(model?.ai_batch_size || "100");
+      taggingCommitEvery = String(model?.ai_commit_every || "100");
+      taggingWorkers = String(model?.ai_workers || "4");
+      taggingFreeTier = Boolean(model?.ai_free_tier);
       taggingActionsLoaded = true;
       addToast(
         model?.has_google_api_key
@@ -254,6 +232,14 @@
       <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
         API key detected — AI tagging actions are available. Gemini calls may incur charges on your
         Google account.
+      </div>
+    {/if}
+
+    {#if taggingFreeTier && taggingHasGoogleApiKey}
+      <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
+        Free tier detected — Gemini limits are roughly 15 requests/minute and 1,500/day. Keep Workers
+        low and the AI delay (in Settings) high enough to stay under the limit. If a 429 rate-limit
+        error occurs the run stops and tells you how long to wait; it will not retry automatically.
       </div>
     {/if}
 
@@ -431,7 +417,7 @@
         onclick={runTaggingActions}
         disabled={taggingRunInFlight || taggingActionsLoading || busyActive || !taggingAnyActionSelected}
       >
-        {taggingRunInFlight ? "Running..." : "Run selected actions"}
+        {taggingRunInFlight ? taggingRunButtonLabel : "Run selected actions"}
       </button>
       <button
         class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
@@ -441,18 +427,6 @@
         Stop
       </button>
     </div>
-
-    <!-- Live progress -->
-    {#if backfillStatusText}
-      <div
-        class="bg-white rounded shadow p-4 text-sm"
-        role="status"
-        data-testid="backfill-progress"
-      >
-        <p class="font-semibold text-gray-800">Progress</p>
-        <p class="text-gray-700">{backfillStatusText}</p>
-      </div>
-    {/if}
 
     <!-- Last summary -->
     {#if taggingLastSummary}

@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
+import { tick } from "svelte";
 import TaggingActionsView from "../TaggingActionsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -35,10 +36,14 @@ const viewModel = () => ({
     ai_tier3_auto: false,
     ai_batch_size: "",
     ai_delay: "",
+    ai_commit_every: "",
+    ai_workers: "",
+    ai_free_tier: false,
     import_commit_batch_size: "",
     default_batch_size: 100,
     default_commit_every: 100,
     default_workers: 4,
+    default_delay: 5,
   },
 });
 
@@ -70,6 +75,20 @@ describe("TaggingActionsView run unified backfill", () => {
     });
     adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult());
     adapterMocks.runStitchingBackfill.mockResolvedValue(backfillResult());
+  });
+
+  it("shows the free-tier rate-limit hint when the key is declared free tier", async () => {
+    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+      source: "rust",
+      model: { ...viewModel().model, ai_free_tier: true },
+    });
+
+    render(TaggingActionsView);
+
+    await waitFor(() =>
+      expect(screen.getByText(/Free tier detected/)).toBeInTheDocument()
+    );
+    expect(screen.getByText(/15 requests\/minute and 1,500\/day/)).toBeInTheDocument();
   });
 
   it("runs unified backfill when Tagging + Tier 2 are enabled with API key", async () => {
@@ -122,6 +141,32 @@ describe("TaggingActionsView run unified backfill", () => {
         batch_size: 100,
         workers: 4,
       });
+    });
+  });
+
+  it("uses the batch size, commit every, and workers from Settings", async () => {
+    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+      source: "rust",
+      model: {
+        ...viewModel().model,
+        ai_batch_size: "25",
+        ai_commit_every: "10",
+        ai_workers: "2",
+      },
+    });
+    render(TaggingActionsView);
+
+    await waitFor(() => expect(adapterMocks.getTaggingActionsViewModel).toHaveBeenCalled());
+    await tick();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
+    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({ workers: 2, batch_size: 25, commit_every: 10 })
+      );
     });
   });
 

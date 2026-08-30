@@ -62,6 +62,7 @@ import type {
   DesignImageData,
   ImportPrecheckActionResult,
   ImportPrecheckResult,
+  GeminiModelTestResult,
   ProjectDetailView,
   ProjectMutationResult,
   ProjectListItem,
@@ -1775,6 +1776,10 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
       ai_tier3_auto: false,
       ai_batch_size: "",
       ai_delay: "",
+      ai_gemini_model: "",
+      ai_commit_every: "",
+      ai_workers: "",
+      ai_free_tier: false,
       import_commit_batch_size: "",
       import_last_browse_folder: "",
       can_configure_data_root: false,
@@ -1815,6 +1820,52 @@ export async function saveSettings(
       message: `Could not save settings: ${error}`,
       persisted: false,
     };
+  }
+}
+
+/**
+ * List Gemini models available for the given API key (populates the Settings
+ * model dropdown).
+ * @param {string} apiKey
+ */
+export async function listGeminiModels(
+  apiKey: string
+): Promise<{ source: "rust" | "mock"; models: string[]; error?: string }> {
+  try {
+    const result = await invokeLoose<{ models?: string[] } | string[]>("list_gemini_models", {
+      apiKey,
+    });
+    const models = Array.isArray(result)
+      ? result.map(String)
+      : Array.isArray(result?.models)
+        ? result.models.map(String)
+        : [];
+    return { source: "rust", models };
+  } catch (error) {
+    console.info("list_gemini_models failed.", error);
+    return { source: "mock", models: [], error: String(error) };
+  }
+}
+
+/**
+ * Validate a Gemini model against the given API key (Settings "Test model"
+ * button).
+ * @param {string} apiKey
+ * @param {string} model
+ */
+export async function testGeminiModel(
+  apiKey: string,
+  model: string
+): Promise<GeminiModelTestResult> {
+  try {
+    const result = await invokeLoose<GeminiModelTestResult>("test_gemini_model", {
+      apiKey,
+      model,
+    });
+    return { ok: Boolean(result?.ok), message: String(result?.message || "") };
+  } catch (error) {
+    console.info("test_gemini_model failed.", error);
+    return { ok: false, message: String(error) };
   }
 }
 
@@ -2012,10 +2063,14 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
         ai_tier3_auto: Boolean(model?.ai_tier3_auto),
         ai_batch_size: String(model?.ai_batch_size || ""),
         ai_delay: String(model?.ai_delay || ""),
+        ai_commit_every: String(model?.ai_commit_every || ""),
+        ai_workers: String(model?.ai_workers || ""),
+        ai_free_tier: Boolean(model?.ai_free_tier),
         import_commit_batch_size: String(model?.import_commit_batch_size || ""),
         default_batch_size: Number(model?.default_batch_size ?? 100),
         default_commit_every: Number(model?.default_commit_every ?? 100),
         default_workers: Number(model?.default_workers ?? 4),
+        default_delay: Number(model?.default_delay ?? 5),
       },
     };
   } catch (error) {
@@ -2027,10 +2082,14 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
         ai_tier3_auto: false,
         ai_batch_size: "",
         ai_delay: "",
+        ai_commit_every: "",
+        ai_workers: "",
+        ai_free_tier: false,
         import_commit_batch_size: "",
         default_batch_size: 100,
         default_commit_every: 100,
         default_workers: 4,
+        default_delay: 5,
       },
       error: String(error),
     };

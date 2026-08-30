@@ -118,24 +118,19 @@ For the current stitch-type detector behavior and its roadmap notes, see [STITCH
 
 ## Batch, commit, and workers
 
-The page exposes advanced controls:
+These are configured on **Admin → Settings** (shared with the import flow), not on this page:
 
-- **Batch size**
-- **Commit every**
-- **Workers**
-
-What each control does:
-
-- **Batch size** is the number of designs fetched and processed together in one
-  internal chunk. It does **not** limit how many designs a run touches — the run
-  pages through the whole candidate set one batch at a time until every matching
-  design has been processed.
-- **Commit every** is the cadence at which the run reports progress/commits.
-- **Workers** controls parallel processing concurrency.
+- **AI tagging batch size** — the number of designs fetched and processed together in one
+  internal chunk. It does **not** limit how many designs a run touches — the run pages
+  through the whole candidate set one batch at a time until every matching design has been
+  processed.
+- **Commit every** — the cadence at which the run reports progress/commits.
+- **Workers** — controls parallel processing concurrency. Lower this to reduce Gemini
+  rate-limit (429) errors.
 
 Practical guidance:
 
-- Keep defaults for most runs.
+- Keep the defaults for most runs.
 - Use lower values if your machine is resource-constrained.
 - Increase **Workers** carefully; higher values can increase CPU and disk load.
 - To process only a subset, tick exactly the actions you need and use **Stop

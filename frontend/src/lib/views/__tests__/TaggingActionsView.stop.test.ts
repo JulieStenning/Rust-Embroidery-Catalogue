@@ -72,14 +72,18 @@ describe("TaggingActionsView stop behaviour", () => {
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Running..." })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Getting ready for tagging" })
+      ).toBeDisabled();
     });
   }
 
   it("disables Run and enables Stop while a backfill is in flight", async () => {
     await startInFlightRun();
 
-    expect(screen.getByRole("button", { name: "Running..." })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Getting ready for tagging" })
+    ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Stop" })).not.toBeDisabled();
   });
 

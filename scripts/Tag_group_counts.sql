@@ -1,0 +1,1 @@
+select count(*), tag_group from tags, design_tags where tags.id = design_tags.tag_id group by tag_group

@@ -11,6 +11,10 @@ pub const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
 pub const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
 pub const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 pub const KEY_AI_DELAY: &str = "ai.delay";
+pub const KEY_AI_GEMINI_MODEL: &str = "ai.gemini_model";
+pub const KEY_AI_COMMIT_EVERY: &str = "ai.commit_every";
+pub const KEY_AI_WORKERS: &str = "ai.workers";
+pub const KEY_AI_FREE_TIER: &str = "ai.free_tier";
 pub const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
@@ -25,6 +29,10 @@ pub struct SettingsViewModel {
     pub ai_tier3_auto: bool,
     pub ai_batch_size: String,
     pub ai_delay: String,
+    pub ai_gemini_model: String,
+    pub ai_commit_every: String,
+    pub ai_workers: String,
+    pub ai_free_tier: bool,
     pub import_commit_batch_size: String,
     pub import_last_browse_folder: String,
     pub can_configure_data_root: bool,
@@ -46,6 +54,14 @@ pub struct SaveSettingsRequest {
     pub ai_tier3_auto: bool,
     pub ai_batch_size: String,
     pub ai_delay: String,
+    #[serde(default)]
+    pub ai_gemini_model: String,
+    #[serde(default)]
+    pub ai_commit_every: String,
+    #[serde(default)]
+    pub ai_workers: String,
+    #[serde(default)]
+    pub ai_free_tier: bool,
     pub import_commit_batch_size: String,
     pub data_root: String,
     #[serde(default)]
@@ -73,9 +89,7 @@ pub struct BrowseDataRootResult {
 pub(crate) async fn get_settings_view_model_inner(
     app_state: &AppState,
 ) -> Result<SettingsViewModel, AppError> {
-    let pool = app_state
-        .db_pool()
-        .map_err(|e| AppError::database(e))?;
+    let pool = app_state.db_pool().map_err(|e| AppError::database(e))?;
     let mut conn = pool
         .acquire()
         .await
@@ -86,6 +100,10 @@ pub(crate) async fn get_settings_view_model_inner(
     let ai_tier3_auto = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_TIER3_AUTO).await?);
     let ai_batch_size = get_setting_with_default(&mut conn, KEY_AI_BATCH_SIZE).await?;
     let ai_delay = get_setting_with_default(&mut conn, KEY_AI_DELAY).await?;
+    let ai_gemini_model = get_setting_with_default(&mut conn, KEY_AI_GEMINI_MODEL).await?;
+    let ai_commit_every = get_setting_with_default(&mut conn, KEY_AI_COMMIT_EVERY).await?;
+    let ai_workers = get_setting_with_default(&mut conn, KEY_AI_WORKERS).await?;
+    let ai_free_tier = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_FREE_TIER).await?);
     let import_commit_batch_size =
         get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE).await?;
     let import_last_browse_folder =
@@ -120,6 +138,10 @@ pub(crate) async fn get_settings_view_model_inner(
         ai_tier3_auto,
         ai_batch_size,
         ai_delay,
+        ai_gemini_model,
+        ai_commit_every,
+        ai_workers,
+        ai_free_tier,
         import_commit_batch_size,
         import_last_browse_folder,
         can_configure_data_root,
@@ -138,9 +160,7 @@ pub(crate) async fn save_import_last_browse_folder_inner(
     path: String,
 ) -> Result<SaveImportBrowseFolderResult, AppError> {
     let normalized = path.trim().to_string();
-    let pool = app_state
-        .db_pool()
-        .map_err(|e| AppError::database(e))?;
+    let pool = app_state.db_pool().map_err(|e| AppError::database(e))?;
     let mut conn = pool
         .acquire()
         .await
@@ -163,9 +183,7 @@ pub(crate) async fn save_settings_view_model_inner(
     let import_commit_batch_size = normalize_optional_batch_size(&request.import_commit_batch_size);
     let ai_delay = normalize_optional_delay(&request.ai_delay);
 
-    let pool = app_state
-        .db_pool()
-        .map_err(|e| AppError::database(e))?;
+    let pool = app_state.db_pool().map_err(|e| AppError::database(e))?;
     let mut conn = pool
         .acquire()
         .await
@@ -185,6 +203,25 @@ pub(crate) async fn save_settings_view_model_inner(
     .await?;
     upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, &ai_batch_size).await?;
     upsert_setting(&mut conn, KEY_AI_DELAY, &ai_delay).await?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_GEMINI_MODEL,
+        request.ai_gemini_model.trim(),
+    )
+    .await?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_COMMIT_EVERY,
+        request.ai_commit_every.trim(),
+    )
+    .await?;
+    upsert_setting(&mut conn, KEY_AI_WORKERS, request.ai_workers.trim()).await?;
+    upsert_setting(
+        &mut conn,
+        KEY_AI_FREE_TIER,
+        bool_to_setting(request.ai_free_tier),
+    )
+    .await?;
     upsert_setting(
         &mut conn,
         KEY_IMPORT_COMMIT_BATCH_SIZE,
@@ -354,6 +391,10 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_GOOGLE_API_KEY => "",
         KEY_AI_BATCH_SIZE => "",
         KEY_AI_DELAY => "",
+        KEY_AI_GEMINI_MODEL => "",
+        KEY_AI_COMMIT_EVERY => "",
+        KEY_AI_WORKERS => "",
+        KEY_AI_FREE_TIER => "false",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "",
         KEY_PREVIEW_3D_PROFILE => "balanced",
         // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
@@ -368,7 +409,11 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_TIER3_AUTO => "Run Tier 3 (Gemini vision AI) automatically during import when a Google API key is present.",
         KEY_AI_GOOGLE_API_KEY => "Google Gemini API key used for optional automated AI tagging.",
         KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
-        KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds).",
+        KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank for no delay on paid, or 10 s on the free tier. Increase if you hit 429 errors.",
+        KEY_AI_GEMINI_MODEL => "Gemini model name for Tier 2/3 tagging. Leave blank to auto-select an available model.",
+        KEY_AI_COMMIT_EVERY => "How often to report progress/commit during a backfill run (Tagging Actions). Leave blank for the default (100).",
+        KEY_AI_WORKERS => "Concurrent designs tagged in parallel by Tagging Actions. Lower this to avoid Gemini rate-limit (429) errors. Leave blank for the default (4).",
+        KEY_AI_FREE_TIER => "Whether your Gemini API key is on the free tier. Free-tier keys have strict per-minute and per-day limits; the app stops hard on 429 and tells you how long to wait.",
         KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",

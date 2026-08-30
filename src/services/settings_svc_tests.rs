@@ -19,6 +19,7 @@ fn default_for_key_known_keys() {
     assert_eq!(default_for_key(KEY_AI_GOOGLE_API_KEY), "");
     assert_eq!(default_for_key(KEY_AI_BATCH_SIZE), "");
     assert_eq!(default_for_key(KEY_AI_DELAY), "");
+    assert_eq!(default_for_key(KEY_AI_FREE_TIER), "false");
     assert_eq!(default_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE), "");
     assert_eq!(default_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER), "");
     assert_eq!(default_for_key(KEY_PREVIEW_3D_PROFILE), "balanced");
@@ -40,6 +41,7 @@ fn description_for_key_known_keys() {
     assert!(description_for_key(KEY_AI_GOOGLE_API_KEY).contains("Google Gemini API key"));
     assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("Maximum number of designs"));
     assert!(description_for_key(KEY_AI_DELAY).contains("Seconds to wait"));
+    assert!(description_for_key(KEY_AI_FREE_TIER).contains("free tier"));
     assert!(description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE)
         .contains("Maximum number of designs to persist"));
     assert!(
@@ -299,7 +301,9 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
                     .to_string(),
             ),
             embroidery_dir: Some(
-                tmp.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+                tmp.join("MachineEmbroideryDesigns")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             data_root_missing: false,
         },

@@ -81,9 +81,10 @@ INSERT OR IGNORE INTO settings (key, value, description) VALUES
     ('import.last_browse_folder', '', 'Most recently used folder for the bulk import picker.'),
     ('ai.tier2_auto', 'FALSE', 'Run Tier 2 (Gemini text AI) automatically during import when a Google API key is present.'),
     ('ai.tier3_auto', 'FALSE', 'Run Tier 3 (Gemini vision AI) automatically during import when a Google API key is present.'),
+    ('ai.free_tier', 'FALSE', 'Whether your Google Gemini API key is on the free tier (stricter per-minute and per-day rate limits).'),
     ('ai.google_api_key', '', 'Google Gemini API key used for optional automated AI tagging.'),
     ('ai.batch_size', '', 'Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.'),
-    ('ai.delay', '', 'Seconds to wait between Gemini API calls. Leave blank to use the default (5.0 seconds). Increase this if you encounter 429 Too Many Requests errors.'),
+    ('ai.delay', '', 'Seconds to wait between Gemini API calls. Leave blank for no delay on paid, or 10 s on the free tier. Increase this if you encounter 429 Too Many Requests errors.'),
     ('import.commit_batch_size', '', 'Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (1000).');
 
 -- Insert default tags into the tags table

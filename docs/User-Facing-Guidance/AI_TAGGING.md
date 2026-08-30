@@ -79,14 +79,58 @@ how many newly imported designs are sent to Gemini in a single import run, so yo
 spread the API calls across multiple runs.  Leave the field blank to use the default
 (100).
 
-You can also set an **AI delay** in Settings.  This is the pause between Gemini requests
-(default 5 seconds) and helps avoid rate-limit errors.  Leave it blank to use the default.
-The delay only paces an actual outbound Gemini call — the current build's Tier 2/3 are
-local-only, so this setting currently has no effect on tagging runs.
+You can also set an **AI delay** in Settings.  This is the pause between Gemini requests.  The
+default is **0 (no delay) on a paid key** — paid keys are not rate-limited, so there is no need
+to pace calls (concurrency is already bounded by Workers) — and **10 seconds on the free tier**
+to stay under the ~15 requests/minute limit.  Leave it blank to use the default.  Increase it if
+you see 429 rate-limit errors.  The delay paces each Tier 2/3 request made by Tagging Actions
+when an API key is configured.
+
+You can also set a **Commit every** and **Workers** value in Settings. **Commit every** is
+how often a Tagging Actions run reports progress/commits (default 100); **Workers** is how
+many designs are tagged in parallel (default 4). Lowering **Workers** helps avoid Gemini
+rate-limit (429) errors.
+
+If your Google API key is on the **free tier**, tick **"My Google API key is on the free
+tier"** in Settings. Free-tier keys have strict per-minute and per-day limits (roughly 15
+requests/minute and 1,500/day), so higher concurrency does not make a free-tier run faster —
+it just makes it hit the rate limit sooner. When the free-tier option is enabled, **blank
+Workers and AI-delay fields default to a conservative pair (2 workers / 10s)** so runs stay
+under the limit; explicit values you enter are always used as-is. The Tagging Actions page
+also shows guidance to keep **Workers** low and the **AI delay** high, and if a 429 rate-limit
+error still occurs the run stops and tells you roughly how long to wait (it does not retry
+automatically, which could lock the key out for the rest of the day).
+
+You can also choose a **Gemini model** in Settings. This selects which Gemini model is used
+for Tier 2/3 tagging. Leave it blank to let the app auto-select an available model at run
+time (recommended — Gemini model names are renamed/retired over time). Use the **Refresh**
+control to reload the model list, and **Test model** to verify a model actually works (the
+Test button sends a real probe call — some models are *listed* but still restricted to new
+users). If a model you chose is later retired, the app automatically falls back to another
+model; if no model works it stops with a clear message pointing to the backfill log.
 
 You can also set an **Import database commit batch size** in Settings.  This controls how
 many designs are written or tag-updated before each database commit during import.
 Leave it blank to use the default (100).
+
+---
+
+## Cost, models & the free tier
+
+- **Use a flash model for the lowest cost.** Flash models are the fastest *and* cheapest tier
+  and are more than sufficient for the small text/vision prompts tagging sends. The Settings
+  model list is sorted flash-first, and auto-selection always prefers a flash model — the same
+  flash model is chosen on both the free and paid tiers. Pro/thinking models cost more and run
+  slower for no benefit on this small task.
+- **The free-tier option is about rate limits, not cost.** Tick **"My Google API key is on the
+  free tier"** only if your key is genuinely on the free tier (roughly 15 requests/minute and
+  1,500/day). It is *not* a general "save money" setting for paid keys — it lowers concurrency,
+  raises the delay, and changes how 429 errors are reported. A paid user wanting to keep spend
+  low should simply use a flash model and skip Tier 3 (vision).
+- **Zero-cost overnight tagging (free-tier keys).** If you have a Google account with free-tier
+  API access, you can tag a large library at **no monetary cost** by selecting the free-tier
+  option and running the backfill **overnight / across several days** — the app paces to the
+  ~1,500/day limit and stops cleanly when it is reached. This is slow, but free.
 
 ---
 
@@ -130,10 +174,10 @@ For a full walkthrough of combined backfill runs (tagging, stitch types, images,
 - **Batch size** — the number of designs fetched and processed together per chunk
   (defaults to the value in Settings). A run pages through ALL matching designs, so
   batch size does not cap how many designs are touched.
-- **Tier 2 delay** — pause between Tier 2 (text) requests. Only applies to a real
-  outbound Gemini call; local-only Tier 2 (the current behaviour) does not sleep.
-- **Tier 3 delay** — pause between Tier 3 (vision) requests. Same as Tier 2 — only
-  applies to a real outbound Gemini call.
+- **Tier 2 delay** — pause between Tier 2 (text) Gemini requests, applied only when
+  an API key is configured (to pace API calls and avoid 429 rate-limit errors).
+- **Tier 3 delay** — pause between Tier 3 (vision) Gemini requests. Same as Tier 2 —
+  only applies to real outbound Gemini calls.
 - **Workers** — number of concurrent processing workers (default 4; range 1–32).
   Designs within a batch are tagged concurrently using this many workers.
 
@@ -198,6 +242,7 @@ dropdown and `✓` save button.
 | Problem | Fix |
 |---|---|
 | `GOOGLE_API_KEY not set` | Add the key via Admin → Settings or add `GOOGLE_API_KEY=…` to your `.env` file |
+| `404 Model not found` | The chosen Gemini model has been retired. Clear the **Gemini model** field in Settings (or pick a current model from the dropdown) to use auto-selection, then retry. |
 | Tiers 2/3 not running during import | Check that the checkboxes are ticked in Admin → Settings and that an API key is saved |
 | Tiers 2/3 not available in Tagging Actions | An API key must be configured.  Without a key, tiers 2 and 3 are automatically excluded and only Tier 1 runs |
 | `429 Too Many Requests` | Increase the **AI delay** in Settings, or the **Tier 2/3 delay** in Tagging Actions.  Also set a batch size to spread calls across runs |

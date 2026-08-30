@@ -642,6 +642,8 @@ fn main() {
             routes::projects::get_project_print_view,
             routes::settings::get_settings_view_model,
             routes::settings::save_settings_view_model,
+            routes::settings::list_gemini_models,
+            routes::settings::test_gemini_model,
             routes::settings::save_import_last_browse_folder,
             routes::settings::browse_settings_data_root,
             routes::settings::get_google_api_key,
