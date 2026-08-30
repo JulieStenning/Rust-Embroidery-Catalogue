@@ -1613,6 +1613,41 @@ describe("ImportView bulk import progress events", () => {
     resolveAction(actionResponse());
   });
 
+  it("renders the ai_tagging stage with processed and tagged counts", async () => {
+    let resolveAction!: (v: unknown) => void;
+    adapterMocks.runPrecheckAction.mockReturnValue(
+      new Promise((r) => {
+        resolveAction = r;
+      })
+    );
+    const { container } = renderHarness("#/import");
+    await gotoStep3(container);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
+    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+
+    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
+      payload: Record<string, unknown>;
+    }) => void;
+
+    handler({
+      payload: {
+        stage: "ai_tagging",
+        processed_count: 5,
+        persisted_count: 4,
+        total_count: 3,
+      },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Running Import... AI tagging imported designs: 5 processed (4 tagged)",
+        })
+      ).toBeInTheDocument()
+    );
+    resolveAction(actionResponse());
+  });
+
   it("falls back to the generic progress message for unknown stages", async () => {
     let resolveAction!: (v: unknown) => void;
     adapterMocks.runPrecheckAction.mockReturnValue(

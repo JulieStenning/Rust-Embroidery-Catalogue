@@ -1,8 +1,8 @@
 use crate::error::AppError;
+use crate::services::auto_tagging::TaggingTierOptions;
 use crate::services::design_metadata;
 use crate::services::gemini_client::GeminiClient;
 use crate::services::stitch_identifier;
-use crate::services::tagging;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet};
@@ -13,43 +13,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::task::JoinSet;
-use tokio::time::{interval, sleep};
+use tokio::time::interval;
 
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
-
-/// Tier configuration for the tagging action, grouped to keep
-/// `apply_tagging_tiers` under the clippy `too_many_arguments` limit.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct TaggingTierOptions {
-    pub tier1_enabled: bool,
-    pub tier2_enabled: bool,
-    pub tier3_enabled: bool,
-    /// Seconds to wait between Tier 2 calls, but only when Tier 2 makes a real
-    /// outbound Gemini request (`tier2_network`). For local-only Tier 2 the
-    /// delay is skipped so 8k-design runs aren't throttled by a fixed sleep.
-    pub tier2_delay_seconds: f64,
-    pub tier3_delay_seconds: f64,
-    /// Whether Tier 2 performs a real network call that needs rate-limit pacing.
-    /// Currently the Gemini client is unimplemented, so this is always `false`.
-    pub tier2_network: bool,
-    /// Whether Tier 3 performs a real network call that needs rate-limit pacing.
-    /// Currently the Gemini client is unimplemented, so this is always `false`.
-    pub tier3_network: bool,
-}
 
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
-/// Paid-tier default delay (seconds) between Gemini requests: 0 — paid keys are not
-/// rate-limited the way free keys are, so no artificial pacing is needed (concurrency
-/// is bounded by Workers). The free tier uses a conservative delay instead.
-const DEFAULT_DELAY_SECONDS: f64 = 0.0;
 const DEFAULT_VISION_DELAY_SECONDS: f64 = 2.0;
 const DEFAULT_BATCH_SIZE: i64 = 100;
 const DEFAULT_COMMIT_EVERY: i64 = 100;
-const DEFAULT_WORKERS: i64 = 4;
-const FREE_TIER_WORKERS: i64 = 2;
-const FREE_TIER_DELAY_SECONDS: f64 = 10.0;
 #[cfg(test)]
 const LOG_DIR: &str = "logs";
 const ERROR_LOG_FILE: &str = "backfill_errors.log";
@@ -997,102 +970,41 @@ async fn compute_tagging_tiers(
         None
     };
 
-    if tier_options.tier1_enabled {
-        let tier1 = tagging::suggest_tier1_descriptions(&filename, &filepath, valid_descriptions);
-        if !tier1.is_empty() {
-            return Ok(Some((tier1, 1)));
-        }
-    }
-
-    if tier_options.tier2_enabled {
-        // The delay only paces a real outbound Gemini call. Local-only Tier 2
-        // does not sleep, so large runs aren't throttled.
-        if tier_options.tier2_network && tier_options.tier2_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(tier_options.tier2_delay_seconds)).await;
-        }
-        let tier2 = if let Some(client) = gemini {
-            client
-                .suggest_tags_text(&filename, valid_descriptions)
-                .await?
-        } else {
-            suggest_tier2_descriptions(&filename, &filepath, valid_descriptions)
-        };
-        if !tier2.is_empty() {
-            return Ok(Some((tier2, 2)));
-        }
-    }
-
-    if tier_options.tier3_enabled && image_data.is_some() {
-        if tier_options.tier3_network && tier_options.tier3_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(tier_options.tier3_delay_seconds)).await;
-        }
-        let tier3 = if let Some(client) = gemini {
-            client
-                .suggest_tags_vision(
-                    &filename,
-                    image_data.as_deref().unwrap_or_default(),
-                    valid_descriptions,
-                )
-                .await?
-        } else {
-            suggest_tier3_descriptions(&filename, &filepath, valid_descriptions)
-        };
-        if !tier3.is_empty() {
-            return Ok(Some((tier3, 3)));
-        }
-    }
-
-    Ok(None)
+    crate::services::auto_tagging::compute_tiers_for_input(
+        &filename,
+        &filepath,
+        image_data.as_deref(),
+        valid_descriptions,
+        tier_options,
+        gemini,
+    )
+    .await
 }
 
+#[cfg(test)]
 fn suggest_tier2_descriptions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
 ) -> Vec<String> {
-    let combined = format!(
-        "{} {}",
-        filename.to_ascii_lowercase(),
-        filepath.to_ascii_lowercase()
-    );
-    let mut suggestions = Vec::new();
-
-    for description in valid_descriptions {
-        let tokenized = description
-            .to_ascii_lowercase()
-            .replace(['&', '-', '"'], " ");
-        let desc_tokens: Vec<&str> = tokenized
-            .split_whitespace()
-            .filter(|token| token.len() > 2)
-            .collect();
-        if !desc_tokens.is_empty() && desc_tokens.iter().all(|token| combined.contains(token)) {
-            suggestions.push(description.clone());
-        }
-    }
-
-    if suggestions.is_empty() {
-        for description in ["Don't Know", "Patterns", "Flowers", "Animals"] {
-            if valid_descriptions.contains(description) {
-                suggestions.push(description.to_string());
-                break;
-            }
-        }
-    }
-
-    suggestions.sort();
-    suggestions
+    crate::services::auto_tagging::suggest_tier2_descriptions(
+        filename,
+        filepath,
+        valid_descriptions,
+    )
 }
 
+#[cfg(test)]
 fn suggest_tier3_descriptions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
 ) -> Vec<String> {
-    let mut tier3 = suggest_tier2_descriptions(filename, filepath, valid_descriptions);
-    if tier3.is_empty() && valid_descriptions.contains("Don't Know") {
-        tier3.push("Don't Know".to_string());
-    }
-    tier3
+    crate::services::auto_tagging::suggest_tier3_descriptions(
+        filename,
+        filepath,
+        valid_descriptions,
+    )
 }
 
 /// Apply a set of computed tagging suggestions in a single SQLite transaction.
@@ -1103,50 +1015,7 @@ async fn flush_tagging_batch(
     image_tag_map: &HashMap<String, i64>,
     results: Vec<(i64, Vec<String>, i64)>,
 ) -> Result<(), AppError> {
-    if results.is_empty() {
-        return Ok(());
-    }
-    let mut tx = pool.begin().await.map_err(|e| {
-        AppError::database(format!("failed to begin tagging batch transaction: {e}"))
-    })?;
-
-    for (design_id, descriptions, tier) in results {
-        if descriptions.is_empty() {
-            continue;
-        }
-        sqlx::query(
-            "DELETE FROM design_tags
-		 WHERE design_id = ?
-		   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'image')",
-        )
-        .bind(design_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
-
-        for description in descriptions {
-            if let Some(tag_id) = image_tag_map.get(&description) {
-                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
-                    .bind(design_id)
-                    .bind(*tag_id)
-                    .execute(&mut *tx)
-                    .await
-                    .map_err(|e| AppError::database(format!("failed to insert image tag: {e}")))?;
-            }
-        }
-
-        sqlx::query("UPDATE designs SET tagging_tier = ?, image_tags_verified = 0 WHERE id = ?")
-            .bind(tier)
-            .bind(design_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| AppError::database(format!("failed to update tagging tier: {e}")))?;
-    }
-
-    tx.commit()
-        .await
-        .map_err(|e| AppError::database(format!("failed to commit tagging batch: {e}")))?;
-    Ok(())
+    crate::services::auto_tagging::apply_tagging_batch(pool, image_tag_map, results).await
 }
 
 async fn count_stitching_tags(pool: &SqlitePool) -> Result<i64, AppError> {
@@ -1546,43 +1415,15 @@ async fn get_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<Strin
 /// to wait, using the API's `Retry-After` seconds when available. On paid tier
 /// we keep the existing guidance (raise delay / lower workers).
 fn free_tier_rate_limit_message(error: &AppError, free_tier: bool) -> String {
-    if !free_tier {
-        return "Gemini tagging aborted: rate limit / quota exceeded (429). No further designs were tagged. Increase the AI delay or lower Workers in Settings. The backfill log has full details."
-            .to_string();
-    }
-    let wait = crate::services::gemini_client::retry_after_seconds(error)
-        .map(|seconds| {
-            format!(
-                "wait about {} minutes (per the API) or until tomorrow",
-                seconds.div_ceil(60)
-            )
-        })
-        .unwrap_or_else(|| "wait a few minutes or until tomorrow".to_string());
-    format!(
-        "Free-tier Gemini rate limit reached (429). No further designs were tagged. {wait} before retrying."
-    )
+    crate::services::auto_tagging::rate_limit_message(error, free_tier)
 }
 
-/// Default concurrent workers for a run. Free-tier keys are rate-limited, so a
-/// lower concurrency (used when the field is blank) keeps the run under roughly
-/// 15 requests/minute.
 fn default_workers_for(free_tier: bool) -> i64 {
-    if free_tier {
-        FREE_TIER_WORKERS
-    } else {
-        DEFAULT_WORKERS
-    }
+    crate::services::auto_tagging::default_workers_for(free_tier)
 }
 
-/// Default seconds between Gemini requests. Paid keys aren't rate-limited, so the paid
-/// default is no delay (0); only the free tier paces requests (`FREE_TIER_DELAY_SECONDS`
-/// paired with `FREE_TIER_WORKERS`) to stay under the ~15 requests/minute limit.
 fn default_delay_for(free_tier: bool) -> f64 {
-    if free_tier {
-        FREE_TIER_DELAY_SECONDS
-    } else {
-        DEFAULT_DELAY_SECONDS
-    }
+    crate::services::auto_tagging::default_delay_for(free_tier)
 }
 
 async fn select_hoop_dimension_candidates(

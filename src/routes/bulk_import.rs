@@ -1,9 +1,12 @@
 use crate::config::BootstrapConfig;
+use crate::error::AppError;
 use crate::services::{
-    folder_picker, image_generation, scanning, stitch_identifier, tagging, validation,
+    auto_tagging, folder_picker,
+    gemini_client::{self, GeminiClient},
+    image_generation, scanning, stitch_identifier, tagging, validation,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
@@ -334,7 +337,9 @@ fn canonicalize_bulk_import_confirm_wire(
 }
 
 pub fn initialize_bulk_import_db_pool(pool: SqlitePool) {
-    if let Ok(mut guard) = BULK_IMPORT_DB_POOL.lock() { *guard = Some(pool); }
+    if let Ok(mut guard) = BULK_IMPORT_DB_POOL.lock() {
+        *guard = Some(pool);
+    }
 }
 
 /// Replace the cached bulk-import pool after a database restore swaps the live
@@ -348,7 +353,10 @@ pub fn initialize_bulk_import_app_handle(app_handle: tauri::AppHandle) {
 }
 
 fn get_bulk_import_db_pool() -> Option<SqlitePool> {
-    BULK_IMPORT_DB_POOL.lock().ok().and_then(|guard| guard.as_ref().cloned())
+    BULK_IMPORT_DB_POOL
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned())
 }
 
 fn get_bulk_import_app_handle() -> Option<&'static tauri::AppHandle> {
@@ -421,6 +429,38 @@ async fn load_default_stitching_tag_id(pool: &SqlitePool) -> Result<Option<i64>,
     .fetch_optional(pool)
     .await
     .map_err(|e| e.to_string())
+}
+
+async fn read_string_setting(pool: &SqlitePool, key: &str) -> Result<Option<String>, String> {
+    sqlx::query_scalar("SELECT value FROM settings WHERE key = ? LIMIT 1")
+        .bind(key)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn read_bool_setting(pool: &SqlitePool, key: &str) -> Result<bool, String> {
+    Ok(read_string_setting(pool, key)
+        .await?
+        .map(|raw| {
+            matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "y"
+            )
+        })
+        .unwrap_or(false))
+}
+
+async fn read_f64_setting(pool: &SqlitePool, key: &str) -> Result<Option<f64>, String> {
+    Ok(read_string_setting(pool, key)
+        .await?
+        .and_then(|raw| raw.trim().parse::<f64>().ok()))
+}
+
+async fn read_i64_setting(pool: &SqlitePool, key: &str) -> Result<Option<i64>, String> {
+    Ok(read_string_setting(pool, key)
+        .await?
+        .and_then(|raw| raw.trim().parse::<i64>().ok()))
 }
 
 fn load_import_precheck_state_if_initialized() -> Result<(bool, bool), String> {
@@ -1048,6 +1088,7 @@ async fn persist_bulk_import_confirm_wire(
     let mut persisted_since_last_commit = 0usize;
     let mut processed_count = 0usize;
     let mut stopped = false;
+    let mut imported_design_ids: Vec<i64> = Vec::new();
 
     // Timing accumulators
     let import_start = Instant::now();
@@ -1223,6 +1264,7 @@ async fn persist_bulk_import_confirm_wire(
             total_db_insert_ms += t_insert.elapsed().as_millis();
 
             let design_id = insert_result.last_insert_rowid();
+            imported_design_ids.push(design_id);
             let t_tag = Instant::now();
             let matched_descriptions = tagging::suggest_tier1_descriptions(
                 &filename,
@@ -1353,6 +1395,21 @@ async fn persist_bulk_import_confirm_wire(
         processed_count.saturating_sub(persisted_design_count),
     );
 
+    // Post-commit Gemini auto-tagging pass (non-fatal, serial, free-tier-paced).
+    // Runs only when the import completed and wasn't stopped. The designs are
+    // already committed, so this never holds the import transaction open for the
+    // duration of slow Gemini network calls.
+    if !stopped {
+        run_import_ai_tagging_pass(
+            pool,
+            &imported_design_ids,
+            &valid_descriptions,
+            &description_to_tag_id,
+            &emit_progress,
+        )
+        .await;
+    }
+
     if stopped {
         emit_progress(
             "stopped",
@@ -1372,6 +1429,186 @@ async fn persist_bulk_import_confirm_wire(
         None,
     );
     Ok(persisted_design_count)
+}
+
+/// Post-commit Gemini auto-tagging pass for a bulk import. Runs AFTER the import
+/// has fully committed, so it never holds the import transaction open for the
+/// duration of slow Gemini network calls. Serial (one Gemini request at a time),
+/// paced by the configured AI delay (free-tier default 10 s), batching tag writes
+/// into a few transactions. The completed import is never failed by this pass —
+/// errors are logged and skipped, and a 429 stops the pass hard with a clear
+/// "wait" message (mirroring the backfill/Tagging Actions behaviour).
+async fn run_import_ai_tagging_pass(
+    pool: &SqlitePool,
+    imported_design_ids: &[i64],
+    valid_descriptions: &HashSet<String>,
+    description_to_tag_id: &HashMap<String, i64>,
+    emit_progress: &impl Fn(&str, usize, usize, usize, Option<&str>),
+) {
+    if imported_design_ids.is_empty() {
+        return;
+    }
+
+    let tier2_auto = read_bool_setting(pool, "ai.tier2_auto")
+        .await
+        .unwrap_or(false);
+    let tier3_auto = read_bool_setting(pool, "ai.tier3_auto")
+        .await
+        .unwrap_or(false);
+    if !tier2_auto && !tier3_auto {
+        tracing::info!("Bulk import: Gemini auto-tagging disabled (no Tier 2/3 auto).");
+        return;
+    }
+
+    let free_tier = read_bool_setting(pool, "ai.free_tier")
+        .await
+        .unwrap_or(false);
+    let Some(api_key) = read_string_setting(pool, "ai.google_api_key")
+        .await
+        .unwrap_or(None)
+        .map(|key| key.trim().to_string())
+        .filter(|key| !key.is_empty())
+    else {
+        tracing::info!("Bulk import: Gemini auto-tagging enabled but no API key set; skipping.");
+        return;
+    };
+
+    let gemini = GeminiClient::new(api_key);
+    let delay = read_f64_setting(pool, "ai.delay")
+        .await
+        .unwrap_or(None)
+        .unwrap_or_else(|| auto_tagging::default_delay_for(free_tier));
+    // `ai.batch_size` caps how many imported designs get AI-tagged this run
+    // (blank → tag all imported designs).
+    let batch_cap = read_i64_setting(pool, "ai.batch_size")
+        .await
+        .unwrap_or(None)
+        .filter(|value| *value > 0)
+        .map(|value| value as usize)
+        .unwrap_or(usize::MAX);
+
+    let tier_options = auto_tagging::TaggingTierOptions {
+        tier1_enabled: true,
+        tier2_enabled: tier2_auto,
+        tier3_enabled: tier3_auto,
+        tier2_delay_seconds: delay,
+        tier3_delay_seconds: delay,
+        // Pace real Gemini network calls only; local-only tiers never sleep.
+        tier2_network: tier2_auto,
+        tier3_network: tier3_auto,
+    };
+
+    tracing::info!(
+        "Bulk import AI tagging pass: ids={} tier2={} tier3={} delay={}s free_tier={} batch_cap={}",
+        imported_design_ids.len(),
+        tier2_auto,
+        tier3_auto,
+        delay,
+        free_tier,
+        batch_cap
+    );
+
+    emit_progress("ai_tagging", 0, 0, 0, None);
+
+    // Batch tag writes into a handful of transactions (one journal + fsync each)
+    // rather than one autocommit per design.
+    const AI_TAGGING_BATCH: usize = 100;
+    let mut pending: Vec<(i64, Vec<String>, i64)> = Vec::new();
+    let mut processed = 0usize;
+    let mut applied = 0usize;
+    let mut rate_limit_error: Option<AppError> = None;
+
+    let ids: Vec<i64> = imported_design_ids
+        .iter()
+        .copied()
+        .take(batch_cap)
+        .collect();
+    for design_id in ids {
+        if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
+            break;
+        }
+
+        let Ok(Some(row)) =
+            sqlx::query("SELECT filename, filepath, image_data FROM designs WHERE id = ?")
+                .bind(design_id)
+                .fetch_optional(pool)
+                .await
+        else {
+            continue;
+        };
+        let Ok(filename) = row.try_get::<String, _>("filename") else {
+            continue;
+        };
+        let Ok(filepath) = row.try_get::<String, _>("filepath") else {
+            continue;
+        };
+        let Ok(image_data) = row.try_get::<Option<Vec<u8>>, _>("image_data") else {
+            continue;
+        };
+
+        let result = auto_tagging::compute_tiers_for_input(
+            &filename,
+            &filepath,
+            image_data.as_deref(),
+            valid_descriptions,
+            &tier_options,
+            Some(&gemini),
+        )
+        .await;
+
+        match result {
+            Ok(Some((descriptions, tier))) => {
+                pending.push((design_id, descriptions, tier));
+                applied += 1;
+            }
+            Ok(None) => {}
+            Err(error) if gemini_client::is_rate_limit_error(&error) => {
+                tracing::warn!("Bulk import AI tagging aborted on rate limit (429).");
+                rate_limit_error = Some(error);
+                break;
+            }
+            Err(error) => {
+                tracing::warn!("Bulk import AI tagging skipped design {design_id}: {error}");
+            }
+        }
+
+        processed += 1;
+        if pending.len() >= AI_TAGGING_BATCH {
+            if let Err(error) = auto_tagging::apply_tagging_batch(
+                pool,
+                description_to_tag_id,
+                std::mem::take(&mut pending),
+            )
+            .await
+            {
+                tracing::warn!("Bulk import AI tagging batch write failed: {error}");
+            }
+        }
+
+        emit_progress("ai_tagging", processed, applied, 0, Some(filename.as_str()));
+    }
+
+    if !pending.is_empty() {
+        if let Err(error) =
+            auto_tagging::apply_tagging_batch(pool, description_to_tag_id, pending).await
+        {
+            tracing::warn!("Bulk import AI tagging final batch write failed: {error}");
+        }
+    }
+
+    if let Some(error) = rate_limit_error {
+        let message = auto_tagging::rate_limit_message(&error, free_tier);
+        tracing::warn!("{message}");
+        emit_progress("ai_tagging", processed, applied, 0, None);
+        return;
+    }
+
+    tracing::info!(
+        "Bulk import AI tagging pass finished: processed={} applied={}",
+        processed,
+        applied
+    );
+    emit_progress("ai_tagging", processed, applied, 0, None);
 }
 
 fn persist_bulk_import_confirm_if_initialized(

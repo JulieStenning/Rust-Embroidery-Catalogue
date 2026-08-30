@@ -113,6 +113,23 @@ You can also set an **Import database commit batch size** in Settings.  This con
 many designs are written or tag-updated before each database commit during import.
 Leave it blank to use the default (100).
 
+### How import auto-tagging works
+
+When **Tier 2/3 automatic during import** is ticked and a key is saved, the designs are first
+imported and committed normally (Tier 1 keyword tags, stitching tags, previews). Once the import
+has finished writing, the app runs a **post-commit Gemini pass** over the newly imported designs:
+
+- **Non-fatal** — the import is already committed, so a Gemini problem never fails or rolls back
+  the import.
+- **Serial** — one Gemini request at a time, paced by the AI delay (10 s on the free tier), so a
+  large import won't pile up on the rate limit.
+- **Tier 1 designs are skipped** — designs that already matched keyword tags are left alone, so
+  Gemini is only called where it adds value.
+- **A 429 stops the pass without retrying**, with the same "wait N minutes" message as Tagging
+  Actions; designs already tagged before the stop keep their tags.
+- The import status line shows **"AI tagging imported designs… N processed (M tagged)"** while the
+  pass runs, and the Stop control still works.
+
 ---
 
 ## Cost, models & the free tier

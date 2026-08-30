@@ -2277,7 +2277,6 @@ fn load_default_stitching_tag_id_direct() {
     assert!(default_id.is_some(), "expected a default stitching tag id");
 }
 
-
 // ---------------------------------------------------------------------------
 // load_tag_catalog / load_designers / load_sources (import inference loaders)
 // ---------------------------------------------------------------------------
@@ -2485,4 +2484,119 @@ fn ensure_file_in_designs_base_copies_outside_file_into_library() {
         None => std::env::remove_var("DATABASE_URL"),
     }
     let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// Post-commit AI tagging pass (run_import_ai_tagging_pass) guard paths
+// ---------------------------------------------------------------------------
+
+/// Helper: insert a design row with an explicit id.
+async fn insert_ai_pass_design(pool: &SqlitePool, id: i64, filename: &str) {
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, is_stitched, image_tags_verified, stitching_tags_verified) VALUES (?, ?, '/MachineEmbroideryDesigns/test.pes', 0, 0, 0)",
+    )
+    .bind(id)
+    .bind(filename)
+    .execute(pool)
+    .await
+    .expect("insert design");
+}
+
+/// Helper: count image-group design_tags for a design.
+async fn count_image_tags(pool: &SqlitePool, design_id: i64) -> i64 {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM design_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.design_id = ? AND lower(COALESCE(t.tag_group, '')) = 'image'",
+    )
+    .bind(design_id)
+    .fetch_one(pool)
+    .await
+    .expect("count image tags")
+}
+
+/// With both Tier 2/3 auto-tagging disabled, the post-commit pass must be a no-op:
+/// it returns before touching any design or building a Gemini client, so the
+/// committed import is left exactly as-is (no image tags, tagging_tier unchanged).
+#[test]
+fn ai_tagging_pass_is_noop_when_tiers_disabled() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('ai.tier2_auto', 'FALSE'), ('ai.tier3_auto', 'FALSE'), ('ai.google_api_key', 'fake-key')",
+        )
+        .execute(&pool)
+        .await
+        .expect("seed settings");
+        insert_ai_pass_design(&pool, 1, "cat.pes").await;
+        sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Cats', 'image')")
+            .execute(&pool)
+            .await
+            .expect("seed tag");
+
+        run_import_ai_tagging_pass(
+            &pool,
+            &[1],
+            &HashSet::new(),
+            &HashMap::new(),
+            &|_, _, _, _, _| {},
+        )
+        .await;
+
+        assert_eq!(count_image_tags(&pool, 1).await, 0);
+        let tier: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("read tier");
+        assert!(tier.is_none());
+    });
+}
+
+/// Auto-tagging is enabled but no Google API key is configured: the pass must skip
+/// cleanly (no network, no DB writes), leaving the committed import untouched.
+#[test]
+fn ai_tagging_pass_is_noop_without_api_key() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('ai.tier2_auto', 'TRUE'), ('ai.tier3_auto', 'TRUE')",
+        )
+        .execute(&pool)
+        .await
+        .expect("seed settings");
+        insert_ai_pass_design(&pool, 1, "cat.pes").await;
+
+        run_import_ai_tagging_pass(
+            &pool,
+            &[1],
+            &HashSet::new(),
+            &HashMap::new(),
+            &|_, _, _, _, _| {},
+        )
+        .await;
+
+        assert_eq!(count_image_tags(&pool, 1).await, 0);
+    });
+}
+
+/// With no imported design ids, the post-commit pass is a no-op even when
+/// auto-tagging is fully enabled with a key configured.
+#[test]
+fn ai_tagging_pass_is_noop_for_empty_ids() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('ai.tier2_auto', 'TRUE'), ('ai.tier3_auto', 'TRUE'), ('ai.google_api_key', 'fake-key')",
+        )
+        .execute(&pool)
+        .await
+        .expect("seed settings");
+
+        run_import_ai_tagging_pass(
+            &pool,
+            &[],
+            &HashSet::new(),
+            &HashMap::new(),
+            &|_, _, _, _, _| {},
+        )
+        .await;
+    });
 }

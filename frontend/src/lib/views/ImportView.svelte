@@ -995,6 +995,16 @@
               : `Completed ${committed} imported`;
           return;
         }
+        if (stage === "ai_tagging") {
+          // Post-commit Gemini auto-tagging pass (runs after the import commits).
+          // `processed` = designs processed by the pass; `persisted` = designs
+          // that received AI tags.
+          importProgressStatus =
+            processed > 0
+              ? `AI tagging imported designs: ${processed} processed (${persisted} tagged)`
+              : "AI tagging imported designs...";
+          return;
+        }
         if (total > 0) {
           importProgressStatus = `${processed}/${total} processed (${committed} imported)`;
         } else {
