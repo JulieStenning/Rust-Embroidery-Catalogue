@@ -140,7 +140,7 @@ async fn make_designs_db(path: &Path) {
             is_stitched INTEGER NOT NULL DEFAULT 0,
             image_tags_verified INTEGER NOT NULL DEFAULT 0,
             stitching_tags_verified INTEGER NOT NULL DEFAULT 0,
-            tagging_tier INTEGER,
+            tagging_mode TEXT,
             file_size_bytes INTEGER,
             file_hash_blake3 TEXT
         );

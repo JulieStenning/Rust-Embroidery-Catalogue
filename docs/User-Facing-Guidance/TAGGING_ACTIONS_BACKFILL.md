@@ -23,7 +23,7 @@ This is especially useful after large imports, folder cleanups, or app upgrades.
 
 1. Keep the page open while actions run.
 2. Make a backup first for large runs.
-3. If using AI tiers (Tier 2 or Tier 3), confirm your API key is configured in **Admin -> Settings**.
+3. If using Visual AI, confirm your API key is configured in **Admin -> Settings**.
 4. Start with a small run if this is your first time using combined actions.
 
 > Tip: A single run processes **all** designs that match the selected action(s);
@@ -37,7 +37,7 @@ This is especially useful after large imports, folder cleanups, or app upgrades.
 
 1. Open **Admin -> Tagging Actions**.
 2. Tick one or more actions:
-   - **Tagging (AI/keyword)**
+   - **Tagging (File & Folder Rules + Visual AI)**
    - **Stitch types**
    - **Images**
    - **Threads and Colours**
@@ -51,7 +51,7 @@ This is especially useful after large imports, folder cleanups, or app upgrades.
 
 ## Action guide
 
-### Tagging (AI/keyword)
+### Tagging (File & Folder Rules + Visual AI)
 
 Use this to apply or refresh image-group tags.
 
@@ -61,10 +61,10 @@ Tagging mode options:
 - **Re-tag ALL unverified**
 - **Re-tag ALL (including verified)**
 
-Tier options:
+Tagging modes:
 
-- **Tier 1** is always included.
-- **Tier 2** and **Tier 3** require a configured Google API key.
+- **File & Folder Rules** is always included — instantaneous, local path/name matching.
+- **Visual AI** requires a configured Google API key.
 
 When to use:
 
@@ -165,7 +165,7 @@ Error log notes:
 ### Full refresh pass
 
 1. Back up first.
-2. Run **Re-tag ALL unverified** with desired tiers.
+2. Run **Re-tag ALL unverified** with desired modes.
 3. Run **Upgrade existing 2D images to 3D**.
 4. Run **Threads and Colours**.
 5. Review and download error log.
@@ -184,7 +184,7 @@ Error log notes:
 | Problem | What to do |
 |---|---|
 | Run does not start | Confirm at least one action is selected, then try again. |
-| Tier 2/3 not available | Check API key in Settings and save. |
+| Visual AI not available | Check API key in Settings and save. |
 | Many failures in log | Verify source files still exist and are readable, then rerun affected actions. |
 | Browser closed during run | Reopen Tagging Actions and rerun. Keep the page open until completion. |
 | Performance is slow | Lower workers and a smaller batch size, or press **Stop running** and re-run later. |
@@ -195,7 +195,7 @@ For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 
 ## Related guides
 
-- [AI_TAGGING.md](AI_TAGGING.md) - AI tiers, costs, and API setup
+- [AI_TAGGING.md](AI_TAGGING.md) - Visual AI, costs, and API setup
 - [COLOUR_COUNTS.md](COLOUR_COUNTS.md) - stitch/colour-count behavior and UI usage
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - back up before large maintenance runs
 - [GETTING_STARTED.md](GETTING_STARTED.md) - basic app setup and run flow

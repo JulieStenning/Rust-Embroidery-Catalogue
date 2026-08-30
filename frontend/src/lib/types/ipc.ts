@@ -175,7 +175,7 @@ export interface DesignDetailWire {
   is_stitched: boolean;
   image_tags_verified: boolean;
   stitching_tags_verified: boolean;
-  tagging_tier: number | null;
+  tagging_mode: string | null;
   date_added: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
@@ -208,7 +208,7 @@ export interface DesignDetail {
   isStitched: boolean;
   imageTagsVerified: boolean;
   stitchingTagsVerified: boolean;
-  taggingTier: number | null;
+  taggingMode: string | null;
   dateAdded: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
@@ -267,8 +267,7 @@ export interface SettingsViewModel {
   preview_3d_profile: string;
   google_api_key: string;
   has_google_api_key: boolean;
-  ai_tier2_auto: boolean;
-  ai_tier3_auto: boolean;
+  ai_vision_auto: boolean;
   ai_batch_size: string;
   ai_delay: string;
   ai_gemini_model: string;
@@ -290,8 +289,7 @@ export interface SettingsViewModel {
 export interface SaveSettingsRequest {
   preview_3d_profile?: string;
   google_api_key: string;
-  ai_tier2_auto: boolean;
-  ai_tier3_auto: boolean;
+  ai_vision_auto: boolean;
   ai_batch_size: string;
   ai_delay: string;
   ai_gemini_model: string;
@@ -641,8 +639,7 @@ export interface AdapterStopBulkImportResponse {
 
 export interface TaggingActionsViewModel {
   has_google_api_key: boolean;
-  ai_tier2_auto: boolean;
-  ai_tier3_auto: boolean;
+  ai_vision_auto: boolean;
   ai_batch_size: string;
   ai_delay: string;
   ai_commit_every: string;
@@ -669,8 +666,7 @@ export interface AdapterTaggingActionsViewModelResponse {
  */
 export interface UnifiedBackfillRequest {
   action_mode: string;
-  run_tier2: boolean;
-  run_tier3: boolean;
+  run_vision: boolean;
   run_images: boolean;
   image_redo: boolean;
   run_color_counts: boolean;
@@ -688,7 +684,7 @@ export interface UnifiedBackfillRequest {
 export interface UnifiedBackfillActionsWire {
   tagging?: {
     action?: string;
-    tiers?: number[];
+    modes?: string[];
     enabled?: boolean;
   } | null;
   stitching?: {
@@ -1040,7 +1036,7 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     isStitched: Boolean(wire.is_stitched),
     imageTagsVerified: Boolean(wire.image_tags_verified),
     stitchingTagsVerified: Boolean(wire.stitching_tags_verified),
-    taggingTier: wire.tagging_tier ?? null,
+    taggingMode: wire.tagging_mode ?? null,
     dateAdded: wire.date_added ?? null,
     tags: Array.isArray(wire.tags) ? wire.tags : [],
     projects: Array.isArray(wire.projects) ? wire.projects : [],

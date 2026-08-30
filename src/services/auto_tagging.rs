@@ -1,8 +1,9 @@
-//! Shared Gemini auto-tagging engine, used by both the unified backfill (Tagging
-//! Actions) and the bulk import flow. Owns the pure tier computation (tier1 →
-//! tier2 → tier3 fallback), the free-tier defaults, the rate-limit (429) message,
-//! and the batched tag writer. Callers provide the design inputs
-//! (filename/filepath/image_data) and the DB pool for the batched write.
+//! Shared tagging engine, used by both the unified backfill (Tagging Actions) and
+//! the bulk import flow. Owns the two tagging modes — **File & Folder Rules** (local
+//! path/name matching) and **Visual AI** (Gemini vision on the rendered thumbnail) —
+//! plus the free-tier defaults, the rate-limit (429) message, and the batched tag
+//! writer. Callers provide the design inputs (filename/filepath/image_data) and the
+//! DB pool for the batched write.
 
 use crate::error::AppError;
 use crate::services::gemini_client::GeminiClient;
@@ -12,13 +13,25 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::time::sleep;
 
-/// Auto-tagging orchestration contract (tier selection / precedence) used by the
+/// Auto-tagging orchestration contract (mode selection / precedence) used by the
 /// Tagging Actions preview.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TaggingTier {
-    Tier1,
-    Tier2,
-    Tier3,
+pub enum TaggingMode {
+    /// "File & Folder Rules" — instantaneous, local matching on filename/path tokens.
+    FileFolder,
+    /// "Visual AI" — analyzes the rendered thumbnail via Gemini Vision (needs an API key).
+    VisualAi,
+}
+
+impl TaggingMode {
+    /// Stable wire/schema identifier used in IPC payloads and the `tagging_mode`
+    /// column. `FileFolder` → `"path_rule"`, `VisualAi` → `"ai_vision"`.
+    pub fn wire_id(&self) -> &'static str {
+        match self {
+            TaggingMode::FileFolder => "path_rule",
+            TaggingMode::VisualAi => "ai_vision",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -35,26 +48,25 @@ pub fn resolve_enabled(precedence: &TaggingPrecedence) -> bool {
         .unwrap_or(precedence.hard_default)
 }
 
-pub fn ordered_tiers() -> [TaggingTier; 3] {
-    [TaggingTier::Tier1, TaggingTier::Tier2, TaggingTier::Tier3]
+pub fn ordered_modes() -> [TaggingMode; 2] {
+    [TaggingMode::FileFolder, TaggingMode::VisualAi]
 }
 
-/// Tier configuration for auto-tagging, grouped to keep callers under clippy's
+/// Mode configuration for auto-tagging, grouped to keep callers under clippy's
 /// `too_many_arguments` limit.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct TaggingTierOptions {
-    pub tier1_enabled: bool,
-    pub tier2_enabled: bool,
-    pub tier3_enabled: bool,
-    /// Seconds to wait between Tier 2 calls, but only when Tier 2 makes a real
-    /// outbound Gemini request (`tier2_network`). For local-only Tier 2 the delay
+pub(crate) struct TaggingModeOptions {
+    /// Whether File & Folder Rules (local path/name matching) runs for each design.
+    pub path_rule_enabled: bool,
+    /// Whether Visual AI (Gemini vision on the rendered thumbnail) runs as the
+    /// fallback when File & Folder Rules produce no suggestion.
+    pub visual_ai_enabled: bool,
+    /// Seconds to wait between Visual AI calls, but only when Visual AI makes a real
+    /// outbound Gemini request (`visual_ai_network`). For local-only runs the delay
     /// is skipped so large runs aren't throttled by a fixed sleep.
-    pub tier2_delay_seconds: f64,
-    pub tier3_delay_seconds: f64,
-    /// Whether Tier 2 performs a real network call that needs rate-limit pacing.
-    pub tier2_network: bool,
-    /// Whether Tier 3 performs a real network call that needs rate-limit pacing.
-    pub tier3_network: bool,
+    pub visual_ai_delay_seconds: f64,
+    /// Whether Visual AI performs a real network call that needs rate-limit pacing.
+    pub visual_ai_network: bool,
 }
 
 /// Paid-tier default concurrent workers.
@@ -91,64 +103,57 @@ pub(crate) fn default_delay_for(free_tier: bool) -> f64 {
 }
 
 /// Compute the tagging suggestion for a single design WITHOUT writing to the
-/// database. Returns the suggested tag descriptions and the tier that produced
-/// them (1/2/3), or `None` if no tier produced a suggestion. The caller applies
-/// the result later in a batched write (see `apply_tagging_batch`).
-pub(crate) async fn compute_tiers_for_input(
+/// database. Returns the suggested tag descriptions and the mode that produced
+/// them (`path_rule` / `ai_vision`), or `None` if no mode produced a suggestion.
+/// The caller applies the result later in a batched write (see
+/// `apply_tagging_batch`).
+pub(crate) async fn compute_tags_for_input(
     filename: &str,
     filepath: &str,
     image_data: Option<&[u8]>,
     valid_descriptions: &HashSet<String>,
-    tier_options: &TaggingTierOptions,
+    mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
-) -> Result<Option<(Vec<String>, i64)>, AppError> {
-    if tier_options.tier1_enabled {
-        let tier1 = tagging::suggest_tier1_descriptions(filename, filepath, valid_descriptions);
-        if !tier1.is_empty() {
-            return Ok(Some((tier1, 1)));
+) -> Result<Option<(Vec<String>, String)>, AppError> {
+    if mode_options.path_rule_enabled {
+        let path_rule =
+            tagging::suggest_path_rule_descriptions(filename, filepath, valid_descriptions);
+        if !path_rule.is_empty() {
+            return Ok(Some((
+                path_rule,
+                TaggingMode::FileFolder.wire_id().to_string(),
+            )));
         }
     }
 
-    if tier_options.tier2_enabled {
-        // The delay only paces a real outbound Gemini call. Local-only Tier 2
-        // does not sleep, so large runs aren't throttled.
-        if tier_options.tier2_network && tier_options.tier2_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(tier_options.tier2_delay_seconds)).await;
+    if mode_options.visual_ai_enabled && image_data.is_some() {
+        // The delay only paces a real outbound Gemini call. A local-only Visual AI
+        // run does not sleep, so large runs aren't throttled.
+        if mode_options.visual_ai_network && mode_options.visual_ai_delay_seconds > 0.0 {
+            sleep(Duration::from_secs_f64(mode_options.visual_ai_delay_seconds)).await;
         }
-        let tier2 = if let Some(client) = gemini {
-            client
-                .suggest_tags_text(filename, valid_descriptions)
-                .await?
-        } else {
-            suggest_tier2_descriptions(filename, filepath, valid_descriptions)
-        };
-        if !tier2.is_empty() {
-            return Ok(Some((tier2, 2)));
-        }
-    }
-
-    if tier_options.tier3_enabled && image_data.is_some() {
-        if tier_options.tier3_network && tier_options.tier3_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(tier_options.tier3_delay_seconds)).await;
-        }
-        let tier3 = if let Some(client) = gemini {
+        let visual_ai = if let Some(client) = gemini {
             client
                 .suggest_tags_vision(filename, image_data.unwrap_or_default(), valid_descriptions)
                 .await?
         } else {
-            suggest_tier3_descriptions(filename, filepath, valid_descriptions)
+            suggest_visual_ai_descriptions(filename, filepath, valid_descriptions)
         };
-        if !tier3.is_empty() {
-            return Ok(Some((tier3, 3)));
+        if !visual_ai.is_empty() {
+            return Ok(Some((
+                visual_ai,
+                TaggingMode::VisualAi.wire_id().to_string(),
+            )));
         }
     }
 
     Ok(None)
 }
 
-/// Local (offline) Tier 2 heuristic: match a description when every one of its
-/// significant tokens appears in the combined filename + filepath.
-pub(crate) fn suggest_tier2_descriptions(
+/// Local (offline) Visual AI fallback: match a description when every one of its
+/// significant tokens appears in the combined filename + filepath, with a
+/// "Don't Know" fallback when nothing matches.
+pub(crate) fn suggest_visual_ai_descriptions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
@@ -186,19 +191,6 @@ pub(crate) fn suggest_tier2_descriptions(
     suggestions
 }
 
-/// Local (offline) Tier 3 heuristic: same as Tier 2, with a "Don't Know" fallback.
-pub(crate) fn suggest_tier3_descriptions(
-    filename: &str,
-    filepath: &str,
-    valid_descriptions: &HashSet<String>,
-) -> Vec<String> {
-    let mut tier3 = suggest_tier2_descriptions(filename, filepath, valid_descriptions);
-    if tier3.is_empty() && valid_descriptions.contains("Don't Know") {
-        tier3.push("Don't Know".to_string());
-    }
-    tier3
-}
-
 /// Message shown when a Gemini run aborts on a rate-limit (429). On the free tier
 /// we stop hard (no retry) and tell the user roughly how long to wait, using the
 /// API's `Retry-After` seconds when available. On paid tier we keep the existing
@@ -227,7 +219,7 @@ pub(crate) fn rate_limit_message(error: &AppError, free_tier: bool) -> String {
 pub(crate) async fn apply_tagging_batch(
     pool: &SqlitePool,
     image_tag_map: &HashMap<String, i64>,
-    results: Vec<(i64, Vec<String>, i64)>,
+    results: Vec<(i64, Vec<String>, String)>,
 ) -> Result<(), AppError> {
     if results.is_empty() {
         return Ok(());
@@ -236,7 +228,7 @@ pub(crate) async fn apply_tagging_batch(
         AppError::database(format!("failed to begin tagging batch transaction: {e}"))
     })?;
 
-    for (design_id, descriptions, tier) in results {
+    for (design_id, descriptions, mode) in results {
         if descriptions.is_empty() {
             continue;
         }
@@ -261,12 +253,12 @@ pub(crate) async fn apply_tagging_batch(
             }
         }
 
-        sqlx::query("UPDATE designs SET tagging_tier = ?, image_tags_verified = 0 WHERE id = ?")
-            .bind(tier)
+        sqlx::query("UPDATE designs SET tagging_mode = ?, image_tags_verified = 0 WHERE id = ?")
+            .bind(mode)
             .bind(design_id)
             .execute(&mut *tx)
             .await
-            .map_err(|e| AppError::database(format!("failed to update tagging tier: {e}")))?;
+            .map_err(|e| AppError::database(format!("failed to update tagging mode: {e}")))?;
     }
 
     tx.commit()

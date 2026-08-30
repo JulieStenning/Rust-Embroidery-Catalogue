@@ -8,16 +8,15 @@ application works fully without it.
 
 ## Overview
 
-Auto-tagging works in up to three tiers, tried in order for each design:
+Auto-tagging uses two tagging modes:
 
-| Tier | Method | Requires API key? |
+| Mode | Method | Requires API key? |
 |------|--------|------------------|
-| 1 | Keyword matching against the filename and file path | No |
-| 2 | Gemini text AI — sends the cleaned filename to the API | Yes |
-| 3 | Gemini vision AI — sends the design preview image to the API | Yes |
+| **File & Folder Rules** | Instantaneous, local matching of the filename and folder path against your tag catalogue | No |
+| **Visual AI** | Gemini Vision — sends the design's rendered preview image to the API for analysis | Yes |
 
-Tier 1 is always free and instant.  Tiers 2 and 3 call the Google Gemini API and
-consume quota from your account.
+**File & Folder Rules** always run and are free and instant.  **Visual AI** calls the
+Google Gemini API and consumes quota from your account.
 
 After tagging, each design is marked *"Tags not verified"*.  You can
 verify multiple tags on the Browse page by choosing **Verify Selected** 
@@ -60,17 +59,15 @@ GOOGLE_API_KEY=AIzaSy_your_actual_key_here
 
 ---
 
-## Step 3 — Enable Tier 2 / Tier 3 in Settings
+## Step 3 — Enable Visual AI in Settings
 
-Open **Admin → Settings** and tick the options you want:
+Open **Admin → Settings** and tick the option you want:
 
-- **Run Tier 2 automatically during import** — sends the cleaned filename to Gemini
-  to suggest tags each time you import new designs.
-- **Run Tier 3 automatically during import** — sends the preview image to Gemini Vision
-  to suggest tags for designs that are still untagged after Tiers 1 and 2.
+- **Run Visual AI automatically during import** — sends each design's preview image to
+  Gemini Vision to suggest tags for designs that are still untagged after **File & Folder Rules**.
 
-If neither option is ticked, imports run Tier 1 keyword tagging only — no Gemini calls
-are made even if a key is present.
+If it is not ticked, imports run **File & Folder Rules** only — no Gemini calls are made
+even if a key is present.
 
 ### Batch size and delay settings (optional)
 
@@ -225,9 +222,8 @@ AI tagging exactly as on any other machine.
 
 | Scenario | Approximate cost |
 |---|---|
-| Tier 1 only (keywords) | Free |
-| Tier 2 text AI on 10,000 designs | Free tier (may take multiple sessions) |
-| Tier 3 vision AI on 4,000 images | ~$0.33 on the paid tier (February 2026 estimate) |
+| File & Folder Rules only | Free |
+| Visual AI on 4,000 images | ~$0.33 on the paid tier (February 2026 estimate) |
 
 > **Note:** Actual costs depend on the Gemini model pricing at the time of use, which
 > may have changed since the above estimate.  Check the current rates at
@@ -260,12 +256,12 @@ dropdown and `✓` save button.
 |---|---|
 | `GOOGLE_API_KEY not set` | Add the key via Admin → Settings or add `GOOGLE_API_KEY=…` to your `.env` file |
 | `404 Model not found` | The chosen Gemini model has been retired. Clear the **Gemini model** field in Settings (or pick a current model from the dropdown) to use auto-selection, then retry. |
-| Tiers 2/3 not running during import | Check that the checkboxes are ticked in Admin → Settings and that an API key is saved |
-| Tiers 2/3 not available in Tagging Actions | An API key must be configured.  Without a key, tiers 2 and 3 are automatically excluded and only Tier 1 runs |
-| `429 Too Many Requests` | Increase the **AI delay** in Settings, or the **Tier 2/3 delay** in Tagging Actions.  Also set a batch size to spread calls across runs |
+| Visual AI not running during import | Check that **Run Visual AI automatically during import** is ticked in Admin → Settings and that an API key is saved |
+| Visual AI not available in Tagging Actions | An API key must be configured.  Without a key, Visual AI is excluded and only File & Folder Rules run |
+| `429 Too Many Requests` | Increase the **AI delay** in Settings or Tagging Actions.  Also set a batch size to spread calls across runs |
 | `403 Forbidden` | Your key may be restricted to certain APIs.  Check the key settings in Google Cloud Console |
-| Tier 2 tags are all wrong | Try enabling Tier 3 in Settings or run Tier 3 from Admin → Tagging Actions to let the vision AI look at the actual stitch pattern |
-| Tier 3 does not seem to run | Tier 3 needs a generated preview image for the design.  Run the **Images** action in Tagging Actions first, then retry tagging |
+| Visual AI tags are all wrong | Edit the tags in Admin → Tags, or verify them manually on the detail page |
+| Visual AI does not seem to run | Visual AI needs a generated preview image for the design.  Run the **Images** action in Tagging Actions first, then retry tagging |
 | Want to retag only unverified designs without touching verified ones | Use **Tag untagged and unverified** in Admin → Tagging Actions |
 
 See [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) for general application problems.

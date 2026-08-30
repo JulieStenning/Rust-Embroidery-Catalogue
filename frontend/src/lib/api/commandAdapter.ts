@@ -358,7 +358,7 @@ export async function getDesignDetail(
         hoops: MOCK_HOOPS,
         notes: "Mock detail while Rust route migration continues.",
         rating: null,
-        tagging_tier: null,
+        tagging_mode: null,
         date_added: null,
         tags: [],
         projects: [],
@@ -403,7 +403,7 @@ export async function getDesignDetail(
       hoops: MOCK_HOOPS,
       notes: "Mock detail while Rust route migration continues.",
       rating: null,
-      tagging_tier: null,
+      tagging_mode: null,
       date_added: null,
       tags: [],
       projects: [],
@@ -1772,8 +1772,7 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
       preview_3d_profile: "balanced",
       google_api_key: "",
       has_google_api_key: false,
-      ai_tier2_auto: false,
-      ai_tier3_auto: false,
+      ai_vision_auto: false,
       ai_batch_size: "",
       ai_delay: "",
       ai_gemini_model: "",
@@ -2059,8 +2058,7 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
       source: "rust",
       model: {
         has_google_api_key: Boolean(model?.has_google_api_key),
-        ai_tier2_auto: Boolean(model?.ai_tier2_auto),
-        ai_tier3_auto: Boolean(model?.ai_tier3_auto),
+        ai_vision_auto: Boolean(model?.ai_vision_auto),
         ai_batch_size: String(model?.ai_batch_size || ""),
         ai_delay: String(model?.ai_delay || ""),
         ai_commit_every: String(model?.ai_commit_every || ""),
@@ -2078,8 +2076,7 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
       source: "mock",
       model: {
         has_google_api_key: false,
-        ai_tier2_auto: false,
-        ai_tier3_auto: false,
+        ai_vision_auto: false,
         ai_batch_size: "",
         ai_delay: "",
         ai_commit_every: "",
@@ -2108,16 +2105,17 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
 function buildUnifiedBackfillWireRequest(
   request: UnifiedBackfillRequest
 ): UnifiedBackfillWireRequest {
-  const runTagging = Boolean(request.run_tier2) || Boolean(request.run_tier3);
+  const runTagging = Boolean(request.run_vision);
   const actionMode = request.action_mode === "tag_all" ? "retag_all" : "tag_untagged";
 
-  const tiers = [1];
-  if (request.run_tier2) tiers.push(2);
-  if (request.run_tier3) tiers.push(3);
+  // File & Folder Rules (path_rule) always runs; Visual AI (ai_vision) runs when
+  // its toggle is on (and is additionally gated on an API key by the backend).
+  const modes = ["path_rule"];
+  if (request.run_vision) modes.push("ai_vision");
 
   return {
     actions: {
-      tagging: runTagging ? { action: actionMode, tiers, enabled: true } : null,
+      tagging: runTagging ? { action: actionMode, modes, enabled: true } : null,
       stitching: null,
       images: request.run_images ? { enabled: true, redo: Boolean(request.image_redo) } : null,
       color_counts: request.run_color_counts ? { enabled: true } : null,

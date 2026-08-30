@@ -15,7 +15,7 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, tagging_tier INTEGER)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, tagging_mode TEXT)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
         "CREATE TABLE hoops (id INTEGER PRIMARY KEY, name TEXT NOT NULL, max_width_mm REAL NOT NULL, max_height_mm REAL NOT NULL)",
     ] {
@@ -63,7 +63,7 @@ async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -120,7 +120,7 @@ async fn run_unified_backfill_retag_all_processes_all_designs_beyond_batch_size(
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -160,7 +160,7 @@ async fn run_unified_backfill_streams_progress_events() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -227,7 +227,7 @@ async fn run_unified_backfill_retag_all_respects_workers_concurrency() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -320,157 +320,101 @@ fn default_delay_for_reflects_free_tier() {
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// normalize_tiers
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 #[test]
-fn normalize_tiers_default_includes_one() {
-    let result = normalize_tiers(None, false);
+fn normalize_modes_default_includes_path_rule() {
+    let result = normalize_modes(None, false);
     assert_eq!(result.len(), 1);
-    assert!(result.contains(&1));
+    assert!(result.contains("path_rule"));
 }
 
 #[test]
-fn normalize_tiers_removes_tiers_above_one_without_api_key() {
-    let result = normalize_tiers(Some(&[1, 2, 3]), false);
-    assert!(result.contains(&1));
-    assert!(!result.contains(&2));
-    assert!(!result.contains(&3));
+fn normalize_modes_removes_ai_vision_without_api_key() {
+    let result = normalize_modes(
+        Some(&["path_rule".to_string(), "ai_vision".to_string()]),
+        false,
+    );
+    assert!(result.contains("path_rule"));
+    assert!(!result.contains("ai_vision"));
 }
 
 #[test]
-fn normalize_tiers_includes_tiers_above_one_with_api_key() {
-    let result = normalize_tiers(Some(&[1, 2, 3]), true);
-    assert!(result.contains(&1));
-    assert!(result.contains(&2));
-    assert!(result.contains(&3));
+fn normalize_modes_includes_ai_vision_with_api_key() {
+    let result = normalize_modes(
+        Some(&["path_rule".to_string(), "ai_vision".to_string()]),
+        true,
+    );
+    assert!(result.contains("path_rule"));
+    assert!(result.contains("ai_vision"));
 }
 
 #[test]
-fn normalize_tiers_empty_slice_resolves_to_one() {
-    let result = normalize_tiers(Some(&[]), true);
+fn normalize_modes_empty_slice_resolves_to_path_rule() {
+    let result = normalize_modes(Some(&[]), true);
     assert_eq!(result.len(), 1);
-    assert!(result.contains(&1));
+    assert!(result.contains("path_rule"));
 }
 
 #[test]
-fn normalize_tiers_tier_1_always_present_even_if_not_listed() {
-    let result = normalize_tiers(Some(&[2, 3]), true);
-    assert!(result.contains(&1));
-    assert!(result.contains(&2));
-    assert!(result.contains(&3));
+fn normalize_modes_path_rule_always_present_even_if_not_listed() {
+    let result = normalize_modes(Some(&["ai_vision".to_string()]), true);
+    assert!(result.contains("path_rule"));
+    assert!(result.contains("ai_vision"));
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// suggest_tier2_descriptions
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 #[test]
-fn suggest_tier2_exact_token_match() {
+fn suggest_visual_ai_exact_token_match() {
     let mut valid = HashSet::new();
     valid.insert("Cats".to_string());
     valid.insert("Flowers".to_string());
     valid.insert("Don't Know".to_string());
-
-    // "cats" token from "Cats" description must appear verbatim in combined string
-    let result = suggest_tier2_descriptions("cats.pes", "/designs/", &valid);
-    assert!(
-        result.contains(&"Cats".to_string()),
-        "Expected Cats, got {:?}",
-        result
-    );
+    let result = suggest_visual_ai_descriptions("cats.pes", "/designs/", &valid);
+    assert!(result.contains(&"Cats".to_string()), "Expected Cats, got {:?}", result);
     assert!(!result.contains(&"Flowers".to_string()));
 }
 
 #[test]
-fn suggest_tier2_matches_all_tokens_in_description() {
+fn suggest_visual_ai_matches_all_tokens_in_description() {
     let mut valid = HashSet::new();
     valid.insert("Christmas Tree".to_string());
     valid.insert("Don't Know".to_string());
-
-    // "xmas tree" â€” tokens: "xmas", "tree"
-    // "christmas tree" â†’ tokens: "christmas", "tree" â€” "tree" found in "xmas tree", but
-    // "christmas" NOT found in "xmas tree polls", so no match â†’ fallback to "Don't Know"
-    let result = suggest_tier2_descriptions("xmas_tree.pes", "/designs/polls/", &valid);
+    let result = suggest_visual_ai_descriptions("xmas_tree.pes", "/designs/polls/", &valid);
     assert!(!result.contains(&"Christmas Tree".to_string()));
     assert!(result.contains(&"Don't Know".to_string()) || !result.is_empty());
 }
 
 #[test]
-fn suggest_tier2_fallback_when_no_token_match() {
+fn suggest_visual_ai_fallback_when_no_token_match() {
     let mut valid = HashSet::new();
     valid.insert("Cats".to_string());
     valid.insert("Don't Know".to_string());
-
-    let result = suggest_tier2_descriptions("some_random.pes", "/designs/", &valid);
+    let result = suggest_visual_ai_descriptions("some_random.pes", "/designs/", &valid);
     assert_eq!(result, vec!["Don't Know"]);
 }
 
 #[test]
-fn suggest_tier2_handles_special_characters() {
+fn suggest_visual_ai_handles_special_characters() {
     let mut valid = HashSet::new();
-    // "Holiday" is a single token >2 chars, no special character handling needed
     valid.insert("Holiday".to_string());
-
-    let result = suggest_tier2_descriptions("holiday.pes", "/designs/", &valid);
-    assert!(
-        result.contains(&"Holiday".to_string()),
-        "Expected Holiday, got {:?}",
-        result
-    );
+    let result = suggest_visual_ai_descriptions("holiday.pes", "/designs/", &valid);
+    assert!(result.contains(&"Holiday".to_string()), "Expected Holiday, got {:?}", result);
 }
 
 #[test]
-fn suggest_tier2_fallback_respects_ordering() {
+fn suggest_visual_ai_fallback_respects_ordering() {
     let mut valid = HashSet::new();
     valid.insert("Patterns".to_string());
     valid.insert("Flowers".to_string());
-
-    let result = suggest_tier2_descriptions("zzz_nonexistent.pes", "/designs/", &valid);
+    let result = suggest_visual_ai_descriptions("zzz_nonexistent.pes", "/designs/", &valid);
     assert_eq!(result, vec!["Patterns"]);
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// suggest_tier3_descriptions
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 #[test]
-fn suggest_tier3_delegates_to_tier2() {
-    let mut valid = HashSet::new();
-    valid.insert("Cats".to_string());
-
-    // tier2 should match "cats" > 2 chars in filename
-    let result = suggest_tier3_descriptions("cats.pes", "/designs/", &valid);
-    assert!(
-        result.contains(&"Cats".to_string()),
-        "Expected Cats, got {:?}",
-        result
-    );
-}
-
-#[test]
-fn suggest_tier3_appends_dont_know_on_empty_tier2() {
-    let mut valid = HashSet::new();
-    valid.insert("Don't Know".to_string());
-    valid.insert("Flowers".to_string());
-
-    let result = suggest_tier3_descriptions("xyzzy.pes", "/designs/", &valid);
-    assert!(
-        result.contains(&"Don't Know".to_string()),
-        "Expected Don't Know, got {:?}",
-        result
-    );
-}
-
-#[test]
-fn suggest_tier3_no_dont_know_when_not_valid() {
+fn suggest_visual_ai_no_dont_know_when_not_valid() {
     let mut valid = HashSet::new();
     valid.insert("Butterfly".to_string());
-
-    let result = suggest_tier3_descriptions("nonexistent.pes", "/designs/", &valid);
+    let result = suggest_visual_ai_descriptions("nonexistent.pes", "/designs/", &valid);
     assert!(result.is_empty(), "Expected empty, got {:?}", result);
 }
-
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // resolve_i64_option
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -732,7 +676,7 @@ async fn flush_tagging_batch_writes_tag_and_tier() {
     map.insert("Cats".to_string(), 1);
     map.insert("Don't Know".to_string(), 3);
 
-    flush_tagging_batch(&pool, &map, vec![(1, vec!["Cats".to_string()], 1)])
+    flush_tagging_batch(&pool, &map, vec![(1, vec!["Cats".to_string()], "path_rule".to_string())])
         .await
         .unwrap();
 
@@ -744,12 +688,13 @@ async fn flush_tagging_batch_writes_tag_and_tier() {
             .unwrap();
     assert_eq!(count, 1);
 
-    // Verify tier
-    let tier: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(tier, Some(1));
+    // Verify mode
+    let mode: Option<String> =
+        sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(mode, Some("path_rule".to_string()));
 }
 
 #[tokio::test]
@@ -757,7 +702,7 @@ async fn flush_tagging_batch_empty_descriptions_noop() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    flush_tagging_batch(&pool, &HashMap::new(), vec![(1, vec![], 1)])
+    flush_tagging_batch(&pool, &HashMap::new(), vec![(1, vec![], "path_rule".to_string())])
         .await
         .unwrap();
 
@@ -774,7 +719,7 @@ async fn flush_tagging_batch_replaces_existing_image_tags() {
     map.insert("Don't Know".to_string(), 3);
 
     // Replace Cats with Don't Know
-    flush_tagging_batch(&pool, &map, vec![(2, vec!["Don't Know".to_string()], 2)])
+    flush_tagging_batch(&pool, &map, vec![(2, vec!["Don't Know".to_string()], "ai_vision".to_string())])
         .await
         .unwrap();
 
@@ -1225,48 +1170,46 @@ async fn log_files_round_trip() {
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// apply_tagging_tiers â€” unit-style tests
+// apply_tagging_modes â€” unit-style tests
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tokio::test]
-async fn compute_tagging_tiers_tier1_match_returns_suggestion() {
+async fn compute_design_tagging_path_rule_match_returns_suggestion() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
-    // design 1: "cute_cat.pes" â€” tier1 should match "Cats" via keyword map
+    // design 1: "cute_cat.pes" - File & Folder Rules should match "Cats" via keyword map
 
     let mut map = HashMap::new();
     map.insert("Cats".to_string(), 1);
     map.insert("Don't Know".to_string(), 3);
     let valid: HashSet<String> = map.keys().cloned().collect();
 
-    let tier_options = TaggingTierOptions {
-        tier1_enabled: true,
-        tier2_enabled: false,
-        tier3_enabled: false,
-        tier2_delay_seconds: 0.0,
-        tier3_delay_seconds: 0.0,
-        tier2_network: false,
-        tier3_network: false,
+    let mode_options = TaggingModeOptions {
+        path_rule_enabled: true,
+        visual_ai_enabled: false,
+        visual_ai_delay_seconds: 0.0,
+        visual_ai_network: false,
     };
-    let result = compute_tagging_tiers(&pool, 1, &valid, &tier_options, None)
+    let result = compute_design_tagging(&pool, 1, &valid, &mode_options, None)
         .await
         .unwrap();
 
     // Compute-only: returns the suggestion; the write happens later in a batched
-    // transaction (covered by the apply_image_tags_and_tier tests).
-    let (descriptions, tier) = result.expect("tier1 should produce a suggestion");
-    assert_eq!(tier, 1);
+    // transaction (covered by the apply_image_tags_and_mode tests).
+    let (descriptions, mode) = result.expect("path_rule should produce a suggestion");
+    assert_eq!(mode, "path_rule");
     assert!(descriptions.iter().any(|d| d == "Cats"));
 }
 
 #[tokio::test]
-async fn compute_tagging_tiers_tier1_falls_to_tier2() {
+async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
     let pool = make_test_pool().await;
-    // design with no keyword match but token match works in tier2
-    sqlx::query("INSERT INTO designs (id, filename, filepath, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, 0, 0)")
+    // design with no path-rule match but token match works in Visual AI's local fallback
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_data, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, ?, 0, 0)")
         .bind(10_i64)
         .bind("abstract_blob.pes")
         .bind("tests/Test Designs/abstract_blob.pes")
+        .bind(vec![0u8, 1, 2, 3])
         .execute(&pool)
         .await
         .unwrap();
@@ -1283,43 +1226,33 @@ async fn compute_tagging_tiers_tier1_falls_to_tier2() {
     map.insert("Don't Know".to_string(), 3);
     let valid: HashSet<String> = map.keys().cloned().collect();
 
-    let tier_options = TaggingTierOptions {
-        tier1_enabled: true,
-        tier2_enabled: true,
-        tier3_enabled: false,
-        tier2_delay_seconds: 0.0,
-        tier3_delay_seconds: 0.0,
-        tier2_network: false,
-        tier3_network: false,
+    let mode_options = TaggingModeOptions {
+        path_rule_enabled: true,
+        visual_ai_enabled: true,
+        visual_ai_delay_seconds: 0.0,
+        visual_ai_network: false,
     };
-    let result = compute_tagging_tiers(&pool, 10, &valid, &tier_options, None)
+    let result = compute_design_tagging(&pool, 10, &valid, &mode_options, None)
         .await
         .unwrap();
 
-    // "red" and "rose" both >2 chars, but "Roses" â†’ tokenized: "roses" â†’ "roses" in "red_rose"? No!
-    // "rose" >2 chars found in "red_rose" âœ“ and "red" found âœ“ â†’ all tokens of "Roses" found?
-    // Actually "roses" â†’ split into ["roses"] â†’ "roses" not in "red rose" + "tests/..."
-    // Wait, the combined string would be "red_rose.pes" "tests/Test Designs/red_rose.pes"
-    // "roses" â€” no. So it should fall back to "Don't Know"
-    // tier 1 would have no match, tier 2 would match with fallback "Don't Know" (tag 3)
-    let (_descriptions, tier) = result.expect("tier2 should produce a fallback suggestion");
-    assert_eq!(tier, 2);
+    // Path rules produce no match, so Visual AI's local fallback runs and yields
+    // "Don't Know" (no network client, image present).
+    let (_descriptions, mode) = result.expect("Visual AI should produce a fallback suggestion");
+    assert_eq!(mode, "ai_vision");
 }
 
 #[tokio::test]
-async fn compute_tagging_tiers_nonexistent_design_returns_none() {
+async fn compute_design_tagging_nonexistent_design_returns_none() {
     let pool = make_test_pool().await;
     let valid = HashSet::new();
-    let tier_options = TaggingTierOptions {
-        tier1_enabled: true,
-        tier2_enabled: false,
-        tier3_enabled: false,
-        tier2_delay_seconds: 0.0,
-        tier3_delay_seconds: 0.0,
-        tier2_network: false,
-        tier3_network: false,
+    let mode_options = TaggingModeOptions {
+        path_rule_enabled: true,
+        visual_ai_enabled: false,
+        visual_ai_delay_seconds: 0.0,
+        visual_ai_network: false,
     };
-    let result = compute_tagging_tiers(&pool, 999, &valid, &tier_options, None).await;
+    let result = compute_design_tagging(&pool, 999, &valid, &mode_options, None).await;
     assert!(matches!(result, Ok(None)));
 }
 
@@ -1337,8 +1270,8 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
         &pool,
         &map,
         vec![
-            (1, vec!["Cats".to_string()], 1),
-            (3, vec!["Don't Know".to_string()], 2),
+            (1, vec!["Cats".to_string()], "path_rule".to_string()),
+            (3, vec!["Don't Know".to_string()], "ai_vision".to_string()),
         ],
     )
     .await
@@ -1350,11 +1283,11 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
             .await
             .unwrap();
     assert_eq!(cat_count, 1);
-    let tier: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 1")
+    let mode: Option<String> = sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 1")
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(tier, Some(1));
+    assert_eq!(mode, Some("path_rule".to_string()));
 
     let dk_count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 3 AND tag_id = 3")
@@ -1362,11 +1295,11 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
             .await
             .unwrap();
     assert_eq!(dk_count, 1);
-    let tier3: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 3")
+    let mode3: Option<String> = sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 3")
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(tier3, Some(2));
+    assert_eq!(mode3, Some("ai_vision".to_string()));
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1385,7 +1318,7 @@ async fn run_unified_backfill_retag_all_tags_everything() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1421,7 +1354,7 @@ async fn run_unified_backfill_retag_all_unverified_skips_verified() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all_unverified".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1470,7 +1403,7 @@ async fn run_unified_backfill_stop_signal_detected_by_summary() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1529,7 +1462,7 @@ async fn run_unified_backfill_stop_aborts_current_tagging_batch() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1584,7 +1517,7 @@ async fn run_unified_backfill_combined_actions() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(true),
                 }),
                 stitching: Some(StitchingActionOptions {
@@ -1627,7 +1560,7 @@ async fn run_unified_backfill_hoop_dimensions_action_runs() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(false),
                 }),
                 stitching: None,
@@ -1665,7 +1598,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    tiers: Some(vec![1]),
+                    modes: Some(vec!["path_rule".to_string()]),
                     enabled: Some(false),
                 }),
                 stitching: Some(StitchingActionOptions {

@@ -69,20 +69,20 @@ before continuing without them.
 
 An **AI tagging banner** tells you what will happen to tags during the import:
 
-- If no Google API key is saved, the import uses **Tier 1 keyword tagging
-  only**, which runs locally and never calls the internet. Every imported file
-  gets keyword tags matched from its filename and folder path.
-- If a key is saved, the banner shows whether **Tier 2 (text AI)** and
-  **Tier 3 (vision AI)** auto-run during the import, plus a cost and
-  rate-limit note.
+- If no Google API key is saved, the import uses **File & Folder Rules only**,
+  which runs locally and never calls the internet. Every imported file gets
+  tags matched from its filename and folder path.
+- If a key is saved, the banner shows whether **Visual AI** auto-runs during the
+  import, plus a cost and rate-limit note.
 
 > **Very important for large libraries:** Gemini's free tier is roughly
 > **15 requests per minute** and **1,500 requests per day**. For 120,000
-> designs this means AI tagging will not run on everything in one session. Tier 1
-> (local keyword tagging) runs on **every** file, but AI-assisted tagging is
-> rate-limited and will not finish a 120,000-design library in one import. Plan
-> to add an API key and run AI tagging in smaller passes afterwards if you want
-> it, rather than relying on it during a huge import.
+> designs this means Visual AI tagging will not run on everything in one session.
+> File & Folder Rules (local path/name matching) run on **every** file, but
+> AI-assisted tagging is rate-limited and will not finish a 120,000-design
+> library in one import. Plan to add an API key and run Visual AI in smaller
+> passes afterwards if you want it, rather than relying on it during a huge
+> import.
 
 
 ## Feedback you will see during the import

@@ -114,8 +114,7 @@ GOOGLE_API_KEY=AIzaSy_your_actual_key_here
 ```
 
 Once the key is saved, open **Admin → Settings** and tick
-**Run Tier 2 automatically during import** and/or
-**Run Tier 3 automatically during import** to enable Gemini-based tagging during import.
+**Run Visual AI automatically during import** to enable Gemini-based tagging during import.
 See [AI_TAGGING.md](AI_TAGGING.md) for full details, including cost/quota information.
 
 ---

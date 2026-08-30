@@ -31,8 +31,7 @@ const viewModel = () => ({
   source: "rust",
   model: {
     has_google_api_key: false,
-    ai_tier2_auto: false,
-    ai_tier3_auto: false,
+    ai_vision_auto: false,
     ai_batch_size: "",
     ai_delay: "",
     import_commit_batch_size: "",
@@ -128,7 +127,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {

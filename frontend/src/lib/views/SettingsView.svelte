@@ -28,8 +28,7 @@
 
   let settingsGoogleApiKey = $state("");
   let settingsApiKeyRevealed = $state(false);
-  let settingsAiTier2Auto = $state(false);
-  let settingsAiTier3Auto = $state(false);
+  let settingsAiVisionAuto = $state(false);
   let settingsAiBatchSize = $state("");
   let settingsAiDelay = $state("");
   let settingsAiGeminiModel = $state("");
@@ -79,8 +78,7 @@
   /** @param {Partial<SettingsViewModel>} [model] */
   function applySettingsModel(model = {}) {
     settingsGoogleApiKey = String(model?.google_api_key || "");
-    settingsAiTier2Auto = Boolean(model?.ai_tier2_auto);
-    settingsAiTier3Auto = Boolean(model?.ai_tier3_auto);
+    settingsAiVisionAuto = Boolean(model?.ai_vision_auto);
     settingsAiBatchSize = String(model?.ai_batch_size || "");
     settingsAiDelay = String(model?.ai_delay || "");
     settingsAiGeminiModel = String(model?.ai_gemini_model || "");
@@ -259,8 +257,7 @@
       /** @type {SaveSettingsRequest} */
       const request = {
         google_api_key: settingsGoogleApiKey,
-        ai_tier2_auto: settingsAiTier2Auto,
-        ai_tier3_auto: settingsAiTier3Auto,
+        ai_vision_auto: settingsAiVisionAuto,
         ai_batch_size: settingsNumericToString(settingsAiBatchSize),
         ai_delay: settingsNumericToString(settingsAiDelay),
         ai_gemini_model: settingsAiGeminiModel,
@@ -510,9 +507,10 @@
       <div class="border-t pt-4">
         <h2 class="text-sm font-semibold text-gray-700 mb-1">AI tagging during import</h2>
         <p class="text-sm text-gray-600 mb-3">
-          Control whether Gemini AI tagging runs automatically when you import designs. Tier 1
-          (keyword matching) always runs and is free. Tiers 2 and 3 call the Google Gemini API and
-          require an API key.
+          Control how designs are tagged when you import them. <strong>File & Folder Rules</strong>
+          always runs — it performs instantaneous, local matching of filenames and folder paths
+          against your tag catalogue, and is always free. <strong>Visual AI</strong> analyzes each
+          design's rendered thumbnail using Google's Gemini Vision API and requires an API key.
         </p>
 
         {#if settingsHasGoogleApiKey}
@@ -520,7 +518,7 @@
             <strong>⚠ Cost notice:</strong> Gemini usage may incur charges on your Google account.
             Free-tier limits are approximately <strong>15 requests per minute</strong> and
             <strong>1,500 requests per day</strong>. A historical estimate from February 2026 found
-            that Tier 3 on 4,000 images cost about
+            that Visual AI on 4,000 images cost about
             <strong>$0.33 on the paid tier</strong>; actual pricing may have changed. Check the
             latest rates at
             <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener"
@@ -529,7 +527,7 @@
           </div>
         {:else}
           <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-3 text-sm text-blue-900">
-            No API key is saved. AI tagging options below will have no effect until you add a key
+            No API key is saved. Visual AI tagging below will have no effect until you add a key
             above.
           </div>
         {/if}
@@ -538,18 +536,11 @@
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input
               type="checkbox"
-              bind:checked={settingsAiTier2Auto}
+              bind:checked={settingsAiVisionAuto}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            Run <strong>Tier 2</strong> (Gemini text AI from filename) automatically during import
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={settingsAiTier3Auto}
-              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            Run <strong>Tier 3</strong> (Gemini vision AI from preview image) automatically during import
+            Run <strong>Visual AI</strong> (Gemini vision from preview image) automatically during
+            import
           </label>
           <label class="flex flex-col gap-1 text-sm text-gray-700 cursor-pointer">
             <span class="flex items-center gap-2">
@@ -684,7 +675,7 @@
           </button>
         </div>
         <p class="mt-1 text-xs text-gray-500">
-          Model used for Tier 2 (text) and Tier 3 (vision) tagging. Leave blank to let the app
+          Model used for Visual AI tagging. Leave blank to let the app
           auto-select an available Gemini model. If a model you pick is later retired, the app
           falls back to auto-selection at run time.
         </p>

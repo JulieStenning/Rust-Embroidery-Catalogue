@@ -49,8 +49,7 @@ const defaultModel: SettingsViewModel = {
   preview_3d_profile: "balanced",
   google_api_key: "AIza-SY-Key",
   has_google_api_key: true,
-  ai_tier2_auto: true,
-  ai_tier3_auto: false,
+  ai_vision_auto: false,
   ai_batch_size: "100",
   ai_delay: "6.0",
   ai_gemini_model: "",
@@ -136,8 +135,7 @@ describe("SettingsView.svelte", () => {
     expect(screen.getByLabelText(/Delay between Gemini calls/)).toHaveValue(6.0);
     expect(screen.getByLabelText(/Import database commit batch size/)).toHaveValue(10);
     expect(screen.getByLabelText(/Database health check interval/)).toHaveValue(1800);
-    expect(screen.getByLabelText(/Tier 2/)).toBeChecked();
-    expect(screen.getByLabelText(/Tier 3/)).not.toBeChecked();
+    expect(screen.getByLabelText(/Run Visual AI/)).not.toBeChecked();
 
     const dataRootInput = screen.getByLabelText("Catalogue data location");
     expect(dataRootInput).toHaveValue("D:\\EmbroideryData\\MachineEmbroideryDesigns");
@@ -185,8 +183,7 @@ describe("SettingsView.svelte", () => {
     // Fallback defaults applied from the empty model.
     expect(screen.getByLabelText("API key")).toHaveValue("");
     expect(screen.getByLabelText(/Database health check interval/)).toHaveValue(1800);
-    expect(screen.getByLabelText(/Tier 2/)).not.toBeChecked();
-    expect(screen.getByLabelText(/Tier 3/)).not.toBeChecked();
+    expect(screen.getByLabelText(/Run Visual AI/)).not.toBeChecked();
 
     // can_configure_data_root is false → browse input hidden, dev-mode note shown.
     expect(screen.queryByRole("button", { name: "Browse…" })).not.toBeInTheDocument();
@@ -278,8 +275,7 @@ describe("SettingsView.svelte", () => {
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalledWith({
         google_api_key: "AIza-SY-Key",
-        ai_tier2_auto: true,
-        ai_tier3_auto: false,
+        ai_vision_auto: false,
         ai_batch_size: "100",
         ai_delay: "6.0",
         ai_gemini_model: "",
@@ -321,8 +317,7 @@ describe("SettingsView.svelte", () => {
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalledWith({
         google_api_key: "AIza-SY-Key",
-        ai_tier2_auto: true,
-        ai_tier3_auto: false,
+        ai_vision_auto: false,
         ai_batch_size: "100",
         ai_delay: "0",
         ai_gemini_model: "",

@@ -14,8 +14,7 @@ pub struct TaggingActionRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct TaggingActionsViewModel {
     pub has_google_api_key: bool,
-    pub ai_tier2_auto: bool,
-    pub ai_tier3_auto: bool,
+    pub ai_vision_auto: bool,
     pub ai_batch_size: String,
     pub ai_delay: String,
     pub ai_commit_every: String,
@@ -31,11 +30,10 @@ pub struct TaggingActionsViewModel {
 #[derive(Debug, Clone, Serialize)]
 pub struct TaggingActionPreview {
     pub enabled: bool,
-    pub tier_order: Vec<String>,
+    pub mode_order: Vec<String>,
 }
 
-const KEY_AI_TIER2_AUTO: &str = "ai.tier2_auto";
-const KEY_AI_TIER3_AUTO: &str = "ai.tier3_auto";
+const KEY_AI_VISION_AUTO: &str = "ai.vision";
 const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 const KEY_AI_DELAY: &str = "ai.delay";
 const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
@@ -71,13 +69,8 @@ pub async fn get_tagging_actions_view_model(
     let pool = state.db_pool()?;
     let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
-    let ai_tier2_auto = is_truthy(
-        &get_setting_with_default(&mut conn, KEY_AI_TIER2_AUTO)
-            .await
-            .map_err(|e| e.to_string())?,
-    );
-    let ai_tier3_auto = is_truthy(
-        &get_setting_with_default(&mut conn, KEY_AI_TIER3_AUTO)
+    let ai_vision_auto = is_truthy(
+        &get_setting_with_default(&mut conn, KEY_AI_VISION_AUTO)
             .await
             .map_err(|e| e.to_string())?,
     );
@@ -110,8 +103,7 @@ pub async fn get_tagging_actions_view_model(
 
     Ok(TaggingActionsViewModel {
         has_google_api_key,
-        ai_tier2_auto,
-        ai_tier3_auto,
+        ai_vision_auto,
         ai_batch_size,
         ai_delay,
         ai_commit_every,
@@ -141,11 +133,11 @@ pub async fn run_unified_backfill(
     if let Some(ref actions) = request.actions {
         if let Some(ref tagging) = actions.tagging {
             if tagging.enabled.unwrap_or(true) {
-                if let Some(ref tiers) = tagging.tiers {
-                    let requests_ai = tiers.contains(&2) || tiers.contains(&3);
+                if let Some(ref modes) = tagging.modes {
+                    let requests_ai = modes.iter().any(|m| m == "ai_vision");
                     if requests_ai && !has_api_key {
                         return Err(
-                            "Google API key is required for AI tagging (Tier 2 / Tier 3). Please configure your API key in Admin -> Settings."
+                            "Google API key is required for Visual AI tagging. Please configure your API key in Admin -> Settings."
                                 .to_string(),
                         );
                     }
@@ -231,14 +223,14 @@ pub fn preview_tagging_action(
         hard_default: true,
     };
 
-    let tier_order = auto_tagging::ordered_tiers()
+    let mode_order = auto_tagging::ordered_modes()
         .iter()
-        .map(|tier| format!("{:?}", tier))
+        .map(|mode| format!("{:?}", mode))
         .collect();
 
     Ok(TaggingActionPreview {
         enabled: auto_tagging::resolve_enabled(&precedence),
-        tier_order,
+        mode_order,
     })
 }
 

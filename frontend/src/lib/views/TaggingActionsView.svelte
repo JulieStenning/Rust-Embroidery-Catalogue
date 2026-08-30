@@ -50,8 +50,7 @@
 
   // Sub-options / child controls (all default false, disabled until parent checked).
   let taggingRetagAll = $state(false);
-  let taggingRunTier2 = $state(false);
-  let taggingRunTier3 = $state(false);
+  let taggingRunVision = $state(false);
   let taggingStitchingOverwrite = $state(false);
   let taggingImageRedo = $state(false);
 
@@ -141,8 +140,7 @@
       if (taggingRunTagging || taggingRunImages || taggingRunColorCounts || taggingRunHoopDimensions) {
         const result = await runUnifiedBackfill({
           action_mode: taggingRetagAll ? "tag_all" : "tag_untagged",
-          run_tier2: taggingHasGoogleApiKey && taggingRunTier2,
-          run_tier3: taggingHasGoogleApiKey && taggingRunTier3,
+          run_vision: taggingHasGoogleApiKey && taggingRunVision,
           run_images: taggingRunImages,
           image_redo: taggingImageRedo,
           run_color_counts: taggingRunColorCounts,
@@ -225,8 +223,8 @@
     <!-- API Key Status -->
     {#if !taggingHasGoogleApiKey}
       <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
-        No Google API key is configured in Settings. AI tagging actions will be skipped.
-        Keyword-only tagging (Tier 1) always runs.
+        No Google API key is configured in Settings. Visual AI tagging will be skipped.
+        File & Folder Rules always run.
       </div>
     {:else}
       <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
@@ -259,12 +257,13 @@
             <span class="font-semibold">Tagging</span>
             {#if taggingHasGoogleApiKey}
               <p class="text-gray-500 text-xs mt-0.5">
-                Run local keyword matching (Tier 1) and optional Gemini AI suggestions (Tiers 2 &
-                3).
+                Run <strong>File & Folder Rules</strong> (instantaneous local path/name matching) and
+                optional <strong>Visual AI</strong> (Gemini vision on the rendered thumbnail).
               </p>
             {:else}
               <p class="text-gray-500 text-xs mt-0.5">
-                Run local keyword matching (Tier 1) based on filenames and folder names.
+                Run <strong>File & Folder Rules</strong> — instantaneous, local matching based on
+                filenames and folder names.
               </p>
             {/if}
           </div>
@@ -283,25 +282,12 @@
           <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input
               type="checkbox"
-              bind:checked={taggingRunTier2}
+              bind:checked={taggingRunVision}
               disabled={!taggingRunTagging || !taggingHasGoogleApiKey || busyActive}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span
-              >Run <strong>Tier 2</strong> (Gemini text AI — suggest tags from filename){#if !taggingHasGoogleApiKey}
-                <span class="text-xs font-medium text-gray-400 italic">(API Key Required)</span
-                >{/if}</span
-            >
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={taggingRunTier3}
-              disabled={!taggingRunTagging || !taggingHasGoogleApiKey || busyActive}
-              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span
-              >Run <strong>Tier 3</strong> (Gemini vision AI — suggest tags from preview image){#if !taggingHasGoogleApiKey}
+              >Run <strong>Visual AI</strong> (Gemini vision — suggest tags from preview image){#if !taggingHasGoogleApiKey}
                 <span class="text-xs font-medium text-gray-400 italic">(API Key Required)</span
                 >{/if}</span
             >

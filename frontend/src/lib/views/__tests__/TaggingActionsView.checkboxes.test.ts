@@ -31,8 +31,7 @@ const viewModel = (overrides = {}) => ({
   source: "rust",
   model: {
     has_google_api_key: true,
-    ai_tier2_auto: false,
-    ai_tier3_auto: false,
+    ai_vision_auto: false,
     ai_batch_size: "",
     ai_delay: "",
     import_commit_batch_size: "",
@@ -90,47 +89,37 @@ describe("TaggingActionsView checkbox interactions", () => {
     expect(retagAll).not.toBeChecked();
   });
 
-  it("toggles the AI tier checkboxes when Tagging is enabled and an API key is set", async () => {
+  it("toggles the Visual AI checkbox when Tagging is enabled and an API key is set", async () => {
     render(TaggingActionsView);
 
     const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
-    const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
-    const tier3 = screen.getByRole("checkbox", { name: /Run Tier 3/ });
-    expect(tier2).toBeDisabled();
-    expect(tier3).toBeDisabled();
+    const vision = screen.getByRole("checkbox", { name: /Run Visual AI/ });
+    expect(vision).toBeDisabled();
 
     const user = userEvent.setup();
     await user.click(tagging);
 
-    expect(tier2).not.toBeDisabled();
-    expect(tier3).not.toBeDisabled();
+    expect(vision).not.toBeDisabled();
 
-    await user.click(tier2);
-    expect(tier2).toBeChecked();
-
-    await user.click(tier3);
-    expect(tier3).toBeChecked();
+    await user.click(vision);
+    expect(vision).toBeChecked();
   });
 
-  it("disables and unchecks Tier 2 and Tier 3 when no API key is set", async () => {
+  it("disables and unchecks Visual AI when no API key is set", async () => {
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(
       viewModel({ has_google_api_key: false })
     );
     render(TaggingActionsView);
 
     const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
-    const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
-    const tier3 = screen.getByRole("checkbox", { name: /Run Tier 3/ });
-    expect(tier2).toBeDisabled();
-    expect(tier3).toBeDisabled();
-    expect(tier2).not.toBeChecked();
-    expect(tier3).not.toBeChecked();
+    const vision = screen.getByRole("checkbox", { name: /Run Visual AI/ });
+    expect(vision).toBeDisabled();
+    expect(vision).not.toBeChecked();
 
-    // Toggling Tagging on does not enable them without a key.
+    // Toggling Tagging on does not enable it without a key.
     const user = userEvent.setup();
     await user.click(tagging);
-    expect(tier2).toBeDisabled();
-    expect(tier3).toBeDisabled();
+    expect(vision).toBeDisabled();
   });
 
   it("toggles the stitching and overwrite sub-checkboxes", async () => {

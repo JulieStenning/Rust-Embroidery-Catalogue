@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::services::auto_tagging::TaggingTierOptions;
+use crate::services::auto_tagging::TaggingModeOptions;
 use crate::services::design_metadata;
 use crate::services::gemini_client::GeminiClient;
 use crate::services::stitch_identifier;
@@ -20,7 +20,6 @@ static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
-const DEFAULT_VISION_DELAY_SECONDS: f64 = 2.0;
 const DEFAULT_BATCH_SIZE: i64 = 100;
 const DEFAULT_COMMIT_EVERY: i64 = 100;
 #[cfg(test)]
@@ -51,7 +50,9 @@ pub struct UnifiedBackfillActions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct TaggingActionOptions {
     pub action: Option<String>,
-    pub tiers: Option<Vec<i64>>,
+    /// Tagging modes to run: `"path_rule"` (File & Folder Rules) and/or `"ai_vision"`
+    /// (Visual AI). Visual AI additionally requires a configured Google API key.
+    pub modes: Option<Vec<String>>,
     pub enabled: Option<bool>,
 }
 
@@ -178,7 +179,7 @@ pub async fn run_unified_backfill(
 /// Same as [`run_unified_backfill`], but streams live [`BackfillProgress`]
 /// updates to `progress` (e.g. after each commit) so the UI can display a
 /// running status message, and accepts the actual API key (`api_key`) used to
-/// drive real Gemini Tier 2/3 calls when present. Callers that do not need live
+/// drive real Gemini Visual AI calls when present. Callers that do not need live
 /// progress or AI tagging can use the plain [`run_unified_backfill`] wrapper.
 pub async fn run_unified_backfill_with_progress(
     pool: &SqlitePool,
@@ -194,7 +195,7 @@ pub async fn run_unified_backfill_with_progress(
     let actions = request.actions.unwrap_or(UnifiedBackfillActions {
         tagging: Some(TaggingActionOptions {
             action: Some(TAG_ACTION_UNTAGGED.to_string()),
-            tiers: Some(vec![1]),
+            modes: Some(vec!["path_rule".to_string()]),
             enabled: Some(true),
         }),
         stitching: None,
@@ -238,28 +239,21 @@ pub async fn run_unified_backfill_with_progress(
         1,
         32,
     );
-    let tier2_delay_seconds = resolve_f64_option(
-        request.delay_seconds,
+    let visual_ai_delay_seconds = resolve_f64_option(
+        request.vision_delay_seconds,
         get_f64_setting(pool, "ai.delay").await?,
         default_delay_for(free_tier),
         0.0,
         120.0,
     );
-    let tier3_delay_seconds = resolve_f64_option(
-        request.vision_delay_seconds,
-        None,
-        DEFAULT_VISION_DELAY_SECONDS,
-        0.0,
-        120.0,
-    );
 
     tracing::info!(
-        "Backfill run started batch_size={} commit_every={} workers={} tier2_delay={} tier3_delay={} api_key={}",
-        batch_size, commit_every, workers, tier2_delay_seconds, tier3_delay_seconds, has_api_key
+        "Backfill run started batch_size={} commit_every={} workers={} visual_ai_delay={} api_key={}",
+        batch_size, commit_every, workers, visual_ai_delay_seconds, has_api_key
     );
     log_info(format!(
-		"Run started batch_size={} commit_every={} workers={} tier2_delay={} tier3_delay={} api_key={}",
-		batch_size, commit_every, workers, tier2_delay_seconds, tier3_delay_seconds, has_api_key
+		"Run started batch_size={} commit_every={} workers={} visual_ai_delay={} api_key={}",
+		batch_size, commit_every, workers, visual_ai_delay_seconds, has_api_key
 	));
 
     let mut processed: i64 = 0;
@@ -273,10 +267,9 @@ pub async fn run_unified_backfill_with_progress(
         if tagging_action.enabled.unwrap_or(true) {
             actions_run.push("tagging".to_string());
             let mode = normalize_tag_mode(tagging_action.action.as_deref());
-            let tiers = normalize_tiers(tagging_action.tiers.as_deref(), has_api_key);
-            let tier1_enabled = tiers.contains(&1);
-            let tier2_enabled = tiers.contains(&2) && has_api_key;
-            let tier3_enabled = tiers.contains(&3) && has_api_key;
+            let modes = normalize_modes(tagging_action.modes.as_deref(), has_api_key);
+            let path_rule_enabled = modes.contains("path_rule");
+            let visual_ai_enabled = modes.contains("ai_vision") && has_api_key;
 
             let image_tag_map = get_image_tag_lookup(pool).await?;
             let valid_descriptions = image_tag_map.keys().cloned().collect::<HashSet<String>>();
@@ -285,22 +278,19 @@ pub async fn run_unified_backfill_with_progress(
             let valid = Arc::new(valid_descriptions);
             let pool_arc = Arc::new(pool.clone());
             // Build the Gemini client only when a non-empty API key is present;
-            // otherwise Tier 2/3 fall back to local heuristics and never sleep.
+            // otherwise Visual AI falls back to a local heuristic and never sleeps.
             let gemini = api_key
                 .as_ref()
                 .map(|key| key.trim().to_string())
                 .filter(|key| !key.is_empty())
                 .map(GeminiClient::new)
                 .map(Arc::new);
-            let tier_options = TaggingTierOptions {
-                tier1_enabled,
-                tier2_enabled,
-                tier3_enabled,
-                tier2_delay_seconds,
-                tier3_delay_seconds,
-                // Pace real Gemini network calls only; local-only tiers never sleep.
-                tier2_network: gemini.is_some() && tier2_enabled,
-                tier3_network: gemini.is_some() && tier3_enabled,
+            let mode_options = TaggingModeOptions {
+                path_rule_enabled,
+                visual_ai_enabled,
+                visual_ai_delay_seconds,
+                // Pace real Gemini network calls only; local-only modes never sleep.
+                visual_ai_network: gemini.is_some() && visual_ai_enabled,
             };
             let workers_usize = workers.max(1) as usize;
             let commit_every_usize = commit_every.max(1) as usize;
@@ -308,11 +298,11 @@ pub async fn run_unified_backfill_with_progress(
             // Resolve the Gemini model up front (fail fast) so a configured model
             // that has been retired/removed is detected before any designs are
             // processed, rather than mid-run after thousands of calls.
-            if gemini.is_some() && (tier2_enabled || tier3_enabled) {
+            if gemini.is_some() && visual_ai_enabled {
                 let configured_model = get_string_setting(pool, "ai.gemini_model").await?;
                 if let Some(client) = gemini.as_deref() {
                     let resolved = client
-                        .resolve_model(configured_model.as_deref(), tier3_enabled)
+                        .resolve_model(configured_model.as_deref(), visual_ai_enabled)
                         .await?;
                     log_info(format!("Tagging using Gemini model: {resolved}"));
                 }
@@ -341,11 +331,11 @@ pub async fn run_unified_backfill_with_progress(
                 }
                 tagging_total += design_ids.len() as i64;
                 log_info(format!(
-                    "Tagging batch action={} batch_candidates={} cumulative={} tiers={:?}",
+                    "Tagging batch action={} batch_candidates={} cumulative={} modes={:?}",
                     mode,
                     design_ids.len(),
                     tagging_total,
-                    tiers
+                    modes
                 ));
 
                 // Run this batch's designs concurrently, bounded by `workers`.
@@ -362,13 +352,13 @@ pub async fn run_unified_backfill_with_progress(
                             design_id,
                             pool_arc.clone(),
                             valid.clone(),
-                            tier_options,
+                            mode_options,
                             gemini.clone(),
                         );
                     }
                 }
                 // Completed suggestions awaiting a batched write.
-                let mut pending: Vec<(i64, Vec<String>, i64)> = Vec::new();
+                let mut pending: Vec<(i64, Vec<String>, String)> = Vec::new();
                 // Join results, but keep the loop stop-interruptible so a Stop
                 // request aborts the current batch immediately instead of
                 // draining it. A short interval polls STOP_REQUESTED while
@@ -393,13 +383,13 @@ pub async fn run_unified_backfill_with_progress(
                                 Some(joined) => {
                                     let before = processed;
                                     match joined {
-                                        Ok((design_id, Ok(Some((descriptions, tier))))) => {
+                                        Ok((design_id, Ok(Some((descriptions, mode))))) => {
                                             touched_design_ids.insert(design_id);
                                             processed += 1;
-                                            pending.push((design_id, descriptions, tier));
+                                            pending.push((design_id, descriptions, mode));
                                         }
                                         Ok((design_id, Ok(None))) => {
-                                            // No tier produced a suggestion — nothing to write.
+                                            // No mode produced a suggestion — nothing to write.
                                             touched_design_ids.insert(design_id);
                                             processed += 1;
                                         }
@@ -464,7 +454,7 @@ pub async fn run_unified_backfill_with_progress(
                                             design_id,
                                             pool_arc.clone(),
                                             valid.clone(),
-                                            tier_options,
+                                            mode_options,
                                             gemini.clone(),
                                         );
                                     }
@@ -812,19 +802,20 @@ fn normalize_tag_mode(raw: Option<&str>) -> &str {
     }
 }
 
-fn normalize_tiers(raw: Option<&[i64]>, has_api_key: bool) -> HashSet<i64> {
-    let mut tiers = HashSet::new();
-    tiers.insert(1);
+fn normalize_modes(raw: Option<&[String]>, has_api_key: bool) -> HashSet<String> {
+    let mut modes = HashSet::new();
+    modes.insert("path_rule".to_string());
 
     if let Some(values) = raw {
-        for tier in values {
-            if *tier == 1 || (*tier >= 2 && has_api_key) {
-                tiers.insert(*tier);
+        for mode in values {
+            let m = mode.trim().to_ascii_lowercase();
+            if m == "path_rule" || (m == "ai_vision" && has_api_key) {
+                modes.insert(m);
             }
         }
     }
 
-    tiers
+    modes
 }
 
 async fn get_image_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>, AppError> {
@@ -898,29 +889,29 @@ async fn select_tagging_design_ids(
 }
 
 /// Output of a single compute-only tagging worker task: the design id plus the
-/// computed `(descriptions, tier)` suggestion, or `None` (no suggestion) / `Err`.
-type TaggingWorkerOutput = (i64, Result<Option<(Vec<String>, i64)>, AppError>);
+/// computed `(descriptions, mode)` suggestion, or `None` (no suggestion) / `Err`.
+type TaggingWorkerOutput = (i64, Result<Option<(Vec<String>, String)>, AppError>);
 
 /// Spawn a single concurrent tagging task for `design_id`. Workers only COMPUTE
 /// the suggestion (a read-only operation — no DB writes); the caller applies the
 /// returned result later in a batched transaction. Shared read-only data (valid
 /// descriptions) and the connection pool are passed via cheap `Arc` clones so each
-/// worker can run independently. Returns `Some((descriptions, tier))` when a tier
+/// worker can run independently. Returns `Some((descriptions, mode))` when a mode
 /// produced a suggestion, or `None` when none did.
 fn spawn_tagging_task(
     set: &mut JoinSet<TaggingWorkerOutput>,
     design_id: i64,
     pool: Arc<SqlitePool>,
     valid_descriptions: Arc<HashSet<String>>,
-    tier_options: TaggingTierOptions,
+    mode_options: TaggingModeOptions,
     gemini: Option<Arc<GeminiClient>>,
 ) {
     set.spawn(async move {
-        let result = compute_tagging_tiers(
+        let result = compute_design_tagging(
             &pool,
             design_id,
             &valid_descriptions,
-            &tier_options,
+            &mode_options,
             gemini.as_deref(),
         )
         .await;
@@ -929,20 +920,21 @@ fn spawn_tagging_task(
 }
 
 /// Compute the tagging suggestion for a single design WITHOUT writing to the
-/// database. Returns the suggested tag descriptions and the tier that produced
-/// them (1/2/3), or `None` if no tier produced a suggestion. The caller applies
-/// the result later in a batched transaction (see the tagging loop), so a run
-/// can commit thousands of designs' writes in a handful of transactions.
-async fn compute_tagging_tiers(
+/// database. Returns the suggested tag descriptions and the mode that produced
+/// them (`path_rule`/`ai_vision`), or `None` if no mode produced a suggestion. The
+/// caller applies the result later in a batched transaction (see the tagging
+/// loop), so a run can commit thousands of designs' writes in a handful of
+/// transactions.
+async fn compute_design_tagging(
     pool: &SqlitePool,
     design_id: i64,
     valid_descriptions: &HashSet<String>,
-    tier_options: &TaggingTierOptions,
+    mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
-) -> Result<Option<(Vec<String>, i64)>, AppError> {
-    // Only fetch the preview image when Tier 3 (vision) is enabled, so large
-    // BLOBs aren't read for every design in a Tier 1/Tier 2 run.
-    let select_sql = if tier_options.tier3_enabled {
+) -> Result<Option<(Vec<String>, String)>, AppError> {
+    // Only fetch the preview image when Visual AI (vision) is enabled, so large
+    // BLOBs aren't read for every design in a File & Folder Rules-only run.
+    let select_sql = if mode_options.visual_ai_enabled {
         "SELECT filename, filepath, image_data FROM designs WHERE id = ?"
     } else {
         "SELECT filename, filepath FROM designs WHERE id = ?"
@@ -963,44 +955,31 @@ async fn compute_tagging_tiers(
     let filepath: String = row
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
-    let image_data: Option<Vec<u8>> = if tier_options.tier3_enabled {
+    let image_data: Option<Vec<u8>> = if mode_options.visual_ai_enabled {
         row.try_get("image_data")
             .map_err(|e| AppError::database(format!("failed to read image data: {e}")))?
     } else {
         None
     };
 
-    crate::services::auto_tagging::compute_tiers_for_input(
+    crate::services::auto_tagging::compute_tags_for_input(
         &filename,
         &filepath,
         image_data.as_deref(),
         valid_descriptions,
-        tier_options,
+        mode_options,
         gemini,
     )
     .await
 }
 
 #[cfg(test)]
-fn suggest_tier2_descriptions(
+fn suggest_visual_ai_descriptions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
 ) -> Vec<String> {
-    crate::services::auto_tagging::suggest_tier2_descriptions(
-        filename,
-        filepath,
-        valid_descriptions,
-    )
-}
-
-#[cfg(test)]
-fn suggest_tier3_descriptions(
-    filename: &str,
-    filepath: &str,
-    valid_descriptions: &HashSet<String>,
-) -> Vec<String> {
-    crate::services::auto_tagging::suggest_tier3_descriptions(
+    crate::services::auto_tagging::suggest_visual_ai_descriptions(
         filename,
         filepath,
         valid_descriptions,
@@ -1013,7 +992,7 @@ fn suggest_tier3_descriptions(
 async fn flush_tagging_batch(
     pool: &SqlitePool,
     image_tag_map: &HashMap<String, i64>,
-    results: Vec<(i64, Vec<String>, i64)>,
+    results: Vec<(i64, Vec<String>, String)>,
 ) -> Result<(), AppError> {
     crate::services::auto_tagging::apply_tagging_batch(pool, image_tag_map, results).await
 }

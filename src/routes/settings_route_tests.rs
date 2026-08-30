@@ -161,11 +161,7 @@ fn bool_to_setting_returns_expected_strings() {
 #[test]
 fn default_for_key_returns_correct_defaults() {
     assert_eq!(
-        settings::default_for_key(settings::KEY_AI_TIER2_AUTO),
-        "false"
-    );
-    assert_eq!(
-        settings::default_for_key(settings::KEY_AI_TIER3_AUTO),
+        settings::default_for_key(settings::KEY_AI_VISION_AUTO),
         "false"
     );
     assert_eq!(settings::default_for_key(settings::KEY_AI_BATCH_SIZE), "");
@@ -183,8 +179,7 @@ fn default_for_key_returns_correct_defaults() {
 
 #[test]
 fn description_for_key_returns_correct_descriptions() {
-    assert!(settings::description_for_key(settings::KEY_AI_TIER2_AUTO).contains("Tier 2"));
-    assert!(settings::description_for_key(settings::KEY_AI_TIER3_AUTO).contains("Tier 3"));
+    assert!(settings::description_for_key(settings::KEY_AI_VISION_AUTO).contains("Visual AI"));
     assert!(settings::description_for_key(settings::KEY_AI_BATCH_SIZE).contains("designs"));
     assert!(settings::description_for_key(settings::KEY_AI_DELAY).contains("Gemini"));
     assert!(
@@ -407,8 +402,7 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
         .expect("view model should be retrieved");
 
     assert_eq!(vm.preview_3d_profile, "balanced");
-    assert!(!vm.ai_tier2_auto);
-    assert!(!vm.ai_tier3_auto);
+    assert!(!vm.ai_vision_auto);
     assert!(!vm.ai_free_tier);
     assert_eq!(vm.ai_batch_size, "");
     assert_eq!(vm.ai_delay, "");
@@ -475,7 +469,7 @@ async fn get_settings_view_model_inner_reflects_custom_settings() {
     settings::upsert_setting(&mut conn, settings::KEY_PREVIEW_3D_PROFILE, "soft")
         .await
         .expect("upsert");
-    settings::upsert_setting(&mut conn, settings::KEY_AI_TIER2_AUTO, "true")
+    settings::upsert_setting(&mut conn, settings::KEY_AI_VISION_AUTO, "true")
         .await
         .expect("upsert");
     settings::upsert_setting(&mut conn, settings::KEY_AI_BATCH_SIZE, "50")
@@ -498,7 +492,7 @@ async fn get_settings_view_model_inner_reflects_custom_settings() {
         .expect("view model should be retrieved");
 
     assert_eq!(vm.preview_3d_profile, "soft");
-    assert!(vm.ai_tier2_auto);
+    assert!(vm.ai_vision_auto);
     assert_eq!(vm.ai_batch_size, "50");
     assert_eq!(vm.ai_delay, "2.5");
     assert_eq!(vm.import_last_browse_folder, "D:/imports");
@@ -600,8 +594,7 @@ async fn save_settings_view_model_inner_persists_all_fields() {
     let request = SaveSettingsRequest {
         preview_3d_profile: "HIGH_CONTRAST".to_string(),
         google_api_key: "env-key-abc".to_string(),
-        ai_tier2_auto: true,
-        ai_tier3_auto: false,
+        ai_vision_auto: true,
         ai_batch_size: "  25  ".to_string(),
         ai_delay: "  1.5  ".to_string(),
         ai_gemini_model: "".to_string(),
@@ -640,12 +633,8 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         "high-contrast"
     );
     assert_eq!(
-        read_setting(&mut conn, settings::KEY_AI_TIER2_AUTO).await,
+        read_setting(&mut conn, settings::KEY_AI_VISION_AUTO).await,
         "true"
-    );
-    assert_eq!(
-        read_setting(&mut conn, settings::KEY_AI_TIER3_AUTO).await,
-        "false"
     );
     assert_eq!(
         read_setting(&mut conn, settings::KEY_AI_BATCH_SIZE).await,
@@ -681,8 +670,7 @@ fn settings_view_model_serializes_all_fields() {
         preview_3d_profile: "balanced".to_string(),
         google_api_key: "".to_string(),
         has_google_api_key: false,
-        ai_tier2_auto: false,
-        ai_tier3_auto: false,
+        ai_vision_auto: false,
         ai_batch_size: "".to_string(),
         ai_delay: "".to_string(),
         ai_gemini_model: "".to_string(),
@@ -705,8 +693,7 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("preview_3d_profile"));
     assert!(map.contains_key("google_api_key"));
     assert!(map.contains_key("has_google_api_key"));
-    assert!(map.contains_key("ai_tier2_auto"));
-    assert!(map.contains_key("ai_tier3_auto"));
+    assert!(map.contains_key("ai_vision_auto"));
     assert!(map.contains_key("ai_batch_size"));
     assert!(map.contains_key("ai_delay"));
     assert!(map.contains_key("ai_gemini_model"));
@@ -723,7 +710,7 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("app_mode"));
     assert!(map.contains_key("ai_tagging_help_url"));
     assert!(map.contains_key("db_idle_check_interval_secs"));
-    assert_eq!(map.len(), 21);
+    assert_eq!(map.len(), 20);
 }
 
 #[test]
@@ -731,8 +718,7 @@ fn save_settings_request_deserializes_all_fields() {
     let json = serde_json::json!({
         "preview_3d_profile": "soft",
         "google_api_key": "xyz",
-        "ai_tier2_auto": true,
-        "ai_tier3_auto": false,
+        "ai_vision_auto": true,
         "ai_batch_size": "10",
         "ai_delay": "1.0",
         "import_commit_batch_size": "5",
@@ -741,8 +727,7 @@ fn save_settings_request_deserializes_all_fields() {
     let req: SaveSettingsRequest = serde_json::from_value(json).expect("deserialize");
     assert_eq!(req.preview_3d_profile, "soft");
     assert_eq!(req.google_api_key, "xyz");
-    assert!(req.ai_tier2_auto);
-    assert!(!req.ai_tier3_auto);
+    assert!(req.ai_vision_auto);
     assert_eq!(req.ai_batch_size, "10");
     assert_eq!(req.ai_delay, "1.0");
     assert_eq!(req.import_commit_batch_size, "5");
@@ -753,8 +738,7 @@ fn save_settings_request_deserializes_all_fields() {
 fn save_settings_request_preview_3d_profile_defaults_to_empty() {
     let json = serde_json::json!({
         "google_api_key": "",
-        "ai_tier2_auto": false,
-        "ai_tier3_auto": false,
+        "ai_vision_auto": false,
         "ai_batch_size": "",
         "ai_delay": "",
         "import_commit_batch_size": "",
@@ -975,8 +959,7 @@ async fn command_save_settings_view_model_persists() {
     let request = SaveSettingsRequest {
         preview_3d_profile: "HIGH_CONTRAST".to_string(),
         google_api_key: String::new(),
-        ai_tier2_auto: true,
-        ai_tier3_auto: false,
+        ai_vision_auto: true,
         ai_batch_size: "  25  ".to_string(),
         ai_delay: "  1.5  ".to_string(),
         ai_gemini_model: "".to_string(),

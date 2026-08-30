@@ -48,8 +48,8 @@ Later imports:
 - You can review reference data or import immediately.
 
 AI tagging banner:
-- If no API key is configured, import runs Tier 1 keyword tagging only.
-- If API key is configured, the page shows your Tier 2 and Tier 3 auto-run settings.
+- If no API key is configured, import runs File & Folder Rules only.
+- If API key is configured, the page shows your Visual AI auto-run setting.
 
 ## Step 4 - Confirm and save
 When you continue with import:

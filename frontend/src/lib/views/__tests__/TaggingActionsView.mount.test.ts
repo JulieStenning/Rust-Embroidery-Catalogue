@@ -31,8 +31,7 @@ const viewModel = (overrides = {}) => ({
   source: "rust",
   model: {
     has_google_api_key: false,
-    ai_tier2_auto: false,
-    ai_tier3_auto: false,
+    ai_vision_auto: false,
     ai_batch_size: "",
     ai_delay: "",
     import_commit_batch_size: "",
@@ -69,7 +68,7 @@ describe("TaggingActionsView mount behaviour", () => {
 
     expect(
       await screen.findByText(
-        /No Google API key is configured in Settings\. AI tagging actions will be skipped\./
+        /No Google API key is configured in Settings\. Visual AI tagging will be skipped\./
       )
     ).toBeInTheDocument();
     await waitFor(() => {
@@ -150,8 +149,7 @@ describe("TaggingActionsView initial render", () => {
         })
       ).not.toBeChecked();
     });
-    expect(screen.getByRole("checkbox", { name: /Run Tier 2/ })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /Run Tier 3/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Run Visual AI/ })).not.toBeChecked();
     expect(
       screen.getByRole("checkbox", {
         name: /Overwrite stitching tags on designs that have already been processed/,

@@ -263,7 +263,7 @@ const baseDetail = {
   rating: 4,
   isStitched: true,
   tagsChecked: true,
-  taggingTier: 2,
+  taggingMode: "ai_vision",
   dateAdded: "2026-05-01",
   tags: [
     { id: 11, description: "Floral", tag_group: "image" },
@@ -287,8 +287,7 @@ const settingsModel = {
   preview_3d_profile: "balanced",
   google_api_key: "",
   has_google_api_key: false,
-  ai_tier2_auto: false,
-  ai_tier3_auto: false,
+  ai_vision_auto: false,
   ai_batch_size: "",
   ai_delay: "",
   import_commit_batch_size: "",

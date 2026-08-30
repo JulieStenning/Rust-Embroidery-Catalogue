@@ -32,8 +32,7 @@ const viewModel = () => ({
   source: "rust",
   model: {
     has_google_api_key: true,
-    ai_tier2_auto: false,
-    ai_tier3_auto: false,
+    ai_vision_auto: false,
     ai_batch_size: "",
     ai_delay: "",
     ai_commit_every: "",
@@ -91,19 +90,18 @@ describe("TaggingActionsView run unified backfill", () => {
     expect(screen.getByText(/15 requests\/minute and 1,500\/day/)).toBeInTheDocument();
   });
 
-  it("runs unified backfill when Tagging + Tier 2 are enabled with API key", async () => {
+  it("runs unified backfill when Tagging + Visual AI are enabled with API key", async () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
         action_mode: "tag_untagged",
-        run_tier2: true,
-        run_tier3: false,
+        run_vision: true,
         run_images: false,
         image_redo: false,
         run_color_counts: false,
@@ -121,8 +119,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 3/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("checkbox", { name: /Image generation/ }));
     await user.click(screen.getByRole("checkbox", { name: /Regenerate images/ }));
     await user.click(screen.getByRole("checkbox", { name: /Recalculate colour/ }));
@@ -131,8 +128,7 @@ describe("TaggingActionsView run unified backfill", () => {
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
         action_mode: "tag_untagged",
-        run_tier2: true,
-        run_tier3: true,
+        run_vision: true,
         run_images: true,
         image_redo: true,
         run_color_counts: true,
@@ -189,7 +185,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(
       screen.getByRole("checkbox", {
         name: /Re-tag designs that already have tags/,
@@ -221,7 +217,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
@@ -250,7 +246,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
@@ -269,7 +265,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
@@ -289,7 +285,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
@@ -307,7 +303,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Tier 2/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
@@ -323,7 +319,7 @@ describe("TaggingActionsView run unified backfill", () => {
     expect(screen.queryByText("Last run summary")).not.toBeInTheDocument();
   });
 
-  it("runs only Tagging with Tier 1 when Tagging is checked without AI tiers", async () => {
+  it("runs only Tagging with File & Folder Rules when Tagging is checked without AI modes", async () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
@@ -333,8 +329,7 @@ describe("TaggingActionsView run unified backfill", () => {
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
         action_mode: "tag_untagged",
-        run_tier2: false,
-        run_tier3: false,
+        run_vision: false,
         run_images: false,
         image_redo: false,
         run_color_counts: false,
@@ -346,7 +341,7 @@ describe("TaggingActionsView run unified backfill", () => {
     });
   });
 
-  it("does not pass AI tiers when no API key is present even if checked", async () => {
+  it("does not pass Visual AI when no API key is present even if checked", async () => {
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
       source: "rust",
       model: {
@@ -358,13 +353,13 @@ describe("TaggingActionsView run unified backfill", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    const tier2 = screen.getByRole("checkbox", { name: /Run Tier 2/ });
-    expect(tier2).toBeDisabled();
+    const vision = screen.getByRole("checkbox", { name: /Run Visual AI/ });
+    expect(vision).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Run selected actions" }));
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ run_tier2: false, run_tier3: false })
+        expect.objectContaining({ run_vision: false })
       );
     });
   });

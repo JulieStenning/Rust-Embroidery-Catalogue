@@ -1,4 +1,4 @@
-//! Google Gemini API client for Tier 2 (text) and Tier 3 (vision) tagging.
+//! Google Gemini API client for Visual AI (vision) tagging.
 //!
 //! The app is local/offline-first, so Gemini is optional: a client is only
 //! constructed when a non-empty API key is configured. The prompt builders and
@@ -83,7 +83,7 @@ impl GeminiClient {
     /// is marked bad and the next candidate is auto-selected. The chosen model is
     /// *probed* with a real `generateContent` call so "listed but restricted"
     /// models are rejected up front (fail-fast). `needs_vision` is `true` for
-    /// Tier 3 and biases auto-selection toward vision-capable models.
+    /// Visual AI and biases auto-selection toward vision-capable models.
     pub async fn resolve_model(
         &self,
         configured: Option<&str>,
@@ -209,22 +209,7 @@ impl GeminiClient {
             .is_some_and(|guard| guard.contains(model))
     }
 
-    /// Tier 2: suggest image tags from the design filename.
-    pub async fn suggest_tags_text(
-        &self,
-        filename: &str,
-        valid_descriptions: &HashSet<String>,
-    ) -> Result<Vec<String>, AppError> {
-        let payload = json!({
-            "contents": [{
-                "parts": [{ "text": build_text_prompt(filename, valid_descriptions) }]
-            }]
-        });
-        let text = self.generate(payload).await?;
-        Ok(parse_tag_list(&text, valid_descriptions))
-    }
-
-    /// Tier 3: suggest image tags from the design preview image (PNG bytes).
+    /// Visual AI: suggest image tags from the design preview image (PNG bytes).
     pub async fn suggest_tags_vision(
         &self,
         filename: &str,
@@ -379,19 +364,7 @@ pub fn retry_after_seconds(error: &crate::error::AppError) -> Option<u64> {
     })
 }
 
-/// Build the Tier 2 (text) prompt asking for tags from the filename.
-pub fn build_text_prompt(filename: &str, valid_descriptions: &HashSet<String>) -> String {
-    format!(
-        "You are tagging embroidery design files. Reply with the image tags, from the allowed \
-list below, that best describe this design filename. Reply with only the matching tags, one \
-per line, using the exact allowed spelling. If none apply, reply exactly: Don't Know.\n\n\
-Allowed tags:\n{}\n\nFilename: {}",
-        format_tag_list(valid_descriptions),
-        filename
-    )
-}
-
-/// Build the Tier 3 (vision) prompt asking for tags from the preview image.
+/// Build the Visual AI (vision) prompt asking for tags from the preview image.
 pub fn build_vision_prompt(filename: &str, valid_descriptions: &HashSet<String>) -> String {
     format!(
         "You are tagging embroidery design files. Look at the attached design preview image \

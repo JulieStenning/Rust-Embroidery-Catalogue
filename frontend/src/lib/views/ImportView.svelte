@@ -19,8 +19,7 @@
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
   let settingsHasGoogleApiKey = $state(false);
-  let settingsAiTier2Auto = $state(false);
-  let settingsAiTier3Auto = $state(false);
+  let settingsAiVisionAuto = $state(false);
   let settingsImportLastBrowseFolder = $state("");
   let settingsLoaded = $state(false);
   let settingsLoading = $state(false);
@@ -158,8 +157,7 @@
       settingsHasGoogleApiKey = Boolean(
         model?.google_api_key && String(model.google_api_key).trim().length > 0
       );
-      settingsAiTier2Auto = Boolean(model?.ai_tier2_auto);
-      settingsAiTier3Auto = Boolean(model?.ai_tier3_auto);
+      settingsAiVisionAuto = Boolean(model?.ai_vision_auto);
       settingsImportLastBrowseFolder = String(model?.import_last_browse_folder || "").trim();
       settingsLoaded = true;
     } catch (e) {
@@ -1413,26 +1411,20 @@
             <ul class="ui-help-note list-disc pl-5 space-y-1 text-amber-900">
               <li>
                 <strong
-                  >Tier 2 (text AI) - {settingsAiTier2Auto ? "enabled" : "not enabled"}.</strong
+                  >Visual AI (Gemini vision) - {settingsAiVisionAuto ? "enabled" : "not enabled"}.</strong
                 >
-                Tier 2 sends the file name to Gemini to suggest tags for each imported design.
-              </li>
-              <li>
-                <strong
-                  >Tier 3 (vision AI) - {settingsAiTier3Auto ? "enabled" : "not enabled"}.</strong
-                >
-                Tier 3 sends the preview image to Gemini to suggest tags for designs left untagged after
-                Tiers 1 and 2.
+                Visual AI sends each design's preview image to Gemini to suggest tags for designs left
+                untagged by File & Folder Rules.
               </li>
             </ul>
             <p class="ui-help-note text-amber-900">
-              Tier 1 keyword tagging matches the file name and file path against your existing tags.
-              It runs locally and does not call Gemini.
+              <strong>File & Folder Rules</strong> always run — they match the file name and folder
+              path against your existing tags. This runs locally and does not call Gemini.
             </p>
             <p class="ui-help-note text-amber-900">
               Gemini usage may incur cost. Free-tier limits are approximately
               <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>. A
-              February 2026 estimate found that Tier 3 on 4,000 images cost about
+              February 2026 estimate found that Visual AI on 4,000 images cost about
               <strong>$0.33 on the paid tier</strong>; actual pricing may have changed - check
               <a
                 href="https://ai.google.dev/pricing"
@@ -1458,15 +1450,14 @@
           >
             <p class="font-semibold text-blue-900">Google AI tagging is not configured.</p>
             <p class="ui-help-note text-blue-900">
-              Google AI tagging uses Google's Gemini AI to suggest tags for your designs. Tier 2
-              (text AI) sends the file name to Gemini, and Tier 3 (vision AI) sends the preview
-              image.
+              Google AI tagging uses Google's Gemini AI to suggest tags for your designs. Visual AI
+              (vision) sends each design's preview image to Gemini for analysis.
             </p>
             <p class="ui-help-note text-blue-900">
               No Google API key is currently saved, so this import will use <strong
-                >Tier 1 keyword tagging only</strong
-              > and no Gemini calls will be made. If you want AI-assisted tagging, add an API key in Settings
-              and enable the tiers you want.
+                >File & Folder Rules only</strong
+              > and no Gemini calls will be made. If you want AI-assisted tagging, add an API key in
+              Settings and enable Visual AI.
             </p>
             <p class="text-xs text-blue-900 pt-1">
               <a href="#/admin/settings" class="underline font-medium">Admin Settings</a>

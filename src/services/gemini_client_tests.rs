@@ -43,15 +43,6 @@ fn retry_after_seconds_none_without_marker() {
 }
 
 #[test]
-fn text_prompt_includes_filename_and_allowed_tags() {
-    let valid: HashSet<String> = ["Cats", "Dogs"].iter().map(|s| s.to_string()).collect();
-    let prompt = build_text_prompt("my_cat.pes", &valid);
-    assert!(prompt.contains("my_cat.pes"));
-    assert!(prompt.contains("Cats"));
-    assert!(prompt.contains("Dogs"));
-}
-
-#[test]
 fn normalize_tag_strips_punctuation() {
     assert_eq!(normalize_tag("Children & Toys"), "children toys");
 }

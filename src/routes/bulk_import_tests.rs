@@ -78,7 +78,7 @@ async fn import_test_pool() -> SqlitePool {
                 is_stitched INTEGER NOT NULL DEFAULT 0,
                 image_tags_verified INTEGER NOT NULL DEFAULT 0,
                 stitching_tags_verified INTEGER NOT NULL DEFAULT 0,
-                tagging_tier INTEGER,
+                tagging_mode TEXT,
                 file_size_bytes INTEGER,
                 file_hash_blake3 TEXT
             );
@@ -451,7 +451,7 @@ fn load_import_commit_batch_size_reads_setting_override() {
 
 #[test]
 #[serial]
-fn persist_bulk_import_confirm_wire_assigns_tier1_keyword_tags() {
+fn persist_bulk_import_confirm_wire_assigns_path_rule_keyword_tags() {
     let previous_db_url = std::env::var("DATABASE_URL").ok();
     let tmp_db_dir = std::env::temp_dir().join(format!(
         "bi-test-tags-{}",
@@ -2513,15 +2513,15 @@ async fn count_image_tags(pool: &SqlitePool, design_id: i64) -> i64 {
     .expect("count image tags")
 }
 
-/// With both Tier 2/3 auto-tagging disabled, the post-commit pass must be a no-op:
+/// With Visual AI auto-tagging disabled, the post-commit pass must be a no-op:
 /// it returns before touching any design or building a Gemini client, so the
-/// committed import is left exactly as-is (no image tags, tagging_tier unchanged).
+/// committed import is left exactly as-is (no image tags, tagging_mode unchanged).
 #[test]
-fn ai_tagging_pass_is_noop_when_tiers_disabled() {
+fn ai_tagging_pass_is_noop_when_vision_disabled() {
     tauri::async_runtime::block_on(async {
         let pool = import_test_pool().await;
         sqlx::query(
-            "INSERT INTO settings (key, value) VALUES ('ai.tier2_auto', 'FALSE'), ('ai.tier3_auto', 'FALSE'), ('ai.google_api_key', 'fake-key')",
+            "INSERT INTO settings (key, value) VALUES ('ai.vision', 'FALSE'), ('ai.google_api_key', 'fake-key')",
         )
         .execute(&pool)
         .await
@@ -2542,11 +2542,11 @@ fn ai_tagging_pass_is_noop_when_tiers_disabled() {
         .await;
 
         assert_eq!(count_image_tags(&pool, 1).await, 0);
-        let tier: Option<i64> = sqlx::query_scalar("SELECT tagging_tier FROM designs WHERE id = 1")
+        let mode: Option<String> = sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 1")
             .fetch_one(&pool)
             .await
-            .expect("read tier");
-        assert!(tier.is_none());
+            .expect("read mode");
+        assert!(mode.is_none());
     });
 }
 
@@ -2557,7 +2557,7 @@ fn ai_tagging_pass_is_noop_without_api_key() {
     tauri::async_runtime::block_on(async {
         let pool = import_test_pool().await;
         sqlx::query(
-            "INSERT INTO settings (key, value) VALUES ('ai.tier2_auto', 'TRUE'), ('ai.tier3_auto', 'TRUE')",
+            "INSERT INTO settings (key, value) VALUES ('ai.vision', 'TRUE')",
         )
         .execute(&pool)
         .await
@@ -2584,7 +2584,7 @@ fn ai_tagging_pass_is_noop_for_empty_ids() {
     tauri::async_runtime::block_on(async {
         let pool = import_test_pool().await;
         sqlx::query(
-            "INSERT INTO settings (key, value) VALUES ('ai.tier2_auto', 'TRUE'), ('ai.tier3_auto', 'TRUE'), ('ai.google_api_key', 'fake-key')",
+            "INSERT INTO settings (key, value) VALUES ('ai.vision', 'TRUE'), ('ai.google_api_key', 'fake-key')",
         )
         .execute(&pool)
         .await

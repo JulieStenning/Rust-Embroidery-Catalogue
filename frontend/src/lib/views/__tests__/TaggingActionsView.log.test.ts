@@ -30,8 +30,7 @@ const viewModel = () => ({
   source: "rust",
   model: {
     has_google_api_key: false,
-    ai_tier2_auto: false,
-    ai_tier3_auto: false,
+    ai_vision_auto: false,
     ai_batch_size: "",
     ai_delay: "",
     import_commit_batch_size: "",

@@ -37,7 +37,7 @@ fn preview_tagging_action_prefers_request_override() {
     .expect("preview works");
 
     assert!(!preview.enabled);
-    assert_eq!(preview.tier_order, vec!["Tier1", "Tier2", "Tier3"]);
+    assert_eq!(preview.mode_order, vec!["FileFolder", "VisualAi"]);
 
     let preview2 = preview_tagging_action(TaggingActionRequest {
         request_override: Some(true),
@@ -183,8 +183,7 @@ async fn test_get_tagging_actions_view_model() {
 
     let vm = get_tagging_actions_view_model(state.clone()).await.unwrap();
     assert!(vm.has_google_api_key);
-    assert!(!vm.ai_tier2_auto);
-    assert!(!vm.ai_tier3_auto);
+    assert!(!vm.ai_vision_auto);
     assert_eq!(vm.ai_batch_size, "");
     assert_eq!(vm.ai_delay, "");
     assert!(!vm.ai_free_tier);
@@ -197,13 +196,8 @@ async fn test_get_tagging_actions_view_model() {
     // Update settings in database to check truthiness
     {
         let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
-        sqlx::query("UPDATE settings SET value = '1' WHERE key = ?")
-            .bind(KEY_AI_TIER2_AUTO)
-            .execute(&mut *conn)
-            .await
-            .unwrap();
         sqlx::query("UPDATE settings SET value = 'true' WHERE key = ?")
-            .bind(KEY_AI_TIER3_AUTO)
+            .bind(KEY_AI_VISION_AUTO)
             .execute(&mut *conn)
             .await
             .unwrap();
@@ -215,8 +209,7 @@ async fn test_get_tagging_actions_view_model() {
     }
 
     let vm2 = get_tagging_actions_view_model(state).await.unwrap();
-    assert!(vm2.ai_tier2_auto);
-    assert!(vm2.ai_tier3_auto);
+    assert!(vm2.ai_vision_auto);
     assert_eq!(vm2.ai_batch_size, "50");
 
     let _ = std::fs::remove_dir_all(&tmp);
@@ -343,7 +336,7 @@ async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key(
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                tiers: Some(vec![1, 2]),
+                modes: Some(vec!["path_rule".to_string(), "ai_vision".to_string()]),
                 enabled: Some(true),
             }),
             stitching: None,
@@ -368,7 +361,7 @@ async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key(
 }
 
 #[tokio::test]
-async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_tiers() {
+async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_modes() {
     let pool = test_pool().await;
     let tmp = std::env::temp_dir().join("tagging-actions-test-no-ai-tiers");
     std::fs::create_dir_all(&tmp).ok();
@@ -382,7 +375,7 @@ async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_tiers() {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                tiers: Some(vec![1]),
+                modes: Some(vec!["path_rule".to_string()]),
                 enabled: Some(true),
             }),
             stitching: None,
@@ -398,8 +391,8 @@ async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_tiers() {
         vision_delay_seconds: None,
     };
 
-    // Tier 1 is not an AI tier, so the API-key guard falls through even with
-    // no key configured; the request proceeds to the backfill service.
+    // File & Folder Rules does not require an API key, so the guard falls
+    // through even with no key configured; the request proceeds to the service.
     let result = run_unified_backfill(state.clone(), request).await;
     assert!(result.is_ok());
     assert_eq!(result.unwrap().processed, 0);
@@ -418,13 +411,13 @@ async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
     app.manage(app_state);
     let state = app.state::<AppState>();
 
-    // Tagging is explicitly disabled, so the AI-tier guard is skipped even
-    // though tiers 2/3 are listed and no API key is configured.
+    // Tagging is explicitly disabled, so the Visual AI guard is skipped even
+    // though ai_vision is listed and no API key is configured.
     let request = backfill::UnifiedBackfillRequest {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                tiers: Some(vec![2, 3]),
+                modes: Some(vec!["ai_vision".to_string()]),
                 enabled: Some(false),
             }),
             stitching: None,

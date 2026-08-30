@@ -1,4 +1,4 @@
-// Tier 1 keyword tagging — generic token-overlap matcher driven by the live tag catalogue.
+// File & Folder Rules — generic token-overlap matcher driven by the live tag catalogue.
 //
 // Design
 // ------
@@ -109,7 +109,7 @@ fn token_matches_in_path(token: &str, path_tokens: &HashSet<String>) -> bool {
 /// assigned.  This correctly handles compound tags like "Borders & Frames"
 /// (folder "Borders" or "Frame" both match) and supports any user-created tag
 /// automatically.
-pub fn suggest_tier1_descriptions(
+pub fn suggest_path_rule_descriptions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
@@ -220,12 +220,12 @@ mod tests {
         assert_eq!(plural_form("fairy"), "fairies");
     }
 
-    // ─── suggest_tier1_descriptions ────────────────────────────────────
+    // ─── suggest_path_rule_descriptions ────────────────────────────────────
 
     #[test]
-    fn suggest_tier1_compound_tag_borders() {
+    fn suggest_path_rule_compound_tag_borders() {
         let valid = HashSet::from(["Borders & Frames".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Borders/somefile.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Borders/somefile.pes", &valid);
         assert!(
             matched.contains(&"Borders & Frames".to_string()),
             "folder 'Borders' should match 'Borders & Frames' via token overlap: {:?}",
@@ -234,9 +234,9 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_compound_tag_frame() {
+    fn suggest_path_rule_compound_tag_frame() {
         let valid = HashSet::from(["Borders & Frames".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Frame/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Frame/design.pes", &valid);
         assert!(
             matched.contains(&"Borders & Frames".to_string()),
             "folder 'Frame' should match 'Borders & Frames' via inflected token overlap: {:?}",
@@ -245,9 +245,9 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_compound_tag_angels() {
+    fn suggest_path_rule_compound_tag_angels() {
         let valid = HashSet::from(["Angels & Fairies".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Angels/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Angels/design.pes", &valid);
         assert!(
             matched.contains(&"Angels & Fairies".to_string()),
             "folder 'Angels' should match 'Angels & Fairies': {:?}",
@@ -256,9 +256,9 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_compound_tag_fairies() {
+    fn suggest_path_rule_compound_tag_fairies() {
         let valid = HashSet::from(["Angels & Fairies".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Fairies/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Fairies/design.pes", &valid);
         assert!(
             matched.contains(&"Angels & Fairies".to_string()),
             "folder 'Fairies' should match 'Angels & Fairies' via inflection: {:?}",
@@ -267,9 +267,9 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_compound_tag_alphabet_monogram() {
+    fn suggest_path_rule_compound_tag_alphabet_monogram() {
         let valid = HashSet::from(["Alphabets & Monograms".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Monogram/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Monogram/design.pes", &valid);
         assert!(
             matched.contains(&"Alphabets & Monograms".to_string()),
             "folder 'Monogram' should match 'Alphabets & Monograms' via inflection (no synonym needed): {:?}",
@@ -278,20 +278,20 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_synonym_maps_font_to_alphabets() {
-        let valid = HashSet::from(["Alphabets & Monograms".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Font/design.pes", &valid);
+    fn suggest_path_rule_synonym_maps_font_to_alphabets() {
+        let valid = HashSet::from(["Alphabets".to_string()]);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid);
         assert!(
-            matched.contains(&"Alphabets & Monograms".to_string()),
-            "folder 'Font' should match 'Alphabets & Monograms' via the 'font' synonym: {:?}",
+            matched.contains(&"Alphabets".to_string()),
+            "folder 'Font' should match 'Alphabets' via the 'font' synonym: {:?}",
             matched
         );
     }
 
     #[test]
-    fn suggest_tier1_compound_tag_butterfly_folder() {
+    fn suggest_path_rule_compound_tag_butterfly_folder() {
         let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Butterfly/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Butterfly/design.pes", &valid);
         assert!(
             matched.contains(&"Butterflies & Insects".to_string()),
             "folder 'Butterfly' should match 'Butterflies & Insects': {:?}",
@@ -300,9 +300,9 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_compound_tag_butterfly_filename() {
+    fn suggest_path_rule_compound_tag_butterfly_filename() {
         let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched = suggest_tier1_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
+        let matched = suggest_path_rule_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
         assert!(
             matched.contains(&"Butterflies & Insects".to_string()),
             "filename 'Pretty Butterflies.pes' should match 'Butterflies & Insects': {:?}",
@@ -311,11 +311,11 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_user_created_tag() {
+    fn suggest_path_rule_user_created_tag() {
         // Proves the matcher is generic: a custom tag "My Rabbit Tag" should
         // be matched when the folder contains "Rabbits" (inflected to "rabbit").
         let valid = HashSet::from(["My Rabbit Tag".to_string(), "Borders & Frames".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Rabbits/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Rabbits/design.pes", &valid);
         assert!(
             matched.contains(&"My Rabbit Tag".to_string()),
             "custom user tag 'My Rabbit Tag' should match folder 'Rabbits' via inflection: {:?}",
@@ -326,26 +326,26 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_synonym_kitten_cats() {
+    fn suggest_path_rule_synonym_kitten_cats() {
         let valid = HashSet::from(["Cats".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Kittens/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Kittens/design.pes", &valid);
         assert!(matched.contains(&"Cats".to_string()));
     }
 
     #[test]
-    fn suggest_tier1_synonym_floral_flowers() {
+    fn suggest_path_rule_synonym_floral_flowers() {
         let valid = HashSet::from(["Flowers".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/Floral/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Floral/design.pes", &valid);
         // "floral" → synonym map → "Flowers"
         assert!(matched.contains(&"Flowers".to_string()));
     }
 
     #[test]
-    fn suggest_tier1_does_not_match_cat_inside_catalogue() {
+    fn suggest_path_rule_does_not_match_cat_inside_catalogue() {
         // Regression: a folder called "Crests" must never be confused with "Cats".
         // Token-based matching ensures this: "crests" ≠ "cat" / "cats".
         let valid = HashSet::from(["Cats".to_string(), "Crests".to_string()]);
-        let matched = suggest_tier1_descriptions(
+        let matched = suggest_path_rule_descriptions(
             "17147.hus",
             "D:/My Software Development/Rust-Embroidery-Catalogue/data/MachineEmbroideryDesigns/Amazing Designs - 1033 Crests/17147.hus",
             &valid,
@@ -356,23 +356,23 @@ mod tests {
     }
 
     #[test]
-    fn suggest_tier1_empty_catalogue_returns_empty() {
+    fn suggest_path_rule_empty_catalogue_returns_empty() {
         let valid = HashSet::new();
-        let matched = suggest_tier1_descriptions("flower.pes", "C:/imports/flowers/", &valid);
+        let matched = suggest_path_rule_descriptions("flower.pes", "C:/imports/flowers/", &valid);
         assert!(matched.is_empty());
     }
 
     #[test]
-    fn suggest_tier1_matches_from_filename_stem() {
+    fn suggest_path_rule_matches_from_filename_stem() {
         let valid = HashSet::from(["Flowers".to_string()]);
-        let matched = suggest_tier1_descriptions("Flower Design.pes", "C:/imports/", &valid);
+        let matched = suggest_path_rule_descriptions("Flower Design.pes", "C:/imports/", &valid);
         assert!(matched.contains(&"Flowers".to_string()));
     }
 
     #[test]
-    fn suggest_tier1_synonym_baby_children() {
+    fn suggest_path_rule_synonym_baby_children() {
         let valid = HashSet::from(["Children & Toys".to_string()]);
-        let matched = suggest_tier1_descriptions("", "C:/imports/baby/shirts/design.pes", &valid);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/baby/shirts/design.pes", &valid);
         assert!(matched.contains(&"Children & Toys".to_string()));
     }
 }

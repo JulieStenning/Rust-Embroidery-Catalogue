@@ -17,8 +17,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
   it("maps an image-only run to nested actions with tagging disabled", async () => {
     await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: false,
-      run_tier3: false,
+      run_vision: false,
       run_images: true,
       image_redo: false,
       run_color_counts: false,
@@ -45,11 +44,10 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
     });
   });
 
-  it("maps tag_all to retag_all and includes the tier list when tagging is enabled", async () => {
+  it("maps tag_all to retag_all and includes the mode list when tagging is enabled", async () => {
     await runUnifiedBackfill({
       action_mode: "tag_all",
-      run_tier2: true,
-      run_tier3: false,
+      run_vision: true,
       run_images: true,
       image_redo: true,
       run_color_counts: true,
@@ -62,7 +60,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
     expect(invokeMock).toHaveBeenCalledWith("run_unified_backfill", {
       request: {
         actions: {
-          tagging: { action: "retag_all", tiers: [1, 2], enabled: true },
+          tagging: { action: "retag_all", modes: ["path_rule", "ai_vision"], enabled: true },
           stitching: null,
           images: { enabled: true, redo: true },
           color_counts: { enabled: true },
@@ -79,8 +77,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
   it("does not include the images action when run_images is false", async () => {
     await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: true,
-      run_tier3: false,
+      run_vision: true,
       run_images: false,
       image_redo: false,
       run_color_counts: false,
@@ -93,7 +90,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
     expect(invokeMock).toHaveBeenCalledWith("run_unified_backfill", {
       request: {
         actions: {
-          tagging: { action: "tag_untagged", tiers: [1, 2], enabled: true },
+          tagging: { action: "tag_untagged", modes: ["path_rule", "ai_vision"], enabled: true },
           stitching: null,
           images: null,
           color_counts: null,
@@ -110,8 +107,7 @@ describe("commandAdapter runUnifiedBackfill wire translation", () => {
   it("maps run_hoop_dimensions to the hoop_dimensions action when only it is enabled", async () => {
     await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: false,
-      run_tier3: false,
+      run_vision: false,
       run_images: false,
       image_redo: false,
       run_color_counts: false,

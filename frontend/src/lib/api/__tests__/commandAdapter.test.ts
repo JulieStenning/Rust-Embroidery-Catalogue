@@ -131,7 +131,7 @@ const DESIGN_DETAIL_WIRE = {
   stitching_tags_verified: true,
   notes: "Some notes",
   rating: 4,
-  tagging_tier: 2,
+  tagging_mode: "ai_vision",
   date_added: "2026-01-01",
   tags: [
     { id: 1, description: "Flowers", tag_group: null },
@@ -1508,8 +1508,7 @@ describe("commandAdapter settings", () => {
     preview_3d_profile: "balanced",
     google_api_key: "",
     has_google_api_key: false,
-    ai_tier2_auto: true,
-    ai_tier3_auto: false,
+    ai_vision_auto: false,
     ai_batch_size: "50",
     ai_delay: "100",
     import_commit_batch_size: "200",
@@ -1547,8 +1546,7 @@ describe("commandAdapter settings", () => {
 
     const request = {
       google_api_key: "k",
-      ai_tier2_auto: true,
-      ai_tier3_auto: false,
+      ai_vision_auto: false,
       ai_batch_size: "1",
       ai_delay: "2",
       ai_gemini_model: "",
@@ -1575,8 +1573,7 @@ describe("commandAdapter settings", () => {
 
     const request = {
       google_api_key: "k",
-      ai_tier2_auto: true,
-      ai_tier3_auto: false,
+      ai_vision_auto: false,
       ai_batch_size: "1",
       ai_delay: "2",
       ai_gemini_model: "",
@@ -1719,8 +1716,7 @@ describe("commandAdapter settings", () => {
   it("getTaggingActionsViewModel maps the Rust view model", async () => {
     invokeMock.mockResolvedValue({
       has_google_api_key: true,
-      ai_tier2_auto: true,
-      ai_tier3_auto: false,
+      ai_vision_auto: false,
       ai_batch_size: "10",
       ai_delay: "20",
       import_commit_batch_size: "30",
@@ -1746,8 +1742,7 @@ describe("commandAdapter settings", () => {
     expect(result.source).toBe("mock");
     expect(result.model).toEqual({
       has_google_api_key: false,
-      ai_tier2_auto: false,
-      ai_tier3_auto: false,
+      ai_vision_auto: false,
       ai_batch_size: "",
       ai_delay: "",
       ai_commit_every: "",
@@ -1766,7 +1761,7 @@ describe("commandAdapter settings", () => {
 describe("commandAdapter runUnifiedBackfill edge cases", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  it("maps a tier3-only tagging run", async () => {
+  it("maps a Visual AI-only tagging run", async () => {
     invokeMock.mockResolvedValue({
       processed: 3,
       errors: 0,
@@ -1779,8 +1774,7 @@ describe("commandAdapter runUnifiedBackfill edge cases", () => {
 
     const result = await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: false,
-      run_tier3: true,
+      run_vision: true,
       run_images: false,
       image_redo: false,
       run_color_counts: false,
@@ -1793,7 +1787,7 @@ describe("commandAdapter runUnifiedBackfill edge cases", () => {
     expect(invokeMock).toHaveBeenCalledWith("run_unified_backfill", {
       request: {
         actions: {
-          tagging: { action: "tag_untagged", tiers: [1, 3], enabled: true },
+          tagging: { action: "tag_untagged", modes: ["path_rule", "ai_vision"], enabled: true },
           stitching: null,
           images: null,
           color_counts: null,
@@ -1814,8 +1808,7 @@ describe("commandAdapter runUnifiedBackfill edge cases", () => {
 
     await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: false,
-      run_tier3: false,
+      run_vision: false,
       run_images: false,
       image_redo: false,
       run_color_counts: true,
@@ -1847,8 +1840,7 @@ describe("commandAdapter runUnifiedBackfill edge cases", () => {
 
     await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: false,
-      run_tier3: false,
+      run_vision: false,
       run_images: false,
       image_redo: false,
       run_color_counts: false,
@@ -1880,8 +1872,7 @@ describe("commandAdapter runUnifiedBackfill edge cases", () => {
 
     const result = await runUnifiedBackfill({
       action_mode: "tag_untagged",
-      run_tier2: true,
-      run_tier3: false,
+      run_vision: true,
       run_images: false,
       image_redo: false,
       run_color_counts: false,

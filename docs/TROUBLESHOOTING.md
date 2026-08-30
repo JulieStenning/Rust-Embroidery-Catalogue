@@ -252,7 +252,7 @@ it falls back to **Installed mode** and uses `%APPDATA%\EmbroideryCatalogue`.
 
 ## AI tagging is not working
 
-**Symptom:** Tier 2 (text) or Tier 3 (vision) tagging does not run during import or a
+**Symptom:** Visual AI tagging does not run during import or a
 backfill, or the app reports that no Gemini API key is configured.
 
 **Fix:**
@@ -264,10 +264,9 @@ backfill, or the app reports that no Gemini API key is configured.
   GOOGLE_API_KEY=your_actual_key_here
   ```
 
-- In **Admin → Settings**, confirm that **Run Tier 2 automatically during import**
-  and/or **Run Tier 3 automatically during import** are ticked.  Without these settings
-  enabled, no Gemini calls are made during import even when a key is present.
-  Tiers 2 and 3 are also only run when an API key is available.
+- In **Admin → Settings**, confirm that **Run Visual AI automatically during import**
+  is ticked.  Without this setting enabled, no Gemini calls are made during import even
+  when a key is present. Visual AI also only runs when an API key is available.
 
 - Check the key is valid by testing it in [Google AI Studio](https://aistudio.google.com/).
 
@@ -277,7 +276,7 @@ backfill, or the app reports that no Gemini API key is configured.
 
 - If you are running a backfill from the **Tagging Actions** maintenance page
   (unified backfill, stitching backfill, or fingerprint backfill), confirm the run
-  actually includes Tier 2/Tier 3 and that the API key was present when the run
+  actually includes Visual AI and that the API key was present when the run
   started.
 
 See [AI_TAGGING.md](User-Facing-Guidance/AI_TAGGING.md) for full setup instructions.

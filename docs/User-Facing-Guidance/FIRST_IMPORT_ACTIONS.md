@@ -59,7 +59,7 @@ If you navigated through review pages, continue uses your saved pending file sel
 ## AI and Image Preference Notes
 The first import actions page also shows:
 - AI tagging status (key configured or not configured).
-- Tier 2 and Tier 3 auto-tagging status.
+- Visual AI auto-tagging status.
 - Session image preference choice (2D or 3D previews).
 
 These settings affect how import runs when you continue.
@@ -71,7 +71,7 @@ These settings affect how import runs when you continue.
 | Continue button sends you back to import start | Your import session token is invalid or expired. Restart from scan and run first import actions again. |
 | You do not see import mode banner on review page | Open that review page from the first import actions step, not from admin navigation. |
 | You skipped hoops and now want auto hoop matching | Add hoops in Admin -> Hoops, then run another import (or reprocess affected designs as needed). |
-| AI tiers did not run | Check API key and tier settings in Admin -> Settings. |
+| Visual AI did not run | Check API key and the Visual AI setting in Admin -> Settings. |
 
 ## Recommended First-Run Workflow
 1. Review Hoops and add your real machine hoops.

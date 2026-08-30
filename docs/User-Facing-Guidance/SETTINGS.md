@@ -16,7 +16,7 @@ Use this runbook when you need to:
 Open **Admin -> Settings** to manage:
 - default image preview mode for imports (2D vs 3D),
 - Google Gemini API key,
-- automatic AI tier defaults for imports,
+- automatic Visual AI default for imports,
 - AI/import batch tuning values,
 - desktop catalogue data location,
 - read-only storage location display.
@@ -29,10 +29,10 @@ Some settings are directly used during import and tagging workflows. Others prov
 
 1. Keep the app open while saving so redirects and status messages are visible.
 2. Back up first before major storage-location changes.
-3. If enabling AI tiers, confirm you understand API costs and quotas.
+3. If enabling Visual AI, confirm you understand API costs and quotas.
 4. For large catalogues, test with a small run before increasing throughput settings.
 
-For AI key setup and tier details, see [AI_TAGGING.md](AI_TAGGING.md).
+For AI key setup and Visual AI details, see [AI_TAGGING.md](AI_TAGGING.md).
 
 ---
 
@@ -71,14 +71,14 @@ Related:
 ### Google Gemini API key
 
 Purpose:
-- Enables Tier 2 and Tier 3 AI tagging features.
+- Enables Visual AI tagging features.
 
 Behavior:
 - Key is stored in the project `.env` file.
 - You can leave this blank to run keyword-only tagging.
 
 Operational guidance:
-- Paste the key, save settings, then verify AI tier checkboxes as needed.
+- Paste the key, save settings, then verify the Visual AI checkbox as needed.
 - Use the show/hide button to verify pasted key format before saving.
 
 Security guidance:
@@ -89,19 +89,18 @@ Security guidance:
 Related:
 - [AI_TAGGING.md](AI_TAGGING.md)
 
-### AI tagging during import (Tier 2/Tier 3 auto-run)
+### AI tagging during import (Visual AI auto-run)
 
 Options:
-- **Run Tier 2 automatically** (Gemini text)
-- **Run Tier 3 automatically** (Gemini vision)
+- **Run Visual AI automatically** (Gemini vision from preview image)
 
 Behavior:
-- Tier 1 keyword tagging is independent and does not require a key.
-- Tier 2/3 settings are ignored when no API key is available.
+- **File & Folder Rules** run locally on every import and do not require a key.
+- Visual AI settings are ignored when no API key is available.
 
 When to enable:
-- Enable both for maximum tag quality on newly imported designs.
-- Disable on constrained budgets or if you only want keyword-based tagging.
+- Enable for maximum tag quality on newly imported designs.
+- Disable on constrained budgets or if you only want path/name-based tagging.
 
 Related:
 - [AI_TAGGING.md](AI_TAGGING.md)
@@ -110,7 +109,7 @@ Related:
 ### AI tagging batch size (optional)
 
 Purpose:
-- Limits how many newly imported designs receive AI tier processing in one run.
+- Limits how many newly imported designs receive Visual AI processing in one run.
 
 When to lower:
 - You are hitting quota/rate limits.
@@ -203,14 +202,14 @@ Use it for:
 ### Workflow A: Conservative defaults for reliability
 
 1. Keep image preference at 2D.
-2. Keep AI tiers disabled unless needed.
+2. Keep Visual AI disabled unless needed.
 3. Add API key only when preparing to use AI tagging.
 4. Leave batch and commit fields blank/default.
 
 ### Workflow B: AI quality-first imports
 
 1. Configure API key.
-2. Enable Tier 2 and Tier 3 auto-run.
+2. Enable Visual AI auto-run.
 3. Start with moderate batch size.
 4. Increase delay if rate-limit errors appear.
 5. Review tagging outcomes and costs after first run.
@@ -237,9 +236,9 @@ Use it for:
 | Symptom | Likely cause | What to do |
 |---|---|---|
 | Settings save shows error banner | `.env` update failed or invalid desktop path write | Retry save; verify write permissions; for data-root path confirm drive exists and is writable. |
-| Tier 2/3 not running | Missing API key or tiers not enabled | Confirm key saved, then re-open Settings and verify checkboxes; see [AI_TAGGING.md](AI_TAGGING.md). |
+| Visual AI not running | Missing API key or not enabled | Confirm key saved, then re-open Settings and tick Visual AI; see [AI_TAGGING.md](AI_TAGGING.md). |
 | Frequent `429 Too Many Requests` | API call pressure too high | Increase delay value and/or lower AI batch size; retry smaller runs. |
-| Imports feel slow after enabling AI | High delay or larger AI scope | Reduce tier usage for routine runs or lower batch size; reserve full AI runs for targeted updates. |
+| Imports feel slow after enabling AI | High delay or larger AI scope | Reduce Visual AI usage for routine runs or lower batch size; reserve full AI runs for targeted updates. |
 | Backup actions fail due missing destination | Backup folders not configured | Configure backup destinations in maintenance backup UI; see [BACKUP_RESTORE.md](BACKUP_RESTORE.md). |
 | Data-root move appears not applied | App not restarted or wrong target path | Restart app, check Storage locations panel, then verify browse/import behavior. |
 | Designs not where expected after move | Pointing to unexpected data folder | Revert to prior known-good data location, restart, validate, then migrate again carefully. |
@@ -256,7 +255,7 @@ Use it for:
 
 ## Related guides
 
-- [AI_TAGGING.md](AI_TAGGING.md) - AI tiers, pricing considerations, and API setup
+- [AI_TAGGING.md](AI_TAGGING.md) - Visual AI, pricing considerations, and API setup
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) - first-import defaults and action flow
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup and restore operations
 - [GETTING_STARTED.md](GETTING_STARTED.md) - installation and basic setup

@@ -1266,7 +1266,7 @@ async fn persist_bulk_import_confirm_wire(
             let design_id = insert_result.last_insert_rowid();
             imported_design_ids.push(design_id);
             let t_tag = Instant::now();
-            let matched_descriptions = tagging::suggest_tier1_descriptions(
+            let matched_descriptions = tagging::suggest_path_rule_descriptions(
                 &filename,
                 &stored_filepath,
                 &valid_descriptions,
@@ -1323,7 +1323,7 @@ async fn persist_bulk_import_confirm_wire(
             }
 
             if !matched_descriptions.is_empty() || !stitching_tag_ids.is_empty() {
-                sqlx::query("UPDATE designs SET tagging_tier = 1 WHERE id = ?")
+                sqlx::query("UPDATE designs SET tagging_mode = 'path_rule' WHERE id = ?")
                     .bind(design_id)
                     .execute(&mut *tx)
                     .await
@@ -1449,14 +1449,9 @@ async fn run_import_ai_tagging_pass(
         return;
     }
 
-    let tier2_auto = read_bool_setting(pool, "ai.tier2_auto")
-        .await
-        .unwrap_or(false);
-    let tier3_auto = read_bool_setting(pool, "ai.tier3_auto")
-        .await
-        .unwrap_or(false);
-    if !tier2_auto && !tier3_auto {
-        tracing::info!("Bulk import: Gemini auto-tagging disabled (no Tier 2/3 auto).");
+    let vision_auto = read_bool_setting(pool, "ai.vision").await.unwrap_or(false);
+    if !vision_auto {
+        tracing::info!("Bulk import: Visual AI auto-tagging disabled (no vision auto).");
         return;
     }
 
@@ -1487,22 +1482,18 @@ async fn run_import_ai_tagging_pass(
         .map(|value| value as usize)
         .unwrap_or(usize::MAX);
 
-    let tier_options = auto_tagging::TaggingTierOptions {
-        tier1_enabled: true,
-        tier2_enabled: tier2_auto,
-        tier3_enabled: tier3_auto,
-        tier2_delay_seconds: delay,
-        tier3_delay_seconds: delay,
-        // Pace real Gemini network calls only; local-only tiers never sleep.
-        tier2_network: tier2_auto,
-        tier3_network: tier3_auto,
+    let mode_options = auto_tagging::TaggingModeOptions {
+        path_rule_enabled: true,
+        visual_ai_enabled: vision_auto,
+        visual_ai_delay_seconds: delay,
+        // Pace real Gemini network calls only; local-only modes never sleep.
+        visual_ai_network: vision_auto,
     };
 
     tracing::info!(
-        "Bulk import AI tagging pass: ids={} tier2={} tier3={} delay={}s free_tier={} batch_cap={}",
+        "Bulk import AI tagging pass: ids={} visual_ai={} delay={}s free_tier={} batch_cap={}",
         imported_design_ids.len(),
-        tier2_auto,
-        tier3_auto,
+        vision_auto,
         delay,
         free_tier,
         batch_cap
@@ -1513,7 +1504,7 @@ async fn run_import_ai_tagging_pass(
     // Batch tag writes into a handful of transactions (one journal + fsync each)
     // rather than one autocommit per design.
     const AI_TAGGING_BATCH: usize = 100;
-    let mut pending: Vec<(i64, Vec<String>, i64)> = Vec::new();
+    let mut pending: Vec<(i64, Vec<String>, String)> = Vec::new();
     let mut processed = 0usize;
     let mut applied = 0usize;
     let mut rate_limit_error: Option<AppError> = None;
@@ -1546,19 +1537,19 @@ async fn run_import_ai_tagging_pass(
             continue;
         };
 
-        let result = auto_tagging::compute_tiers_for_input(
+        let result = auto_tagging::compute_tags_for_input(
             &filename,
             &filepath,
             image_data.as_deref(),
             valid_descriptions,
-            &tier_options,
+            &mode_options,
             Some(&gemini),
         )
         .await;
 
         match result {
-            Ok(Some((descriptions, tier))) => {
-                pending.push((design_id, descriptions, tier));
+            Ok(Some((descriptions, mode))) => {
+                pending.push((design_id, descriptions, mode));
                 applied += 1;
             }
             Ok(None) => {}

@@ -502,7 +502,7 @@ async fn test_pool() -> SqlitePool {
 				is_stitched BOOLEAN NOT NULL DEFAULT 0,
 				image_tags_verified BOOLEAN NOT NULL DEFAULT 0,
 				stitching_tags_verified BOOLEAN NOT NULL DEFAULT 0,
-				tagging_tier SMALLINT,
+				tagging_mode TEXT,
 				date_added DATE,
 				designer_id INTEGER REFERENCES designers(id) ON DELETE SET NULL,
 				source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
