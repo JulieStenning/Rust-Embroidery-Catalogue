@@ -12,6 +12,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -42,17 +43,24 @@ const viewModel = (overrides = {}) => ({
   },
 });
 
-describe("TaggingActionsView mount behaviour", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
-    adapterMocks.getBackfillLogEntries.mockResolvedValue({
-      source: "rust",
-      entries: [],
-    });
+function configureMocks(overrides = {}) {
+  vi.clearAllMocks();
+  adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel(overrides));
+  adapterMocks.getBackfillLogEntries.mockResolvedValue({
+    source: "rust",
+    entries: [],
   });
+  adapterMocks.countTaggingCandidates.mockResolvedValue({
+    source: "rust",
+    action: "tag_untagged",
+    counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
+  });
+}
 
-  it("loads the tagging view model and backfill log entries on mount", async () => {
+describe("TaggingActionsView mount behaviour", () => {
+  beforeEach(() => configureMocks());
+
+  it("loads the view model, backfill log, and scope counts on mount", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
@@ -60,6 +68,9 @@ describe("TaggingActionsView mount behaviour", () => {
     });
     await waitFor(() => {
       expect(adapterMocks.getBackfillLogEntries).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(adapterMocks.countTaggingCandidates).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -80,9 +91,7 @@ describe("TaggingActionsView mount behaviour", () => {
   });
 
   it("shows the API-key notice and info toast when a key is set", async () => {
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(
-      viewModel({ has_google_api_key: true })
-    );
+    configureMocks({ has_google_api_key: true });
     render(TaggingActionsView);
 
     expect(
@@ -110,66 +119,41 @@ describe("TaggingActionsView mount behaviour", () => {
 });
 
 describe("TaggingActionsView initial render", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
-    adapterMocks.getBackfillLogEntries.mockResolvedValue({
-      source: "rust",
-      entries: [],
-    });
-  });
+  beforeEach(() => configureMocks());
 
   it("renders the page title and subtitle", () => {
     render(TaggingActionsView);
 
     expect(screen.getByRole("heading", { name: "Tagging Actions" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Run bulk tagging, image generation, or stitching calculation actions/)
+      screen.getByText(/Retag or backfill your catalogue with clear goals/)
     ).toBeInTheDocument();
   });
 
-  it("renders all top-level action checkboxes unchecked by default", async () => {
+  it("renders the Goal / Scope / Merge workflow with sensible defaults", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("checkbox", { name: /Tagging/ })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: /Apply File & Folder Rules/ })).toBeChecked();
     });
-    expect(screen.getByRole("checkbox", { name: /Stitching tag detection/ })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /Image generation/ })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /Recalculate colour/ })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /Untagged designs only/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Add New Tags Only/ })).toBeChecked();
   });
 
-  it("renders sub-option checkboxes unchecked by default", async () => {
+  it("disables Visual AI goals when no API key is set", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("checkbox", {
-          name: /Re-tag designs that already have tags/,
-        })
-      ).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: /Enrich with Visual AI/ })).toBeDisabled();
     });
-    expect(screen.getByRole("checkbox", { name: /Run Visual AI/ })).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", {
-        name: /Overwrite stitching tags on designs that have already been processed/,
-      })
-    ).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /Regenerate images/ })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /Both Methods/ })).toBeDisabled();
   });
 
-  it("disables the Run button while the view model is loading", () => {
-    adapterMocks.getTaggingActionsViewModel.mockReturnValue(new Promise(() => {}));
-    render(TaggingActionsView);
-
-    expect(screen.getByRole("button", { name: "Run selected actions" })).toBeDisabled();
-  });
-
-  it("disables the Run button when no top-level action is selected", async () => {
+  it("enables the Run button when ready (a default action is always selected)", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Run selected actions" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Review & Start Tagging" })).not.toBeDisabled();
     });
     expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
   });

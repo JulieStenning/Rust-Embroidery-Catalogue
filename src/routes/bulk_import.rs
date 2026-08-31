@@ -1569,6 +1569,7 @@ async fn run_import_ai_tagging_pass(
                 pool,
                 description_to_tag_id,
                 std::mem::take(&mut pending),
+                "reset",
             )
             .await
             {
@@ -1581,7 +1582,7 @@ async fn run_import_ai_tagging_pass(
 
     if !pending.is_empty() {
         if let Err(error) =
-            auto_tagging::apply_tagging_batch(pool, description_to_tag_id, pending).await
+            auto_tagging::apply_tagging_batch(pool, description_to_tag_id, pending, "reset").await
         {
             tracing::warn!("Bulk import AI tagging final batch write failed: {error}");
         }

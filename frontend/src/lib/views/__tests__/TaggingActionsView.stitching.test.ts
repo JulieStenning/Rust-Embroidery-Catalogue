@@ -13,6 +13,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -51,6 +52,12 @@ const backfillResult = (overrides = {}) => ({
   ...overrides,
 });
 
+async function startRun() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+  await user.click(screen.getByRole("button", { name: "Start Tagging" }));
+}
+
 describe("TaggingActionsView run stitching backfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,6 +65,11 @@ describe("TaggingActionsView run stitching backfill", () => {
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
+    });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
     });
     adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult());
     adapterMocks.runStitchingBackfill.mockResolvedValue(backfillResult());
@@ -67,8 +79,11 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
+
+    await startRun();
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith({
@@ -88,13 +103,16 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
     await user.click(
       screen.getByRole("checkbox", {
-        name: /Overwrite stitching tags on designs that have already been processed/,
+        name: /Overwrite stitching tags on already-processed designs/,
       })
     );
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+
+    await startRun();
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith(
@@ -110,8 +128,11 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
+
+    await startRun();
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -125,10 +146,11 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Stitching tag detection/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
+
+    await startRun();
 
     await waitFor(() => {
       expect(adapterMocks.runStitchingBackfill).toHaveBeenCalled();

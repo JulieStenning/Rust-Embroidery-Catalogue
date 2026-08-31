@@ -24,6 +24,8 @@ import type {
   AdapterStopBulkImportResponse,
   AdapterStopUnifiedBackfillResponse,
   AdapterTaggingActionsViewModelResponse,
+  AdapterTaggingCandidateCountResponse,
+  TaggingScopeCounts,
   AdapterAppStatusResponse,
   AdapterBrowseDataRootResponse,
   AdapterCompactResponse,
@@ -75,6 +77,7 @@ import type {
   SearchPayload,
   SettingsViewModel,
   TaggingActionsViewModel,
+  UnifiedBackfillActionsWire,
   UnifiedBackfillRequest,
   UnifiedBackfillResult,
   UnifiedBackfillWireRequest,
@@ -2094,6 +2097,39 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
 }
 
 /**
+ * Count how many designs a tagging run with the given scope `action` would
+ * process. Uses the same candidate predicate as the backfill pager on the Rust
+ * side, so the pre-flight estimate matches what a run actually touches.
+ *
+ * @param {string} action Backend scope: `tag_untagged` | `retag_all_unverified` | `retag_all`.
+ */
+export async function countTaggingCandidates(
+  action: string
+): Promise<AdapterTaggingCandidateCountResponse> {
+  try {
+    const result = await invokeLoose<TaggingScopeCounts>("count_tagging_candidates", {
+      action: String(action),
+    });
+    return {
+      source: "rust",
+      action: String(action),
+      counts: {
+        total_count: Number(result?.total_count ?? 0),
+        unverified_count: Number(result?.unverified_count ?? 0),
+        verified_count: Number(result?.verified_count ?? 0),
+      },
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      action: String(action),
+      counts: { total_count: 0, unverified_count: 0, verified_count: 0 },
+      error: String(error),
+    };
+  }
+}
+
+/**
  * Translate the flat view-model from the Tagging Actions screen into the
  * nested `actions` descriptor the Rust `backfill::UnifiedBackfillRequest`
  * expects. Tagging, image generation and colour counts are independent
@@ -2105,17 +2141,43 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
 function buildUnifiedBackfillWireRequest(
   request: UnifiedBackfillRequest
 ): UnifiedBackfillWireRequest {
-  const runTagging = Boolean(request.run_vision);
-  const actionMode = request.action_mode === "tag_all" ? "retag_all" : "tag_untagged";
+  // Tagging runs whenever an explicit mode list is provided OR the legacy
+  // run_vision toggle is on.
+  const runTagging = Boolean(request.modes?.length) || Boolean(request.run_vision);
+  const actionMode =
+    request.action_mode === "retag_all"
+      ? "retag_all"
+      : request.action_mode === "retag_all_unverified"
+        ? "retag_all_unverified"
+        : request.action_mode === "tag_all"
+          ? "retag_all"
+          : "tag_untagged";
 
   // File & Folder Rules (path_rule) always runs; Visual AI (ai_vision) runs when
   // its toggle is on (and is additionally gated on an API key by the backend).
-  const modes = ["path_rule"];
-  if (request.run_vision) modes.push("ai_vision");
+  // The new workflow passes an explicit `modes` list so a Visual-AI-only goal is
+  // expressible without the always-on path_rule fallback.
+  let modes: string[];
+  if (Array.isArray(request.modes) && request.modes.length) {
+    modes = request.modes.slice();
+  } else {
+    modes = ["path_rule"];
+    if (request.run_vision) modes.push("ai_vision");
+  }
+
+  const taggingWire: UnifiedBackfillActionsWire["tagging"] = {
+    action: actionMode,
+    modes,
+    enabled: true,
+  };
+  if (request.merge_mode) taggingWire.merge_mode = request.merge_mode;
+  if (request.exclude_verified !== undefined) {
+    taggingWire.exclude_verified = Boolean(request.exclude_verified);
+  }
 
   return {
     actions: {
-      tagging: runTagging ? { action: actionMode, modes, enabled: true } : null,
+      tagging: runTagging ? taggingWire : null,
       stitching: null,
       images: request.run_images ? { enabled: true, redo: Boolean(request.image_redo) } : null,
       color_counts: request.run_color_counts ? { enabled: true } : null,

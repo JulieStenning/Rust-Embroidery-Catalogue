@@ -220,6 +220,7 @@ pub(crate) async fn apply_tagging_batch(
     pool: &SqlitePool,
     image_tag_map: &HashMap<String, i64>,
     results: Vec<(i64, Vec<String>, String)>,
+    merge_mode: &str,
 ) -> Result<(), AppError> {
     if results.is_empty() {
         return Ok(());
@@ -232,15 +233,21 @@ pub(crate) async fn apply_tagging_batch(
         if descriptions.is_empty() {
             continue;
         }
-        sqlx::query(
-            "DELETE FROM design_tags
+        // `add` preserves existing image-group tags (append only); any other
+        // mode (`reset`) re-derives the image tag set from scratch. Only the
+        // `image` tag group is ever touched — manually-added and non-image tags
+        // are never cleared.
+        if merge_mode != "add" {
+            sqlx::query(
+                "DELETE FROM design_tags
 \t\t WHERE design_id = ?
 \t\t   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'image')",
-        )
-        .bind(design_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
+            )
+            .bind(design_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
+        }
 
         for description in descriptions {
             if let Some(tag_id) = image_tag_map.get(&description) {

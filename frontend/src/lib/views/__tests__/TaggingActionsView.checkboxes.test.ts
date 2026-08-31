@@ -13,6 +13,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -42,7 +43,7 @@ const viewModel = (overrides = {}) => ({
   },
 });
 
-describe("TaggingActionsView checkbox interactions", () => {
+describe("TaggingActionsView workflow selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
@@ -50,142 +51,146 @@ describe("TaggingActionsView checkbox interactions", () => {
       source: "rust",
       entries: [],
     });
-  });
-
-  it("toggles the Tagging checkbox between unchecked and checked", async () => {
-    render(TaggingActionsView);
-
-    const taggingCheckbox = await screen.findByRole("checkbox", {
-      name: /Tagging/,
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
     });
-    expect(taggingCheckbox).not.toBeChecked();
-
-    const user = userEvent.setup();
-    await user.click(taggingCheckbox);
-    expect(taggingCheckbox).toBeChecked();
-
-    await user.click(taggingCheckbox);
-    expect(taggingCheckbox).not.toBeChecked();
   });
 
-  it("toggles the retag-all sub-checkbox when Tagging is enabled", async () => {
+  it("defaults to File & Folder, untagged, and add-new-tags", async () => {
     render(TaggingActionsView);
 
-    const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
-    const retagAll = screen.getByRole("checkbox", {
-      name: /Re-tag designs that already have tags/,
-    });
-    // Sub-option is disabled until the parent is checked.
-    expect(retagAll).toBeDisabled();
-
-    const user = userEvent.setup();
-    await user.click(tagging);
-    expect(retagAll).not.toBeDisabled();
-
-    await user.click(retagAll);
-    expect(retagAll).toBeChecked();
-
-    await user.click(retagAll);
-    expect(retagAll).not.toBeChecked();
+    expect(
+      await screen.findByRole("radio", { name: /Apply File & Folder Rules/ })
+    ).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Untagged designs only/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Add New Tags Only/ })).toBeChecked();
   });
 
-  it("toggles the Visual AI checkbox when Tagging is enabled and an API key is set", async () => {
+  it("selects a Visual AI goal and changes the scope and merge", async () => {
     render(TaggingActionsView);
-
-    const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
-    const vision = screen.getByRole("checkbox", { name: /Run Visual AI/ });
-    expect(vision).toBeDisabled();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
     const user = userEvent.setup();
-    await user.click(tagging);
+    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    expect(screen.getByRole("radio", { name: /Enrich with Visual AI/ })).toBeChecked();
 
-    expect(vision).not.toBeDisabled();
+    await user.click(
+      screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })
+    );
+    expect(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })).toBeChecked();
 
-    await user.click(vision);
-    expect(vision).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Complete Reset/ }));
+    expect(screen.getByRole("radio", { name: /Complete Reset/ })).toBeChecked();
   });
 
-  it("disables and unchecks Visual AI when no API key is set", async () => {
+  it("shows the folder scope option as disabled (coming soon)", async () => {
+    render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    expect(screen.getByText(/Specific Folder or Category/)).toBeInTheDocument();
+    expect(screen.getByText(/coming soon/)).toBeInTheDocument();
+  });
+
+  it("disables Visual AI goals without an API key", async () => {
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(
       viewModel({ has_google_api_key: false })
     );
     render(TaggingActionsView);
 
-    const tagging = await screen.findByRole("checkbox", { name: /Tagging/ });
-    const vision = screen.getByRole("checkbox", { name: /Run Visual AI/ });
-    expect(vision).toBeDisabled();
-    expect(vision).not.toBeChecked();
-
-    // Toggling Tagging on does not enable it without a key.
-    const user = userEvent.setup();
-    await user.click(tagging);
-    expect(vision).toBeDisabled();
+    expect(
+      await screen.findByRole("radio", { name: /Enrich with Visual AI/ })
+    ).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Both Methods/ })).toBeDisabled();
   });
 
-  it("toggles the stitching and overwrite sub-checkboxes", async () => {
+  it("defaults to excluding verified designs and shows the unverified/verified breakdown", async () => {
     render(TaggingActionsView);
 
-    const stitching = await screen.findByRole("checkbox", {
-      name: /Stitching tag detection/,
+    const toggle = await screen.findByRole("checkbox", {
+      name: /Exclude human-verified designs/,
     });
-    const overwrite = screen.getByRole("checkbox", {
-      name: /Overwrite stitching tags on designs that have already been processed/,
+    expect(toggle).toBeChecked();
+
+    // With the toggle checked the primary badge shows unverified_count (10) and
+    // every scope card renders the breakdown text.
+    await screen.findAllByText("10 unverified · 2 verified");
+    expect(screen.getAllByText("10 designs").length).toBeGreaterThan(0);
+  });
+
+  it("switches the active count to the total when exclusion is unchecked", async () => {
+    render(TaggingActionsView);
+
+    const toggle = await screen.findByRole("checkbox", {
+      name: /Exclude human-verified designs/,
     });
-    expect(stitching).not.toBeChecked();
-    expect(overwrite).toBeDisabled();
+    await screen.findAllByText("10 unverified · 2 verified");
 
     const user = userEvent.setup();
+    await user.click(toggle);
+    expect(toggle).not.toBeChecked();
+
+    // Now the primary badge shows total_count (12).
+    expect(screen.getAllByText("12 designs").length).toBeGreaterThan(0);
+    // Breakdown stays visible regardless of the toggle.
+    expect(screen.getAllByText("10 unverified · 2 verified").length).toBeGreaterThan(0);
+  });
+});
+
+describe("TaggingActionsView advanced options", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBackfillLogEntries.mockResolvedValue({
+      source: "rust",
+      entries: [],
+    });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
+    });
+  });
+
+  it("toggles the stitching checkbox and its overwrite sub-option", async () => {
+    render(TaggingActionsView);
+    const user = userEvent.setup();
+
+    const stitching = screen.getByRole("checkbox", { name: /Also detect stitching tags/ });
+    expect(stitching).not.toBeChecked();
     await user.click(stitching);
     expect(stitching).toBeChecked();
-    expect(overwrite).not.toBeDisabled();
 
+    const overwrite = screen.getByRole("checkbox", {
+      name: /Overwrite stitching tags on already-processed designs/,
+    });
     await user.click(overwrite);
     expect(overwrite).toBeChecked();
   });
 
-  it("toggles the image redo sub-checkbox when Image generation is enabled", async () => {
+  it("toggles the image generation checkbox and its redo sub-option", async () => {
     render(TaggingActionsView);
-
-    const images = await screen.findByRole("checkbox", {
-      name: /Image generation/,
-    });
-    const imageRedo = screen.getByRole("checkbox", {
-      name: /Regenerate images/,
-    });
-    expect(images).not.toBeChecked();
-    expect(imageRedo).toBeDisabled();
-
     const user = userEvent.setup();
+
+    const images = screen.getByRole("checkbox", { name: /Also generate preview images/ });
     await user.click(images);
     expect(images).toBeChecked();
-    expect(imageRedo).not.toBeDisabled();
 
-    await user.click(imageRedo);
-    expect(imageRedo).toBeChecked();
+    const redo = screen.getByRole("checkbox", { name: /Regenerate images for all designs/ });
+    await user.click(redo);
+    expect(redo).toBeChecked();
   });
 
-  it("toggles the colour count checkbox", async () => {
+  it("toggles the colour count and hoop dimension checkboxes", async () => {
     render(TaggingActionsView);
-
-    const colourCounts = await screen.findByRole("checkbox", {
-      name: /Recalculate colour/,
-    });
-    expect(colourCounts).not.toBeChecked();
-
     const user = userEvent.setup();
-    await user.click(colourCounts);
-    expect(colourCounts).toBeChecked();
-  });
 
-  it("toggles the hoops / dimensions checkbox", async () => {
-    render(TaggingActionsView);
+    const colour = screen.getByRole("checkbox", { name: /Recalculate colour/ });
+    await user.click(colour);
+    expect(colour).toBeChecked();
 
-    const hoops = await screen.findByRole("checkbox", {
-      name: /Recalculate hoops/,
-    });
-    expect(hoops).not.toBeChecked();
-
-    const user = userEvent.setup();
+    const hoops = screen.getByRole("checkbox", { name: /Recalculate hoops/ });
     await user.click(hoops);
     expect(hoops).toBeChecked();
   });

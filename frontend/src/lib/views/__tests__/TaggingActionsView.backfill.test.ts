@@ -2,7 +2,6 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { tick } from "svelte";
 import TaggingActionsView from "../TaggingActionsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -14,6 +13,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -56,12 +56,11 @@ const backfillResult = (overrides = {}) => ({
   ...overrides,
 });
 
-/** Type-guard helper so querySelector results can be passed to expect(). */
-function element(value: Element | null | undefined, message?: string): HTMLElement {
-  if (!value) {
-    throw new Error(message ?? "Expected element to exist.");
-  }
-  return value as HTMLElement;
+/** Opens the pre-flight modal and confirms the run. */
+async function startRun() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+  await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 }
 
 describe("TaggingActionsView run unified backfill", () => {
@@ -71,6 +70,11 @@ describe("TaggingActionsView run unified backfill", () => {
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
+    });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
     });
     adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult());
     adapterMocks.runStitchingBackfill.mockResolvedValue(backfillResult());
@@ -90,17 +94,47 @@ describe("TaggingActionsView run unified backfill", () => {
     expect(screen.getByText(/15 requests\/minute and 1,500\/day/)).toBeInTheDocument();
   });
 
-  it("runs unified backfill when Tagging + Visual AI are enabled with API key", async () => {
+  it("runs unified backfill with the default File & Folder Rules on untagged designs", async () => {
     render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await startRun();
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
         action_mode: "tag_untagged",
+        modes: ["path_rule"],
+        merge_mode: "add",
+        exclude_verified: true,
+        run_vision: false,
+        run_images: false,
+        image_redo: false,
+        run_color_counts: false,
+        run_hoop_dimensions: false,
+        commit_every: 100,
+        batch_size: 100,
+        workers: 4,
+      });
+    });
+  });
+
+  it("runs Visual AI on designs missing AI analysis when those options are chosen", async () => {
+    render(TaggingActionsView);
+    const user = userEvent.setup();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await user.click(
+      screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })
+    );
+
+    await startRun();
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
+        action_mode: "retag_all_unverified",
+        modes: ["ai_vision"],
+        merge_mode: "add",
+        exclude_verified: true,
         run_vision: true,
         run_images: false,
         image_redo: false,
@@ -111,162 +145,152 @@ describe("TaggingActionsView run unified backfill", () => {
         workers: 4,
       });
     });
-    expect(toastMock.addToast).toHaveBeenCalledWith("Running selected actions...", "info");
   });
 
-  it("builds the unified backfill payload from all enabled options", async () => {
+  it("passes the chosen scope and merge strategy", async () => {
     render(TaggingActionsView);
-
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Image generation/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Regenerate images/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Recalculate colour/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("radio", { name: /Entire collection/ }));
+    await user.click(screen.getByRole("radio", { name: /Complete Reset/ }));
+
+    await startRun();
 
     await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
-        action_mode: "tag_untagged",
-        run_vision: true,
-        run_images: true,
-        image_redo: true,
-        run_color_counts: true,
-        run_hoop_dimensions: false,
-        commit_every: 100,
-        batch_size: 100,
-        workers: 4,
-      });
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({ action_mode: "retag_all", merge_mode: "reset" })
+      );
     });
   });
 
-  it("uses the batch size, commit every, and workers from Settings", async () => {
+  it("shows a pre-flight summary with the count and cancels without running", async () => {
+    render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    // Wait for the scope-count badges to resolve so the modal shows a real count.
+    await screen.findAllByText("10 designs");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+
+    const modal = within(screen.getByTestId("tagging-confirm-modal"));
+    expect(modal.getByText(/Ready to Retag/)).toBeInTheDocument();
+    expect(modal.getByText(/10 designs/)).toBeInTheDocument();
+    expect(modal.getByText(/Keep all existing tags and append any newly discovered tags/)).toBeInTheDocument();
+
+    await user.click(modal.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByTestId("tagging-confirm-modal")).not.toBeInTheDocument();
+    expect(adapterMocks.runUnifiedBackfill).not.toHaveBeenCalled();
+  });
+
+  it("states verified exclusion in the modal and passes exclude_verified when unchecked", async () => {
+    render(TaggingActionsView);
+    const user = userEvent.setup();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findAllByText("10 unverified · 2 verified");
+
+    // Default: verified designs excluded.
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    let modalEl = screen.getByTestId("tagging-confirm-modal");
+    expect(modalEl).toHaveTextContent(/Verified designs:/);
+    expect(modalEl).toHaveTextContent(/Excluded/);
+
+    // Unchecking exclusion flips the modal to "Included" and the run forwards false.
+    await user.click(within(modalEl).getByRole("button", { name: "Cancel" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /Exclude human-verified designs/ })
+    );
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    modalEl = screen.getByTestId("tagging-confirm-modal");
+    expect(modalEl).toHaveTextContent(/Included/);
+
+    await user.click(within(modalEl).getByRole("button", { name: "Start Tagging" }));
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({ exclude_verified: false })
+      );
+    });
+  });
+
+  it("shows the rate-limit pacing note only when the run is actually paced", async () => {
+    render(TaggingActionsView);
+    const user = userEvent.setup();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findAllByText("10 unverified · 2 verified");
+
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    const modalEl = screen.getByTestId("tagging-confirm-modal");
+    expect(modalEl).toHaveTextContent(/Estimated Time/);
+    // Paid key with the default (blank) delay is not paced, so no rate-limit note.
+    expect(modalEl).not.toHaveTextContent(/paced to respect Gemini rate limits/);
+  });
+
+  it("shows the rate-limit pacing note for free-tier keys", async () => {
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
       source: "rust",
-      model: {
-        ...viewModel().model,
-        ai_batch_size: "25",
-        ai_commit_every: "10",
-        ai_workers: "2",
-      },
+      model: { ...viewModel().model, ai_free_tier: true },
     });
     render(TaggingActionsView);
-
-    await waitFor(() => expect(adapterMocks.getTaggingActionsViewModel).toHaveBeenCalled());
-    await tick();
-
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findAllByText("10 unverified · 2 verified");
 
-    await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ workers: 2, batch_size: 25, commit_every: 10 })
-      );
-    });
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    const modalEl = screen.getByTestId("tagging-confirm-modal");
+    expect(modalEl).toHaveTextContent(/paced to respect Gemini rate limits/);
   });
 
-  it("passes run_hoop_dimensions when Recalculate hoops / dimensions is checked", async () => {
+  it("makes the estimate considerably larger when the run is paced", async () => {
+    function minutesFromModal(container: HTMLElement): number {
+      const match = container.textContent?.match(/~\s*(\d+)\s*minutes/);
+      return match ? Number(match[1]) : 0;
+    }
+
+    const bigCounts = { total_count: 10000, unverified_count: 10000, verified_count: 0 };
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: bigCounts,
+    });
+
+    // Paid key, blank delay -> not paced.
+    let view = render(TaggingActionsView);
+    let user = userEvent.setup();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findAllByText(/unverified ·/);
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    const paidEl = screen.getByTestId("tagging-confirm-modal");
+    const paidMinutes = minutesFromModal(paidEl);
+    expect(paidMinutes).toBeGreaterThan(0);
+    view.unmount();
+
+    // Free tier -> paced, should be considerably larger due to the per-call delay.
+    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+      source: "rust",
+      model: { ...viewModel().model, ai_free_tier: true },
+    });
     render(TaggingActionsView);
+    user = userEvent.setup();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findAllByText(/unverified ·/);
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    const freeEl = screen.getByTestId("tagging-confirm-modal");
+    const freeMinutes = minutesFromModal(freeEl);
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Recalculate hoops/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
-
-    await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ run_hoop_dimensions: true })
-      );
-    });
+    expect(freeMinutes).toBeGreaterThan(paidMinutes * 5);
   });
 
-  it("passes action_mode tag_all when retag-all is selected", async () => {
-    render(TaggingActionsView);
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(
-      screen.getByRole("checkbox", {
-        name: /Re-tag designs that already have tags/,
-      })
-    );
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
-
-    await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ action_mode: "tag_all" })
-      );
-    });
-  });
-
-  it("does not run any backfill command when run button is disabled", async () => {
-    render(TaggingActionsView);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Run selected actions" })).toBeDisabled();
-    });
-
-    expect(adapterMocks.runUnifiedBackfill).not.toHaveBeenCalled();
-    expect(adapterMocks.runStitchingBackfill).not.toHaveBeenCalled();
-  });
-
-  it("shows the last run summary with processed and error counts", async () => {
-    adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult({ processed: 12, errors: 2 }));
-    render(TaggingActionsView);
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Last run summary")).toBeInTheDocument();
-    });
-    // The summary line renders as "Processed: <strong>12</strong> · Errors:
-    // <strong>2</strong>" — the numbers live inside child <strong> elements,
-    // so scope the queries to the summary card and check each value.
-    const summaryCard = element(
-      screen.getByText("Last run summary").closest("div.bg-white"),
-      "Expected the summary card to exist."
-    );
-    expect(within(summaryCard).getByText("12")).toBeInTheDocument();
-    expect(within(summaryCard).getByText("2")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith(
-        "Backfill complete: 12 processed, 2 errors.",
-        "warning"
-      );
-    });
-  });
-
-  it("shows a success toast when a clean run completes", async () => {
-    adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult({ processed: 5 }));
-    render(TaggingActionsView);
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
-
-    await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith(
-        "Backfill complete: 5 processed, 0 errors.",
-        "success"
-      );
-    });
-  });
-
-  it("shows a warning toast and stopped-early note when the run was stopped", async () => {
+  it("shows a stopped-early toast and the summary", async () => {
     adapterMocks.runUnifiedBackfill.mockResolvedValue(
-      backfillResult({ processed: 3, stopped: true })
+      backfillResult({ processed: 3, errors: 0, stopped: true })
     );
     render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await startRun();
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -282,11 +306,9 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ error: "Database is locked" })
     );
     render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await startRun();
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -300,11 +322,9 @@ describe("TaggingActionsView run unified backfill", () => {
   it("shows an error toast when the unified backfill throws", async () => {
     adapterMocks.runUnifiedBackfill.mockRejectedValue(new Error("backend unreachable"));
     render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await startRun();
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -312,54 +332,27 @@ describe("TaggingActionsView run unified backfill", () => {
         "error"
       );
     });
-    // The run is no longer in flight, so the button returns to its idle label.
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Run selected actions" })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Review & Start Tagging" })
+      ).not.toBeDisabled();
     });
     expect(screen.queryByText("Last run summary")).not.toBeInTheDocument();
   });
 
-  it("runs only Tagging with File & Folder Rules when Tagging is checked without AI modes", async () => {
-    render(TaggingActionsView);
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
-
-    await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
-        action_mode: "tag_untagged",
-        run_vision: false,
-        run_images: false,
-        image_redo: false,
-        run_color_counts: false,
-        run_hoop_dimensions: false,
-        commit_every: 100,
-        batch_size: 100,
-        workers: 4,
-      });
-    });
-  });
-
-  it("does not pass Visual AI when no API key is present even if checked", async () => {
+  it("does not pass Visual AI when no API key is present", async () => {
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
       source: "rust",
-      model: {
-        ...viewModel().model,
-        has_google_api_key: false,
-      },
+      model: { ...viewModel().model, has_google_api_key: false },
     });
     render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    const vision = screen.getByRole("checkbox", { name: /Run Visual AI/ });
-    expect(vision).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await startRun();
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ run_vision: false })
+        expect.objectContaining({ run_vision: false, modes: ["path_rule"] })
       );
     });
   });

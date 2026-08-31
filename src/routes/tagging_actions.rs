@@ -174,6 +174,23 @@ pub async fn get_backfill_log_entries(
     backfill::get_backfill_log_entries(&state.db_pool()?, limit.unwrap_or(20)).await
 }
 
+/// Count the designs a tagging run with the given scope `action` would process,
+/// so the Tagging Actions screen can show a pre-flight estimate before the
+/// background worker is launched. Uses the same candidate predicate as the
+/// backfill pager, so the displayed count always matches what a run will touch.
+#[tauri::command]
+pub async fn count_tagging_candidates(
+    state: State<'_, AppState>,
+    action: Option<String>,
+) -> Result<backfill::TaggingScopeCounts, String> {
+    backfill::count_tagging_candidates(
+        &state.db_pool()?,
+        action.as_deref().unwrap_or("tag_untagged"),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn run_stitching_backfill(
     state: State<'_, AppState>,

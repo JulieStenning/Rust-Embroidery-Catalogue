@@ -658,6 +658,21 @@ export interface AdapterTaggingActionsViewModelResponse {
   error?: string;
 }
 
+/** Total / unverified / verified candidate counts for a tagging scope. */
+export interface TaggingScopeCounts {
+  total_count: number;
+  unverified_count: number;
+  verified_count: number;
+}
+
+export interface AdapterTaggingCandidateCountResponse {
+  source: string;
+  /** The backend scope action the count reflects (`tag_untagged`, `retag_all_unverified`, `retag_all`). */
+  action: string;
+  counts: TaggingScopeCounts;
+  error?: string;
+}
+
 /**
  * Flat view-model describing the options the Tagging Actions screen passes to
  * the command adapter. The adapter translates this into the nested wire shape
@@ -665,7 +680,29 @@ export interface AdapterTaggingActionsViewModelResponse {
  * `UnifiedBackfillWireRequest`).
  */
 export interface UnifiedBackfillRequest {
+  /**
+   * Tagging scope action: `"tag_untagged"` (designs with no image tags),
+   * `"retag_all_unverified"` (designs not yet scanned with Visual AI), or
+   * `"retag_all"` (every design).
+   */
   action_mode: string;
+  /**
+   * Tagging modes to run: `"path_rule"` (File & Folder Rules) and/or `"ai_vision"`
+   * (Visual AI). When omitted the adapter falls back to the legacy
+   * `run_vision`-derived modes (`path_rule`, plus `ai_vision` when run_vision).
+   */
+  modes?: string[];
+  /**
+   * How existing image-group tags are handled: `"add"` (append only, keep
+   * existing) or `"reset"` (clear and re-tag). Non-image / manually-added tags
+   * are never touched.
+   */
+  merge_mode?: string;
+  /**
+   * When `true`, human-verified designs (`image_tags_verified = 1`) are excluded
+   * from the candidate pool. Defaults to `true` (Recommended).
+   */
+  exclude_verified?: boolean;
   run_vision: boolean;
   run_images: boolean;
   image_redo: boolean;
@@ -685,6 +722,8 @@ export interface UnifiedBackfillActionsWire {
   tagging?: {
     action?: string;
     modes?: string[];
+    merge_mode?: string;
+    exclude_verified?: boolean;
     enabled?: boolean;
   } | null;
   stitching?: {

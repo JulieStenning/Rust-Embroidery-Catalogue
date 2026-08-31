@@ -90,6 +90,7 @@ const adapterMock = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
   getBackupViewModel: vi.fn(),
   saveBackupSettings: vi.fn(),
   browseBackupFolder: vi.fn(),

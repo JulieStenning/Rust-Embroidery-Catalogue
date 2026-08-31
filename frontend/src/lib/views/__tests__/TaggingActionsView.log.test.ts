@@ -12,6 +12,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -55,6 +56,11 @@ describe("TaggingActionsView backfill log", () => {
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
+    });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
     });
   });
 

@@ -14,6 +14,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -51,6 +52,11 @@ describe("TaggingActionsView stop behaviour", () => {
       source: "rust",
       entries: [],
     });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
+    });
     adapterMocks.stopUnifiedBackfill.mockResolvedValue({
       source: "rust",
       status: "stopping",
@@ -58,17 +64,17 @@ describe("TaggingActionsView stop behaviour", () => {
   });
 
   /**
-   * Renders the view, enables Tagging + Tier 2 and starts a never-resolving
-   * backfill so the Run button enters its in-flight state.
+   * Renders the view and starts a never-resolving backfill so the Run button
+   * enters its in-flight state.
    */
   async function startInFlightRun() {
     adapterMocks.runUnifiedBackfill.mockReturnValue(new Promise(() => {}));
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Run Visual AI/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 
     await waitFor(() => {
       expect(

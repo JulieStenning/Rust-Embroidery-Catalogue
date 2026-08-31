@@ -4,7 +4,7 @@ use crate::services::design_metadata;
 use crate::services::gemini_client::GeminiClient;
 use crate::services::stitch_identifier;
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool};
+use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
@@ -20,6 +20,12 @@ static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
+/// Merge strategies for existing image-group tags during a tagging run.
+/// `add` keeps existing tags and appends newly discovered ones; `reset`
+/// re-derives the image tag set from scratch. Non-image and manually-added
+/// tags are never touched.
+const TAG_MERGE_ADD: &str = "add";
+const TAG_MERGE_RESET: &str = "reset";
 const DEFAULT_BATCH_SIZE: i64 = 100;
 const DEFAULT_COMMIT_EVERY: i64 = 100;
 #[cfg(test)]
@@ -53,6 +59,13 @@ pub struct TaggingActionOptions {
     /// Tagging modes to run: `"path_rule"` (File & Folder Rules) and/or `"ai_vision"`
     /// (Visual AI). Visual AI additionally requires a configured Google API key.
     pub modes: Option<Vec<String>>,
+    /// How existing image-group tags are handled: `"add"` (append only, keep
+    /// existing) or `"reset"` (clear and re-tag). Non-image / manually-added
+    /// tags are never touched. Defaults to `"reset"`.
+    pub merge_mode: Option<String>,
+    /// When `true`, human-verified designs (`image_tags_verified = 1`) are
+    /// excluded from the tagging candidate pool. Defaults to `true`.
+    pub exclude_verified: Option<bool>,
     pub enabled: Option<bool>,
 }
 
@@ -196,6 +209,8 @@ pub async fn run_unified_backfill_with_progress(
         tagging: Some(TaggingActionOptions {
             action: Some(TAG_ACTION_UNTAGGED.to_string()),
             modes: Some(vec!["path_rule".to_string()]),
+            merge_mode: None,
+            exclude_verified: None,
             enabled: Some(true),
         }),
         stitching: None,
@@ -268,6 +283,11 @@ pub async fn run_unified_backfill_with_progress(
             actions_run.push("tagging".to_string());
             let mode = normalize_tag_mode(tagging_action.action.as_deref());
             let modes = normalize_modes(tagging_action.modes.as_deref(), has_api_key);
+            let merge_mode = normalize_merge_mode(tagging_action.merge_mode.as_deref());
+            // Exclude human-verified designs (image_tags_verified = 1) unless the
+            // caller explicitly opts in. This protects reviewed tags from being
+            // overwritten by an automated pass.
+            let exclude_verified = tagging_action.exclude_verified.unwrap_or(true);
             let path_rule_enabled = modes.contains("path_rule");
             let visual_ai_enabled = modes.contains("ai_vision") && has_api_key;
 
@@ -322,7 +342,8 @@ pub async fn run_unified_backfill_with_progress(
                 }
 
                 let design_ids =
-                    select_tagging_design_ids(pool, mode, batch_size, tagging_cursor).await?;
+                    select_tagging_design_ids(pool, mode, batch_size, tagging_cursor, exclude_verified)
+                        .await?;
                 if design_ids.is_empty() {
                     break;
                 }
@@ -405,6 +426,7 @@ pub async fn run_unified_backfill_with_progress(
                                                     pool,
                                                     &image_map,
                                                     std::mem::take(&mut pending),
+                                                    merge_mode,
                                                 )
                                                 .await?;
                                                 log_error(format!(
@@ -432,7 +454,7 @@ pub async fn run_unified_backfill_with_progress(
                                     // Commit every `commit_every` successful writes in a single
                                     // transaction, then report progress.
                                     if pending.len() >= commit_every_usize {
-                                        flush_tagging_batch(pool, &image_map, std::mem::take(&mut pending)).await?;
+                                        flush_tagging_batch(pool, &image_map, std::mem::take(&mut pending), merge_mode).await?;
                                     }
                                     if processed % commit_every == 0 {
                                         emit_progress(
@@ -466,7 +488,7 @@ pub async fn run_unified_backfill_with_progress(
                 // Flush any remaining suggestions (incl. on stop) so the tags
                 // computed so far are committed before the next batch / run end.
                 if !pending.is_empty() {
-                    flush_tagging_batch(pool, &image_map, pending).await?;
+                    flush_tagging_batch(pool, &image_map, pending, merge_mode).await?;
                 }
             }
         }
@@ -802,6 +824,18 @@ fn normalize_tag_mode(raw: Option<&str>) -> &str {
     }
 }
 
+fn normalize_merge_mode(raw: Option<&str>) -> &str {
+    match raw
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        TAG_MERGE_ADD => TAG_MERGE_ADD,
+        _ => TAG_MERGE_RESET,
+    }
+}
+
 fn normalize_modes(raw: Option<&[String]>, has_api_key: bool) -> HashSet<String> {
     let mut modes = HashSet::new();
     modes.insert("path_rule".to_string());
@@ -840,50 +874,103 @@ async fn get_image_tag_lookup(pool: &SqlitePool) -> Result<HashMap<String, i64>,
     Ok(map)
 }
 
+/// Returns the `FROM designs ... WHERE ...` SQL fragment for the given tagging
+/// action. Shared by the candidate pager ([`select_tagging_design_ids`]) and the
+/// candidate counter ([`count_tagging_candidates`]) so the pre-flight count
+/// always matches exactly what a run will touch.
+fn tagging_scope_from_where(mode: &str) -> &'static str {
+    match mode {
+        TAG_ACTION_RETAG_ALL => "FROM designs d WHERE 1 = 1",
+        TAG_ACTION_RETAG_ALL_UNVERIFIED => {
+            "FROM designs d WHERE COALESCE(d.image_tags_verified, 0) = 0"
+        }
+        _ => "FROM designs d
+\t\t WHERE NOT EXISTS (
+\t\t   SELECT 1
+\t\t   FROM design_tags dt
+\t\t   JOIN tags t ON t.id = dt.tag_id
+\t\t   WHERE dt.design_id = d.id AND lower(COALESCE(t.tag_group, '')) = 'image'
+\t\t )",
+    }
+}
+
+/// A `COUNT(*)` over the shared scope fragment with an optional verified filter,
+/// so the total/unverified/verified breakdown stays aligned with the pager.
+async fn count_scope_with_filter(
+    pool: &SqlitePool,
+    base: &str,
+    verified_filter: &str,
+) -> Result<i64, AppError> {
+    let mut query = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) ");
+    query.push(base);
+    query.push(verified_filter);
+    query
+        .build_query_scalar::<i64>()
+        .fetch_one(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to count tagging candidates: {e}")))
+}
+
+/// Total / unverified / verified candidate counts for a tagging scope, all built
+/// from the exact same scope predicate as [`select_tagging_design_ids`] so the
+/// pre-flight breakdown always matches what a run will touch.
+#[derive(Debug, Clone, Serialize)]
+pub struct TaggingScopeCounts {
+    pub total_count: i64,
+    pub unverified_count: i64,
+    pub verified_count: i64,
+}
+
+/// Count the designs a tagging run with the given `action` would process, split
+/// into total, unverified and verified. The UI uses `unverified_count` when
+/// "exclude human-verified designs" is enabled and `total_count` otherwise.
+pub(crate) async fn count_tagging_candidates(
+    pool: &SqlitePool,
+    action: &str,
+) -> Result<TaggingScopeCounts, AppError> {
+    let base = tagging_scope_from_where(normalize_tag_mode(Some(action)));
+    let total = count_scope_with_filter(pool, base, "").await?;
+    let unverified = count_scope_with_filter(pool, base, " AND COALESCE(d.image_tags_verified, 0) = 0")
+        .await?;
+    let verified =
+        count_scope_with_filter(pool, base, " AND COALESCE(d.image_tags_verified, 0) = 1").await?;
+    Ok(TaggingScopeCounts {
+        total_count: total,
+        unverified_count: unverified,
+        verified_count: verified,
+    })
+}
+
 async fn select_tagging_design_ids(
     pool: &SqlitePool,
     mode: &str,
     limit: i64,
     min_id: i64,
+    exclude_verified: bool,
 ) -> Result<Vec<i64>, AppError> {
     // `min_id` is a keyset cursor so the caller can page through ALL matching
     // designs in ascending-id batches (see the pagination loop in
     // `run_unified_backfill`). Without it, an "ALL" mode such as `retag_all`
     // re-selects the same first `limit` rows on every run.
-    let sql = match mode {
-        TAG_ACTION_RETAG_ALL => "SELECT id FROM designs WHERE id > ? ORDER BY id ASC LIMIT ?",
-        TAG_ACTION_RETAG_ALL_UNVERIFIED => {
-            "SELECT id FROM designs WHERE COALESCE(image_tags_verified, 0) = 0 AND id > ? ORDER BY id ASC LIMIT ?"
-        }
-        _ => {
-            "SELECT d.id
-			 FROM designs d
-			 WHERE NOT EXISTS (
-			   SELECT 1
-			   FROM design_tags dt
-			   JOIN tags t ON t.id = dt.tag_id
-			   WHERE dt.design_id = d.id AND lower(COALESCE(t.tag_group, '')) = 'image'
-			 )
-			 AND d.id > ?
-			 ORDER BY d.id ASC
-			 LIMIT ?"
-        }
-    };
+    let mut query = QueryBuilder::<Sqlite>::new("SELECT d.id ");
+    query.push(tagging_scope_from_where(mode));
+    if exclude_verified {
+        query.push(" AND COALESCE(d.image_tags_verified, 0) = 0");
+    }
+    query.push(" AND d.id > ");
+    query.push_bind(min_id);
+    query.push(" ORDER BY d.id ASC LIMIT ");
+    query.push_bind(limit);
 
-    let rows = sqlx::query(sql)
-        .bind(min_id)
-        .bind(limit)
+    let rows = query
+        .build_query_scalar::<i64>()
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::database(format!("failed to select tagging design ids: {e}")))?;
 
     let mut ids = Vec::with_capacity(rows.len());
-    for row in rows {
-        ids.push(
-            row.try_get::<i64, _>("id").map_err(|e| {
-                AppError::database(format!("failed to read tagging design id: {e}"))
-            })?,
-        );
+    for id in rows {
+        ids.push(id);
     }
     Ok(ids)
 }
@@ -993,8 +1080,10 @@ async fn flush_tagging_batch(
     pool: &SqlitePool,
     image_tag_map: &HashMap<String, i64>,
     results: Vec<(i64, Vec<String>, String)>,
+    merge_mode: &str,
 ) -> Result<(), AppError> {
-    crate::services::auto_tagging::apply_tagging_batch(pool, image_tag_map, results).await
+    crate::services::auto_tagging::apply_tagging_batch(pool, image_tag_map, results, merge_mode)
+        .await
 }
 
 async fn count_stitching_tags(pool: &SqlitePool) -> Result<i64, AppError> {

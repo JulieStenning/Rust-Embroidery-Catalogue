@@ -217,6 +217,70 @@ async fn test_get_tagging_actions_view_model() {
 
 #[tokio::test]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
+async fn test_count_tagging_candidates_reports_scope_counts() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    // Seed: 3 designs (very high ids to avoid migration-seeded rows); design
+    // 900102 carries an image-group tag (migration-seeded id 8, 'Don't Know')
+    // and is verified.
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (900101, 'a.pes', 'a.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (900102, 'b.pes', 'b.pes', 1)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (900103, 'c.pes', 'c.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (900102, 8)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let tmp = std::env::temp_dir().join("tagging-actions-count-test");
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool, &tmp);
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // tag_untagged -> designs with no image-group tags: 900101 and 900103 (unverified).
+    let untagged = count_tagging_candidates(state.clone(), Some("tag_untagged".to_string()))
+        .await
+        .unwrap();
+    assert_eq!(untagged.total_count, 2);
+    assert_eq!(untagged.unverified_count, 2);
+    assert_eq!(untagged.verified_count, 0);
+    // retag_all_unverified -> image_tags_verified = 0: 900101 and 900103.
+    let unverified = count_tagging_candidates(state.clone(), Some("retag_all_unverified".to_string()))
+        .await
+        .unwrap();
+    assert_eq!(unverified.total_count, 2);
+    assert_eq!(unverified.unverified_count, 2);
+    assert_eq!(unverified.verified_count, 0);
+    // retag_all -> every design: total 3, one of which is verified (900102).
+    let all = count_tagging_candidates(state.clone(), Some("retag_all".to_string()))
+        .await
+        .unwrap();
+    assert_eq!(all.total_count, 3);
+    assert_eq!(all.unverified_count, 2);
+    assert_eq!(all.verified_count, 1);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn tagging_actions_view_model_free_tier_uses_conservative_defaults() {
     let _guard = lock_env();
 
@@ -336,7 +400,7 @@ async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key(
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                modes: Some(vec!["path_rule".to_string(), "ai_vision".to_string()]),
+                modes: Some(vec!["path_rule".to_string(), "ai_vision".to_string()]), merge_mode: None, exclude_verified: None,
                 enabled: Some(true),
             }),
             stitching: None,
@@ -375,7 +439,7 @@ async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_modes() {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                modes: Some(vec!["path_rule".to_string()]),
+                modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
                 enabled: Some(true),
             }),
             stitching: None,
@@ -417,7 +481,7 @@ async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                modes: Some(vec!["ai_vision".to_string()]),
+                modes: Some(vec!["ai_vision".to_string()]), merge_mode: None, exclude_verified: None,
                 enabled: Some(false),
             }),
             stitching: None,

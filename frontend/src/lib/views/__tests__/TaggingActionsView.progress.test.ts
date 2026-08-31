@@ -15,6 +15,7 @@ const adapterMocks = vi.hoisted(() => ({
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
+  countTaggingCandidates: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -47,6 +48,11 @@ describe("TaggingActionsView live progress", () => {
     resetBackfillProgress();
     adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({ source: "rust", entries: [] });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
+    });
     eventMocks.listen.mockResolvedValue(() => {});
   });
 
@@ -60,8 +66,9 @@ describe("TaggingActionsView live progress", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: /Tagging/ }));
-    await user.click(screen.getByRole("button", { name: "Run selected actions" }));
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 
     // Before any design completes, the button shows the "getting ready" state.
     expect(
