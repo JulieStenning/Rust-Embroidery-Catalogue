@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/svelte";
+import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import TaggingActionsView from "../TaggingActionsView.svelte";
 
@@ -14,6 +14,7 @@ const adapterMocks = vi.hoisted(() => ({
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
   countTaggingCandidates: vi.fn(),
+  browseTaggingFolder: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -85,12 +86,41 @@ describe("TaggingActionsView workflow selection", () => {
     expect(screen.getByRole("radio", { name: /Complete Reset/ })).toBeChecked();
   });
 
-  it("shows the folder scope option as disabled (coming soon)", async () => {
+  it("selects the Specific Folder or Category scope and shows the folder picker", async () => {
     render(TaggingActionsView);
     await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
-    expect(screen.getByText(/Specific Folder or Category/)).toBeInTheDocument();
-    expect(screen.getByText(/coming soon/)).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: /Specific Folder or Category/ }));
+    expect(screen.getByRole("radio", { name: /Specific Folder or Category/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Choose folder…" })).toBeInTheDocument();
+  });
+
+  it("picks a folder, shows it, and refreshes the folder-scope counts", async () => {
+    adapterMocks.browseTaggingFolder.mockResolvedValue({
+      path: "C:/library/MachineEmbroideryDesigns/Flowers",
+      relative_path: "Flowers",
+    });
+    render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findAllByText("10 unverified · 2 verified");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: /Specific Folder or Category/ }));
+    await user.click(screen.getByRole("button", { name: "Choose folder…" }));
+
+    await waitFor(() => {
+      expect(adapterMocks.browseTaggingFolder).toHaveBeenCalled();
+    });
+    expect(screen.getByText(/Flowers/)).toBeInTheDocument();
+    // The folder-scope count is fetched with the folder path + include-subfolders.
+    await waitFor(() => {
+      expect(adapterMocks.countTaggingCandidates).toHaveBeenCalledWith(
+        "retag_all",
+        "C:/library/MachineEmbroideryDesigns/Flowers",
+        true
+      );
+    });
   });
 
   it("disables Visual AI goals without an API key", async () => {
@@ -102,7 +132,7 @@ describe("TaggingActionsView workflow selection", () => {
     expect(
       await screen.findByRole("radio", { name: /Enrich with Visual AI/ })
     ).toBeDisabled();
-    expect(screen.getByRole("radio", { name: /Both Methods/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Full Re-Scan/ })).toBeDisabled();
   });
 
   it("defaults to excluding verified designs and shows the unverified/verified breakdown", async () => {

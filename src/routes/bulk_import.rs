@@ -1322,13 +1322,8 @@ async fn persist_bulk_import_confirm_wire(
                     .map_err(|e| e.to_string())?;
             }
 
-            if !matched_descriptions.is_empty() || !stitching_tag_ids.is_empty() {
-                sqlx::query("UPDATE designs SET tagging_mode = 'path_rule' WHERE id = ?")
-                    .bind(design_id)
-                    .execute(&mut *tx)
-                    .await
-                    .map_err(|e| e.to_string())?;
-            }
+            // Import-time path-rule keyword tags are offline local matching, not AI
+            // analysis, so no per-mode AI flags (`text_ai_*` / `vision_ai_*`) are set.
             total_tagging_ms += t_tag.elapsed().as_millis();
 
             persisted_design_count += 1;
@@ -1484,6 +1479,8 @@ async fn run_import_ai_tagging_pass(
 
     let mode_options = auto_tagging::TaggingModeOptions {
         path_rule_enabled: true,
+        text_ai_enabled: false,
+        text_ai_network: false,
         visual_ai_enabled: vision_auto,
         visual_ai_delay_seconds: delay,
         // Pace real Gemini network calls only; local-only modes never sleep.
@@ -1504,7 +1501,7 @@ async fn run_import_ai_tagging_pass(
     // Batch tag writes into a handful of transactions (one journal + fsync each)
     // rather than one autocommit per design.
     const AI_TAGGING_BATCH: usize = 100;
-    let mut pending: Vec<(i64, Vec<String>, String)> = Vec::new();
+    let mut pending: Vec<auto_tagging::TagBatchEntry> = Vec::new();
     let mut processed = 0usize;
     let mut applied = 0usize;
     let mut rate_limit_error: Option<AppError> = None;
@@ -1548,11 +1545,20 @@ async fn run_import_ai_tagging_pass(
         .await;
 
         match result {
-            Ok(Some((descriptions, mode))) => {
-                pending.push((design_id, descriptions, mode));
-                applied += 1;
+            Ok(result) => {
+                let matched = !result.descriptions.is_empty();
+                pending.push(auto_tagging::TagBatchEntry {
+                    design_id,
+                    descriptions: result.descriptions,
+                    text_ai_analyzed: result.text_ai_analyzed,
+                    text_ai_matched: result.text_ai_matched,
+                    vision_ai_analyzed: result.vision_ai_analyzed,
+                    vision_ai_matched: result.vision_ai_matched,
+                });
+                if matched {
+                    applied += 1;
+                }
             }
-            Ok(None) => {}
             Err(error) if gemini_client::is_rate_limit_error(&error) => {
                 tracing::warn!("Bulk import AI tagging aborted on rate limit (429).");
                 rate_limit_error = Some(error);

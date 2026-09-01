@@ -37,7 +37,10 @@ fn preview_tagging_action_prefers_request_override() {
     .expect("preview works");
 
     assert!(!preview.enabled);
-    assert_eq!(preview.mode_order, vec!["FileFolder", "VisualAi"]);
+    assert_eq!(
+        preview.mode_order,
+        vec!["FileFolder", "TextAi", "VisualAi"]
+    );
 
     let preview2 = preview_tagging_action(TaggingActionRequest {
         request_override: Some(true),
@@ -255,21 +258,21 @@ async fn test_count_tagging_candidates_reports_scope_counts() {
     let state = app.state::<AppState>();
 
     // tag_untagged -> designs with no image-group tags: 900101 and 900103 (unverified).
-    let untagged = count_tagging_candidates(state.clone(), Some("tag_untagged".to_string()))
+    let untagged = count_tagging_candidates(state.clone(), Some("tag_untagged".to_string()), None, None)
         .await
         .unwrap();
     assert_eq!(untagged.total_count, 2);
     assert_eq!(untagged.unverified_count, 2);
     assert_eq!(untagged.verified_count, 0);
     // retag_all_unverified -> image_tags_verified = 0: 900101 and 900103.
-    let unverified = count_tagging_candidates(state.clone(), Some("retag_all_unverified".to_string()))
+    let unverified = count_tagging_candidates(state.clone(), Some("retag_all_unverified".to_string()), None, None)
         .await
         .unwrap();
     assert_eq!(unverified.total_count, 2);
     assert_eq!(unverified.unverified_count, 2);
     assert_eq!(unverified.verified_count, 0);
     // retag_all -> every design: total 3, one of which is verified (900102).
-    let all = count_tagging_candidates(state.clone(), Some("retag_all".to_string()))
+    let all = count_tagging_candidates(state.clone(), Some("retag_all".to_string()), None, None)
         .await
         .unwrap();
     assert_eq!(all.total_count, 3);
@@ -400,7 +403,7 @@ async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key(
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                modes: Some(vec!["path_rule".to_string(), "ai_vision".to_string()]), merge_mode: None, exclude_verified: None,
+                modes: Some(vec!["path_rule".to_string(), "ai_vision".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                 enabled: Some(true),
             }),
             stitching: None,
@@ -439,7 +442,7 @@ async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_modes() {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                 enabled: Some(true),
             }),
             stitching: None,
@@ -481,7 +484,7 @@ async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: Some(backfill::TaggingActionOptions {
                 action: Some("tag_untagged".to_string()),
-                modes: Some(vec!["ai_vision".to_string()]), merge_mode: None, exclude_verified: None,
+                modes: Some(vec!["ai_vision".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                 enabled: Some(false),
             }),
             stitching: None,

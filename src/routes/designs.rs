@@ -324,7 +324,6 @@ pub struct DesignDetail {
     pub is_stitched: bool,
     pub image_tags_verified: bool,
     pub stitching_tags_verified: bool,
-    pub tagging_mode: Option<String>,
     pub date_added: Option<String>,
     pub tags: Vec<DesignTagDetail>,
     pub projects: Vec<ProjectListItem>,
@@ -358,7 +357,6 @@ struct DesignDetailRow {
     is_stitched: bool,
     image_tags_verified: bool,
     stitching_tags_verified: bool,
-    tagging_mode: Option<String>,
     date_added: Option<String>,
 }
 
@@ -1061,7 +1059,6 @@ async fn get_design_detail_with_pool(
 			d.is_stitched AS is_stitched,
 			d.image_tags_verified AS image_tags_verified,
 			d.stitching_tags_verified AS stitching_tags_verified,
-			d.tagging_mode AS tagging_mode,
 			d.date_added AS date_added
 		FROM designs d
 		LEFT JOIN designers ON designers.id = d.designer_id
@@ -1198,7 +1195,6 @@ async fn get_design_detail_with_pool(
         is_stitched: row.is_stitched,
         image_tags_verified: row.image_tags_verified,
         stitching_tags_verified: row.stitching_tags_verified,
-        tagging_mode: row.tagging_mode,
         date_added: row.date_added,
         tags,
         projects,

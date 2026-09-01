@@ -1,4 +1,4 @@
-use crate::services::{auto_tagging, backfill, fingerprint, maintenance};
+use crate::services::{auto_tagging, backfill, fingerprint, folder_picker, maintenance};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
@@ -25,6 +25,9 @@ pub struct TaggingActionsViewModel {
     pub default_commit_every: i64,
     pub default_workers: i64,
     pub default_delay: f64,
+    /// The designs library root (Data Storage Location). Folder scoping is bounded
+    /// strictly to this directory.
+    pub data_storage_location: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -114,6 +117,11 @@ pub async fn get_tagging_actions_view_model(
         default_commit_every: 100,
         default_workers: if ai_free_tier { 2 } else { 4 },
         default_delay: if ai_free_tier { 10.0 } else { 5.0 },
+        data_storage_location: state
+            .paths
+            .embroidery_designs_dir
+            .to_string_lossy()
+            .to_string(),
     })
 }
 
@@ -134,10 +142,10 @@ pub async fn run_unified_backfill(
         if let Some(ref tagging) = actions.tagging {
             if tagging.enabled.unwrap_or(true) {
                 if let Some(ref modes) = tagging.modes {
-                    let requests_ai = modes.iter().any(|m| m == "ai_vision");
+                    let requests_ai = modes.iter().any(|m| m == "ai_vision" || m == "text_ai");
                     if requests_ai && !has_api_key {
                         return Err(
-                            "Google API key is required for Visual AI tagging. Please configure your API key in Admin -> Settings."
+                            "Google API key is required for Text AI / Visual AI tagging. Please configure your API key in Admin -> Settings."
                                 .to_string(),
                         );
                     }
@@ -182,13 +190,91 @@ pub async fn get_backfill_log_entries(
 pub async fn count_tagging_candidates(
     state: State<'_, AppState>,
     action: Option<String>,
+    folder_path: Option<String>,
+    include_subfolders: Option<bool>,
 ) -> Result<backfill::TaggingScopeCounts, String> {
+    let folder_scope = backfill::resolve_tagging_folder_scope(folder_path.as_deref())
+        .map_err(|e| e.to_string())?;
     backfill::count_tagging_candidates(
         &state.db_pool()?,
         action.as_deref().unwrap_or("tag_untagged"),
+        folder_scope.as_ref(),
+        include_subfolders.unwrap_or(true),
     )
     .await
     .map_err(|e| e.to_string())
+}
+
+/// Browse for a folder to scope retagging to. The picker opens at the library
+/// root (or a validated start folder under it) and the returned path is strictly
+/// validated to remain inside the Data Storage Location.
+#[derive(Debug, Clone, Serialize)]
+pub struct BrowseTaggingFolderResult {
+    pub path: Option<String>,
+    /// The selected folder relative to the library root (`""` = the root).
+    pub relative_path: Option<String>,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub fn browse_tagging_folder(
+    state: State<'_, AppState>,
+    start_dir: Option<String>,
+) -> BrowseTaggingFolderResult {
+    let root = state.paths.embroidery_designs_dir.clone();
+
+    let start = match start_dir.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        Some(dir) => {
+            if !backfill::is_path_under_root(dir, &root) {
+                return BrowseTaggingFolderResult {
+                    path: None,
+                    relative_path: None,
+                    error: Some(
+                        "Start folder is outside the Data Storage Location.".to_string(),
+                    ),
+                };
+            }
+            Some(dir.to_string())
+        }
+        None => Some(root.to_string_lossy().to_string()),
+    };
+
+    let picked = match folder_picker::browse_folder_with_error(start.as_deref(), false) {
+        Ok(result) => result.path,
+        Err(error) => {
+            return BrowseTaggingFolderResult {
+                path: None,
+                relative_path: None,
+                error: Some(error.to_string()),
+            }
+        }
+    };
+
+    let Some(picked) = picked else {
+        return BrowseTaggingFolderResult {
+            path: None,
+            relative_path: None,
+            error: None,
+        };
+    };
+
+    if !backfill::is_path_under_root(&picked, &root) {
+        return BrowseTaggingFolderResult {
+            path: Some(picked),
+            relative_path: None,
+            error: Some(format!(
+                "Selected folder is outside the Data Storage Location ({}).",
+                root.to_string_lossy()
+            )),
+        };
+    }
+
+    let relative_path = backfill::relative_path_under_root(&picked, &root);
+    BrowseTaggingFolderResult {
+        path: Some(picked),
+        relative_path: Some(relative_path),
+        error: None,
+    }
 }
 
 #[tauri::command]

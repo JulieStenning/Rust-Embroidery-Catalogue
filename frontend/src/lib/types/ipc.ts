@@ -175,7 +175,6 @@ export interface DesignDetailWire {
   is_stitched: boolean;
   image_tags_verified: boolean;
   stitching_tags_verified: boolean;
-  tagging_mode: string | null;
   date_added: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
@@ -208,7 +207,6 @@ export interface DesignDetail {
   isStitched: boolean;
   imageTagsVerified: boolean;
   stitchingTagsVerified: boolean;
-  taggingMode: string | null;
   dateAdded: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
@@ -650,6 +648,8 @@ export interface TaggingActionsViewModel {
   default_commit_every: number;
   default_workers: number;
   default_delay: number;
+  /** The designs library root (Data Storage Location). Folder scoping is bounded strictly to this. */
+  data_storage_location: string;
 }
 
 export interface AdapterTaggingActionsViewModelResponse {
@@ -673,6 +673,13 @@ export interface AdapterTaggingCandidateCountResponse {
   error?: string;
 }
 
+export interface BrowseTaggingFolderResult {
+  path: string | null;
+  /** The selected folder relative to the library root (`""` = the root). */
+  relative_path: string | null;
+  error?: string;
+}
+
 /**
  * Flat view-model describing the options the Tagging Actions screen passes to
  * the command adapter. The adapter translates this into the nested wire shape
@@ -681,15 +688,19 @@ export interface AdapterTaggingCandidateCountResponse {
  */
 export interface UnifiedBackfillRequest {
   /**
-   * Tagging scope action: `"tag_untagged"` (designs with no image tags),
-   * `"retag_all_unverified"` (designs not yet scanned with Visual AI), or
-   * `"retag_all"` (every design).
+   * Tagging scope action. Base scopes: `"tag_untagged"` (no image tags),
+   * `"retag_all_unverified"` (not verified), `"retag_all"` (every design).
+   * Per-mode AI scopes (tracked via `text_ai_*` / `vision_ai_*` columns):
+   * `retag_all_text_not_analyzed`, `retag_all_text_no_match`,
+   * `retag_all_text_analyzed`, `retag_all_vision_not_analyzed`,
+   * `retag_all_vision_no_match`, `retag_all_vision_analyzed`.
    */
   action_mode: string;
   /**
-   * Tagging modes to run: `"path_rule"` (File & Folder Rules) and/or `"ai_vision"`
-   * (Visual AI). When omitted the adapter falls back to the legacy
-   * `run_vision`-derived modes (`path_rule`, plus `ai_vision` when run_vision).
+   * Tagging modes to run: `"path_rule"` (File & Folder Rules), `"text_ai"` (Text
+   * AI on file names) and/or `"ai_vision"` (Visual AI). When omitted the adapter
+   * falls back to the legacy `run_vision`-derived modes (`path_rule`, plus
+   * `ai_vision` when run_vision).
    */
   modes?: string[];
   /**
@@ -703,6 +714,10 @@ export interface UnifiedBackfillRequest {
    * from the candidate pool. Defaults to `true` (Recommended).
    */
   exclude_verified?: boolean;
+  /** Absolute folder path to scope the run to (must be under the Data Storage Location). */
+  folder_path?: string;
+  /** Whether `folder_path` also includes nested subfolders. Defaults to `true`. */
+  include_subfolders?: boolean;
   run_vision: boolean;
   run_images: boolean;
   image_redo: boolean;
@@ -724,6 +739,8 @@ export interface UnifiedBackfillActionsWire {
     modes?: string[];
     merge_mode?: string;
     exclude_verified?: boolean;
+    folder_path?: string;
+    include_subfolders?: boolean;
     enabled?: boolean;
   } | null;
   stitching?: {
@@ -1075,7 +1092,6 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     isStitched: Boolean(wire.is_stitched),
     imageTagsVerified: Boolean(wire.image_tags_verified),
     stitchingTagsVerified: Boolean(wire.stitching_tags_verified),
-    taggingMode: wire.tagging_mode ?? null,
     dateAdded: wire.date_added ?? null,
     tags: Array.isArray(wire.tags) ? wire.tags : [],
     projects: Array.isArray(wire.projects) ? wire.projects : [],

@@ -8,6 +8,7 @@
     getBackfillLogEntries,
     runStitchingBackfill,
     countTaggingCandidates,
+    browseTaggingFolder,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
@@ -22,8 +23,17 @@
   // ---------------------------------------------------------------------------
   // Non-technical workflow choices: Goal -> Scope -> Merge.
   // ---------------------------------------------------------------------------
-  type TaggingGoal = "file_folder" | "visual_ai" | "both";
-  type TaggingScope = "untagged" | "missing_ai" | "all";
+  type TaggingGoal = "file_folder" | "text_ai" | "ai_vision" | "full_rescan";
+  type TaggingScope =
+    | "untagged"
+    | "folder"
+    | "all"
+    | "text_not_analyzed"
+    | "text_no_match"
+    | "text_analyzed"
+    | "vision_not_analyzed"
+    | "vision_no_match"
+    | "vision_analyzed";
   type TaggingMerge = "add" | "reset";
 
   const GOAL_OPTIONS: Array<{
@@ -39,21 +49,28 @@
       requiresAi: false,
     },
     {
-      id: "visual_ai",
+      id: "text_ai",
+      title: "Analyze with Text AI",
+      subtitle:
+        "Analyze file names and folder paths using Gemini to detect subject matter. (Requires API Key)",
+      requiresAi: true,
+    },
+    {
+      id: "ai_vision",
       title: "Enrich with Visual AI",
       subtitle:
         "Analyze design thumbnails using Gemini Vision to detect subject matter. (Requires API Key)",
       requiresAi: true,
     },
     {
-      id: "both",
-      title: "Both Methods",
-      subtitle: "Run local folder matching and Visual AI visual analysis. (Requires API Key)",
+      id: "full_rescan",
+      title: "Full Re-Scan (All Methods)",
+      subtitle: "Run File & Folder Rules, Text AI and Vision AI and merge the results. (Requires API Key)",
       requiresAi: true,
     },
   ];
 
-  const SCOPE_OPTIONS: Array<{
+  const BASE_SCOPE_OPTIONS: Array<{
     id: string;
     title: string;
     subtitle: string;
@@ -61,18 +78,52 @@
   }> = [
     { id: "untagged", title: "Untagged designs only", subtitle: "Designs with no tags at all" },
     {
-      id: "missing_ai",
-      title: "Designs missing Visual AI analysis",
-      subtitle: "Designs that haven't been scanned with Visual AI yet",
-    },
-    {
       id: "folder",
       title: "Specific Folder or Category",
       subtitle: "Only designs in a specific folder branch",
-      disabled: true,
     },
     { id: "all", title: "Entire collection", subtitle: "All designs in your library" },
   ];
+
+  const MODE_SCOPE_OPTIONS: Record<
+    string,
+    Array<{ id: string; title: string; subtitle: string; disabled?: boolean }>
+  > = {
+    text_ai: [
+      {
+        id: "text_not_analyzed",
+        title: "Designs missing Text AI analysis",
+        subtitle: "Designs that haven't been scanned with Text AI yet",
+      },
+      {
+        id: "text_no_match",
+        title: "Text AI found no match",
+        subtitle: "Designs Text AI analyzed but found no tags for",
+      },
+      {
+        id: "text_analyzed",
+        title: "Re-analyze (already analyzed by Text AI)",
+        subtitle: "Designs already analyzed by Text AI — run again",
+      },
+    ],
+    ai_vision: [
+      {
+        id: "vision_not_analyzed",
+        title: "Designs missing Visual AI analysis",
+        subtitle: "Designs that haven't been scanned with Visual AI yet",
+      },
+      {
+        id: "vision_no_match",
+        title: "Visual AI found no match",
+        subtitle: "Designs Visual AI analyzed but found no tags for",
+      },
+      {
+        id: "vision_analyzed",
+        title: "Re-analyze (already analyzed by Visual AI)",
+        subtitle: "Designs already analyzed by Visual AI — run again",
+      },
+    ],
+  };
 
   const MERGE_OPTIONS: Array<{
     id: TaggingMerge;
@@ -126,6 +177,11 @@
   let excludeVerified = $state(true);
   let showConfirm = $state(false);
 
+  // Folder-scoped retagging (Specific Folder or Category scope).
+  let selectedFolderPath = $state<string | null>(null);
+  let includeSubfolders = $state(true);
+  let dataStorageLocation = $state("");
+
   // Advanced options (collapsed by default) — optional extra passes.
   let taggingRunStitching = $state(false);
   let taggingRunImages = $state(false);
@@ -149,16 +205,61 @@
   let taggingBatchValue = $derived(Math.max(1, Number.parseInt(taggingBatchSize, 10) || 100));
   let taggingWorkersValue = $derived(Math.max(1, Number.parseInt(taggingWorkers, 10) || 4));
 
+  // Which scope options are visible depends on the selected goal's mode(s).
+  const scopeOptionsFor = $derived.by((): Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    disabled?: boolean;
+  }> => {
+    const list = BASE_SCOPE_OPTIONS.slice();
+    if (goal === "text_ai" || goal === "full_rescan") {
+      list.push(...MODE_SCOPE_OPTIONS.text_ai);
+    }
+    if (goal === "ai_vision" || goal === "full_rescan") {
+      list.push(...MODE_SCOPE_OPTIONS.ai_vision);
+    }
+    return list;
+  });
+
+  // If the currently selected scope is no longer offered for this goal, fall back
+  // to the always-available untagged scope.
+  $effect(() => {
+    if (!scopeOptionsFor.some((o) => o.id === scope)) {
+      scope = "untagged";
+    }
+  });
+
   // Derived workflow mapping to the backend wire contract.
   const modes = $derived.by((): string[] => {
     if (goal === "file_folder") return ["path_rule"];
-    if (goal === "visual_ai") return ["ai_vision"];
-    return ["path_rule", "ai_vision"];
+    if (goal === "text_ai") return ["text_ai"];
+    if (goal === "ai_vision") return ["ai_vision"];
+    return ["path_rule", "text_ai", "ai_vision"];
   });
   const action = $derived.by((): string => {
-    if (scope === "untagged") return "tag_untagged";
-    if (scope === "missing_ai") return "retag_all_unverified";
-    return "retag_all";
+    switch (scope) {
+      case "untagged":
+        return "tag_untagged";
+      case "folder":
+        return "retag_all";
+      case "all":
+        return "retag_all";
+      case "text_not_analyzed":
+        return "retag_all_text_not_analyzed";
+      case "text_no_match":
+        return "retag_all_text_no_match";
+      case "text_analyzed":
+        return "retag_all_text_analyzed";
+      case "vision_not_analyzed":
+        return "retag_all_vision_not_analyzed";
+      case "vision_no_match":
+        return "retag_all_vision_no_match";
+      case "vision_analyzed":
+        return "retag_all_vision_analyzed";
+      default:
+        return "tag_untagged";
+    }
   });
 
   const goalLabel = $derived.by(() => {
@@ -166,7 +267,7 @@
     return found ? found.title : goal;
   });
   const scopeLabel = $derived.by(() => {
-    const found = SCOPE_OPTIONS.find((o) => o.id === scope);
+    const found = scopeOptionsFor.find((o) => o.id === scope);
     return found ? found.title : scope;
   });
   const mergeLabel = $derived.by(() => {
@@ -183,7 +284,45 @@
 
   const selectedCount = $derived.by((): number | null => activeCountFor(scope));
 
-  const visualInvolved = $derived(goal !== "file_folder");
+  // Human-readable label for the selected folder: root-relative when possible.
+  const folderDisplayPath = $derived.by((): string => {
+    if (!selectedFolderPath) return "";
+    if (dataStorageLocation && selectedFolderPath.startsWith(dataStorageLocation)) {
+      const rel = selectedFolderPath
+        .slice(dataStorageLocation.length)
+        .replace(/^[\\/]+/, "");
+      return rel || selectedFolderPath;
+    }
+    return selectedFolderPath;
+  });
+
+  async function chooseTaggingFolder() {
+    try {
+      const result = await browseTaggingFolder(selectedFolderPath);
+      if (result.error) {
+        addToast(`Could not pick folder: ${result.error}`, "error");
+        return;
+      }
+      if (!result.path) return; // user cancelled
+      selectedFolderPath = result.path;
+      await loadScopeCounts();
+    } catch (error) {
+      addToast(`Could not pick folder: ${error}`, "error");
+    }
+  }
+
+  /** Fetch the folder-scope counts (when a folder is selected) into `next`. */
+  async function loadFolderCountsInto(
+    next: Record<string, import("../types/ipc").TaggingScopeCounts>
+  ): Promise<void> {
+    delete next.folder;
+    if (!selectedFolderPath) return;
+    const result = await countTaggingCandidates("retag_all", selectedFolderPath, includeSubfolders);
+    next.folder = result.counts;
+  }
+
+  // Whether Vision AI participates in the run (drives the legacy `run_vision` flag).
+  const visionInvolved = $derived(goal === "ai_vision" || goal === "full_rescan");
 
   // The effective per-request delay for a Visual AI run: the configured AI delay
   // wins if set; otherwise the free tier falls back to a conservative 10s and
@@ -206,6 +345,8 @@
     if (count === null || count <= 0 || goal === "file_folder") return null;
     const delay = effectiveVisualAiDelay;
     const workers = Math.max(1, taggingWorkersValue);
+    // Full Re-Scan runs both Text AI and Vision AI, so each design costs two calls.
+    const aiModeCount = goal === "full_rescan" ? 2 : 1;
     let perDesignSeconds: number;
     if (delay > 0) {
       // Each worker waits `delay` seconds between calls; the free tier can never
@@ -215,23 +356,29 @@
       // Non-paced: assume a rough ~1s per Gemini call, divided across workers.
       perDesignSeconds = 1.0 / workers;
     }
-    return Math.max(1, Math.ceil((count * perDesignSeconds) / 60));
+    return Math.max(1, Math.ceil((count * perDesignSeconds * aiModeCount) / 60));
   });
   async function loadScopeCounts() {
     countsLoading = true;
     const targets: Array<[string, string]> = [
       ["untagged", "tag_untagged"],
-      ["missing_ai", "retag_all_unverified"],
       ["all", "retag_all"],
+      ["text_not_analyzed", "retag_all_text_not_analyzed"],
+      ["text_no_match", "retag_all_text_no_match"],
+      ["text_analyzed", "retag_all_text_analyzed"],
+      ["vision_not_analyzed", "retag_all_vision_not_analyzed"],
+      ["vision_no_match", "retag_all_vision_no_match"],
+      ["vision_analyzed", "retag_all_vision_analyzed"],
     ];
     const next: Record<string, import("../types/ipc").TaggingScopeCounts> = {};
     try {
-      await Promise.all(
-        targets.map(async ([key, scopeAction]) => {
+      await Promise.all([
+        ...targets.map(async ([key, scopeAction]) => {
           const result = await countTaggingCandidates(scopeAction);
           next[key] = result.counts;
-        })
-      );
+        }),
+        loadFolderCountsInto(next),
+      ]);
       scopeCounts = next;
     } catch (error) {
       addToast(`Could not count tagging candidates: ${error}`, "error");
@@ -256,6 +403,7 @@
       taggingWorkers = String(model?.ai_workers || "4");
       taggingFreeTier = Boolean(model?.ai_free_tier);
       taggingDelay = String(model?.ai_delay || "");
+      dataStorageLocation = String(model?.data_storage_location || "");
       taggingActionsLoaded = true;
       addToast(
         model?.has_google_api_key
@@ -303,7 +451,9 @@
         modes,
         merge_mode: merge,
         exclude_verified: excludeVerified,
-        run_vision: visualInvolved,
+        folder_path: scope === "folder" ? (selectedFolderPath ?? undefined) : undefined,
+        include_subfolders: scope === "folder" ? includeSubfolders : undefined,
+        run_vision: visionInvolved,
         run_images: taggingRunImages,
         image_redo: taggingImageRedo,
         run_color_counts: taggingRunColorCounts,
@@ -386,7 +536,7 @@
     <!-- API Key Status -->
     {#if !taggingHasGoogleApiKey}
       <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
-        No Google API key is configured in Settings. Visual AI tagging will be skipped.
+        No Google API key is configured in Settings. Text AI and Vision AI tagging will be skipped.
         File & Folder Rules always run.
       </div>
     {:else}
@@ -444,7 +594,7 @@
     <div class="bg-white rounded shadow p-6 space-y-4">
       <h2 class="text-base font-semibold text-gray-800">2. Which designs should be processed?</h2>
       <div class="space-y-2">
-        {#each SCOPE_OPTIONS as option}
+        {#each scopeOptionsFor as option}
           {#if option.disabled}
             <div
               class="flex items-start gap-3 text-sm text-gray-400 rounded border border-dashed border-gray-300 p-3"
@@ -494,6 +644,39 @@
           {/if}
         {/each}
       </div>
+
+      <!-- Folder selection (Specific Folder or Category scope) -->
+      {#if scope === "folder"}
+        <div class="rounded border border-gray-200 p-3 space-y-3">
+          <button
+            class="menu-button-secondary"
+            onclick={chooseTaggingFolder}
+            disabled={busyActive || countsLoading}
+          >
+            {selectedFolderPath ? "Change folder…" : "Choose folder…"}
+          </button>
+          {#if selectedFolderPath}
+            <p class="text-xs text-gray-600">
+              Folder: <span class="font-medium">{folderDisplayPath}</span>
+            </p>
+            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                bind:checked={includeSubfolders}
+                onchange={() => loadScopeCounts()}
+                disabled={busyActive}
+                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>Include subfolders</span>
+            </label>
+          {/if}
+          {#if dataStorageLocation}
+            <p class="text-xs text-gray-400">
+              Library: {dataStorageLocation}
+            </p>
+          {/if}
+        </div>
+      {/if}
 
       <!-- Verified exclusion control -->
       <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3">
@@ -715,6 +898,12 @@
             <span class="font-semibold">Target Scope:</span>
             {selectedCount !== null ? selectedCount.toLocaleString() : "…"} designs ({scopeLabel})
           </p>
+          {#if scope === "folder" && selectedFolderPath}
+            <p>
+              <span class="font-semibold">Folder:</span> {folderDisplayPath}
+              {#if includeSubfolders}(incl. subfolders){/if}
+            </p>
+          {/if}
           <p><span class="font-semibold">Tag Strategy:</span> {mergeLabel}</p>
           <p>
             <span class="font-semibold">Verified designs:</span>

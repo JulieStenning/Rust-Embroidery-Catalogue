@@ -15,7 +15,7 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, tagging_mode TEXT)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, text_ai_analyzed INTEGER NOT NULL DEFAULT 0, text_ai_matched INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
         "CREATE TABLE hoops (id INTEGER PRIMARY KEY, name TEXT NOT NULL, max_width_mm REAL NOT NULL, max_height_mm REAL NOT NULL)",
     ] {
@@ -63,7 +63,7 @@ async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -120,7 +120,7 @@ async fn run_unified_backfill_retag_all_processes_all_designs_beyond_batch_size(
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false),
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false), folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -160,7 +160,7 @@ async fn run_unified_backfill_streams_progress_events() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -227,7 +227,7 @@ async fn run_unified_backfill_retag_all_respects_workers_concurrency() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false),
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false), folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -346,6 +346,27 @@ fn normalize_modes_includes_ai_vision_with_api_key() {
     assert!(result.contains("path_rule"));
     assert!(result.contains("ai_vision"));
 }
+
+#[test]
+fn normalize_modes_includes_text_ai_with_api_key() {
+    let result = normalize_modes(
+        Some(&["path_rule".to_string(), "text_ai".to_string()]),
+        true,
+    );
+    assert!(result.contains("path_rule"));
+    assert!(result.contains("text_ai"));
+}
+
+#[test]
+fn normalize_modes_removes_text_ai_without_api_key() {
+    let result = normalize_modes(
+        Some(&["path_rule".to_string(), "text_ai".to_string()]),
+        false,
+    );
+    assert!(result.contains("path_rule"));
+    assert!(!result.contains("text_ai"));
+}
+
 
 #[test]
 fn normalize_modes_empty_slice_resolves_to_path_rule() {
@@ -620,7 +641,7 @@ async fn select_tagging_untagged_excludes_designs_with_image_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 has an image tag
 
-    let ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false)
+    let ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false, None, true)
         .await
         .unwrap();
     assert!(ids.contains(&1));
@@ -633,7 +654,7 @@ async fn select_tagging_retag_all_includes_all() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    let ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false)
+    let ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, None, true)
         .await
         .unwrap();
     assert_eq!(ids.len(), 3);
@@ -644,7 +665,7 @@ async fn select_tagging_retag_all_unverified_includes_only_unverified() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 has tags_checked=1, 1 and 3 have 0
 
-    let ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false)
+    let ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, None, true)
         .await
         .unwrap();
     assert!(ids.contains(&1));
@@ -657,7 +678,7 @@ async fn select_tagging_respects_limit() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    let ids = select_tagging_design_ids(&pool, "tag_untagged", 1, 0, false)
+    let ids = select_tagging_design_ids(&pool, "tag_untagged", 1, 0, false, None, true)
         .await
         .unwrap();
     assert!(ids.len() <= 1);
@@ -679,7 +700,14 @@ async fn flush_tagging_batch_writes_tag_and_tier() {
     flush_tagging_batch(
         &pool,
         &map,
-        vec![(1, vec!["Cats".to_string()], "path_rule".to_string())],
+        vec![TagBatchEntry {
+            design_id: 1,
+            descriptions: vec!["Cats".to_string()],
+            text_ai_analyzed: true,
+            text_ai_matched: true,
+            vision_ai_analyzed: false,
+            vision_ai_matched: false,
+        }],
         "reset",
     )
     .await
@@ -693,13 +721,17 @@ async fn flush_tagging_batch_writes_tag_and_tier() {
             .unwrap();
     assert_eq!(count, 1);
 
-    // Verify mode
-    let mode: Option<String> =
-        sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 1")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(mode, Some("path_rule".to_string()));
+    // Verify the per-mode AI flags were written alongside the tags.
+    let analyzed: i64 = sqlx::query_scalar("SELECT text_ai_analyzed FROM designs WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(analyzed, 1);
+    let matched: i64 = sqlx::query_scalar("SELECT text_ai_matched FROM designs WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(matched, 1);
 }
 
 #[tokio::test]
@@ -710,7 +742,14 @@ async fn flush_tagging_batch_empty_descriptions_noop() {
     flush_tagging_batch(
         &pool,
         &HashMap::new(),
-        vec![(1, vec![], "path_rule".to_string())],
+        vec![TagBatchEntry {
+            design_id: 1,
+            descriptions: vec![],
+            text_ai_analyzed: false,
+            text_ai_matched: false,
+            vision_ai_analyzed: false,
+            vision_ai_matched: false,
+        }],
         "reset",
     )
     .await
@@ -728,11 +767,18 @@ async fn flush_tagging_batch_replaces_existing_image_tags() {
     map.insert("Cats".to_string(), 1);
     map.insert("Don't Know".to_string(), 3);
 
-    // Replace Cats with Don't Know
+    // Replace Cats with Don't Know (Vision AI produced the suggestion)
     flush_tagging_batch(
         &pool,
         &map,
-        vec![(2, vec!["Don't Know".to_string()], "ai_vision".to_string())],
+        vec![TagBatchEntry {
+            design_id: 2,
+            descriptions: vec!["Don't Know".to_string()],
+            text_ai_analyzed: false,
+            text_ai_matched: false,
+            vision_ai_analyzed: true,
+            vision_ai_matched: true,
+        }],
         "reset",
     )
     .await
@@ -758,13 +804,13 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     seed_basic(&pool).await; // 1: untagged+unverified, 2: tagged+verified, 3: untagged+unverified
 
     // tag_untagged -> designs with no image-group tags: 1 and 3 (both unverified).
-    let untagged = count_tagging_candidates(&pool, "tag_untagged").await.unwrap();
+    let untagged = count_tagging_candidates(&pool, "tag_untagged", None, true).await.unwrap();
     assert_eq!(untagged.total_count, 2);
     assert_eq!(untagged.unverified_count, 2);
     assert_eq!(untagged.verified_count, 0);
 
     // retag_all_unverified -> image_tags_verified = 0: designs 1 and 3.
-    let unverified = count_tagging_candidates(&pool, "retag_all_unverified")
+    let unverified = count_tagging_candidates(&pool, "retag_all_unverified", None, true)
         .await
         .unwrap();
     assert_eq!(unverified.total_count, 2);
@@ -772,35 +818,215 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     assert_eq!(unverified.verified_count, 0);
 
     // retag_all -> every design: total 3, one of which is verified (design 2).
-    let all = count_tagging_candidates(&pool, "retag_all").await.unwrap();
+    let all = count_tagging_candidates(&pool, "retag_all", None, true).await.unwrap();
     assert_eq!(all.total_count, 3);
     assert_eq!(all.unverified_count, 2);
     assert_eq!(all.verified_count, 1);
 
     // The pager's total (exclude_verified=false) matches total_count for each scope.
-    let untagged_ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false)
+    let untagged_ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false, None, true)
         .await
         .unwrap();
     assert_eq!(untagged.total_count as usize, untagged_ids.len());
-    let unverified_ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false)
+    let unverified_ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, None, true)
         .await
         .unwrap();
     assert_eq!(unverified.total_count as usize, unverified_ids.len());
-    let all_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false)
+    let all_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, None, true)
         .await
         .unwrap();
     assert_eq!(all.total_count as usize, all_ids.len());
 
     // Excluding verified designs filters the pager down to unverified_count.
-    let all_excluding = select_tagging_design_ids(&pool, "retag_all", 100, 0, true)
+    let all_excluding = select_tagging_design_ids(&pool, "retag_all", 100, 0, true, None, true)
         .await
         .unwrap();
     assert_eq!(all.unverified_count as usize, all_excluding.len());
     assert!(!all_excluding.contains(&2));
 
     // An unknown action normalizes to tag_untagged, matching the pager.
-    let unknown = count_tagging_candidates(&pool, "bogus").await.unwrap();
+    let unknown = count_tagging_candidates(&pool, "bogus", None, true).await.unwrap();
     assert_eq!(unknown.total_count, untagged.total_count);
+}
+#[tokio::test]
+async fn per_mode_ai_scope_counts_and_pager_parity() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await; // designs 1..=3 (AI flags default 0)
+    // design 1: Text AI analyzed + matched.
+    sqlx::query("UPDATE designs SET text_ai_analyzed = 1, text_ai_matched = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // design 2: Text AI analyzed but no match; Vision AI analyzed + matched.
+    sqlx::query(
+        "UPDATE designs SET text_ai_analyzed = 1, text_ai_matched = 0, \
+         vision_ai_analyzed = 1, vision_ai_matched = 1 WHERE id = 2",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    // design 3: Vision AI analyzed but no match.
+    sqlx::query(
+        "UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 0 WHERE id = 3",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Text AI scopes.
+    let text_not = count_tagging_candidates(&pool, "retag_all_text_not_analyzed", None, true)
+        .await
+        .unwrap();
+    assert_eq!(text_not.total_count, 1); // only design 3 is text-not-analyzed
+    let text_no_match = count_tagging_candidates(&pool, "retag_all_text_no_match", None, true)
+        .await
+        .unwrap();
+    assert_eq!(text_no_match.total_count, 1); // analyzed + no match -> design 2
+    let text_analyzed = count_tagging_candidates(&pool, "retag_all_text_analyzed", None, true)
+        .await
+        .unwrap();
+    assert_eq!(text_analyzed.total_count, 2); // designs 1 and 2
+
+    // Vision AI scopes.
+    let vision_not = count_tagging_candidates(&pool, "retag_all_vision_not_analyzed", None, true)
+        .await
+        .unwrap();
+    assert_eq!(vision_not.total_count, 1); // only design 1 is vision-not-analyzed
+    let vision_no_match = count_tagging_candidates(&pool, "retag_all_vision_no_match", None, true)
+        .await
+        .unwrap();
+    assert_eq!(vision_no_match.total_count, 1); // design 3
+    let vision_analyzed = count_tagging_candidates(&pool, "retag_all_vision_analyzed", None, true)
+        .await
+        .unwrap();
+    assert_eq!(vision_analyzed.total_count, 2); // designs 2 and 3
+
+    // Pager parity: each scope's total (exclude_verified=false) matches the pager.
+    for (action, expected) in [
+        ("retag_all_text_not_analyzed", 1),
+        ("retag_all_text_no_match", 1),
+        ("retag_all_text_analyzed", 2),
+        ("retag_all_vision_not_analyzed", 1),
+        ("retag_all_vision_no_match", 1),
+        ("retag_all_vision_analyzed", 2),
+    ] {
+        let ids = select_tagging_design_ids(&pool, action, 100, 0, false, None, true)
+            .await
+            .unwrap();
+        assert_eq!(expected, ids.len(), "pager mismatch for {action}");
+    }
+}
+
+
+
+#[test]
+fn resolve_folder_scope_under_validates_boundary() {
+    let root = std::env::temp_dir().join("tagging-folder-scope-test");
+    let flowers = root.join("MachineEmbroideryDesigns").join("Flowers");
+    std::fs::create_dir_all(&flowers).unwrap();
+
+    // A subfolder under the root resolves to its relative path.
+    let scope = resolve_folder_scope_under(Some(flowers.to_str().unwrap()), &root)
+        .unwrap()
+        .unwrap();
+    assert_eq!(scope.rel, "MachineEmbroideryDesigns/Flowers");
+    assert!(!scope.is_root);
+
+    // The root itself resolves as the root scope.
+    let root_scope = resolve_folder_scope_under(Some(root.to_str().unwrap()), &root)
+        .unwrap()
+        .unwrap();
+    assert!(root_scope.is_root);
+    assert_eq!(root_scope.rel, "");
+
+    // No folder -> no scope.
+    assert!(resolve_folder_scope_under(None, &root).unwrap().is_none());
+
+    // A path outside the root is rejected.
+    let outside = std::env::temp_dir().join("tagging-folder-scope-outside");
+    std::fs::create_dir_all(&outside).unwrap();
+    let err = resolve_folder_scope_under(Some(outside.to_str().unwrap()), &root).unwrap_err();
+    assert!(err.to_string().contains("outside"));
+
+    // A non-existent folder is rejected.
+    let err =
+        resolve_folder_scope_under(Some(root.join("Missing").to_str().unwrap()), &root).unwrap_err();
+    assert!(err.to_string().contains("does not exist"));
+
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&outside);
+}
+
+#[tokio::test]
+async fn folder_scope_filters_candidates_recursively_and_direct_only() {
+    let pool = make_test_pool().await;
+    // Designs across a Flowers folder (root-prefixed, bare-relative, leading-slash
+    // forms) plus an unrelated Animals folder.
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (1, 'a.pes', 'MachineEmbroideryDesigns/Flowers/a.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (2, 'b.pes', 'MachineEmbroideryDesigns/Flowers/sub/b.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (3, 'c.pes', 'Flowers/c.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (4, 'd.pes', '/MachineEmbroideryDesigns/Flowers/d.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (5, 'e.pes', 'MachineEmbroideryDesigns/Animals/e.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let scope = TaggingFolderScope {
+        rel: "Flowers".to_string(),
+        abs: "/data/MachineEmbroideryDesigns/Flowers".to_string(),
+        is_root: false,
+    };
+
+    // Recursive: designs 1..=4 (all stored forms), not design 5.
+    let recursive = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), true)
+        .await
+        .unwrap();
+    assert!(recursive.contains(&1));
+    assert!(recursive.contains(&2));
+    assert!(recursive.contains(&3));
+    assert!(recursive.contains(&4));
+    assert!(!recursive.contains(&5));
+
+    // Direct-only: designs 1, 3, 4 but not 2 (nested under sub/).
+    let direct = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), false)
+        .await
+        .unwrap();
+    assert!(direct.contains(&1));
+    assert!(direct.contains(&3));
+    assert!(direct.contains(&4));
+    assert!(!direct.contains(&2));
+
+    // Counts align with the candidate set.
+    let counts = count_tagging_candidates(&pool, "retag_all", Some(&scope), true)
+        .await
+        .unwrap();
+    assert_eq!(counts.total_count, 4);
+    let counts_direct = count_tagging_candidates(&pool, "retag_all", Some(&scope), false)
+        .await
+        .unwrap();
+    assert_eq!(counts_direct.total_count, 3);
 }
 
 #[tokio::test]
@@ -816,7 +1042,14 @@ async fn flush_tagging_batch_add_mode_preserves_existing_image_tags() {
     flush_tagging_batch(
         &pool,
         &map,
-        vec![(2, vec!["Don't Know".to_string()], "ai_vision".to_string())],
+        vec![TagBatchEntry {
+            design_id: 2,
+            descriptions: vec!["Don't Know".to_string()],
+            text_ai_analyzed: false,
+            text_ai_matched: false,
+            vision_ai_analyzed: true,
+            vision_ai_matched: true,
+        }],
         "add",
     )
     .await
@@ -853,7 +1086,14 @@ async fn flush_tagging_batch_reset_never_touches_non_image_tags() {
     flush_tagging_batch(
         &pool,
         &map,
-        vec![(1, vec!["Cats".to_string()], "path_rule".to_string())],
+        vec![TagBatchEntry {
+            design_id: 1,
+            descriptions: vec!["Cats".to_string()],
+            text_ai_analyzed: false,
+            text_ai_matched: false,
+            vision_ai_analyzed: false,
+            vision_ai_matched: false,
+        }],
         "reset",
     )
     .await
@@ -1317,6 +1557,8 @@ async fn compute_design_tagging_path_rule_match_returns_suggestion() {
 
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
+        text_ai_enabled: false,
+        text_ai_network: false,
         visual_ai_enabled: false,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
@@ -1325,11 +1567,10 @@ async fn compute_design_tagging_path_rule_match_returns_suggestion() {
         .await
         .unwrap();
 
-    // Compute-only: returns the suggestion; the write happens later in a batched
-    // transaction (covered by the apply_image_tags_and_mode tests).
-    let (descriptions, mode) = result.expect("path_rule should produce a suggestion");
-    assert_eq!(mode, "path_rule");
-    assert!(descriptions.iter().any(|d| d == "Cats"));
+    // Compute-only: returns the merged descriptions; the write happens later in a
+    // batched transaction.
+    assert!(result.descriptions.iter().any(|d| d == "Cats"));
+    assert!(!result.vision_ai_analyzed);
 }
 
 #[tokio::test]
@@ -1359,6 +1600,8 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
 
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
+        text_ai_enabled: false,
+        text_ai_network: false,
         visual_ai_enabled: true,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
@@ -1369,8 +1612,9 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
 
     // Path rules produce no match, so Visual AI's local fallback runs and yields
     // "Don't Know" (no network client, image present).
-    let (_descriptions, mode) = result.expect("Visual AI should produce a fallback suggestion");
-    assert_eq!(mode, "ai_vision");
+    assert!(result.descriptions.iter().any(|d| d == "Don't Know"));
+    assert!(result.vision_ai_analyzed);
+    assert!(result.vision_ai_matched);
 }
 
 #[tokio::test]
@@ -1379,12 +1623,14 @@ async fn compute_design_tagging_nonexistent_design_returns_none() {
     let valid = HashSet::new();
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
+        text_ai_enabled: false,
+        text_ai_network: false,
         visual_ai_enabled: false,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
     };
     let result = compute_design_tagging(&pool, 999, &valid, &mode_options, None).await;
-    assert!(matches!(result, Ok(None)));
+    assert!(matches!(result, Ok(ref r) if r.descriptions.is_empty()));
 }
 
 #[tokio::test]
@@ -1401,8 +1647,22 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
         &pool,
         &map,
         vec![
-            (1, vec!["Cats".to_string()], "path_rule".to_string()),
-            (3, vec!["Don't Know".to_string()], "ai_vision".to_string()),
+            TagBatchEntry {
+                design_id: 1,
+                descriptions: vec!["Cats".to_string()],
+                text_ai_analyzed: true,
+                text_ai_matched: true,
+                vision_ai_analyzed: false,
+                vision_ai_matched: false,
+            },
+            TagBatchEntry {
+                design_id: 3,
+                descriptions: vec!["Don't Know".to_string()],
+                text_ai_analyzed: false,
+                text_ai_matched: false,
+                vision_ai_analyzed: true,
+                vision_ai_matched: true,
+            },
         ],
         "reset",
     )
@@ -1415,11 +1675,11 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
             .await
             .unwrap();
     assert_eq!(cat_count, 1);
-    let mode: Option<String> = sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 1")
+    let analyzed: i64 = sqlx::query_scalar("SELECT text_ai_analyzed FROM designs WHERE id = 1")
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(mode, Some("path_rule".to_string()));
+    assert_eq!(analyzed, 1);
 
     let dk_count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 3 AND tag_id = 3")
@@ -1427,11 +1687,12 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
             .await
             .unwrap();
     assert_eq!(dk_count, 1);
-    let mode3: Option<String> = sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 3")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(mode3, Some("ai_vision".to_string()));
+    let vision_analyzed: i64 =
+        sqlx::query_scalar("SELECT vision_ai_analyzed FROM designs WHERE id = 3")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(vision_analyzed, 1);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1450,7 +1711,7 @@ async fn run_unified_backfill_retag_all_tags_everything() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false),
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false), folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1486,7 +1747,7 @@ async fn run_unified_backfill_retag_all_unverified_skips_verified() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all_unverified".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1535,7 +1796,7 @@ async fn run_unified_backfill_stop_signal_detected_by_summary() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1594,7 +1855,7 @@ async fn run_unified_backfill_stop_aborts_current_tagging_batch() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1649,7 +1910,7 @@ async fn run_unified_backfill_combined_actions() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: Some(StitchingActionOptions {
@@ -1692,7 +1953,7 @@ async fn run_unified_backfill_hoop_dimensions_action_runs() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(false),
                 }),
                 stitching: None,
@@ -1730,7 +1991,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None,
+                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
                     enabled: Some(false),
                 }),
                 stitching: Some(StitchingActionOptions {

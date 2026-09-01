@@ -78,7 +78,10 @@ async fn import_test_pool() -> SqlitePool {
                 is_stitched INTEGER NOT NULL DEFAULT 0,
                 image_tags_verified INTEGER NOT NULL DEFAULT 0,
                 stitching_tags_verified INTEGER NOT NULL DEFAULT 0,
-                tagging_mode TEXT,
+                text_ai_analyzed INTEGER NOT NULL DEFAULT 0,
+                text_ai_matched INTEGER NOT NULL DEFAULT 0,
+                vision_ai_analyzed INTEGER NOT NULL DEFAULT 0,
+                vision_ai_matched INTEGER NOT NULL DEFAULT 0,
                 file_size_bytes INTEGER,
                 file_hash_blake3 TEXT
             );
@@ -2542,11 +2545,18 @@ fn ai_tagging_pass_is_noop_when_vision_disabled() {
         .await;
 
         assert_eq!(count_image_tags(&pool, 1).await, 0);
-        let mode: Option<String> = sqlx::query_scalar("SELECT tagging_mode FROM designs WHERE id = 1")
-            .fetch_one(&pool)
-            .await
-            .expect("read mode");
-        assert!(mode.is_none());
+        let text_analyzed: i64 =
+            sqlx::query_scalar("SELECT text_ai_analyzed FROM designs WHERE id = 1")
+                .fetch_one(&pool)
+                .await
+                .expect("read mode");
+        assert_eq!(text_analyzed, 0);
+        let vision_analyzed: i64 =
+            sqlx::query_scalar("SELECT vision_ai_analyzed FROM designs WHERE id = 1")
+                .fetch_one(&pool)
+                .await
+                .expect("read mode");
+        assert_eq!(vision_analyzed, 0);
     });
 }
 

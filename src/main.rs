@@ -687,6 +687,7 @@ fn main() {
             routes::tagging_actions::stop_unified_backfill,
             routes::tagging_actions::get_backfill_log_entries,
             routes::tagging_actions::count_tagging_candidates,
+            routes::tagging_actions::browse_tagging_folder,
             routes::tagging_actions::run_stitching_backfill,
             routes::tagging_actions::run_fingerprint_backfill,
             routes::maintenance::maintenance_scaffold_enabled,

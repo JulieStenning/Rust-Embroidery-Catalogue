@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::services::auto_tagging::TaggingModeOptions;
+use crate::services::auto_tagging::{TagBatchEntry, TagComputeResult, TaggingModeOptions};
 use crate::services::design_metadata;
 use crate::services::gemini_client::GeminiClient;
 use crate::services::stitch_identifier;
@@ -20,6 +20,13 @@ static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
+// Per-mode Text AI / Vision AI scopes (tracking columns `text_ai_*` / `vision_ai_*`).
+const TAG_ACTION_RETAG_TEXT_NOT_ANALYZED: &str = "retag_all_text_not_analyzed";
+const TAG_ACTION_RETAG_TEXT_NO_MATCH: &str = "retag_all_text_no_match";
+const TAG_ACTION_RETAG_TEXT_ANALYZED: &str = "retag_all_text_analyzed";
+const TAG_ACTION_RETAG_VISION_NOT_ANALYZED: &str = "retag_all_vision_not_analyzed";
+const TAG_ACTION_RETAG_VISION_NO_MATCH: &str = "retag_all_vision_no_match";
+const TAG_ACTION_RETAG_VISION_ANALYZED: &str = "retag_all_vision_analyzed";
 /// Merge strategies for existing image-group tags during a tagging run.
 /// `add` keeps existing tags and appends newly discovered ones; `reset`
 /// re-derives the image tag set from scratch. Non-image and manually-added
@@ -66,6 +73,12 @@ pub struct TaggingActionOptions {
     /// When `true`, human-verified designs (`image_tags_verified = 1`) are
     /// excluded from the tagging candidate pool. Defaults to `true`.
     pub exclude_verified: Option<bool>,
+    /// Optional absolute folder path to scope the run to (must be under the
+    /// designs library root). When set, only designs whose stored filepath is
+    /// under this folder are processed.
+    pub folder_path: Option<String>,
+    /// Whether `folder_path` also includes nested subfolders. Defaults to `true`.
+    pub include_subfolders: Option<bool>,
     pub enabled: Option<bool>,
 }
 
@@ -211,6 +224,8 @@ pub async fn run_unified_backfill_with_progress(
             modes: Some(vec!["path_rule".to_string()]),
             merge_mode: None,
             exclude_verified: None,
+            folder_path: None,
+            include_subfolders: None,
             enabled: Some(true),
         }),
         stitching: None,
@@ -288,7 +303,12 @@ pub async fn run_unified_backfill_with_progress(
             // caller explicitly opts in. This protects reviewed tags from being
             // overwritten by an automated pass.
             let exclude_verified = tagging_action.exclude_verified.unwrap_or(true);
+            // Validate + resolve the optional folder scope once; an invalid or
+            // out-of-bounds folder aborts the run before any design is touched.
+            let folder_scope = resolve_tagging_folder_scope(tagging_action.folder_path.as_deref())?;
+            let include_subfolders = tagging_action.include_subfolders.unwrap_or(true);
             let path_rule_enabled = modes.contains("path_rule");
+            let text_ai_enabled = modes.contains("text_ai") && has_api_key;
             let visual_ai_enabled = modes.contains("ai_vision") && has_api_key;
 
             let image_tag_map = get_image_tag_lookup(pool).await?;
@@ -307,6 +327,8 @@ pub async fn run_unified_backfill_with_progress(
                 .map(Arc::new);
             let mode_options = TaggingModeOptions {
                 path_rule_enabled,
+                text_ai_enabled,
+                text_ai_network: gemini.is_some() && text_ai_enabled,
                 visual_ai_enabled,
                 visual_ai_delay_seconds,
                 // Pace real Gemini network calls only; local-only modes never sleep.
@@ -318,7 +340,7 @@ pub async fn run_unified_backfill_with_progress(
             // Resolve the Gemini model up front (fail fast) so a configured model
             // that has been retired/removed is detected before any designs are
             // processed, rather than mid-run after thousands of calls.
-            if gemini.is_some() && visual_ai_enabled {
+            if gemini.is_some() && (text_ai_enabled || visual_ai_enabled) {
                 let configured_model = get_string_setting(pool, "ai.gemini_model").await?;
                 if let Some(client) = gemini.as_deref() {
                     let resolved = client
@@ -341,9 +363,16 @@ pub async fn run_unified_backfill_with_progress(
                     break;
                 }
 
-                let design_ids =
-                    select_tagging_design_ids(pool, mode, batch_size, tagging_cursor, exclude_verified)
-                        .await?;
+                let design_ids = select_tagging_design_ids(
+                    pool,
+                    mode,
+                    batch_size,
+                    tagging_cursor,
+                    exclude_verified,
+                    folder_scope.as_ref(),
+                    include_subfolders,
+                )
+                .await?;
                 if design_ids.is_empty() {
                     break;
                 }
@@ -378,8 +407,8 @@ pub async fn run_unified_backfill_with_progress(
                         );
                     }
                 }
-                // Completed suggestions awaiting a batched write.
-                let mut pending: Vec<(i64, Vec<String>, String)> = Vec::new();
+                // Completed results (tags + per-mode AI flags) awaiting a batched write.
+                let mut pending: Vec<TagBatchEntry> = Vec::new();
                 // Join results, but keep the loop stop-interruptible so a Stop
                 // request aborts the current batch immediately instead of
                 // draining it. A short interval polls STOP_REQUESTED while
@@ -404,15 +433,19 @@ pub async fn run_unified_backfill_with_progress(
                                 Some(joined) => {
                                     let before = processed;
                                     match joined {
-                                        Ok((design_id, Ok(Some((descriptions, mode))))) => {
+                                        Ok((design_id, Ok(result))) => {
                                             touched_design_ids.insert(design_id);
                                             processed += 1;
-                                            pending.push((design_id, descriptions, mode));
-                                        }
-                                        Ok((design_id, Ok(None))) => {
-                                            // No mode produced a suggestion — nothing to write.
-                                            touched_design_ids.insert(design_id);
-                                            processed += 1;
+                                            // Every processed design is committed (even a
+                                            // no-match) so its per-mode AI flags are recorded.
+                                            pending.push(TagBatchEntry {
+                                                design_id,
+                                                descriptions: result.descriptions,
+                                                text_ai_analyzed: result.text_ai_analyzed,
+                                                text_ai_matched: result.text_ai_matched,
+                                                vision_ai_analyzed: result.vision_ai_analyzed,
+                                                vision_ai_matched: result.vision_ai_matched,
+                                            });
                                         }
                                         Ok((design_id, Err(error))) => {
                                             touched_design_ids.insert(design_id);
@@ -820,6 +853,12 @@ fn normalize_tag_mode(raw: Option<&str>) -> &str {
     {
         TAG_ACTION_RETAG_ALL => TAG_ACTION_RETAG_ALL,
         TAG_ACTION_RETAG_ALL_UNVERIFIED => TAG_ACTION_RETAG_ALL_UNVERIFIED,
+        TAG_ACTION_RETAG_TEXT_NOT_ANALYZED => TAG_ACTION_RETAG_TEXT_NOT_ANALYZED,
+        TAG_ACTION_RETAG_TEXT_NO_MATCH => TAG_ACTION_RETAG_TEXT_NO_MATCH,
+        TAG_ACTION_RETAG_TEXT_ANALYZED => TAG_ACTION_RETAG_TEXT_ANALYZED,
+        TAG_ACTION_RETAG_VISION_NOT_ANALYZED => TAG_ACTION_RETAG_VISION_NOT_ANALYZED,
+        TAG_ACTION_RETAG_VISION_NO_MATCH => TAG_ACTION_RETAG_VISION_NO_MATCH,
+        TAG_ACTION_RETAG_VISION_ANALYZED => TAG_ACTION_RETAG_VISION_ANALYZED,
         _ => TAG_ACTION_UNTAGGED,
     }
 }
@@ -843,7 +882,10 @@ fn normalize_modes(raw: Option<&[String]>, has_api_key: bool) -> HashSet<String>
     if let Some(values) = raw {
         for mode in values {
             let m = mode.trim().to_ascii_lowercase();
-            if m == "path_rule" || (m == "ai_vision" && has_api_key) {
+            if m == "path_rule"
+                || (m == "text_ai" && has_api_key)
+                || (m == "ai_vision" && has_api_key)
+            {
                 modes.insert(m);
             }
         }
@@ -884,6 +926,24 @@ fn tagging_scope_from_where(mode: &str) -> &'static str {
         TAG_ACTION_RETAG_ALL_UNVERIFIED => {
             "FROM designs d WHERE COALESCE(d.image_tags_verified, 0) = 0"
         }
+        TAG_ACTION_RETAG_TEXT_NOT_ANALYZED => {
+            "FROM designs d WHERE COALESCE(d.text_ai_analyzed, 0) = 0"
+        }
+        TAG_ACTION_RETAG_TEXT_NO_MATCH => {
+            "FROM designs d WHERE COALESCE(d.text_ai_analyzed, 0) = 1 AND COALESCE(d.text_ai_matched, 0) = 0"
+        }
+        TAG_ACTION_RETAG_TEXT_ANALYZED => {
+            "FROM designs d WHERE COALESCE(d.text_ai_analyzed, 0) = 1"
+        }
+        TAG_ACTION_RETAG_VISION_NOT_ANALYZED => {
+            "FROM designs d WHERE COALESCE(d.vision_ai_analyzed, 0) = 0"
+        }
+        TAG_ACTION_RETAG_VISION_NO_MATCH => {
+            "FROM designs d WHERE COALESCE(d.vision_ai_analyzed, 0) = 1 AND COALESCE(d.vision_ai_matched, 0) = 0"
+        }
+        TAG_ACTION_RETAG_VISION_ANALYZED => {
+            "FROM designs d WHERE COALESCE(d.vision_ai_analyzed, 0) = 1"
+        }
         _ => "FROM designs d
 \t\t WHERE NOT EXISTS (
 \t\t   SELECT 1
@@ -894,15 +954,169 @@ fn tagging_scope_from_where(mode: &str) -> &'static str {
     }
 }
 
-/// A `COUNT(*)` over the shared scope fragment with an optional verified filter,
-/// so the total/unverified/verified breakdown stays aligned with the pager.
+/// Boundary-safe, case-insensitive check that `candidate` is `root` or a
+/// descendant of `root`. Separators are normalized and a trailing root slash is
+/// trimmed so a sibling like `/root2` cannot pass.
+pub(crate) fn is_path_under_root(candidate: &str, root: &Path) -> bool {
+    let normalize = |p: &Path| {
+        p.to_string_lossy()
+            .replace('\\', "/")
+            .trim_end_matches('/')
+            .to_ascii_lowercase()
+    };
+    let cand = normalize(Path::new(candidate));
+    let base = normalize(root);
+    if cand == base {
+        return true;
+    }
+    cand.starts_with(&format!("{base}/"))
+}
+
+/// Returns `full_path` relative to `root` (`""` when they are equal). Assumes
+/// `full_path` has already been validated to be under `root`.
+pub(crate) fn relative_path_under_root(full_path: &str, root: &Path) -> String {
+    let full_norm = full_path.replace('\\', "/");
+    let root_norm = root
+        .to_string_lossy()
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_string();
+    if full_norm.to_ascii_lowercase() == root_norm.to_ascii_lowercase() {
+        return String::new();
+    }
+    let root_lower = root_norm.to_ascii_lowercase();
+    if full_norm.to_ascii_lowercase().starts_with(&root_lower) {
+        full_norm[root_norm.len()..].trim_start_matches('/').to_string()
+    } else {
+        full_norm.trim_start_matches('/').to_string()
+    }
+}
+
+/// A validated folder scope for a tagging run.
+#[derive(Debug, Clone)]
+pub(crate) struct TaggingFolderScope {
+    /// Folder path relative to the library root (`""` for the root itself).
+    pub rel: String,
+    /// Absolute folder path with `/` separators.
+    pub abs: String,
+    /// Whether the selected folder is the library root.
+    pub is_root: bool,
+}
+
+/// Validate and resolve an optional absolute `folder_path` into a folder scope
+/// bounded to `root`. Returns `Ok(None)` when no folder was requested; rejects
+/// paths that do not exist, are not directories, or fall outside the root.
+pub(crate) fn resolve_folder_scope_under(
+    folder_path: Option<&str>,
+    root: &Path,
+) -> Result<Option<TaggingFolderScope>, AppError> {
+    let Some(raw) = folder_path.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+
+    let candidate = Path::new(raw);
+    if !candidate.exists() {
+        return Err(AppError::invalid_input(format!("Folder does not exist: {raw}")));
+    }
+    if !candidate.is_dir() {
+        return Err(AppError::invalid_input(format!(
+            "Selected path is not a folder: {raw}"
+        )));
+    }
+    if !is_path_under_root(raw, root) {
+        return Err(AppError::invalid_input(format!(
+            "Folder is outside the Data Storage Location ({})",
+            root.to_string_lossy()
+        )));
+    }
+
+    let abs = raw.replace('\\', "/");
+    let rel = relative_path_under_root(raw, root);
+    let is_root = rel.is_empty();
+    Ok(Some(TaggingFolderScope { rel, abs, is_root }))
+}
+
+/// Validate and resolve an optional absolute `folder_path` into a folder scope
+/// bounded to the designs library root resolved from the app paths.
+pub(crate) fn resolve_tagging_folder_scope(
+    folder_path: Option<&str>,
+) -> Result<Option<TaggingFolderScope>, AppError> {
+    let root = crate::paths::resolve_app_paths()
+        .map(|p| p.embroidery_designs_dir)
+        .unwrap_or_else(|_| PathBuf::from("MachineEmbroideryDesigns"));
+    resolve_folder_scope_under(folder_path, &root)
+}
+
+/// Escape LIKE wildcards so folder names containing `%` / `_` match literally.
+fn like_escape(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
+/// Append `AND` clauses restricting `d.filepath` to the given folder scope.
+/// Matches the stored filepath forms (`/MachineEmbroideryDesigns/…`,
+/// `MachineEmbroideryDesigns/…`, bare-relative, and absolute). With
+/// `include_subfolders` false, designs deeper than one level are excluded.
+fn push_folder_scope_clauses(
+    query: &mut QueryBuilder<Sqlite>,
+    scope: &TaggingFolderScope,
+    include_subfolders: bool,
+) {
+    if scope.is_root {
+        if !include_subfolders {
+            query.push(
+                " AND ( d.filepath NOT LIKE '%/%' \
+                 OR ( d.filepath LIKE 'MachineEmbroideryDesigns/%' AND d.filepath NOT LIKE 'MachineEmbroideryDesigns/%/%' ) \
+                 OR ( d.filepath LIKE '/MachineEmbroideryDesigns/%' AND d.filepath NOT LIKE '/MachineEmbroideryDesigns/%/%' ) )",
+            );
+        }
+        return;
+    }
+
+    let prefixes = [
+        format!("/MachineEmbroideryDesigns/{}/", scope.rel),
+        format!("MachineEmbroideryDesigns/{}/", scope.rel),
+        format!("{}/", scope.rel),
+        format!("{}/", scope.abs),
+    ];
+    query.push(" AND (");
+    let mut first = true;
+    for prefix in &prefixes {
+        if !first {
+            query.push(" OR ");
+        }
+        first = false;
+        query.push("(d.filepath LIKE ");
+        query.push_bind(format!("{}%", like_escape(prefix)));
+        query.push(" ESCAPE '\\' ");
+        if !include_subfolders {
+            query.push("AND d.filepath NOT LIKE ");
+            query.push_bind(format!("{}%/%", like_escape(prefix)));
+            query.push(" ESCAPE '\\' ");
+        }
+        query.push(")");
+    }
+    query.push(")");
+}
+
+
+/// A `COUNT(*)` over the shared scope fragment with an optional verified filter
+/// and optional folder scope, so the total/unverified/verified breakdown stays
+/// aligned with the pager.
 async fn count_scope_with_filter(
     pool: &SqlitePool,
     base: &str,
+    folder_scope: Option<&TaggingFolderScope>,
+    include_subfolders: bool,
     verified_filter: &str,
 ) -> Result<i64, AppError> {
     let mut query = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) ");
     query.push(base);
+    if let Some(scope) = folder_scope {
+        push_folder_scope_clauses(&mut query, scope, include_subfolders);
+    }
     query.push(verified_filter);
     query
         .build_query_scalar::<i64>()
@@ -927,13 +1141,27 @@ pub struct TaggingScopeCounts {
 pub(crate) async fn count_tagging_candidates(
     pool: &SqlitePool,
     action: &str,
+    folder_scope: Option<&TaggingFolderScope>,
+    include_subfolders: bool,
 ) -> Result<TaggingScopeCounts, AppError> {
     let base = tagging_scope_from_where(normalize_tag_mode(Some(action)));
-    let total = count_scope_with_filter(pool, base, "").await?;
-    let unverified = count_scope_with_filter(pool, base, " AND COALESCE(d.image_tags_verified, 0) = 0")
-        .await?;
-    let verified =
-        count_scope_with_filter(pool, base, " AND COALESCE(d.image_tags_verified, 0) = 1").await?;
+    let total = count_scope_with_filter(pool, base, folder_scope, include_subfolders, "").await?;
+    let unverified = count_scope_with_filter(
+        pool,
+        base,
+        folder_scope,
+        include_subfolders,
+        " AND COALESCE(d.image_tags_verified, 0) = 0",
+    )
+    .await?;
+    let verified = count_scope_with_filter(
+        pool,
+        base,
+        folder_scope,
+        include_subfolders,
+        " AND COALESCE(d.image_tags_verified, 0) = 1",
+    )
+    .await?;
     Ok(TaggingScopeCounts {
         total_count: total,
         unverified_count: unverified,
@@ -947,6 +1175,8 @@ async fn select_tagging_design_ids(
     limit: i64,
     min_id: i64,
     exclude_verified: bool,
+    folder_scope: Option<&TaggingFolderScope>,
+    include_subfolders: bool,
 ) -> Result<Vec<i64>, AppError> {
     // `min_id` is a keyset cursor so the caller can page through ALL matching
     // designs in ascending-id batches (see the pagination loop in
@@ -954,6 +1184,9 @@ async fn select_tagging_design_ids(
     // re-selects the same first `limit` rows on every run.
     let mut query = QueryBuilder::<Sqlite>::new("SELECT d.id ");
     query.push(tagging_scope_from_where(mode));
+    if let Some(scope) = folder_scope {
+        push_folder_scope_clauses(&mut query, scope, include_subfolders);
+    }
     if exclude_verified {
         query.push(" AND COALESCE(d.image_tags_verified, 0) = 0");
     }
@@ -976,15 +1209,15 @@ async fn select_tagging_design_ids(
 }
 
 /// Output of a single compute-only tagging worker task: the design id plus the
-/// computed `(descriptions, mode)` suggestion, or `None` (no suggestion) / `Err`.
-type TaggingWorkerOutput = (i64, Result<Option<(Vec<String>, String)>, AppError>);
+/// computed [`TagComputeResult`] (merged descriptions + per-mode AI flags), or
+/// `Err` on failure.
+type TaggingWorkerOutput = (i64, Result<TagComputeResult, AppError>);
 
 /// Spawn a single concurrent tagging task for `design_id`. Workers only COMPUTE
-/// the suggestion (a read-only operation — no DB writes); the caller applies the
+/// the result (a read-only operation — no DB writes); the caller applies the
 /// returned result later in a batched transaction. Shared read-only data (valid
 /// descriptions) and the connection pool are passed via cheap `Arc` clones so each
-/// worker can run independently. Returns `Some((descriptions, mode))` when a mode
-/// produced a suggestion, or `None` when none did.
+/// worker can run independently.
 fn spawn_tagging_task(
     set: &mut JoinSet<TaggingWorkerOutput>,
     design_id: i64,
@@ -1006,9 +1239,8 @@ fn spawn_tagging_task(
     });
 }
 
-/// Compute the tagging suggestion for a single design WITHOUT writing to the
-/// database. Returns the suggested tag descriptions and the mode that produced
-/// them (`path_rule`/`ai_vision`), or `None` if no mode produced a suggestion. The
+/// Compute the tagging result for a single design WITHOUT writing to the
+/// database. Returns the merged descriptions + per-mode AI outcome flags. The
 /// caller applies the result later in a batched transaction (see the tagging
 /// loop), so a run can commit thousands of designs' writes in a handful of
 /// transactions.
@@ -1018,7 +1250,7 @@ async fn compute_design_tagging(
     valid_descriptions: &HashSet<String>,
     mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
-) -> Result<Option<(Vec<String>, String)>, AppError> {
+) -> Result<TagComputeResult, AppError> {
     // Only fetch the preview image when Visual AI (vision) is enabled, so large
     // BLOBs aren't read for every design in a File & Folder Rules-only run.
     let select_sql = if mode_options.visual_ai_enabled {
@@ -1033,7 +1265,7 @@ async fn compute_design_tagging(
         .map_err(|e| AppError::database(format!("failed to read design row for tagging: {e}")))?;
 
     let Some(row) = row else {
-        return Ok(None);
+        return Ok(TagComputeResult::default());
     };
 
     let filename: String = row
@@ -1079,7 +1311,7 @@ fn suggest_visual_ai_descriptions(
 async fn flush_tagging_batch(
     pool: &SqlitePool,
     image_tag_map: &HashMap<String, i64>,
-    results: Vec<(i64, Vec<String>, String)>,
+    results: Vec<TagBatchEntry>,
     merge_mode: &str,
 ) -> Result<(), AppError> {
     crate::services::auto_tagging::apply_tagging_batch(pool, image_tag_map, results, merge_mode)

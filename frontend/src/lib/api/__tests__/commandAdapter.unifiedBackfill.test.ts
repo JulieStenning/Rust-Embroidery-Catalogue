@@ -3,6 +3,7 @@ import {
   runUnifiedBackfill,
   runStitchingBackfill,
   countTaggingCandidates,
+  browseTaggingFolder,
 } from "../commandAdapter";
 
 // Mock the Tauri invoke used by the adapter so we can assert the exact wire payload.
@@ -189,6 +190,40 @@ describe("commandAdapter countTaggingCandidates payload", () => {
       error: "Error: boom",
     });
   });
+
+  it("passes folder_path and include_subfolders to the count command", async () => {
+    await countTaggingCandidates("retag_all", "C:/library/Flowers", false);
+
+    expect(invokeMock).toHaveBeenCalledWith("count_tagging_candidates", {
+      action: "retag_all",
+      folderPath: "C:/library/Flowers",
+      includeSubfolders: false,
+    });
+  });
+});
+
+describe("commandAdapter browseTaggingFolder payload", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ path: "C:/library/Flowers", relative_path: "Flowers" });
+  });
+
+  it("invokes browse_tagging_folder with the startDir key", async () => {
+    const result = await browseTaggingFolder("C:/library");
+
+    expect(invokeMock).toHaveBeenCalledWith("browse_tagging_folder", { startDir: "C:/library" });
+    expect(result).toEqual({
+      path: "C:/library/Flowers",
+      relative_path: "Flowers",
+      error: undefined,
+    });
+  });
+
+  it("passes a null startDir when none is provided", async () => {
+    await browseTaggingFolder();
+
+    expect(invokeMock).toHaveBeenCalledWith("browse_tagging_folder", { startDir: null });
+  });
 });
 
 describe("commandAdapter merge_mode forwarding", () => {
@@ -302,4 +337,47 @@ describe("commandAdapter merge_mode forwarding", () => {
       },
     });
   });
+  it("forwards folder_path and include_subfolders into the tagging action", async () => {
+    await runUnifiedBackfill({
+      action_mode: "retag_all",
+      modes: ["path_rule"],
+      merge_mode: "add",
+      exclude_verified: false,
+      folder_path: "C:/library/Flowers",
+      include_subfolders: false,
+      run_vision: false,
+      run_images: false,
+      image_redo: false,
+      run_color_counts: false,
+      run_hoop_dimensions: false,
+      commit_every: 100,
+      batch_size: 100,
+      workers: 4,
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("run_unified_backfill", {
+      request: {
+        actions: {
+          tagging: {
+            action: "retag_all",
+            modes: ["path_rule"],
+            merge_mode: "add",
+            exclude_verified: false,
+            folder_path: "C:/library/Flowers",
+            include_subfolders: false,
+            enabled: true,
+          },
+          stitching: null,
+          images: null,
+          color_counts: null,
+          hoop_dimensions: null,
+          fingerprinting: null,
+        },
+        batch_size: 100,
+        commit_every: 100,
+        workers: 4,
+      },
+    });
+  });
+
 });

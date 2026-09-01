@@ -70,7 +70,7 @@ describe("TaggingActionsView mount behaviour", () => {
       expect(adapterMocks.getBackfillLogEntries).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(adapterMocks.countTaggingCandidates).toHaveBeenCalledTimes(3);
+      expect(adapterMocks.countTaggingCandidates).toHaveBeenCalledTimes(8);
     });
   });
 
@@ -79,7 +79,7 @@ describe("TaggingActionsView mount behaviour", () => {
 
     expect(
       await screen.findByText(
-        /No Google API key is configured in Settings\. Visual AI tagging will be skipped\./
+        /No Google API key is configured in Settings\. Text AI and Vision AI tagging will be skipped\./
       )
     ).toBeInTheDocument();
     await waitFor(() => {
@@ -146,7 +146,7 @@ describe("TaggingActionsView initial render", () => {
     await waitFor(() => {
       expect(screen.getByRole("radio", { name: /Enrich with Visual AI/ })).toBeDisabled();
     });
-    expect(screen.getByRole("radio", { name: /Both Methods/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Full Re-Scan/ })).toBeDisabled();
   });
 
   it("enables the Run button when ready (a default action is always selected)", async () => {

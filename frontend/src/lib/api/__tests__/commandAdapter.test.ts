@@ -131,7 +131,6 @@ const DESIGN_DETAIL_WIRE = {
   stitching_tags_verified: true,
   notes: "Some notes",
   rating: 4,
-  tagging_mode: "ai_vision",
   date_added: "2026-01-01",
   tags: [
     { id: 1, description: "Flowers", tag_group: null },
@@ -1753,6 +1752,7 @@ describe("commandAdapter settings", () => {
       default_commit_every: 100,
       default_workers: 4,
       default_delay: 5,
+      data_storage_location: "",
     });
     expect(result.error).toContain("vm failed");
   });

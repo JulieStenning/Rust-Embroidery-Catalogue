@@ -60,7 +60,6 @@ pub struct Design {
     pub is_stitched: bool,
     pub image_tags_verified: bool,
     pub stitching_tags_verified: bool,
-    pub tagging_mode: Option<String>,
     pub date_added: Option<String>,
     pub designer_id: Option<i64>,
     pub source_id: Option<i64>,

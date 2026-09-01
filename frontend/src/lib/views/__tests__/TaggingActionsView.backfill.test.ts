@@ -14,6 +14,7 @@ const adapterMocks = vi.hoisted(() => ({
   getBackfillLogEntries: vi.fn(),
   runStitchingBackfill: vi.fn(),
   countTaggingCandidates: vi.fn(),
+  browseTaggingFolder: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -131,7 +132,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
     await waitFor(() => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith({
-        action_mode: "retag_all_unverified",
+        action_mode: "retag_all_vision_not_analyzed",
         modes: ["ai_vision"],
         merge_mode: "add",
         exclude_verified: true,
@@ -283,6 +284,41 @@ describe("TaggingActionsView run unified backfill", () => {
     expect(freeMinutes).toBeGreaterThan(paidMinutes * 5);
   });
 
+  it("passes the selected folder and subfolder flag to the run", async () => {
+    adapterMocks.browseTaggingFolder.mockResolvedValue({
+      path: "C:/library/MachineEmbroideryDesigns/Flowers",
+      relative_path: "Flowers",
+    });
+    render(TaggingActionsView);
+    const user = userEvent.setup();
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findAllByText("10 unverified · 2 verified");
+
+    await user.click(screen.getByRole("radio", { name: /Specific Folder or Category/ }));
+    await user.click(screen.getByRole("button", { name: "Choose folder…" }));
+    await waitFor(() => {
+      expect(adapterMocks.browseTaggingFolder).toHaveBeenCalled();
+    });
+
+    // Toggle subfolders off, then start the run.
+    const subfolders = screen.getByRole("checkbox", { name: /Include subfolders/ });
+    await user.click(subfolders);
+    expect(subfolders).not.toBeChecked();
+
+    await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
+    await user.click(screen.getByRole("button", { name: "Start Tagging" }));
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action_mode: "retag_all",
+          folder_path: "C:/library/MachineEmbroideryDesigns/Flowers",
+          include_subfolders: false,
+        })
+      );
+    });
+  });
+
   it("shows a stopped-early toast and the summary", async () => {
     adapterMocks.runUnifiedBackfill.mockResolvedValue(
       backfillResult({ processed: 3, errors: 0, stopped: true })
@@ -356,4 +392,45 @@ describe("TaggingActionsView run unified backfill", () => {
       );
     });
   });
+
+  it("runs Text AI on designs Text AI found no tags for when chosen", async () => {
+    render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: /Analyze with Text AI/ }));
+    await user.click(screen.getByRole("radio", { name: /Text AI found no match/ }));
+
+    await startRun();
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action_mode: "retag_all_text_no_match",
+          modes: ["text_ai"],
+        })
+      );
+    });
+  });
+
+  it("runs all three tiers on the whole collection for a full re-scan", async () => {
+    render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: /Full Re-Scan/ }));
+    await user.click(screen.getByRole("radio", { name: /Entire collection/ }));
+
+    await startRun();
+
+    await waitFor(() => {
+      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action_mode: "retag_all",
+          modes: ["path_rule", "text_ai", "ai_vision"],
+        })
+      );
+    });
+  });
+
 });

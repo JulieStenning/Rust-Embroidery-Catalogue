@@ -17,18 +17,21 @@ use tokio::time::sleep;
 /// Tagging Actions preview.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaggingMode {
-    /// "File & Folder Rules" — instantaneous, local matching on filename/path tokens.
+    /// "File & Folder Rules" — offline, local matching on filename/path tokens (Tier 1).
     FileFolder,
-    /// "Visual AI" — analyzes the rendered thumbnail via Gemini Vision (needs an API key).
+    /// "Text AI" — Gemini on the file name / folder path (Tier 2). Needs an API key.
+    TextAi,
+    /// "Vision AI" — Gemini Vision on the rendered thumbnail (Tier 3). Needs an API key.
     VisualAi,
 }
 
 impl TaggingMode {
-    /// Stable wire/schema identifier used in IPC payloads and the `tagging_mode`
-    /// column. `FileFolder` → `"path_rule"`, `VisualAi` → `"ai_vision"`.
+    /// Stable wire identifier used in IPC payloads. `FileFolder` → `"path_rule"`,
+    /// `TextAi` → `"text_ai"`, `VisualAi` → `"ai_vision"`.
     pub fn wire_id(&self) -> &'static str {
         match self {
             TaggingMode::FileFolder => "path_rule",
+            TaggingMode::TextAi => "text_ai",
             TaggingMode::VisualAi => "ai_vision",
         }
     }
@@ -48,24 +51,26 @@ pub fn resolve_enabled(precedence: &TaggingPrecedence) -> bool {
         .unwrap_or(precedence.hard_default)
 }
 
-pub fn ordered_modes() -> [TaggingMode; 2] {
-    [TaggingMode::FileFolder, TaggingMode::VisualAi]
+pub fn ordered_modes() -> [TaggingMode; 3] {
+    [TaggingMode::FileFolder, TaggingMode::TextAi, TaggingMode::VisualAi]
 }
 
 /// Mode configuration for auto-tagging, grouped to keep callers under clippy's
 /// `too_many_arguments` limit.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct TaggingModeOptions {
-    /// Whether File & Folder Rules (local path/name matching) runs for each design.
+    /// Whether File & Folder Rules (offline path/name matching, Tier 1) runs.
     pub path_rule_enabled: bool,
-    /// Whether Visual AI (Gemini vision on the rendered thumbnail) runs as the
-    /// fallback when File & Folder Rules produce no suggestion.
+    /// Whether Text AI (Gemini on the file name / folder, Tier 2) runs.
+    pub text_ai_enabled: bool,
+    /// Whether Text AI makes a real outbound Gemini request that needs pacing.
+    pub text_ai_network: bool,
+    /// Whether Vision AI (Gemini on the rendered thumbnail, Tier 3) runs.
     pub visual_ai_enabled: bool,
-    /// Seconds to wait between Visual AI calls, but only when Visual AI makes a real
-    /// outbound Gemini request (`visual_ai_network`). For local-only runs the delay
-    /// is skipped so large runs aren't throttled by a fixed sleep.
+    /// Seconds to wait between AI calls (shared by Text AI and Vision AI). Only
+    /// applies when the tier makes a real outbound Gemini request.
     pub visual_ai_delay_seconds: f64,
-    /// Whether Visual AI performs a real network call that needs rate-limit pacing.
+    /// Whether Vision AI performs a real network call that needs rate-limit pacing.
     pub visual_ai_network: bool,
 }
 
@@ -102,11 +107,25 @@ pub(crate) fn default_delay_for(free_tier: bool) -> f64 {
     }
 }
 
-/// Compute the tagging suggestion for a single design WITHOUT writing to the
-/// database. Returns the suggested tag descriptions and the mode that produced
-/// them (`path_rule` / `ai_vision`), or `None` if no mode produced a suggestion.
-/// The caller applies the result later in a batched write (see
-/// `apply_tagging_batch`).
+/// Outcome of computing tags for a single design: the merged tag descriptions
+/// across the selected tiers, plus which AI tiers ran to a conclusion and which
+/// produced at least one tag.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct TagComputeResult {
+    /// Merged (deduped) tag descriptions from all selected tiers. May be empty.
+    pub descriptions: Vec<String>,
+    pub text_ai_analyzed: bool,
+    pub text_ai_matched: bool,
+    pub vision_ai_analyzed: bool,
+    pub vision_ai_matched: bool,
+}
+
+/// Compute the tagging suggestions for a single design WITHOUT writing to the
+/// database. Every selected tier runs (run-all + merge): Tier 1 offline path/name
+/// rules, Tier 2 Text AI (Gemini on the file name/folder), Tier 3 Vision AI
+/// (Gemini on the thumbnail). A tier that errors propagates the error and does
+/// NOT mark that tier as analyzed (so it is retried on a later run). The caller
+/// applies the result later in a batched write (see [`apply_tagging_batch`]).
 pub(crate) async fn compute_tags_for_input(
     filename: &str,
     filepath: &str,
@@ -114,40 +133,69 @@ pub(crate) async fn compute_tags_for_input(
     valid_descriptions: &HashSet<String>,
     mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
-) -> Result<Option<(Vec<String>, String)>, AppError> {
+) -> Result<TagComputeResult, AppError> {
+    let mut merged: Vec<String> = Vec::new();
+    let mut text_ai_analyzed = false;
+    let mut text_ai_matched = false;
+    let mut vision_ai_analyzed = false;
+    let mut vision_ai_matched = false;
+
+    // Tier 1 — offline path/file rules (never an API call).
     if mode_options.path_rule_enabled {
-        let path_rule =
-            tagging::suggest_path_rule_descriptions(filename, filepath, valid_descriptions);
-        if !path_rule.is_empty() {
-            return Ok(Some((
-                path_rule,
-                TaggingMode::FileFolder.wire_id().to_string(),
-            )));
+        merged.extend(tagging::suggest_path_rule_descriptions(
+            filename,
+            filepath,
+            valid_descriptions,
+        ));
+    }
+
+    // Tier 2 — Text AI (Gemini on the file name / folder). Needs an API key.
+    if mode_options.text_ai_enabled {
+        if mode_options.text_ai_network && mode_options.visual_ai_delay_seconds > 0.0 {
+            sleep(Duration::from_secs_f64(mode_options.visual_ai_delay_seconds)).await;
+        }
+        if let Some(client) = gemini {
+            let text_ai = client
+                .suggest_tags_text(filename, filepath, valid_descriptions)
+                .await?;
+            text_ai_analyzed = true;
+            if !text_ai.is_empty() {
+                text_ai_matched = true;
+                merged.extend(text_ai);
+            }
         }
     }
 
+    // Tier 3 — Vision AI (Gemini on the thumbnail). Needs image data. When no API
+    // key is configured (gemini is `None`) a local token-match heuristic runs as
+    // the offline fallback.
     if mode_options.visual_ai_enabled && image_data.is_some() {
-        // The delay only paces a real outbound Gemini call. A local-only Visual AI
-        // run does not sleep, so large runs aren't throttled.
         if mode_options.visual_ai_network && mode_options.visual_ai_delay_seconds > 0.0 {
             sleep(Duration::from_secs_f64(mode_options.visual_ai_delay_seconds)).await;
         }
-        let visual_ai = if let Some(client) = gemini {
+        let vision_ai = if let Some(client) = gemini {
             client
                 .suggest_tags_vision(filename, image_data.unwrap_or_default(), valid_descriptions)
                 .await?
         } else {
             suggest_visual_ai_descriptions(filename, filepath, valid_descriptions)
         };
-        if !visual_ai.is_empty() {
-            return Ok(Some((
-                visual_ai,
-                TaggingMode::VisualAi.wire_id().to_string(),
-            )));
+        vision_ai_analyzed = true;
+        if !vision_ai.is_empty() {
+            vision_ai_matched = true;
+            merged.extend(vision_ai);
         }
     }
 
-    Ok(None)
+    merged.sort();
+    merged.dedup();
+    Ok(TagComputeResult {
+        descriptions: merged,
+        text_ai_analyzed,
+        text_ai_matched,
+        vision_ai_analyzed,
+        vision_ai_matched,
+    })
 }
 
 /// Local (offline) Visual AI fallback: match a description when every one of its
@@ -213,13 +261,27 @@ pub(crate) fn rate_limit_message(error: &AppError, free_tier: bool) -> String {
     )
 }
 
+/// A single design's write in a tagging batch: the merged tag descriptions plus
+/// the per-mode AI outcome flags (used even when `descriptions` is empty, i.e. an
+/// AI mode ran to a "no match" conclusion).
+#[derive(Debug, Clone)]
+pub(crate) struct TagBatchEntry {
+    pub design_id: i64,
+    pub descriptions: Vec<String>,
+    pub text_ai_analyzed: bool,
+    pub text_ai_matched: bool,
+    pub vision_ai_analyzed: bool,
+    pub vision_ai_matched: bool,
+}
+
 /// Apply a set of computed tagging suggestions in a single SQLite transaction.
 /// This is the actual commit batching: a batch of designs' writes share one
 /// transaction (one journal + fsync) instead of one autocommit per statement.
+/// Every entry also updates the per-mode AI outcome columns.
 pub(crate) async fn apply_tagging_batch(
     pool: &SqlitePool,
     image_tag_map: &HashMap<String, i64>,
-    results: Vec<(i64, Vec<String>, String)>,
+    results: Vec<TagBatchEntry>,
     merge_mode: &str,
 ) -> Result<(), AppError> {
     if results.is_empty() {
@@ -229,30 +291,27 @@ pub(crate) async fn apply_tagging_batch(
         AppError::database(format!("failed to begin tagging batch transaction: {e}"))
     })?;
 
-    for (design_id, descriptions, mode) in results {
-        if descriptions.is_empty() {
-            continue;
-        }
+    for entry in results {
         // `add` preserves existing image-group tags (append only); any other
         // mode (`reset`) re-derives the image tag set from scratch. Only the
         // `image` tag group is ever touched — manually-added and non-image tags
         // are never cleared.
-        if merge_mode != "add" {
+        if !entry.descriptions.is_empty() && merge_mode != "add" {
             sqlx::query(
                 "DELETE FROM design_tags
 \t\t WHERE design_id = ?
 \t\t   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'image')",
             )
-            .bind(design_id)
+            .bind(entry.design_id)
             .execute(&mut *tx)
             .await
             .map_err(|e| AppError::database(format!("failed to clear existing image tags: {e}")))?;
         }
 
-        for description in descriptions {
-            if let Some(tag_id) = image_tag_map.get(&description) {
+        for description in &entry.descriptions {
+            if let Some(tag_id) = image_tag_map.get(description) {
                 sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
-                    .bind(design_id)
+                    .bind(entry.design_id)
                     .bind(*tag_id)
                     .execute(&mut *tx)
                     .await
@@ -260,12 +319,19 @@ pub(crate) async fn apply_tagging_batch(
             }
         }
 
-        sqlx::query("UPDATE designs SET tagging_mode = ?, image_tags_verified = 0 WHERE id = ?")
-            .bind(mode)
-            .bind(design_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| AppError::database(format!("failed to update tagging mode: {e}")))?;
+        sqlx::query(
+            "UPDATE designs SET text_ai_analyzed = ?, text_ai_matched = ?, \
+             vision_ai_analyzed = ?, vision_ai_matched = ?, image_tags_verified = 0 \
+             WHERE id = ?",
+        )
+        .bind(entry.text_ai_analyzed)
+        .bind(entry.text_ai_matched)
+        .bind(entry.vision_ai_analyzed)
+        .bind(entry.vision_ai_matched)
+        .bind(entry.design_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| AppError::database(format!("failed to update AI mode flags: {e}")))?;
     }
 
     tx.commit()

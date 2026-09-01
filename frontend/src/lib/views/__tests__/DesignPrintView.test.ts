@@ -41,7 +41,6 @@ const baseDetail = {
   isStitched: true,
   imageTagsVerified: true,
   stitchingTagsVerified: true,
-  taggingMode: "ai_vision",
   dateAdded: "2026-05-01",
   tags: [
     { id: 11, description: "Floral", tag_group: "image" },

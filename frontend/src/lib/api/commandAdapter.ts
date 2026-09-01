@@ -25,6 +25,7 @@ import type {
   AdapterStopUnifiedBackfillResponse,
   AdapterTaggingActionsViewModelResponse,
   AdapterTaggingCandidateCountResponse,
+  BrowseTaggingFolderResult,
   TaggingScopeCounts,
   AdapterAppStatusResponse,
   AdapterBrowseDataRootResponse,
@@ -361,7 +362,6 @@ export async function getDesignDetail(
         hoops: MOCK_HOOPS,
         notes: "Mock detail while Rust route migration continues.",
         rating: null,
-        tagging_mode: null,
         date_added: null,
         tags: [],
         projects: [],
@@ -406,7 +406,6 @@ export async function getDesignDetail(
       hoops: MOCK_HOOPS,
       notes: "Mock detail while Rust route migration continues.",
       rating: null,
-      tagging_mode: null,
       date_added: null,
       tags: [],
       projects: [],
@@ -2072,6 +2071,7 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
         default_commit_every: Number(model?.default_commit_every ?? 100),
         default_workers: Number(model?.default_workers ?? 4),
         default_delay: Number(model?.default_delay ?? 5),
+        data_storage_location: String(model?.data_storage_location || ""),
       },
     };
   } catch (error) {
@@ -2090,6 +2090,7 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
         default_commit_every: 100,
         default_workers: 4,
         default_delay: 5,
+        data_storage_location: "",
       },
       error: String(error),
     };
@@ -2104,12 +2105,15 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
  * @param {string} action Backend scope: `tag_untagged` | `retag_all_unverified` | `retag_all`.
  */
 export async function countTaggingCandidates(
-  action: string
+  action: string,
+  folderPath?: string | null,
+  includeSubfolders?: boolean | null
 ): Promise<AdapterTaggingCandidateCountResponse> {
   try {
-    const result = await invokeLoose<TaggingScopeCounts>("count_tagging_candidates", {
-      action: String(action),
-    });
+    const payload: Record<string, unknown> = { action: String(action) };
+    if (folderPath) payload.folderPath = String(folderPath);
+    if (includeSubfolders != null) payload.includeSubfolders = Boolean(includeSubfolders);
+    const result = await invokeLoose<TaggingScopeCounts>("count_tagging_candidates", payload);
     return {
       source: "rust",
       action: String(action),
@@ -2130,6 +2134,31 @@ export async function countTaggingCandidates(
 }
 
 /**
+ * Open a native folder picker bounded to the Data Storage Location. The backend
+ * opens the dialog at the library root and rejects any chosen path outside it.
+ *
+ * @param {string} [startDir] Optional absolute path under the root to start from.
+ */
+export async function browseTaggingFolder(
+  startDir?: string | null
+): Promise<BrowseTaggingFolderResult> {
+  try {
+    const result = await invokeLoose<{
+      path?: string | null;
+      relative_path?: string | null;
+      error?: string;
+    }>("browse_tagging_folder", { startDir: startDir ? String(startDir) : null });
+    return {
+      path: result?.path ?? null,
+      relative_path: result?.relative_path ?? null,
+      error: result?.error,
+    };
+  } catch (error) {
+    return { path: null, relative_path: null, error: String(error) };
+  }
+}
+
+/**
  * Translate the flat view-model from the Tagging Actions screen into the
  * nested `actions` descriptor the Rust `backfill::UnifiedBackfillRequest`
  * expects. Tagging, image generation and colour counts are independent
@@ -2144,14 +2173,23 @@ function buildUnifiedBackfillWireRequest(
   // Tagging runs whenever an explicit mode list is provided OR the legacy
   // run_vision toggle is on.
   const runTagging = Boolean(request.modes?.length) || Boolean(request.run_vision);
+  const knownTagActions = new Set([
+    "tag_untagged",
+    "retag_all",
+    "retag_all_unverified",
+    "retag_all_text_not_analyzed",
+    "retag_all_text_no_match",
+    "retag_all_text_analyzed",
+    "retag_all_vision_not_analyzed",
+    "retag_all_vision_no_match",
+    "retag_all_vision_analyzed",
+  ]);
   const actionMode =
-    request.action_mode === "retag_all"
+    request.action_mode === "tag_all"
       ? "retag_all"
-      : request.action_mode === "retag_all_unverified"
-        ? "retag_all_unverified"
-        : request.action_mode === "tag_all"
-          ? "retag_all"
-          : "tag_untagged";
+      : knownTagActions.has(String(request.action_mode || ""))
+        ? String(request.action_mode)
+        : "tag_untagged";
 
   // File & Folder Rules (path_rule) always runs; Visual AI (ai_vision) runs when
   // its toggle is on (and is additionally gated on an API key by the backend).
@@ -2173,6 +2211,10 @@ function buildUnifiedBackfillWireRequest(
   if (request.merge_mode) taggingWire.merge_mode = request.merge_mode;
   if (request.exclude_verified !== undefined) {
     taggingWire.exclude_verified = Boolean(request.exclude_verified);
+  }
+  if (request.folder_path) taggingWire.folder_path = String(request.folder_path);
+  if (request.include_subfolders !== undefined) {
+    taggingWire.include_subfolders = Boolean(request.include_subfolders);
   }
 
   return {
