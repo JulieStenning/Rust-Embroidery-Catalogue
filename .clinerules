@@ -178,7 +178,10 @@ When making changes to Svelte components or Rust backend files:
 ### 7. Button colour / visual consistency
 - **Primary action buttons use the app's purple/indigo + white look** — the `settings-primary-button menu-button-primary` classes (indigo `#4f46d8` background, white text). Do **not** add ad-hoc inline `style="background-color:…"` overrides that drift the colour (e.g. amber `#d97706`). This includes restore/confirm actions: restore buttons and their confirmation-modal button are purple + white, not orange/amber.
 
+## Running cargo tests
+Cargo tests of the full application time out when being run via cline, so either run the tests for the elements that have been changed and when neccessary ask the user to run cargo build --tests 
 ---
+
 
 ## 🧪 Svelte 5 View Testing Rules
 

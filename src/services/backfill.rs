@@ -124,6 +124,12 @@ pub struct UnifiedBackfillSummary {
     pub stitching_tag_count_before: i64,
     /// Number of stitching-tag rows in `design_tags` after the run finished.
     pub stitching_tag_count_after: i64,
+    /// Number of image-tag rows (design-subject tags in the `image` tag group) in
+    /// `design_tags` before the run started.
+    pub image_tag_count_before: i64,
+    /// Number of image-tag rows (design-subject tags in the `image` tag group) in
+    /// `design_tags` after the run finished.
+    pub image_tag_count_after: i64,
 }
 
 /// Live progress streamed to the frontend during a unified backfill run so the
@@ -217,6 +223,7 @@ pub async fn run_unified_backfill_with_progress(
     clear_stop_signal();
     truncate_logs_for_new_run()?;
     let stitching_tag_count_before = count_stitching_tags(pool).await?;
+    let image_tag_count_before = count_image_tags(pool).await?;
 
     let actions = request.actions.unwrap_or(UnifiedBackfillActions {
         tagging: Some(TaggingActionOptions {
@@ -813,6 +820,7 @@ pub async fn run_unified_backfill_with_progress(
     );
 
     let stitching_tag_count_after = count_stitching_tags(pool).await?;
+    let image_tag_count_after = count_image_tags(pool).await?;
 
     Ok(UnifiedBackfillSummary {
         processed,
@@ -824,6 +832,8 @@ pub async fn run_unified_backfill_with_progress(
         workers,
         stitching_tag_count_before,
         stitching_tag_count_after,
+        image_tag_count_before,
+        image_tag_count_after,
     })
 }
 
@@ -1331,6 +1341,18 @@ async fn count_stitching_tags(pool: &SqlitePool) -> Result<i64, AppError> {
     Ok(count)
 }
 
+async fn count_image_tags(pool: &SqlitePool) -> Result<i64, AppError> {
+    let count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)
+		 FROM design_tags dt
+		 JOIN tags t ON t.id = dt.tag_id
+		 WHERE lower(COALESCE(t.tag_group, '')) = 'image'",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::database(format!("failed to count image tags: {e}")))?;
+    Ok(count)
+}
 async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>, AppError> {
     // Determine which designs have stitching tags to clear.
     let select_sql = if mode == "all" {

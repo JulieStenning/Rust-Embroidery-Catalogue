@@ -782,6 +782,8 @@ export interface UnifiedBackfillResult {
   workers?: number;
   stitching_tag_count_before?: number;
   stitching_tag_count_after?: number;
+  image_tag_count_before?: number;
+  image_tag_count_after?: number;
   error?: string;
 }
 

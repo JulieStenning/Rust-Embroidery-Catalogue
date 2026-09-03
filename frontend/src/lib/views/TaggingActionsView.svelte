@@ -197,6 +197,8 @@
     actions: string[];
     stitching_tag_count_before?: number;
     stitching_tag_count_after?: number;
+    image_tag_count_before?: number;
+    image_tag_count_after?: number;
     error?: string;
   } | null>(null);
   let taggingLogEntries = $state<Array<{ level: string; message: string }>>([]);
@@ -837,6 +839,12 @@
           Processed: <strong>{taggingLastSummary.processed ?? 0}</strong> &middot; Errors:
           <strong>{taggingLastSummary.errors ?? 0}</strong>
         </p>
+        {#if taggingLastSummary.image_tag_count_before !== undefined}
+          <p>
+            Image tags: <strong>{taggingLastSummary.image_tag_count_before}</strong> before
+            &rarr; <strong>{taggingLastSummary.image_tag_count_after ?? 0}</strong> after
+          </p>
+        {/if}
         {#if taggingLastSummary.stitching_tag_count_before !== undefined}
           <p>
             Stitching tags: <strong>{taggingLastSummary.stitching_tag_count_before}</strong> before

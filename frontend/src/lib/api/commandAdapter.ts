@@ -2257,6 +2257,8 @@ export async function runUnifiedBackfill(
       workers: Number(result?.workers ?? 4),
       stitching_tag_count_before: Number(result?.stitching_tag_count_before ?? 0),
       stitching_tag_count_after: Number(result?.stitching_tag_count_after ?? 0),
+      image_tag_count_before: Number(result?.image_tag_count_before ?? 0),
+      image_tag_count_after: Number(result?.image_tag_count_after ?? 0),
     };
   } catch (error) {
     return {
