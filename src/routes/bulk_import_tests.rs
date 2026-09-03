@@ -665,7 +665,7 @@ fn suggest_reference_id_from_path_matches_compact_names() {
     ];
 
     let matched = suggest_reference_id_from_path(
-        "D:/My Software Development/Rust-Embroidery-Catalogue/data/MachineEmbroideryDesigns/Urban Threads",
+        "C:/imports/MachineEmbroideryDesigns/Urban Threads",
         &items,
     );
 

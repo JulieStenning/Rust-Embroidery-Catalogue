@@ -302,23 +302,74 @@ fn write_moved_notice_writes_marker_at_source() {
 }
 
 #[test]
-fn preserve_old_location_writes_marker_for_filesystem_root() {
-    // A drive root cannot be renamed; the best-effort path must fall back to
-    // writing a marker (or, if the root itself is not writable, still not
-    // panic and return a note). We cannot safely create a real root, so we
-    // simulate the guard by calling preserve_old_location on a root path and
-    // assert it never returns Err (and, if writable, creates the marker).
-    #[cfg(target_os = "windows")]
-    let root = Path::new("C:\\");
-    #[cfg(not(target_os = "windows"))]
-    let root = Path::new("/");
+fn relocated_marker_note_writes_marker_and_returns_note() {
+    // Exercise the marker-fallback branch hermetically against a temp source
+    // root (the exact path a filesystem root would take, without touching the
+    // real drive root). A real root cannot be created under temp, so we call
+    // the extracted helper directly.
+    let tmp = tmp_dir("relocated_marker_note_write");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
 
-    let note = preserve_old_location(root, Path::new("D:/new"));
+    let target = PathBuf::from("D:/EmbroideryCatalogue/Data");
+    let note = relocated_marker_note(&tmp, &target);
 
-    // The function must always return a note (never panic, never Err).
-    assert!(note.is_some());
-    let note = note.unwrap();
+    assert!(
+        note.contains("storage location moved.txt"),
+        "note should describe the marker, got: {note}"
+    );
+
+    let marker = tmp.join("storage location moved.txt");
+    let contents = std::fs::read_to_string(&marker).expect("marker should exist");
+    assert!(contents.contains("D:/EmbroideryCatalogue/Data"));
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn relocated_marker_note_returns_note_when_marker_cannot_be_written() {
+    // A source root that does not exist makes write_moved_notice fail; the
+    // fallback must still return a note (never panic, never Err) that mentions
+    // the failure. The source is under temp so nothing real is touched.
+    let tmp = tmp_dir("relocated_marker_note_missing");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let missing_source = tmp.join("does-not-exist");
+    let target = PathBuf::from("D:/EmbroideryCatalogue/Data");
+
+    let note = relocated_marker_note(&missing_source, &target);
+
     assert!(note.contains("storage location moved.txt"));
+    assert!(
+        note.contains("could not be written"),
+        "note should mention the marker failure, got: {note}"
+    );
+    // No marker file should have been created anywhere.
+    assert!(!missing_source.join("storage location moved.txt").exists());
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn preserve_old_location_renames_non_root_source_to_backup() {
+    // A non-root source takes the rename fast-path and yields no note.
+    let tmp = tmp_dir("preserve_old_location_rename");
+    let source = tmp.join("current");
+    std::fs::create_dir_all(&source).expect("create source dir");
+    std::fs::write(source.join("rose.pes"), b"data").expect("write source file");
+    let target = tmp.join("target"); // target need not exist for the rename path
+
+    let note = preserve_old_location(&source, &target);
+    assert!(note.is_none(), "rename success should return None, got: {note:?}");
+    assert!(
+        !source.exists(),
+        "source should have been renamed away to the backup"
+    );
+    let backup = tmp.join("current.migrated-backup");
+    assert!(
+        backup.join("rose.pes").exists(),
+        "backup should hold the original data"
+    );
+
+    let _ = std::fs::remove_dir_all(&tmp);
 }
 
 #[tokio::test]

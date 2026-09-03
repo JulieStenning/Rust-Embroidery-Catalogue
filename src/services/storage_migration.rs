@@ -616,7 +616,8 @@ fn is_filesystem_root(path: &Path) -> bool {
 ///
 /// Never returns `Err`: the migration data is already committed and verified,
 /// so this step is purely cosmetic/cleanup and must not fail the operation.
-/// Returns an optional human-readable note for the `completed` message.
+/// Returns an optional human-readable note for the `completed` message — `None`
+/// when the rename fast-path succeeded, `Some(note)` when the fallback ran.
 fn preserve_old_location(source_root: &Path, target_root: &Path) -> Option<String> {
     // If the data root isn't a filesystem root, try the rename fast-path.
     if !is_filesystem_root(source_root) {
@@ -630,7 +631,21 @@ fn preserve_old_location(source_root: &Path, target_root: &Path) -> Option<Strin
         // Fall through to the marker on rename failure.
     }
 
-    // Cannot (or will not) rename: write a moved-notice marker at the old root.
+    Some(relocated_marker_note(source_root, target_root))
+}
+
+/// Best-effort fallback used by [`preserve_old_location`] when the old root
+/// cannot be renamed (it is a filesystem root, or the rename failed): leave the
+/// folder in place and write a `storage location moved.txt` marker pointing at
+/// `target_root`.
+///
+/// Always returns a human-readable note (never panics, never errors the caller);
+/// the marker write itself is best-effort and a failure only widens the note.
+///
+/// Kept separate from `preserve_old_location` so it can be tested hermetically
+/// against a temp source root. A real filesystem root (e.g. `F:\`) cannot be
+/// exercised in a unit test without writing a marker at the actual drive root.
+fn relocated_marker_note(source_root: &Path, target_root: &Path) -> String {
     let mut note = String::from(
         "The old storage location could not be renamed automatically (it may be a drive \
          root or in use). A marker file 'storage location moved.txt' was written there \
@@ -646,7 +661,7 @@ fn preserve_old_location(source_root: &Path, target_root: &Path) -> Option<Strin
         note = format!("{note} (However the marker file itself could not be written: {e})");
     }
 
-    Some(note)
+    note
 }
 
 /// Write the `storage location moved.txt` marker at `source_root` pointing at

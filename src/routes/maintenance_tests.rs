@@ -103,17 +103,17 @@ fn normalize_path_string_handles_unicode() {
 #[test]
 fn normalize_path_string_strips_verbatim_prefix_and_uses_backslashes() {
     // `canonicalize()`-style verbatim path (designs source).
-    let verbatim = PathBuf::from(r"\\?\D:\My Software Development\MachineEmbroideryDesigns");
+    let verbatim = PathBuf::from(r"\\?\D:\Sample Data\MachineEmbroideryDesigns");
     assert_eq!(
         normalize_path_string(&verbatim),
-        r"D:\My Software Development\MachineEmbroideryDesigns"
+        r"D:\Sample Data\MachineEmbroideryDesigns"
     );
 
     // Bootstrap-URL style path with forward slashes (database source).
-    let forward = PathBuf::from(r"D:/My Software Development/Database/EmbroideryCatalogue.db");
+    let forward = PathBuf::from(r"D:/Sample Data/Database/EmbroideryCatalogue.db");
     assert_eq!(
         normalize_path_string(&forward),
-        r"D:\My Software Development\Database\EmbroideryCatalogue.db"
+        r"D:\Sample Data\Database\EmbroideryCatalogue.db"
     );
 }
 
