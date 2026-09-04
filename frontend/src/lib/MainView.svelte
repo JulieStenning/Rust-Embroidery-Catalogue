@@ -262,7 +262,6 @@
   {#if currentUiKind === "browse"}
     <BrowseView
       {navigateTo}
-      {detailDesignId}
       bind:browseNeedsRefresh
     />
   {:else if currentUiKind === "settings"}

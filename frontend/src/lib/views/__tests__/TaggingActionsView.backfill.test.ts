@@ -256,7 +256,7 @@ describe("TaggingActionsView run unified backfill", () => {
     });
 
     // Paid key, blank delay -> not paced.
-    let view = render(TaggingActionsView);
+    const view = render(TaggingActionsView);
     let user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
     await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));

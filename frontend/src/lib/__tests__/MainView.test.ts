@@ -976,7 +976,7 @@ describe("browse pagination", () => {
     );
     const PAGE_SIZE = 50;
     // Backend-paginated mock: return only the requested page's items.
-    adapterMock.getBrowseDesigns.mockImplementation(async (payload: any) => {
+    adapterMock.getBrowseDesigns.mockImplementation(async (payload: { page?: number | string }) => {
       const requestedPage = Math.max(1, Number(payload?.page ?? 1));
       const start = (requestedPage - 1) * PAGE_SIZE;
       return {

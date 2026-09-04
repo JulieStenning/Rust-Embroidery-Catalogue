@@ -69,7 +69,6 @@
   let restoreSchemaVersion = $state(/** @type {number | null} */ (null));
   let restorePreviousSchemaVersion = $state(/** @type {number | null} */ (null));
   let restoreRolledBack = $state(false);
-  let restoreError = $state("");
   // Unmatched-files (post-restore reconciliation) prompt.
   let showUnmatchedPrompt = $state(false);
   let unmatchedCount = $state(0);
@@ -456,7 +455,6 @@
 
     if (runsDatabase) restoreDatabaseRunning = true;
     if (runsDesigns) restoreDesignsRunning = true;
-    restoreError = "";
     restoreRolledBack = false;
     restoreSchemaVersion = null;
     restorePreviousSchemaVersion = null;
@@ -517,7 +515,6 @@
         return;
       }
     } catch (error) {
-      restoreError = String(error);
       addToast(`Restore failed: ${error}`, "error", true);
     } finally {
       if (runsDatabase) restoreDatabaseRunning = false;

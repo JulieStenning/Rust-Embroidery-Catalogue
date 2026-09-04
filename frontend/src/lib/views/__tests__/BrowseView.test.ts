@@ -368,7 +368,6 @@ function renderBrowse(overrides: Record<string, unknown> = {}) {
     props: {
       navigateTo,
       browseNeedsRefresh: false,
-      detailDesignId: null,
       ...overrides,
     },
   });
@@ -1267,9 +1266,7 @@ describe("BrowseView", () => {
       );
       adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse(many));
 
-      renderBrowse({
-        detailDesignId: null,
-      });
+      renderBrowse({});
 
       // Wait for pagination & selection to appear.
       await waitFor(() => {
@@ -1806,7 +1803,7 @@ describe("BrowseView", () => {
       // Backend-paginated response: echo the requested page back and compute
       // total_pages from PAGE_SIZE, since the browse page size is now sent to
       // the backend rather than sliced client-side.
-      adapterMocks.getBrowseDesigns.mockImplementation(async (payload: any) => {
+      adapterMocks.getBrowseDesigns.mockImplementation(async (payload: { page?: number | string }) => {
         const requestedPage = Math.max(1, Number(payload?.page ?? 1));
         return {
           source: "rust",

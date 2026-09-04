@@ -46,7 +46,6 @@
   let {
     navigateTo,
     browseNeedsRefresh = $bindable(false),
-    detailDesignId,
   } = $props();
 
   // Browse state

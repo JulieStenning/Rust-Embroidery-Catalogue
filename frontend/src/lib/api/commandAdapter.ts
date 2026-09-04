@@ -89,7 +89,6 @@ import type {
   RestoreBothResult,
   RestoreDatabaseResult,
   RestoreDesignsResult,
-  RestoreProgress,
   BrowseRestoreFileResponse,
 } from "../types/ipc";
 import { mapDesignDetailFromWire, mapReparseDesignFromWire } from "../types/ipc";
@@ -2765,7 +2764,7 @@ export async function detectDesignFilesAbsentFromDatabase(): Promise<
       unmatched: Number(result?.unmatched ?? 0),
       sample: Array.isArray(result?.sample) ? result.sample.map((p) => String(p)) : [],
     };
-  } catch (error) {
+  } catch {
     return { source: "mock", checked: 0, unmatched: 0, sample: [] };
   }
 }
@@ -2787,7 +2786,7 @@ export async function importUnmatchedDesignFiles(): Promise<
         ? result.failed_samples.map((p) => String(p))
         : [],
     };
-  } catch (error) {
+  } catch {
     return { source: "mock", detected: 0, imported: 0, failed: 0, failed_samples: [] };
   }
 }
@@ -2802,7 +2801,7 @@ export async function requestCancelRestore(): Promise<{ source: string } & Cance
       source: "rust",
       cancel_requested: Boolean(result?.cancel_requested),
     };
-  } catch (error) {
+  } catch {
     return { source: "mock", cancel_requested: false };
   }
 }
