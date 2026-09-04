@@ -32,6 +32,7 @@ This file tracks modules, frontend components, and backend logic where test cove
 | src/services/db_health.rs         | 75.43% | 84.38%     | 68.25%   | 2026-08-28 | [ACCEPTED]       | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
 | src/services/design_metadata.rs   | 98.28% | 83.33%     | 93.75%   | 2026-08-28 | [ACCEPTED]       | Thin glue                                                     |
 | src/services/fingerprint.rs       | 93.06% | 70.37%     | 91.77%   | 2026-08-28 | [ACCEPTED]       | OS/Filesystem                                                 |
+| src/services/gemini_client.rs       | 94.59% | 92.42%     | 94.07%   | 2026-09-04 | [ACCEPTED]       | Network client; injectable-base HTTP mock tests               |
 | src/services/maintenance.rs       | 95.45% | 66.67%     | 89.19%   | 2026-08-28 | [ACCEPTED]       | Thin glue                                                     |
 | src/services/projects.rs          | 96.00% | 74.36%     | 85.68%   | 2026-08-28 | [ACCEPTED]       | Derive artifacts + high line coverage                         |
 | src/services/restore.rs           | 78.68% | 66.67%     | 74.32%   | 2026-08-28 | [ACCEPTED]       | OS/Filesystem                                                 |
@@ -47,16 +48,13 @@ This file tracks modules, frontend components, and backend logic where test cove
 
 | Module / File Path                    | Line Coverage % | Function Coverage % | Branch / Region Coverage % | Date       | Status     | Reason Accepted                                                                             |
 | :------------------------------------ | :-------------- | :------------------ | :------------------------- | :--------- | :--------- | :------------------------------------------------------------------------------------------ |
-| src/lib/views/BrowseView.svelte       | 92.45%          | 89.91%              | 71.55%                     | 2026-08-29 | [ACCEPTED] |                                                                                             |
-| src/lib/views/BrowseView.svelte       | 92.48%          | 91.45%              | 73.84%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + template fallbacks |
-| src/lib/views/DesignDetailView.svelte | 90.34%          | 83.80%              | 67.42%                     | 2026-08-29 | [ACCEPTED] |                                                                                             |
-| src/lib/views/DesignDetailView.svelte | 93.41%          | 90.82%              | 80.11%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + stale-token checks |
-| src/lib/views/ImportView.svelte       | 96.18%          | 94.20%              | 77.26%                     | 2026-08-29 | [ACCEPTED] |                                                                                             |
-| src/lib/views/ImportView.svelte       | 94.1%           | 95.62%              | 78.79%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + fallback branches  |
-| src/lib/views/ProjectsView.svelte     | 96.76%          | 93.93%              | 69.81%                     | 2026-08-29 | [ACCEPTED] |                                                                                             |
-| src/lib/views/ProjectsView.svelte     | 95.88%          | 93.85%              | 85.65%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are defensive guards + stale-token checks |
-| src/lib/views/TagsView.svelte         | 86.66%          | 100%                | 67.34%                     | 2026-08-29 | [ACCEPTED] |                                                                                             |
-| src/lib/views/TagsView.svelte         | 99%             | 100%                | 85.71%                     | 2026-08-28 | [ACCEPTED] | High line/function coverage; residual branch gaps are SSR guards + re-entrancy guard        |
+| src/lib/views/BrowseView.svelte          | 92.39%         | 91.48%               | 75.28%                       | 2026-09-04 | [ACCEPTED] | Residual branch gaps in duplicate-detection / folder filter paths |
+| src/lib/views/DesignDetailView.svelte    | 97.49%         | 90.81%               | 80.37%                       | 2026-09-04 | [ACCEPTED] | Retained for completeness; branch >= 80% |
+| src/lib/views/ImportView.svelte          | 95.93%         | 95.65%               | 78.85%                       | 2026-09-04 | [ACCEPTED] | Residual branch gaps in import wizard route/modal states |
+| src/lib/views/ProjectsView.svelte        | 98.57%         | 93.84%               | 85.64%                       | 2026-09-04 | [ACCEPTED] | Retained for completeness; all metrics >= 80% |
+| src/lib/views/SettingsView.svelte        | 90.47%         | 95.91%               | 79.62%                       | 2026-09-04 | [ACCEPTED] | Residual branch gaps in settings sections/toggles |
+| src/lib/views/TaggingActionsView.svelte  | 92.92%         | 98.55%               | 76.56%                       | 2026-09-04 | [ACCEPTED] | Residual branch gaps in mode/action UI states |
+| src/lib/views/TagsView.svelte            | 100.00%        | 100.00%              | 85.71%                       | 2026-09-04 | [ACCEPTED] | Retained for completeness; all metrics >= 80% |
 
 ---
 
