@@ -1025,3 +1025,94 @@ async fn command_set_google_api_key_persists() {
     assert_eq!(val, "route-key-456");
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+// ---------------------------------------------------------------------------
+// Gemini model commands (client-injectable helpers, mockito-backed)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_gemini_model_for_client_reports_usable_model() {
+    let mut server = mockito::Server::new();
+    server
+        .mock("POST", "/gemini-2.0-flash:generateContent")
+        .with_status(200)
+        .with_body("{}")
+        .match_query(mockito::Matcher::Any)
+        .create();
+    let base = format!("{}/", server.url().trim_end_matches('/'));
+    let client = GeminiClient::with_base("key", base);
+
+    let result = tauri::async_runtime::block_on(test_gemini_model_for_client(
+        &client,
+        "gemini-2.0-flash",
+    ))
+    .expect("mapping returns Ok");
+    assert!(result.ok);
+    assert!(result.message.contains("gemini-2.0-flash"));
+    assert!(result.message.contains("available"));
+}
+
+#[test]
+fn test_gemini_model_for_client_reports_unusable_model() {
+    let mut server = mockito::Server::new();
+    server
+        .mock("POST", "/bad:generateContent")
+        .with_status(400)
+        .with_body("boom")
+        .match_query(mockito::Matcher::Any)
+        .create();
+    let base = format!("{}/", server.url().trim_end_matches('/'));
+    let client = GeminiClient::with_base("key", base);
+
+    let result = tauri::async_runtime::block_on(test_gemini_model_for_client(&client, "bad"))
+        .expect("mapping returns Ok with ok=false");
+    assert!(!result.ok);
+    assert!(result.message.contains("bad"));
+    assert!(result.message.contains("not usable"));
+}
+
+#[test]
+fn list_gemini_models_for_client_returns_sorted_models() {
+    let mut server = mockito::Server::new();
+    let body = serde_json::json!({
+        "models": [
+            {"name": "models/gemini-2.0-flash", "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/gemini-2.0-pro", "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/text-embedding-004", "supportedGenerationMethods": []}
+        ]
+    })
+    .to_string();
+    server
+        .mock("GET", "/")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(body)
+        .match_query(mockito::Matcher::Any)
+        .create();
+    let base = format!("{}/", server.url().trim_end_matches('/'));
+    let client = GeminiClient::with_base("key", base);
+
+    let models = tauri::async_runtime::block_on(list_gemini_models_for_client(&client))
+        .expect("list models should succeed");
+    assert_eq!(
+        models,
+        vec!["gemini-2.0-flash".to_string(), "gemini-2.0-pro".to_string()]
+    );
+}
+
+#[test]
+fn list_gemini_models_for_client_surfaces_http_error() {
+    let mut server = mockito::Server::new();
+    server
+        .mock("GET", "/")
+        .with_status(500)
+        .with_body("boom")
+        .match_query(mockito::Matcher::Any)
+        .create();
+    let base = format!("{}/", server.url().trim_end_matches('/'));
+    let client = GeminiClient::with_base("key", base);
+
+    let err = tauri::async_runtime::block_on(list_gemini_models_for_client(&client))
+        .expect_err("http error should surface");
+    assert!(err.contains("500"));
+}

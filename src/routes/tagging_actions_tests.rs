@@ -506,3 +506,30 @@ async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn browse_tagging_folder_rejects_start_outside_data_root() {
+    let pool = test_pool().await;
+    let tmp = std::env::temp_dir().join("tagging-actions-browse-outside");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool, &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // A start path that is NOT under the configured embroidery designs root.
+    let outside = std::env::temp_dir().join("tagging-outside-location").join("designs");
+    let result = browse_tagging_folder(state, Some(outside.to_string_lossy().to_string()));
+
+    // The early validation returns an error before the native picker is opened.
+    assert_eq!(result.path, None);
+    assert_eq!(result.relative_path, None);
+    assert_eq!(
+        result.error.as_deref(),
+        Some("Start folder is outside the Data Storage Location.")
+    );
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}

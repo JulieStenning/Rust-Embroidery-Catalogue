@@ -2610,3 +2610,226 @@ fn ai_tagging_pass_is_noop_for_empty_ids() {
         .await;
     });
 }
+
+// ---------------------------------------------------------------------------
+// ensure_file_in_designs_base - collision handling
+// ---------------------------------------------------------------------------
+
+/// A pre-existing destination with identical content is reused: the same stored
+/// path is returned and no extra (auto-renamed) copy is created.
+#[test]
+#[serial]
+fn ensure_file_in_designs_base_reuses_content_identical_destination() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join("bi-ensure-identical-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let source_dir = tmp.join("mydesigns_src");
+    std::fs::create_dir_all(&source_dir).expect("create source dir");
+    let source_file = source_dir.join("Bean.pes");
+    std::fs::write(&source_file, b"PES data").expect("write source file");
+
+    // Pre-place an identical file at the prospective destination.
+    let dest_dir = get_designs_base_path().join("mydesigns_src");
+    std::fs::create_dir_all(&dest_dir).expect("create dest dir");
+    std::fs::write(dest_dir.join("Bean.pes"), b"PES data").expect("write identical dest");
+
+    let root_paths = vec![source_dir.to_string_lossy().to_string()];
+    let stored = ensure_file_in_designs_base(&source_file.to_string_lossy(), &root_paths)
+        .expect("identical destination should be reused");
+
+    assert_eq!(stored, "/MachineEmbroideryDesigns/mydesigns_src/Bean.pes");
+
+    // Only the single identical file exists - no auto-rename duplicate was made.
+    let entries: Vec<String> = std::fs::read_dir(&dest_dir)
+        .expect("read dest dir")
+        .map(|e| e.expect("entry").file_name().to_string_lossy().to_string())
+        .collect();
+    assert_eq!(entries, vec!["Bean.pes".to_string()]);
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+/// A pre-existing destination with DIFFERENT content triggers the auto-rename
+/// (stem + _1) path: the renamed stored path is returned, the new bytes land in
+/// the renamed file, and the original is left untouched.
+#[test]
+#[serial]
+fn ensure_file_in_designs_base_auto_renames_on_content_collision() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join("bi-ensure-rename-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let source_dir = tmp.join("mydesigns_src");
+    std::fs::create_dir_all(&source_dir).expect("create source dir");
+    let source_file = source_dir.join("Bean.pes");
+    std::fs::write(&source_file, b"NEW PES data").expect("write source file");
+
+    // Pre-existing destination holding DIFFERENT content.
+    let dest_dir = get_designs_base_path().join("mydesigns_src");
+    std::fs::create_dir_all(&dest_dir).expect("create dest dir");
+    let dest_file = dest_dir.join("Bean.pes");
+    std::fs::write(&dest_file, b"OLD DIFFERENT CONTENT").expect("write differing dest");
+
+    let root_paths = vec![source_dir.to_string_lossy().to_string()];
+    let stored = ensure_file_in_designs_base(&source_file.to_string_lossy(), &root_paths)
+        .expect("content collision should auto-rename");
+
+    assert_eq!(stored, "/MachineEmbroideryDesigns/mydesigns_src/Bean_1.pes");
+
+    // Original kept its content; the renamed copy carries the new bytes.
+    assert_eq!(
+        std::fs::read(&dest_file).expect("read original dest"),
+        b"OLD DIFFERENT CONTENT"
+    );
+    let renamed = dest_dir.join("Bean_1.pes");
+    assert_eq!(
+        std::fs::read(&renamed).expect("read renamed copy"),
+        b"NEW PES data"
+    );
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+/// ensure_file_in_designs_base returns a clear error when the source is missing.
+#[test]
+#[serial]
+fn ensure_file_in_designs_base_rejects_missing_source() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join("bi-ensure-missing-test");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let missing_dir = tmp.join("nope");
+    let missing = missing_dir.join("Bean.pes");
+    let root_paths = vec![missing_dir.to_string_lossy().to_string()];
+    let err = ensure_file_in_designs_base(&missing.to_string_lossy(), &root_paths)
+        .expect_err("missing source must produce an error");
+    assert!(err.contains("does not exist"), "unexpected error: {err}");
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// read_f64_setting / read_i64_setting
+// ---------------------------------------------------------------------------
+
+#[test]
+fn read_f64_setting_parses_numeric_value() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('ai.delay', '12.5')")
+            .execute(&pool)
+            .await
+            .expect("seed setting");
+        let value = read_f64_setting(&pool, "ai.delay")
+            .await
+            .expect("read f64 setting");
+        assert_eq!(value, Some(12.5));
+    });
+}
+
+#[test]
+fn read_f64_setting_returns_none_for_missing_or_invalid() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        assert_eq!(
+            read_f64_setting(&pool, "ai.delay").await.expect("read missing f64"),
+            None
+        );
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('ai.delay', 'not-a-number')")
+            .execute(&pool)
+            .await
+            .expect("seed invalid setting");
+        assert_eq!(
+            read_f64_setting(&pool, "ai.delay")
+                .await
+                .expect("read invalid f64"),
+            None
+        );
+    });
+}
+
+#[test]
+fn read_i64_setting_parses_integer_value() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('ai.batch_size', '42')")
+            .execute(&pool)
+            .await
+            .expect("seed setting");
+        let value = read_i64_setting(&pool, "ai.batch_size")
+            .await
+            .expect("read i64 setting");
+        assert_eq!(value, Some(42));
+    });
+}
+
+#[test]
+fn read_i64_setting_returns_none_for_missing() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        assert_eq!(
+            read_i64_setting(&pool, "ai.batch_size")
+                .await
+                .expect("read missing i64"),
+            None
+        );
+    });
+}
+
+// ---------------------------------------------------------------------------
+// persist_bulk_import_confirm_wire - create_on_import = false short-circuit
+// ---------------------------------------------------------------------------
+
+#[test]
+fn persist_bulk_import_confirm_wire_short_circuits_when_create_disabled() {
+    tauri::async_runtime::block_on(async {
+        let pool = import_test_pool().await;
+        let confirm_wire = BulkImportConfirmWire {
+            wire: BulkImportWire {
+                root_paths: vec![],
+                global_designer_id: None,
+                global_source_id: None,
+                per_folder_assignments: Vec::new(),
+                selected_files: vec!["C:/nonexistent/file.pes".to_string()],
+                create_on_import: false,
+            },
+            context_token: None,
+            canonical_confirm: true,
+        };
+        let persisted = persist_bulk_import_confirm_wire(&pool, &confirm_wire, None)
+            .await
+            .expect("persist with create_on_import=false should succeed with no work");
+        assert_eq!(persisted, 0);
+    });
+}

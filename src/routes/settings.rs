@@ -67,14 +67,37 @@ pub struct GeminiModelTestResult {
     pub message: String,
 }
 
+/// Client-injectable core for `list_gemini_models`, so the Settings model
+/// dropdown can be exercised against a mock server in tests.
+pub(crate) async fn list_gemini_models_for_client(
+    client: &GeminiClient,
+) -> Result<Vec<String>, String> {
+    client.list_models().await.map_err(|e| e.to_string())
+}
+
 /// List Gemini models available to `api_key` that support `generateContent`
 /// (short names, sorted). Populates the Settings model dropdown.
 #[tauri::command]
 pub async fn list_gemini_models(api_key: String) -> Result<Vec<String>, String> {
-    GeminiClient::new(api_key)
-        .list_models()
-        .await
-        .map_err(|e| e.to_string())
+    list_gemini_models_for_client(&GeminiClient::new(api_key)).await
+}
+
+/// Client-injectable core for `test_gemini_model`, so the ok/err mapping can be
+/// exercised against a mock server in tests.
+pub(crate) async fn test_gemini_model_for_client(
+    client: &GeminiClient,
+    model: &str,
+) -> Result<GeminiModelTestResult, String> {
+    Ok(match client.validate_model(model).await {
+        Ok(()) => GeminiModelTestResult {
+            ok: true,
+            message: format!("Model '{model}' is available and supports generateContent."),
+        },
+        Err(error) => GeminiModelTestResult {
+            ok: false,
+            message: error.to_string(),
+        },
+    })
 }
 
 /// Validate that `model` is available to `api_key` and supports
@@ -84,17 +107,7 @@ pub async fn test_gemini_model(
     api_key: String,
     model: String,
 ) -> Result<GeminiModelTestResult, String> {
-    let client = GeminiClient::new(api_key);
-    match client.validate_model(&model).await {
-        Ok(()) => Ok(GeminiModelTestResult {
-            ok: true,
-            message: format!("Model '{model}' is available and supports generateContent."),
-        }),
-        Err(error) => Ok(GeminiModelTestResult {
-            ok: false,
-            message: error.to_string(),
-        }),
-    }
+    test_gemini_model_for_client(&GeminiClient::new(api_key), &model).await
 }
 
 #[tauri::command]

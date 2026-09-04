@@ -46,3 +46,4 @@ tauri-build = { version = "2", features = [] }
 [dev-dependencies]
 serial_test = "4.0"
 tauri = { version = "2", features = ["test"] }
+mockito = "1"

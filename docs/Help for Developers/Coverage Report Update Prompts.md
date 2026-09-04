@@ -11,8 +11,7 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for rust modules:
    - Current Date (YYYY-MM-DD)
    - "[PENDING REVIEW]" in the Status Column.
 4. For existing modules already in the table:
-   - Do NOT overwrite the old entry.
-   - If the new figures are the same as the old figures, then don't update the table
+   - Overwrite the old entry if the figures are the same as the old figures or if none of the figures are worse. Update with today's date.
    - Otherwise, Insert a new row directly below the existing entry with the updated coverage metrics (Line %, Function %, Region %), current date (YYYY-MM-DD), and "[PENDING REVIEW]" in Status so I can compare historical progress.
 5. Order the table by module including file path
 6. Do NOT attempt to write, modify, or generate unit tests for any files. Do not write or edit source code files—only update COVERAGE_EXCEPTIONS.md.

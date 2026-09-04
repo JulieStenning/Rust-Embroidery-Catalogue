@@ -30,6 +30,10 @@ pub struct GeminiClient {
     model: Arc<Mutex<Option<String>>>,
     bad_models: Arc<Mutex<HashSet<String>>>,
     http: reqwest::Client,
+    /// Base API endpoint (ends in `/v1beta/models/`). Held as a field so tests can
+    /// point the client at a local HTTP mock server; production always uses
+    /// [`GEMINI_API_BASE`].
+    base_url: String,
 }
 
 impl GeminiClient {
@@ -39,6 +43,22 @@ impl GeminiClient {
             model: Arc::new(Mutex::new(None)),
             bad_models: Arc::new(Mutex::new(HashSet::new())),
             http: reqwest::Client::new(),
+            base_url: GEMINI_API_BASE.to_string(),
+        }
+    }
+
+    /// Test-only constructor that points the client at a custom base URL (e.g. a
+    /// local HTTP mock server) so the network methods can be exercised without a
+    /// real Gemini key. Behaviour is identical to [`GeminiClient::new`] except for
+    /// the endpoint base.
+    #[cfg(test)]
+    pub(crate) fn with_base(api_key: impl Into<String>, base_url: impl Into<String>) -> Self {
+        Self {
+            api_key: api_key.into(),
+            model: Arc::new(Mutex::new(None)),
+            bad_models: Arc::new(Mutex::new(HashSet::new())),
+            http: reqwest::Client::new(),
+            base_url: base_url.into(),
         }
     }
 
@@ -52,7 +72,7 @@ impl GeminiClient {
     /// Return the models available to this API key that support `generateContent`
     /// (short names, sorted). Used to populate the Settings model dropdown.
     pub async fn list_models(&self) -> Result<Vec<String>, AppError> {
-        let url = format!("{}?key={}", GEMINI_API_BASE, self.api_key);
+        let url = format!("{}?key={}", self.base_url, self.api_key);
         let value = self.get_json(&url).await?;
         let mut names: Vec<String> = value["models"]
             .as_array()
@@ -151,7 +171,7 @@ impl GeminiClient {
         let payload = json!({ "contents": [{ "parts": [{ "text": "OK" }] }] });
         let url = format!(
             "{}{}:generateContent?key={}",
-            GEMINI_API_BASE, model, self.api_key
+            self.base_url, model, self.api_key
         );
         let response = self
             .http
@@ -284,7 +304,7 @@ impl GeminiClient {
             })?;
             let url = format!(
                 "{}{}:generateContent?key={}",
-                GEMINI_API_BASE, model, self.api_key
+                self.base_url, model, self.api_key
             );
             let response = self
                 .http

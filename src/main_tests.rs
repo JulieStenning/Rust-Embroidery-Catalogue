@@ -793,3 +793,188 @@ fn db_pool_errors_when_pool_unavailable() {
     );
 }
 
+
+// ---------------------------------------------------------------------------
+// PoolHolder - pool lifecycle (new / pool / take / replace) and db_pool
+// success path
+// ---------------------------------------------------------------------------
+
+/// Create a throwaway in-memory SQLite pool for holder tests.
+async fn mem_pool() -> SqlitePool {
+    sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .expect("failed to create in-memory pool")
+}
+
+#[tokio::test]
+async fn pool_holder_new_exposes_installed_pool() {
+    let pool = mem_pool().await;
+    let holder = PoolHolder::new(pool);
+
+    let live = holder.pool().expect("pool should be available after new()");
+    assert!(
+        sqlx::query("SELECT 1").execute(&live).await.is_ok(),
+        "installed pool should accept queries"
+    );
+}
+
+#[tokio::test]
+async fn pool_holder_default_has_no_pool() {
+    let holder = PoolHolder::default();
+    assert!(
+        holder.pool().is_none(),
+        "default holder should expose no pool"
+    );
+}
+
+#[tokio::test]
+async fn pool_holder_take_returns_and_removes_pool() {
+    let pool = mem_pool().await;
+    let holder = PoolHolder::new(pool);
+
+    assert!(holder.take().is_some(), "take() should return the pool");
+    assert!(holder.pool().is_none(), "pool should be gone after take()");
+    assert!(holder.take().is_none(), "second take() should return None");
+}
+
+#[tokio::test]
+async fn pool_holder_replace_installs_pool_when_empty() {
+    let pool = mem_pool().await;
+    let holder = PoolHolder::default();
+
+    holder.replace(pool);
+    let live = holder.pool().expect("replace() should install the pool");
+    assert!(sqlx::query("SELECT 1").execute(&live).await.is_ok());
+}
+
+#[tokio::test]
+async fn pool_holder_replace_swaps_an_existing_pool() {
+    let first = mem_pool().await;
+    let second = mem_pool().await;
+    let holder = PoolHolder::new(first);
+
+    holder.replace(second);
+    let live = holder.pool().expect("a pool must remain after replace()");
+    assert!(
+        sqlx::query("SELECT 1").execute(&live).await.is_ok(),
+        "replacement pool should accept queries"
+    );
+}
+
+#[tokio::test]
+async fn db_pool_succeeds_when_pool_installed_and_no_restore() {
+    let pool = mem_pool().await;
+    let state = test_app_state(PoolHolder::new(pool), false);
+
+    let live = state.db_pool().expect("db_pool should return the pool");
+    assert!(sqlx::query("SELECT 1").execute(&live).await.is_ok());
+}
+
+// ---------------------------------------------------------------------------
+// app_status_from_paths - recovery flags (data_root_missing / database_missing)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn app_status_marks_data_root_missing_when_configured_root_absent() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        // Configure an Installed-mode data root that does NOT exist on disk.
+        let root = std::env::temp_dir().join("embroidery_app_status_missing_root");
+        let _ = std::fs::remove_dir_all(&root);
+        let root_str = root.to_string_lossy().to_string();
+        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: root.clone(),
+            embroidery_designs_dir: root.join("MachineEmbroideryDesigns"),
+            database_dir: root.join("Database"),
+            database_path: root.join("Database").join("EmbroideryCatalogue.db"),
+            log_dir: root.join("logs"),
+        };
+
+        let status = app_status_from_paths(&paths);
+
+        assert_eq!(status.execution_mode, "installed");
+        assert!(
+            status.data_root_missing,
+            "an absent configured root must set data_root_missing"
+        );
+        assert!(
+            status.database_missing,
+            "an absent root also implies the database is missing"
+        );
+    });
+}
+
+#[test]
+fn app_status_marks_database_missing_when_only_db_file_absent() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        // Configure a data root that EXISTS on disk but has no DB file yet.
+        let root = std::env::temp_dir().join("embroidery_app_status_root_present");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create root dir");
+        let root_str = root.to_string_lossy().to_string();
+        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+
+        let db_path = root.join("Database").join("EmbroideryCatalogue.db");
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: root.clone(),
+            embroidery_designs_dir: root.join("MachineEmbroideryDesigns"),
+            database_dir: root.join("Database"),
+            database_path: db_path,
+            log_dir: root.join("logs"),
+        };
+
+        let status = app_status_from_paths(&paths);
+
+        assert!(
+            !status.data_root_missing,
+            "the root exists so data_root_missing must be false"
+        );
+        assert!(
+            status.database_missing,
+            "a configured root with no DB file must set database_missing"
+        );
+    });
+}
+
+#[test]
+fn app_status_clears_recovery_flags_when_root_and_db_present() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let root = std::env::temp_dir().join("embroidery_app_status_healthy");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("Database")).expect("create Database dir");
+        let root_str = root.to_string_lossy().to_string();
+        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+
+        let db_path = root.join("Database").join("EmbroideryCatalogue.db");
+        std::fs::write(&db_path, []).expect("create DB file");
+
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Installed,
+            data_root: root.clone(),
+            embroidery_designs_dir: root.join("MachineEmbroideryDesigns"),
+            database_dir: root.join("Database"),
+            database_path: db_path,
+            log_dir: root.join("logs"),
+        };
+
+        let status = app_status_from_paths(&paths);
+
+        assert_eq!(status.execution_mode, "installed");
+        assert!(
+            !status.data_root_missing,
+            "healthy install should not report a missing root"
+        );
+        assert!(
+            !status.database_missing,
+            "healthy install should not report a missing database"
+        );
+    });
+}

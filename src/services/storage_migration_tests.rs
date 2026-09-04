@@ -450,3 +450,107 @@ fn progress_with_totals_zero_bytes_and_error_method() {
     assert_eq!(e.current_phase, "error");
     assert_eq!(e.error.as_deref(), Some("detail"));
 }
+
+// ---------------------------------------------------------------------------
+// checkpoint_live_database / verify_database_at edges
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn checkpoint_live_database_runs_wal_checkpoint() {
+    let tmp = tmp_dir("checkpoint");
+    let source = make_source(&tmp.join("source"));
+    std::fs::create_dir_all(&source.database_dir).expect("create db dir");
+
+    let pool = SqlitePool::connect_with(
+        SqliteConnectOptions::new()
+            .filename(&source.database_path)
+            .create_if_missing(true),
+    )
+    .await
+    .expect("open file-backed pool");
+
+    checkpoint_live_database(&pool)
+        .await
+        .expect("wal_checkpoint(TRUNCATE) should succeed");
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn verify_database_at_returns_false_when_missing() {
+    let tmp = tmp_dir("verify_missing");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+
+    let missing = tmp.join("Database").join("nope.db");
+    let ok = verify_database_at(&missing)
+        .await
+        .expect("a missing db is a non-error false result");
+    assert!(!ok);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ---------------------------------------------------------------------------
+// run_migration failure / rollback branches
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn run_migration_errors_when_database_verification_fails() {
+    with_sandboxed_appdata(async || {
+        let tmp = tmp_dir("run_migration_no_db");
+        // Source has assets but NO database file (seed_database is intentionally
+        // omitted), so verify_database_at fails and the migration must error out
+        // and roll back the partial target.
+        let source = make_source(&tmp.join("source"));
+        std::fs::write(source.embroidery_designs_dir.join("a.pes"), b"data").unwrap();
+
+        let target = tmp.join("target");
+        let plan = preflight(&source, &target, true).expect("preflight should pass");
+        let cancel = AtomicBool::new(false);
+
+        let result = run_migration(&source, &plan, &cancel, |_| {}).await;
+        assert!(result.is_err(), "migration with no source DB must fail");
+
+        // Partial target removed, source untouched, no backup created.
+        assert!(!target.exists());
+        assert!(source.data_root.exists());
+        assert!(!tmp.join("source.migrated-backup").exists());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    })
+    .await;
+}
+
+#[test]
+fn rollback_partial_target_restores_moved_aside_target() {
+    let tmp = tmp_dir("rollback_restore");
+
+    // A pre-existing target was moved aside to `backup` during preflight.
+    std::fs::create_dir_all(tmp.join("backup")).expect("create backup");
+    std::fs::write(tmp.join("backup").join("keep.pes"), b"x").expect("write backup file");
+    // A partial migration tree now sits where the target should be.
+    std::fs::create_dir_all(tmp.join("target")).expect("create partial target");
+    std::fs::write(tmp.join("target").join("partial"), b"y").expect("write partial file");
+
+    let target = tmp.join("target");
+    let backup = tmp.join("backup");
+    let plan = MigrationPlan {
+        target: target.clone(),
+        target_paths: crate::paths::resolve_paths_for_root(&target),
+        total_items: 1,
+        total_bytes: 10,
+        database_bytes: 1,
+        same_device: false,
+        preexisting_target_renamed: Some(backup.clone()),
+    };
+
+    rollback_partial_target(&plan);
+
+    // The moved-aside target is restored and the partial tree is discarded.
+    assert!(target.join("keep.pes").exists(), "backup content should be restored");
+    assert!(!target.join("partial").exists(), "partial tree should be removed");
+    assert!(!backup.exists(), "backup should no longer exist after restore");
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
