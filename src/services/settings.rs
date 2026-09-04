@@ -86,7 +86,7 @@ pub struct BrowseDataRootResult {
 pub(crate) async fn get_settings_view_model_inner(
     app_state: &AppState,
 ) -> Result<SettingsViewModel, AppError> {
-    let pool = app_state.db_pool().map_err(|e| AppError::database(e))?;
+    let pool = app_state.db_pool().map_err(AppError::database)?;
     let mut conn = pool
         .acquire()
         .await
@@ -155,7 +155,7 @@ pub(crate) async fn save_import_last_browse_folder_inner(
     path: String,
 ) -> Result<SaveImportBrowseFolderResult, AppError> {
     let normalized = path.trim().to_string();
-    let pool = app_state.db_pool().map_err(|e| AppError::database(e))?;
+    let pool = app_state.db_pool().map_err(AppError::database)?;
     let mut conn = pool
         .acquire()
         .await
@@ -178,7 +178,7 @@ pub(crate) async fn save_settings_view_model_inner(
     let import_commit_batch_size = normalize_optional_batch_size(&request.import_commit_batch_size);
     let ai_delay = normalize_optional_delay(&request.ai_delay);
 
-    let pool = app_state.db_pool().map_err(|e| AppError::database(e))?;
+    let pool = app_state.db_pool().map_err(AppError::database)?;
     let mut conn = pool
         .acquire()
         .await

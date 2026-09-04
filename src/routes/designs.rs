@@ -2,6 +2,7 @@ use crate::config::BootstrapConfig;
 use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::design_metadata;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
+use crate::paths::normalize_windows_explorer_target;
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -653,20 +654,6 @@ fn nearest_existing_folder(path: &Path, fallback: &Path) -> PathBuf {
     }
 
     fallback.to_path_buf()
-}
-
-#[cfg(target_os = "windows")]
-fn normalize_windows_explorer_target(path: &Path) -> PathBuf {
-    let raw = path.to_string_lossy();
-    let without_verbatim = if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
-        format!(r"\\{}", rest)
-    } else if let Some(rest) = raw.strip_prefix(r"\\?\") {
-        rest.to_string()
-    } else {
-        raw.to_string()
-    };
-
-    PathBuf::from(without_verbatim.replace('/', r"\"))
 }
 
 fn open_with_default_app(path: &Path) -> Result<(), String> {

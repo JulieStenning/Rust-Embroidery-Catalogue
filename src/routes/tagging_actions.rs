@@ -269,7 +269,7 @@ pub fn browse_tagging_folder(
         };
     }
 
-    let relative_path = backfill::relative_path_under_root(&picked, &root);
+    let relative_path = crate::paths::relative_path_under_root(&picked, &root);
     BrowseTaggingFolderResult {
         path: Some(picked),
         relative_path: Some(relative_path),

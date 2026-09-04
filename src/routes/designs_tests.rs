@@ -194,7 +194,6 @@ mod helper_tests {
         assert_eq!(strip_sqlite_prefix(""), "");
     }
 
-
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ parse_general_token Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
@@ -1819,7 +1818,6 @@ fn get_designs_base_path_joins_machine_embroidery_designs() {
     }
 }
 
-
 #[test]
 #[serial]
 fn resolve_design_full_path_returns_designs_base_for_empty() {
@@ -2016,7 +2014,6 @@ async fn add_design_to_project_with_missing_project_errors() {
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("not found"));
 }
-
 
 #[test]
 #[serial]
@@ -2457,24 +2454,23 @@ async fn recommend_hoop_returns_none_when_dimensions_missing() {
 #[test]
 fn normalize_windows_explorer_target_strips_verbatim_unc_prefix() {
     let result =
-        normalize_windows_explorer_target(&PathBuf::from(r"\\?\UNC\server\share\file.pes"));
+        crate::paths::normalize_windows_explorer_target(&PathBuf::from(r"\\?\UNC\server\share\file.pes"));
     assert_eq!(result.to_string_lossy(), r"\\server\share\file.pes");
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn normalize_windows_explorer_target_strips_verbatim_local_prefix() {
-    let result = normalize_windows_explorer_target(&PathBuf::from(r"\\?\C:\data\file.pes"));
+    let result = crate::paths::normalize_windows_explorer_target(&PathBuf::from(r"\\?\C:\data\file.pes"));
     assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn normalize_windows_explorer_target_converts_forward_slashes() {
-    let result = normalize_windows_explorer_target(&PathBuf::from("C:/data/file.pes"));
+    let result = crate::paths::normalize_windows_explorer_target(&PathBuf::from("C:/data/file.pes"));
     assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
 }
-
 
 // ---------------------------------------------------------------------------
 // push_browse_filters - all filter branches via get_designs_page_with_pool
@@ -2548,7 +2544,6 @@ async fn classify_tag_ids_splits_image_and_stitching_tags() {
     assert_eq!(image_ids, vec![1]);
     assert_eq!(stitching_ids, vec![2]);
 }
-
 
 // ---------------------------------------------------------------------------
 // Tauri command wrapper tests (via tauri::test::mock_app)

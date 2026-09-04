@@ -982,26 +982,6 @@ pub(crate) fn is_path_under_root(candidate: &str, root: &Path) -> bool {
     cand.starts_with(&format!("{base}/"))
 }
 
-/// Returns `full_path` relative to `root` (`""` when they are equal). Assumes
-/// `full_path` has already been validated to be under `root`.
-pub(crate) fn relative_path_under_root(full_path: &str, root: &Path) -> String {
-    let full_norm = full_path.replace('\\', "/");
-    let root_norm = root
-        .to_string_lossy()
-        .replace('\\', "/")
-        .trim_end_matches('/')
-        .to_string();
-    if full_norm.to_ascii_lowercase() == root_norm.to_ascii_lowercase() {
-        return String::new();
-    }
-    let root_lower = root_norm.to_ascii_lowercase();
-    if full_norm.to_ascii_lowercase().starts_with(&root_lower) {
-        full_norm[root_norm.len()..].trim_start_matches('/').to_string()
-    } else {
-        full_norm.trim_start_matches('/').to_string()
-    }
-}
-
 /// A validated folder scope for a tagging run.
 #[derive(Debug, Clone)]
 pub(crate) struct TaggingFolderScope {
@@ -1038,7 +1018,7 @@ pub(crate) fn resolve_folder_scope_under(
         )));
     }
 
-    let rel = relative_path_under_root(raw, root);
+    let rel = crate::paths::relative_path_under_root(raw, root);
     let is_root = rel.is_empty();
     Ok(Some(TaggingFolderScope { rel, is_root }))
 }
@@ -1095,7 +1075,6 @@ fn push_folder_scope_clauses(
         query.push(" ESCAPE '\\' ");
     }
 }
-
 
 /// A `COUNT(*)` over the shared scope fragment with an optional verified filter
 /// and optional folder scope, so the total/unverified/verified breakdown stays
@@ -1560,7 +1539,7 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
     let result = design_metadata::parse_design_file(&resolved_path)
-        .map_err(|e| AppError::invalid_input(e))?;
+        .map_err(AppError::invalid_input)?;
 
     sqlx::query(
         "UPDATE designs
@@ -1648,7 +1627,7 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
     let result = design_metadata::parse_design_file(&resolved_path)
-        .map_err(|e| AppError::invalid_input(e))?;
+        .map_err(AppError::invalid_input)?;
 
     sqlx::query(
         "UPDATE designs
@@ -1751,12 +1730,12 @@ async fn update_hoop_dimensions_only(pool: &SqlitePool, design_id: i64) -> Resul
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
     let parsed = design_metadata::parse_design_file(&resolved_path)
-        .map_err(|e| AppError::invalid_input(e))?;
+        .map_err(AppError::invalid_input)?;
 
     let hoop_id =
         design_metadata::recommend_hoop_for_design(pool, parsed.width_mm, parsed.height_mm)
             .await
-            .map_err(|e| AppError::database(e))?;
+            .map_err(AppError::database)?;
 
     sqlx::query(
         "UPDATE designs

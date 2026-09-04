@@ -6,6 +6,7 @@
 // private items in the parent module through use super::*;.
 
 use super::*;
+use crate::paths::normalize_path_display as normalize_path_string;
 use serial_test::serial;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::{Connection, Executor, SqliteConnection};
@@ -1410,7 +1411,7 @@ async fn database_backup_cancelled_before_copy_leaves_no_file() {
 
     let pool = setup_backup_settings_pool().await;
     let dest_dir = unique_temp_path("backup-cancel-db-dest");
-    insert_backup_destination(&pool, KEY_BACKUP_DATABASE_DESTINATION, &dest_dir.to_string_lossy().to_string())
+    insert_backup_destination(&pool, KEY_BACKUP_DATABASE_DESTINATION, dest_dir.to_string_lossy().as_ref())
         .await;
 
     let (db_dir, db_file) = setup_source_database_file().await;
@@ -1494,7 +1495,7 @@ fn cleanup_maybe_partial_backup_is_noop_for_missing_path() {
     cleanup_maybe_partial_backup(&missing);
     assert!(!missing.exists());
     assert!(
-        dest_dir.join(".backup-write-test.tmp").exists() == false,
+        !dest_dir.join(".backup-write-test.tmp").exists(),
         "no probe or other file should be created"
     );
 
@@ -1509,7 +1510,7 @@ async fn designs_backup_cancelled_stops_copying_and_keeps_existing_files() {
     let pool = setup_backup_settings_pool().await;
     let dest_dir = unique_temp_path("backup-cancel-designs-dest");
     fs::create_dir_all(&dest_dir).expect("dest dir should be created");
-    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, &dest_dir.to_string_lossy().to_string())
+    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, dest_dir.to_string_lossy().as_ref())
         .await;
 
     // Source with a few files so the copy loop has work to do.
@@ -1571,7 +1572,7 @@ async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
     let pool = setup_backup_settings_pool().await;
     let dest_dir = unique_temp_path("backup-cancel-designs-partial");
     fs::create_dir_all(&dest_dir).expect("dest dir should be created");
-    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, &dest_dir.to_string_lossy().to_string())
+    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, dest_dir.to_string_lossy().as_ref())
         .await;
 
     let src_dir = unique_temp_path("backup-cancel-designs-partial-src");
@@ -1626,7 +1627,6 @@ async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
     let _ = fs::remove_dir_all(&dest_dir);
     let _ = fs::remove_dir_all(&src_dir);
 }
-
 
 // ---------------------------------------------------------------------------
 // cancelled backup constructors

@@ -412,9 +412,7 @@ pub fn design_rel_from_full(full: &str, library_root: &Path) -> Option<String> {
     }
 
     let prefix = format!("{}/", root_lower);
-    if full_lower.strip_prefix(&prefix).is_none() {
-        return None;
-    }
+    full_lower.strip_prefix(&prefix)?;
 
     // `full_norm` is guaranteed at least `root_trim.len() + 1` long because we
     // matched `root_lower` + `/` in the lower-cased form (same lengths).
@@ -665,11 +663,72 @@ pub fn to_absolute(relative: &Path, root: &Path) -> PathBuf {
     root.join(relative)
 }
 
-/// Build a full `AppPaths` layout for an arbitrary root directory.
+// ---------------------------------------------------------------------------
+// Path normalization helpers (single source of truth)
+// ---------------------------------------------------------------------------
+
+/// Returns `full_path` relative to `root` (`""` when they are equal). Assumes
+/// `full_path` has already been validated to be under `root`. Separators are
+/// normalised to forward slashes and comparisons are case-insensitive (ASCII),
+/// so drive-letter casing differences cannot break the derivation.
+pub fn relative_path_under_root(full_path: &str, root: &Path) -> String {
+    let full_norm = full_path.replace('\\', "/");
+    let root_norm = root
+        .to_string_lossy()
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_string();
+    if full_norm.eq_ignore_ascii_case(&root_norm) {
+        return String::new();
+    }
+    let root_lower = root_norm.to_ascii_lowercase();
+    if full_norm.to_ascii_lowercase().starts_with(&root_lower) {
+        full_norm[root_norm.len()..].trim_start_matches('/').to_string()
+    } else {
+        full_norm.trim_start_matches('/').to_string()
+    }
+}
+
+/// Convert a filesystem path to a consistent, readable display string.
 ///
-/// Used during catalogue storage migration to construct the target layout
-/// without touching the live startup resolution. Migration only runs from an
-/// installed deployment, so the mode is exposed as `Installed`.
+/// On Windows this strips the extended-length verbatim marker that
+/// `canonicalize()` prepends and normalises separators to native backslashes,
+/// so a database path from the bootstrap URL and a canonicalised designs path
+/// render identically. On other platforms the path is returned as a lossy
+/// UTF-8 string unchanged.
+///
+/// Display-only; the result is never round-tripped into a file operation.
+pub fn normalize_path_display(path: &Path) -> String {
+    let raw = path.to_string_lossy().to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        let without_verbatim = if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
+            format!(r"\\{}", rest)
+        } else if let Some(rest) = raw.strip_prefix(r"\\?\") {
+            rest.to_string()
+        } else {
+            raw
+        };
+        without_verbatim.replace('/', r"\")
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        raw
+    }
+}
+
+/// Normalise a path for use as an `explorer.exe` command-line target.
+///
+/// Strips the extended-length verbatim marker that `canonicalize()` adds (which
+/// `explorer.exe` does not accept) and converts forward slashes to native
+/// backslashes. On non-Windows builds the path is returned unchanged so the
+/// helper remains callable on every platform.
+pub fn normalize_windows_explorer_target(path: &Path) -> PathBuf {
+    PathBuf::from(normalize_path_display(path))
+}
+
 pub fn resolve_paths_for_root(data_root: &Path) -> AppPaths {
     let embroidery_designs_dir = data_root.join("MachineEmbroideryDesigns");
     let database_dir = data_root.join("Database");

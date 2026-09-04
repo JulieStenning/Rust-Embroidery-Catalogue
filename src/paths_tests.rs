@@ -1046,7 +1046,6 @@ fn ensure_catalogue_layout_and_seed_if_missing_moves_root_database_to_database_d
     let _ = fs::remove_dir_all(&tmp);
 }
 
-
 // ---------------------------------------------------------------------------
 // seed_database_if_allowed
 // ---------------------------------------------------------------------------
@@ -1259,4 +1258,56 @@ fn resolve_design_filepath_joins_rel_under_root() {
     );
     // Empty → the library root itself.
     assert_eq!(resolve_design_filepath("", &root), root);
+}
+
+// ---------------------------------------------------------------------------
+// relative_path_under_root
+// ---------------------------------------------------------------------------
+
+#[test]
+fn relative_path_under_root_returns_empty_when_equal() {
+    let root = PathBuf::from("C:/Library");
+    assert_eq!(relative_path_under_root("C:/Library", &root), "");
+    assert_eq!(relative_path_under_root("c:/LIBRARY", &root), "");
+}
+
+#[test]
+fn relative_path_under_root_derives_relative_subpath() {
+    let root = PathBuf::from("C:/Library");
+    assert_eq!(
+        relative_path_under_root("C:/Library/Flowers/Roses/rose.pes", &root),
+        "Flowers/Roses/rose.pes"
+    );
+}
+
+#[test]
+fn relative_path_under_root_strips_leading_slash_when_not_under_root() {
+    let root = PathBuf::from("C:/Library");
+    assert_eq!(
+        relative_path_under_root("/totally/elsewhere", &root),
+        "totally/elsewhere"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// normalize_path_display
+// ---------------------------------------------------------------------------
+
+#[test]
+fn normalize_path_display_keeps_readable_components() {
+    let path = PathBuf::from("data/sample folder/dossier.pes");
+    let result = normalize_path_display(&path);
+    assert!(result.contains("dossier.pes"));
+    assert!(result.contains("sample folder"));
+}
+
+// ---------------------------------------------------------------------------
+// normalize_windows_explorer_target
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn normalize_windows_explorer_target_returns_path_unchanged_on_non_windows() {
+    let p = PathBuf::from("/home/user/designs/rose.pes");
+    assert_eq!(normalize_windows_explorer_target(&p), p);
 }

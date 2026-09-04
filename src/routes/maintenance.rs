@@ -3,6 +3,7 @@ use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::db_health;
 use crate::services::folder_picker;
 use crate::settings;
+use crate::paths::normalize_path_display;
 use crate::AppState;
 use fs4::available_space;
 use serde::{Deserialize, Serialize};
@@ -395,7 +396,7 @@ pub fn browse_orphan_path(filepath: String) -> Result<BrowseOrphanPathResult, St
 
     Ok(BrowseOrphanPathResult {
         ok: true,
-        opened: normalize_path_string(&folder),
+        opened: normalize_path_display(&folder),
     })
 }
 
@@ -423,8 +424,8 @@ pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupV
     Ok(BackupViewModel {
         db_destination,
         designs_destination,
-        db_source_path: normalize_path_string(&db_source),
-        designs_source_path: normalize_path_string(&designs_source),
+        db_source_path: normalize_path_display(&db_source),
+        designs_source_path: normalize_path_display(&designs_source),
         db_last_backup_at,
         designs_last_backup_at,
     })
@@ -545,7 +546,7 @@ async fn run_database_backup_inner(pool: &SqlitePool) -> Result<DatabaseBackupRe
             completed_at,
             error: Some(format!(
                 "Database source not found: {}",
-                normalize_path_string(&source_db_path)
+                normalize_path_display(&source_db_path)
             )),
             cancelled: false,
         });
@@ -634,7 +635,7 @@ async fn run_database_backup_inner(pool: &SqlitePool) -> Result<DatabaseBackupRe
 
     Ok(DatabaseBackupResult {
         success: true,
-        backup_path: Some(normalize_path_string(&destination_path)),
+        backup_path: Some(normalize_path_display(&destination_path)),
         size_bytes,
         completed_at,
         error: None,
@@ -648,13 +649,13 @@ fn cleanup_maybe_partial_backup(destination_path: &Path) {
         if let Err(error) = fs::remove_file(destination_path) {
             tracing::error!(
                 "[backup] Could not remove partial database backup '{}': {}",
-                normalize_path_string(destination_path),
+                normalize_path_display(destination_path),
                 error
             );
         } else {
             tracing::info!(
                 "[backup] Removed partial database backup '{}'",
-                normalize_path_string(destination_path)
+                normalize_path_display(destination_path)
             );
         }
     }
@@ -711,7 +712,7 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
             completed_at,
             error: Some(format!(
                 "Designs source folder not found: {}",
-                normalize_path_string(&source_root)
+                normalize_path_display(&source_root)
             )),
             cancelled: false,
         });
@@ -809,7 +810,7 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
             if let Err(error) = fs::create_dir_all(parent) {
                 tracing::error!(
                     "[backup] Could not create destination folder '{}': {}",
-                    normalize_path_string(parent),
+                    normalize_path_display(parent),
                     error
                 );
                 continue;
@@ -821,8 +822,8 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
             Err(error) => {
                 tracing::error!(
                     "[backup] Could not copy '{}' to '{}': {}",
-                    normalize_path_string(&source_snapshot.full_path),
-                    normalize_path_string(&destination_path),
+                    normalize_path_display(&source_snapshot.full_path),
+                    normalize_path_display(&destination_path),
                     error
                 );
             }
@@ -863,7 +864,7 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
             if let Err(error) = fs::create_dir_all(parent) {
                 tracing::error!(
                     "[backup] Could not create archive folder '{}': {}",
-                    normalize_path_string(parent),
+                    normalize_path_display(parent),
                     error
                 );
                 continue;
@@ -879,8 +880,8 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
             Err(error) => {
                 tracing::error!(
                     "[backup] Could not archive '{}' to '{}': {}",
-                    normalize_path_string(&snapshot.full_path),
-                    normalize_path_string(&archive_path),
+                    normalize_path_display(&snapshot.full_path),
+                    normalize_path_display(&archive_path),
                     error
                 );
             }
@@ -892,7 +893,7 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
     {
         tracing::error!(
             "[backup] Could not clean up empty directories under '{}': {}",
-            normalize_path_string(&destination_root),
+            normalize_path_display(&destination_root),
             error
         );
     }
@@ -1246,41 +1247,6 @@ fn strip_sqlite_prefix(database_url: &str) -> &str {
         .unwrap_or(database_url)
 }
 
-/// Convert a filesystem path to a consistent, readable display string.
-///
-/// The two backup source-path derivations differ on Windows: the database path
-/// comes from the bootstrap URL (stored with forward slashes) while the designs
-/// path is produced by `derive_data_root_path().canonicalize()`, which adds the
-/// `\\?\` verbatim prefix. This normalises both to native backslashes and strips
-/// the verbatim marker so the UI shows a consistent `D:\...` path.
-///
-/// Display-only — the result is never round-tripped into a file operation, so
-/// normalising here is safe.
-pub(crate) fn normalize_path_string(path: &Path) -> String {
-    let raw = path.to_string_lossy().to_string();
-
-    #[cfg(target_os = "windows")]
-    {
-        // Strip Windows verbatim prefixes (`\\?\` and `\\?\UNC\`), mirroring the
-        // transform in `designs::normalize_windows_explorer_target`.
-        let without_verbatim = if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
-            format!(r"\\{}", rest)
-        } else if let Some(rest) = raw.strip_prefix(r"\\?\") {
-            rest.to_string()
-        } else {
-            raw
-        };
-
-        // Normalise separators to native backslashes.
-        return without_verbatim.replace('/', r"\");
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        raw
-    }
-}
-
 pub(crate) fn current_epoch_seconds_string() -> String {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1332,7 +1298,7 @@ pub(crate) fn ensure_writable_directory(path: &Path) -> Result<(), String> {
     fs::create_dir_all(path).map_err(|error| {
         format!(
             "Could not create destination '{}': {}",
-            normalize_path_string(path),
+            normalize_path_display(path),
             error
         )
     })?;
@@ -1341,7 +1307,7 @@ pub(crate) fn ensure_writable_directory(path: &Path) -> Result<(), String> {
     fs::write(&probe, b"ok").map_err(|error| {
         format!(
             "Destination is not writable '{}': {}",
-            normalize_path_string(path),
+            normalize_path_display(path),
             error
         )
     })?;
