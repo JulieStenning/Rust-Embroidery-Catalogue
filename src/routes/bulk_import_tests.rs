@@ -1,4 +1,4 @@
-// Tests for the bulk-import route.
+﻿// Tests for the bulk-import route.
 //
 // This module was split out of bulk_import.rs so the route file can stay
 // focused on production logic. It is included via a #[path] declaration
@@ -208,7 +208,7 @@ fn persist_bulk_import_confirm_wire_writes_image_fields_in_native_mode() {
     assert_eq!(persisted, 1);
 
     // The file is now stored under MachineEmbroideryDesigns/Test Designs/Bean.pes
-    let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
+    let stored_filepath = "Test Designs/Bean.pes";
     let row = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>, Option<f64>, Option<f64>, Option<i64>, Option<i64>, Option<i64>)>(
                 "SELECT image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count FROM designs WHERE filepath = ? LIMIT 1"
@@ -291,7 +291,7 @@ fn persist_bulk_import_confirm_wire_auto_backend_falls_back_safely_without_pytho
     assert_eq!(persisted, 1);
 
     // The file is now stored under MachineEmbroideryDesigns/Test Designs/Bean.pes
-    let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
+    let stored_filepath = "Test Designs/Bean.pes";
     let row = tauri::async_runtime::block_on(async {
             sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>, Option<f64>, Option<f64>)>(
                 "SELECT image_data, image_type, width_mm, height_mm FROM designs WHERE filepath = ? LIMIT 1"
@@ -388,7 +388,7 @@ fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
     assert_eq!(persisted, 1);
 
     // The file is now stored under MachineEmbroideryDesigns/Test Designs/Bean.hus
-    let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.hus";
+    let stored_filepath = "Test Designs/Bean.hus";
     let persisted_row_id = tauri::async_runtime::block_on(async {
         sqlx::query_scalar::<_, i64>("SELECT id FROM designs WHERE filepath = ? LIMIT 1")
             .bind(stored_filepath)
@@ -494,7 +494,7 @@ fn persist_bulk_import_confirm_wire_assigns_path_rule_keyword_tags() {
     .expect("persist should succeed");
     assert_eq!(persisted, 1);
 
-    let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Flower.pes";
+    let stored_filepath = "Test Designs/Flower.pes";
 
     let assigned_tags = tauri::async_runtime::block_on(async {
         sqlx::query_as::<_, (String,)>(
@@ -574,7 +574,7 @@ fn persist_bulk_import_confirm_wire_assigns_stitching_tags() {
     .expect("persist should succeed");
     assert_eq!(persisted, 1);
 
-    let stored_filepath = "/MachineEmbroideryDesigns/Test Designs/Bean.pes";
+    let stored_filepath = "Test Designs/Bean.pes";
 
     let stitching_tags = tauri::async_runtime::block_on(async {
         sqlx::query_as::<_, (String,)>(
@@ -1234,7 +1234,7 @@ fn prospective_path_standard_root_with_leaf() {
     assert!(result.is_ok());
     assert_eq!(
         result.unwrap(),
-        "/MachineEmbroideryDesigns/f/Babies/Jef Files/design.jef"
+        "f/Babies/Jef Files/design.jef"
     );
 }
 
@@ -1249,7 +1249,7 @@ fn prospective_path_parent_root() {
     assert!(result.is_ok());
     assert_eq!(
         result.unwrap(),
-        "/MachineEmbroideryDesigns/x/d/f/Babies/Jef Files/design.jef"
+        "x/d/f/Babies/Jef Files/design.jef"
     );
 }
 
@@ -1262,7 +1262,7 @@ fn prospective_path_drive_root() {
     assert!(result.is_ok());
     assert_eq!(
         result.unwrap(),
-        "/MachineEmbroideryDesigns/Designs/Floral/a.pes"
+        "Designs/Floral/a.pes"
     );
 }
 
@@ -1277,7 +1277,7 @@ fn prospective_path_mixed_separators() {
     assert!(result.is_ok());
     assert_eq!(
         result.unwrap(),
-        "/MachineEmbroideryDesigns/f/Babies/Jef Files/design.jef"
+        "f/Babies/Jef Files/design.jef"
     );
 }
 
@@ -1292,7 +1292,7 @@ fn prospective_path_longest_root_wins() {
     // Longer root "C:/x/d/f" wins => leaf "f"
     assert_eq!(
         result.unwrap(),
-        "/MachineEmbroideryDesigns/f/Babies/Jef Files/design.jef"
+        "f/Babies/Jef Files/design.jef"
     );
 }
 
@@ -1498,7 +1498,7 @@ fn folder_path_from_file_path_variants() {
         folder_path_from_file_path("C:/designs/import/design.pes"),
         Some("C:/designs/import".to_string())
     );
-    // Bare filename has no parent dir â€” returns None (filtered by empty check)
+    // Bare filename has no parent dir Ã¢â‚¬â€ returns None (filtered by empty check)
     assert_eq!(folder_path_from_file_path("design.pes"), None);
     assert_eq!(folder_path_from_file_path(""), None);
     assert_eq!(folder_path_from_file_path("   "), None);
@@ -1624,7 +1624,7 @@ fn full_path_to_stored_design_filepath_edge_cases() {
 
 #[test]
 fn compute_prospective_stored_filepath_edge_cases() {
-    // File already under designs base (fast path) â€” should use full_path_to_stored_design_filepath
+    // File already under designs base (fast path) Ã¢â‚¬â€ should use full_path_to_stored_design_filepath
     // which will either succeed or fail. Since we can't guarantee where the designs base is,
     // test that it doesn't panic and returns a consistent prefixed result.
     let result = compute_prospective_stored_filepath(
@@ -1633,14 +1633,14 @@ fn compute_prospective_stored_filepath_edge_cases() {
     );
     assert!(result.is_ok());
     let path = result.unwrap();
-    assert!(path.starts_with("/MachineEmbroideryDesigns/"));
+    assert!(path.starts_with(""));
     assert!(path.ends_with("design.pes"));
 
-    // No matching root fallback â€” should use bare filename
+    // No matching root fallback Ã¢â‚¬â€ should use bare filename
     let result =
         compute_prospective_stored_filepath("X:/orphan/file.pes", &["Z:/unrelated".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "/MachineEmbroideryDesigns/file.pes");
+    assert_eq!(result.unwrap(), "file.pes");
 
     // Source exactly at root boundary (file is the root itself... not possible, but test edge)
     let result = compute_prospective_stored_filepath(
@@ -1649,12 +1649,12 @@ fn compute_prospective_stored_filepath_edge_cases() {
     );
     assert!(result.is_ok());
     let path = result.unwrap();
-    assert!(path.starts_with("/MachineEmbroideryDesigns/"));
+    assert!(path.starts_with(""));
 
     // Drive-letter-only root with file directly under drive
     let result = compute_prospective_stored_filepath("C:/design.pes", &["C:/".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "/MachineEmbroideryDesigns/design.pes");
+    assert_eq!(result.unwrap(), "design.pes");
 
     // Drive-letter-only root with nested path
     let result =
@@ -1662,7 +1662,7 @@ fn compute_prospective_stored_filepath_edge_cases() {
     assert!(result.is_ok());
     assert_eq!(
         result.unwrap(),
-        "/MachineEmbroideryDesigns/Designs/Floral/a.pes"
+        "Designs/Floral/a.pes"
     );
 }
 
@@ -1826,7 +1826,7 @@ async fn filter_existing_scanned_files_different_hash_passes() {
             "INSERT INTO designs (filename, filepath, date_added, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, 0, ?, ?)",
         )
         .bind(same_filename)
-        .bind("/MachineEmbroideryDesigns/other-folder/test.pes")
+        .bind("other-folder/test.pes")
         .bind(same_size)
         .bind(different_hash)
         .execute(&pool)
@@ -1884,7 +1884,7 @@ async fn filter_existing_scanned_files_triple_match_excludes() {
             "INSERT INTO designs (filename, filepath, date_added, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), 0, 0, 0, ?, ?)",
         )
         .bind("exact-match.pes")
-        .bind("/MachineEmbroideryDesigns/exact-match.pes")
+        .bind("exact-match.pes")
         .bind(file_size)
         .bind(&file_hash)
         .execute(&pool)
@@ -1903,7 +1903,7 @@ async fn filter_existing_scanned_files_triple_match_excludes() {
         .await
         .expect("filter should succeed");
 
-    // Triple match â†’ excluded
+    // Triple match Ã¢â€ â€™ excluded
     assert!(filtered.is_empty(), "triple match should be excluded");
 
     let _ = fs::remove_file(&file_path);
@@ -2399,7 +2399,7 @@ fn compute_prospective_stored_filepath_uses_longest_root_leaf() {
     let root_paths = vec!["C:/imports".to_string(), "C:/imports/projects".to_string()];
     let result = compute_prospective_stored_filepath(full_path, &root_paths)
         .expect("prospective path should compute");
-    assert_eq!(result, "/MachineEmbroideryDesigns/projects/design.pes");
+    assert_eq!(result, "projects/design.pes");
 }
 
 #[test]
@@ -2408,7 +2408,7 @@ fn compute_prospective_stored_filepath_drive_root_places_directly() {
     let root_paths = vec!["C:/".to_string()];
     let result = compute_prospective_stored_filepath(full_path, &root_paths)
         .expect("drive-root prospective path should compute");
-    assert_eq!(result, "/MachineEmbroideryDesigns/file.pes");
+    assert_eq!(result, "file.pes");
 }
 
 // ---------------------------------------------------------------------------
@@ -2431,7 +2431,7 @@ fn full_path_to_stored_design_filepath_maps_in_library_and_rejects_outside() {
     let in_lib = get_designs_base_path().join("sub").join("design.pes");
     let stored = full_path_to_stored_design_filepath(&in_lib.to_string_lossy())
         .expect("in-library file should map to a stored path");
-    assert_eq!(stored, "/MachineEmbroideryDesigns/sub/design.pes");
+    assert_eq!(stored, "sub/design.pes");
 
     assert!(
         full_path_to_stored_design_filepath("C:/elsewhere/design.pes").is_err(),
@@ -2472,11 +2472,11 @@ fn ensure_file_in_designs_base_copies_outside_file_into_library() {
     let stored = ensure_file_in_designs_base(&source_file.to_string_lossy(), &root_paths)
         .expect("file should be copied into the library");
 
-    assert!(stored.starts_with("/MachineEmbroideryDesigns/"));
+    assert!(stored.starts_with(""));
     assert!(stored.ends_with("Bean.pes"));
 
     // The copy should exist on disk inside the managed designs base.
-    let rel = stored.trim_start_matches("/MachineEmbroideryDesigns/");
+    let rel = stored.trim_start_matches("");
     assert!(
         get_designs_base_path().join(rel).exists(),
         "copied file should exist in the designs base"
@@ -2644,7 +2644,7 @@ fn ensure_file_in_designs_base_reuses_content_identical_destination() {
     let stored = ensure_file_in_designs_base(&source_file.to_string_lossy(), &root_paths)
         .expect("identical destination should be reused");
 
-    assert_eq!(stored, "/MachineEmbroideryDesigns/mydesigns_src/Bean.pes");
+    assert_eq!(stored, "mydesigns_src/Bean.pes");
 
     // Only the single identical file exists - no auto-rename duplicate was made.
     let entries: Vec<String> = std::fs::read_dir(&dest_dir)
@@ -2691,7 +2691,7 @@ fn ensure_file_in_designs_base_auto_renames_on_content_collision() {
     let stored = ensure_file_in_designs_base(&source_file.to_string_lossy(), &root_paths)
         .expect("content collision should auto-rename");
 
-    assert_eq!(stored, "/MachineEmbroideryDesigns/mydesigns_src/Bean_1.pes");
+    assert_eq!(stored, "mydesigns_src/Bean_1.pes");
 
     // Original kept its content; the renamed copy carries the new bytes.
     assert_eq!(

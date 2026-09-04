@@ -579,10 +579,7 @@ async fn import_single_design(
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| relative.to_string_lossy().to_string());
-    let stored_filepath = format!(
-        "/MachineEmbroideryDesigns/{}",
-        relative.to_string_lossy().replace('\\', "/")
-    );
+    let stored_filepath = crate::paths::canonical_design_rel(&relative.to_string_lossy());
 
     sqlx::query(
         "INSERT INTO designs (filename, filepath, date_added, width_mm, height_mm, \

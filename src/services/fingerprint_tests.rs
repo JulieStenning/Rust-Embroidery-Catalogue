@@ -202,25 +202,30 @@ fn test_resolve_fingerprint_source_path() {
     assert_eq!(resolve_fingerprint_source_path(""), base);
     assert_eq!(resolve_fingerprint_source_path("   "), base);
 
-    let root = derive_data_root_path();
+    // Legacy container-prefixed stored forms still resolve under the designs
+    // base (the container is canonical-relative'd away and rejoined).
     assert_eq!(
         resolve_fingerprint_source_path("/MachineEmbroideryDesigns/foo/bar.pes"),
-        root.join("MachineEmbroideryDesigns/foo/bar.pes")
+        base.join("foo/bar.pes")
     );
     assert_eq!(
         resolve_fingerprint_source_path("machineembroiderydesigns/foo/bar.pes"),
-        root.join("machineembroiderydesigns/foo/bar.pes")
+        base.join("foo/bar.pes")
     );
 
     #[cfg(windows)]
     {
+        // A Windows drive path is a true absolute path and passes through as-is.
         let abs = resolve_fingerprint_source_path("C:/some/absolute/path.pes");
         assert_eq!(abs, PathBuf::from("C:/some/absolute/path.pes"));
     }
     #[cfg(not(windows))]
     {
+        // On non-Windows a bare leading '/' has no drive and is treated as the
+        // base-root marker (legacy stored-filepath convention), so it resolves
+        // under the designs base.
         let abs = resolve_fingerprint_source_path("/some/absolute/path.pes");
-        assert_eq!(abs, PathBuf::from("/some/absolute/path.pes"));
+        assert_eq!(abs, base.join("some/absolute/path.pes"));
     }
 
     let rel = resolve_fingerprint_source_path("foo/bar.pes");

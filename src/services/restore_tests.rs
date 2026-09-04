@@ -1,4 +1,4 @@
-use super::*;
+﻿use super::*;
 use crate::paths::AppPaths;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::fs;
@@ -225,7 +225,7 @@ async fn detect_design_files_absent_from_database_reports_unreferenced_files() {
     fs::write(root.join("unknown.pes"), b"y").unwrap();
 
     let db_path = tmp.join("test.db");
-    make_db(&db_path, &["/MachineEmbroideryDesigns/known.pes"]).await;
+    make_db(&db_path, &["known.pes"]).await;
     let pool = SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(
@@ -254,7 +254,7 @@ async fn perform_database_restore_swaps_and_counts_designs() {
     let paths = make_app_paths(&tmp);
 
     // Live DB with one design.
-    make_db(&paths.database_path, &["/MachineEmbroideryDesigns/one.pes"]).await;
+    make_db(&paths.database_path, &["one.pes"]).await;
 
     // Backup DB with two designs.
     let backup_dir = tmp.join("backups");
@@ -262,8 +262,8 @@ async fn perform_database_restore_swaps_and_counts_designs() {
     make_db(
         &backup_path,
         &[
-            "/MachineEmbroideryDesigns/one.pes",
-            "/MachineEmbroideryDesigns/two.pes",
+            "one.pes",
+            "two.pes",
         ],
     )
     .await;
@@ -327,7 +327,7 @@ async fn perform_database_restore_rolls_back_on_corrupt_file_and_keeps_live_db()
     let paths = make_app_paths(&tmp);
 
     // Live DB with one design.
-    make_db(&paths.database_path, &["/MachineEmbroideryDesigns/one.pes"]).await;
+    make_db(&paths.database_path, &["one.pes"]).await;
 
     // A corrupt "database" backup: plain text with a .db extension.
     let corrupt_path = tmp.join("corrupt_test.db");
@@ -385,7 +385,7 @@ async fn perform_database_restore_reports_schema_version_hints() {
     let paths = make_app_paths(&tmp);
 
     // Live DB, user_version = 3.
-    make_db(&paths.database_path, &["/MachineEmbroideryDesigns/one.pes"]).await;
+    make_db(&paths.database_path, &["one.pes"]).await;
     set_user_version(&paths.database_path, 3).await;
 
     // Backup DB, user_version = 7, with two designs.
@@ -393,8 +393,8 @@ async fn perform_database_restore_reports_schema_version_hints() {
     make_db(
         &backup_path,
         &[
-            "/MachineEmbroideryDesigns/one.pes",
-            "/MachineEmbroideryDesigns/two.pes",
+            "one.pes",
+            "two.pes",
         ],
     )
     .await;
@@ -498,12 +498,12 @@ async fn import_unmatched_design_files_imports_real_design() {
     // The imported design is now queryable with parsed metadata.
     let (filename, filepath, stitch_count): (String, String, i64) =
         sqlx::query_as("SELECT filename, filepath, stitch_count FROM designs WHERE filepath = ?")
-            .bind("/MachineEmbroideryDesigns/Bean.pes")
+            .bind("Bean.pes")
             .fetch_one(&pool)
             .await
             .expect("imported design row");
     assert_eq!(filename, "Bean.pes");
-    assert_eq!(filepath, "/MachineEmbroideryDesigns/Bean.pes");
+    assert_eq!(filepath, "Bean.pes");
     assert!(
         stitch_count > 0,
         "stitch_count should be parsed from the fixture"
@@ -529,7 +529,7 @@ fn restore_progress_new_initializes_defaults() {
 #[tokio::test]
 async fn validate_backup_file_rejects_non_file() {
     let tmp = unique_temp_dir("validate-dir");
-    // A directory is not a file → rejected by the "not a file" branch.
+    // A directory is not a file â†’ rejected by the "not a file" branch.
     let err = validate_backup_file(&tmp).unwrap_err();
     assert!(err.contains("not a file"), "unexpected error: {err}");
     let _ = fs::remove_dir_all(&tmp);
@@ -543,7 +543,7 @@ async fn perform_database_restore_errors_when_live_db_missing() {
     let backup = tmp.join("backup.db");
     fs::write(&backup, b"sqlite").unwrap();
 
-    // No live database exists at app_paths.database_path → error before the
+    // No live database exists at app_paths.database_path â†’ error before the
     // pool is touched, so an empty holder is sufficient.
     let holder = PoolHolder::default();
     let result = perform_database_restore(&holder, &paths, &backup).await;

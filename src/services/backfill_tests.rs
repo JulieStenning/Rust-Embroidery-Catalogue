@@ -922,14 +922,14 @@ async fn per_mode_ai_scope_counts_and_pager_parity() {
 #[test]
 fn resolve_folder_scope_under_validates_boundary() {
     let root = std::env::temp_dir().join("tagging-folder-scope-test");
-    let flowers = root.join("MachineEmbroideryDesigns").join("Flowers");
+    let flowers = root.join("Flowers");
     std::fs::create_dir_all(&flowers).unwrap();
 
-    // A subfolder under the root resolves to its relative path.
+    // A subfolder under the library root resolves to its canonical relative path.
     let scope = resolve_folder_scope_under(Some(flowers.to_str().unwrap()), &root)
         .unwrap()
         .unwrap();
-    assert_eq!(scope.rel, "MachineEmbroideryDesigns/Flowers");
+    assert_eq!(scope.rel, "Flowers");
     assert!(!scope.is_root);
 
     // The root itself resolves as the root scope.
@@ -960,16 +960,17 @@ fn resolve_folder_scope_under_validates_boundary() {
 #[tokio::test]
 async fn folder_scope_filters_candidates_recursively_and_direct_only() {
     let pool = make_test_pool().await;
-    // Designs across a Flowers folder (root-prefixed, bare-relative, leading-slash
-    // forms) plus an unrelated Animals folder.
+    // Designs in a Flowers folder (direct files, a nested sub/b.pes, deeper
+    // forms) plus an unrelated Animals folder. All stored filepaths are the
+    // canonical library-relative form.
     sqlx::query(
-        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (1, 'a.pes', 'MachineEmbroideryDesigns/Flowers/a.pes', 0)",
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (1, 'a.pes', 'Flowers/a.pes', 0)",
     )
     .execute(&pool)
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (2, 'b.pes', 'MachineEmbroideryDesigns/Flowers/sub/b.pes', 0)",
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (2, 'b.pes', 'Flowers/sub/b.pes', 0)",
     )
     .execute(&pool)
     .await
@@ -981,13 +982,13 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (4, 'd.pes', '/MachineEmbroideryDesigns/Flowers/d.pes', 0)",
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (4, 'd.pes', 'Flowers/d.pes', 0)",
     )
     .execute(&pool)
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (5, 'e.pes', 'MachineEmbroideryDesigns/Animals/e.pes', 0)",
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (5, 'e.pes', 'Animals/e.pes', 0)",
     )
     .execute(&pool)
     .await
@@ -995,11 +996,10 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
 
     let scope = TaggingFolderScope {
         rel: "Flowers".to_string(),
-        abs: "/data/MachineEmbroideryDesigns/Flowers".to_string(),
         is_root: false,
     };
 
-    // Recursive: designs 1..=4 (all stored forms), not design 5.
+    // Recursive: all four Flowers designs (direct + nested), not design 5.
     let recursive = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), true)
         .await
         .unwrap();

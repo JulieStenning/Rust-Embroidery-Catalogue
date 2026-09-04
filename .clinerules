@@ -102,6 +102,25 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - **Automated Verification:** You **MUST** run `cargo check` or `cargo test` after editing any Rust code to ensure the borrow checker is completely satisfied and the project compiles before asking for user feedback.
 - **Native folder pickers (`rfd`):** `FileDialog::set_directory` silently falls back to a system default when given a non-existent/unreadable path. Always validate + resolve the start directory (existence + `read_dir()` readability probe) before calling it, and pass an explicit known-good fallback (e.g. `app_handle.path().document_dir()`) rather than relying on rfd's implicit default. A `pick_folder()` `None` result means the user cancelled.
 
+### 💾 Canonical `designs.filepath` format (single source of truth)
+
+- **Invariant:** every row in `designs.filepath` is a *canonical relative path from the designs
+  library root* (`<data_root>/MachineEmbroideryDesigns` = `AppPaths.embroidery_designs_dir`).
+- **Format rules:** forward slashes (`/`) only; **no leading slash**; **no absolute path or
+  Windows drive letter**; preserves the filesystem's exact case (never `lower()`-ed). A design at
+  the library root is stored as a bare filename (`rose.pes`) with **no** `/`; subfolder designs are
+  `Flowers/rose.pes`, `Flowers/Roses/rose.pes`, etc.
+- `MachineEmbroideryDesigns` is the *container the app creates under the data root on first
+  install* — it must NEVER be stored as a path prefix in `filepath`. Do not reconstruct the library
+  root / container by string-matching that name; resolve it from `AppPaths`.
+- **Single source of truth:** all path logic goes through the helpers in `src/paths.rs`
+  (`canonical_design_rel`, `design_rel_from_full`, `resolve_design_filepath`). Every scan/import/
+  seed write must run the canonicaliser before persisting; every read/thumbnail/file-open must
+  rejoin the canonical rel to the resolved library root. Never add another ad-hoc path helper.
+- **Folder-scoped SQL** must use ONE canonical predicate against the relative `filepath`
+  (`d.filepath LIKE '<rel>/%' …`, with `d.filepath NOT LIKE '%/%'` for root-level), never a
+  multi-variant `OR` of `/MachineEmbroideryDesigns/...` / bare-relative / absolute prefix forms.
+
 ### 📏 Test File Separation Rule
 
 Any Rust source file whose total line count exceeds **500 lines** (production plus embedded test code) MUST have its `#[cfg(test)]` module(s) extracted into a separate sibling file.

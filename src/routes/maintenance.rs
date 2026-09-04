@@ -992,46 +992,10 @@ pub(crate) fn derive_designs_source_path() -> PathBuf {
 }
 
 pub(crate) fn resolve_design_full_path(base_path: &Path, stored_filepath: &str) -> PathBuf {
-    // Normalise the stored path: trim whitespace and normalise separators.
-    let candidate = stored_filepath.trim().replace('\\', "/");
-
-    if candidate.is_empty() {
-        return base_path.to_path_buf();
-    }
-
-    // If the stored path is absolute, use it directly.
-    let candidate_path = PathBuf::from(&candidate);
-    if candidate_path.is_absolute() {
-        return candidate_path;
-    }
-
-    // If the stored path starts with "MachineEmbroideryDesigns" (case-insensitive),
-    // resolve it relative to the data root (the parent of the designs base path).
-    // This handles the common case where the catalogue stores paths like
-    // "/MachineEmbroideryDesigns/testdata/01Peacock.dst" or
-    // "MachineEmbroideryDesigns/testdata/01Peacock.dst".
-    let cleaned = candidate.trim_start_matches('/');
-    let cleaned_lower = cleaned.to_ascii_lowercase();
-    if cleaned_lower == "machineembroiderydesigns"
-        || cleaned_lower.starts_with("machineembroiderydesigns/")
-    {
-        // Derive the data root from the base_path parameter (base_path is
-        // <data_root>/MachineEmbroideryDesigns), so the data root is its parent.
-        let data_root = base_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
-        return data_root.join(cleaned);
-    }
-
-    // Otherwise, resolve relative to the designs base path.
-    let combined = if candidate.starts_with('/') || candidate.starts_with('\\') {
-        format!("{}{}", normalize_path_string(base_path), candidate)
-    } else {
-        format!("{}/{}", normalize_path_string(base_path), candidate)
-    };
-
-    PathBuf::from(combined)
+    // Delegate to the shared single source of truth: handles canonical
+    // library-relative paths, legacy `/MachineEmbroideryDesigns/…` forms, and
+    // absolute rows (returned as-is).
+    crate::paths::resolve_design_filepath(stored_filepath, base_path)
 }
 
 fn nearest_existing_folder(path: &Path, fallback: &Path) -> PathBuf {

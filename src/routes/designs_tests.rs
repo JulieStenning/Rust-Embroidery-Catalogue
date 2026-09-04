@@ -1,4 +1,4 @@
-// Tests for the designs route.
+﻿// Tests for the designs route.
 //
 // This module was split out of designs.rs so the route file can stay
 // focused on production logic. helper_tests and parser_tests are nested
@@ -8,7 +8,7 @@
 mod helper_tests {
     use super::super::*;
 
-    // â”€â”€â”€ round_mm_to_i64 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ round_mm_to_i64 Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn round_mm_normal_value() {
@@ -23,7 +23,7 @@ mod helper_tests {
         assert_eq!(round_mm_to_i64(None), None);
     }
 
-    // â”€â”€â”€ ceil_mm_to_i64 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ ceil_mm_to_i64 Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn ceil_mm_normal_value() {
@@ -37,7 +37,7 @@ mod helper_tests {
         assert_eq!(ceil_mm_to_i64(None), None);
     }
 
-    // â”€â”€â”€ normalize_optional_text â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ normalize_optional_text Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn normalize_optional_text_trims_whitespace() {
@@ -58,7 +58,7 @@ mod helper_tests {
         assert_eq!(normalize_optional_text(&None), None);
     }
 
-    // â”€â”€â”€ normalize_optional_fk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ normalize_optional_fk Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn normalize_optional_fk_positive_id_ok() {
@@ -88,7 +88,7 @@ mod helper_tests {
         assert!(result.unwrap_err().contains("must be a positive id"));
     }
 
-    // â”€â”€â”€ validate_rating â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ validate_rating Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn validate_rating_accepts_valid_range() {
@@ -121,7 +121,7 @@ mod helper_tests {
         assert_eq!(result.unwrap(), None);
     }
 
-    // â”€â”€â”€ image_mime_from_type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ image_mime_from_type Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn image_mime_for_known_types() {
@@ -139,7 +139,7 @@ mod helper_tests {
         assert_eq!(image_mime_from_type(None), "image/png");
     }
 
-    // â”€â”€â”€ build_data_url â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ build_data_url Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn build_data_url_returns_correct_mime_and_base64() {
@@ -164,7 +164,7 @@ mod helper_tests {
             .starts_with("data:image/jpeg;base64,"));
     }
 
-    // â”€â”€â”€ strip_sqlite_prefix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ strip_sqlite_prefix Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn strip_sqlite_prefix_triple_slash() {
@@ -194,34 +194,8 @@ mod helper_tests {
         assert_eq!(strip_sqlite_prefix(""), "");
     }
 
-    // â”€â”€â”€ normalize_path_for_compare â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    #[test]
-    fn normalize_path_replaces_backslashes() {
-        let result = normalize_path_for_compare("foo\\bar\\baz");
-        assert!(!result.contains('\\'));
-        assert!(result.contains('/'));
-    }
-
-    #[test]
-    fn normalize_path_trims_trailing_slash() {
-        let result = normalize_path_for_compare("/foo/bar/");
-        assert!(!result.ends_with('/'));
-    }
-
-    #[test]
-    fn normalize_path_lowercases() {
-        let result = normalize_path_for_compare("/FOO/Bar");
-        assert_eq!(result, "/foo/bar");
-    }
-
-    #[test]
-    fn normalize_path_trims_whitespace() {
-        let result = normalize_path_for_compare("  /foo/bar  ");
-        assert_eq!(result, "/foo/bar");
-    }
-
-    // â”€â”€â”€ parse_general_token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ parse_general_token Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn parse_general_token_plain_term() {
@@ -311,7 +285,7 @@ mod helper_tests {
         assert!(token.is_extension);
     }
 
-    // â”€â”€â”€ push_where_clause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ push_where_clause Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn push_where_clause_first_time_inserts_where() {
@@ -337,7 +311,7 @@ mod helper_tests {
         assert!(!sql.as_str().contains(" WHERE "));
     }
 
-    // â”€â”€â”€ is_truthy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ is_truthy Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     #[test]
     fn is_truthy_accepts_expected_values() {
@@ -715,7 +689,7 @@ async fn get_design_ids_with_pool_returns_full_filtered_ids_in_sort_order() {
         .await
         .expect("ids query should succeed");
 
-    // Default sort (filename) → alpha, gamma, rose, zeta. IDs must match the
+    // Default sort (filename) â†’ alpha, gamma, rose, zeta. IDs must match the
     // same deterministic ORDER BY the paginated page query uses.
     let expected: Vec<i64> = sqlx::query_scalar(
         "SELECT id FROM designs ORDER BY filename COLLATE NOCASE ASC, id ASC",
@@ -1236,7 +1210,7 @@ async fn bulk_set_tags_no_diff_no_flags_keeps_flags_untouched() {
     .await
     .expect("pre-verify design");
 
-    // No tag diff and no flag overrides — nothing is written, flags preserved.
+    // No tag diff and no flag overrides â€” nothing is written, flags preserved.
     let result = bulk_set_tags_for_designs_with_pool(
         &pool,
         &[1],
@@ -1416,7 +1390,7 @@ fn launch_disable_parser_accepts_expected_truthy_values() {
     assert!(!is_truthy("no"));
 }
 
-// â”€â”€â”€ Phase 2: Environment-dependent tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Phase 2: Environment-dependent tests Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[test]
 #[serial]
@@ -1455,7 +1429,7 @@ fn external_launches_disabled_returns_false_when_env_var_absent() {
     }
 }
 
-// â”€â”€â”€ Phase 3: Async DB-dependent functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Phase 3: Async DB-dependent functions Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[tokio::test]
 async fn ensure_design_exists_found() {
@@ -1783,7 +1757,7 @@ async fn update_design_metadata_rejects_invalid_fk() {
     assert!(result.unwrap_err().contains("not found"));
 }
 
-// â”€â”€â”€ Phase 4: Filesystem-dependent tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Phase 4: Filesystem-dependent tests Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[test]
 #[serial]
@@ -1845,93 +1819,6 @@ fn get_designs_base_path_joins_machine_embroidery_designs() {
     }
 }
 
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_already_normalized() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    // A relative path that isn't under the data root is returned as-is
-    // (normalize_stored_design_filepath only adds the /MachineEmbroideryDesigns/
-    // prefix when the path is already within that directory structure)
-    let result = normalize_stored_design_filepath("Roses/rose.pes");
-    assert_eq!(result, "Roses/rose.pes");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_under_machine_embroidery() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    // A path already starting with MachineEmbroideryDesigns gets normalized
-    let result = normalize_stored_design_filepath("MachineEmbroideryDesigns/Roses/rose.pes");
-    assert_eq!(result, "/MachineEmbroideryDesigns/Roses/rose.pes");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
-#[test]
-fn nearest_existing_folder_returns_fallback_when_no_parent_exists() {
-    // Use a completely isolated UUID-like temp path so no parent exists
-    let isolated = std::env::temp_dir().join(format!(
-        "nearest-test-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    // Create the fallback directory so it exists
-    std::fs::create_dir_all(&isolated).expect("should create isolated dir");
-    let fallback = isolated.clone();
-    let nonexistent = isolated.join("a").join("b").join("c");
-
-    let result = nearest_existing_folder(&nonexistent, &fallback);
-    assert_eq!(result, fallback);
-
-    let _ = std::fs::remove_dir_all(&isolated);
-}
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_with_machine_embroidery_prefix() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    let result = normalize_stored_design_filepath("machineembroiderydesigns/Roses/rose.pes");
-    assert_eq!(result, "/machineembroiderydesigns/Roses/rose.pes");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_empty_returns_empty() {
-    let result = normalize_stored_design_filepath("");
-    assert_eq!(result, "");
-}
 
 #[test]
 #[serial]
@@ -1972,7 +1859,7 @@ fn nearest_existing_folder_returns_existing_dir_when_given_dir() {
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
-// â”€â”€â”€ Additional coverage for open/launch suppressed paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Additional coverage for open/launch suppressed paths Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[tokio::test]
 #[serial]
@@ -2034,7 +1921,7 @@ async fn open_design_in_editor_returns_file_not_found_error() {
     }
 }
 
-// â”€â”€â”€ Additional DB error paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Additional DB error paths Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[tokio::test]
 async fn set_design_stitched_errors_when_missing() {
@@ -2104,7 +1991,7 @@ async fn get_design_image_data_returns_no_data_url_when_no_image() {
     let result = get_design_image_data_with_pool(&pool, 1)
         .await
         .expect("query should succeed");
-    // Design 1 exists but has no image data seeded â€” returns Some with data_url=None
+    // Design 1 exists but has no image data seeded Ã¢â‚¬â€ returns Some with data_url=None
     let image_data = result.expect("should return Some for existing design");
     assert!(image_data.data_url.is_none());
     assert!(image_data.image_type.is_none());
@@ -2130,86 +2017,6 @@ async fn add_design_to_project_with_missing_project_errors() {
     assert!(result.unwrap_err().contains("not found"));
 }
 
-// â”€â”€â”€ normalize_stored_design_filepath additional edge cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_with_absolute_data_root_prefix() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    // A path that starts with the full data root should be normalized
-    let result =
-        normalize_stored_design_filepath("/tmp/test_data/MachineEmbroideryDesigns/MyDesign.pes");
-    assert_eq!(result, "/MachineEmbroideryDesigns/MyDesign.pes");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_exact_data_root_returns_slash() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    let result = normalize_stored_design_filepath("/tmp/test_data");
-    assert_eq!(result, "/");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_exact_designs_base_returns_med() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    let result = normalize_stored_design_filepath("/tmp/test_data/MachineEmbroideryDesigns");
-    assert_eq!(result, "/MachineEmbroideryDesigns");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
-
-#[test]
-#[serial]
-fn normalize_stored_design_filepath_backslashes_are_normalized() {
-    let prior = std::env::var("DATABASE_URL").ok();
-    std::env::set_var(
-        "DATABASE_URL",
-        "sqlite:/tmp/test_data/Database/catalogue.db",
-    );
-
-    let result = normalize_stored_design_filepath("Roses\\rose.pes");
-    // With backslashes normalized to forward slashes
-    assert_eq!(result, "Roses/rose.pes");
-
-    if let Some(val) = prior {
-        std::env::set_var("DATABASE_URL", val);
-    } else {
-        std::env::remove_var("DATABASE_URL");
-    }
-}
 
 #[test]
 #[serial]
@@ -2255,7 +2062,7 @@ fn resolve_design_full_path_for_relative_path() {
     }
 }
 
-// â”€â”€â”€ parse_general_search_groups additional coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ parse_general_search_groups additional coverage Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[test]
 fn parse_general_search_groups_empty_returns_empty() {
@@ -2293,7 +2100,7 @@ fn parse_general_search_groups_trailing_or_is_skipped() {
     assert_eq!(groups[0][0].text, "hello");
 }
 
-// â”€â”€â”€ bulk_delete with delete_files=true (trash errors collected) â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ bulk_delete with delete_files=true (trash errors collected) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[tokio::test]
 async fn bulk_delete_with_delete_files_errors_when_file_not_found() {
@@ -2310,9 +2117,9 @@ async fn bulk_delete_with_delete_files_errors_when_file_not_found() {
     assert!(result.errors[0].contains("not found on disk"));
 }
 
-// â”€â”€â”€ generate_preview is external â€” just document the gap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ generate_preview is external Ã¢â‚¬â€ just document the gap Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-// â”€â”€â”€ push_general_search_clause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ push_general_search_clause Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[test]
 fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
@@ -2332,10 +2139,9 @@ fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
     assert!(sql.as_str().contains("LOWER(d.filename) LIKE"));
     assert!(sql.as_str().contains("design_tags"));
     assert!(sql.as_str().contains("LOWER(tags.description) LIKE"));
-    // Folder search matches the folder path relative to the library root: the
-    // MachineEmbroideryDesigns container is stripped so it cannot false-match.
-    assert!(sql.as_str().contains("/machineembroiderydesigns/"));
-    assert!(sql.as_str().contains("LOWER("));
+    // Folder search matches the canonical relative filepath directly (stored
+    // paths no longer carry the MachineEmbroideryDesigns container prefix).
+    assert!(sql.as_str().contains("LOWER(d.filepath) LIKE"));
     assert!(sql.as_str().contains("LIKE "));
     // The bind values are stored as parameters, so count the `?` placeholders.
     assert!(sql.as_str().matches("LIKE ").count() >= 3);
@@ -2397,19 +2203,16 @@ fn push_general_search_clause_empty_groups_is_noop() {
 }
 
 #[tokio::test]
-async fn library_folder_sql_expr_strips_root_container() {
+async fn library_folder_sql_expr_is_passthrough_on_canonical_filepath() {
     let pool = test_pool().await;
     let expr = library_folder_sql_expr("filepath");
     let cases = [
-        // Canonical stored form: the MachineEmbroideryDesigns container is removed,
-        // leaving the subfolder path (and trailing filename) to match against.
-        ("/MachineEmbroideryDesigns/Sig/rose.pes", "Sig/rose.pes"),
-        ("/MachineEmbroideryDesigns/A/B/file.pes", "A/B/file.pes"),
-        ("/MachineEmbroideryDesigns/rose.pes", "rose.pes"),
-        // Legacy absolute path containing the container.
-        ("D:/Data/MachineEmbroideryDesigns/Sig/rose.pes", "Sig/rose.pes"),
-        // A path without the container is left untouched.
-        ("/other/place/thing.pes", "/other/place/thing.pes"),
+        // Stored filepaths are canonical library-relative paths with no
+        // MachineEmbroideryDesigns container, so the expression is a passthrough.
+        ("Sig/rose.pes", "Sig/rose.pes"),
+        ("A/B/file.pes", "A/B/file.pes"),
+        ("rose.pes", "rose.pes"),
+        ("Flowers/Roses/my design.pes", "Flowers/Roses/my design.pes"),
     ];
     for (input, expected) in cases {
         let mut builder = QueryBuilder::<Sqlite>::new("SELECT ");
@@ -2429,11 +2232,11 @@ async fn library_folder_sql_expr_strips_root_container() {
 #[tokio::test]
 async fn folder_only_search_does_not_false_match_on_root_container() {
     let pool = test_pool().await;
-    sqlx::query("INSERT INTO designs (filename, filepath) VALUES ('rose.pes', '/MachineEmbroideryDesigns/Sig/rose.pes')")
+    sqlx::query("INSERT INTO designs (filename, filepath) VALUES ('rose.pes', 'Sig/rose.pes')")
         .execute(&pool)
         .await
         .expect("seed sig design");
-    sqlx::query("INSERT INTO designs (filename, filepath) VALUES ('lily.pes', '/MachineEmbroideryDesigns/Other/lily.pes')")
+    sqlx::query("INSERT INTO designs (filename, filepath) VALUES ('lily.pes', 'Other/lily.pes')")
         .execute(&pool)
         .await
         .expect("seed other design");
@@ -2563,7 +2366,7 @@ fn push_general_search_clause_and_between_tokens_within_group() {
     assert!(sql.as_str().matches("LOWER(d.filename) LIKE").count() >= 2);
 }
 
-// â”€â”€â”€ recommend_hoop_for_design â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ recommend_hoop_for_design Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[tokio::test]
 async fn recommend_hoop_selects_smallest_fitting_hoop() {
@@ -2596,7 +2399,7 @@ async fn recommend_hoop_tries_rotated_orientation() {
     let pool = test_pool().await;
     // 60 wide x 30 tall: fits Small (50x40) rotated (40 wide x 50 tall needed)
     // Actually design 60x30 -> needs 60 wide. Little (70x20) won't fit.
-    // To prove rotation: insert hoop that fits when the design is rotated 90Â°.
+    // To prove rotation: insert hoop that fits when the design is rotated 90Ã‚Â°.
     // Design 60x30 -> rotated 30x60. Need a hoop >= 30 wide, >= 60 tall.
     sqlx::query("INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES ('Tall', 30, 70)")
         .execute(&pool)
@@ -2608,7 +2411,7 @@ async fn recommend_hoop_tries_rotated_orientation() {
         .expect("hoop recommendation should succeed");
 
     // Only Tall (30x70) fits either orientation: width=60 fails (30<60),
-    // but rotated width=30,height=60 â†’ 30>=30 and 70>=60 passes.
+    // but rotated width=30,height=60 Ã¢â€ â€™ 30>=30 and 70>=60 passes.
     assert!(result.is_some());
     let name = sqlx::query_scalar::<_, String>("SELECT name FROM hoops WHERE id = ?")
         .bind(result.unwrap())
@@ -2648,7 +2451,7 @@ async fn recommend_hoop_returns_none_when_dimensions_missing() {
     assert!(result.is_none());
 }
 
-// â”€â”€â”€ normalize_windows_explorer_target (Windows-only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ normalize_windows_explorer_target (Windows-only) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 #[cfg(target_os = "windows")]
 #[test]

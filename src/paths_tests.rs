@@ -1168,3 +1168,95 @@ fn create_catalogue_layout_creates_designs_logs_and_database_dirs() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+// ---------------------------------------------------------------------------
+// Canonical design filepath helpers
+// ---------------------------------------------------------------------------
+
+#[test]
+fn canonical_design_rel_converts_backslashes_and_collapses_separators() {
+    assert_eq!(canonical_design_rel("Roses\\rose.pes"), "Roses/rose.pes");
+    assert_eq!(canonical_design_rel("Roses//Roses/rose.pes"), "Roses/Roses/rose.pes");
+    // A bare leading '/' marks the base root in legacy stored paths: it is
+    // stripped to a base-relative path.
+    assert_eq!(canonical_design_rel("/Roses/rose.pes"), "Roses/rose.pes");
+    // A leading '/' in front of the container is also dropped along with it.
+    assert_eq!(
+        canonical_design_rel("/MachineEmbroideryDesigns/Roses/rose.pes"),
+        "Roses/rose.pes"
+    );
+}
+
+#[test]
+fn canonical_design_rel_strips_single_leading_container() {
+    assert_eq!(
+        canonical_design_rel("/MachineEmbroideryDesigns/Flowers/rose.pes"),
+        "Flowers/rose.pes"
+    );
+    assert_eq!(
+        canonical_design_rel("MachineEmbroideryDesigns/Flowers/rose.pes"),
+        "Flowers/rose.pes"
+    );
+    assert_eq!(
+        canonical_design_rel("machineembroiderydesigns/Flowers/rose.pes"),
+        "Flowers/rose.pes"
+    );
+}
+
+#[test]
+fn canonical_design_rel_preserves_nested_container_folder() {
+    // A real nested folder named like the container is preserved: only the
+    // single leading container segment is stripped.
+    assert_eq!(
+        canonical_design_rel("MachineEmbroideryDesigns/MachineEmbroideryDesigns/rose.pes"),
+        "MachineEmbroideryDesigns/rose.pes"
+    );
+}
+
+#[test]
+fn canonical_design_rel_root_level_case_and_empty() {
+    assert_eq!(canonical_design_rel("rose.pes"), "rose.pes");
+    assert_eq!(
+        canonical_design_rel("Flowers/Roses/My Design.pes"),
+        "Flowers/Roses/My Design.pes"
+    );
+    // Case is preserved — never lower-cased.
+    assert_eq!(canonical_design_rel("Flowers/MyPES.PES"), "Flowers/MyPES.PES");
+    assert_eq!(canonical_design_rel(""), "");
+    assert_eq!(canonical_design_rel("   "), "");
+}
+
+#[test]
+fn canonical_design_rel_is_idempotent() {
+    let once = canonical_design_rel("/MachineEmbroideryDesigns/Flowers/rose.pes");
+    assert_eq!(canonical_design_rel(&once), once);
+}
+
+#[test]
+fn design_rel_from_full_reduces_full_path_under_root() {
+    let root = PathBuf::from("C:/data/MachineEmbroideryDesigns");
+    // Forward-slash variant.
+    assert_eq!(
+        design_rel_from_full("C:/data/MachineEmbroideryDesigns/Flowers/rose.pes", &root),
+        Some("Flowers/rose.pes".to_string())
+    );
+    // Backslash variant yields the identical canonical rel.
+    assert_eq!(
+        design_rel_from_full("C:\\data\\MachineEmbroideryDesigns\\Flowers\\rose.pes", &root),
+        Some("Flowers/rose.pes".to_string())
+    );
+    // Outside the root and the root itself yield None.
+    assert_eq!(design_rel_from_full("C:/other/a.pes", &root), None);
+    assert_eq!(design_rel_from_full("C:/data/MachineEmbroideryDesigns", &root), None);
+}
+
+#[test]
+fn resolve_design_filepath_joins_rel_under_root() {
+    let root = PathBuf::from("C:/data/MachineEmbroideryDesigns");
+    assert_eq!(
+        resolve_design_filepath("Flowers/rose.pes", &root),
+        PathBuf::from("C:/data/MachineEmbroideryDesigns/Flowers/rose.pes")
+    );
+    // Empty → the library root itself.
+    assert_eq!(resolve_design_filepath("", &root), root);
+}

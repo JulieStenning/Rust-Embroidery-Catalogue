@@ -618,80 +618,14 @@ fn get_designs_base_path() -> PathBuf {
     derive_data_root_from_database_url().join("MachineEmbroideryDesigns")
 }
 
-fn normalize_path_for_compare(path: &str) -> String {
-    path.trim()
-        .replace('\\', "/")
-        .trim_end_matches('/')
-        .to_ascii_lowercase()
-}
-
-fn normalize_stored_design_filepath(stored_filepath: &str) -> String {
-    let normalized = stored_filepath.trim().replace('\\', "/");
-    if normalized.is_empty() {
-        return String::new();
-    }
-
-    let lower = normalized.to_ascii_lowercase();
-    if lower == "machineembroiderydesigns" || lower.starts_with("machineembroiderydesigns/") {
-        return format!("/{}", normalized.trim_start_matches('/'));
-    }
-
-    if let Some(index) = lower.find("/machineembroiderydesigns/") {
-        return format!("/{}", normalized[(index + 1)..].trim_start_matches('/'));
-    }
-
-    if let Some(index) = lower.find("/machineembroiderydesigns") {
-        if index + "/machineembroiderydesigns".len() == lower.len() {
-            return format!("/{}", normalized[(index + 1)..].trim_start_matches('/'));
-        }
-    }
-
-    let data_root = derive_data_root_from_database_url();
-    let designs_base = get_designs_base_path();
-    let normalized_for_match = normalize_path_for_compare(&normalized);
-    let data_root_for_match = normalize_path_for_compare(&data_root.to_string_lossy());
-    let designs_base_for_match = normalize_path_for_compare(&designs_base.to_string_lossy());
-
-    if normalized_for_match == designs_base_for_match {
-        return "/MachineEmbroideryDesigns".to_string();
-    }
-
-    let designs_prefix = format!("{}/", designs_base_for_match);
-    if normalized_for_match.starts_with(&designs_prefix) {
-        let suffix = normalized[(designs_base_for_match.len() + 1)..].trim_start_matches('/');
-        return format!("/MachineEmbroideryDesigns/{}", suffix);
-    }
-
-    if normalized_for_match == data_root_for_match {
-        return "/".to_string();
-    }
-
-    let data_prefix = format!("{}/", data_root_for_match);
-    if normalized_for_match.starts_with(&data_prefix) {
-        let suffix = normalized[(data_root_for_match.len() + 1)..].trim_start_matches('/');
-        return format!("/{}", suffix);
-    }
-
-    normalized
-}
-
+/// Resolve a stored `filepath` to the absolute on-disk location of the design
+/// under the current designs library root. Works for the canonical
+/// library-relative form (`Flowers/rose.pes`), any legacy
+/// `/MachineEmbroideryDesigns/…` / markerless form, and absolute rows (returned
+/// as-is) via the shared single source of truth in `crate::paths`.
 fn resolve_design_full_path(relative_file_path: &str) -> PathBuf {
-    let normalized = normalize_stored_design_filepath(relative_file_path);
-
-    if normalized.is_empty() {
-        return get_designs_base_path();
-    }
-
-    let cleaned = normalized.trim_start_matches('/').to_string();
-    let cleaned_lower = cleaned.to_ascii_lowercase();
-
-    if cleaned_lower == "machineembroiderydesigns"
-        || cleaned_lower.starts_with("machineembroiderydesigns/")
-    {
-        return derive_data_root_from_database_url().join(cleaned);
-    }
-
-    get_designs_base_path().join(cleaned)
+    let designs_base = get_designs_base_path();
+    crate::paths::resolve_design_filepath(relative_file_path, &designs_base)
 }
 fn nearest_existing_folder(path: &Path, fallback: &Path) -> PathBuf {
     let mut candidate = if path.is_dir() {
@@ -1176,7 +1110,7 @@ async fn get_design_detail_with_pool(
     Ok(Some(DesignDetail {
         id: row.id,
         filename: row.filename,
-        filepath: normalize_stored_design_filepath(&row.filepath),
+        filepath: crate::paths::canonical_design_rel(&row.filepath),
         image_type: row.image_type.clone(),
         image_data_url: build_data_url(row.image_data, row.image_type.as_deref()),
         width_mm: ceil_mm_to_i64(row.width_mm),
@@ -1832,25 +1766,11 @@ fn like_pattern(term: &str) -> String {
     }
 }
 
-/// SQLite expression yielding the filepath of a design with the catalogue
-/// library-root container stripped.
-///
-/// Stored filepaths are canonicalised to `/MachineEmbroideryDesigns/<sub>/<file>`
-/// (or an absolute legacy path containing that container). Matching folder names
-/// against the raw filepath makes any term contained in `MachineEmbroideryDesigns`
-/// (e.g. "Sig" from "deSigns", "Design", "Machine") match every design. This
-/// expression removes the top-level container so a folder-name search only ever
-/// matches the subfolder portion below the library root. The marker string is the
-/// same one already used by `normalize_stored_design_filepath` /
-/// `full_path_to_stored_design_filepath`.
+/// Folder-name search matches the canonical relative `filepath` directly — no
+/// container stripping is needed because stored paths no longer carry the
+/// `MachineEmbroideryDesigns` marker or a leading slash (see `crate::paths`).
 fn library_folder_sql_expr(column: &str) -> String {
-    let marker = "/machineembroiderydesigns/";
-    format!(
-        "CASE WHEN instr(lower({column}), '{marker}') > 0 \
-         THEN substr({column}, instr(lower({column}), '{marker}') + {marker_len}) \
-         ELSE {column} END",
-        marker_len = marker.len()
-    )
+    column.to_string()
 }
 
 fn push_general_search_clause(

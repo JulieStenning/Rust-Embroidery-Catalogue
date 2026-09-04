@@ -316,6 +316,139 @@ pub fn seed_database_if_allowed(data_root: &Path, overwrite: bool) -> Result<(),
 }
 
 // ---------------------------------------------------------------------------
+// Canonical design filepath helpers (single source of truth)
+// ---------------------------------------------------------------------------
+
+/// The managed designs library container folder name, created under the data
+/// root on first install (see [`create_catalogue_layout`]). This name is a
+/// *root marker only* — it must never be stored inside `designs.filepath`.
+/// Kept private so no caller reconstructs the library root by string-matching
+/// the container; resolve it from `AppPaths` instead.
+const DESIGNS_CONTAINER: &str = "MachineEmbroideryDesigns";
+
+/// Collapse runs of `/` into a single separator.
+fn collapse_dup_slashes(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut last_was_slash = false;
+    for ch in input.chars() {
+        if ch == '/' {
+            if last_was_slash {
+                continue;
+            }
+            last_was_slash = true;
+        } else {
+            last_was_slash = false;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Canonicalise any stored / prospective `filepath` string into the single
+/// canonical library-relative form used across the whole application:
+///
+/// * forward slashes (`/`) only — `\` is converted;
+/// * no leading `/` (leading separators are stripped);
+/// * a single **leading** `MachineEmbroideryDesigns` container segment is
+///   dropped so the result is relative to the designs library root. A nested
+///   folder of the same name is preserved (only the first path element is
+///   treated as the root);
+/// * exact case is preserved — never lower-cased here.
+///
+/// Inputs that still carry an absolute root (e.g. a legacy `C:/…` path with no
+/// container marker) are returned unchanged so a resolver can reproduce the
+/// old absolute passthrough behaviour rather than inventing a wrong base.
+pub fn canonical_design_rel(input: &str) -> String {
+    let slashed = input.trim().replace('\\', "/");
+    let collapsed = collapse_dup_slashes(&slashed);
+    if collapsed.is_empty() {
+        return String::new();
+    }
+
+    // A leading '/' marks the library/base root in legacy stored paths, so it is
+    // stripped to yield a base-relative path (the canonical form has no leading
+    // slash). A leading `MachineEmbroideryDesigns` container segment is dropped too.
+    let trimmed = collapsed.trim_start_matches('/');
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let mut parts = trimmed.splitn(2, '/');
+    let head = parts.next().unwrap_or("");
+    let tail = parts.next().unwrap_or("");
+    if head.eq_ignore_ascii_case(DESIGNS_CONTAINER) {
+        return tail.trim_start_matches('/').to_string();
+    }
+
+    // A Windows drive prefix (e.g. "C:/...") is a real absolute path and cannot
+    // be reduced without a base; preserve it for the legacy absolute passthrough.
+    if head.len() == 2 && head.ends_with(':') {
+        return collapsed;
+    }
+
+    // Otherwise return the base-relative path (no leading slash).
+    trimmed.to_string()
+}
+
+/// Turn a full on-disk file path that lives under `library_root` into its
+/// canonical library-relative form. Returns `None` when the path is not under
+/// `library_root` or when `library_root` itself is passed (a directory, not a
+/// design file).
+pub fn design_rel_from_full(full: &str, library_root: &Path) -> Option<String> {
+    let full_norm = full.trim().replace('\\', "/");
+    if full_norm.is_empty() {
+        return None;
+    }
+    let root_str = library_root.to_string_lossy().replace('\\', "/");
+    let root_trim = root_str.trim_end_matches('/');
+    if root_trim.is_empty() {
+        return None;
+    }
+
+    let full_lower = full_norm.to_ascii_lowercase();
+    let root_lower = root_trim.to_ascii_lowercase();
+    if full_lower == root_lower {
+        return None; // the library root itself → not a design file
+    }
+
+    let prefix = format!("{}/", root_lower);
+    if full_lower.strip_prefix(&prefix).is_none() {
+        return None;
+    }
+
+    // `full_norm` is guaranteed at least `root_trim.len() + 1` long because we
+    // matched `root_lower` + `/` in the lower-cased form (same lengths).
+    let tail = full_norm[root_trim.len() + 1..].trim_start_matches('/');
+    let canonical = canonical_design_rel(tail);
+    if canonical.is_empty() {
+        None
+    } else {
+        Some(canonical)
+    }
+}
+
+/// Resolve a stored `filepath` (canonical relative form) to an absolute
+/// on-disk path under `library_root`.
+///
+/// * empty → `library_root` itself;
+/// * canonical relative → `library_root.join(rel)`;
+/// * a leftover absolute string → returned as-is (`PathBuf::join` semantics
+///   reproduce the legacy absolute passthrough for any row the migration could
+///   not reduce).
+pub fn resolve_design_filepath(stored: &str, library_root: &Path) -> PathBuf {
+    let canonical = canonical_design_rel(stored);
+    if canonical.is_empty() {
+        return library_root.to_path_buf();
+    }
+    let candidate = PathBuf::from(&canonical);
+    if candidate.is_absolute() {
+        candidate
+    } else {
+        library_root.join(candidate)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Platform-specific data root (Installed mode)
 // ---------------------------------------------------------------------------
 

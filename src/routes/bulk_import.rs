@@ -542,10 +542,11 @@ fn is_path_under_designs_base(full_path: &str) -> bool {
 }
 
 /// Converts a full on-disk file path under the designs base directory to the
-/// canonical stored filepath (e.g. `/MachineEmbroideryDesigns/sub/design.pes`).
-/// Now uses strict canonical-base-prefix validation instead of substring matching,
-/// so unrelated paths containing "machineembroiderydesigns" in their name do not
-/// bypass the copy guard.
+/// canonical stored filepath (e.g. `sub/design.pes`, relative to the library
+/// root — forward slashes, no leading slash, no `MachineEmbroideryDesigns`
+/// prefix). Uses strict canonical-base-prefix validation instead of substring
+/// matching, so unrelated paths containing "machineembroiderydesigns" in their
+/// name do not bypass the copy guard.
 fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String> {
     let normalized_full = full_path.trim().replace('\\', "/");
     if normalized_full.is_empty() {
@@ -563,22 +564,13 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
         ));
     }
 
-    if normalized_full.eq_ignore_ascii_case(&designs_base.to_string_lossy().replace('\\', "/")) {
-        return Ok("/MachineEmbroideryDesigns".to_string());
-    }
-
-    let base_prefix = format!(
-        "{}/",
-        designs_base
-            .to_string_lossy()
-            .replace('\\', "/")
-            .trim_end_matches('/')
-    );
-    let suffix = &normalized_full[(base_prefix.len())..];
-    Ok(format!(
-        "/MachineEmbroideryDesigns/{}",
-        suffix.trim_start_matches('/')
-    ))
+    // Reduce the full path under the library root to its canonical relative form.
+    crate::paths::design_rel_from_full(&normalized_full, &designs_base).ok_or_else(|| {
+        format!(
+            "Selected path is the library root itself (not a design file): '{}'",
+            full_path
+        )
+    })
 }
 
 /// Pure helper: computes the prospective stored filepath for a file given its
@@ -589,10 +581,10 @@ fn full_path_to_stored_design_filepath(full_path: &str) -> Result<String, String
 /// Path construction rules:
 /// 1. If the file is already under the designs base, its stored path is derived directly.
 /// 2. Otherwise, find the longest matching root_path, extract the root folder leaf
-///    (the last component of the root), and build the destination as
-///    `/MachineEmbroideryDesigns/{root_leaf}/{relative_subpath}`.
+///    (the last component of the root), and build the canonical stored path
+///    `{root_leaf}/{relative_subpath}` relative to the library root.
 /// 3. Drive-letter-only roots (e.g. `C:/`) have no natural leaf; files are placed
-///    directly under `/MachineEmbroideryDesigns/` using the path relative to the drive root.
+///    directly under the library root using the path relative to the drive root.
 fn compute_prospective_stored_filepath(
     full_path: &str,
     root_paths: &[String],
@@ -679,10 +671,9 @@ fn compute_prospective_stored_filepath(
                 .to_string()
         });
 
-    Ok(format!(
-        "/MachineEmbroideryDesigns/{}",
-        rel_path.trim_start_matches('/')
-    ))
+    // rel_path is already a library-relative path; canonicalise it (this also
+    // strips any stray `MachineEmbroideryDesigns` prefix / separators).
+    Ok(crate::paths::canonical_design_rel(&rel_path))
 }
 
 /// Compute BLAKE3 hash of a file. Returns hex-encoded string.
@@ -756,14 +747,11 @@ fn ensure_file_in_designs_base(full_path: &str, root_paths: &[String]) -> Result
 
     let designs_base = get_designs_base_path();
 
-    // Use the single-source-of-truth path helper to compute the prospective
-    // stored relative path (e.g. "testdata/Bean.pes").
+    // `compute_prospective_stored_filepath` returns the canonical library-relative
+    // stored path (e.g. "testdata/Bean.pes"). Rejoin it under the library root to
+    // determine the on-disk copy destination.
     let prospective_stored = compute_prospective_stored_filepath(full_path, root_paths)?;
-    // prospective_stored looks like "/MachineEmbroideryDesigns/testdata/Bean.pes"
-    let rel_path = prospective_stored
-        .strip_prefix("/MachineEmbroideryDesigns/")
-        .unwrap_or(&prospective_stored)
-        .trim_start_matches('/');
+    let rel_path = prospective_stored.trim_start_matches('/');
 
     let dest = designs_base.join(rel_path);
 

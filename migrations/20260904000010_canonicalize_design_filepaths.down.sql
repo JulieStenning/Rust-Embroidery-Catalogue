@@ -1,0 +1,6 @@
+-- Down-migration for canonicalizing `designs.filepath` is intentionally a
+-- no-op: rewriting relative paths back into the legacy `/MachineEmbroideryDesigns/...`
+-- (or absolute) form is a lossy, ambiguous transform that cannot be expressed
+-- safely in SQL (the original absolute root is not recoverable). This data
+-- rewrite is reversible through a full database restore (see the repo's
+-- release migration policy for constrained data backfills).

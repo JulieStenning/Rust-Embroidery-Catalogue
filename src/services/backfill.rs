@@ -1007,8 +1007,6 @@ pub(crate) fn relative_path_under_root(full_path: &str, root: &Path) -> String {
 pub(crate) struct TaggingFolderScope {
     /// Folder path relative to the library root (`""` for the root itself).
     pub rel: String,
-    /// Absolute folder path with `/` separators.
-    pub abs: String,
     /// Whether the selected folder is the library root.
     pub is_root: bool,
 }
@@ -1040,10 +1038,9 @@ pub(crate) fn resolve_folder_scope_under(
         )));
     }
 
-    let abs = raw.replace('\\', "/");
     let rel = relative_path_under_root(raw, root);
     let is_root = rel.is_empty();
-    Ok(Some(TaggingFolderScope { rel, abs, is_root }))
+    Ok(Some(TaggingFolderScope { rel, is_root }))
 }
 
 /// Validate and resolve an optional absolute `folder_path` into a folder scope
@@ -1066,9 +1063,12 @@ fn like_escape(value: &str) -> String {
 }
 
 /// Append `AND` clauses restricting `d.filepath` to the given folder scope.
-/// Matches the stored filepath forms (`/MachineEmbroideryDesigns/…`,
-/// `MachineEmbroideryDesigns/…`, bare-relative, and absolute). With
-/// `include_subfolders` false, designs deeper than one level are excluded.
+///
+/// Stored filepaths are canonical library-relative paths (`Flowers/rose.pes`),
+/// so a single predictable `LIKE` over the scope prefix suffices (no multi-form
+/// `OR` of `/MachineEmbroideryDesigns/…` / bare / absolute prefixes). With
+/// `include_subfolders` false, designs deeper than one level are excluded;
+/// designs directly at the library root (no `/`) are handled separately.
 fn push_folder_scope_clauses(
     query: &mut QueryBuilder<Sqlite>,
     scope: &TaggingFolderScope,
@@ -1076,39 +1076,24 @@ fn push_folder_scope_clauses(
 ) {
     if scope.is_root {
         if !include_subfolders {
-            query.push(
-                " AND ( d.filepath NOT LIKE '%/%' \
-                 OR ( d.filepath LIKE 'MachineEmbroideryDesigns/%' AND d.filepath NOT LIKE 'MachineEmbroideryDesigns/%/%' ) \
-                 OR ( d.filepath LIKE '/MachineEmbroideryDesigns/%' AND d.filepath NOT LIKE '/MachineEmbroideryDesigns/%/%' ) )",
-            );
+            // Only designs directly at the library root: a canonical relative
+            // root-level design has no '/' at all.
+            query.push(" AND d.filepath NOT LIKE '%/%' ");
         }
         return;
     }
 
-    let prefixes = [
-        format!("/MachineEmbroideryDesigns/{}/", scope.rel),
-        format!("MachineEmbroideryDesigns/{}/", scope.rel),
-        format!("{}/", scope.rel),
-        format!("{}/", scope.abs),
-    ];
-    query.push(" AND (");
-    let mut first = true;
-    for prefix in &prefixes {
-        if !first {
-            query.push(" OR ");
-        }
-        first = false;
-        query.push("(d.filepath LIKE ");
-        query.push_bind(format!("{}%", like_escape(prefix)));
+    // Canonical form: d.filepath is '<rel>/<file>', or '<rel>/<sub>/…/<file>'.
+    let prefix = format!("{}/", like_escape(&scope.rel));
+    query.push(" AND d.filepath LIKE ");
+    query.push_bind(format!("{prefix}%"));
+    query.push(" ESCAPE '\\' ");
+    if !include_subfolders {
+        // Immediate children only: exactly one path segment after '<rel>/'.
+        query.push(" AND d.filepath NOT LIKE ");
+        query.push_bind(format!("{prefix}%/%"));
         query.push(" ESCAPE '\\' ");
-        if !include_subfolders {
-            query.push("AND d.filepath NOT LIKE ");
-            query.push_bind(format!("{}%/%", like_escape(prefix)));
-            query.push(" ESCAPE '\\' ");
-        }
-        query.push(")");
     }
-    query.push(")");
 }
 
 
@@ -1603,43 +1588,16 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
     Ok(())
 }
 
-/// Convert a stored DB filepath (e.g. "/MachineEmbroideryDesigns/foo/bar.pes")
-/// into an absolute on-disk path under the resolved designs base directory.
-///
-/// Handles:
-/// - `/MachineEmbroideryDesigns/...` (canonical stored form with leading slash)
-/// - `MachineEmbroideryDesigns/...` (no leading slash)
-/// - Bare relative paths â†’ joined under the designs base directory
-/// - Truly absolute paths â†’ returned as-is (e.g. legacy absolute filepaths)
+/// Convert a stored DB filepath into an absolute on-disk path under the
+/// resolved designs library root. Delegates to the shared single source of
+/// truth, which handles the canonical library-relative form
+/// (`Flowers/rose.pes`), legacy `/MachineEmbroideryDesigns/…` forms, bare
+/// relative paths, and truly absolute paths (returned as-is).
 fn resolve_stored_design_path(stored_filepath: &str) -> PathBuf {
     let designs_base = crate::paths::resolve_app_paths()
         .map(|paths| paths.embroidery_designs_dir)
         .unwrap_or_else(|_| PathBuf::from("MachineEmbroideryDesigns"));
-
-    let normalized = stored_filepath.trim().replace('\\', "/");
-    if normalized.is_empty() {
-        return designs_base;
-    }
-
-    let cleaned = normalized.trim_start_matches('/');
-    let cleaned_lower = cleaned.to_ascii_lowercase();
-    if cleaned_lower == "machineembroiderydesigns"
-        || cleaned_lower.starts_with("machineembroiderydesigns/")
-    {
-        // "/MachineEmbroideryDesigns/..." â†’ "<data_root>/MachineEmbroideryDesigns/..."
-        let data_root = designs_base
-            .parent()
-            .map(|value| value.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
-        return data_root.join(cleaned);
-    }
-
-    let candidate = PathBuf::from(&normalized);
-    if candidate.is_absolute() {
-        return candidate;
-    }
-
-    designs_base.join(cleaned)
+    crate::paths::resolve_design_filepath(stored_filepath, &designs_base)
 }
 
 async fn select_color_count_candidates(

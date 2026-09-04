@@ -176,33 +176,13 @@ fn derive_designs_base_path() -> PathBuf {
     derive_data_root_path().join("MachineEmbroideryDesigns")
 }
 
-// Resolve a stored DB path to a concrete on-disk path.
-// Handles stored paths such as "/MachineEmbroideryDesigns/foo/bar.pes".
+// Resolve a stored DB path to a concrete on-disk path under the designs base
+// directory. Delegates to the shared single source of truth so canonical
+// relative (`Flowers/rose.pes`), legacy `/MachineEmbroideryDesigns/…` and
+// absolute stored paths all resolve consistently.
 fn resolve_fingerprint_source_path(stored_filepath: &str) -> PathBuf {
     let designs_base = derive_designs_base_path();
-    let normalized = stored_filepath.trim().replace('\\', "/");
-    if normalized.is_empty() {
-        return designs_base;
-    }
-
-    let cleaned = normalized.trim_start_matches('/');
-    let cleaned_lower = cleaned.to_ascii_lowercase();
-    if cleaned_lower == "machineembroiderydesigns"
-        || cleaned_lower.starts_with("machineembroiderydesigns/")
-    {
-        let data_root = designs_base
-            .parent()
-            .map(|value| value.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
-        return data_root.join(cleaned);
-    }
-
-    let candidate = PathBuf::from(&normalized);
-    if candidate.is_absolute() {
-        return candidate;
-    }
-
-    designs_base.join(cleaned)
+    crate::paths::resolve_design_filepath(stored_filepath, &designs_base)
 }
 
 async fn process_one_design(
