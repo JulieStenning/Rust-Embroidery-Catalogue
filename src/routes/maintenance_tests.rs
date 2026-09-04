@@ -40,6 +40,14 @@ fn setting_description_for_key_returns_correct_descriptions() {
     assert!(designs_desc.contains("designs"));
     assert!(designs_desc.contains("backup"));
 
+    let db_last_run_desc = setting_description_for_key(KEY_BACKUP_DATABASE_LAST_RUN_AT);
+    assert!(db_last_run_desc.contains("database"));
+    assert!(db_last_run_desc.contains("backup"));
+
+    let designs_last_run_desc = setting_description_for_key(KEY_BACKUP_DESIGNS_LAST_RUN_AT);
+    assert!(designs_last_run_desc.contains("designs"));
+    assert!(designs_last_run_desc.contains("backup"));
+
     assert_eq!(setting_description_for_key("unknown.key"), "");
 }
 

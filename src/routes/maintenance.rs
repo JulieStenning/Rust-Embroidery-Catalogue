@@ -978,6 +978,10 @@ fn setting_description_for_key(key: &str) -> &'static str {
     match key {
         KEY_BACKUP_DATABASE_DESTINATION => "Destination folder for timestamped database backups.",
         KEY_BACKUP_DESIGNS_DESTINATION => "Destination folder for incremental designs backups.",
+        KEY_BACKUP_DATABASE_LAST_RUN_AT =>
+            "Timestamp of the last successful database backup.",
+        KEY_BACKUP_DESIGNS_LAST_RUN_AT =>
+            "Timestamp of the last successful designs backup.",
         _ => "",
     }
 }
