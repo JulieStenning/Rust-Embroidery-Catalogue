@@ -408,3 +408,9 @@ files, process-wide atomics). Use the full run as the final gate when a test tou
 - **Do not open vendored dependency source** under `~/.cargo/registry/src/...` (e.g. `rfd`) to explain observed behaviour. Reason from the application's own code and the dependency's public API/documentation. Only inspect a dependency's internals if you are actually modifying or patching that dependency.
 - **Begin multi-step work with a `task_progress` checklist** and keep it updated after each step.
 - **Believe verified tool output over editor diagnostics.** A TS/Rust diagnostic pointing at a path outside the workspace (e.g. `C:\Users\...\Microsoft VS Code\AboutView.test.ts`) is a stale/misattributed editor model. Re-read the actual file and run `vitest run <file>` / `cargo test <name>` before editing; fix the real file, not the phantom path.
+
+---
+
+## 🖋️ Commit Message Tense
+
+- **Write commit messages in the past tense** — describe what the change did, not a command. Example: `refactored(frontend): removed vestigial props/state and cleaned up ESLint issues in views and tests` (not `refactor(frontend): …`).
