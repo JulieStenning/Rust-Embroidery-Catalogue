@@ -10,6 +10,7 @@
    * @type {{
    *   open?: boolean,
    *   activeKind?: "database" | "designs" | "both" | null,
+   *   databaseCopyDone?: boolean,
    *   onClose?: () => void,
    *   onConfirm?: () => void
    * }}
@@ -17,12 +18,22 @@
   let {
     open = false,
     activeKind = "both",
+    databaseCopyDone = false,
     onClose = () => {},
     onConfirm = () => {},
   } = $props();
 
-  let showsDatabaseNotes = $derived(activeKind === "database" || activeKind === "both");
-  let showsDesignsNotes = $derived(activeKind === "designs" || activeKind === "both");
+  /** Whether a database backup is part of the running action at all. */
+  let hasDatabaseCopy = $derived(activeKind === "database" || activeKind === "both");
+  /**
+   * Whether the design-file note should be shown. A combined backup copies the
+   * database first, then the design files, so during the database phase the
+   * design files have not been copied yet and the note is withheld; it appears
+   * only once the database copy has completed (or for a designs-only backup).
+   */
+  let showsDesignsNotes = $derived(
+    activeKind === "designs" || (activeKind === "both" && databaseCopyDone)
+  );
 
   /** @param {HTMLElement} node */
   function portalToBody(node) {
@@ -88,10 +99,11 @@
         class="cancel-backup-modal-body"
         style="overflow-y:auto;flex:1;padding:1rem 1.5rem;"
       >
-        {#if showsDatabaseNotes}
+        {#if hasDatabaseCopy}
           <p class="text-sm text-gray-700" style="margin:0 0 0.75rem 0;">
-            If the database copy is currently running, any partially created database backup
-            file will be aborted and removed.
+            {databaseCopyDone
+              ? "The database copy has completed."
+              : "The database copy is currently running. If you proceed, the database backup will be aborted and the incomplete database file will be deleted."}
           </p>
         {/if}
 

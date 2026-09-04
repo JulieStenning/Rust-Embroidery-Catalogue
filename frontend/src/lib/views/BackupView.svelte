@@ -19,6 +19,7 @@
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
+  import { initDatabaseBackupCompletedEvent } from "../services/backupEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
   import ConfirmRestoreModal from "../components/ConfirmRestoreModal.svelte";
   import RestoreProgressPanel from "../components/RestoreProgressPanel.svelte";
@@ -41,6 +42,12 @@
   let showCancelConfirm = $state(false);
   let cancelling = $state(false);
   let activeBackupAction = $state(/** @type {"database" | "designs" | "both" | null} */ (null));
+  // Becomes true when the Rust backend reports that the database phase of a
+  // combined ("both") backup has finished, so the cancel modal can word the
+  // database note as completed rather than in-progress.
+  let databaseCopyDone = $state(false);
+  /** @type {import("@tauri-apps/api/event").UnlistenFn | null} */
+  let unlistenDatabaseBackupDone = $state(null);
 
   // Global UI lock: reflects busyState.active so secondary controls can be
   // disabled while a long-running task runs.
@@ -257,6 +264,8 @@
     if (runsDatabase) backupDatabaseRunning = true;
     if (runsDesigns) backupDesignsRunning = true;
     activeBackupAction = action;
+    // A new run starts with the database copy still in progress.
+    databaseCopyDone = false;
     beginBusy("Backing up catalogue");
 
     try {
@@ -552,11 +561,21 @@
     } catch (error) {
       console.info("Restore progress events unavailable.", error);
     }
+    try {
+      unlistenDatabaseBackupDone = await initDatabaseBackupCompletedEvent(() => {
+        databaseCopyDone = true;
+      });
+    } catch (error) {
+      console.info("Database backup completion events unavailable.", error);
+    }
   });
 
   onDestroy(() => {
     if (unlistenRestore) {
       unlistenRestore();
+    }
+    if (unlistenDatabaseBackupDone) {
+      unlistenDatabaseBackupDone();
     }
     resetRestoreProgress();
   });
@@ -801,6 +820,7 @@
   <CancelBackupModal
     open={showCancelConfirm}
     activeKind={activeBackupAction}
+    databaseCopyDone={databaseCopyDone}
     onClose={closeCancelModal}
     onConfirm={confirmCancel}
   />

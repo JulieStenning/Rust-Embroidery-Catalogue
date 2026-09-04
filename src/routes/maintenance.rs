@@ -29,6 +29,13 @@ const FILE_COMPARE_TIME_TOLERANCE_SECS: i64 = 2;
 /// it so `run_both_backups` sees a single cancellation across both phases.
 static BACKUP_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
+/// Event emitted to the frontend the moment the database phase of a combined
+/// ("both") backup finishes successfully. The designs phase runs afterwards, so
+/// the frontend uses this signal to switch its cancel-confirmation wording from
+/// "the database copy is currently running" to "the database copy has
+/// completed" while the modal is still open.
+pub const EVENT_DATABASE_BACKUP_COMPLETED: &str = "database-backup-completed";
+
 #[derive(Debug, Clone, Serialize)]
 pub struct BackupViewModel {
     pub db_destination: String,
@@ -910,11 +917,22 @@ async fn run_designs_backup_inner(pool: &SqlitePool) -> Result<DesignsBackupResu
 /// Clear the cancellation flag once, then run both phases sequentially against
 /// the same shared flag. If cancellation is requested during the database
 /// phase, the designs phase is skipped entirely and reported as cancelled.
+///
+/// Emits [`EVENT_DATABASE_BACKUP_COMPLETED`] as soon as the database phase
+/// finishes successfully, before the designs phase starts, so the frontend can
+/// reflect the now-completed database copy in its cancellation prompt.
 #[tauri::command]
-pub async fn run_both_backups(state: State<'_, AppState>) -> Result<BothBackupsResult, String> {
+pub async fn run_both_backups(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<BothBackupsResult, String> {
     clear_backup_cancel_signal();
 
     let database = run_database_backup_inner(&state.db_pool()?).await?;
+
+    if database.success {
+        let _ = app_handle.emit(EVENT_DATABASE_BACKUP_COMPLETED, ());
+    }
 
     let designs = if is_backup_cancel_requested() {
         cancelled_designs_backup(&current_epoch_seconds_string(), None)

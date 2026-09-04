@@ -951,7 +951,7 @@ describe("BackupView", () => {
       const modalBody = dialog.querySelector(".cancel-backup-modal-body");
       const bodyText = (modalBody?.textContent ?? "").replace(/\s+/g, " ").trim();
       expect(bodyText).toContain(
-        "If the database copy is currently running, any partially created database backup file will be aborted and removed."
+        "The database copy is currently running. If you proceed, the database backup will be aborted and the incomplete database file will be deleted."
       );
       // This backup is database-only (activeKind === "database"), so the
       // designs note must NOT appear — proving the conditional rendering.
