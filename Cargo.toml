@@ -23,7 +23,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "nat
 
 # Align rand and getrandom to 0.9.x / 0.3.x family to match image & tauri
 rand = "0.9"
-getrandom = "0.3"
+getrandom = "0.4"
 
 # Pin base64 to match current tauri-utils / hyper ecosystem
 base64 = "0.22"
