@@ -666,7 +666,10 @@ fn database_status_missing_when_configured_root_absent_on_disk() {
             status.data_root_missing,
             "Installed mode with an absent root should set data_root_missing"
         );
-        assert_eq!(status.configured_data_root.as_deref(), Some(root_str.as_str()));
+        assert_eq!(
+            status.configured_data_root.as_deref(),
+            Some(root_str.as_str())
+        );
     });
 }
 
@@ -701,7 +704,10 @@ fn database_status_missing_when_database_file_absent() {
             !status.data_root_missing,
             "root exists so data_root_missing should be false"
         );
-        assert_eq!(status.configured_data_root.as_deref(), Some(root_str.as_str()));
+        assert_eq!(
+            status.configured_data_root.as_deref(),
+            Some(root_str.as_str())
+        );
     });
 }
 
@@ -734,10 +740,12 @@ fn database_status_connected_when_database_present() {
             "expected Connected when the DB file is present"
         );
         assert!(!status.data_root_missing);
-        assert_eq!(status.configured_data_root.as_deref(), Some(root_str.as_str()));
+        assert_eq!(
+            status.configured_data_root.as_deref(),
+            Some(root_str.as_str())
+        );
     });
 }
-
 
 // ---------------------------------------------------------------------------
 // AppState::db_pool — error branches
@@ -774,7 +782,9 @@ fn test_app_state(pool: PoolHolder, restore_in_progress: bool) -> AppState {
 #[test]
 fn db_pool_errors_when_restore_in_progress() {
     let state = test_app_state(PoolHolder::default(), true);
-    let err = state.db_pool().expect_err("db_pool should fail during a restore");
+    let err = state
+        .db_pool()
+        .expect_err("db_pool should fail during a restore");
     assert!(
         err.contains("being restored"),
         "unexpected restore error message: {err}"
@@ -792,7 +802,6 @@ fn db_pool_errors_when_pool_unavailable() {
         "unexpected unavailable error message: {err}"
     );
 }
-
 
 // ---------------------------------------------------------------------------
 // PoolHolder - pool lifecycle (new / pool / take / replace) and db_pool

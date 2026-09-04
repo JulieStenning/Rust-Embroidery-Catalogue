@@ -1,4 +1,4 @@
-﻿use super::*;
+use super::*;
 use crate::paths::AppPaths;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::fs;
@@ -259,14 +259,7 @@ async fn perform_database_restore_swaps_and_counts_designs() {
     // Backup DB with two designs.
     let backup_dir = tmp.join("backups");
     let backup_path = backup_dir.join("catalogue_2026-08-25_1430.db");
-    make_db(
-        &backup_path,
-        &[
-            "one.pes",
-            "two.pes",
-        ],
-    )
-    .await;
+    make_db(&backup_path, &["one.pes", "two.pes"]).await;
 
     // Pool connected to the live DB.
     let live_pool = SqlitePoolOptions::new()
@@ -390,14 +383,7 @@ async fn perform_database_restore_reports_schema_version_hints() {
 
     // Backup DB, user_version = 7, with two designs.
     let backup_path = tmp.join("backups").join("schema_2026-08-25.db");
-    make_db(
-        &backup_path,
-        &[
-            "one.pes",
-            "two.pes",
-        ],
-    )
-    .await;
+    make_db(&backup_path, &["one.pes", "two.pes"]).await;
     set_user_version(&backup_path, 7).await;
 
     let live_pool = SqlitePoolOptions::new()
@@ -549,6 +535,9 @@ async fn perform_database_restore_errors_when_live_db_missing() {
     let result = perform_database_restore(&holder, &paths, &backup).await;
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(err.contains("Live database not found"), "unexpected error: {err}");
+    assert!(
+        err.contains("Live database not found"),
+        "unexpected error: {err}"
+    );
     let _ = fs::remove_dir_all(&tmp);
 }

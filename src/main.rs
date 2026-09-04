@@ -165,7 +165,10 @@ impl AppState {
     /// while a database restore is swapping the pool so no command touches a
     /// closed pool.
     pub fn db_pool(&self) -> Result<SqlitePool, String> {
-        if self.restore_in_progress.load(std::sync::atomic::Ordering::SeqCst) {
+        if self
+            .restore_in_progress
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
             return Err("The database is being restored; please retry shortly.".to_string());
         }
         self.db

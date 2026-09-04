@@ -1,9 +1,9 @@
 use crate::config::BootstrapConfig;
+use crate::paths::normalize_path_display;
 use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::db_health;
 use crate::services::folder_picker;
 use crate::settings;
-use crate::paths::normalize_path_display;
 use crate::AppState;
 use fs4::available_space;
 use serde::{Deserialize, Serialize};
@@ -414,9 +414,10 @@ pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupV
     let db_last_backup_at = get_setting_with_default(&mut conn, KEY_BACKUP_DATABASE_LAST_RUN_AT)
         .await
         .map_err(|e| e.to_string())?;
-    let designs_last_backup_at = get_setting_with_default(&mut conn, KEY_BACKUP_DESIGNS_LAST_RUN_AT)
-        .await
-        .map_err(|e| e.to_string())?;
+    let designs_last_backup_at =
+        get_setting_with_default(&mut conn, KEY_BACKUP_DESIGNS_LAST_RUN_AT)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let db_source = derive_database_source_path();
     let designs_source = derive_designs_source_path();

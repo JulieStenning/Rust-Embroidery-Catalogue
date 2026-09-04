@@ -302,7 +302,8 @@ mod tests {
     #[test]
     fn suggest_path_rule_compound_tag_butterfly_filename() {
         let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched = suggest_path_rule_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
+        let matched =
+            suggest_path_rule_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
         assert!(
             matched.contains(&"Butterflies & Insects".to_string()),
             "filename 'Pretty Butterflies.pes' should match 'Butterflies & Insects': {:?}",
@@ -372,7 +373,8 @@ mod tests {
     #[test]
     fn suggest_path_rule_synonym_baby_children() {
         let valid = HashSet::from(["Children & Toys".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/baby/shirts/design.pes", &valid);
+        let matched =
+            suggest_path_rule_descriptions("", "C:/imports/baby/shirts/design.pes", &valid);
         assert!(matched.contains(&"Children & Toys".to_string()));
     }
 }

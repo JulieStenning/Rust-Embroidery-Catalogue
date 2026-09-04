@@ -266,7 +266,8 @@ pub async fn get_project_detail(
     state: &AppState,
     project_id: i64,
 ) -> Result<ProjectDetailView, AppError> {
-    let project = ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
+    let project =
+        ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
 
     let design_rows = sqlx::query_as::<_, ProjectDesignCardRow>(
         r#"
@@ -313,7 +314,12 @@ pub async fn update_project(
     let description = normalize_optional_text(&request.description);
 
     ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
-    ensure_unique_project_name_except_id(&state.db_pool().map_err(AppError::database)?, project_id, &name).await?;
+    ensure_unique_project_name_except_id(
+        &state.db_pool().map_err(AppError::database)?,
+        project_id,
+        &name,
+    )
+    .await?;
 
     sqlx::query("UPDATE projects SET name = ?, description = ? WHERE id = ?")
         .bind(&name)
@@ -376,7 +382,8 @@ pub async fn get_project_print_view(
     state: &AppState,
     project_id: i64,
 ) -> Result<ProjectPrintView, AppError> {
-    let project = ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
+    let project =
+        ensure_project_exists(&state.db_pool().map_err(AppError::database)?, project_id).await?;
 
     let design_rows = sqlx::query_as::<_, ProjectPrintDesignRow>(
         r#"

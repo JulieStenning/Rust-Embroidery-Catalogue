@@ -289,9 +289,9 @@ pub async fn run_unified_backfill_with_progress(
         batch_size, commit_every, workers, visual_ai_delay_seconds, has_api_key
     );
     log_info(format!(
-		"Run started batch_size={} commit_every={} workers={} visual_ai_delay={} api_key={}",
-		batch_size, commit_every, workers, visual_ai_delay_seconds, has_api_key
-	));
+        "Run started batch_size={} commit_every={} workers={} visual_ai_delay={} api_key={}",
+        batch_size, commit_every, workers, visual_ai_delay_seconds, has_api_key
+    ));
 
     let mut processed: i64 = 0;
     let mut errors: i64 = 0;
@@ -874,12 +874,7 @@ fn normalize_tag_mode(raw: Option<&str>) -> &str {
 }
 
 fn normalize_merge_mode(raw: Option<&str>) -> &str {
-    match raw
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
+    match raw.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
         TAG_MERGE_ADD => TAG_MERGE_ADD,
         _ => TAG_MERGE_RESET,
     }
@@ -1004,7 +999,9 @@ pub(crate) fn resolve_folder_scope_under(
 
     let candidate = Path::new(raw);
     if !candidate.exists() {
-        return Err(AppError::invalid_input(format!("Folder does not exist: {raw}")));
+        return Err(AppError::invalid_input(format!(
+            "Folder does not exist: {raw}"
+        )));
     }
     if !candidate.is_dir() {
         return Err(AppError::invalid_input(format!(
@@ -1538,8 +1535,8 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
-    let result = design_metadata::parse_design_file(&resolved_path)
-        .map_err(AppError::invalid_input)?;
+    let result =
+        design_metadata::parse_design_file(&resolved_path).map_err(AppError::invalid_input)?;
 
     sqlx::query(
         "UPDATE designs
@@ -1626,8 +1623,8 @@ async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
-    let result = design_metadata::parse_design_file(&resolved_path)
-        .map_err(AppError::invalid_input)?;
+    let result =
+        design_metadata::parse_design_file(&resolved_path).map_err(AppError::invalid_input)?;
 
     sqlx::query(
         "UPDATE designs
@@ -1729,8 +1726,8 @@ async fn update_hoop_dimensions_only(pool: &SqlitePool, design_id: i64) -> Resul
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
-    let parsed = design_metadata::parse_design_file(&resolved_path)
-        .map_err(AppError::invalid_input)?;
+    let parsed =
+        design_metadata::parse_design_file(&resolved_path).map_err(AppError::invalid_input)?;
 
     let hoop_id =
         design_metadata::recommend_hoop_for_design(pool, parsed.width_mm, parsed.height_mm)

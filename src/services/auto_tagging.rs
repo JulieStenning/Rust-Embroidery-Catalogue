@@ -52,7 +52,11 @@ pub fn resolve_enabled(precedence: &TaggingPrecedence) -> bool {
 }
 
 pub fn ordered_modes() -> [TaggingMode; 3] {
-    [TaggingMode::FileFolder, TaggingMode::TextAi, TaggingMode::VisualAi]
+    [
+        TaggingMode::FileFolder,
+        TaggingMode::TextAi,
+        TaggingMode::VisualAi,
+    ]
 }
 
 /// Mode configuration for auto-tagging, grouped to keep callers under clippy's
@@ -152,7 +156,10 @@ pub(crate) async fn compute_tags_for_input(
     // Tier 2 — Text AI (Gemini on the file name / folder). Needs an API key.
     if mode_options.text_ai_enabled {
         if mode_options.text_ai_network && mode_options.visual_ai_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(mode_options.visual_ai_delay_seconds)).await;
+            sleep(Duration::from_secs_f64(
+                mode_options.visual_ai_delay_seconds,
+            ))
+            .await;
         }
         if let Some(client) = gemini {
             let text_ai = client
@@ -171,7 +178,10 @@ pub(crate) async fn compute_tags_for_input(
     // the offline fallback.
     if mode_options.visual_ai_enabled && image_data.is_some() {
         if mode_options.visual_ai_network && mode_options.visual_ai_delay_seconds > 0.0 {
-            sleep(Duration::from_secs_f64(mode_options.visual_ai_delay_seconds)).await;
+            sleep(Duration::from_secs_f64(
+                mode_options.visual_ai_delay_seconds,
+            ))
+            .await;
         }
         let vision_ai = if let Some(client) = gemini {
             client

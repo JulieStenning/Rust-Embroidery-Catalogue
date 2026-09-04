@@ -5,8 +5,8 @@
 //! progress on `catalogue-restore-progress`.
 
 use crate::routes::maintenance as mnt;
-use crate::services::restore;
 use crate::services::folder_picker;
+use crate::services::restore;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -74,10 +74,7 @@ fn emit_progress(app_handle: &AppHandle, progress: restore::RestoreProgress) {
 }
 
 /// Read a stored backup destination setting from the settings table.
-async fn read_backup_setting(
-    state: &State<'_, AppState>,
-    key: &str,
-) -> Result<String, String> {
+async fn read_backup_setting(state: &State<'_, AppState>, key: &str) -> Result<String, String> {
     let pool = state.db_pool()?;
     let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
     mnt::get_setting_with_default(&mut conn, key)
@@ -136,17 +133,21 @@ pub async fn restore_database(
         backup_path.display()
     );
 
-    emit_progress(&app_handle, restore::RestoreProgress::new("db-swap", "starting"));
-    let outcome = match restore::perform_database_restore(&state.db, &state.paths, &backup_path).await {
-        Ok(outcome) => outcome,
-        Err(error) => {
-            tracing::error!(
-                "[restore] restore_database failed file='{}': {error}",
-                backup_path.display()
-            );
-            return Err(error);
-        }
-    };
+    emit_progress(
+        &app_handle,
+        restore::RestoreProgress::new("db-swap", "starting"),
+    );
+    let outcome =
+        match restore::perform_database_restore(&state.db, &state.paths, &backup_path).await {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                tracing::error!(
+                    "[restore] restore_database failed file='{}': {error}",
+                    backup_path.display()
+                );
+                return Err(error);
+            }
+        };
     refresh_bulk_import_after_restore(&state);
     tracing::info!(
         "[restore] restore_database outcome success={} rolled_back={} designs={} error={:?}",
@@ -250,7 +251,6 @@ pub async fn restore_designs_incremental(
     Ok(outcome)
 }
 
-
 /// Restore the database then sync design files, then reconcile unmatched files.
 #[tauri::command]
 pub async fn restore_both(
@@ -300,7 +300,10 @@ pub async fn restore_both(
 
     // Database first — abort the designs phase if it fails so we never sync
     // designs into a mismatched database (which would create orphans).
-    emit_progress(&app_handle, restore::RestoreProgress::new("db-swap", "starting"));
+    emit_progress(
+        &app_handle,
+        restore::RestoreProgress::new("db-swap", "starting"),
+    );
     let database =
         match restore::perform_database_restore(&state.db, &state.paths, &backup_path).await {
             Ok(outcome) => outcome,
@@ -337,24 +340,23 @@ pub async fn restore_both(
 
     // Designs sync.
     let mut progress = |p: restore::RestoreProgress| emit_progress(&app_handle, p);
-    let designs =
-        match restore::perform_designs_restore(
-            &source_root,
-            &dest_root,
-            &RESTORE_CANCEL_REQUESTED,
-            &mut progress,
-        )
-        .await
-        {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                tracing::error!(
-                    "[restore] restore_both designs phase failed source='{}': {error}",
-                    source_root.display()
-                );
-                return Err(error);
-            }
-        };
+    let designs = match restore::perform_designs_restore(
+        &source_root,
+        &dest_root,
+        &RESTORE_CANCEL_REQUESTED,
+        &mut progress,
+    )
+    .await
+    {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            tracing::error!(
+                "[restore] restore_both designs phase failed source='{}': {error}",
+                source_root.display()
+            );
+            return Err(error);
+        }
+    };
 
     // Reconciliation: files on disk absent from the restored database.
     // Use the holder directly (not `db_pool`) because `restore_in_progress` is
@@ -411,9 +413,7 @@ pub async fn detect_design_files_absent_from_database(
             Ok(result)
         }
         Err(error) => {
-            tracing::error!(
-                "[restore] detect_design_files_absent_from_database failed: {error}"
-            );
+            tracing::error!("[restore] detect_design_files_absent_from_database failed: {error}");
             Err(error)
         }
     }
@@ -448,7 +448,6 @@ pub async fn import_unmatched_design_files(
         }
     }
 }
-
 
 #[cfg(test)]
 #[path = "restore_tests.rs"]

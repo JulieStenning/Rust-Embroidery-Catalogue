@@ -1990,8 +1990,6 @@ async fn delete_hoop_not_found() {
         .contains("not found"));
 }
 
-
-
 // ========================================================================
 // Tauri command wrapper tests (via tauri::test::mock_app)
 // ========================================================================
@@ -2010,10 +2008,17 @@ fn command_app_state(pool: SqlitePool) -> AppState {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
             database_path: Some(
-                tmp_dir.join("Database").join("test.db").to_string_lossy().to_string(),
+                tmp_dir
+                    .join("Database")
+                    .join("test.db")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             embroidery_dir: Some(
-                tmp_dir.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+                tmp_dir
+                    .join("MachineEmbroideryDesigns")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             data_root_missing: false,
         },
@@ -2040,11 +2045,16 @@ async fn command_wrappers_designer_lifecycle() {
     let app = tauri::test::mock_app();
     app.manage(command_app_state(pool));
 
-    assert_eq!(list_designers(app.state::<AppState>()).await.unwrap().len(), 0);
+    assert_eq!(
+        list_designers(app.state::<AppState>()).await.unwrap().len(),
+        0
+    );
 
     let created = create_designer(
         app.state::<AppState>(),
-        CreateDesignerRequest { name: "Jane".into() },
+        CreateDesignerRequest {
+            name: "Jane".into(),
+        },
     )
     .await
     .expect("create designer via command");
@@ -2052,18 +2062,27 @@ async fn command_wrappers_designer_lifecycle() {
 
     let updated = update_designer(
         app.state::<AppState>(),
-        UpdateDesignerRequest { designer_id: created.id, name: "Janet".into() },
+        UpdateDesignerRequest {
+            designer_id: created.id,
+            name: "Janet".into(),
+        },
     )
     .await
     .expect("update designer via command");
     assert_eq!(updated.name, "Janet");
 
-    assert_eq!(list_designers(app.state::<AppState>()).await.unwrap().len(), 1);
+    assert_eq!(
+        list_designers(app.state::<AppState>()).await.unwrap().len(),
+        1
+    );
 
     delete_designer(app.state::<AppState>(), created.id)
         .await
         .expect("delete designer via command");
-    assert_eq!(list_designers(app.state::<AppState>()).await.unwrap().len(), 0);
+    assert_eq!(
+        list_designers(app.state::<AppState>()).await.unwrap().len(),
+        0
+    );
 }
 
 #[tokio::test]
@@ -2072,11 +2091,16 @@ async fn command_wrappers_source_lifecycle() {
     let app = tauri::test::mock_app();
     app.manage(command_app_state(pool));
 
-    assert_eq!(list_sources(app.state::<AppState>()).await.unwrap().len(), 0);
+    assert_eq!(
+        list_sources(app.state::<AppState>()).await.unwrap().len(),
+        0
+    );
 
     let created = create_source(
         app.state::<AppState>(),
-        CreateSourceRequest { name: "In-House".into() },
+        CreateSourceRequest {
+            name: "In-House".into(),
+        },
     )
     .await
     .expect("create source via command");
@@ -2084,18 +2108,27 @@ async fn command_wrappers_source_lifecycle() {
 
     let updated = update_source(
         app.state::<AppState>(),
-        UpdateSourceRequest { source_id: created.id, name: "House".into() },
+        UpdateSourceRequest {
+            source_id: created.id,
+            name: "House".into(),
+        },
     )
     .await
     .expect("update source via command");
     assert_eq!(updated.name, "House");
 
-    assert_eq!(list_sources(app.state::<AppState>()).await.unwrap().len(), 1);
+    assert_eq!(
+        list_sources(app.state::<AppState>()).await.unwrap().len(),
+        1
+    );
 
     delete_source(app.state::<AppState>(), created.id)
         .await
         .expect("delete source via command");
-    assert_eq!(list_sources(app.state::<AppState>()).await.unwrap().len(), 0);
+    assert_eq!(
+        list_sources(app.state::<AppState>()).await.unwrap().len(),
+        0
+    );
 }
 
 #[tokio::test]
@@ -2108,7 +2141,10 @@ async fn command_wrappers_tag_lifecycle() {
 
     let created = create_tag(
         app.state::<AppState>(),
-        CreateTagRequest { description: "Borders".into(), tag_group: "image".into() },
+        CreateTagRequest {
+            description: "Borders".into(),
+            tag_group: "image".into(),
+        },
     )
     .await
     .expect("create tag via command");
@@ -2116,7 +2152,10 @@ async fn command_wrappers_tag_lifecycle() {
 
     let grouped = set_tag_group(
         app.state::<AppState>(),
-        SetTagGroupRequest { tag_id: created.id, tag_group: "stitching".into() },
+        SetTagGroupRequest {
+            tag_id: created.id,
+            tag_group: "stitching".into(),
+        },
     )
     .await
     .expect("set tag group via command");
@@ -2124,7 +2163,10 @@ async fn command_wrappers_tag_lifecycle() {
 
     let renamed = update_tag(
         app.state::<AppState>(),
-        UpdateTagRequest { tag_id: created.id, description: "Frames".into() },
+        UpdateTagRequest {
+            tag_id: created.id,
+            description: "Frames".into(),
+        },
     )
     .await
     .expect("update tag via command");
@@ -2148,7 +2190,11 @@ async fn command_wrappers_hoop_lifecycle() {
 
     let created = create_hoop(
         app.state::<AppState>(),
-        CreateHoopRequest { name: "4x4".into(), max_width_mm: 100.0, max_height_mm: 100.0 },
+        CreateHoopRequest {
+            name: "4x4".into(),
+            max_width_mm: 100.0,
+            max_height_mm: 100.0,
+        },
     )
     .await
     .expect("create hoop via command");

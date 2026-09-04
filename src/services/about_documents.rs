@@ -166,7 +166,13 @@ mod tests {
         let slugs: Vec<&str> = docs.iter().map(|d| d.slug.as_str()).collect();
         assert_eq!(
             slugs,
-            vec!["disclaimer", "privacy", "security", "ai-tagging", "data-storage"]
+            vec![
+                "disclaimer",
+                "privacy",
+                "security",
+                "ai-tagging",
+                "data-storage"
+            ]
         );
         for doc in &docs {
             assert!(!doc.title.is_empty());
@@ -185,8 +191,7 @@ mod tests {
 
     #[test]
     fn get_about_document_returns_detail_for_known_slug() {
-        let detail =
-            get_about_document("disclaimer".to_string()).expect("disclaimer should load");
+        let detail = get_about_document("disclaimer".to_string()).expect("disclaimer should load");
         assert_eq!(detail.slug, "disclaimer");
         assert_eq!(detail.title, "Disclaimer");
         assert_eq!(detail.filename, "DISCLAIMER.html");

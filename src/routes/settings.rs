@@ -125,10 +125,7 @@ pub(crate) async fn get_google_api_key_inner(
     app_state: &AppState,
 ) -> Result<Option<String>, String> {
     let pool = app_state.db_pool()?;
-    let mut conn = pool
-        .acquire()
-        .await
-        .map_err(|err| err.to_string())?;
+    let mut conn = pool.acquire().await.map_err(|err| err.to_string())?;
     settings::get_google_api_key(&mut conn)
         .await
         .map_err(|err| err.to_string())
@@ -144,10 +141,7 @@ pub(crate) async fn set_google_api_key_inner(
     api_key: String,
 ) -> Result<bool, String> {
     let pool = app_state.db_pool()?;
-    let mut conn = pool
-        .acquire()
-        .await
-        .map_err(|err| err.to_string())?;
+    let mut conn = pool.acquire().await.map_err(|err| err.to_string())?;
     settings::save_google_api_key(&mut conn, &api_key)
         .await
         .map(|_| true)

@@ -63,7 +63,11 @@ async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -120,7 +124,11 @@ async fn run_unified_backfill_retag_all_processes_all_designs_beyond_batch_size(
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false), folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: Some(false),
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -160,7 +168,11 @@ async fn run_unified_backfill_streams_progress_events() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -227,7 +239,11 @@ async fn run_unified_backfill_retag_all_respects_workers_concurrency() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false), folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: Some(false),
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -367,7 +383,6 @@ fn normalize_modes_removes_text_ai_without_api_key() {
     assert!(!result.contains("text_ai"));
 }
 
-
 #[test]
 fn normalize_modes_empty_slice_resolves_to_path_rule() {
     let result = normalize_modes(Some(&[]), true);
@@ -389,7 +404,11 @@ fn suggest_visual_ai_exact_token_match() {
     valid.insert("Flowers".to_string());
     valid.insert("Don't Know".to_string());
     let result = suggest_visual_ai_descriptions("cats.pes", "/designs/", &valid);
-    assert!(result.contains(&"Cats".to_string()), "Expected Cats, got {:?}", result);
+    assert!(
+        result.contains(&"Cats".to_string()),
+        "Expected Cats, got {:?}",
+        result
+    );
     assert!(!result.contains(&"Flowers".to_string()));
 }
 
@@ -417,7 +436,11 @@ fn suggest_visual_ai_handles_special_characters() {
     let mut valid = HashSet::new();
     valid.insert("Holiday".to_string());
     let result = suggest_visual_ai_descriptions("holiday.pes", "/designs/", &valid);
-    assert!(result.contains(&"Holiday".to_string()), "Expected Holiday, got {:?}", result);
+    assert!(
+        result.contains(&"Holiday".to_string()),
+        "Expected Holiday, got {:?}",
+        result
+    );
 }
 
 #[test]
@@ -804,7 +827,9 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     seed_basic(&pool).await; // 1: untagged+unverified, 2: tagged+verified, 3: untagged+unverified
 
     // tag_untagged -> designs with no image-group tags: 1 and 3 (both unverified).
-    let untagged = count_tagging_candidates(&pool, "tag_untagged", None, true).await.unwrap();
+    let untagged = count_tagging_candidates(&pool, "tag_untagged", None, true)
+        .await
+        .unwrap();
     assert_eq!(untagged.total_count, 2);
     assert_eq!(untagged.unverified_count, 2);
     assert_eq!(untagged.verified_count, 0);
@@ -818,7 +843,9 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     assert_eq!(unverified.verified_count, 0);
 
     // retag_all -> every design: total 3, one of which is verified (design 2).
-    let all = count_tagging_candidates(&pool, "retag_all", None, true).await.unwrap();
+    let all = count_tagging_candidates(&pool, "retag_all", None, true)
+        .await
+        .unwrap();
     assert_eq!(all.total_count, 3);
     assert_eq!(all.unverified_count, 2);
     assert_eq!(all.verified_count, 1);
@@ -828,9 +855,10 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
         .await
         .unwrap();
     assert_eq!(untagged.total_count as usize, untagged_ids.len());
-    let unverified_ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, None, true)
-        .await
-        .unwrap();
+    let unverified_ids =
+        select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, None, true)
+            .await
+            .unwrap();
     assert_eq!(unverified.total_count as usize, unverified_ids.len());
     let all_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, None, true)
         .await
@@ -845,14 +873,16 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     assert!(!all_excluding.contains(&2));
 
     // An unknown action normalizes to tag_untagged, matching the pager.
-    let unknown = count_tagging_candidates(&pool, "bogus", None, true).await.unwrap();
+    let unknown = count_tagging_candidates(&pool, "bogus", None, true)
+        .await
+        .unwrap();
     assert_eq!(unknown.total_count, untagged.total_count);
 }
 #[tokio::test]
 async fn per_mode_ai_scope_counts_and_pager_parity() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1..=3 (AI flags default 0)
-    // design 1: Text AI analyzed + matched.
+                             // design 1: Text AI analyzed + matched.
     sqlx::query("UPDATE designs SET text_ai_analyzed = 1, text_ai_matched = 1 WHERE id = 1")
         .execute(&pool)
         .await
@@ -866,12 +896,10 @@ async fn per_mode_ai_scope_counts_and_pager_parity() {
     .await
     .unwrap();
     // design 3: Vision AI analyzed but no match.
-    sqlx::query(
-        "UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 0 WHERE id = 3",
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 0 WHERE id = 3")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Text AI scopes.
     let text_not = count_tagging_candidates(&pool, "retag_all_text_not_analyzed", None, true)
@@ -917,8 +945,6 @@ async fn per_mode_ai_scope_counts_and_pager_parity() {
     }
 }
 
-
-
 #[test]
 fn resolve_folder_scope_under_validates_boundary() {
     let root = std::env::temp_dir().join("tagging-folder-scope-test");
@@ -949,8 +975,8 @@ fn resolve_folder_scope_under_validates_boundary() {
     assert!(err.to_string().contains("outside"));
 
     // A non-existent folder is rejected.
-    let err =
-        resolve_folder_scope_under(Some(root.join("Missing").to_str().unwrap()), &root).unwrap_err();
+    let err = resolve_folder_scope_under(Some(root.join("Missing").to_str().unwrap()), &root)
+        .unwrap_err();
     assert!(err.to_string().contains("does not exist"));
 
     let _ = std::fs::remove_dir_all(&root);
@@ -1000,9 +1026,10 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
     };
 
     // Recursive: all four Flowers designs (direct + nested), not design 5.
-    let recursive = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), true)
-        .await
-        .unwrap();
+    let recursive =
+        select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), true)
+            .await
+            .unwrap();
     assert!(recursive.contains(&1));
     assert!(recursive.contains(&2));
     assert!(recursive.contains(&3));
@@ -1106,8 +1133,6 @@ async fn flush_tagging_batch_reset_never_touches_non_image_tags() {
             .unwrap();
     assert_eq!(stitching, 1, "non-image tags must survive a reset");
 }
-
-
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // DB helper: clear_stitching_tags
@@ -1711,7 +1736,11 @@ async fn run_unified_backfill_retag_all_tags_everything() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: Some(false), folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: Some(false),
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1747,7 +1776,11 @@ async fn run_unified_backfill_retag_all_unverified_skips_verified() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all_unverified".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1796,7 +1829,11 @@ async fn run_unified_backfill_stop_signal_detected_by_summary() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1855,7 +1892,11 @@ async fn run_unified_backfill_stop_aborts_current_tagging_batch() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("retag_all".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: None,
@@ -1910,7 +1951,11 @@ async fn run_unified_backfill_combined_actions() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(true),
                 }),
                 stitching: Some(StitchingActionOptions {
@@ -1953,7 +1998,11 @@ async fn run_unified_backfill_hoop_dimensions_action_runs() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(false),
                 }),
                 stitching: None,
@@ -1991,7 +2040,11 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
             actions: Some(UnifiedBackfillActions {
                 tagging: Some(TaggingActionOptions {
                     action: Some("tag_untagged".to_string()),
-                    modes: Some(vec!["path_rule".to_string()]), merge_mode: None, exclude_verified: None, folder_path: None, include_subfolders: None,
+                    modes: Some(vec!["path_rule".to_string()]),
+                    merge_mode: None,
+                    exclude_verified: None,
+                    folder_path: None,
+                    include_subfolders: None,
                     enabled: Some(false),
                 }),
                 stitching: Some(StitchingActionOptions {

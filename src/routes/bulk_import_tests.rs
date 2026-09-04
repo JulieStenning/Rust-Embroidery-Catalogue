@@ -1,4 +1,4 @@
-﻿// Tests for the bulk-import route.
+// Tests for the bulk-import route.
 //
 // This module was split out of bulk_import.rs so the route file can stay
 // focused on production logic. It is included via a #[path] declaration
@@ -664,10 +664,8 @@ fn suggest_reference_id_from_path_matches_compact_names() {
         (2, "Another Source".to_string()),
     ];
 
-    let matched = suggest_reference_id_from_path(
-        "C:/imports/MachineEmbroideryDesigns/Urban Threads",
-        &items,
-    );
+    let matched =
+        suggest_reference_id_from_path("C:/imports/MachineEmbroideryDesigns/Urban Threads", &items);
 
     assert_eq!(matched, Some(1));
 }
@@ -1232,10 +1230,7 @@ fn prospective_path_standard_root_with_leaf() {
         &["C:/x/d/f".to_string()],
     );
     assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap(),
-        "f/Babies/Jef Files/design.jef"
-    );
+    assert_eq!(result.unwrap(), "f/Babies/Jef Files/design.jef");
 }
 
 /// compute_prospective_stored_filepath with a parent root (leaf = x).
@@ -1247,10 +1242,7 @@ fn prospective_path_parent_root() {
         &["C:/x".to_string()],
     );
     assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap(),
-        "x/d/f/Babies/Jef Files/design.jef"
-    );
+    assert_eq!(result.unwrap(), "x/d/f/Babies/Jef Files/design.jef");
 }
 
 /// compute_prospective_stored_filepath with drive-root selection (no leaf).
@@ -1260,10 +1252,7 @@ fn prospective_path_drive_root() {
     let result =
         compute_prospective_stored_filepath("C:/Designs/Floral/a.pes", &["C:/".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap(),
-        "Designs/Floral/a.pes"
-    );
+    assert_eq!(result.unwrap(), "Designs/Floral/a.pes");
 }
 
 /// compute_prospective_stored_filepath with mixed slash separators.
@@ -1275,10 +1264,7 @@ fn prospective_path_mixed_separators() {
         &["C:/x/d/f".to_string()],
     );
     assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap(),
-        "f/Babies/Jef Files/design.jef"
-    );
+    assert_eq!(result.unwrap(), "f/Babies/Jef Files/design.jef");
 }
 
 /// Longest-root match must be chosen when multiple roots are provided.
@@ -1290,10 +1276,7 @@ fn prospective_path_longest_root_wins() {
     );
     assert!(result.is_ok());
     // Longer root "C:/x/d/f" wins => leaf "f"
-    assert_eq!(
-        result.unwrap(),
-        "f/Babies/Jef Files/design.jef"
-    );
+    assert_eq!(result.unwrap(), "f/Babies/Jef Files/design.jef");
 }
 
 // =========================================================================
@@ -1660,10 +1643,7 @@ fn compute_prospective_stored_filepath_edge_cases() {
     let result =
         compute_prospective_stored_filepath("C:/Designs/Floral/a.pes", &["C:/".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap(),
-        "Designs/Floral/a.pes"
-    );
+    assert_eq!(result.unwrap(), "Designs/Floral/a.pes");
 }
 
 #[test]
@@ -2566,12 +2546,10 @@ fn ai_tagging_pass_is_noop_when_vision_disabled() {
 fn ai_tagging_pass_is_noop_without_api_key() {
     tauri::async_runtime::block_on(async {
         let pool = import_test_pool().await;
-        sqlx::query(
-            "INSERT INTO settings (key, value) VALUES ('ai.vision', 'TRUE')",
-        )
-        .execute(&pool)
-        .await
-        .expect("seed settings");
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('ai.vision', 'TRUE')")
+            .execute(&pool)
+            .await
+            .expect("seed settings");
         insert_ai_pass_design(&pool, 1, "cat.pes").await;
 
         run_import_ai_tagging_pass(
@@ -2763,7 +2741,9 @@ fn read_f64_setting_returns_none_for_missing_or_invalid() {
     tauri::async_runtime::block_on(async {
         let pool = import_test_pool().await;
         assert_eq!(
-            read_f64_setting(&pool, "ai.delay").await.expect("read missing f64"),
+            read_f64_setting(&pool, "ai.delay")
+                .await
+                .expect("read missing f64"),
             None
         );
         sqlx::query("INSERT INTO settings (key, value) VALUES ('ai.delay', 'not-a-number')")

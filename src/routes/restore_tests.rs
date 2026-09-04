@@ -44,10 +44,17 @@ fn command_app_state(pool: SqlitePool) -> AppState {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
             database_path: Some(
-                tmp_dir.join("Database").join("test.db").to_string_lossy().to_string(),
+                tmp_dir
+                    .join("Database")
+                    .join("test.db")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             embroidery_dir: Some(
-                tmp_dir.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+                tmp_dir
+                    .join("MachineEmbroideryDesigns")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             data_root_missing: false,
         },

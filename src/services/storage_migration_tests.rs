@@ -358,7 +358,10 @@ fn preserve_old_location_renames_non_root_source_to_backup() {
     let target = tmp.join("target"); // target need not exist for the rename path
 
     let note = preserve_old_location(&source, &target);
-    assert!(note.is_none(), "rename success should return None, got: {note:?}");
+    assert!(
+        note.is_none(),
+        "rename success should return None, got: {note:?}"
+    );
     assert!(
         !source.exists(),
         "source should have been renamed away to the backup"
@@ -548,9 +551,18 @@ fn rollback_partial_target_restores_moved_aside_target() {
     rollback_partial_target(&plan);
 
     // The moved-aside target is restored and the partial tree is discarded.
-    assert!(target.join("keep.pes").exists(), "backup content should be restored");
-    assert!(!target.join("partial").exists(), "partial tree should be removed");
-    assert!(!backup.exists(), "backup should no longer exist after restore");
+    assert!(
+        target.join("keep.pes").exists(),
+        "backup content should be restored"
+    );
+    assert!(
+        !target.join("partial").exists(),
+        "partial tree should be removed"
+    );
+    assert!(
+        !backup.exists(),
+        "backup should no longer exist after restore"
+    );
 
     let _ = std::fs::remove_dir_all(&tmp);
 }

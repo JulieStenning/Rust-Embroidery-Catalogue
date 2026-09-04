@@ -1,4 +1,4 @@
-﻿// Tests for the designs route.
+// Tests for the designs route.
 //
 // This module was split out of designs.rs so the route file can stay
 // focused on production logic. helper_tests and parser_tests are nested
@@ -690,12 +690,11 @@ async fn get_design_ids_with_pool_returns_full_filtered_ids_in_sort_order() {
 
     // Default sort (filename) â†’ alpha, gamma, rose, zeta. IDs must match the
     // same deterministic ORDER BY the paginated page query uses.
-    let expected: Vec<i64> = sqlx::query_scalar(
-        "SELECT id FROM designs ORDER BY filename COLLATE NOCASE ASC, id ASC",
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("read sorted ids");
+    let expected: Vec<i64> =
+        sqlx::query_scalar("SELECT id FROM designs ORDER BY filename COLLATE NOCASE ASC, id ASC")
+            .fetch_all(&pool)
+            .await
+            .expect("read sorted ids");
 
     assert_eq!(result.ids, expected);
     assert_eq!(result.ids.len(), 4);
@@ -2284,7 +2283,10 @@ async fn glob_wildcard_search_prefix_suffix_and_extension() {
     let rows = [
         ("Sig4Rose.pes", "/MachineEmbroideryDesigns/Sig/Sig4Rose.pes"),
         ("Sig4Lily.pes", "/MachineEmbroideryDesigns/Sig/Sig4Lily.pes"),
-        ("OtherSig4.pes", "/MachineEmbroideryDesigns/Sig/OtherSig4.pes"),
+        (
+            "OtherSig4.pes",
+            "/MachineEmbroideryDesigns/Sig/OtherSig4.pes",
+        ),
         ("RoseSig4", "/MachineEmbroideryDesigns/Sig/RoseSig4"),
         ("rose.hus", "/MachineEmbroideryDesigns/Ext/rose.hus"),
     ];
@@ -2377,9 +2379,10 @@ async fn recommend_hoop_selects_smallest_fitting_hoop() {
         .await
         .expect("insert large hoop");
 
-    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(40), Some(35))
-        .await
-        .expect("hoop recommendation should succeed");
+    let result =
+        crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(40), Some(35))
+            .await
+            .expect("hoop recommendation should succeed");
 
     // Small (50x40) fits 40x35; should be chosen over Large (200x200)
     assert!(result.is_some());
@@ -2403,9 +2406,10 @@ async fn recommend_hoop_tries_rotated_orientation() {
         .await
         .expect("insert tall hoop");
 
-    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(60), Some(30))
-        .await
-        .expect("hoop recommendation should succeed");
+    let result =
+        crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(60), Some(30))
+            .await
+            .expect("hoop recommendation should succeed");
 
     // Only Tall (30x70) fits either orientation: width=60 fails (30<60),
     // but rotated width=30,height=60 Ã¢â€ â€™ 30>=30 and 70>=60 passes.
@@ -2428,9 +2432,10 @@ async fn recommend_hoop_returns_none_when_no_hoop_fits() {
 
     // Use dimensions larger than ALL seeded hoops (Hoop A is 126x126),
     // so no hoop fits in either orientation.
-    let result = crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(300), Some(300))
-        .await
-        .expect("hoop recommendation should succeed");
+    let result =
+        crate::services::design_metadata::recommend_hoop_for_design(&pool, Some(300), Some(300))
+            .await
+            .expect("hoop recommendation should succeed");
     assert!(result.is_none());
 }
 
@@ -2453,22 +2458,25 @@ async fn recommend_hoop_returns_none_when_dimensions_missing() {
 #[cfg(target_os = "windows")]
 #[test]
 fn normalize_windows_explorer_target_strips_verbatim_unc_prefix() {
-    let result =
-        crate::paths::normalize_windows_explorer_target(&PathBuf::from(r"\\?\UNC\server\share\file.pes"));
+    let result = crate::paths::normalize_windows_explorer_target(&PathBuf::from(
+        r"\\?\UNC\server\share\file.pes",
+    ));
     assert_eq!(result.to_string_lossy(), r"\\server\share\file.pes");
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn normalize_windows_explorer_target_strips_verbatim_local_prefix() {
-    let result = crate::paths::normalize_windows_explorer_target(&PathBuf::from(r"\\?\C:\data\file.pes"));
+    let result =
+        crate::paths::normalize_windows_explorer_target(&PathBuf::from(r"\\?\C:\data\file.pes"));
     assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn normalize_windows_explorer_target_converts_forward_slashes() {
-    let result = crate::paths::normalize_windows_explorer_target(&PathBuf::from("C:/data/file.pes"));
+    let result =
+        crate::paths::normalize_windows_explorer_target(&PathBuf::from("C:/data/file.pes"));
     assert_eq!(result.to_string_lossy(), r"C:\data\file.pes");
 }
 
@@ -2539,8 +2547,9 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
 async fn classify_tag_ids_splits_image_and_stitching_tags() {
     let pool = test_pool().await;
     // Flowers (id 1) is the image group, Satin Stitch (id 2) is stitching.
-    let (image_ids, stitching_ids) =
-        classify_tag_ids(&pool, &[1, 2]).await.expect("classify tag ids");
+    let (image_ids, stitching_ids) = classify_tag_ids(&pool, &[1, 2])
+        .await
+        .expect("classify tag ids");
     assert_eq!(image_ids, vec![1]);
     assert_eq!(stitching_ids, vec![2]);
 }
@@ -2559,10 +2568,17 @@ fn command_app_state(pool: SqlitePool) -> AppState {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
             database_path: Some(
-                tmp_dir.join("Database").join("test.db").to_string_lossy().to_string(),
+                tmp_dir
+                    .join("Database")
+                    .join("test.db")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             embroidery_dir: Some(
-                tmp_dir.join("MachineEmbroideryDesigns").to_string_lossy().to_string(),
+                tmp_dir
+                    .join("MachineEmbroideryDesigns")
+                    .to_string_lossy()
+                    .to_string(),
             ),
             data_root_missing: false,
         },
@@ -2609,7 +2625,9 @@ async fn command_bulk_add_designs_to_project_adds_designs() {
     let app = tauri::test::mock_app();
     app.manage(command_app_state(pool.clone()));
     let state = app.state::<AppState>();
-    let result = bulk_add_designs_to_project(state, 1, vec![1]).await.expect("bulk add");
+    let result = bulk_add_designs_to_project(state, 1, vec![1])
+        .await
+        .expect("bulk add");
     assert_eq!(result.project_id, 1);
     assert_eq!(result.requested_count, 1);
     assert_eq!(result.added_count, 1);
@@ -2642,7 +2660,9 @@ async fn command_bulk_verify_designs_marks_designs_verified() {
     let app = tauri::test::mock_app();
     app.manage(command_app_state(pool.clone()));
     let state = app.state::<AppState>();
-    let result = bulk_verify_designs(state, vec![1]).await.expect("bulk verify");
+    let result = bulk_verify_designs(state, vec![1])
+        .await
+        .expect("bulk verify");
     assert_eq!(result.requested_count, 1);
     assert_eq!(result.verified_count, 1);
     let verified: i64 = sqlx::query_scalar(

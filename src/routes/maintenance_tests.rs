@@ -1411,8 +1411,12 @@ async fn database_backup_cancelled_before_copy_leaves_no_file() {
 
     let pool = setup_backup_settings_pool().await;
     let dest_dir = unique_temp_path("backup-cancel-db-dest");
-    insert_backup_destination(&pool, KEY_BACKUP_DATABASE_DESTINATION, dest_dir.to_string_lossy().as_ref())
-        .await;
+    insert_backup_destination(
+        &pool,
+        KEY_BACKUP_DATABASE_DESTINATION,
+        dest_dir.to_string_lossy().as_ref(),
+    )
+    .await;
 
     let (db_dir, db_file) = setup_source_database_file().await;
 
@@ -1510,16 +1514,24 @@ async fn designs_backup_cancelled_stops_copying_and_keeps_existing_files() {
     let pool = setup_backup_settings_pool().await;
     let dest_dir = unique_temp_path("backup-cancel-designs-dest");
     fs::create_dir_all(&dest_dir).expect("dest dir should be created");
-    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, dest_dir.to_string_lossy().as_ref())
-        .await;
+    insert_backup_destination(
+        &pool,
+        KEY_BACKUP_DESIGNS_DESTINATION,
+        dest_dir.to_string_lossy().as_ref(),
+    )
+    .await;
 
     // Source with a few files so the copy loop has work to do.
     let src_dir = unique_temp_path("backup-cancel-designs-src");
     fs::create_dir_all(&src_dir).expect("src dir should be created");
-    fs::create_dir_all(src_dir.join("MachineEmbroideryDesigns")).expect("MED dir should be created");
+    fs::create_dir_all(src_dir.join("MachineEmbroideryDesigns"))
+        .expect("MED dir should be created");
     for name in ["alpha.pes", "beta.pes", "gamma.pes"] {
-        fs::write(src_dir.join("MachineEmbroideryDesigns").join(name), format!("content-{name}"))
-            .expect("source file should be created");
+        fs::write(
+            src_dir.join("MachineEmbroideryDesigns").join(name),
+            format!("content-{name}"),
+        )
+        .expect("source file should be created");
     }
 
     // Point the designs source path derivation at the temp src dir.
@@ -1572,14 +1584,22 @@ async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
     let pool = setup_backup_settings_pool().await;
     let dest_dir = unique_temp_path("backup-cancel-designs-partial");
     fs::create_dir_all(&dest_dir).expect("dest dir should be created");
-    insert_backup_destination(&pool, KEY_BACKUP_DESIGNS_DESTINATION, dest_dir.to_string_lossy().as_ref())
-        .await;
+    insert_backup_destination(
+        &pool,
+        KEY_BACKUP_DESIGNS_DESTINATION,
+        dest_dir.to_string_lossy().as_ref(),
+    )
+    .await;
 
     let src_dir = unique_temp_path("backup-cancel-designs-partial-src");
-    fs::create_dir_all(src_dir.join("MachineEmbroideryDesigns")).expect("MED dir should be created");
+    fs::create_dir_all(src_dir.join("MachineEmbroideryDesigns"))
+        .expect("MED dir should be created");
     for name in ["alpha.pes", "beta.pes", "gamma.pes"] {
-        fs::write(src_dir.join("MachineEmbroideryDesigns").join(name), format!("content-{name}"))
-            .expect("source file should be created");
+        fs::write(
+            src_dir.join("MachineEmbroideryDesigns").join(name),
+            format!("content-{name}"),
+        )
+        .expect("source file should be created");
     }
 
     // A design already present in the destination matching "alpha.pes" simulates
@@ -1607,7 +1627,10 @@ async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
     assert_eq!(result.copied, 0, "no new files should be copied");
 
     // alpha.pes (pre-existing) must remain intact; beta/gamma must NOT appear.
-    assert!(dest_dir.join("alpha.pes").exists(), "existing copy must remain");
+    assert!(
+        dest_dir.join("alpha.pes").exists(),
+        "existing copy must remain"
+    );
     assert!(
         !dest_dir.join("beta.pes").exists(),
         "beta must not be copied after cancellation"
@@ -1634,8 +1657,7 @@ async fn designs_backup_cancelled_mid_loop_keeps_already_copied_files() {
 
 #[test]
 fn cancelled_database_backup_marks_result_cancelled() {
-    let result =
-        cancelled_database_backup("12345", Some("Database backup cancelled.".to_string()));
+    let result = cancelled_database_backup("12345", Some("Database backup cancelled.".to_string()));
     assert!(result.cancelled);
     assert!(!result.success);
     assert_eq!(result.completed_at, "12345");

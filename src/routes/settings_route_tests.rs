@@ -1042,11 +1042,9 @@ fn test_gemini_model_for_client_reports_usable_model() {
     let base = format!("{}/", server.url().trim_end_matches('/'));
     let client = GeminiClient::with_base("key", base);
 
-    let result = tauri::async_runtime::block_on(test_gemini_model_for_client(
-        &client,
-        "gemini-2.0-flash",
-    ))
-    .expect("mapping returns Ok");
+    let result =
+        tauri::async_runtime::block_on(test_gemini_model_for_client(&client, "gemini-2.0-flash"))
+            .expect("mapping returns Ok");
     assert!(result.ok);
     assert!(result.message.contains("gemini-2.0-flash"));
     assert!(result.message.contains("available"));

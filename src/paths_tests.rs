@@ -1060,7 +1060,10 @@ fn seed_database_if_allowed_refuses_to_overwrite_existing_database() {
     fs::write(&db_file, original).expect("write existing db");
 
     let result = seed_database_if_allowed(&tmp, false);
-    assert!(result.is_err(), "should refuse to overwrite an existing database");
+    assert!(
+        result.is_err(),
+        "should refuse to overwrite an existing database"
+    );
 
     // The existing database must remain untouched.
     assert_eq!(fs::read(&db_file).expect("read db"), original);
@@ -1175,7 +1178,10 @@ fn create_catalogue_layout_creates_designs_logs_and_database_dirs() {
 #[test]
 fn canonical_design_rel_converts_backslashes_and_collapses_separators() {
     assert_eq!(canonical_design_rel("Roses\\rose.pes"), "Roses/rose.pes");
-    assert_eq!(canonical_design_rel("Roses//Roses/rose.pes"), "Roses/Roses/rose.pes");
+    assert_eq!(
+        canonical_design_rel("Roses//Roses/rose.pes"),
+        "Roses/Roses/rose.pes"
+    );
     // A bare leading '/' marks the base root in legacy stored paths: it is
     // stripped to a base-relative path.
     assert_eq!(canonical_design_rel("/Roses/rose.pes"), "Roses/rose.pes");
@@ -1220,7 +1226,10 @@ fn canonical_design_rel_root_level_case_and_empty() {
         "Flowers/Roses/My Design.pes"
     );
     // Case is preserved — never lower-cased.
-    assert_eq!(canonical_design_rel("Flowers/MyPES.PES"), "Flowers/MyPES.PES");
+    assert_eq!(
+        canonical_design_rel("Flowers/MyPES.PES"),
+        "Flowers/MyPES.PES"
+    );
     assert_eq!(canonical_design_rel(""), "");
     assert_eq!(canonical_design_rel("   "), "");
 }
@@ -1241,12 +1250,18 @@ fn design_rel_from_full_reduces_full_path_under_root() {
     );
     // Backslash variant yields the identical canonical rel.
     assert_eq!(
-        design_rel_from_full("C:\\data\\MachineEmbroideryDesigns\\Flowers\\rose.pes", &root),
+        design_rel_from_full(
+            "C:\\data\\MachineEmbroideryDesigns\\Flowers\\rose.pes",
+            &root
+        ),
         Some("Flowers/rose.pes".to_string())
     );
     // Outside the root and the root itself yield None.
     assert_eq!(design_rel_from_full("C:/other/a.pes", &root), None);
-    assert_eq!(design_rel_from_full("C:/data/MachineEmbroideryDesigns", &root), None);
+    assert_eq!(
+        design_rel_from_full("C:/data/MachineEmbroideryDesigns", &root),
+        None
+    );
 }
 
 #[test]

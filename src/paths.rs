@@ -683,7 +683,9 @@ pub fn relative_path_under_root(full_path: &str, root: &Path) -> String {
     }
     let root_lower = root_norm.to_ascii_lowercase();
     if full_norm.to_ascii_lowercase().starts_with(&root_lower) {
-        full_norm[root_norm.len()..].trim_start_matches('/').to_string()
+        full_norm[root_norm.len()..]
+            .trim_start_matches('/')
+            .to_string()
     } else {
         full_norm.trim_start_matches('/').to_string()
     }

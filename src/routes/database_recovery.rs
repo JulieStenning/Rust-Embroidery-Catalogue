@@ -90,7 +90,6 @@ pub fn seed_database_to_data_root(
 #[allow(dead_code)]
 fn _state_marker(_state: State<'_, AppState>) {}
 
-
 #[cfg(test)]
 #[path = "database_recovery_tests.rs"]
 mod tests;

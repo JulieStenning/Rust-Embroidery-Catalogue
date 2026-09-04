@@ -105,7 +105,6 @@ pub struct ImportUnmatchedFilesResult {
     pub failed_samples: Vec<String>,
 }
 
-
 /// Compute the safety rollback copy path next to the live database.
 fn rollback_copy_path(live_path: &Path, suffix: &str) -> PathBuf {
     let stem = live_path
@@ -137,7 +136,10 @@ fn validate_backup_file(path: &Path) -> Result<(), String> {
     }
     let name_ok = path
         .file_name()
-        .map(|n| n.to_string_lossy().eq_ignore_ascii_case("EmbroideryCatalogue.db"))
+        .map(|n| {
+            n.to_string_lossy()
+                .eq_ignore_ascii_case("EmbroideryCatalogue.db")
+        })
         .unwrap_or(false);
     let ext_ok = path
         .extension()
@@ -217,10 +219,7 @@ pub async fn perform_database_restore(
     if let Err(error) = fs::copy(backup_path, &tmp_path) {
         let _ = fs::copy(&rollback_path, live_path);
         let _ = holder.take();
-        let message = format!(
-            "Could not copy backup to '{}': {error}",
-            tmp_path.display()
-        );
+        let message = format!("Could not copy backup to '{}': {error}", tmp_path.display());
         tracing::error!("[restore] {message}");
         return Err(message);
     }
@@ -251,10 +250,7 @@ pub async fn perform_database_restore(
 
     // 5. Verify the restored database.
     let valid = verify_database_at(live_path).await.unwrap_or(false);
-    tracing::info!(
-        "[restore] database restore verification valid={}",
-        valid
-    );
+    tracing::info!("[restore] database restore verification valid={}", valid);
 
     if !valid {
         // Automatic rollback using the safety copy.
@@ -262,9 +258,8 @@ pub async fn perform_database_restore(
             pool.close().await;
         }
         if let Err(error) = fs::copy(&rollback_path, live_path) {
-            let message = format!(
-                "Restore verification failed AND automatic rollback failed: {error}"
-            );
+            let message =
+                format!("Restore verification failed AND automatic rollback failed: {error}");
             tracing::error!("[restore] {message}");
             return Err(message);
         }
@@ -326,7 +321,6 @@ pub async fn perform_database_restore(
         error: None,
     })
 }
-
 
 /// Incremental mirror restore of design files from `source_root` (a backup
 /// folder) into `dest_root` (`MachineEmbroideryDesigns`). Files that already
@@ -490,7 +484,6 @@ pub async fn detect_design_files_absent_from_database(
         sample: unmatched.iter().take(SAMPLE_LIMIT).cloned().collect(),
     })
 }
-
 
 /// Drawable bounds in millimetres, matching the preview pipeline.
 fn drawable_bounds_mm(pattern: &EmbPattern) -> Option<(f64, f64)> {
@@ -665,5 +658,3 @@ pub async fn import_unmatched_design_files(
 #[cfg(test)]
 #[path = "restore_tests.rs"]
 mod tests;
-
-

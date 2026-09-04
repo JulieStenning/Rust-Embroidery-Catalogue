@@ -614,4 +614,3 @@ async fn run_migrations_returns_error_after_retries_exhausted() {
     pool_b.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
-

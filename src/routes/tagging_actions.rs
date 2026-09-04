@@ -223,15 +223,17 @@ pub fn browse_tagging_folder(
 ) -> BrowseTaggingFolderResult {
     let root = state.paths.embroidery_designs_dir.clone();
 
-    let start = match start_dir.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    let start = match start_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         Some(dir) => {
             if !backfill::is_path_under_root(dir, &root) {
                 return BrowseTaggingFolderResult {
                     path: None,
                     relative_path: None,
-                    error: Some(
-                        "Start folder is outside the Data Storage Location.".to_string(),
-                    ),
+                    error: Some("Start folder is outside the Data Storage Location.".to_string()),
                 };
             }
             Some(dir.to_string())

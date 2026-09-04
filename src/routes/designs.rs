@@ -1,8 +1,8 @@
 use crate::config::BootstrapConfig;
+use crate::paths::normalize_windows_explorer_target;
 use crate::services::compaction::schedule_incremental_vacuum;
 use crate::services::design_metadata;
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};
-use crate::paths::normalize_windows_explorer_target;
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -913,8 +913,7 @@ async fn reparse_design_file_with_pool(
 
     let width_mm = parsed.width_mm;
     let height_mm = parsed.height_mm;
-    let hoop_id =
-        design_metadata::recommend_hoop_for_design(pool, width_mm, height_mm).await?;
+    let hoop_id = design_metadata::recommend_hoop_for_design(pool, width_mm, height_mm).await?;
 
     sqlx::query(
         "UPDATE designs SET width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, hoop_id = ? WHERE id = ?",
@@ -2401,7 +2400,8 @@ pub async fn set_design_stitched(
     design_id: i64,
     request: SetDesignStitchedRequest,
 ) -> Result<DesignCommandResult, String> {
-    let result = set_design_stitched_with_pool(&state.db_pool()?, design_id, request.is_stitched).await?;
+    let result =
+        set_design_stitched_with_pool(&state.db_pool()?, design_id, request.is_stitched).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2492,7 +2492,8 @@ pub async fn add_design_to_project(
     design_id: i64,
     request: SetDesignProjectRequest,
 ) -> Result<DesignCommandResult, String> {
-    let result = add_design_to_project_with_pool(&state.db_pool()?, design_id, request.project_id).await?;
+    let result =
+        add_design_to_project_with_pool(&state.db_pool()?, design_id, request.project_id).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2510,7 +2511,8 @@ pub async fn remove_design_from_project(
     design_id: i64,
     project_id: i64,
 ) -> Result<DesignCommandResult, String> {
-    let result = remove_design_from_project_with_pool(&state.db_pool()?, design_id, project_id).await?;
+    let result =
+        remove_design_from_project_with_pool(&state.db_pool()?, design_id, project_id).await?;
     let _ = app_handle.emit(
         "design:mutated",
         json!({
@@ -2549,7 +2551,8 @@ pub async fn bulk_delete_designs(
     request: BulkDeleteDesignsRequest,
 ) -> Result<BulkDeleteDesignsResult, String> {
     let result =
-        bulk_delete_designs_with_pool(&state.db_pool()?, &request.design_ids, request.delete_files).await?;
+        bulk_delete_designs_with_pool(&state.db_pool()?, &request.design_ids, request.delete_files)
+            .await?;
     // Emit events for each deleted design
     for design_id in &request.design_ids {
         let _ = app_handle.emit(

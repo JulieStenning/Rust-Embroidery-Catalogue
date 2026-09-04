@@ -33,10 +33,12 @@ pub fn init_logging(log_dir: &Path) -> Result<LogGuard, AppError> {
         .filename_prefix("app")
         .filename_suffix("log")
         .build(log_dir)
-        .map_err(|err| AppError::io(format!(
-            "failed to create rolling file appender in {}: {err}",
-            log_dir.display()
-        )))?;
+        .map_err(|err| {
+            AppError::io(format!(
+                "failed to create rolling file appender in {}: {err}",
+                log_dir.display()
+            ))
+        })?;
     let (non_blocking_file, file_guard) = tracing_appender::non_blocking(file_appender);
 
     let file_layer = fmt::layer()
