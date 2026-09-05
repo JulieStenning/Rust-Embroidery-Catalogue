@@ -12,11 +12,22 @@
 
   let {
     designId = 0,
+    designName = "",
     allTags = [],
     selectedTagIds = [],
     open = false,
     onClose = () => {},
   } = $props();
+
+  // Subtitle shown under the modal title: prefer the design's file name (the
+  // useful human-readable label on the detail page) and fall back to the id.
+  let subtitleText = $derived(
+    String(designName || "").trim()
+      ? `Design ${String(designName).trim()}`
+      : designId
+        ? `Design #${designId}`
+        : "This design"
+  );
 
   let searchQuery = $state("");
   let createTagGroup = $state("image");
@@ -284,7 +295,7 @@
       <!-- Scrollable grid body -->
       <div class="tag-chooser-body" style="overflow-y:auto;flex:1;margin-top:0.75rem;">
         <p class="text-sm font-medium" style="margin:0 0 0.75rem 0;">
-          Design #{designId}
+          {subtitleText}
         </p>
 
         <div class="tag-chooser-sections">

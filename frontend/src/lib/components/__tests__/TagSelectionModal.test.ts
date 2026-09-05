@@ -88,12 +88,18 @@ describe("TagSelectionModal", () => {
       expect(dialog).toHaveAttribute("aria-modal", "true");
     });
 
-    it("shows the design id, search placeholder and Done button", async () => {
+    it("shows the design name, search placeholder and Done button", async () => {
+      renderModal({ designId: 42, designName: "rose.pes", allTags: sampleTags, open: true });
+
+      expect(screen.getByText("Design rose.pes")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("🔍 Search or create tag...")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    });
+
+    it("falls back to the design id when no design name is provided", async () => {
       renderModal({ designId: 42, allTags: sampleTags, open: true });
 
       expect(screen.getByText("Design #42")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("🔍 Search or create tag...")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     });
 
     it("does not auto-save when opened without interaction", async () => {

@@ -958,6 +958,7 @@
 
 <TagSelectionModal
   designId={detailItem?.id ?? 0}
+  designName={detailItem?.filename ?? ""}
   allTags={Array.isArray(detailItem?.allTags) ? detailItem.allTags : []}
   selectedTagIds={detailTagSelection}
   open={browseBulkModalOpen}
