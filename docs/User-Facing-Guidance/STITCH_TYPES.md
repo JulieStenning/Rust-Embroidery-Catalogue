@@ -71,7 +71,7 @@ What to expect:
 
 If you also use AI tagging, stitch detection is separate from the Gemini vision (Visual AI) flow.
 
-For the AI tagging flow, see [AI_TAGGING.md](AI_TAGGING.md).
+For the AI tagging flow, see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
 
 ---
 
@@ -145,6 +145,5 @@ If you are running the stitching backfill on a large catalogue, keep the page op
 
 ## Related guidance
 
-- [AI_TAGGING.md](AI_TAGGING.md) - Visual AI, import-time tag behavior, and where stitching fits alongside them
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) - combined maintenance runs and batch guidance
+- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) - Visual AI tagging, combined maintenance runs, and where stitching fits alongside it
 - [GETTING_STARTED.md](GETTING_STARTED.md) - basic application setup and import flow

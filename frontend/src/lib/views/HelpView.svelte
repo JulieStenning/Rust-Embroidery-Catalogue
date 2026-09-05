@@ -89,10 +89,7 @@
         <strong>Tag check before import:</strong> first import asks for tag review, later imports can
         continue directly.
       </p>
-      <p>
-        <strong>AI tagging notice:</strong> blue notice for Tier 1 only; amber notice when API key is
-        configured.
-      </p>
+      <p><strong>Tagging during import:</strong> imports apply File & Folder Rules only and never call Gemini.</p>
       <p>
         <strong>Error files and large scans:</strong> unreadable files are skipped; large scans may summarise
         rows.
@@ -143,16 +140,10 @@
         <a href="#/admin/settings" class="text-indigo-600 hover:underline">Settings</a>.
       </p>
       <p>
-        <strong>Enable tiers:</strong> in Settings, choose Tier 2 and Tier 3 auto-run options for import.
-      </p>
-      <p>
-        <strong>Batch size and delay:</strong> set limits and delay to reduce 429 rate-limit errors.
-      </p>
-      <p>
-        <strong>In-app actions:</strong> use
+        <strong>In-app actions:</strong> run Visual AI from
         <a href="#/admin/tagging-actions" class="text-indigo-600 hover:underline"
           >Admin → Tagging Actions</a
-        > for existing designs.
+        >. AI tagging no longer runs automatically during import.
       </p>
       <p>
         <strong>Potential costs:</strong> review
@@ -163,7 +154,7 @@
       <p>
         <strong>Full guide:</strong> open the
         <a href="#/about/document/ai-tagging" class="text-indigo-600 hover:underline"
-          >AI Tagging Guide</a
+          >AI Tagging &amp; Tagging Actions Guide</a
         >.
       </p>
     </div>

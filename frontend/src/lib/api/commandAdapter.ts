@@ -1696,10 +1696,10 @@ export async function getAboutDocuments() {
       },
       {
         slug: "ai-tagging",
-        title: "AI Tagging Guide",
+        title: "AI Tagging & Tagging Actions Guide",
         description:
-          "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
-        filename: "templates/info/ai_tagging.html",
+          "How to run Visual AI tagging from Tagging Actions, set up a Google API key, and understand usage costs.",
+        filename: "docs/User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md",
         available: false,
       },
       {

@@ -165,7 +165,7 @@ describe("HelpView", () => {
       expect(section.getByText("Choosing folders:")).toBeInTheDocument();
       expect(section.getByText("Review and metadata:")).toBeInTheDocument();
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
-      expect(section.getByText("AI tagging notice:")).toBeInTheDocument();
+      expect(section.getByText("Tagging during import:")).toBeInTheDocument();
       expect(section.getByText("Error files and large scans:")).toBeInTheDocument();
     });
 
@@ -260,14 +260,12 @@ describe("HelpView", () => {
       expect(taggingActionsLink).toHaveAttribute("href", "#/admin/tagging-actions");
 
       const guideLink = section.getByRole("link", {
-        name: "AI Tagging Guide",
+        name: "AI Tagging & Tagging Actions Guide",
       });
       expect(guideLink).toHaveAttribute("href", "#/about/document/ai-tagging");
 
       // Content bullets
       expect(section.getByText("Get an API key:")).toBeInTheDocument();
-      expect(section.getByText("Enable tiers:")).toBeInTheDocument();
-      expect(section.getByText("Batch size and delay:")).toBeInTheDocument();
       expect(section.getByText("In-app actions:")).toBeInTheDocument();
       expect(section.getByText("Potential costs:")).toBeInTheDocument();
       expect(section.getByText("Full guide:")).toBeInTheDocument();

@@ -50,9 +50,9 @@ const DOCUMENTS: [AboutDocumentSpec; 5] = [
     },
     AboutDocumentSpec {
         slug: "ai-tagging",
-        title: "AI Tagging Guide",
-        filename: "docs/User-Facing-Guidance/AI_TAGGING.md",
-        description: "How to get a Google API key, enable optional AI tagging, and understand likely usage costs.",
+        title: "AI Tagging & Tagging Actions Guide",
+        filename: "docs/User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md",
+        description: "How to run Visual AI tagging from Tagging Actions, set up a Google API key, and understand usage costs.",
     },
     AboutDocumentSpec {
         slug: "data-storage",

@@ -106,16 +106,11 @@ This step requires an internet connection.  It may take a minute or two.
 The application works without any configuration file.  You only need a Google API key if
 you want to use optional AI-assisted auto-tagging.
 
-The easiest way to add the key is via **Admin → Settings** in the app.  You can also
-place it in a `.env` file in the repository root (where the launcher scripts live):
+Add the key in **Admin → Settings** — it is stored locally with your catalogue data.
 
-```
-GOOGLE_API_KEY=AIzaSy_your_actual_key_here
-```
-
-Once the key is saved, open **Admin → Settings** and tick
-**Run Visual AI automatically during import** to enable Gemini-based tagging during import.
-See [AI_TAGGING.md](AI_TAGGING.md) for full details, including cost/quota information.
+Once the key is saved, run Visual AI on designs from **Admin → Tagging Actions** — imports themselves
+are local and only apply File & Folder Rules.
+See [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) for full details, including cost/quota information.
 
 ---
 
@@ -216,12 +211,9 @@ After pulling new changes from the repository:
 
 ## Optional environment variables
 
-You can change default settings by creating a `.env` file in the project root.
-Any variables you set override the built-in defaults.
-
-| Variable | Default | Description |
-|---|---|---|
-| `GOOGLE_API_KEY` | *(not set)* | Enables AI auto-tagging (see [AI_TAGGING.md](AI_TAGGING.md)) |
+Advanced users can set supported environment overrides (such as `DATABASE_URL`) via a `.env` file in the
+project root. The Google API key is **not** read from the environment — add it in **Admin → Settings**;
+see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
 
 Imported design files are stored automatically under the managed `MachineEmbroideryDesigns`
 folder in the active data root.
@@ -232,7 +224,7 @@ folder in the active data root.
 
 - [App Installer.md](App Installer.md) — run the release installer or use portable mode on a USB stick / SD card.
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — back up and restore your catalogue database.
-- [AI_TAGGING.md](AI_TAGGING.md) — enable optional AI-powered design tagging.
+- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) — enable optional AI-powered design tagging.
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) — first-import and later-import precheck review flow.
 - [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — fix common problems.
 - [../COMMERCIAL.md](../COMMERCIAL.md) — paid Windows installer build for non-technical users.

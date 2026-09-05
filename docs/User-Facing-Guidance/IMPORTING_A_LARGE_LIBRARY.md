@@ -67,22 +67,20 @@ designers** before importing. On the very first import into an empty catalogue,
 hoops get special attention - if none are configured you'll be asked to confirm
 before continuing without them.
 
-An **AI tagging banner** tells you what will happen to tags during the import:
+Tagging during import:
 
-- If no Google API key is saved, the import uses **File & Folder Rules only**,
-  which runs locally and never calls the internet. Every imported file gets
-  tags matched from its filename and folder path.
-- If a key is saved, the banner shows whether **Visual AI** auto-runs during the
-  import, plus a cost and rate-limit note.
+- Imports always apply **File & Folder Rules** only — instant, local path/name
+  matching that never calls the internet. Every imported file gets tags matched
+  from its filename and folder path.
+- Visual AI (Gemini) is **not** run during import. To analyse designs with Visual
+  AI, add an API key in **Admin → Settings** and run it afterwards from
+  **Admin → Tagging Actions**.
 
-> **Very important for large libraries:** Gemini's free tier is roughly
-> **15 requests per minute** and **1,500 requests per day**. For 120,000
-> designs this means Visual AI tagging will not run on everything in one session.
-> File & Folder Rules (local path/name matching) run on **every** file, but
-> AI-assisted tagging is rate-limited and will not finish a 120,000-design
-> library in one import. Plan to add an API key and run Visual AI in smaller
-> passes afterwards if you want it, rather than relying on it during a huge
-> import.
+> **Very important for large libraries:** Visual AI (Gemini) is rate-limited — the
+> free tier is roughly **15 requests per minute** and **1,500 requests per day**.
+> File & Folder Rules run on **every** file, but a 120,000-design library will not
+> finish in one Visual AI session. Plan to run Visual AI from **Tagging Actions**
+> in smaller passes afterwards if you want it.
 
 
 ## Feedback you will see during the import
@@ -157,6 +155,6 @@ On success, the app:
 - Import workflow (concise version): [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
 - First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
 - Per-folder Designer/Source assignment: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- AI tagging settings and behaviour: [AI_TAGGING.md](AI_TAGGING.md)
+- AI tagging settings and behaviour: [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
 - Getting started quick setup: [GETTING_STARTED.md](GETTING_STARTED.md)
 - Supported formats list: [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)

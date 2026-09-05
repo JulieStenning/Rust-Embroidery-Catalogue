@@ -47,9 +47,9 @@ Later imports:
 - Review actions are optional.
 - You can review reference data or import immediately.
 
-AI tagging banner:
-- If no API key is configured, import runs File & Folder Rules only.
-- If API key is configured, the page shows your Visual AI auto-run setting.
+AI tagging:
+- Imports run File & Folder Rules only (local, no API key).
+- Visual AI is run separately from **Admin → Tagging Actions**.
 
 ## Step 4 - Confirm and save
 When you continue with import:
@@ -75,7 +75,7 @@ For current list and details: [docs/SUPPORTED_FORMATS.md](../SUPPORTED_FORMATS.m
 ## Related guides
 - First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
 - Per-folder Designer/Source assignment details: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- AI tagging settings and behavior: [AI_TAGGING.md](AI_TAGGING.md)
+- AI tagging settings and behavior: [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
 - Getting started quick setup: [GETTING_STARTED.md](GETTING_STARTED.md)
 
 ## Troubleshooting quick tips

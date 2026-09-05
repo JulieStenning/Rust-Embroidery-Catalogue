@@ -188,7 +188,7 @@ describe("SettingsView.svelte", () => {
 
     // No API key → "leave blank" hint.
     expect(
-      screen.getByText(/Leave this blank if you only want keyword-based tagging/)
+      screen.getByText(/Leave this blank if you only want File & Folder Rules tagging/)
     ).toBeInTheDocument();
 
     // dbStats null → "unavailable" message.
@@ -228,9 +228,9 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    expect(screen.getByText(/A key is currently saved in/)).toBeInTheDocument();
+    expect(screen.getByText(/A key is currently saved/)).toBeInTheDocument();
     expect(
-      screen.queryByText(/Leave this blank if you only want keyword-based tagging/)
+      screen.queryByText(/Leave this blank if you only want File & Folder Rules tagging/)
     ).not.toBeInTheDocument();
   });
 
@@ -242,7 +242,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     expect(
-      screen.getByText(/Leave this blank if you only want keyword-based tagging/)
+      screen.getByText(/Leave this blank if you only want File & Folder Rules tagging/)
     ).toBeInTheDocument();
   });
 

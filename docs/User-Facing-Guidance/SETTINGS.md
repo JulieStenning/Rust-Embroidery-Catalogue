@@ -3,7 +3,7 @@
 The **Settings** page controls defaults used across import, tagging, backup, and desktop storage behavior.
 
 Use this runbook when you need to:
-- configure AI behavior for imports,
+- configure AI behavior used by Tagging Actions,
 - tune performance for large runs,
 - set up backup destinations,
 - move desktop catalogue storage to another drive,
@@ -15,13 +15,12 @@ Use this runbook when you need to:
 
 Open **Admin -> Settings** to manage:
 - default image preview mode for imports (2D vs 3D),
-- Google Gemini API key,
-- automatic Visual AI default for imports,
-- AI/import batch tuning values,
+- Google Gemini API key (used by Visual AI in Tagging Actions),
+- AI and throughput tuning values for Tagging Actions runs,
 - desktop catalogue data location,
 - read-only storage location display.
 
-Some settings are directly used during import and tagging workflows. Others provide defaults that can be overridden in specific flows.
+Some settings are used by tagging (Tagging Actions) or import workflows. Others provide defaults that can be overridden in specific flows.
 
 ---
 
@@ -32,7 +31,7 @@ Some settings are directly used during import and tagging workflows. Others prov
 3. If enabling Visual AI, confirm you understand API costs and quotas.
 4. For large catalogues, test with a small run before increasing throughput settings.
 
-For AI key setup and Visual AI details, see [AI_TAGGING.md](AI_TAGGING.md).
+For AI key setup and Visual AI details, see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
 
 ---
 
@@ -74,11 +73,11 @@ Purpose:
 - Enables Visual AI tagging features.
 
 Behavior:
-- Key is stored in the project `.env` file.
-- You can leave this blank to run keyword-only tagging.
+- The key is stored in the app's local settings, alongside your catalogue data.
+- You can leave this blank to run File & Folder Rules only (no Visual AI).
 
 Operational guidance:
-- Paste the key, save settings, then verify the Visual AI checkbox as needed.
+- Paste the key and save; Visual AI can then run from Admin → Tagging Actions.
 - Use the show/hide button to verify pasted key format before saving.
 
 Security guidance:
@@ -87,33 +86,28 @@ Security guidance:
 - If compromised, rotate the key in Google AI Studio and update Settings.
 
 Related:
-- [AI_TAGGING.md](AI_TAGGING.md)
+- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
 
-### AI tagging during import (Visual AI auto-run)
+### Visual AI (runs from Tagging Actions)
 
-Options:
-- **Run Visual AI automatically** (Gemini vision from preview image)
+Visual AI (Gemini vision on the preview image) is **not** run automatically during import. There is no
+Settings toggle for it. Imports always apply **File & Folder Rules** only (local, free, no API key).
 
-Behavior:
-- **File & Folder Rules** run locally on every import and do not require a key.
-- Visual AI settings are ignored when no API key is available.
-
-When to enable:
-- Enable for maximum tag quality on newly imported designs.
-- Disable on constrained budgets or if you only want path/name-based tagging.
+To run Visual AI on your existing designs, open **Admin → Tagging Actions**, choose a goal that
+includes Visual AI, and run it there.
 
 Related:
-- [AI_TAGGING.md](AI_TAGGING.md)
 - [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
 
 ### AI tagging batch size (optional)
 
 Purpose:
-- Limits how many newly imported designs receive Visual AI processing in one run.
+- The number of designs fetched and processed together per chunk in a Tagging Actions run. A run pages
+  through the whole candidate set, so this does not cap how many designs are touched.
 
 When to lower:
 - You are hitting quota/rate limits.
-- You want shorter, incremental import sessions.
+- You want shorter, incremental runs.
 
 When to increase:
 - You have stable throughput and want fewer sessions.
@@ -131,14 +125,14 @@ When to raise delay:
 - API quota pressure during larger runs.
 
 When to keep low/default:
-- Small imports with no rate-limit errors.
+- Small runs with no rate-limit errors.
 
 Notes:
 - If troubleshooting AI rate limits, tune delay and batch size together.
 - Keep expectations realistic: higher delay improves resilience but increases run time.
 
 Related:
-- [AI_TAGGING.md](AI_TAGGING.md)
+- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
 
 ### Import database commit batch size (optional)
 
@@ -206,13 +200,13 @@ Use it for:
 3. Add API key only when preparing to use AI tagging.
 4. Leave batch and commit fields blank/default.
 
-### Workflow B: AI quality-first imports
+### Workflow B: AI quality-first tagging
 
-1. Configure API key.
-2. Enable Visual AI auto-run.
-3. Start with moderate batch size.
-4. Increase delay if rate-limit errors appear.
-5. Review tagging outcomes and costs after first run.
+1. Configure the API key in Settings.
+2. Run Visual AI from Admin → Tagging Actions (e.g. on untagged or Visual-AI-missing designs).
+3. Start with a moderate batch size.
+4. Increase the delay if rate-limit errors appear.
+5. Review tagging outcomes and costs after the run.
 
 ### Workflow C: Large-library performance tuning
 
@@ -235,10 +229,10 @@ Use it for:
 
 | Symptom | Likely cause | What to do |
 |---|---|---|
-| Settings save shows error banner | `.env` update failed or invalid desktop path write | Retry save; verify write permissions; for data-root path confirm drive exists and is writable. |
-| Visual AI not running | Missing API key or not enabled | Confirm key saved, then re-open Settings and tick Visual AI; see [AI_TAGGING.md](AI_TAGGING.md). |
+| Settings save shows error banner | Settings could not be saved (write or path issue) | Retry save; verify write permissions; for data-root path confirm drive exists and is writable. |
+| Visual AI not running | Missing API key, or run has no Visual AI goal | Confirm key saved, then run a Visual AI goal from Admin → Tagging Actions; see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md). |
 | Frequent `429 Too Many Requests` | API call pressure too high | Increase delay value and/or lower AI batch size; retry smaller runs. |
-| Imports feel slow after enabling AI | High delay or larger AI scope | Reduce Visual AI usage for routine runs or lower batch size; reserve full AI runs for targeted updates. |
+| AI runs feel slow | High delay or a large candidate scope | Lower batch size or reduce Visual AI usage for routine runs; reserve full Visual AI runs for targeted updates. |
 | Backup actions fail due missing destination | Backup folders not configured | Configure backup destinations in maintenance backup UI; see [BACKUP_RESTORE.md](BACKUP_RESTORE.md). |
 | Data-root move appears not applied | App not restarted or wrong target path | Restart app, check Storage locations panel, then verify browse/import behavior. |
 | Designs not where expected after move | Pointing to unexpected data folder | Revert to prior known-good data location, restart, validate, then migrate again carefully. |
@@ -249,14 +243,13 @@ Use it for:
 
 - Keep API keys out of shared screenshots and logs.
 - For team or multi-machine usage, configure keys and storage paths on each target machine.
-- Revisit settings after major upgrades, especially import/AI defaults.
+- Revisit settings after major upgrades, especially AI defaults.
 
 ---
 
 ## Related guides
 
-- [AI_TAGGING.md](AI_TAGGING.md) - Visual AI, pricing considerations, and API setup
+- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) - Visual AI tagging, costs, and bulk workflows
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) - first-import defaults and action flow
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup and restore operations
 - [GETTING_STARTED.md](GETTING_STARTED.md) - installation and basic setup
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) - bulk maintenance workflows

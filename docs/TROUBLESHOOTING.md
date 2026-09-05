@@ -252,21 +252,16 @@ it falls back to **Installed mode** and uses `%APPDATA%\EmbroideryCatalogue`.
 
 ## AI tagging is not working
 
-**Symptom:** Visual AI tagging does not run during import or a
-backfill, or the app reports that no Gemini API key is configured.
+**Symptom:** Visual AI tagging does not run on the **Tagging Actions** page, or the app
+reports that no Gemini API key is configured.
 
 **Fix:**
 
-- Ensure the API key is saved in **Admin → Settings** (the preferred method — it writes
-  the key to a `.env` file), or add it manually to a `.env` file in the project root:
+- Ensure the API key is saved in **Admin → Settings** — it is stored locally with your catalogue data
+  and read from there (not from a `.env` file).
 
-  ```
-  GOOGLE_API_KEY=your_actual_key_here
-  ```
-
-- In **Admin → Settings**, confirm that **Run Visual AI automatically during import**
-  is ticked.  Without this setting enabled, no Gemini calls are made during import even
-  when a key is present. Visual AI also only runs when an API key is available.
+- Visual AI runs only from **Admin → Tagging Actions** — imports never call Gemini. Confirm
+  that a run goal which includes Visual AI is selected and that an API key is present.
 
 - Check the key is valid by testing it in [Google AI Studio](https://aistudio.google.com/).
 
@@ -279,7 +274,7 @@ backfill, or the app reports that no Gemini API key is configured.
   actually includes Visual AI and that the API key was present when the run
   started.
 
-See [AI_TAGGING.md](User-Facing-Guidance/AI_TAGGING.md) for full setup instructions.
+See [TAGGING_ACTIONS_BACKFILL.md](User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md) for full setup instructions.
 
 ---
 

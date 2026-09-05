@@ -493,10 +493,9 @@
         </div>
         <p class="mt-2 text-xs text-gray-500">
           {#if settingsHasGoogleApiKey}
-            A key is currently saved in <code>.env</code>. You can leave it as-is or replace it
-            here.
+            A key is currently saved. You can leave it as-is or replace it here.
           {:else}
-            Leave this blank if you only want keyword-based tagging with no Google AI calls.
+            Leave this blank if you only want File & Folder Rules tagging with no Google AI calls.
           {/if}
         </p>
       </div>
