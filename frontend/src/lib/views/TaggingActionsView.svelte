@@ -23,14 +23,11 @@
   // ---------------------------------------------------------------------------
   // Non-technical workflow choices: Goal -> Scope -> Merge.
   // ---------------------------------------------------------------------------
-  type TaggingGoal = "file_folder" | "text_ai" | "ai_vision" | "full_rescan";
+  type TaggingGoal = "file_folder" | "ai_vision" | "full_rescan";
   type TaggingScope =
     | "untagged"
     | "folder"
     | "all"
-    | "text_not_analyzed"
-    | "text_no_match"
-    | "text_analyzed"
     | "vision_not_analyzed"
     | "vision_no_match"
     | "vision_analyzed";
@@ -44,28 +41,21 @@
   }> = [
     {
       id: "file_folder",
-      title: "Apply File & Folder Rules",
+      title: "Apply file & folder rules",
       subtitle: "Automatically extract tags from folder names and file names. (Fast & Offline)",
       requiresAi: false,
     },
     {
-      id: "text_ai",
-      title: "Analyze with Text AI",
-      subtitle:
-        "Analyze file names and folder paths using Gemini to detect subject matter. (Requires API Key)",
-      requiresAi: true,
-    },
-    {
       id: "ai_vision",
-      title: "Enrich with Visual AI",
+      title: "Enrich with visual AI",
       subtitle:
-        "Analyze design thumbnails using Gemini Vision to detect subject matter. (Requires API Key)",
+        "Analyze design thumbnails using Gemini Vision to detect subject matter. (Requires API key)",
       requiresAi: true,
     },
     {
       id: "full_rescan",
-      title: "Full Re-Scan (All Methods)",
-      subtitle: "Run File & Folder Rules, Text AI and Vision AI and merge the results. (Requires API Key)",
+      title: "Full re-scan (both methods)",
+      subtitle: "Run file & folder rules and visual AI and merge the results. (Requires API key)",
       requiresAi: true,
     },
   ];
@@ -79,7 +69,7 @@
     { id: "untagged", title: "Untagged designs only", subtitle: "Designs with no tags at all" },
     {
       id: "folder",
-      title: "Specific Folder or Category",
+      title: "Specific folder or category",
       subtitle: "Only designs in a specific folder branch",
     },
     { id: "all", title: "Entire collection", subtitle: "All designs in your library" },
@@ -89,23 +79,6 @@
     string,
     Array<{ id: string; title: string; subtitle: string; disabled?: boolean }>
   > = {
-    text_ai: [
-      {
-        id: "text_not_analyzed",
-        title: "Designs missing Text AI analysis",
-        subtitle: "Designs that haven't been scanned with Text AI yet",
-      },
-      {
-        id: "text_no_match",
-        title: "Text AI found no match",
-        subtitle: "Designs Text AI analyzed but found no tags for",
-      },
-      {
-        id: "text_analyzed",
-        title: "Re-analyze (already analyzed by Text AI)",
-        subtitle: "Designs already analyzed by Text AI — run again",
-      },
-    ],
     ai_vision: [
       {
         id: "vision_not_analyzed",
@@ -132,12 +105,12 @@
   }> = [
     {
       id: "add",
-      title: "Add New Tags Only (Recommended / Safe)",
+      title: "Add new tags only (recommended / safe)",
       subtitle: "Keep all existing tags and append any newly discovered tags",
     },
     {
       id: "reset",
-      title: "Complete Reset",
+      title: "Complete reset",
       subtitle: "Clear all existing tags on selected designs and start fresh",
     },
   ];
@@ -215,9 +188,6 @@
     disabled?: boolean;
   }> => {
     const list = BASE_SCOPE_OPTIONS.slice();
-    if (goal === "text_ai" || goal === "full_rescan") {
-      list.push(...MODE_SCOPE_OPTIONS.text_ai);
-    }
     if (goal === "ai_vision" || goal === "full_rescan") {
       list.push(...MODE_SCOPE_OPTIONS.ai_vision);
     }
@@ -235,9 +205,8 @@
   // Derived workflow mapping to the backend wire contract.
   const modes = $derived.by((): string[] => {
     if (goal === "file_folder") return ["path_rule"];
-    if (goal === "text_ai") return ["text_ai"];
     if (goal === "ai_vision") return ["ai_vision"];
-    return ["path_rule", "text_ai", "ai_vision"];
+    return ["path_rule", "ai_vision"];
   });
   const action = $derived.by((): string => {
     switch (scope) {
@@ -247,12 +216,6 @@
         return "retag_all";
       case "all":
         return "retag_all";
-      case "text_not_analyzed":
-        return "retag_all_text_not_analyzed";
-      case "text_no_match":
-        return "retag_all_text_no_match";
-      case "text_analyzed":
-        return "retag_all_text_analyzed";
       case "vision_not_analyzed":
         return "retag_all_vision_not_analyzed";
       case "vision_no_match":
@@ -347,8 +310,8 @@
     if (count === null || count <= 0 || goal === "file_folder") return null;
     const delay = effectiveVisualAiDelay;
     const workers = Math.max(1, taggingWorkersValue);
-    // Full Re-Scan runs both Text AI and Vision AI, so each design costs two calls.
-    const aiModeCount = goal === "full_rescan" ? 2 : 1;
+    // Only Visual AI makes a Gemini call; File & Folder Rules are local and free.
+    const aiModeCount = 1;
     let perDesignSeconds: number;
     if (delay > 0) {
       // Each worker waits `delay` seconds between calls; the free tier can never
@@ -365,9 +328,6 @@
     const targets: Array<[string, string]> = [
       ["untagged", "tag_untagged"],
       ["all", "retag_all"],
-      ["text_not_analyzed", "retag_all_text_not_analyzed"],
-      ["text_no_match", "retag_all_text_no_match"],
-      ["text_analyzed", "retag_all_text_analyzed"],
       ["vision_not_analyzed", "retag_all_vision_not_analyzed"],
       ["vision_no_match", "retag_all_vision_no_match"],
       ["vision_analyzed", "retag_all_vision_analyzed"],
@@ -538,7 +498,7 @@
     <!-- API Key Status -->
     {#if !taggingHasGoogleApiKey}
       <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
-        No Google API key is configured in Settings. Text AI and Vision AI tagging will be skipped.
+        No Google API key is configured in Settings. Visual AI tagging will be skipped.
         File & Folder Rules always run.
       </div>
     {:else}
@@ -689,7 +649,7 @@
           class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
         />
         <div>
-          <span class="font-semibold">Exclude human-verified designs (Recommended)</span>
+          <span class="font-semibold">Exclude human-verified designs (recommended)</span>
           <p class="text-gray-500 text-xs mt-0.5">
             Skip designs whose tags have been manually reviewed or marked as verified.
           </p>

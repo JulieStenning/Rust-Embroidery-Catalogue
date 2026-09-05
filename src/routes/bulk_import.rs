@@ -1276,7 +1276,7 @@ async fn persist_bulk_import_confirm_wire(
             }
 
             // Import-time path-rule keyword tags are offline local matching, not AI
-            // analysis, so no per-mode AI flags (`text_ai_*` / `vision_ai_*`) are set.
+            // analysis, so no per-mode AI flags (`vision_ai_*`) are set.
             total_tagging_ms += t_tag.elapsed().as_millis();
 
             persisted_design_count += 1;

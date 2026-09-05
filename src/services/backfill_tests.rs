@@ -15,7 +15,7 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, text_ai_analyzed INTEGER NOT NULL DEFAULT 0, text_ai_matched INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
         "CREATE TABLE hoops (id INTEGER PRIMARY KEY, name TEXT NOT NULL, max_width_mm REAL NOT NULL, max_height_mm REAL NOT NULL)",
     ] {
@@ -364,26 +364,6 @@ fn normalize_modes_includes_ai_vision_with_api_key() {
 }
 
 #[test]
-fn normalize_modes_includes_text_ai_with_api_key() {
-    let result = normalize_modes(
-        Some(&["path_rule".to_string(), "text_ai".to_string()]),
-        true,
-    );
-    assert!(result.contains("path_rule"));
-    assert!(result.contains("text_ai"));
-}
-
-#[test]
-fn normalize_modes_removes_text_ai_without_api_key() {
-    let result = normalize_modes(
-        Some(&["path_rule".to_string(), "text_ai".to_string()]),
-        false,
-    );
-    assert!(result.contains("path_rule"));
-    assert!(!result.contains("text_ai"));
-}
-
-#[test]
 fn normalize_modes_empty_slice_resolves_to_path_rule() {
     let result = normalize_modes(Some(&[]), true);
     assert_eq!(result.len(), 1);
@@ -712,7 +692,7 @@ async fn select_tagging_respects_limit() {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tokio::test]
-async fn flush_tagging_batch_writes_tag_and_tier() {
+async fn flush_tagging_batch_writes_tag_and_vision_flags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
@@ -726,10 +706,8 @@ async fn flush_tagging_batch_writes_tag_and_tier() {
         vec![TagBatchEntry {
             design_id: 1,
             descriptions: vec!["Cats".to_string()],
-            text_ai_analyzed: true,
-            text_ai_matched: true,
-            vision_ai_analyzed: false,
-            vision_ai_matched: false,
+            vision_ai_analyzed: true,
+            vision_ai_matched: true,
         }],
         "reset",
     )
@@ -745,12 +723,12 @@ async fn flush_tagging_batch_writes_tag_and_tier() {
     assert_eq!(count, 1);
 
     // Verify the per-mode AI flags were written alongside the tags.
-    let analyzed: i64 = sqlx::query_scalar("SELECT text_ai_analyzed FROM designs WHERE id = 1")
+    let analyzed: i64 = sqlx::query_scalar("SELECT vision_ai_analyzed FROM designs WHERE id = 1")
         .fetch_one(&pool)
         .await
         .unwrap();
     assert_eq!(analyzed, 1);
-    let matched: i64 = sqlx::query_scalar("SELECT text_ai_matched FROM designs WHERE id = 1")
+    let matched: i64 = sqlx::query_scalar("SELECT vision_ai_matched FROM designs WHERE id = 1")
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -768,8 +746,6 @@ async fn flush_tagging_batch_empty_descriptions_noop() {
         vec![TagBatchEntry {
             design_id: 1,
             descriptions: vec![],
-            text_ai_analyzed: false,
-            text_ai_matched: false,
             vision_ai_analyzed: false,
             vision_ai_matched: false,
         }],
@@ -797,8 +773,6 @@ async fn flush_tagging_batch_replaces_existing_image_tags() {
         vec![TagBatchEntry {
             design_id: 2,
             descriptions: vec!["Don't Know".to_string()],
-            text_ai_analyzed: false,
-            text_ai_matched: false,
             vision_ai_analyzed: true,
             vision_ai_matched: true,
         }],
@@ -882,58 +856,33 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
 async fn per_mode_ai_scope_counts_and_pager_parity() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1..=3 (AI flags default 0)
-                             // design 1: Text AI analyzed + matched.
-    sqlx::query("UPDATE designs SET text_ai_analyzed = 1, text_ai_matched = 1 WHERE id = 1")
+                             // design 1: Vision AI analyzed + matched.
+    sqlx::query("UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 1 WHERE id = 1")
         .execute(&pool)
         .await
         .unwrap();
-    // design 2: Text AI analyzed but no match; Vision AI analyzed + matched.
-    sqlx::query(
-        "UPDATE designs SET text_ai_analyzed = 1, text_ai_matched = 0, \
-         vision_ai_analyzed = 1, vision_ai_matched = 1 WHERE id = 2",
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-    // design 3: Vision AI analyzed but no match.
-    sqlx::query("UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 0 WHERE id = 3")
+    // design 2: Vision AI analyzed but no match.
+    sqlx::query("UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 0 WHERE id = 2")
         .execute(&pool)
         .await
         .unwrap();
-
-    // Text AI scopes.
-    let text_not = count_tagging_candidates(&pool, "retag_all_text_not_analyzed", None, true)
-        .await
-        .unwrap();
-    assert_eq!(text_not.total_count, 1); // only design 3 is text-not-analyzed
-    let text_no_match = count_tagging_candidates(&pool, "retag_all_text_no_match", None, true)
-        .await
-        .unwrap();
-    assert_eq!(text_no_match.total_count, 1); // analyzed + no match -> design 2
-    let text_analyzed = count_tagging_candidates(&pool, "retag_all_text_analyzed", None, true)
-        .await
-        .unwrap();
-    assert_eq!(text_analyzed.total_count, 2); // designs 1 and 2
 
     // Vision AI scopes.
     let vision_not = count_tagging_candidates(&pool, "retag_all_vision_not_analyzed", None, true)
         .await
         .unwrap();
-    assert_eq!(vision_not.total_count, 1); // only design 1 is vision-not-analyzed
+    assert_eq!(vision_not.total_count, 1); // only design 3 is vision-not-analyzed
     let vision_no_match = count_tagging_candidates(&pool, "retag_all_vision_no_match", None, true)
         .await
         .unwrap();
-    assert_eq!(vision_no_match.total_count, 1); // design 3
+    assert_eq!(vision_no_match.total_count, 1); // design 2
     let vision_analyzed = count_tagging_candidates(&pool, "retag_all_vision_analyzed", None, true)
         .await
         .unwrap();
-    assert_eq!(vision_analyzed.total_count, 2); // designs 2 and 3
+    assert_eq!(vision_analyzed.total_count, 2); // designs 1 and 2
 
     // Pager parity: each scope's total (exclude_verified=false) matches the pager.
     for (action, expected) in [
-        ("retag_all_text_not_analyzed", 1),
-        ("retag_all_text_no_match", 1),
-        ("retag_all_text_analyzed", 2),
         ("retag_all_vision_not_analyzed", 1),
         ("retag_all_vision_no_match", 1),
         ("retag_all_vision_analyzed", 2),
@@ -1072,8 +1021,6 @@ async fn flush_tagging_batch_add_mode_preserves_existing_image_tags() {
         vec![TagBatchEntry {
             design_id: 2,
             descriptions: vec!["Don't Know".to_string()],
-            text_ai_analyzed: false,
-            text_ai_matched: false,
             vision_ai_analyzed: true,
             vision_ai_matched: true,
         }],
@@ -1116,8 +1063,6 @@ async fn flush_tagging_batch_reset_never_touches_non_image_tags() {
         vec![TagBatchEntry {
             design_id: 1,
             descriptions: vec!["Cats".to_string()],
-            text_ai_analyzed: false,
-            text_ai_matched: false,
             vision_ai_analyzed: false,
             vision_ai_matched: false,
         }],
@@ -1582,8 +1527,6 @@ async fn compute_design_tagging_path_rule_match_returns_suggestion() {
 
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
-        text_ai_enabled: false,
-        text_ai_network: false,
         visual_ai_enabled: false,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
@@ -1625,8 +1568,6 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
 
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
-        text_ai_enabled: false,
-        text_ai_network: false,
         visual_ai_enabled: true,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
@@ -1648,8 +1589,6 @@ async fn compute_design_tagging_nonexistent_design_returns_none() {
     let valid = HashSet::new();
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
-        text_ai_enabled: false,
-        text_ai_network: false,
         visual_ai_enabled: false,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
@@ -1675,16 +1614,12 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
             TagBatchEntry {
                 design_id: 1,
                 descriptions: vec!["Cats".to_string()],
-                text_ai_analyzed: true,
-                text_ai_matched: true,
-                vision_ai_analyzed: false,
-                vision_ai_matched: false,
+                vision_ai_analyzed: true,
+                vision_ai_matched: true,
             },
             TagBatchEntry {
                 design_id: 3,
                 descriptions: vec!["Don't Know".to_string()],
-                text_ai_analyzed: false,
-                text_ai_matched: false,
                 vision_ai_analyzed: true,
                 vision_ai_matched: true,
             },
@@ -1700,7 +1635,7 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
             .await
             .unwrap();
     assert_eq!(cat_count, 1);
-    let analyzed: i64 = sqlx::query_scalar("SELECT text_ai_analyzed FROM designs WHERE id = 1")
+    let analyzed: i64 = sqlx::query_scalar("SELECT vision_ai_analyzed FROM designs WHERE id = 1")
         .fetch_one(&pool)
         .await
         .unwrap();

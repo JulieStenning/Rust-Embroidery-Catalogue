@@ -20,10 +20,7 @@ static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
-// Per-mode Text AI / Vision AI scopes (tracking columns `text_ai_*` / `vision_ai_*`).
-const TAG_ACTION_RETAG_TEXT_NOT_ANALYZED: &str = "retag_all_text_not_analyzed";
-const TAG_ACTION_RETAG_TEXT_NO_MATCH: &str = "retag_all_text_no_match";
-const TAG_ACTION_RETAG_TEXT_ANALYZED: &str = "retag_all_text_analyzed";
+// Per-mode Vision AI scopes (tracking columns `vision_ai_*`).
 const TAG_ACTION_RETAG_VISION_NOT_ANALYZED: &str = "retag_all_vision_not_analyzed";
 const TAG_ACTION_RETAG_VISION_NO_MATCH: &str = "retag_all_vision_no_match";
 const TAG_ACTION_RETAG_VISION_ANALYZED: &str = "retag_all_vision_analyzed";
@@ -315,7 +312,6 @@ pub async fn run_unified_backfill_with_progress(
             let folder_scope = resolve_tagging_folder_scope(tagging_action.folder_path.as_deref())?;
             let include_subfolders = tagging_action.include_subfolders.unwrap_or(true);
             let path_rule_enabled = modes.contains("path_rule");
-            let text_ai_enabled = modes.contains("text_ai") && has_api_key;
             let visual_ai_enabled = modes.contains("ai_vision") && has_api_key;
 
             let image_tag_map = get_image_tag_lookup(pool).await?;
@@ -334,8 +330,6 @@ pub async fn run_unified_backfill_with_progress(
                 .map(Arc::new);
             let mode_options = TaggingModeOptions {
                 path_rule_enabled,
-                text_ai_enabled,
-                text_ai_network: gemini.is_some() && text_ai_enabled,
                 visual_ai_enabled,
                 visual_ai_delay_seconds,
                 // Pace real Gemini network calls only; local-only modes never sleep.
@@ -347,7 +341,7 @@ pub async fn run_unified_backfill_with_progress(
             // Resolve the Gemini model up front (fail fast) so a configured model
             // that has been retired/removed is detected before any designs are
             // processed, rather than mid-run after thousands of calls.
-            if gemini.is_some() && (text_ai_enabled || visual_ai_enabled) {
+            if gemini.is_some() && visual_ai_enabled {
                 let configured_model = get_string_setting(pool, "ai.gemini_model").await?;
                 if let Some(client) = gemini.as_deref() {
                     let resolved = client
@@ -448,8 +442,6 @@ pub async fn run_unified_backfill_with_progress(
                                             pending.push(TagBatchEntry {
                                                 design_id,
                                                 descriptions: result.descriptions,
-                                                text_ai_analyzed: result.text_ai_analyzed,
-                                                text_ai_matched: result.text_ai_matched,
                                                 vision_ai_analyzed: result.vision_ai_analyzed,
                                                 vision_ai_matched: result.vision_ai_matched,
                                             });
@@ -863,9 +855,6 @@ fn normalize_tag_mode(raw: Option<&str>) -> &str {
     {
         TAG_ACTION_RETAG_ALL => TAG_ACTION_RETAG_ALL,
         TAG_ACTION_RETAG_ALL_UNVERIFIED => TAG_ACTION_RETAG_ALL_UNVERIFIED,
-        TAG_ACTION_RETAG_TEXT_NOT_ANALYZED => TAG_ACTION_RETAG_TEXT_NOT_ANALYZED,
-        TAG_ACTION_RETAG_TEXT_NO_MATCH => TAG_ACTION_RETAG_TEXT_NO_MATCH,
-        TAG_ACTION_RETAG_TEXT_ANALYZED => TAG_ACTION_RETAG_TEXT_ANALYZED,
         TAG_ACTION_RETAG_VISION_NOT_ANALYZED => TAG_ACTION_RETAG_VISION_NOT_ANALYZED,
         TAG_ACTION_RETAG_VISION_NO_MATCH => TAG_ACTION_RETAG_VISION_NO_MATCH,
         TAG_ACTION_RETAG_VISION_ANALYZED => TAG_ACTION_RETAG_VISION_ANALYZED,
@@ -887,10 +876,7 @@ fn normalize_modes(raw: Option<&[String]>, has_api_key: bool) -> HashSet<String>
     if let Some(values) = raw {
         for mode in values {
             let m = mode.trim().to_ascii_lowercase();
-            if m == "path_rule"
-                || (m == "text_ai" && has_api_key)
-                || (m == "ai_vision" && has_api_key)
-            {
+            if m == "path_rule" || (m == "ai_vision" && has_api_key) {
                 modes.insert(m);
             }
         }
@@ -930,15 +916,6 @@ fn tagging_scope_from_where(mode: &str) -> &'static str {
         TAG_ACTION_RETAG_ALL => "FROM designs d WHERE 1 = 1",
         TAG_ACTION_RETAG_ALL_UNVERIFIED => {
             "FROM designs d WHERE COALESCE(d.image_tags_verified, 0) = 0"
-        }
-        TAG_ACTION_RETAG_TEXT_NOT_ANALYZED => {
-            "FROM designs d WHERE COALESCE(d.text_ai_analyzed, 0) = 0"
-        }
-        TAG_ACTION_RETAG_TEXT_NO_MATCH => {
-            "FROM designs d WHERE COALESCE(d.text_ai_analyzed, 0) = 1 AND COALESCE(d.text_ai_matched, 0) = 0"
-        }
-        TAG_ACTION_RETAG_TEXT_ANALYZED => {
-            "FROM designs d WHERE COALESCE(d.text_ai_analyzed, 0) = 1"
         }
         TAG_ACTION_RETAG_VISION_NOT_ANALYZED => {
             "FROM designs d WHERE COALESCE(d.vision_ai_analyzed, 0) = 0"

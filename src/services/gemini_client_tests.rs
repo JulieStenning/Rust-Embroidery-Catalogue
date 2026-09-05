@@ -161,17 +161,6 @@ fn build_vision_prompt_contains_filename_and_allowed_tags() {
     assert!(prompt.contains("Don't Know"));
 }
 
-#[test]
-fn build_text_prompt_contains_filename_folder_and_allowed_tags() {
-    let mut set = HashSet::new();
-    set.insert("Flowers".to_string());
-    let prompt = build_text_prompt("rose.pes", "/x/rose.pes", &set);
-    assert!(prompt.contains("rose.pes"));
-    assert!(prompt.contains("/x/rose.pes"));
-    assert!(prompt.contains("Flowers"));
-    assert!(prompt.contains("Don't Know"));
-}
-
 // ---------------------------------------------------------------------------
 // Client state / non-network branches
 // ---------------------------------------------------------------------------
@@ -209,15 +198,6 @@ fn validate_model_rejects_empty_name_without_network() {
     let err = tauri::async_runtime::block_on(client.validate_model("   "))
         .expect_err("empty model name should error");
     assert!(err.to_string().contains("Enter a Gemini model name"));
-}
-
-#[test]
-fn suggest_tags_text_errors_when_model_unresolved_without_network() {
-    let client = GeminiClient::new("key");
-    let valid: HashSet<String> = ["Cats".to_string()].into_iter().collect();
-    let err = tauri::async_runtime::block_on(client.suggest_tags_text("a.pes", "/a.pes", &valid))
-        .expect_err("unresolved model should error before any network call");
-    assert!(err.to_string().contains("has not been resolved"));
 }
 
 #[test]
@@ -358,7 +338,7 @@ fn validate_model_reports_usable_and_unusable() {
 }
 
 #[test]
-fn generate_extracts_text_via_suggest_tags() {
+fn generate_extracts_text_via_suggest_tags_vision() {
     let mut server = mockito::Server::new();
     let body = serde_json::json!({ "candidates": [{ "content": { "parts": [{ "text": "Cats\nFlowers" }] } }] })
         .to_string();
@@ -373,7 +353,7 @@ fn generate_extracts_text_via_suggest_tags() {
     let client = GeminiClient::with_base("key", base).with_model("gemini-2.0-flash");
     let valid = allowed_tags();
     let tags =
-        tauri::async_runtime::block_on(client.suggest_tags_text("cat.pes", "/cat.pes", &valid))
+        tauri::async_runtime::block_on(client.suggest_tags_vision("cat.pes", b"PNG", &valid))
             .expect("tagging should succeed");
     assert_eq!(tags, vec!["Cats".to_string(), "Flowers".to_string()]);
 }
@@ -412,7 +392,7 @@ fn generate_falls_back_to_another_model_on_model_not_found() {
     let base = format!("{}/", server.url().trim_end_matches('/'));
     let client = GeminiClient::with_base("key", base).with_model("gemini-2.0-a");
     let valid = allowed_tags();
-    let tags = tauri::async_runtime::block_on(client.suggest_tags_text("c.pes", "/c.pes", &valid))
+    let tags = tauri::async_runtime::block_on(client.suggest_tags_vision("c.pes", b"PNG", &valid))
         .expect("should fall back to another model");
     assert_eq!(tags, vec!["Cats".to_string()]);
 }
@@ -430,7 +410,7 @@ fn generate_rate_limit_returns_error_with_retry_after() {
     let base = format!("{}/", server.url().trim_end_matches('/'));
     let client = GeminiClient::with_base("key", base).with_model("gemini-2.0-flash");
     let valid = allowed_tags();
-    let err = tauri::async_runtime::block_on(client.suggest_tags_text("d.pes", "/d.pes", &valid))
+    let err = tauri::async_runtime::block_on(client.suggest_tags_vision("d.pes", b"PNG", &valid))
         .expect_err("429 should surface as an error");
     let msg = err.to_string();
     assert!(msg.contains("429"));

@@ -142,10 +142,10 @@ pub async fn run_unified_backfill(
         if let Some(ref tagging) = actions.tagging {
             if tagging.enabled.unwrap_or(true) {
                 if let Some(ref modes) = tagging.modes {
-                    let requests_ai = modes.iter().any(|m| m == "ai_vision" || m == "text_ai");
+                    let requests_ai = modes.iter().any(|m| m == "ai_vision");
                     if requests_ai && !has_api_key {
                         return Err(
-                            "Google API key is required for Text AI / Visual AI tagging. Please configure your API key in Admin -> Settings."
+                            "Google API key is required for Visual AI tagging. Please configure your API key in Admin -> Settings."
                                 .to_string(),
                         );
                     }

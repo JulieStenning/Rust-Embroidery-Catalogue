@@ -140,8 +140,6 @@ async fn make_designs_db(path: &Path) {
             is_stitched INTEGER NOT NULL DEFAULT 0,
             image_tags_verified INTEGER NOT NULL DEFAULT 0,
             stitching_tags_verified INTEGER NOT NULL DEFAULT 0,
-            text_ai_analyzed INTEGER NOT NULL DEFAULT 0,
-            text_ai_matched INTEGER NOT NULL DEFAULT 0,
             vision_ai_analyzed INTEGER NOT NULL DEFAULT 0,
             vision_ai_matched INTEGER NOT NULL DEFAULT 0,
             file_size_bytes INTEGER,

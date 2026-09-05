@@ -37,7 +37,7 @@ fn preview_tagging_action_prefers_request_override() {
     .expect("preview works");
 
     assert!(!preview.enabled);
-    assert_eq!(preview.mode_order, vec!["FileFolder", "TextAi", "VisualAi"]);
+    assert_eq!(preview.mode_order, vec!["FileFolder", "VisualAi"]);
 
     let preview2 = preview_tagging_action(TaggingActionRequest {
         request_override: Some(true),

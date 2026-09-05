@@ -688,17 +688,15 @@ export interface UnifiedBackfillRequest {
   /**
    * Tagging scope action. Base scopes: `"tag_untagged"` (no image tags),
    * `"retag_all_unverified"` (not verified), `"retag_all"` (every design).
-   * Per-mode AI scopes (tracked via `text_ai_*` / `vision_ai_*` columns):
-   * `retag_all_text_not_analyzed`, `retag_all_text_no_match`,
-   * `retag_all_text_analyzed`, `retag_all_vision_not_analyzed`,
-   * `retag_all_vision_no_match`, `retag_all_vision_analyzed`.
+   * Per-mode Vision AI scopes (tracked via `vision_ai_*` columns):
+   * `retag_all_vision_not_analyzed`, `retag_all_vision_no_match`,
+   * `retag_all_vision_analyzed`.
    */
   action_mode: string;
   /**
-   * Tagging modes to run: `"path_rule"` (File & Folder Rules), `"text_ai"` (Text
-   * AI on file names) and/or `"ai_vision"` (Visual AI). When omitted the adapter
-   * falls back to the legacy `run_vision`-derived modes (`path_rule`, plus
-   * `ai_vision` when run_vision).
+   * Tagging modes to run: `"path_rule"` (File & Folder Rules) and/or `"ai_vision"`
+   * (Visual AI). When omitted the adapter falls back to the legacy
+   * `run_vision`-derived modes (`path_rule`, plus `ai_vision` when run_vision).
    */
   modes?: string[];
   /**

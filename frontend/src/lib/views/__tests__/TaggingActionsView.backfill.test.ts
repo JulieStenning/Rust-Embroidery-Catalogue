@@ -393,27 +393,7 @@ describe("TaggingActionsView run unified backfill", () => {
     });
   });
 
-  it("runs Text AI on designs Text AI found no tags for when chosen", async () => {
-    render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Analyze with Text AI/ }));
-    await user.click(screen.getByRole("radio", { name: /Text AI found no match/ }));
-
-    await startRun();
-
-    await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action_mode: "retag_all_text_no_match",
-          modes: ["text_ai"],
-        })
-      );
-    });
-  });
-
-  it("runs all three tiers on the whole collection for a full re-scan", async () => {
+  it("runs File & Folder Rules and Visual AI on the whole collection for a full re-scan", async () => {
     render(TaggingActionsView);
     await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
 
@@ -427,7 +407,7 @@ describe("TaggingActionsView run unified backfill", () => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
         expect.objectContaining({
           action_mode: "retag_all",
-          modes: ["path_rule", "text_ai", "ai_vision"],
+          modes: ["path_rule", "ai_vision"],
         })
       );
     });

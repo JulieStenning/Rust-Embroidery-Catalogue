@@ -252,25 +252,6 @@ impl GeminiClient {
         Ok(parse_tag_list(&text, valid_descriptions))
     }
 
-    /// Text AI: suggest image tags from the file name / folder path alone (no image).
-    /// Cheaper and faster than Vision AI since it sends only text tokens.
-    pub async fn suggest_tags_text(
-        &self,
-        filename: &str,
-        filepath: &str,
-        valid_descriptions: &HashSet<String>,
-    ) -> Result<Vec<String>, AppError> {
-        let payload = json!({
-            "contents": [{
-                "parts": [
-                    { "text": build_text_prompt(filename, filepath, valid_descriptions) }
-                ]
-            }]
-        });
-        let text = self.generate(payload).await?;
-        Ok(parse_tag_list(&text, valid_descriptions))
-    }
-
     async fn get_json(&self, url: &str) -> Result<Value, AppError> {
         let response = self
             .http
@@ -410,21 +391,6 @@ pub fn build_vision_prompt(filename: &str, valid_descriptions: &HashSet<String>)
 and reply with the image tags, from the allowed list below, that best describe it. Filename \
 for context: {filename}. Reply with only the matching tags, one per line, using the exact \
 allowed spelling. If none apply, reply exactly: Don't Know.\n\nAllowed tags:\n{}",
-        format_tag_list(valid_descriptions)
-    )
-}
-
-/// Build the Text AI prompt asking for tags from the file name / folder path alone.
-pub fn build_text_prompt(
-    filename: &str,
-    filepath: &str,
-    valid_descriptions: &HashSet<String>,
-) -> String {
-    format!(
-        "You are tagging embroidery design files. From the file name and folder path alone, \
-reply with the image tags, from the allowed list below, that best describe the design subject. \
-Filename: {filename}. Folder: {filepath}. Reply with only the matching tags, one per line, using \
-the exact allowed spelling. If none apply, reply exactly: Don't Know.\n\nAllowed tags:\n{}",
         format_tag_list(valid_descriptions)
     )
 }
