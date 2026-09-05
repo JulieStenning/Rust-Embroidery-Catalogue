@@ -18,7 +18,6 @@
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
-  let settingsHasGoogleApiKey = $state(false);
   let settingsImportLastBrowseFolder = $state("");
   let settingsLoaded = $state(false);
   let settingsLoading = $state(false);
@@ -153,9 +152,6 @@
     try {
       const result = await getSettingsViewModel();
       const model = result.model;
-      settingsHasGoogleApiKey = Boolean(
-        model?.google_api_key && String(model.google_api_key).trim().length > 0
-      );
       settingsImportLastBrowseFolder = String(model?.import_last_browse_folder || "").trim();
       settingsLoaded = true;
     } catch (e) {
@@ -991,16 +987,6 @@
               : `Completed ${committed} imported`;
           return;
         }
-        if (stage === "ai_tagging") {
-          // Post-commit Gemini auto-tagging pass (runs after the import commits).
-          // `processed` = designs processed by the pass; `persisted` = designs
-          // that received AI tags.
-          importProgressStatus =
-            processed > 0
-              ? `AI tagging imported designs: ${processed} processed (${persisted} tagged)`
-              : "AI tagging imported designs...";
-          return;
-        }
         if (total > 0) {
           importProgressStatus = `${processed}/${total} processed (${committed} imported)`;
         } else {
@@ -1396,64 +1382,16 @@
           Before You Import
         </p>
 
-        {#if settingsHasGoogleApiKey}
-          <div
-            class="ui-section-shell border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded space-y-2 text-sm"
-          >
-            <p class="font-semibold text-amber-900">
-              Google AI tagging is enabled for this installation.
-            </p>
-            <p class="ui-help-note text-amber-900">
-              <strong>File & Folder Rules</strong> always run — they match the file name and folder
-              path against your existing tags. This runs locally and does not call Gemini.
-            </p>
-            <p class="ui-help-note text-amber-900">
-              Gemini usage may incur cost. Free-tier limits are approximately
-              <strong>15 requests per minute</strong> and <strong>1,500 requests per day</strong>. A
-              February 2026 estimate found that Visual AI on 4,000 images cost about
-              <strong>$0.33 on the paid tier</strong>; actual pricing may have changed - check
-              <a
-                href="https://ai.google.dev/pricing"
-                target="_blank"
-                rel="noopener"
-                class="underline hover:text-amber-800">ai.google.dev/pricing</a
-              >.
-            </p>
-            <p class="text-xs text-amber-900 pt-1">
-              <a href="#/admin/settings" class="underline font-medium hover:text-amber-800"
-                >Admin Settings</a
-              >
-              ·
-              <a
-                href="#/about/document/ai-tagging"
-                class="underline font-medium hover:text-amber-800">AI Tagging Guide</a
-              >
-            </p>
-          </div>
-        {:else}
-          <div
-            class="ui-section-shell border border-blue-300 bg-blue-50 text-blue-950 p-4 rounded space-y-2 text-sm"
-          >
-            <p class="font-semibold text-blue-900">Google AI tagging is not configured.</p>
-            <p class="ui-help-note text-blue-900">
-              Google AI tagging uses Google's Gemini AI to suggest tags for your designs. Visual AI
-              (vision) sends each design's preview image to Gemini for analysis.
-            </p>
-            <p class="ui-help-note text-blue-900">
-              No Google API key is currently saved, so this import will use <strong
-                >File & Folder Rules only</strong
-              > and no Gemini calls will be made. If you want AI-assisted tagging, add an API key in
-              Settings and use Visual AI from the Tagging Actions page.
-            </p>
-            <p class="text-xs text-blue-900 pt-1">
-              <a href="#/admin/settings" class="underline font-medium">Admin Settings</a>
-              ·
-              <a href="#/about/document/ai-tagging" class="underline font-medium"
-                >AI Tagging Guide</a
-              >
-            </p>
-          </div>
-        {/if}
+        <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
+          <p class="font-semibold text-blue-900">Note on Visual AI Tagging</p>
+          <p class="ui-help-note text-blue-900">
+            To ensure imports remain fast, local, and completely offline, automated Visual AI tagging
+            has been separated from the import process. Initial imports only apply fast File &amp;
+            Folder Rules. Once your designs are imported, you can run Visual AI analysis at your own
+            pace from Tagging Actions to enrich selected folders, untagged designs, or your entire
+            collection.
+          </p>
+        </div>
 
         <div class="ui-action-button-group flex flex-wrap gap-2 pt-2">
           <button

@@ -1225,26 +1225,14 @@ describe("ImportView precheck flow", () => {
 // Step 3: actions and completion
 // ---------------------------------------------------------------------------
 describe("ImportView step 3 actions", () => {
-  it("renders the precheck summary and the AI notice for a non-configured key", async () => {
+  it("renders the precheck summary and the Visual AI note", async () => {
     const { container } = renderHarness("#/import");
     await gotoStep3(container);
 
     expect(screen.getByText("Before You Import")).toBeInTheDocument();
-    expect(screen.getByText("Google AI tagging is not configured.")).toBeInTheDocument();
+    expect(screen.getByText("Note on Visual AI Tagging")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-  });
-
-  it("shows the amber banner when a Google API key is configured", async () => {
-    adapterMocks.getSettingsViewModel.mockResolvedValue(
-      settingsResponse({ google_api_key: "abc123", has_google_api_key: true })
-    );
-    const { container } = renderHarness("#/import");
-    await gotoStep3(container);
-
-    expect(
-      screen.getByText("Google AI tagging is enabled for this installation.")
-    ).toBeInTheDocument();
   });
 
   it("completes an import and calls onImportCompleted with the persisted count", async () => {
@@ -1605,41 +1593,6 @@ describe("ImportView bulk import progress events", () => {
       expect(
         screen.getByRole("button", {
           name: "Running Import... Stopped after 1/3 processed (1 imported)",
-        })
-      ).toBeInTheDocument()
-    );
-    resolveAction(actionResponse());
-  });
-
-  it("renders the ai_tagging stage with processed and tagged counts", async () => {
-    let resolveAction!: (v: unknown) => void;
-    adapterMocks.runPrecheckAction.mockReturnValue(
-      new Promise((r) => {
-        resolveAction = r;
-      })
-    );
-    const { container } = renderHarness("#/import");
-    await gotoStep3(container);
-
-    await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
-
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
-
-    handler({
-      payload: {
-        stage: "ai_tagging",
-        processed_count: 5,
-        persisted_count: 4,
-        total_count: 3,
-      },
-    });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", {
-          name: "Running Import... AI tagging imported designs: 5 processed (4 tagged)",
         })
       ).toBeInTheDocument()
     );
