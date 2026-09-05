@@ -63,61 +63,62 @@ describe("TaggingActionsView workflow selection", () => {
     render(TaggingActionsView);
 
     expect(
-      await screen.findByRole("radio", { name: /Apply File & Folder Rules/ })
+      await screen.findByRole("radio", { name: /Apply file & folder rules/i })
     ).toBeChecked();
     expect(screen.getByRole("radio", { name: /Untagged designs only/ })).toBeChecked();
-    expect(screen.getByRole("radio", { name: /Add New Tags Only/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Add new tags only/i })).toBeChecked();
   });
 
   it("selects a Visual AI goal and changes the scope and merge", async () => {
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
-    expect(screen.getByRole("radio", { name: /Enrich with Visual AI/ })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
+    expect(screen.getByRole("radio", { name: /Enrich with visual AI/i })).toBeChecked();
 
     await user.click(
       screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })
     );
     expect(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })).toBeChecked();
 
-    await user.click(screen.getByRole("radio", { name: /Complete Reset/ }));
-    expect(screen.getByRole("radio", { name: /Complete Reset/ })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Complete reset/i }));
+    expect(screen.getByRole("radio", { name: /Complete reset/i })).toBeChecked();
   });
 
   it("selects the Specific Folder or Category scope and shows the folder picker", async () => {
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Specific Folder or Category/ }));
-    expect(screen.getByRole("radio", { name: /Specific Folder or Category/ })).toBeChecked();
-    expect(screen.getByRole("button", { name: "Choose folder…" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /Specific folder\(s\)/i }));
+    expect(screen.getByRole("radio", { name: /Specific folder\(s\)/i })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Choose folders…" })).toBeInTheDocument();
   });
 
-  it("picks a folder, shows it, and refreshes the folder-scope counts", async () => {
+  it("picks folders, shows them, and refreshes the folder-scope counts", async () => {
     adapterMocks.browseTaggingFolder.mockResolvedValue({
       path: "C:/library/MachineEmbroideryDesigns/Flowers",
-      relative_path: "Flowers",
+      paths: ["C:/library/MachineEmbroideryDesigns/Flowers"],
+      relative_paths: ["Flowers"],
     });
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await screen.findAllByText("10 unverified · 2 verified");
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Specific Folder or Category/ }));
-    await user.click(screen.getByRole("button", { name: "Choose folder…" }));
+    await user.click(screen.getByRole("radio", { name: /Specific folder\(s\)/i }));
+    await user.click(screen.getByRole("button", { name: "Choose folders…" }));
 
     await waitFor(() => {
       expect(adapterMocks.browseTaggingFolder).toHaveBeenCalled();
     });
     expect(screen.getByText(/Flowers/)).toBeInTheDocument();
-    // The folder-scope count is fetched with the folder path + include-subfolders.
+    // The folder-scope count is fetched with the folder list + include-subfolders.
     await waitFor(() => {
       expect(adapterMocks.countTaggingCandidates).toHaveBeenCalledWith(
         "retag_all",
-        "C:/library/MachineEmbroideryDesigns/Flowers",
+        ["C:/library/MachineEmbroideryDesigns/Flowers"],
         true
       );
     });
@@ -130,9 +131,9 @@ describe("TaggingActionsView workflow selection", () => {
     render(TaggingActionsView);
 
     expect(
-      await screen.findByRole("radio", { name: /Enrich with Visual AI/ })
+      await screen.findByRole("radio", { name: /Enrich with visual AI/i })
     ).toBeDisabled();
-    expect(screen.getByRole("radio", { name: /Full Re-Scan/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Full re-scan/i })).toBeDisabled();
   });
 
   it("defaults to excluding verified designs and shows the unverified/verified breakdown", async () => {

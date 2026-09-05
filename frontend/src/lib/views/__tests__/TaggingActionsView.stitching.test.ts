@@ -79,7 +79,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
 
@@ -103,7 +103,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
     await user.click(
@@ -128,7 +128,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
 
@@ -146,7 +146,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
 

@@ -69,7 +69,7 @@
     { id: "untagged", title: "Untagged designs only", subtitle: "Designs with no tags at all" },
     {
       id: "folder",
-      title: "Specific folder or category",
+      title: "Specific folder(s)",
       subtitle: "Only designs in a specific folder branch",
     },
     { id: "all", title: "Entire collection", subtitle: "All designs in your library" },
@@ -150,8 +150,9 @@
   let excludeVerified = $state(true);
   let showConfirm = $state(false);
 
-  // Folder-scoped retagging (Specific Folder or Category scope).
-  let selectedFolderPath = $state<string | null>(null);
+  // Folder-scoped retagging (Specific Folder or Category scope). Zero or more
+  // library subfolders can be selected (union of their designs).
+  let selectedFolderPaths = $state<string[]>([]);
   let includeSubfolders = $state(true);
   let dataStorageLocation = $state("");
 
@@ -248,41 +249,56 @@
   }
 
   const selectedCount = $derived.by((): number | null => activeCountFor(scope));
-
-  // Human-readable label for the selected folder: root-relative when possible.
-  const folderDisplayPath = $derived.by((): string => {
-    if (!selectedFolderPath) return "";
-    if (dataStorageLocation && selectedFolderPath.startsWith(dataStorageLocation)) {
-      const rel = selectedFolderPath
-        .slice(dataStorageLocation.length)
-        .replace(/^[\\/]+/, "");
-      return rel || selectedFolderPath;
+  // Human-readable label for a selected folder: root-relative when possible.
+  function folderDisplayPath(folderPath: string): string {
+    if (!folderPath) return "";
+    if (dataStorageLocation && folderPath.startsWith(dataStorageLocation)) {
+      const rel = folderPath.slice(dataStorageLocation.length).replace(/^[\\/]+/, "");
+      return rel || folderPath;
     }
-    return selectedFolderPath;
-  });
+    return folderPath;
+  }
 
   async function chooseTaggingFolder() {
     try {
-      const result = await browseTaggingFolder(selectedFolderPath);
+      const result = await browseTaggingFolder(selectedFolderPaths[0] ?? null);
       if (result.error) {
         addToast(`Could not pick folder: ${result.error}`, "error");
         return;
       }
-      if (!result.path) return; // user cancelled
-      selectedFolderPath = result.path;
-      await loadScopeCounts();
+      const picked = Array.isArray(result.paths)
+        ? result.paths.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      if (picked.length === 0) return; // user cancelled
+      // Merge new picks, de-duplicating case-insensitively against the current list.
+      const known = new Set(selectedFolderPaths.map((value) => String(value || "").toLowerCase()));
+      const additions = picked.filter((value) => !known.has(String(value).toLowerCase()));
+      if (additions.length > 0) {
+        selectedFolderPaths = [...selectedFolderPaths, ...additions];
+        await loadScopeCounts();
+      }
     } catch (error) {
       addToast(`Could not pick folder: ${error}`, "error");
     }
   }
 
-  /** Fetch the folder-scope counts (when a folder is selected) into `next`. */
+  function removeTaggingFolder(folderPath: string) {
+    const target = String(folderPath || "").toLowerCase();
+    const remaining = selectedFolderPaths.filter(
+      (value) => String(value || "").toLowerCase() !== target
+    );
+    if (remaining.length === selectedFolderPaths.length) return;
+    selectedFolderPaths = remaining;
+    loadScopeCounts();
+  }
+
+  /** Fetch the folder-scope counts (when folder(s) are selected) into `next`. */
   async function loadFolderCountsInto(
     next: Record<string, import("../types/ipc").TaggingScopeCounts>
   ): Promise<void> {
     delete next.folder;
-    if (!selectedFolderPath) return;
-    const result = await countTaggingCandidates("retag_all", selectedFolderPath, includeSubfolders);
+    if (selectedFolderPaths.length === 0) return;
+    const result = await countTaggingCandidates("retag_all", selectedFolderPaths, includeSubfolders);
     next.folder = result.counts;
   }
 
@@ -413,7 +429,10 @@
         modes,
         merge_mode: merge,
         exclude_verified: excludeVerified,
-        folder_path: scope === "folder" ? (selectedFolderPath ?? undefined) : undefined,
+        folder_paths:
+          scope === "folder" && selectedFolderPaths.length > 0
+            ? selectedFolderPaths.slice()
+            : undefined,
         include_subfolders: scope === "folder" ? includeSubfolders : undefined,
         run_vision: visionInvolved,
         run_images: taggingRunImages,
@@ -610,17 +629,41 @@
       <!-- Folder selection (Specific Folder or Category scope) -->
       {#if scope === "folder"}
         <div class="rounded border border-gray-200 p-3 space-y-3">
+          <p class="text-xs text-gray-600">
+            Choose one or more library folders. Designs under any selected folder will
+            be processed.
+          </p>
           <button
             class="menu-button-secondary"
             onclick={chooseTaggingFolder}
             disabled={busyActive || countsLoading}
           >
-            {selectedFolderPath ? "Change folder…" : "Choose folder…"}
+            {selectedFolderPaths.length > 0 ? "Add folders…" : "Choose folders…"}
           </button>
-          {#if selectedFolderPath}
-            <p class="text-xs text-gray-600">
-              Folder: <span class="font-medium">{folderDisplayPath}</span>
-            </p>
+
+          {#if selectedFolderPaths.length > 0}
+            <ul class="space-y-1.5">
+              {#each selectedFolderPaths as folderPath}
+                <li
+                  class="tagging-folder-row flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5"
+                  data-folder={folderPath}
+                >
+                  <span class="flex-1 font-mono text-xs text-gray-700 break-all">
+                    {folderDisplayPath(folderPath)}
+                  </span>
+                  <button
+                    type="button"
+                    class="menu-button-secondary py-1 px-2 text-xs text-red-500 border-red-200"
+                    onclick={() => removeTaggingFolder(folderPath)}
+                    disabled={busyActive}
+                    title="Remove this folder"
+                  >
+                    Remove
+                  </button>
+                </li>
+              {/each}
+            </ul>
+
             <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -866,11 +909,17 @@
             <span class="font-semibold">Target Scope:</span>
             {selectedCount !== null ? selectedCount.toLocaleString() : "…"} designs ({scopeLabel})
           </p>
-          {#if scope === "folder" && selectedFolderPath}
+          {#if scope === "folder" && selectedFolderPaths.length > 0}
             <p>
-              <span class="font-semibold">Folder:</span> {folderDisplayPath}
+              <span class="font-semibold">Folder(s):</span>
+              {selectedFolderPaths.length}
               {#if includeSubfolders}(incl. subfolders){/if}
             </p>
+            <ul class="list-disc pl-5 text-xs text-gray-600 space-y-0.5">
+              {#each selectedFolderPaths as folderPath}
+                <li>{folderDisplayPath(folderPath)}</li>
+              {/each}
+            </ul>
           {/if}
           <p><span class="font-semibold">Tag Strategy:</span> {mergeLabel}</p>
           <p>

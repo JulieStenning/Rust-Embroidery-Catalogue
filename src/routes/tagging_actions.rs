@@ -191,37 +191,58 @@ pub async fn count_tagging_candidates(
     state: State<'_, AppState>,
     action: Option<String>,
     folder_path: Option<String>,
+    folder_paths: Option<Vec<String>>,
     include_subfolders: Option<bool>,
 ) -> Result<backfill::TaggingScopeCounts, String> {
-    let folder_scope = backfill::resolve_tagging_folder_scope(folder_path.as_deref())
-        .map_err(|e| e.to_string())?;
+    let folder_scopes = backfill::resolve_folder_scopes_from_options(
+        folder_paths.as_deref(),
+        folder_path.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
     backfill::count_tagging_candidates(
         &state.db_pool()?,
         action.as_deref().unwrap_or("tag_untagged"),
-        folder_scope.as_ref(),
+        &folder_scopes,
         include_subfolders.unwrap_or(true),
     )
     .await
     .map_err(|e| e.to_string())
 }
 
-/// Browse for a folder to scope retagging to. The picker opens at the library
-/// root (or a validated start folder under it) and the returned path is strictly
-/// validated to remain inside the Data Storage Location.
-#[derive(Debug, Clone, Serialize)]
+/// Browse for one or more folders to scope retagging to. The picker opens at the
+/// library root (or a validated start folder under it); when `allow_multi` is
+/// true it accepts multiple selections at once. Every returned path is strictly
+/// validated to remain inside the Data Storage Location, mirroring the import
+/// folder picker.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct BrowseTaggingFolderRequest {
+    /// Optional absolute path under the library root to start the dialog from.
+    pub start_dir: Option<String>,
+    /// When true the native picker allows selecting multiple folders at once.
+    pub allow_multi: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct BrowseTaggingFolderResult {
+    /// The first selected folder (or the only one for single-select picks).
     pub path: Option<String>,
-    /// The selected folder relative to the library root (`""` = the root).
-    pub relative_path: Option<String>,
+    /// Every selected folder (empty when the user cancelled).
+    pub paths: Vec<String>,
+    /// Each selected folder relative to the library root (`""` = the root).
+    pub relative_paths: Vec<String>,
     pub error: Option<String>,
 }
 
 #[tauri::command]
 pub fn browse_tagging_folder(
     state: State<'_, AppState>,
-    start_dir: Option<String>,
+    request: Option<BrowseTaggingFolderRequest>,
 ) -> BrowseTaggingFolderResult {
     let root = state.paths.embroidery_designs_dir.clone();
+    let (start_dir, allow_multi) = match request {
+        Some(value) => (value.start_dir, value.allow_multi.unwrap_or(true)),
+        None => (None, true),
+    };
 
     let start = match start_dir
         .as_deref()
@@ -232,7 +253,8 @@ pub fn browse_tagging_folder(
             if !backfill::is_path_under_root(dir, &root) {
                 return BrowseTaggingFolderResult {
                     path: None,
-                    relative_path: None,
+                    paths: Vec::new(),
+                    relative_paths: Vec::new(),
                     error: Some("Start folder is outside the Data Storage Location.".to_string()),
                 };
             }
@@ -241,40 +263,57 @@ pub fn browse_tagging_folder(
         None => Some(root.to_string_lossy().to_string()),
     };
 
-    let picked = match folder_picker::browse_folder_with_error(start.as_deref(), false) {
-        Ok(result) => result.path,
+    let result = match folder_picker::browse_folder_with_error(start.as_deref(), allow_multi) {
+        Ok(result) => result,
         Err(error) => {
             return BrowseTaggingFolderResult {
                 path: None,
-                relative_path: None,
+                paths: Vec::new(),
+                relative_paths: Vec::new(),
                 error: Some(error.to_string()),
             }
         }
     };
 
-    let Some(picked) = picked else {
-        return BrowseTaggingFolderResult {
-            path: None,
-            relative_path: None,
-            error: None,
-        };
+    // Normalise the raw pick into a flat list of selected paths.
+    let picked_paths: Vec<String> = if allow_multi {
+        result.paths
+    } else {
+        result.path.iter().cloned().collect()
     };
 
-    if !backfill::is_path_under_root(&picked, &root) {
+    if picked_paths.is_empty() {
         return BrowseTaggingFolderResult {
-            path: Some(picked),
-            relative_path: None,
-            error: Some(format!(
-                "Selected folder is outside the Data Storage Location ({}).",
-                root.to_string_lossy()
-            )),
+            path: None,
+            paths: Vec::new(),
+            relative_paths: Vec::new(),
+            error: None,
         };
     }
 
-    let relative_path = crate::paths::relative_path_under_root(&picked, &root);
+    for picked in &picked_paths {
+        if !backfill::is_path_under_root(picked, &root) {
+            return BrowseTaggingFolderResult {
+                path: None,
+                paths: Vec::new(),
+                relative_paths: Vec::new(),
+                error: Some(format!(
+                    "Selected folder is outside the Data Storage Location ({}).",
+                    root.to_string_lossy()
+                )),
+            };
+        }
+    }
+
+    let relative_paths: Vec<String> = picked_paths
+        .iter()
+        .map(|p| crate::paths::relative_path_under_root(p, &root))
+        .collect();
+
     BrowseTaggingFolderResult {
-        path: Some(picked),
-        relative_path: Some(relative_path),
+        path: picked_paths.first().cloned(),
+        paths: picked_paths,
+        relative_paths,
         error: None,
     }
 }

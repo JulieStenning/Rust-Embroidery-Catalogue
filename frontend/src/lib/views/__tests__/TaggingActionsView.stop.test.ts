@@ -72,7 +72,7 @@ describe("TaggingActionsView stop behaviour", () => {
     render(TaggingActionsView);
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
     await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 

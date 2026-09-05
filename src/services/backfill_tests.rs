@@ -67,6 +67,7 @@ async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -128,6 +129,7 @@ async fn run_unified_backfill_retag_all_processes_all_designs_beyond_batch_size(
                     merge_mode: None,
                     exclude_verified: Some(false),
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -172,6 +174,7 @@ async fn run_unified_backfill_streams_progress_events() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -243,6 +246,7 @@ async fn run_unified_backfill_retag_all_respects_workers_concurrency() {
                     merge_mode: None,
                     exclude_verified: Some(false),
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -644,7 +648,7 @@ async fn select_tagging_untagged_excludes_designs_with_image_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 has an image tag
 
-    let ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false, None, true)
+    let ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false, &[], true)
         .await
         .unwrap();
     assert!(ids.contains(&1));
@@ -657,7 +661,7 @@ async fn select_tagging_retag_all_includes_all() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    let ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, None, true)
+    let ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &[], true)
         .await
         .unwrap();
     assert_eq!(ids.len(), 3);
@@ -668,7 +672,7 @@ async fn select_tagging_retag_all_unverified_includes_only_unverified() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 has tags_checked=1, 1 and 3 have 0
 
-    let ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, None, true)
+    let ids = select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, &[], true)
         .await
         .unwrap();
     assert!(ids.contains(&1));
@@ -681,7 +685,7 @@ async fn select_tagging_respects_limit() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
-    let ids = select_tagging_design_ids(&pool, "tag_untagged", 1, 0, false, None, true)
+    let ids = select_tagging_design_ids(&pool, "tag_untagged", 1, 0, false, &[], true)
         .await
         .unwrap();
     assert!(ids.len() <= 1);
@@ -801,7 +805,7 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     seed_basic(&pool).await; // 1: untagged+unverified, 2: tagged+verified, 3: untagged+unverified
 
     // tag_untagged -> designs with no image-group tags: 1 and 3 (both unverified).
-    let untagged = count_tagging_candidates(&pool, "tag_untagged", None, true)
+    let untagged = count_tagging_candidates(&pool, "tag_untagged", &[], true)
         .await
         .unwrap();
     assert_eq!(untagged.total_count, 2);
@@ -809,7 +813,7 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     assert_eq!(untagged.verified_count, 0);
 
     // retag_all_unverified -> image_tags_verified = 0: designs 1 and 3.
-    let unverified = count_tagging_candidates(&pool, "retag_all_unverified", None, true)
+    let unverified = count_tagging_candidates(&pool, "retag_all_unverified", &[], true)
         .await
         .unwrap();
     assert_eq!(unverified.total_count, 2);
@@ -817,7 +821,7 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     assert_eq!(unverified.verified_count, 0);
 
     // retag_all -> every design: total 3, one of which is verified (design 2).
-    let all = count_tagging_candidates(&pool, "retag_all", None, true)
+    let all = count_tagging_candidates(&pool, "retag_all", &[], true)
         .await
         .unwrap();
     assert_eq!(all.total_count, 3);
@@ -825,29 +829,29 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
     assert_eq!(all.verified_count, 1);
 
     // The pager's total (exclude_verified=false) matches total_count for each scope.
-    let untagged_ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false, None, true)
+    let untagged_ids = select_tagging_design_ids(&pool, "tag_untagged", 100, 0, false, &[], true)
         .await
         .unwrap();
     assert_eq!(untagged.total_count as usize, untagged_ids.len());
     let unverified_ids =
-        select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, None, true)
+        select_tagging_design_ids(&pool, "retag_all_unverified", 100, 0, false, &[], true)
             .await
             .unwrap();
     assert_eq!(unverified.total_count as usize, unverified_ids.len());
-    let all_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, None, true)
+    let all_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &[], true)
         .await
         .unwrap();
     assert_eq!(all.total_count as usize, all_ids.len());
 
     // Excluding verified designs filters the pager down to unverified_count.
-    let all_excluding = select_tagging_design_ids(&pool, "retag_all", 100, 0, true, None, true)
+    let all_excluding = select_tagging_design_ids(&pool, "retag_all", 100, 0, true, &[], true)
         .await
         .unwrap();
     assert_eq!(all.unverified_count as usize, all_excluding.len());
     assert!(!all_excluding.contains(&2));
 
     // An unknown action normalizes to tag_untagged, matching the pager.
-    let unknown = count_tagging_candidates(&pool, "bogus", None, true)
+    let unknown = count_tagging_candidates(&pool, "bogus", &[], true)
         .await
         .unwrap();
     assert_eq!(unknown.total_count, untagged.total_count);
@@ -868,15 +872,15 @@ async fn per_mode_ai_scope_counts_and_pager_parity() {
         .unwrap();
 
     // Vision AI scopes.
-    let vision_not = count_tagging_candidates(&pool, "retag_all_vision_not_analyzed", None, true)
+    let vision_not = count_tagging_candidates(&pool, "retag_all_vision_not_analyzed", &[], true)
         .await
         .unwrap();
     assert_eq!(vision_not.total_count, 1); // only design 3 is vision-not-analyzed
-    let vision_no_match = count_tagging_candidates(&pool, "retag_all_vision_no_match", None, true)
+    let vision_no_match = count_tagging_candidates(&pool, "retag_all_vision_no_match", &[], true)
         .await
         .unwrap();
     assert_eq!(vision_no_match.total_count, 1); // design 2
-    let vision_analyzed = count_tagging_candidates(&pool, "retag_all_vision_analyzed", None, true)
+    let vision_analyzed = count_tagging_candidates(&pool, "retag_all_vision_analyzed", &[], true)
         .await
         .unwrap();
     assert_eq!(vision_analyzed.total_count, 2); // designs 1 and 2
@@ -887,7 +891,7 @@ async fn per_mode_ai_scope_counts_and_pager_parity() {
         ("retag_all_vision_no_match", 1),
         ("retag_all_vision_analyzed", 2),
     ] {
-        let ids = select_tagging_design_ids(&pool, action, 100, 0, false, None, true)
+        let ids = select_tagging_design_ids(&pool, action, 100, 0, false, &[], true)
             .await
             .unwrap();
         assert_eq!(expected, ids.len(), "pager mismatch for {action}");
@@ -976,7 +980,7 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
 
     // Recursive: all four Flowers designs (direct + nested), not design 5.
     let recursive =
-        select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), true)
+        select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &[scope.clone()], true)
             .await
             .unwrap();
     assert!(recursive.contains(&1));
@@ -986,23 +990,128 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
     assert!(!recursive.contains(&5));
 
     // Direct-only: designs 1, 3, 4 but not 2 (nested under sub/).
-    let direct = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, Some(&scope), false)
-        .await
-        .unwrap();
+    let direct =
+        select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &[scope.clone()], false)
+            .await
+            .unwrap();
     assert!(direct.contains(&1));
     assert!(direct.contains(&3));
     assert!(direct.contains(&4));
     assert!(!direct.contains(&2));
 
     // Counts align with the candidate set.
-    let counts = count_tagging_candidates(&pool, "retag_all", Some(&scope), true)
+    let counts = count_tagging_candidates(&pool, "retag_all", &[scope.clone()], true)
         .await
         .unwrap();
     assert_eq!(counts.total_count, 4);
-    let counts_direct = count_tagging_candidates(&pool, "retag_all", Some(&scope), false)
+    let counts_direct = count_tagging_candidates(&pool, "retag_all", &[scope.clone()], false)
         .await
         .unwrap();
     assert_eq!(counts_direct.total_count, 3);
+}
+
+#[tokio::test]
+async fn multiple_folder_scopes_union_candidates() {
+    let pool = make_test_pool().await;
+    // Designs spread across two folder branches plus an unrelated root-level one.
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (1, 'a.pes', 'Flowers/a.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (2, 'b.pes', 'Flowers/sub/b.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (3, 'c.pes', 'Animals/c.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (4, 'r.pes', 'r.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let flowers = TaggingFolderScope {
+        rel: "Flowers".to_string(),
+        is_root: false,
+    };
+    let animals = TaggingFolderScope {
+        rel: "Animals".to_string(),
+        is_root: false,
+    };
+    let scopes = [flowers.clone(), animals.clone()];
+
+    // Recursive union: Flowers (1, 2) + Animals (3) = 3; the root-level r.pes (4)
+    // and overlapping ancestors are NOT double counted.
+    let recursive = count_tagging_candidates(&pool, "retag_all", &scopes, true)
+        .await
+        .unwrap();
+    assert_eq!(recursive.total_count, 3);
+    let recursive_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &scopes, true)
+        .await
+        .unwrap();
+    assert_eq!(recursive_ids.len(), 3);
+    assert!(recursive_ids.contains(&1));
+    assert!(recursive_ids.contains(&2));
+    assert!(recursive_ids.contains(&3));
+    assert!(!recursive_ids.contains(&4));
+
+    // Direct-only union: Flowers/a (1) + Animals/c (3) = 2 (nested b.pes excluded).
+    let direct = count_tagging_candidates(&pool, "retag_all", &scopes, false)
+        .await
+        .unwrap();
+    assert_eq!(direct.total_count, 2);
+    let direct_ids = select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &scopes, false)
+        .await
+        .unwrap();
+    assert_eq!(direct_ids.len(), 2);
+    assert!(direct_ids.contains(&1));
+    assert!(direct_ids.contains(&3));
+    assert!(!direct_ids.contains(&2));
+}
+
+#[tokio::test]
+async fn root_folder_scope_with_subfolders_matches_whole_library() {
+    let pool = make_test_pool().await;
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (1, 'a.pes', 'Flowers/a.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_tags_verified) VALUES (2, 'r.pes', 'r.pes', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let root_scope = TaggingFolderScope {
+        rel: "".to_string(),
+        is_root: true,
+    };
+    let flowers = TaggingFolderScope {
+        rel: "Flowers".to_string(),
+        is_root: false,
+    };
+    // Root + a subfolder with subfolders collapses to the whole library.
+    let counts = count_tagging_candidates(
+        &pool,
+        "retag_all",
+        &[root_scope.clone(), flowers.clone()],
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(counts.total_count, 2);
 }
 
 #[tokio::test]
@@ -1675,6 +1784,7 @@ async fn run_unified_backfill_retag_all_tags_everything() {
                     merge_mode: None,
                     exclude_verified: Some(false),
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -1715,6 +1825,7 @@ async fn run_unified_backfill_retag_all_unverified_skips_verified() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -1768,6 +1879,7 @@ async fn run_unified_backfill_stop_signal_detected_by_summary() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -1831,6 +1943,7 @@ async fn run_unified_backfill_stop_aborts_current_tagging_batch() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -1890,6 +2003,7 @@ async fn run_unified_backfill_combined_actions() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(true),
                 }),
@@ -1937,6 +2051,7 @@ async fn run_unified_backfill_hoop_dimensions_action_runs() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(false),
                 }),
@@ -1979,6 +2094,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
                     merge_mode: None,
                     exclude_verified: None,
                     folder_path: None,
+                    folder_paths: None,
                     include_subfolders: None,
                     enabled: Some(false),
                 }),

@@ -97,7 +97,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
   it("runs unified backfill with the default File & Folder Rules on untagged designs", async () => {
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
 
@@ -122,8 +122,8 @@ describe("TaggingActionsView run unified backfill", () => {
   it("runs Visual AI on designs missing AI analysis when those options are chosen", async () => {
     render(TaggingActionsView);
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
-    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
     await user.click(
       screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })
     );
@@ -151,9 +151,9 @@ describe("TaggingActionsView run unified backfill", () => {
   it("passes the chosen scope and merge strategy", async () => {
     render(TaggingActionsView);
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Entire collection/ }));
-    await user.click(screen.getByRole("radio", { name: /Complete Reset/ }));
+    await user.click(screen.getByRole("radio", { name: /Complete reset/i }));
 
     await startRun();
 
@@ -166,7 +166,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
   it("shows a pre-flight summary with the count and cancels without running", async () => {
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     // Wait for the scope-count badges to resolve so the modal shows a real count.
     await screen.findAllByText("10 designs");
 
@@ -186,7 +186,7 @@ describe("TaggingActionsView run unified backfill", () => {
   it("states verified exclusion in the modal and passes exclude_verified when unchecked", async () => {
     render(TaggingActionsView);
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await screen.findAllByText("10 unverified · 2 verified");
 
     // Default: verified designs excluded.
@@ -215,8 +215,8 @@ describe("TaggingActionsView run unified backfill", () => {
   it("shows the rate-limit pacing note only when the run is actually paced", async () => {
     render(TaggingActionsView);
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
-    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
     await screen.findAllByText("10 unverified · 2 verified");
 
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
@@ -233,8 +233,8 @@ describe("TaggingActionsView run unified backfill", () => {
     });
     render(TaggingActionsView);
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
-    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
     await screen.findAllByText("10 unverified · 2 verified");
 
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
@@ -258,8 +258,8 @@ describe("TaggingActionsView run unified backfill", () => {
     // Paid key, blank delay -> not paced.
     const view = render(TaggingActionsView);
     let user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
-    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
     await screen.findAllByText(/unverified ·/);
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
     const paidEl = screen.getByTestId("tagging-confirm-modal");
@@ -274,8 +274,8 @@ describe("TaggingActionsView run unified backfill", () => {
     });
     render(TaggingActionsView);
     user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
-    await user.click(screen.getByRole("radio", { name: /Enrich with Visual AI/ }));
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
     await screen.findAllByText(/unverified ·/);
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
     const freeEl = screen.getByTestId("tagging-confirm-modal");
@@ -284,18 +284,19 @@ describe("TaggingActionsView run unified backfill", () => {
     expect(freeMinutes).toBeGreaterThan(paidMinutes * 5);
   });
 
-  it("passes the selected folder and subfolder flag to the run", async () => {
+  it("passes the selected folder(s) and subfolder flag to the run", async () => {
     adapterMocks.browseTaggingFolder.mockResolvedValue({
       path: "C:/library/MachineEmbroideryDesigns/Flowers",
-      relative_path: "Flowers",
+      paths: ["C:/library/MachineEmbroideryDesigns/Flowers"],
+      relative_paths: ["Flowers"],
     });
     render(TaggingActionsView);
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await screen.findAllByText("10 unverified · 2 verified");
 
-    await user.click(screen.getByRole("radio", { name: /Specific Folder or Category/ }));
-    await user.click(screen.getByRole("button", { name: "Choose folder…" }));
+    await user.click(screen.getByRole("radio", { name: /Specific folder\(s\)/i }));
+    await user.click(screen.getByRole("button", { name: "Choose folders…" }));
     await waitFor(() => {
       expect(adapterMocks.browseTaggingFolder).toHaveBeenCalled();
     });
@@ -312,7 +313,7 @@ describe("TaggingActionsView run unified backfill", () => {
       expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalledWith(
         expect.objectContaining({
           action_mode: "retag_all",
-          folder_path: "C:/library/MachineEmbroideryDesigns/Flowers",
+          folder_paths: ["C:/library/MachineEmbroideryDesigns/Flowers"],
           include_subfolders: false,
         })
       );
@@ -324,7 +325,7 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ processed: 3, errors: 0, stopped: true })
     );
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
 
@@ -342,7 +343,7 @@ describe("TaggingActionsView run unified backfill", () => {
       backfillResult({ error: "Database is locked" })
     );
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
 
@@ -358,7 +359,7 @@ describe("TaggingActionsView run unified backfill", () => {
   it("shows an error toast when the unified backfill throws", async () => {
     adapterMocks.runUnifiedBackfill.mockRejectedValue(new Error("backend unreachable"));
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
 
@@ -382,7 +383,7 @@ describe("TaggingActionsView run unified backfill", () => {
       model: { ...viewModel().model, has_google_api_key: false },
     });
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
 
@@ -395,10 +396,10 @@ describe("TaggingActionsView run unified backfill", () => {
 
   it("runs File & Folder Rules and Visual AI on the whole collection for a full re-scan", async () => {
     render(TaggingActionsView);
-    await screen.findByRole("radio", { name: /Apply File & Folder Rules/ });
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Full Re-Scan/ }));
+    await user.click(screen.getByRole("radio", { name: /Full re-scan/i }));
     await user.click(screen.getByRole("radio", { name: /Entire collection/ }));
 
     await startRun();

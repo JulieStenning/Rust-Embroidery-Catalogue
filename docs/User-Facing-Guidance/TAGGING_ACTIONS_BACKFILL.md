@@ -65,7 +65,7 @@ Scopes for a Visual AI / Full Re-Scan run let you target designs by their analys
 - **Designs missing Visual AI analysis** — designs not yet scanned by Visual AI.
 - **Visual AI found no match** — designs Visual AI analyzed but produced no tags.
 - **Re-analyze (already analyzed)** — designs already analyzed, run again.
-- **Untagged designs only**, **Specific Folder or Category**, and **Entire collection** are also available.
+- **Untagged designs only**, **Specific Folder(s)**, and **Entire collection** are also available.
 
 
 ### Get a Google API key

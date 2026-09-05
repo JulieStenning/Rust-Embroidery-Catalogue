@@ -134,19 +134,19 @@ describe("TaggingActionsView initial render", () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("radio", { name: /Apply File & Folder Rules/ })).toBeChecked();
+      expect(screen.getByRole("radio", { name: /Apply file & folder rules/i })).toBeChecked();
     });
     expect(screen.getByRole("radio", { name: /Untagged designs only/ })).toBeChecked();
-    expect(screen.getByRole("radio", { name: /Add New Tags Only/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Add new tags only/i })).toBeChecked();
   });
 
   it("disables Visual AI goals when no API key is set", async () => {
     render(TaggingActionsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("radio", { name: /Enrich with Visual AI/ })).toBeDisabled();
+      expect(screen.getByRole("radio", { name: /Enrich with visual AI/i })).toBeDisabled();
     });
-    expect(screen.getByRole("radio", { name: /Full Re-Scan/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Full re-scan/i })).toBeDisabled();
   });
 
   it("enables the Run button when ready (a default action is always selected)", async () => {

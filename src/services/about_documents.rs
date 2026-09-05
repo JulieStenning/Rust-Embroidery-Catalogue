@@ -201,7 +201,7 @@ mod tests {
         let normalized =
             get_about_document("  AI-TAGGING  ".to_string()).expect("ai-tagging should load");
         assert_eq!(normalized.slug, "ai-tagging");
-        assert_eq!(normalized.title, "AI Tagging Guide");
+        assert_eq!(normalized.title, "AI Tagging & Tagging Actions Guide");
         assert!(!normalized.document_text.is_empty());
     }
 

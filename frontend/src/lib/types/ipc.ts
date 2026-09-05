@@ -673,8 +673,10 @@ export interface AdapterTaggingCandidateCountResponse {
 
 export interface BrowseTaggingFolderResult {
   path: string | null;
-  /** The selected folder relative to the library root (`""` = the root). */
-  relative_path: string | null;
+  /** Every selected folder (empty when the user cancelled or the pick errored). */
+  paths: string[];
+  /** Each selected folder relative to the library root (`""` = the root). */
+  relative_paths: string[];
   error?: string;
 }
 
@@ -712,7 +714,13 @@ export interface UnifiedBackfillRequest {
   exclude_verified?: boolean;
   /** Absolute folder path to scope the run to (must be under the Data Storage Location). */
   folder_path?: string;
-  /** Whether `folder_path` also includes nested subfolders. Defaults to `true`. */
+  /**
+   * Absolute folder paths to scope the run to (each must be under the Data
+   * Storage Location). Designs under ANY of the folders are processed (a union).
+   * Takes precedence over `folder_path` when both are supplied.
+   */
+  folder_paths?: string[];
+  /** Whether `folder_path`/`folder_paths` also includes nested subfolders. Defaults to `true`. */
   include_subfolders?: boolean;
   run_vision: boolean;
   run_images: boolean;
@@ -736,6 +744,7 @@ export interface UnifiedBackfillActionsWire {
     merge_mode?: string;
     exclude_verified?: boolean;
     folder_path?: string;
+    folder_paths?: string[];
     include_subfolders?: boolean;
     enabled?: boolean;
   } | null;

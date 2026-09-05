@@ -74,7 +74,13 @@ pub struct TaggingActionOptions {
     /// designs library root). When set, only designs whose stored filepath is
     /// under this folder are processed.
     pub folder_path: Option<String>,
-    /// Whether `folder_path` also includes nested subfolders. Defaults to `true`.
+    /// Optional list of absolute folder paths scoping the run (each must be
+    /// under the designs library root). When set, designs under ANY of these
+    /// folders are processed (a union). Takes precedence over `folder_path`
+    /// when both are supplied.
+    pub folder_paths: Option<Vec<String>>,
+    /// Whether `folder_path`/`folder_paths` also includes nested subfolders.
+    /// Defaults to `true`.
     pub include_subfolders: Option<bool>,
     pub enabled: Option<bool>,
 }
@@ -229,6 +235,7 @@ pub async fn run_unified_backfill_with_progress(
             merge_mode: None,
             exclude_verified: None,
             folder_path: None,
+            folder_paths: None,
             include_subfolders: None,
             enabled: Some(true),
         }),
@@ -307,9 +314,12 @@ pub async fn run_unified_backfill_with_progress(
             // caller explicitly opts in. This protects reviewed tags from being
             // overwritten by an automated pass.
             let exclude_verified = tagging_action.exclude_verified.unwrap_or(true);
-            // Validate + resolve the optional folder scope once; an invalid or
+            // Validate + resolve the optional folder scopes once; an invalid or
             // out-of-bounds folder aborts the run before any design is touched.
-            let folder_scope = resolve_tagging_folder_scope(tagging_action.folder_path.as_deref())?;
+            let folder_scopes = resolve_folder_scopes_from_options(
+                tagging_action.folder_paths.as_deref(),
+                tagging_action.folder_path.as_deref(),
+            )?;
             let include_subfolders = tagging_action.include_subfolders.unwrap_or(true);
             let path_rule_enabled = modes.contains("path_rule");
             let visual_ai_enabled = modes.contains("ai_vision") && has_api_key;
@@ -370,7 +380,7 @@ pub async fn run_unified_backfill_with_progress(
                     batch_size,
                     tagging_cursor,
                     exclude_verified,
-                    folder_scope.as_ref(),
+                    &folder_scopes,
                     include_subfolders,
                 )
                 .await?;
@@ -997,15 +1007,36 @@ pub(crate) fn resolve_folder_scope_under(
     Ok(Some(TaggingFolderScope { rel, is_root }))
 }
 
-/// Validate and resolve an optional absolute `folder_path` into a folder scope
-/// bounded to the designs library root resolved from the app paths.
-pub(crate) fn resolve_tagging_folder_scope(
+/// Validate and resolve a list of absolute `folder_paths` (each bounded to the
+/// designs library root resolved from the app paths) into a list of folder
+/// scopes. An empty input yields an empty list (no folder filter). Any invalid,
+/// non-directory, or out-of-bounds path aborts with an error. When both a
+/// `folder_paths` list and a legacy single `folder_path` are present, the list
+/// wins; otherwise the single path is folded into a one-element list.
+pub(crate) fn resolve_folder_scopes_from_options(
+    folder_paths: Option<&[String]>,
     folder_path: Option<&str>,
-) -> Result<Option<TaggingFolderScope>, AppError> {
+) -> Result<Vec<TaggingFolderScope>, AppError> {
     let root = crate::paths::resolve_app_paths()
         .map(|p| p.embroidery_designs_dir)
         .unwrap_or_else(|_| PathBuf::from("MachineEmbroideryDesigns"));
-    resolve_folder_scope_under(folder_path, &root)
+
+    let sources: Vec<&str> = match folder_paths {
+        Some(list) => list.iter().map(String::as_str).collect(),
+        None => match folder_path.map(str::trim).filter(|s| !s.is_empty()) {
+            Some(single) => vec![single],
+            None => Vec::new(),
+        },
+    };
+
+    let mut scopes = Vec::with_capacity(sources.len());
+    for raw in sources {
+        let Some(scope) = resolve_folder_scope_under(Some(raw), &root)? else {
+            continue;
+        };
+        scopes.push(scope);
+    }
+    Ok(scopes)
 }
 
 /// Escape LIKE wildcards so folder names containing `%` / `_` match literally.
@@ -1016,38 +1047,57 @@ fn like_escape(value: &str) -> String {
         .replace('_', "\\_")
 }
 
-/// Append `AND` clauses restricting `d.filepath` to the given folder scope.
+/// Append an `AND (...)` group restricting `d.filepath` to designs under ANY of
+/// the given folder scopes (a distinct union).
 ///
 /// Stored filepaths are canonical library-relative paths (`Flowers/rose.pes`),
-/// so a single predictable `LIKE` over the scope prefix suffices (no multi-form
-/// `OR` of `/MachineEmbroideryDesigns/…` / bare / absolute prefixes). With
-/// `include_subfolders` false, designs deeper than one level are excluded;
-/// designs directly at the library root (no `/`) are handled separately.
-fn push_folder_scope_clauses(
+/// so a single predictable `LIKE` over each scope prefix suffices (no multi-form
+/// `OR` of absolute / bare / prefix forms). With `include_subfolders` false,
+/// designs deeper than one level are excluded; designs directly at the library
+/// root (no `/`) are handled separately. When one of the scopes is the library
+/// root AND subfolders are included, the whole library is in scope and no folder
+/// filter is emitted.
+fn push_folder_scopes_clauses(
     query: &mut QueryBuilder<Sqlite>,
-    scope: &TaggingFolderScope,
+    scopes: &[TaggingFolderScope],
     include_subfolders: bool,
 ) {
-    if scope.is_root {
-        if !include_subfolders {
-            // Only designs directly at the library root: a canonical relative
-            // root-level design has no '/' at all.
-            query.push(" AND d.filepath NOT LIKE '%/%' ");
-        }
+    if scopes.is_empty() {
+        return;
+    }
+    // Root selection with subfolders means the entire library is in scope.
+    if include_subfolders && scopes.iter().any(|s| s.is_root) {
         return;
     }
 
-    // Canonical form: d.filepath is '<rel>/<file>', or '<rel>/<sub>/…/<file>'.
-    let prefix = format!("{}/", like_escape(&scope.rel));
-    query.push(" AND d.filepath LIKE ");
-    query.push_bind(format!("{prefix}%"));
-    query.push(" ESCAPE '\\' ");
-    if !include_subfolders {
-        // Immediate children only: exactly one path segment after '<rel>/'.
-        query.push(" AND d.filepath NOT LIKE ");
-        query.push_bind(format!("{prefix}%/%"));
-        query.push(" ESCAPE '\\' ");
+    query.push(" AND ( ");
+    let mut first = true;
+    for scope in scopes {
+        if !first {
+            query.push(" OR ");
+        }
+        first = false;
+        query.push("( ");
+        if scope.is_root {
+            // Only reachable when include_subfolders is false: root-level
+            // designs have no '/' at all.
+            query.push(" d.filepath NOT LIKE '%/%' ");
+        } else {
+            // Canonical form: '<rel>/<file>', or '<rel>/<sub>/.../<file>'.
+            let prefix = format!("{}/", like_escape(&scope.rel));
+            query.push(" d.filepath LIKE ");
+            query.push_bind(format!("{prefix}%"));
+            query.push(" ESCAPE '\\' ");
+            if !include_subfolders {
+                // Immediate children only: one segment after '<rel>/'.
+                query.push(" AND d.filepath NOT LIKE ");
+                query.push_bind(format!("{prefix}%/%"));
+                query.push(" ESCAPE '\\' ");
+            }
+        }
+        query.push(" )");
     }
+    query.push(" ) ");
 }
 
 /// A `COUNT(*)` over the shared scope fragment with an optional verified filter
@@ -1056,15 +1106,13 @@ fn push_folder_scope_clauses(
 async fn count_scope_with_filter(
     pool: &SqlitePool,
     base: &str,
-    folder_scope: Option<&TaggingFolderScope>,
+    folder_scopes: &[TaggingFolderScope],
     include_subfolders: bool,
     verified_filter: &str,
 ) -> Result<i64, AppError> {
     let mut query = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) ");
     query.push(base);
-    if let Some(scope) = folder_scope {
-        push_folder_scope_clauses(&mut query, scope, include_subfolders);
-    }
+    push_folder_scopes_clauses(&mut query, folder_scopes, include_subfolders);
     query.push(verified_filter);
     query
         .build_query_scalar::<i64>()
@@ -1089,15 +1137,15 @@ pub struct TaggingScopeCounts {
 pub(crate) async fn count_tagging_candidates(
     pool: &SqlitePool,
     action: &str,
-    folder_scope: Option<&TaggingFolderScope>,
+    folder_scopes: &[TaggingFolderScope],
     include_subfolders: bool,
 ) -> Result<TaggingScopeCounts, AppError> {
     let base = tagging_scope_from_where(normalize_tag_mode(Some(action)));
-    let total = count_scope_with_filter(pool, base, folder_scope, include_subfolders, "").await?;
+    let total = count_scope_with_filter(pool, base, folder_scopes, include_subfolders, "").await?;
     let unverified = count_scope_with_filter(
         pool,
         base,
-        folder_scope,
+        folder_scopes,
         include_subfolders,
         " AND COALESCE(d.image_tags_verified, 0) = 0",
     )
@@ -1105,7 +1153,7 @@ pub(crate) async fn count_tagging_candidates(
     let verified = count_scope_with_filter(
         pool,
         base,
-        folder_scope,
+        folder_scopes,
         include_subfolders,
         " AND COALESCE(d.image_tags_verified, 0) = 1",
     )
@@ -1123,7 +1171,7 @@ async fn select_tagging_design_ids(
     limit: i64,
     min_id: i64,
     exclude_verified: bool,
-    folder_scope: Option<&TaggingFolderScope>,
+    folder_scopes: &[TaggingFolderScope],
     include_subfolders: bool,
 ) -> Result<Vec<i64>, AppError> {
     // `min_id` is a keyset cursor so the caller can page through ALL matching
@@ -1132,9 +1180,7 @@ async fn select_tagging_design_ids(
     // re-selects the same first `limit` rows on every run.
     let mut query = QueryBuilder::<Sqlite>::new("SELECT d.id ");
     query.push(tagging_scope_from_where(mode));
-    if let Some(scope) = folder_scope {
-        push_folder_scope_clauses(&mut query, scope, include_subfolders);
-    }
+    push_folder_scopes_clauses(&mut query, folder_scopes, include_subfolders);
     if exclude_verified {
         query.push(" AND COALESCE(d.image_tags_verified, 0) = 0");
     }

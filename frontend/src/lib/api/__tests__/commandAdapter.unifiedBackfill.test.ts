@@ -191,12 +191,16 @@ describe("commandAdapter countTaggingCandidates payload", () => {
     });
   });
 
-  it("passes folder_path and include_subfolders to the count command", async () => {
-    await countTaggingCandidates("retag_all", "C:/library/Flowers", false);
+  it("passes folder_paths and include_subfolders to the count command", async () => {
+    await countTaggingCandidates(
+      "retag_all",
+      ["C:/library/Flowers", "C:/library/Animals"],
+      false
+    );
 
     expect(invokeMock).toHaveBeenCalledWith("count_tagging_candidates", {
       action: "retag_all",
-      folderPath: "C:/library/Flowers",
+      folderPaths: ["C:/library/Flowers", "C:/library/Animals"],
       includeSubfolders: false,
     });
   });
@@ -205,24 +209,33 @@ describe("commandAdapter countTaggingCandidates payload", () => {
 describe("commandAdapter browseTaggingFolder payload", () => {
   beforeEach(() => {
     invokeMock.mockReset();
-    invokeMock.mockResolvedValue({ path: "C:/library/Flowers", relative_path: "Flowers" });
+    invokeMock.mockResolvedValue({
+      path: "C:/library/Flowers",
+      paths: ["C:/library/Flowers"],
+      relative_paths: ["Flowers"],
+    });
   });
 
-  it("invokes browse_tagging_folder with the startDir key", async () => {
+  it("invokes browse_tagging_folder with a multi-select request", async () => {
     const result = await browseTaggingFolder("C:/library");
 
-    expect(invokeMock).toHaveBeenCalledWith("browse_tagging_folder", { startDir: "C:/library" });
+    expect(invokeMock).toHaveBeenCalledWith("browse_tagging_folder", {
+      request: { start_dir: "C:/library", allow_multi: true },
+    });
     expect(result).toEqual({
       path: "C:/library/Flowers",
-      relative_path: "Flowers",
+      paths: ["C:/library/Flowers"],
+      relative_paths: ["Flowers"],
       error: undefined,
     });
   });
 
-  it("passes a null startDir when none is provided", async () => {
+  it("passes a null start_dir when none is provided", async () => {
     await browseTaggingFolder();
 
-    expect(invokeMock).toHaveBeenCalledWith("browse_tagging_folder", { startDir: null });
+    expect(invokeMock).toHaveBeenCalledWith("browse_tagging_folder", {
+      request: { start_dir: null, allow_multi: true },
+    });
   });
 });
 

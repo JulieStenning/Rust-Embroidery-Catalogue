@@ -2101,15 +2101,21 @@ export async function getTaggingActionsViewModel(): Promise<AdapterTaggingAction
  * side, so the pre-flight estimate matches what a run actually touches.
  *
  * @param {string} action Backend scope: `tag_untagged` | `retag_all_unverified` | `retag_all`.
+ * @param {Array<string>} [folderPaths] Library subfolders (absolute) to scope to; when
+ *   provided, only designs under ANY of these folders are counted.
+ * @param {boolean} [includeSubfolders]
  */
 export async function countTaggingCandidates(
   action: string,
-  folderPath?: string | null,
+  folderPaths?: string[] | null,
   includeSubfolders?: boolean | null
 ): Promise<AdapterTaggingCandidateCountResponse> {
   try {
     const payload: Record<string, unknown> = { action: String(action) };
-    if (folderPath) payload.folderPath = String(folderPath);
+    const folders = Array.isArray(folderPaths)
+      ? folderPaths.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    if (folders.length > 0) payload.folderPaths = folders;
     if (includeSubfolders != null) payload.includeSubfolders = Boolean(includeSubfolders);
     const result = await invokeLoose<TaggingScopeCounts>("count_tagging_candidates", payload);
     return {
@@ -2132,8 +2138,10 @@ export async function countTaggingCandidates(
 }
 
 /**
- * Open a native folder picker bounded to the Data Storage Location. The backend
- * opens the dialog at the library root and rejects any chosen path outside it.
+ * Open a native multi-folder picker bounded to the Data Storage Location. The
+ * backend opens the dialog at the library root and rejects any chosen folder
+ * outside it, mirroring the import folder picker (the user can select several
+ * folders at once, e.g. Ctrl/Shift-click).
  *
  * @param {string} [startDir] Optional absolute path under the root to start from.
  */
@@ -2143,16 +2151,27 @@ export async function browseTaggingFolder(
   try {
     const result = await invokeLoose<{
       path?: string | null;
-      relative_path?: string | null;
+      paths?: string[];
+      relative_paths?: string[];
       error?: string;
-    }>("browse_tagging_folder", { startDir: startDir ? String(startDir) : null });
+    }>("browse_tagging_folder", {
+      request: {
+        start_dir: startDir ? String(startDir).trim() : null,
+        allow_multi: true,
+      },
+    });
     return {
       path: result?.path ?? null,
-      relative_path: result?.relative_path ?? null,
+      paths: Array.isArray(result?.paths)
+        ? result.paths.map((item) => String(item || "")).filter(Boolean)
+        : [],
+      relative_paths: Array.isArray(result?.relative_paths)
+        ? result.relative_paths.map((item) => String(item || "")).filter(Boolean)
+        : [],
       error: result?.error,
     };
   } catch (error) {
-    return { path: null, relative_path: null, error: String(error) };
+    return { path: null, paths: [], relative_paths: [], error: String(error) };
   }
 }
 
@@ -2208,6 +2227,11 @@ function buildUnifiedBackfillWireRequest(
     taggingWire.exclude_verified = Boolean(request.exclude_verified);
   }
   if (request.folder_path) taggingWire.folder_path = String(request.folder_path);
+  if (Array.isArray(request.folder_paths) && request.folder_paths.length) {
+    taggingWire.folder_paths = request.folder_paths
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+  }
   if (request.include_subfolders !== undefined) {
     taggingWire.include_subfolders = Boolean(request.include_subfolders);
   }

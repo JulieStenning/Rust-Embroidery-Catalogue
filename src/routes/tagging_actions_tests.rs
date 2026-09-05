@@ -255,10 +255,15 @@ async fn test_count_tagging_candidates_reports_scope_counts() {
     let state = app.state::<AppState>();
 
     // tag_untagged -> designs with no image-group tags: 900101 and 900103 (unverified).
-    let untagged =
-        count_tagging_candidates(state.clone(), Some("tag_untagged".to_string()), None, None)
-            .await
-            .unwrap();
+    let untagged = count_tagging_candidates(
+        state.clone(),
+        Some("tag_untagged".to_string()),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(untagged.total_count, 2);
     assert_eq!(untagged.unverified_count, 2);
     assert_eq!(untagged.verified_count, 0);
@@ -268,6 +273,7 @@ async fn test_count_tagging_candidates_reports_scope_counts() {
         Some("retag_all_unverified".to_string()),
         None,
         None,
+        None,
     )
     .await
     .unwrap();
@@ -275,9 +281,15 @@ async fn test_count_tagging_candidates_reports_scope_counts() {
     assert_eq!(unverified.unverified_count, 2);
     assert_eq!(unverified.verified_count, 0);
     // retag_all -> every design: total 3, one of which is verified (900102).
-    let all = count_tagging_candidates(state.clone(), Some("retag_all".to_string()), None, None)
-        .await
-        .unwrap();
+    let all = count_tagging_candidates(
+        state.clone(),
+        Some("retag_all".to_string()),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(all.total_count, 3);
     assert_eq!(all.unverified_count, 2);
     assert_eq!(all.verified_count, 1);
@@ -410,6 +422,7 @@ async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key(
                 merge_mode: None,
                 exclude_verified: None,
                 folder_path: None,
+                folder_paths: None,
                 include_subfolders: None,
                 enabled: Some(true),
             }),
@@ -453,6 +466,7 @@ async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_modes() {
                 merge_mode: None,
                 exclude_verified: None,
                 folder_path: None,
+                folder_paths: None,
                 include_subfolders: None,
                 enabled: Some(true),
             }),
@@ -499,6 +513,7 @@ async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
                 merge_mode: None,
                 exclude_verified: None,
                 folder_path: None,
+                folder_paths: None,
                 include_subfolders: None,
                 enabled: Some(false),
             }),
@@ -538,11 +553,18 @@ async fn browse_tagging_folder_rejects_start_outside_data_root() {
     let outside = std::env::temp_dir()
         .join("tagging-outside-location")
         .join("designs");
-    let result = browse_tagging_folder(state, Some(outside.to_string_lossy().to_string()));
+    let result = browse_tagging_folder(
+        state,
+        Some(BrowseTaggingFolderRequest {
+            start_dir: Some(outside.to_string_lossy().to_string()),
+            allow_multi: None,
+        }),
+    );
 
     // The early validation returns an error before the native picker is opened.
     assert_eq!(result.path, None);
-    assert_eq!(result.relative_path, None);
+    assert!(result.paths.is_empty());
+    assert!(result.relative_paths.is_empty());
     assert_eq!(
         result.error.as_deref(),
         Some("Start folder is outside the Data Storage Location.")
