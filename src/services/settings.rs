@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 use std::path::{Path, PathBuf};
 
-pub const KEY_AI_VISION_AUTO: &str = "ai.vision";
 pub const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
 pub const KEY_AI_BATCH_SIZE: &str = "ai.batch_size";
 pub const KEY_AI_DELAY: &str = "ai.delay";
@@ -24,7 +23,6 @@ pub struct SettingsViewModel {
     pub preview_3d_profile: String,
     pub google_api_key: String,
     pub has_google_api_key: bool,
-    pub ai_vision_auto: bool,
     pub ai_batch_size: String,
     pub ai_delay: String,
     pub ai_gemini_model: String,
@@ -48,7 +46,6 @@ pub struct SaveSettingsRequest {
     #[serde(default)]
     pub preview_3d_profile: String,
     pub google_api_key: String,
-    pub ai_vision_auto: bool,
     pub ai_batch_size: String,
     pub ai_delay: String,
     #[serde(default)]
@@ -93,7 +90,6 @@ pub(crate) async fn get_settings_view_model_inner(
         .map_err(|e| AppError::database(e.to_string()))?;
 
     let preview_3d_profile = get_setting_with_default(&mut conn, KEY_PREVIEW_3D_PROFILE).await?;
-    let ai_vision_auto = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_VISION_AUTO).await?);
     let ai_batch_size = get_setting_with_default(&mut conn, KEY_AI_BATCH_SIZE).await?;
     let ai_delay = get_setting_with_default(&mut conn, KEY_AI_DELAY).await?;
     let ai_gemini_model = get_setting_with_default(&mut conn, KEY_AI_GEMINI_MODEL).await?;
@@ -130,7 +126,6 @@ pub(crate) async fn get_settings_view_model_inner(
         preview_3d_profile,
         google_api_key,
         has_google_api_key,
-        ai_vision_auto,
         ai_batch_size,
         ai_delay,
         ai_gemini_model,
@@ -184,12 +179,6 @@ pub(crate) async fn save_settings_view_model_inner(
         .await
         .map_err(|e| AppError::database(e.to_string()))?;
 
-    upsert_setting(
-        &mut conn,
-        KEY_AI_VISION_AUTO,
-        bool_to_setting(request.ai_vision_auto),
-    )
-    .await?;
     upsert_setting(&mut conn, KEY_AI_BATCH_SIZE, &ai_batch_size).await?;
     upsert_setting(&mut conn, KEY_AI_DELAY, &ai_delay).await?;
     upsert_setting(
@@ -375,7 +364,6 @@ pub(crate) async fn upsert_setting(
 
 pub(crate) fn default_for_key(key: &str) -> &'static str {
     match key {
-        KEY_AI_VISION_AUTO => "false",
         KEY_AI_GOOGLE_API_KEY => "",
         KEY_AI_BATCH_SIZE => "",
         KEY_AI_DELAY => "",
@@ -393,7 +381,6 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
 
 pub(crate) fn description_for_key(key: &str) -> &'static str {
     match key {
-        KEY_AI_VISION_AUTO => "Run Visual AI (Gemini vision from the preview image) automatically during import when a Google API key is present.",
         KEY_AI_GOOGLE_API_KEY => "Google Gemini API key used for optional automated AI tagging.",
         KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
         KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank for no delay on paid, or 10 s on the free tier. Increase if you hit 429 errors.",

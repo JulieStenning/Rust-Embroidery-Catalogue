@@ -28,7 +28,6 @@
 
   let settingsGoogleApiKey = $state("");
   let settingsApiKeyRevealed = $state(false);
-  let settingsAiVisionAuto = $state(false);
   let settingsAiBatchSize = $state("");
   let settingsAiDelay = $state("");
   let settingsAiGeminiModel = $state("");
@@ -78,7 +77,6 @@
   /** @param {Partial<SettingsViewModel>} [model] */
   function applySettingsModel(model = {}) {
     settingsGoogleApiKey = String(model?.google_api_key || "");
-    settingsAiVisionAuto = Boolean(model?.ai_vision_auto);
     settingsAiBatchSize = String(model?.ai_batch_size || "");
     settingsAiDelay = String(model?.ai_delay || "");
     settingsAiGeminiModel = String(model?.ai_gemini_model || "");
@@ -257,7 +255,6 @@
       /** @type {SaveSettingsRequest} */
       const request = {
         google_api_key: settingsGoogleApiKey,
-        ai_vision_auto: settingsAiVisionAuto,
         ai_batch_size: settingsNumericToString(settingsAiBatchSize),
         ai_delay: settingsNumericToString(settingsAiDelay),
         ai_gemini_model: settingsAiGeminiModel,
@@ -505,57 +502,19 @@
       </div>
 
       <div class="border-t pt-4">
-        <h2 class="text-sm font-semibold text-gray-700 mb-1">AI tagging during import</h2>
-        <p class="text-sm text-gray-600 mb-3">
-          Control how designs are tagged when you import them. <strong>File & Folder Rules</strong>
-          always runs — it performs instantaneous, local matching of filenames and folder paths
-          against your tag catalogue, and is always free. <strong>Visual AI</strong> analyzes each
-          design's rendered thumbnail using Google's Gemini Vision API and requires an API key.
-        </p>
-
-        {#if settingsHasGoogleApiKey}
-          <div class="bg-amber-50 border border-amber-300 rounded p-3 mb-3 text-sm text-amber-900">
-            <strong>⚠ Cost notice:</strong> Gemini usage may incur charges on your Google account.
-            Free-tier limits are approximately <strong>15 requests per minute</strong> and
-            <strong>1,500 requests per day</strong>. A historical estimate from February 2026 found
-            that Visual AI on 4,000 images cost about
-            <strong>$0.33 on the paid tier</strong>; actual pricing may have changed. Check the
-            latest rates at
-            <a href="https://ai.google.dev/pricing" class="underline" target="_blank" rel="noopener"
-              >ai.google.dev/pricing</a
-            >.
-          </div>
-        {:else}
-          <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-3 text-sm text-blue-900">
-            No API key is saved. Visual AI tagging below will have no effect until you add a key
-            above.
-          </div>
-        {/if}
-
-        <div class="space-y-2">
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <label class="flex flex-col gap-1 text-sm text-gray-700 cursor-pointer">
+          <span class="flex items-center gap-2">
             <input
               type="checkbox"
-              bind:checked={settingsAiVisionAuto}
+              bind:checked={settingsAiFreeTier}
               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            Run <strong>Visual AI</strong> (Gemini vision from preview image) automatically during
-            import
-          </label>
-          <label class="flex flex-col gap-1 text-sm text-gray-700 cursor-pointer">
-            <span class="flex items-center gap-2">
-              <input
-                type="checkbox"
-                bind:checked={settingsAiFreeTier}
-                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              My Google API key is on the <strong>free tier</strong>
-            </span>
-            <span class="text-xs text-gray-500"
-              >Tick this only if your key is on the free tier - it has stricter rate limits.</span
-            >
-          </label>
-        </div>
+            My Google API key is on the <strong>free tier</strong>
+          </span>
+          <span class="text-xs text-gray-500"
+            >Tick this only if your key is on the free tier - it has stricter rate limits.</span
+          >
+        </label>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">

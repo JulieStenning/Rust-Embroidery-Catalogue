@@ -1507,7 +1507,6 @@ describe("commandAdapter settings", () => {
     preview_3d_profile: "balanced",
     google_api_key: "",
     has_google_api_key: false,
-    ai_vision_auto: false,
     ai_batch_size: "50",
     ai_delay: "100",
     import_commit_batch_size: "200",
@@ -1545,7 +1544,6 @@ describe("commandAdapter settings", () => {
 
     const request = {
       google_api_key: "k",
-      ai_vision_auto: false,
       ai_batch_size: "1",
       ai_delay: "2",
       ai_gemini_model: "",
@@ -1572,7 +1570,6 @@ describe("commandAdapter settings", () => {
 
     const request = {
       google_api_key: "k",
-      ai_vision_auto: false,
       ai_batch_size: "1",
       ai_delay: "2",
       ai_gemini_model: "",

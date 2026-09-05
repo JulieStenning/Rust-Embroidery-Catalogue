@@ -14,7 +14,6 @@ use sqlx::SqlitePool;
 // ---------------------------------------------------------------------
 #[test]
 fn default_for_key_known_keys() {
-    assert_eq!(default_for_key(KEY_AI_VISION_AUTO), "false");
     assert_eq!(default_for_key(KEY_AI_GOOGLE_API_KEY), "");
     assert_eq!(default_for_key(KEY_AI_BATCH_SIZE), "");
     assert_eq!(default_for_key(KEY_AI_DELAY), "");
@@ -35,7 +34,6 @@ fn default_for_key_unknown_key_falls_back_to_empty() {
 // ---------------------------------------------------------------------
 #[test]
 fn description_for_key_known_keys() {
-    assert!(description_for_key(KEY_AI_VISION_AUTO).contains("Visual AI"));
     assert!(description_for_key(KEY_AI_GOOGLE_API_KEY).contains("Google Gemini API key"));
     assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("Maximum number of designs"));
     assert!(description_for_key(KEY_AI_DELAY).contains("Seconds to wait"));

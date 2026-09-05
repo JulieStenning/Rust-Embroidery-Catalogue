@@ -19,7 +19,6 @@
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
   let settingsHasGoogleApiKey = $state(false);
-  let settingsAiVisionAuto = $state(false);
   let settingsImportLastBrowseFolder = $state("");
   let settingsLoaded = $state(false);
   let settingsLoading = $state(false);
@@ -157,7 +156,6 @@
       settingsHasGoogleApiKey = Boolean(
         model?.google_api_key && String(model.google_api_key).trim().length > 0
       );
-      settingsAiVisionAuto = Boolean(model?.ai_vision_auto);
       settingsImportLastBrowseFolder = String(model?.import_last_browse_folder || "").trim();
       settingsLoaded = true;
     } catch (e) {
@@ -1406,18 +1404,6 @@
               Google AI tagging is enabled for this installation.
             </p>
             <p class="ui-help-note text-amber-900">
-              Your saved settings will run AI tagging as follows during this import:
-            </p>
-            <ul class="ui-help-note list-disc pl-5 space-y-1 text-amber-900">
-              <li>
-                <strong
-                  >Visual AI (Gemini vision) - {settingsAiVisionAuto ? "enabled" : "not enabled"}.</strong
-                >
-                Visual AI sends each design's preview image to Gemini to suggest tags for designs left
-                untagged by File & Folder Rules.
-              </li>
-            </ul>
-            <p class="ui-help-note text-amber-900">
               <strong>File & Folder Rules</strong> always run — they match the file name and folder
               path against your existing tags. This runs locally and does not call Gemini.
             </p>
@@ -1457,7 +1443,7 @@
               No Google API key is currently saved, so this import will use <strong
                 >File & Folder Rules only</strong
               > and no Gemini calls will be made. If you want AI-assisted tagging, add an API key in
-              Settings and enable Visual AI.
+              Settings and use Visual AI from the Tagging Actions page.
             </p>
             <p class="text-xs text-blue-900 pt-1">
               <a href="#/admin/settings" class="underline font-medium">Admin Settings</a>

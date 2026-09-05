@@ -49,7 +49,6 @@ const settingsResponse = (dataRoot = "") => ({
     preview_3d_profile: "balanced",
     google_api_key: "",
     has_google_api_key: false,
-    ai_vision_auto: false,
     ai_batch_size: "",
     ai_delay: "",
     import_commit_batch_size: "",

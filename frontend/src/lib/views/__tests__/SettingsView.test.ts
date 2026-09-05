@@ -49,7 +49,6 @@ const defaultModel: SettingsViewModel = {
   preview_3d_profile: "balanced",
   google_api_key: "AIza-SY-Key",
   has_google_api_key: true,
-  ai_vision_auto: false,
   ai_batch_size: "100",
   ai_delay: "6.0",
   ai_gemini_model: "",
@@ -135,7 +134,6 @@ describe("SettingsView.svelte", () => {
     expect(screen.getByLabelText(/Delay between Gemini calls/)).toHaveValue(6.0);
     expect(screen.getByLabelText(/Import database commit batch size/)).toHaveValue(10);
     expect(screen.getByLabelText(/Database health check interval/)).toHaveValue(1800);
-    expect(screen.getByLabelText(/Run Visual AI/)).not.toBeChecked();
 
     const dataRootInput = screen.getByLabelText("Catalogue data location");
     expect(dataRootInput).toHaveValue("D:\\EmbroideryData\\MachineEmbroideryDesigns");
@@ -183,14 +181,12 @@ describe("SettingsView.svelte", () => {
     // Fallback defaults applied from the empty model.
     expect(screen.getByLabelText("API key")).toHaveValue("");
     expect(screen.getByLabelText(/Database health check interval/)).toHaveValue(1800);
-    expect(screen.getByLabelText(/Run Visual AI/)).not.toBeChecked();
 
     // can_configure_data_root is false → browse input hidden, dev-mode note shown.
     expect(screen.queryByRole("button", { name: "Browse…" })).not.toBeInTheDocument();
     expect(screen.getByText(/In development mode this location follows/)).toBeInTheDocument();
 
-    // No API key → blue notice + "leave blank" hint.
-    expect(screen.getByText(/No API key is saved/)).toBeInTheDocument();
+    // No API key → "leave blank" hint.
     expect(
       screen.getByText(/Leave this blank if you only want keyword-based tagging/)
     ).toBeInTheDocument();
@@ -227,7 +223,7 @@ describe("SettingsView.svelte", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("shows the cost notice and saved-key hint when an API key is configured", async () => {
+  it("shows the saved-key hint when an API key is configured", async () => {
     renderView();
 
     await waitForSettingsLoaded();
@@ -236,8 +232,6 @@ describe("SettingsView.svelte", () => {
     expect(
       screen.queryByText(/Leave this blank if you only want keyword-based tagging/)
     ).not.toBeInTheDocument();
-    expect(screen.getByText("⚠ Cost notice:")).toBeInTheDocument();
-    expect(screen.queryByText(/No API key is saved/)).not.toBeInTheDocument();
   });
 
   it("treats a whitespace-only API key as empty", async () => {
@@ -250,8 +244,6 @@ describe("SettingsView.svelte", () => {
     expect(
       screen.getByText(/Leave this blank if you only want keyword-based tagging/)
     ).toBeInTheDocument();
-    expect(screen.getByText(/No API key is saved/)).toBeInTheDocument();
-    expect(screen.queryByText("⚠ Cost notice:")).not.toBeInTheDocument();
   });
 
   // -- Save settings -------------------------------------------------------
@@ -275,7 +267,6 @@ describe("SettingsView.svelte", () => {
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalledWith({
         google_api_key: "AIza-SY-Key",
-        ai_vision_auto: false,
         ai_batch_size: "100",
         ai_delay: "6.0",
         ai_gemini_model: "",
@@ -317,7 +308,6 @@ describe("SettingsView.svelte", () => {
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalledWith({
         google_api_key: "AIza-SY-Key",
-        ai_vision_auto: false,
         ai_batch_size: "100",
         ai_delay: "0",
         ai_gemini_model: "",

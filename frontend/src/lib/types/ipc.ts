@@ -265,7 +265,6 @@ export interface SettingsViewModel {
   preview_3d_profile: string;
   google_api_key: string;
   has_google_api_key: boolean;
-  ai_vision_auto: boolean;
   ai_batch_size: string;
   ai_delay: string;
   ai_gemini_model: string;
@@ -287,7 +286,6 @@ export interface SettingsViewModel {
 export interface SaveSettingsRequest {
   preview_3d_profile?: string;
   google_api_key: string;
-  ai_vision_auto: boolean;
   ai_batch_size: string;
   ai_delay: string;
   ai_gemini_model: string;

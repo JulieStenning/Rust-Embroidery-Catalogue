@@ -1773,7 +1773,6 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
       preview_3d_profile: "balanced",
       google_api_key: "",
       has_google_api_key: false,
-      ai_vision_auto: false,
       ai_batch_size: "",
       ai_delay: "",
       ai_gemini_model: "",
