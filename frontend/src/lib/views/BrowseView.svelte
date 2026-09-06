@@ -883,7 +883,10 @@
     if (browseSelectedIds.size === 0) return;
 
     const clearAll = browseBulkClearAll;
-    const addIds = clearAll ? [] : browseBulkTagAddIds;
+    // When 'Untagged' is active, `clear_all_tags` wipes every original tag and
+    // any tags the user ticked afterwards become the replacement set, so we must
+    // NOT drop browseBulkTagAddIds just because clearAll is true.
+    const addIds = browseBulkTagAddIds;
 
     // Classify the per-category changes so we only set verification flags for
     // categories that were actually touched by this batch, per the decision
@@ -1936,11 +1939,15 @@
             <input
               type="checkbox"
               checked={browseBulkClearAll}
-              disabled={browseBulkTagAddIds.length > 0 ||
-                browseBulkTagRemoveIds.length > 0 ||
-                browseBulkTagIndeterminateIds.length > 0}
               onchange={(event) => {
                 browseBulkClearAll = event.currentTarget.checked;
+                // Untagged = replace mode: wipe every on-screen tag selection so
+                // the design will end up empty. Any tag ticked afterwards becomes
+                // the new (replacement) tag set, applied only when 'Apply tags'
+                // is pressed. Cancel never touches the database.
+                browseBulkTagAddIds = [];
+                browseBulkTagRemoveIds = [];
+                browseBulkTagIndeterminateIds = [];
               }}
             />
             <span>Untagged (clear all tags)</span>
@@ -1960,7 +1967,6 @@
                     class="tag-chooser-option"
                     role="checkbox"
                     aria-checked={tagChooserAria(tagOption.id)}
-                    disabled={browseBulkClearAll}
                     onclick={() => toggleTagChooserSelection(tagOption.id)}
                   >
                     <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
@@ -1985,7 +1991,6 @@
                     class="tag-chooser-option"
                     role="checkbox"
                     aria-checked={tagChooserAria(tagOption.id)}
-                    disabled={browseBulkClearAll}
                     onclick={() => toggleTagChooserSelection(tagOption.id)}
                   >
                     <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
@@ -2010,7 +2015,6 @@
                     class="tag-chooser-option"
                     role="checkbox"
                     aria-checked={tagChooserAria(tagOption.id)}
-                    disabled={browseBulkClearAll}
                     onclick={() => toggleTagChooserSelection(tagOption.id)}
                   >
                     <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>

@@ -1472,23 +1472,40 @@ describe("BrowseView", () => {
       });
     });
 
-    it("clears all tags when 'Untagged' is selected (clearAllTags=true)", async () => {
+    it("lets 'Untagged' clear tags on an already-tagged design (clearAllTags=true)", async () => {
+      // A design that ALREADY has a tag — the case that previously left the
+      // Untagged checkbox disabled (addIds was non-empty when the modal opened).
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "design-1.pes", tags: ["Floral"] })])
+      );
       adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
 
-      await selectItems(2);
+      // Render manually (selectItems would overwrite the fixture with tag-less designs).
+      renderBrowse();
+      await waitFor(() => {
+        expect(screen.getByText("design-1.pes")).toBeInTheDocument();
+      });
+      const allCheckbox = screen.getByTestId("select-all-page-checkbox") as HTMLInputElement;
+      await fireEvent.click(allCheckbox);
 
       await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
 
       const dialog = screen.getByRole("dialog");
 
-      // Check Untagged (clear all tags) — a native checkbox.
+      // Floral is present on the design, so it starts checked [✓]...
+      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
+      expect(floralButton).toHaveAttribute("aria-checked", "true");
+
+      // ...and the Untagged checkbox must still be usable (it was disabled before).
       const untaggedLabel = within(dialog).getByText("Untagged (clear all tags)").closest("label");
       const untaggedCheckbox = untaggedLabel?.querySelector("input") as HTMLInputElement;
-      await fireEvent.click(untaggedCheckbox);
+      expect(untaggedCheckbox.disabled).toBe(false);
 
-      // The Floral tri-state button should be disabled now.
-      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
-      expect((floralButton as HTMLButtonElement).disabled).toBe(true);
+      // Ticking Untagged clears every tag on screen and keeps the options usable.
+      await fireEvent.click(untaggedCheckbox);
+      await tick();
+      expect(floralButton).toHaveAttribute("aria-checked", "false");
+      expect((floralButton as HTMLButtonElement).disabled).toBe(false);
 
       await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
 
@@ -1498,6 +1515,71 @@ describe("BrowseView", () => {
         expect(args[2]).toEqual([]); // tagsToRemove empty when clearing
         expect(args[3]).toBe(true); // clearAllTags true
       });
+    });
+
+    it("replaces original tags when 'Untagged' is ticked and then a tag is added", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "design-1.pes", tags: ["Floral"] })])
+      );
+      adapterMocks.getBrowseTags.mockResolvedValue(
+        listResponse([tagOption(1, "Floral", "image"), tagOption(2, "Satin", "stitching")])
+      );
+
+      renderBrowse();
+      await waitFor(() => {
+        expect(screen.getByText("design-1.pes")).toBeInTheDocument();
+      });
+      const allCheckbox = screen.getByTestId("select-all-page-checkbox") as HTMLInputElement;
+      await fireEvent.click(allCheckbox);
+
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+      const untaggedLabel = within(dialog).getByText("Untagged (clear all tags)").closest("label");
+      const untaggedCheckbox = untaggedLabel?.querySelector("input") as HTMLInputElement;
+
+      await fireEvent.click(untaggedCheckbox);
+      await tick();
+
+      // Satin is brand-new; ticking it while Untagged is on replaces Floral.
+      const satinButton = within(dialog).getByRole("checkbox", { name: /Satin/ });
+      await fireEvent.click(satinButton);
+      await tick();
+      expect(satinButton).toHaveAttribute("aria-checked", "true");
+
+      await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
+
+      await waitFor(() => {
+        const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
+        expect(args[1]).toEqual([2]); // Satin replaces Floral
+        expect(args[3]).toBe(true); // clearAllTags true
+      });
+    });
+
+    it("makes no DB change when 'Untagged' is ticked and then Cancel is pressed", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "design-1.pes", tags: ["Floral"] })])
+      );
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
+
+      renderBrowse();
+      await waitFor(() => {
+        expect(screen.getByText("design-1.pes")).toBeInTheDocument();
+      });
+      const allCheckbox = screen.getByTestId("select-all-page-checkbox") as HTMLInputElement;
+      await fireEvent.click(allCheckbox);
+
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+      const untaggedLabel = within(dialog).getByText("Untagged (clear all tags)").closest("label");
+      const untaggedCheckbox = untaggedLabel?.querySelector("input") as HTMLInputElement;
+      await fireEvent.click(untaggedCheckbox);
+
+      await fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+      // Cancel must never touch the database.
+      expect(adapterMocks.bulkSetTagsForDesigns).not.toHaveBeenCalled();
     });
 
     it("excludes indeterminate (mixed) tags from the save payload", async () => {
