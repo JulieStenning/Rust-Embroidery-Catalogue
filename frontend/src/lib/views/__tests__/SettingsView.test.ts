@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
 import { tick } from "svelte";
+import { resetBusy } from "../../stores/busyStore.js";
 import SettingsView from "../SettingsView.svelte";
 import type { SettingsViewModel, DbStats } from "../../types/ipc";
 
@@ -100,6 +101,10 @@ async function waitForSettingsLoaded() {
 // ---------------------------------------------------------------------------
 describe("SettingsView.svelte", () => {
   beforeEach(() => {
+    // Some earlier cases (e.g. the never-resolving "Compacting…" test) leave the
+    // process-global busy store locked, which disables the header Save button for
+    // later cases. Reset it so the dirty-state assertions are reliable.
+    resetBusy();
     vi.clearAllMocks();
     addToastMock.mockClear();
     mockSettings();
@@ -914,5 +919,75 @@ describe("SettingsView.svelte", () => {
 
     const link = screen.getByText("Press here for more information.");
     expect(link).toHaveAttribute("href", "#/help/settings");
+  });
+
+  // -- Dirty-state Save button (sticky header) ------------------------------
+
+  it("disables Save when the form matches the persisted state", async () => {
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const save = screen.getByRole("button", { name: "Save settings" });
+    expect(save).toBeDisabled();
+    expect(screen.queryByTestId("settings-dirty-hint")).not.toBeInTheDocument();
+  });
+
+  it("enables Save and shows an unsaved-changes hint once a field is edited", async () => {
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const apiKey = screen.getByLabelText("API key");
+    await fireEvent.input(apiKey, { target: { value: "AIza-CHANGED" } });
+    await tick();
+
+    const save = screen.getByRole("button", { name: "Save settings" });
+    expect(save).toBeEnabled();
+    expect(screen.getByTestId("settings-dirty-hint")).toBeInTheDocument();
+  });
+
+  it("returns Save to a disabled/clean state after a successful save", async () => {
+    saveSettingsMock.mockResolvedValue({
+      source: "rust",
+      saved: true,
+      message: "All good.",
+      persisted: true,
+    });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const apiKey = screen.getByLabelText("API key");
+    await fireEvent.input(apiKey, { target: { value: "AIza-CHANGED" } });
+    await tick();
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalled();
+    });
+    // Dirty flag resets once the newly-persisted state becomes the baseline.
+    await waitFor(() => {
+      expect(screen.queryByTestId("settings-dirty-hint")).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled();
+  });
+
+  it("does not mark the form dirty when only the catalogue path changes", async () => {
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    // The data-root/library path is relocated via Browse -> migration -> restart,
+    // never via the Save button, so editing it must not enable Save.
+    const dataRootInput = screen.getByLabelText("Catalogue data location");
+    await fireEvent.input(dataRootInput, { target: { value: "E:\\Other" } });
+    await tick();
+
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled();
+    expect(screen.queryByTestId("settings-dirty-hint")).not.toBeInTheDocument();
   });
 });

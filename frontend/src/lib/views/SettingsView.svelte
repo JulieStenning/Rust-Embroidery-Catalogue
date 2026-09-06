@@ -21,6 +21,12 @@
   /** @typedef {import("../types/ipc").SaveSettingsRequest} SaveSettingsRequest */
   /** @typedef {import("../types/ipc").DbStats} DbStats */
   /** @typedef {import("../types/ipc").CompactResult} CompactResult */
+  /**
+   * Subset of SaveSettingsRequest that is both editable in the form and
+   * actually persisted by `saveSettings` (deliberately excludes `data_root`,
+   * which is only ever changed via the catalogue migration -> restart flow).
+   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; import_commit_batch_size: string; db_idle_check_interval_secs: string; }} EditableSettingsValues
+   */
 
   let settingsLoading = $state(false);
   let settingsLoaded = $state(false);
@@ -42,6 +48,14 @@
   let settingsDbIdleCheckIntervalSecs = $state("1800");
   let dbStats = $state(/** @type {DbStats | null} */ (null));
   let isCompacting = $state(false);
+
+  // Clean/known-persisted snapshot of the editable values that `saveSettings`
+  // actually persists to SQLite. `data_root` is intentionally excluded: it is
+  // only ever changed via the catalogue migration -> restart flow (the backend
+  // ignores it on a normal save), so moving the catalogue must not leave the
+  // Save button permanently "dirty".
+  /** @type {EditableSettingsValues | null} */
+  let settingsBaseline = $state(null);
 
   let settingsCanConfigureDataRoot = $state(false);
   let settingsDataRoot = $state("");
@@ -69,6 +83,54 @@
   // workers/delay pair so runs stay under the ~15 requests/minute limit.
   let settingsDefaultWorkers = $derived(settingsAiFreeTier ? 2 : 4);
   let settingsDefaultDelay = $derived(settingsAiFreeTier ? "10" : "0");
+
+  /**
+   * Normalised current values of the editable, Save-persisted fields. Shared by
+   * the dirty check and the save-request builder so they always agree.
+   * @returns {EditableSettingsValues}
+   */
+  function currentEditableValues() {
+    return {
+      google_api_key: settingsGoogleApiKey,
+      ai_batch_size: settingsNumericToString(settingsAiBatchSize),
+      ai_delay: settingsNumericToString(settingsAiDelay),
+      ai_gemini_model: settingsAiGeminiModel,
+      ai_commit_every: settingsNumericToString(settingsAiCommitEvery),
+      ai_workers: settingsNumericToString(settingsAiWorkers),
+      ai_free_tier: settingsAiFreeTier,
+      import_commit_batch_size: settingsNumericToString(settingsImportCommitBatchSize),
+      db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
+    };
+  }
+
+  /** Full save request for the IPC layer (editable values + data_root). */
+  function buildSettingsPayload() {
+    return { ...currentEditableValues(), data_root: settingsDataRoot };
+  }
+
+  /**
+   * True once the form differs from the last state loaded from or saved to the
+   * database. Reads every editable field so it reacts to the user typing.
+   * @returns {boolean}
+   */
+  function isEditableDirty() {
+    const cur = currentEditableValues();
+    const base = settingsBaseline;
+    if (base === null) return false;
+    return (
+      cur.google_api_key !== base.google_api_key ||
+      cur.ai_batch_size !== base.ai_batch_size ||
+      cur.ai_delay !== base.ai_delay ||
+      cur.ai_gemini_model !== base.ai_gemini_model ||
+      cur.ai_commit_every !== base.ai_commit_every ||
+      cur.ai_workers !== base.ai_workers ||
+      cur.ai_free_tier !== base.ai_free_tier ||
+      cur.import_commit_batch_size !== base.import_commit_batch_size ||
+      cur.db_idle_check_interval_secs !== base.db_idle_check_interval_secs
+    );
+  }
+
+  let settingsIsDirty = $derived(isEditableDirty());
 
   function toggleSettingsApiKeyVisibility() {
     settingsApiKeyRevealed = !settingsApiKeyRevealed;
@@ -222,6 +284,9 @@
     try {
       const result = await getSettingsViewModel();
       applySettingsModel(result.model);
+      // Snapshot the freshly-loaded persisted state as the "clean" baseline so
+      // the Save button starts disabled until the user makes a change.
+      settingsBaseline = currentEditableValues();
       settingsLoaded = true;
     } catch (error) {
       addToast(`Could not load settings: ${error}`, "error");
@@ -252,24 +317,14 @@
     settingsSaveState = "saving";
 
     try {
-      /** @type {SaveSettingsRequest} */
-      const request = {
-        google_api_key: settingsGoogleApiKey,
-        ai_batch_size: settingsNumericToString(settingsAiBatchSize),
-        ai_delay: settingsNumericToString(settingsAiDelay),
-        ai_gemini_model: settingsAiGeminiModel,
-        ai_commit_every: settingsNumericToString(settingsAiCommitEvery),
-        ai_workers: settingsNumericToString(settingsAiWorkers),
-        ai_free_tier: settingsAiFreeTier,
-        import_commit_batch_size: settingsNumericToString(settingsImportCommitBatchSize),
-        data_root: settingsDataRoot,
-        db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
-      };
+      const request = buildSettingsPayload();
 
       const result = await saveSettings(request);
 
       if (result.saved) {
         settingsSaveState = "saved";
+        // The newly-persisted state becomes the clean baseline (resets dirty).
+        settingsBaseline = currentEditableValues();
         addToast(result.message || "Settings saved successfully.", "success");
       } else {
         settingsSaveState = "error";
@@ -438,8 +493,6 @@
 </script>
 
 <section class="settings-page space-y-6">
-  <h1 class="ui-page-title settings-title mb-6">Application Settings</h1>
-
   <div class="settings-layout max-w-3xl space-y-6">
     {#if settingsLoading && !settingsLoaded}
       <div
@@ -449,12 +502,36 @@
       </div>
     {/if}
 
-    <form
-      class="settings-card settings-form bg-white rounded shadow p-6 space-y-5"
-      onsubmit={saveSettingsFromBackend}
-    >
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
+    <form class="settings-card settings-form bg-white rounded shadow" onsubmit={saveSettingsFromBackend}>
+      <div
+        class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-gray-200 bg-white/95 px-6 py-4 backdrop-blur"
+        data-testid="settings-header"
+      >
+        <h1 class="ui-page-title settings-title text-lg font-bold text-gray-800">Application Settings</h1>
+        <div class="flex shrink-0 items-center gap-3">
+          {#if settingsIsDirty}
+            <span
+              class="flex items-center gap-1.5 text-xs font-medium text-indigo-600"
+              data-testid="settings-dirty-hint"
+            >
+              <span aria-hidden="true" class="inline-block h-2 w-2 rounded-full bg-indigo-600"></span>
+              Unsaved changes
+            </span>
+          {/if}
+          <button
+            type="submit"
+            class="settings-primary-button menu-button-primary"
+            disabled={!settingsIsDirty || settingsSaveState === "saving" || busyActive || (settingsLoading && !settingsLoaded)}
+            title={settingsIsDirty ? "Save your changes" : "No unsaved changes"}
+          >
+            {settingsSaveState === "saving" ? "Saving..." : "Save settings"}
+          </button>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-5">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
         <p class="text-sm text-gray-600">
           The Google API key is only required if you want your designs to be tagged automatically by
           Google AI.
@@ -692,45 +769,6 @@
       </div>
 
       <div class="border-t pt-4 space-y-3">
-        <h2 class="text-sm font-semibold text-gray-700 mb-1">Database Maintenance</h2>
-        <p class="text-sm text-gray-600">
-          The catalogue database can grow as designs are added, edited and removed. This shows
-          current storage usage and lets you compact the database to reclaim unused space. Your
-          embroidery files are never modified.
-        </p>
-
-        {#if dbStats}
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div class="bg-gray-50 border rounded p-3">
-              <p class="text-xs font-semibold text-gray-500 uppercase">Database size</p>
-              <p class="text-lg font-bold text-gray-800">{formatBytes(dbStats.file_size_bytes)}</p>
-            </div>
-            <div class="bg-gray-50 border rounded p-3">
-              <p class="text-xs font-semibold text-gray-500 uppercase">Recoverable</p>
-              <p class="text-lg font-bold text-emerald-600">
-                {formatBytes(dbStats.reclaimable_bytes)}
-              </p>
-            </div>
-          </div>
-        {:else}
-          <p class="text-xs text-gray-500 italic">Database statistics unavailable.</p>
-        {/if}
-
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          onclick={runManualCompaction}
-          disabled={isCompacting || busyActive}
-        >
-          {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
-        </button>
-        <p class="text-xs text-gray-500">
-          Runs a full database optimisation (VACUUM + PRAGMA optimize). This may take a moment for
-          large databases and requires sufficient free disk space.
-        </p>
-      </div>
-
-      <div class="border-t pt-4 space-y-3">
         <h2 class="text-sm font-semibold text-gray-700 mb-1">Catalogue storage</h2>
         <p class="text-sm text-gray-600">
           Large catalogue data lives under a single home folder.
@@ -774,51 +812,87 @@
         {/if}
       </div>
 
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-xs text-gray-500">
-          These settings are stored in the catalogue database for this installation.
-        </p>
-        <button
-          type="submit"
-          class="settings-primary-button menu-button-primary"
-          disabled={settingsSaveState === "saving" || busyActive}
-        >
-          {settingsSaveState === "saving" ? "Saving..." : "Save settings"}
-        </button>
       </div>
     </form>
 
-    <div class="settings-card settings-meta bg-white rounded shadow p-6 space-y-5">
+    <div class="settings-card settings-meta bg-white rounded shadow p-6 space-y-6">
       <div>
-        <h2 class="text-sm font-semibold text-gray-700 mb-1">Storage locations</h2>
+        <h2 class="text-lg font-bold text-gray-800">Maintenance & diagnostics</h2>
+        <p class="mt-1 text-sm text-gray-600">
+          Database maintenance tools and the read-only storage layout for this installation. These
+          aren't part of the settings you save above.
+        </p>
+      </div>
+
+      <div class="border-t pt-5 space-y-3">
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Database Maintenance</h3>
+        <p class="text-sm text-gray-600">
+          The catalogue database can grow as designs are added, edited and removed. This shows
+          current storage usage and lets you compact the database to reclaim unused space. Your
+          embroidery files are never modified.
+        </p>
+
+        {#if dbStats}
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="bg-gray-50 border rounded p-3">
+              <p class="text-xs font-semibold text-gray-500 uppercase">Database size</p>
+              <p class="text-lg font-bold text-gray-800">{formatBytes(dbStats.file_size_bytes)}</p>
+            </div>
+            <div class="bg-gray-50 border rounded p-3">
+              <p class="text-xs font-semibold text-gray-500 uppercase">Recoverable</p>
+              <p class="text-lg font-bold text-emerald-600">
+                {formatBytes(dbStats.reclaimable_bytes)}
+              </p>
+            </div>
+          </div>
+        {:else}
+          <p class="text-xs text-gray-500 italic">Database statistics unavailable.</p>
+        {/if}
+
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          onclick={runManualCompaction}
+          disabled={isCompacting || busyActive}
+        >
+          {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
+        </button>
+        <p class="text-xs text-gray-500">
+          Runs a full database optimisation (VACUUM + PRAGMA optimize). This may take a moment for
+          large databases and requires sufficient free disk space.
+        </p>
+      </div>
+
+      <div class="border-t pt-5 space-y-3">
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Storage locations</h3>
         <p class="text-sm text-gray-600">
           The catalogue database and imported embroidery files live under the catalogue data
           location shown below. Logs are stored separately so they survive data moves.
         </p>
-      </div>
 
-      <div>
-        <p class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</p>
-        <code
-          class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
-          >{settingsDataRoot}</code
-        >
-      </div>
+        <div>
+          <p class="block text-sm font-semibold text-gray-700 mb-1">Catalogue data location</p>
+          <code
+            class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
+            >{settingsDataRoot}</code
+          >
+        </div>
 
-      <div>
-        <p class="block text-sm font-semibold text-gray-700 mb-1">Log folder</p>
-        <code
-          class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
-          >{settingsLogFolder}</code
-        >
-      </div>
+        <div>
+          <p class="block text-sm font-semibold text-gray-700 mb-1">Log folder</p>
+          <code
+            class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
+            >{settingsLogFolder}</code
+          >
+        </div>
 
-      <div>
-        <p class="block text-sm font-semibold text-gray-700 mb-1">Database</p>
-        <code
-          class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
-          >{settingsDatabasePath}</code
-        >
+        <div>
+          <p class="block text-sm font-semibold text-gray-700 mb-1">Database</p>
+          <code
+            class="settings-code block bg-gray-50 border rounded px-3 py-2 text-sm font-mono break-all"
+            >{settingsDatabasePath}</code
+          >
+        </div>
       </div>
     </div>
   </div>
