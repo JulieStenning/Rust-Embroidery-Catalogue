@@ -156,6 +156,7 @@
     rating: "",
     stitched: "",
     unverifiedOnly: false,
+    needsAttention: false,
     searchFilename: true,
     searchTags: true,
     searchFolder: true,
@@ -180,6 +181,7 @@
       browseFilters.rating === "" &&
       browseFilters.stitched === "" &&
       !browseFilters.unverifiedOnly &&
+      !browseFilters.needsAttention &&
       browseFilters.searchFilename &&
       browseFilters.searchTags &&
       browseFilters.searchFolder &&
@@ -439,6 +441,7 @@
           hoop_size: browseFilters.hoop || null,
           min_rating: browseFilters.rating ? Number(browseFilters.rating) : null,
           stitched_status: stitchedStatus,
+          needs_attention: browseFilters.needsAttention,
         },
       };
       const [result, fullIds] = await Promise.all([
@@ -1551,6 +1554,20 @@
               </select>
             </label>
           </div>
+
+          <label class="flex items-center gap-2 pt-1 cursor-pointer">
+            <input
+              type="checkbox"
+              class="accent-indigo-600 rounded"
+              checked={browseFilters.needsAttention}
+              onchange={(event) =>
+                updateBrowseFilter("needsAttention", event.currentTarget.checked)}
+            />
+            <span>Needs attention</span>
+          </label>
+          <p class="text-[11px] text-gray-400 leading-snug">
+            Designs with no preview image — the file may be corrupt or unreadable.
+          </p>
         </div>
       </div>
     </details>
@@ -1666,9 +1683,16 @@
                   </div>
                 {:else}
                   <div
-                    class="browse-card-image-frame bg-gray-50 p-2 flex items-center justify-center h-48 border-b text-xs text-gray-400 font-medium italic"
+                    class="browse-card-image-frame bg-gray-50 p-3 flex items-center justify-center h-48 border-b"
                   >
-                    {browsePreviewsLoading ? "Loading image..." : "No preview image"}
+                    <p
+                      class="text-xs text-gray-600 text-center leading-snug"
+                      data-testid="design-card-no-preview"
+                    >
+                      {browsePreviewsLoading
+                        ? "Loading image..."
+                        : "Preview could not be generated — the file may be corrupt or unreadable"}
+                    </p>
                   </div>
                 {/if}
                 <div class="browse-card-meta p-4 flex-1 flex flex-col justify-between">

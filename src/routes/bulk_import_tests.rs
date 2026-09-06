@@ -197,11 +197,9 @@ fn persist_bulk_import_confirm_wire_writes_image_fields_in_native_mode() {
         canonical_confirm: true,
     };
 
-    let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
-        &pool,
-        &confirm_wire,
-        None,
-    ))
+    let (persisted, _failed_decode) = tauri::async_runtime::block_on(
+        persist_bulk_import_confirm_wire(&pool, &confirm_wire, None),
+    )
     .expect("persist should succeed");
     assert_eq!(persisted, 1);
 
@@ -280,11 +278,9 @@ fn persist_bulk_import_confirm_wire_auto_backend_falls_back_safely_without_pytho
         canonical_confirm: true,
     };
 
-    let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
-        &pool,
-        &confirm_wire,
-        None,
-    ))
+    let (persisted, _failed_decode) = tauri::async_runtime::block_on(
+        persist_bulk_import_confirm_wire(&pool, &confirm_wire, None),
+    )
     .expect("persist should succeed even when python path is unavailable");
     assert_eq!(persisted, 1);
 
@@ -377,11 +373,9 @@ fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
         canonical_confirm: true,
     };
 
-    let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
-        &pool,
-        &confirm_wire,
-        None,
-    ))
+    let (persisted, _failed_decode) = tauri::async_runtime::block_on(
+        persist_bulk_import_confirm_wire(&pool, &confirm_wire, None),
+    )
     .expect("persist should succeed for .hus even when preview generation fails");
     assert_eq!(persisted, 1);
 
@@ -445,11 +439,9 @@ fn persist_bulk_import_confirm_wire_assigns_path_rule_keyword_tags() {
         canonical_confirm: true,
     };
 
-    let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
-        &pool,
-        &confirm_wire,
-        None,
-    ))
+    let (persisted, _failed_decode) = tauri::async_runtime::block_on(
+        persist_bulk_import_confirm_wire(&pool, &confirm_wire, None),
+    )
     .expect("persist should succeed");
     assert_eq!(persisted, 1);
 
@@ -525,11 +517,9 @@ fn persist_bulk_import_confirm_wire_assigns_stitching_tags() {
         canonical_confirm: true,
     };
 
-    let persisted = tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
-        &pool,
-        &confirm_wire,
-        None,
-    ))
+    let (persisted, _failed_decode) = tauri::async_runtime::block_on(
+        persist_bulk_import_confirm_wire(&pool, &confirm_wire, None),
+    )
     .expect("persist should succeed");
     assert_eq!(persisted, 1);
 
@@ -1866,7 +1856,7 @@ fn persist_bulk_import_confirm_if_initialized_no_pool() {
     };
 
     let result = persist_bulk_import_confirm_if_initialized(&confirm_wire, None);
-    assert_eq!(result, Ok(0));
+    assert_eq!(result, Ok((0, 0)));
 }
 
 #[test]
@@ -2576,9 +2566,10 @@ fn persist_bulk_import_confirm_wire_short_circuits_when_create_disabled() {
             context_token: None,
             canonical_confirm: true,
         };
-        let persisted = persist_bulk_import_confirm_wire(&pool, &confirm_wire, None)
-            .await
-            .expect("persist with create_on_import=false should succeed with no work");
+        let (persisted, _failed_decode) =
+            persist_bulk_import_confirm_wire(&pool, &confirm_wire, None)
+                .await
+                .expect("persist with create_on_import=false should succeed with no work");
         assert_eq!(persisted, 0);
     });
 }
@@ -2612,7 +2603,10 @@ fn folder_key_from_full_path_matches_frontend_grouping() {
         "C:/Designs/Big"
     );
     assert_eq!(folder_key_from_full_path("/vol/A/file.pes"), "/vol/A");
-    assert_eq!(folder_key_from_full_path("orphan.pes"), IMPORT_UNKNOWN_FOLDER);
+    assert_eq!(
+        folder_key_from_full_path("orphan.pes"),
+        IMPORT_UNKNOWN_FOLDER
+    );
     assert_eq!(folder_key_from_full_path(""), IMPORT_UNKNOWN_FOLDER);
     assert_eq!(folder_key_from_full_path("C:/file.pes"), "C:");
 }

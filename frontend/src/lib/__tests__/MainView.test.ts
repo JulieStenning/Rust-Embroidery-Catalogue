@@ -686,7 +686,7 @@ describe("browse card rendering", () => {
     expect(screen.getByLabelText("Verified")).toBeInTheDocument();
   });
 
-  it("shows the 'No preview image' placeholder once previews have loaded", async () => {
+  it("shows the 'Preview could not be generated' message once previews have loaded", async () => {
     adapterMock.getBrowseDesigns.mockResolvedValue(browseResponse([wireCard()]));
     adapterMock.getBrowseDesignPreviews.mockResolvedValue(
       browseResponse([{ id: 1, data_url: null }])
@@ -695,7 +695,7 @@ describe("browse card rendering", () => {
     renderAtHash("#/designs");
 
     await waitFor(() => {
-      expect(screen.getByText("No preview image")).toBeInTheDocument();
+      expect(screen.getByText(/Preview could not be generated/)).toBeInTheDocument();
     });
   });
 

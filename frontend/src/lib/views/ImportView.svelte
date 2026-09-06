@@ -702,8 +702,16 @@
       if (hashRoute) {
         if (hashRoute === "#/designs") {
           const persistedCount = Number(actionResult?.confirm_result?.persisted_design_count ?? 0);
+          const failedCount = Number(actionResult?.confirm_result?.failed_decode_count ?? 0);
           if (persistedCount >= 1 && typeof onImportCompleted === "function") {
             onImportCompleted(persistedCount);
+          }
+          if (failedCount >= 1) {
+            addToast(
+              `${failedCount} ${failedCount === 1 ? "file could" : "files could"} not be read during import (no preview was generated). Regenerate the image under Admin → Tagging Actions, or from each design's page.`,
+              "warning",
+              true
+            );
           }
           resetImportWizard();
         }
@@ -1032,6 +1040,7 @@
         const total = Number(payload?.total_count ?? payload?.totalCount ?? 0);
         const persisted = Number(payload?.persisted_count ?? payload?.persistedCount ?? 0);
         const committed = Number(payload?.committed_count ?? payload?.committedCount ?? persisted);
+        const failed = Number(payload?.failed_count ?? payload?.failedCount ?? 0);
         const currentFile = String(payload?.current_file ?? payload?.currentFile ?? "").trim();
         const currentFilename = currentFile.replace(/\\/g, "/").split("/").pop() || currentFile;
 
@@ -1068,16 +1077,19 @@
           return;
         }
         if (stage === "completed") {
+          const failedSuffix = failed > 0 ? `, ${failed} failed` : "";
           importProgressStatus =
             total > 0
-              ? `Completed ${processed}/${total} processed (${committed} imported)`
-              : `Completed ${committed} imported`;
+              ? `Completed ${processed}/${total} processed (${committed} imported${failedSuffix})`
+              : `Completed ${committed} imported${failedSuffix}`;
           return;
         }
         if (total > 0) {
-          importProgressStatus = `${processed}/${total} processed (${committed} imported)`;
+          importProgressStatus = `${processed}/${total} processed (${committed} imported${
+            failed > 0 ? `, ${failed} failed` : ""
+          })`;
         } else {
-          importProgressStatus = `${committed} imported`;
+          importProgressStatus = `${committed} imported${failed > 0 ? `, ${failed} failed` : ""}`;
         }
       });
     } catch (error) {

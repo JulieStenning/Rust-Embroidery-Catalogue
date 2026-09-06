@@ -1010,6 +1010,24 @@ describe("BrowseView", () => {
       });
       expect(screen.queryByText("verified.pes")).not.toBeInTheDocument();
     });
+
+    it("filters by 'Needs attention' checkbox in additional filters", async () => {
+      mockBackendDesigns([design({ id: 1, filename: "rose.pes" })]);
+
+      renderBrowse();
+      await settle();
+
+      await openFilters();
+
+      const needsCheckbox = screen.getByLabelText("Needs attention");
+      await fireEvent.click(needsCheckbox);
+
+      await waitFor(() => {
+        const calls = adapterMocks.getBrowseDesigns.mock.calls;
+        const lastPayload = calls[calls.length - 1]?.[0] || {};
+        expect(lastPayload.additional_filters?.needs_attention).toBe(true);
+      });
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -2066,7 +2084,7 @@ describe("BrowseView", () => {
       unmount();
     });
 
-    it('shows "No preview image" when preview is missing', async () => {
+    it('shows the "Preview could not be generated" message when preview is missing', async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([design({ id: 1, filename: "rose.pes" })])
       );
@@ -2074,7 +2092,7 @@ describe("BrowseView", () => {
 
       renderBrowse();
 
-      expect(await screen.findByText("No preview image")).toBeInTheDocument();
+      expect(await screen.findByText(/Preview could not be generated/)).toBeInTheDocument();
     });
 
     it("renders the preview image when data_url is available", async () => {
@@ -2351,7 +2369,7 @@ describe("BrowseView", () => {
 
       // The preview load fails gracefully; the card still renders.
       expect(await screen.findByText("rose.pes")).toBeInTheDocument();
-      expect(await screen.findByText("No preview image")).toBeInTheDocument();
+      expect(await screen.findByText(/Preview could not be generated/)).toBeInTheDocument();
     });
 
     it("handles filter reference load failure", async () => {

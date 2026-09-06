@@ -1213,11 +1213,11 @@ describe("DesignDetailView", () => {
   });
 
   describe("filepath and preview rendering", () => {
-    it("shows the 'No preview image saved yet.' placeholder when no data URL exists", async () => {
+    it("shows the 'Preview could not be generated' banner when no data URL exists", async () => {
       renderDetail();
 
       await waitFor(() => {
-        expect(screen.getByText("No preview image saved yet.")).toBeInTheDocument();
+        expect(screen.getByText(/Preview could not be generated/)).toBeInTheDocument();
       });
     });
 

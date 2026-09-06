@@ -628,8 +628,17 @@
             class="w-full rounded border border-gray-200 bg-white p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
           />
         {:else}
-          <div class="route-card p-6 text-gray-500 text-center italic text-sm">
-            No preview image saved yet.
+          <div
+            class="route-card border border-amber-300 bg-amber-50 p-4 text-center"
+            data-testid="design-no-preview-banner"
+          >
+            <p class="text-sm font-medium text-amber-800">
+              Preview could not be generated — the file may be corrupt or unreadable
+            </p>
+            <p class="text-xs text-amber-700 mt-1">
+              Use “Generate Preview” below to retry after checking the file, or replace the file on
+              disk and regenerate. “Show in Explorer” reveals where the file lives.
+            </p>
           </div>
         {/if}
 

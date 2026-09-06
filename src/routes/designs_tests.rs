@@ -2524,6 +2524,7 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
                 hoop_size: Some("Hoop A".to_string()),
                 min_rating: Some(4),
                 stitched_status: Some("yes".to_string()),
+                needs_attention: Some(false),
             }),
             page: Some(1),
             page_size: Some(50),
@@ -2537,6 +2538,53 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
     assert_eq!(result.total, 1);
     assert_eq!(result.items.len(), 1);
     assert_eq!(result.items[0].filename, "flower.pes");
+}
+
+#[tokio::test]
+async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
+    let pool = test_pool().await;
+
+    // A design WITH a stored preview must be excluded by the filter.
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, image_data, image_type, date_added) \
+         VALUES ('with_preview.pes', 'Folder/with_preview.pes', X'89504E47', '2d', DATE('now'))",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design with preview");
+
+    // A design WITHOUT a preview must match (the seeded rose.pes also has no preview).
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added) \
+         VALUES ('no_preview.pes', 'Folder/no_preview.pes', DATE('now'))",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design without preview");
+
+    let result = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                needs_attention: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("browse needs-attention query should succeed");
+
+    // rose.pes (no image) + no_preview.pes match; with_preview.pes does not.
+    assert_eq!(result.total, 2);
+    let filenames: Vec<&str> = result
+        .items
+        .iter()
+        .map(|item| item.filename.as_str())
+        .collect();
+    assert!(filenames.contains(&"rose.pes"));
+    assert!(filenames.contains(&"no_preview.pes"));
+    assert!(!filenames.contains(&"with_preview.pes"));
 }
 
 // ---------------------------------------------------------------------------

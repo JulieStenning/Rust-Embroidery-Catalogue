@@ -44,6 +44,7 @@ function defaultFilters(): BrowseFilterState {
     rating: "",
     stitched: "",
     unverifiedOnly: false,
+    needsAttention: false,
     searchFilename: true,
     searchTags: true,
     searchFolder: true,

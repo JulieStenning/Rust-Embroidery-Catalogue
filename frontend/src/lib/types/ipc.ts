@@ -6,6 +6,8 @@ export interface BrowseAdditionalFilters {
   hoop_size?: string | null;
   min_rating?: number | null;
   stitched_status?: "all" | "yes" | "no" | null;
+  /** When true, restrict to designs with no stored preview (the flagged "needs attention" set). */
+  needs_attention?: boolean;
 }
 
 export interface SearchPayload {
@@ -41,6 +43,7 @@ export interface BrowseFilterState {
   rating: string;
   stitched: string;
   unverifiedOnly: boolean;
+  needsAttention: boolean;
   searchFilename: boolean;
   searchTags: boolean;
   searchFolder: boolean;
@@ -628,6 +631,8 @@ export interface AdapterImportPrecheckResponse {
 
 export interface ImportConfirmResult {
   persisted_design_count?: number;
+  /** Number of selected files whose preview could not be generated (decode/read failure). */
+  failed_decode_count?: number;
   [key: string]: unknown;
 }
 

@@ -60,6 +60,9 @@ pub struct BrowseAdditionalFiltersPayload {
     pub hoop_size: Option<String>,
     pub min_rating: Option<i64>,
     pub stitched_status: Option<String>,
+    /// When true, restrict to designs with no stored preview (`image_data IS NULL`) — the flagged
+    /// "needs attention" set whose file may be corrupt or unreadable.
+    pub needs_attention: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -253,6 +256,11 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
                     query_builder.push("d.is_stitched = 0");
                 }
             }
+        }
+
+        if filters.needs_attention.unwrap_or(false) {
+            push_where_clause(query_builder, &mut has_where);
+            query_builder.push("d.image_data IS NULL");
         }
     }
 }

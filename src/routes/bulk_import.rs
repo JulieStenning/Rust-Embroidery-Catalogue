@@ -65,6 +65,7 @@ struct BulkImportProgressEvent {
     total_count: usize,
     persisted_count: usize,
     committed_count: usize,
+    failed_count: usize,
     current_file: Option<String>,
     commit_batch_size: usize,
 }
@@ -227,6 +228,9 @@ pub struct BulkImportConfirmExecutionResult {
     pub canonical_confirm: bool,
     pub ready_for_persistence: bool,
     pub persisted_design_count: usize,
+    /// Number of selected files whose preview could not be generated (decode/read failure). These
+    /// records are still persisted with `image_data NULL` so they can be regenerated later.
+    pub failed_decode_count: usize,
     pub root_path_count: usize,
     pub selected_file_count: usize,
     pub resolved_assignments: Vec<ResolvedFolderAssignmentWire>,
@@ -1147,9 +1151,9 @@ async fn persist_bulk_import_confirm_wire(
     pool: &SqlitePool,
     confirm_wire: &BulkImportConfirmWire,
     context_token: Option<&str>,
-) -> Result<usize, String> {
+) -> Result<(usize, usize), String> {
     if !confirm_wire.wire.create_on_import {
-        return Ok(0);
+        return Ok((0, 0));
     }
 
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
@@ -1174,6 +1178,7 @@ async fn persist_bulk_import_confirm_wire(
     BULK_IMPORT_STOP_REQUESTED.store(false, Ordering::SeqCst);
     let mut persisted_design_count = 0usize;
     let mut committed_design_count = 0usize;
+    let mut failed_decode_count = 0usize;
     let mut persisted_since_last_commit = 0usize;
     let mut processed_count = 0usize;
     let mut stopped = false;
@@ -1191,6 +1196,7 @@ async fn persist_bulk_import_confirm_wire(
                          processed_count: usize,
                          persisted_count: usize,
                          committed_count: usize,
+                         failed_count: usize,
                          current_file: Option<&str>| {
         if let Some(handle) = get_bulk_import_app_handle() {
             let event = BulkImportProgressEvent {
@@ -1200,6 +1206,7 @@ async fn persist_bulk_import_confirm_wire(
                 total_count,
                 persisted_count,
                 committed_count,
+                failed_count,
                 current_file: current_file.map(String::from),
                 commit_batch_size,
             };
@@ -1215,6 +1222,7 @@ async fn persist_bulk_import_confirm_wire(
         processed_count,
         persisted_design_count,
         committed_design_count,
+        failed_decode_count,
         None,
     );
 
@@ -1247,6 +1255,7 @@ async fn persist_bulk_import_confirm_wire(
                 processed_count,
                 persisted_design_count,
                 committed_design_count,
+                failed_decode_count,
                 Some(file_path),
             );
 
@@ -1280,6 +1289,7 @@ async fn persist_bulk_import_confirm_wire(
                     .unwrap_or_default(),
             );
             if let Some(error) = image_result.error.as_ref() {
+                failed_decode_count += 1;
                 tracing::error!(
                     "Image generation adapter error for '{}': {}",
                     file_path,
@@ -1424,6 +1434,7 @@ async fn persist_bulk_import_confirm_wire(
                 processed_count,
                 persisted_design_count,
                 committed_design_count,
+                failed_decode_count,
                 Some(file_path),
             );
         }
@@ -1447,6 +1458,7 @@ async fn persist_bulk_import_confirm_wire(
                 processed_count,
                 persisted_design_count,
                 committed_design_count,
+                failed_decode_count,
                 None,
             );
         }
@@ -1485,9 +1497,10 @@ async fn persist_bulk_import_confirm_wire(
             processed_count,
             persisted_design_count,
             committed_design_count,
+            failed_decode_count,
             None,
         );
-        return Ok(persisted_design_count);
+        return Ok((persisted_design_count, failed_decode_count));
     }
 
     emit_progress(
@@ -1495,15 +1508,16 @@ async fn persist_bulk_import_confirm_wire(
         processed_count,
         persisted_design_count,
         committed_design_count,
+        failed_decode_count,
         None,
     );
-    Ok(persisted_design_count)
+    Ok((persisted_design_count, failed_decode_count))
 }
 
 fn persist_bulk_import_confirm_if_initialized(
     confirm_wire: &BulkImportConfirmWire,
     context_token: Option<&str>,
-) -> Result<usize, String> {
+) -> Result<(usize, usize), String> {
     match get_bulk_import_db_pool() {
         Some(pool) => tauri::async_runtime::block_on(persist_bulk_import_confirm_wire(
             &pool,
@@ -1512,7 +1526,7 @@ fn persist_bulk_import_confirm_if_initialized(
         )),
         None => {
             tracing::warn!("Bulk import DB pool not initialized; skipping persistence step.");
-            Ok(0)
+            Ok((0, 0))
         }
     }
 }
@@ -1755,7 +1769,10 @@ pub fn precheck_bulk_import_wire(
 /// membership checks. Only folders that actually carry exceptions appear.
 fn selection_sets(
     selection: &BulkImportSelectionWire,
-) -> (HashMap<String, HashSet<String>>, HashMap<String, HashSet<String>>) {
+) -> (
+    HashMap<String, HashSet<String>>,
+    HashMap<String, HashSet<String>>,
+) {
     let mut deselected: HashMap<String, HashSet<String>> = HashMap::new();
     let mut selected_only: HashMap<String, HashSet<String>> = HashMap::new();
     for entry in &selection.deselected {
@@ -1995,10 +2012,11 @@ fn do_confirm_bulk_import_wire_internal(
     let confirm_wire = take_bulk_import_context(&context_token)
         .ok_or_else(|| format!("Unknown or expired bulk import context token: {context_token}"))?;
 
-    let persisted_design_count =
+    let (persisted_design_count, failed_decode_count) =
         persist_bulk_import_confirm_if_initialized(&confirm_wire, Some(&context_token))?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
+    result.failed_decode_count = failed_decode_count;
     Ok(result)
 }
 
@@ -2006,12 +2024,13 @@ fn do_confirm_bulk_import_wire_internal(
 pub fn execute_bulk_import_confirm_wire(
     confirm_wire: BulkImportConfirmWire,
 ) -> Result<BulkImportConfirmExecutionResult, String> {
-    let persisted_design_count = persist_bulk_import_confirm_if_initialized(
+    let (persisted_design_count, failed_decode_count) = persist_bulk_import_confirm_if_initialized(
         &confirm_wire,
         confirm_wire.context_token.as_deref(),
     )?;
     let mut result = confirm_bulk_import_wire(confirm_wire)?;
     result.persisted_design_count = persisted_design_count;
+    result.failed_decode_count = failed_decode_count;
     Ok(result)
 }
 
@@ -2026,6 +2045,7 @@ pub fn confirm_bulk_import_wire(
         canonical_confirm: true,
         ready_for_persistence: true,
         persisted_design_count: 0,
+        failed_decode_count: 0,
         root_path_count: confirm_wire.wire.root_paths.len(),
         selected_file_count: confirm_wire.wire.selected_files.len(),
         resolved_assignments,
