@@ -31,6 +31,30 @@ const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 10;
 const MAX_IMPORT_COMMIT_BATCH_SIZE: usize = 10_000;
 const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
 
+/// TTL/max-entries for the server-side scan catalogue retained between the
+/// preview (scan) step and the Continue (precheck) step, so Continue never has
+/// to re-send the full list of scanned file paths (Option B).
+const BULK_IMPORT_SCAN_TTL: Duration = Duration::from_secs(60 * 60);
+const BULK_IMPORT_SCAN_MAX_ENTRIES: usize = 64;
+/// Sentinel folder key used for scanned files with no slash (mirrors the
+/// frontend `importSelection.js` "Unknown folder" grouping).
+const IMPORT_UNKNOWN_FOLDER: &str = "Unknown folder";
+
+/// Server-side scan catalogue created by the preview step. `scanned_files` is
+/// the post-DB-filter list returned to the webview; the folder grouping is
+/// derived on demand with the same rule as the frontend.
+#[derive(Debug, Clone)]
+struct StoredBulkImportScan {
+    root_paths: Vec<String>,
+    scanned_files: Vec<scanning::ScannedFile>,
+    created_at_millis: u128,
+    sequence: u64,
+}
+
+static BULK_IMPORT_SCAN_STORE: OnceLock<Mutex<HashMap<String, StoredBulkImportScan>>> =
+    OnceLock::new();
+static BULK_IMPORT_SCAN_COUNTER: AtomicU64 = AtomicU64::new(1);
+
 #[derive(Debug, Clone, Serialize)]
 struct BulkImportProgressEvent {
     context_token: Option<String>,
@@ -116,12 +140,48 @@ pub struct BulkImportPreview {
     pub folder_count: usize,
     pub scanned_files: Vec<scanning::ScannedFile>,
     pub resolved_assignments: Vec<ResolvedFolderAssignmentWire>,
+    /// Server-side scan catalogue token minted by this preview so Continue can
+    /// reference it instead of re-sending every scanned file path.
+    pub scan_token: String,
     /// True if any selected root path did not exist on disk or was not a directory.
     pub missing_root: bool,
     /// True if any selected root string was empty or relative (shape-invalid).
     pub invalid_root: bool,
     /// True if all selected roots existed but no supported embroidery files were found.
     pub no_supported_files: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FolderFilesWire {
+    pub folder_path: String,
+    pub files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BulkImportSelectionWire {
+    /// Folders whose base is "all selected" except for the listed files.
+    #[serde(default)]
+    pub deselected: Vec<FolderFilesWire>,
+    /// Folders whose base is "none selected" except for the listed files.
+    /// An empty `files` list means the whole folder is deselected.
+    #[serde(default)]
+    pub selected_only: Vec<FolderFilesWire>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulkImportPrecheckFromScanRequest {
+    pub scan_token: String,
+    pub global_designer_id: Option<i64>,
+    pub global_source_id: Option<i64>,
+    #[serde(default)]
+    pub per_folder_assignments: Vec<FolderAssignmentWire>,
+    pub selection: BulkImportSelectionWire,
+    #[serde(default = "default_true")]
+    pub create_on_import: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -296,6 +356,104 @@ fn prune_bulk_import_context_store(store: &mut HashMap<String, StoredBulkImportC
     let excess = store.len() - BULK_IMPORT_CONTEXT_MAX_ENTRIES;
     for (token, _, _) in entries.into_iter().take(excess) {
         store.remove(&token);
+    }
+}
+
+fn bulk_import_scan_store() -> &'static Mutex<HashMap<String, StoredBulkImportScan>> {
+    BULK_IMPORT_SCAN_STORE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn with_bulk_import_scan_store<T, F>(mut f: F) -> Result<T, String>
+where
+    F: FnMut(&mut HashMap<String, StoredBulkImportScan>) -> T,
+{
+    let store = bulk_import_scan_store();
+    match store.lock() {
+        Ok(mut guard) => Ok(f(&mut guard)),
+        Err(poisoned) => {
+            tracing::warn!("bulk import scan store mutex poisoned; recovering");
+            Ok(f(&mut poisoned.into_inner()))
+        }
+    }
+}
+
+fn prune_bulk_import_scan_store(store: &mut HashMap<String, StoredBulkImportScan>) {
+    let ttl_millis = BULK_IMPORT_SCAN_TTL.as_millis();
+    let now = current_timestamp_millis();
+    store.retain(|_, scan| now.saturating_sub(scan.created_at_millis) <= ttl_millis);
+    if store.len() <= BULK_IMPORT_SCAN_MAX_ENTRIES {
+        return;
+    }
+    let mut entries: Vec<(String, u128, u64)> = store
+        .iter()
+        .map(|(token, scan)| (token.clone(), scan.created_at_millis, scan.sequence))
+        .collect();
+    entries.sort_by_key(|(_, created_at_millis, sequence)| (*created_at_millis, *sequence));
+    let excess = store.len() - BULK_IMPORT_SCAN_MAX_ENTRIES;
+    for (token, _, _) in entries.into_iter().take(excess) {
+        store.remove(&token);
+    }
+}
+
+fn next_bulk_import_scan_token() -> (String, u64) {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let sequence = BULK_IMPORT_SCAN_COUNTER.fetch_add(1, Ordering::Relaxed);
+    (format!("bulk-scan-{timestamp}-{sequence}"), sequence)
+}
+
+/// Persist a freshly-scanned catalogue server-side and return its token. The
+/// frontend only needs to echo this token (plus its compact selection deltas)
+/// at Continue time, instead of re-sending every file path.
+fn store_bulk_import_scan(
+    root_paths: Vec<String>,
+    scanned_files: Vec<scanning::ScannedFile>,
+) -> String {
+    let (token, sequence) = next_bulk_import_scan_token();
+    let created_at_millis = current_timestamp_millis();
+    let store = bulk_import_scan_store();
+    let mut guard = match store.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            tracing::warn!("bulk import scan store mutex poisoned; recovering");
+            poisoned.into_inner()
+        }
+    };
+    prune_bulk_import_scan_store(&mut guard);
+    guard.insert(
+        token.clone(),
+        StoredBulkImportScan {
+            root_paths,
+            scanned_files,
+            created_at_millis,
+            sequence,
+        },
+    );
+    token
+}
+
+fn take_bulk_import_scan(token: &str) -> Option<StoredBulkImportScan> {
+    with_bulk_import_scan_store(|store| {
+        prune_bulk_import_scan_store(store);
+        store.remove(token)
+    })
+    .unwrap_or_default()
+}
+
+/// Folder key for a file, mirroring the frontend `importSelection.js`
+/// `folderPathOf`: trim, normalise `\` to `/`, keep everything up to (not
+/// including) the last `/`. A file with no slash returns the shared
+/// "Unknown folder" sentinel.
+fn folder_key_from_full_path(full_path: &str) -> String {
+    let normalized = full_path.trim().replace('\\', "/");
+    if normalized.is_empty() {
+        return IMPORT_UNKNOWN_FOLDER.to_string();
+    }
+    match normalized.rfind('/') {
+        Some(index) if index > 0 => normalized[..index].to_string(),
+        _ => IMPORT_UNKNOWN_FOLDER.to_string(),
     }
 }
 
@@ -1507,8 +1665,12 @@ pub fn request_stop_bulk_import() -> Result<BulkImportStopResult, String> {
 #[tauri::command]
 pub fn preview_bulk_import(request: BulkImportRequest) -> Result<BulkImportPreview, String> {
     let wire: BulkImportWire = request.into();
-
-    preview_bulk_import_wire(wire)
+    let mut preview = preview_bulk_import_wire(wire.clone())?;
+    // Retain the filtered scan catalogue server-side so Continue (precheck) can
+    // reference it by token instead of re-sending every scanned file path.
+    preview.scan_token =
+        store_bulk_import_scan(wire.root_paths.clone(), preview.scanned_files.clone());
+    Ok(preview)
 }
 
 #[tauri::command]
@@ -1607,6 +1769,122 @@ pub fn precheck_bulk_import_wire(
         needs_hoop_setup,
         root_path_count: confirm_wire.wire.root_paths.len(),
         selected_file_count: confirm_wire.wire.selected_files.len(),
+        resolved_assignments,
+    })
+}
+
+/// Group the selection wire lists into folder -> set of full paths for quick
+/// membership checks. Only folders that actually carry exceptions appear.
+fn selection_sets(
+    selection: &BulkImportSelectionWire,
+) -> (HashMap<String, HashSet<String>>, HashMap<String, HashSet<String>>) {
+    let mut deselected: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut selected_only: HashMap<String, HashSet<String>> = HashMap::new();
+    for entry in &selection.deselected {
+        deselected.insert(
+            entry.folder_path.clone(),
+            entry.files.iter().cloned().collect(),
+        );
+    }
+    for entry in &selection.selected_only {
+        selected_only.insert(
+            entry.folder_path.clone(),
+            entry.files.iter().cloned().collect(),
+        );
+    }
+    (deselected, selected_only)
+}
+
+/// Reconstruct the concrete selected-file list from the stored scan catalogue
+/// and the compact selection spec. A file is selected by default unless its
+/// folder is in `selected_only` (then only the listed files are) or the file is
+/// listed in its folder's `deselected` set.
+fn selected_files_from_scan(
+    scanned_files: &[scanning::ScannedFile],
+    selection: &BulkImportSelectionWire,
+) -> Vec<String> {
+    let (deselected, selected_only) = selection_sets(selection);
+    let mut result = Vec::with_capacity(scanned_files.len());
+    for file in scanned_files {
+        let folder = folder_key_from_full_path(&file.full_path);
+        let selected = if let Some(only) = selected_only.get(&folder) {
+            only.contains(&file.full_path)
+        } else if let Some(deselected) = deselected.get(&folder) {
+            !deselected.contains(&file.full_path)
+        } else {
+            true
+        };
+        if selected {
+            result.push(file.full_path.clone());
+        }
+    }
+    result
+}
+
+/// How many of `selected_files` fall under the given assignment folder (using
+/// the same slash-normalised folder keys as the frontend). Used to drop
+/// assignments whose folder has no selected files, mirroring the frontend which
+/// only ever sends assignments for selected folders.
+fn count_selected_in_folder(selected_files: &[String], folder_path: &str) -> usize {
+    selected_files
+        .iter()
+        .filter(|path| folder_key_from_full_path(path) == folder_path)
+        .count()
+}
+
+/// Compact precheck for the Option-B flow: the frontend sends a `scan_token`
+/// (from the preview step) plus folder-level selection deltas and assignments,
+/// NOT the full list of file paths. The backend reconstructs `selected_files`
+/// from its own stored scan catalogue, stores the normal import context, and
+/// returns the context token that Step-3 actions consume.
+#[tauri::command]
+pub fn precheck_bulk_import_from_scan(
+    request: BulkImportPrecheckFromScanRequest,
+) -> Result<BulkImportPrecheckResult, String> {
+    let scan = take_bulk_import_scan(&request.scan_token).ok_or_else(|| {
+        format!(
+            "Unknown or expired import scan. Please scan your folders again (token: {}).",
+            request.scan_token
+        )
+    })?;
+
+    let selected_files = selected_files_from_scan(&scan.scanned_files, &request.selection);
+
+    // Drop assignments whose folder has no selected files.
+    let per_folder_assignments: Vec<FolderAssignmentWire> = request
+        .per_folder_assignments
+        .into_iter()
+        .filter(|assignment| count_selected_in_folder(&selected_files, &assignment.folder_path) > 0)
+        .collect();
+
+    let root_path_count = scan.root_paths.len();
+    let selected_file_count = selected_files.len();
+
+    let confirm_wire = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: scan.root_paths,
+            global_designer_id: request.global_designer_id,
+            global_source_id: request.global_source_id,
+            per_folder_assignments,
+            selected_files,
+            create_on_import: request.create_on_import,
+        },
+        context_token: None,
+        canonical_confirm: false,
+    };
+
+    let resolved_assignments = resolve_bulk_import_assignments(&confirm_wire);
+    let (is_first_import, needs_hoop_setup) = load_import_precheck_state_if_initialized()?;
+    let context_token = store_bulk_import_context(confirm_wire);
+
+    Ok(BulkImportPrecheckResult {
+        context_token,
+        context_token_present: true,
+        ready_for_confirm: true,
+        is_first_import,
+        needs_hoop_setup,
+        root_path_count,
+        selected_file_count,
         resolved_assignments,
     })
 }
@@ -2086,6 +2364,7 @@ fn preview_bulk_import_wire_with_pool(
         folder_count: wire.root_paths.len(),
         scanned_files,
         resolved_assignments,
+        scan_token: String::new(),
         missing_root,
         invalid_root,
         no_supported_files,

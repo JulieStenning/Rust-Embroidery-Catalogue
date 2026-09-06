@@ -834,18 +834,25 @@ describe("commandAdapter browseImportFolder", () => {
 describe("commandAdapter precheckImportWire", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  it("returns a mock precheck for a missing wire payload", async () => {
+  it("returns a mock precheck for a missing request payload", async () => {
     const result = await precheckImportWire(null);
 
     expect(result.source).toBe("mock");
     expect(result.precheck.context_token_present).toBe(false);
     expect(result.precheck.ready_for_confirm).toBe(false);
-    expect(result.message).toContain("Missing confirm wire payload");
+    expect(result.message).toContain("Missing import precheck request payload");
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("passes the wire through to Rust on success", async () => {
-    const wire = { context_token: "tok", selected_count: 3 };
+  it("passes the compact request to the from-scan command on success", async () => {
+    const request = {
+      scan_token: "scan-1",
+      global_designer_id: null,
+      global_source_id: null,
+      per_folder_assignments: [],
+      selection: { deselected: [], selected_only: [] },
+      create_on_import: true,
+    };
     invokeMock.mockResolvedValue({
       context_token: "tok",
       context_token_present: true,
@@ -857,10 +864,10 @@ describe("commandAdapter precheckImportWire", () => {
       resolved_assignments: [],
     });
 
-    const result = await precheckImportWire(wire);
+    const result = await precheckImportWire(request);
 
-    expect(invokeMock).toHaveBeenCalledWith("precheck_bulk_import_wire", {
-      confirmWire: wire,
+    expect(invokeMock).toHaveBeenCalledWith("precheck_bulk_import_from_scan", {
+      request,
     });
     expect(result.source).toBe("rust");
     expect(result.precheck.ready_for_confirm).toBe(true);

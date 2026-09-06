@@ -2621,3 +2621,178 @@ fn persist_bulk_import_confirm_wire_short_circuits_when_create_disabled() {
         assert_eq!(persisted, 0);
     });
 }
+
+// ---------------------------------------------------------------------------
+// Option B: scan catalogue + compact precheck-from-scan reconstruction
+// ---------------------------------------------------------------------------
+
+fn bi_scanned_file(full_path: &str) -> scanning::ScannedFile {
+    scanning::ScannedFile {
+        full_path: full_path.to_string(),
+        filename: full_path
+            .rsplit(|c| c == '/' || c == '\\')
+            .next()
+            .unwrap_or(full_path)
+            .to_string(),
+        extension: "pes".to_string(),
+        file_size_bytes: Some(1),
+        dedup_group_key: String::new(),
+    }
+}
+
+#[test]
+fn folder_key_from_full_path_matches_frontend_grouping() {
+    assert_eq!(
+        folder_key_from_full_path("C:/Designs/Rose Studio/rose.pes"),
+        "C:/Designs/Rose Studio"
+    );
+    assert_eq!(
+        folder_key_from_full_path("C:\\Designs\\Big\\design.pes"),
+        "C:/Designs/Big"
+    );
+    assert_eq!(folder_key_from_full_path("/vol/A/file.pes"), "/vol/A");
+    assert_eq!(folder_key_from_full_path("orphan.pes"), IMPORT_UNKNOWN_FOLDER);
+    assert_eq!(folder_key_from_full_path(""), IMPORT_UNKNOWN_FOLDER);
+    assert_eq!(folder_key_from_full_path("C:/file.pes"), "C:");
+}
+
+#[test]
+fn selected_files_from_scan_defaults_to_everything() {
+    let files = vec![
+        bi_scanned_file("C:/Designs/A/a.pes"),
+        bi_scanned_file("C:/Designs/A/b.pes"),
+        bi_scanned_file("C:/Designs/B/c.pes"),
+    ];
+    let selection = BulkImportSelectionWire {
+        deselected: vec![],
+        selected_only: vec![],
+    };
+    let selected = selected_files_from_scan(&files, &selection);
+    assert_eq!(
+        selected,
+        vec![
+            "C:/Designs/A/a.pes".to_string(),
+            "C:/Designs/A/b.pes".to_string(),
+            "C:/Designs/B/c.pes".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn selected_files_from_scan_respects_folder_deltas() {
+    let files = vec![
+        bi_scanned_file("C:/Designs/A/a.pes"),
+        bi_scanned_file("C:/Designs/A/b.pes"),
+        bi_scanned_file("C:/Designs/A/c.pes"),
+        bi_scanned_file("C:/Designs/B/x.pes"),
+        bi_scanned_file("C:/Designs/B/y.pes"),
+    ];
+    let selection = BulkImportSelectionWire {
+        deselected: vec![FolderFilesWire {
+            folder_path: "C:/Designs/A".to_string(),
+            files: vec!["C:/Designs/A/b.pes".to_string()],
+        }],
+        selected_only: vec![FolderFilesWire {
+            folder_path: "C:/Designs/B".to_string(),
+            files: vec!["C:/Designs/B/y.pes".to_string()],
+        }],
+    };
+    let selected = selected_files_from_scan(&files, &selection);
+    assert_eq!(
+        selected,
+        vec![
+            "C:/Designs/A/a.pes".to_string(),
+            "C:/Designs/A/c.pes".to_string(),
+            "C:/Designs/B/y.pes".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn selected_files_from_scan_empty_selected_only_deselects_folder() {
+    let files = vec![
+        bi_scanned_file("C:/Designs/A/a.pes"),
+        bi_scanned_file("C:/Designs/A/b.pes"),
+    ];
+    let selection = BulkImportSelectionWire {
+        deselected: vec![],
+        selected_only: vec![FolderFilesWire {
+            folder_path: "C:/Designs/A".to_string(),
+            files: vec![],
+        }],
+    };
+    assert!(selected_files_from_scan(&files, &selection).is_empty());
+}
+
+#[test]
+fn scan_store_round_trips_catalogue() {
+    let files = vec![bi_scanned_file("C:/Designs/A/a.pes")];
+    let token = store_bulk_import_scan(vec!["C:/Designs".to_string()], files.clone());
+    let taken = take_bulk_import_scan(&token).expect("scan should be retrievable");
+    assert_eq!(taken.root_paths, vec!["C:/Designs".to_string()]);
+    assert_eq!(taken.scanned_files, files);
+    // Taking consumes the token.
+    assert!(take_bulk_import_scan(&token).is_none());
+    assert!(take_bulk_import_scan("missing-token").is_none());
+}
+
+#[test]
+fn precheck_from_scan_reconstructs_wire_and_unknown_token_errors() {
+    let files = vec![
+        bi_scanned_file("C:/Designs/A/a.pes"),
+        bi_scanned_file("C:/Designs/A/b.pes"),
+        bi_scanned_file("C:/Designs/B/c.pes"),
+    ];
+    let scan_token = store_bulk_import_scan(vec!["C:/Designs".to_string()], files);
+
+    let result = precheck_bulk_import_from_scan(BulkImportPrecheckFromScanRequest {
+        scan_token: scan_token.clone(),
+        global_designer_id: Some(7),
+        global_source_id: Some(8),
+        per_folder_assignments: vec![FolderAssignmentWire {
+            folder_path: "C:/Designs/A".to_string(),
+            designer_id: None,
+            source_id: None,
+            inferred_designer_id: Some(7),
+            inferred_source_id: Some(8),
+        }],
+        selection: BulkImportSelectionWire {
+            deselected: vec![FolderFilesWire {
+                folder_path: "C:/Designs/A".to_string(),
+                files: vec!["C:/Designs/A/b.pes".to_string()],
+            }],
+            selected_only: vec![],
+        },
+        create_on_import: true,
+    })
+    .expect("precheck from scan should succeed");
+
+    assert!(result.context_token_present);
+    assert_eq!(result.selected_file_count, 2);
+
+    // The stored context contains the reconstructed, concrete selected files.
+    let context = get_bulk_import_context(&result.context_token).expect("context should be stored");
+    assert_eq!(
+        context.wire.selected_files,
+        vec![
+            "C:/Designs/A/a.pes".to_string(),
+            "C:/Designs/B/c.pes".to_string()
+        ]
+    );
+    assert!(!context.wire.per_folder_assignments.is_empty());
+    assert_eq!(context.wire.global_designer_id, Some(7));
+
+    // An unknown scan token must error clearly.
+    let bad = precheck_bulk_import_from_scan(BulkImportPrecheckFromScanRequest {
+        scan_token: "missing".to_string(),
+        global_designer_id: None,
+        global_source_id: None,
+        per_folder_assignments: vec![],
+        selection: BulkImportSelectionWire {
+            deselected: vec![],
+            selected_only: vec![],
+        },
+        create_on_import: true,
+    });
+    assert!(bad.is_err());
+}

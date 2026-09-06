@@ -567,9 +567,30 @@ export interface BulkImportPreview {
   folder_count: number;
   scanned_files: BulkImportScannedFile[];
   resolved_assignments: unknown[];
+  /** Server-side scan catalogue token (Option B) so Continue need not re-send every path. */
+  scan_token: string;
   missing_root: boolean;
   no_supported_files: boolean;
   invalid_root: boolean;
+}
+
+export interface FolderFilesWire {
+  folder_path: string;
+  files: string[];
+}
+
+export interface BulkImportSelectionWire {
+  deselected: FolderFilesWire[];
+  selected_only: FolderFilesWire[];
+}
+
+export interface BulkImportPrecheckFromScanRequest {
+  scan_token: string;
+  global_designer_id: number | null;
+  global_source_id: number | null;
+  per_folder_assignments: Record<string, unknown>[];
+  selection: BulkImportSelectionWire;
+  create_on_import: boolean;
 }
 
 export interface AdapterImportPreviewResponse {

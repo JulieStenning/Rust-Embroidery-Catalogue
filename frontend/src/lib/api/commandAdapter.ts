@@ -917,6 +917,7 @@ export async function previewImportFromRoots(
         folder_count: 0,
         scanned_files: [],
         resolved_assignments: [],
+        scan_token: "",
         missing_root: false,
         no_supported_files: false,
         invalid_root: true,
@@ -945,6 +946,7 @@ export async function previewImportFromRoots(
         resolved_assignments: Array.isArray(preview?.resolved_assignments)
           ? preview.resolved_assignments
           : [],
+        scan_token: String(preview?.scan_token || ""),
         missing_root: Boolean(preview?.missing_root),
         no_supported_files: Boolean(preview?.no_supported_files),
         invalid_root: Boolean(preview?.invalid_root),
@@ -961,6 +963,7 @@ export async function previewImportFromRoots(
         folder_count: normalizedRoots.length,
         scanned_files: [],
         resolved_assignments: [],
+        scan_token: "",
         missing_root: false,
         no_supported_files: true,
         invalid_root: false,
@@ -1015,14 +1018,17 @@ export async function browseImportFolder(
 }
 
 /**
- * Run import precheck and persist tokenized import context in Rust backend.
- * @param {Record<string, any> | null} confirmWire
+ * Run import precheck (Option B). Instead of re-sending every selected file
+ * path, the frontend sends a `scan_token` (minted by the preview/scan step)
+ * plus folder-level selection deltas and assignments; the backend reconstructs
+ * `selected_files` from its own stored scan catalogue.
+ * @param {Record<string, any> | null} request
  */
 export async function precheckImportWire(
-  confirmWire: Record<string, unknown> | null
+  request: Record<string, unknown> | null
 ): Promise<AdapterImportPrecheckResponse> {
-  const wire = confirmWire && typeof confirmWire === "object" ? confirmWire : null;
-  if (!wire) {
+  const payload = request && typeof request === "object" ? request : null;
+  if (!payload) {
     return {
       source: "mock",
       precheck: {
@@ -1035,13 +1041,13 @@ export async function precheckImportWire(
         selected_file_count: 0,
         resolved_assignments: [],
       },
-      message: "Missing confirm wire payload.",
+      message: "Missing import precheck request payload.",
     };
   }
 
   try {
-    const precheck = await invokeLoose<ImportPrecheckResult>("precheck_bulk_import_wire", {
-      confirmWire: wire,
+    const precheck = await invokeLoose<ImportPrecheckResult>("precheck_bulk_import_from_scan", {
+      request: payload,
     });
 
     return {
@@ -1050,7 +1056,7 @@ export async function precheckImportWire(
       message: "Precheck loaded from Rust command.",
     };
   } catch (error) {
-    console.info("precheck_bulk_import_wire unavailable or failed.", error);
+    console.info("precheck_bulk_import_from_scan unavailable or failed.", error);
     throw new Error(`Precheck failed: ${error}`);
   }
 }

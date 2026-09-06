@@ -15,6 +15,25 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
+  import {
+    buildImportFolderCatalog,
+    selCreate,
+    selFromSerialized,
+    selIsSelected,
+    selCount,
+    selToggleFile,
+    selSelectAllInFolder,
+    selDeselectAllInFolder,
+    selSelectAllFolders,
+    selDeselectAllFolders,
+  } from "../utils/importSelection.js";
+  import Pagination from "../components/Pagination.svelte";
+
+  // Step-2 file list rendering: folders larger than this start collapsed; smaller
+  // folders keep today's always-visible rows. Files within a folder page at this
+  // size.
+  const IMPORT_FOLDER_AUTO_EXPAND_MAX = 100;
+  const IMPORT_FOLDER_PAGE_SIZE = 250;
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
@@ -31,8 +50,33 @@
   let importPrecheck = $state(/** @type {Record<string, any> | null} */ (null));
   let importPrecheckSource = $state("mock");
   let importPrecheckMessage = $state("Run precheck after selecting files.");
-  /** @type {string[]} */
-  let importSelectedFiles = $state([]);
+  /**
+   * Folder-scoped catalog derived from the scan result. Built once per scan;
+   * independent of selection so toggles never rebuild it. Each entry has
+   * { folderPath, label, filePaths }.
+   * @type {Array<Record<string, any>>}
+   */
+  let importFolderCatalog = $derived(
+    Array.isArray(importPreview?.scanned_files)
+      ? buildImportFolderCatalog(importPreview.scanned_files)
+      : []
+  );
+  /**
+   * Selection state. Default = every scanned file selected (no per-file list);
+   * only exceptions are stored. Shape: { deselected, selectedOnly }.
+   * @type {any}
+   */
+  let importSelection = $state(selCreate());
+
+  // Transient Step-2 UI state (never persisted): expanded folders, per-folder
+  // filename filters, and per-folder file pages.
+  /** @type {Record<string, boolean>} */
+  let importExpandedByPath = $state({});
+  /** @type {Record<string, string>} */
+  let importFolderSearchByPath = $state({});
+  /** @type {Record<string, number>} */
+  let importFolderPageByPath = $state({});
+
   let importContextToken = $state("");
   let importActionMessage = $state("");
   let importActionSource = $state("mock");
@@ -95,7 +139,7 @@
       precheck: importPrecheck,
       precheckSource: importPrecheckSource,
       precheckMessage: importPrecheckMessage,
-      selectedFiles: importSelectedFiles,
+      folderSelection: importSelection,
       contextToken: importContextToken,
       globalDesignerId: importGlobalDesignerId,
       globalSourceId: importGlobalSourceId,
@@ -119,9 +163,7 @@
     importPrecheckMessage = String(
       snapshot.precheckMessage || "Run precheck after selecting files."
     );
-    importSelectedFiles = Array.isArray(snapshot.selectedFiles)
-      ? snapshot.selectedFiles.slice()
-      : [];
+    importSelection = selFromSerialized(snapshot.folderSelection);
     importContextToken = String(snapshot.contextToken || "");
     importGlobalDesignerId = String(snapshot.globalDesignerId || "");
     importGlobalSourceId = String(snapshot.globalSourceId || "");
@@ -337,133 +379,155 @@
     return segments.length > 0 ? segments[segments.length - 1] : normalized;
   }
 
-  function syncImportPerFolderAssignments() {
-    const folderPaths = new Set(
-      importSelectedFiles.map((fullPath) => getFolderPathFromFilePath(fullPath)).filter(Boolean)
-    );
-    /** @type {Record<string, {designerId: string, sourceId: string}>} */
-    const next = {};
-    for (const folderPath of folderPaths) {
-      const previous = importPerFolderAssignmentByPath?.[folderPath] || {
-        designerId: "",
-        sourceId: "",
-      };
-      next[folderPath] = {
-        designerId: String(previous.designerId || ""),
-        sourceId: String(previous.sourceId || ""),
-      };
-    }
-    importPerFolderAssignmentByPath = next;
+  /** @param {string} folderPath @param {string} fullPath @param {boolean} checked */
+  function toggleImportFile(folderPath, fullPath, checked) {
+    const key = String(folderPath || "");
+    const value = String(fullPath || "").trim();
+    if (!key || !value) return;
+    importSelection = selToggleFile(importSelection, key, value, Boolean(checked));
   }
 
-  /** @param {string} fullPath @param {boolean} checked */
-  function toggleImportFile(fullPath, checked) {
-    const value = String(fullPath || "").trim();
-    if (!value) return;
+  /** @param {string} folderPath */
+  function toggleFolderExpanded(folderPath) {
+    const key = String(folderPath || "");
+    if (!key) return;
+    const wasOpen = Boolean(importExpandedByPath[key]);
+    importExpandedByPath = { ...importExpandedByPath, [key]: !wasOpen };
+  }
 
-    const existing = new Set(importSelectedFiles);
-    if (checked) {
-      existing.add(value);
-    } else {
-      existing.delete(value);
-    }
-    importSelectedFiles = Array.from(existing);
-    syncImportPerFolderAssignments();
+  /** @param {string} folderPath */
+  function selectAllInFolder(folderPath) {
+    const key = String(folderPath || "");
+    if (!key) return;
+    importSelection = selSelectAllInFolder(importSelection, key);
+  }
+
+  /** @param {string} folderPath */
+  function deselectAllInFolder(folderPath) {
+    const key = String(folderPath || "");
+    if (!key) return;
+    importSelection = selDeselectAllInFolder(importSelection, key);
   }
 
   function selectAllImportFiles() {
-    importSelectedFiles = Array.isArray(importPreview?.scanned_files)
-      ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
-      : [];
-    syncImportPerFolderAssignments();
+    const paths = importFolderCatalog.map((folder) => folder.folderPath);
+    importSelection = selSelectAllFolders(importSelection, paths);
   }
 
-  function clearImportFileSelection() {
-    importSelectedFiles = [];
-    syncImportPerFolderAssignments();
+  function deselectAllImportFiles() {
+    const paths = importFolderCatalog.map((folder) => folder.folderPath);
+    importSelection = selDeselectAllFolders(importSelection, paths);
   }
 
-  let importSelectedFolderSummaries = $derived(
-    (() => {
-      const counts = new Map();
-      for (const fullPath of importSelectedFiles) {
-        const folderPath = getFolderPathFromFilePath(fullPath);
-        if (!folderPath) continue;
-        counts.set(folderPath, (counts.get(folderPath) || 0) + 1);
-      }
-      return Array.from(counts.entries())
-        .map(([folderPath, selectedCount]) => ({ folderPath, selectedCount }))
-        .sort((left, right) =>
-          left.folderPath.localeCompare(right.folderPath, undefined, { sensitivity: "base" })
-        );
-    })()
+  /** @param {string} folderPath @param {string} searchValue */
+  function setFolderSearch(folderPath, searchValue) {
+    const key = String(folderPath || "");
+    if (!key) return;
+    importFolderSearchByPath = { ...importFolderSearchByPath, [key]: String(searchValue || "") };
+    // Reset to the first page whenever the filter changes.
+    importFolderPageByPath = { ...importFolderPageByPath, [key]: 1 };
+  }
+
+  /** @param {string} folderPath @param {number} page */
+  function setFolderPage(folderPath, page) {
+    const key = String(folderPath || "");
+    if (!key) return;
+    const numeric = Number(page);
+    importFolderPageByPath = {
+      ...importFolderPageByPath,
+      [key]: Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 1,
+    };
+  }
+
+  /** @param {string} folderPath */
+  function makeFolderPageHandler(folderPath) {
+    return (/** @type {number} */ page) => setFolderPage(folderPath, page);
+  }
+
+  /** Per-folder review summary: cheap counts only, no per-file objects. */
+  /** @type {Array<Record<string, any>>} */
+  let importFolderSummary = $derived(
+    importFolderCatalog.map((record) => {
+      const total = record.filePaths.length;
+      const selectedCount = selCount(importSelection, record.folderPath, total);
+      let kind = "partial";
+      if (selectedCount <= 0) kind = "none";
+      else if (selectedCount >= total) kind = "all";
+      return {
+        folderPath: record.folderPath,
+        label: record.label,
+        filePaths: record.filePaths,
+        total,
+        selectedCount,
+        kind,
+      };
+    })
   );
 
-  let importStep2FolderGroups = $derived(
+  /** Per-folder paged file window, keyed by folder path. Depends only on the
+   *  catalog and the transient search/page state — never on selection, so a
+   *  checkbox toggle does not rebuild these slices. */
+  /** @type {Record<string, any>} */
+  let importFolderFileWindowByPath = $derived(
     (() => {
-      const scannedFiles = Array.isArray(importPreview?.scanned_files)
-        ? importPreview.scanned_files
-        : [];
-      const selectedByPath = new Set(
-        importSelectedFiles.map((value) => String(value || "").trim()).filter(Boolean)
-      );
-      const grouped = new Map();
-
-      for (const rawFile of scannedFiles) {
-        const fullPath = String(rawFile?.full_path || "").trim();
-        if (!fullPath) continue;
-
-        const folderPath = getFolderPathFromFilePath(fullPath) || "Unknown folder";
-        const file = {
-          fullPath,
-          filename: getImportFilenameFromPath(fullPath),
-          isSelected: selectedByPath.has(fullPath),
+      /** @type {Record<string, any>} */
+      const windows = {};
+      for (const record of importFolderCatalog) {
+        const folderPath = String(record.folderPath || "");
+        const searchText = String(importFolderSearchByPath?.[folderPath] || "")
+          .trim()
+          .toLowerCase();
+        const allPaths = Array.isArray(record.filePaths) ? record.filePaths : [];
+        const filteredPaths = searchText
+          ? allPaths.filter((/** @type {string} */ fullPath) =>
+              getImportFilenameFromPath(fullPath).toLowerCase().includes(searchText)
+            )
+          : allPaths;
+        const pageCount = Math.max(1, Math.ceil(filteredPaths.length / IMPORT_FOLDER_PAGE_SIZE));
+        const rawPage = Number(importFolderPageByPath?.[folderPath] || 1);
+        const page = Math.min(
+          Math.max(Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1, 1),
+          pageCount
+        );
+        const start = (page - 1) * IMPORT_FOLDER_PAGE_SIZE;
+        windows[folderPath] = {
+          page,
+          pageCount,
+          filteredCount: filteredPaths.length,
+          visible: filteredPaths.slice(start, start + IMPORT_FOLDER_PAGE_SIZE),
         };
-
-        if (!grouped.has(folderPath)) {
-          grouped.set(folderPath, {
-            folderPath,
-            folderLabel: getFolderLabelFromFolderPath(folderPath),
-            files: [],
-          });
-        }
-        grouped.get(folderPath).files.push(file);
       }
-
-      return Array.from(grouped.values())
-        .map((group) => {
-          const sortedFiles = group.files.sort(
-            /** @param {any} left @param {any} right */ (left, right) =>
-              left.filename.localeCompare(right.filename, undefined, { sensitivity: "base" })
-          );
-          const selectedCount = sortedFiles.filter(
-            /** @param {any} file */ (file) => file.isSelected
-          ).length;
-          return {
-            ...group,
-            files: sortedFiles,
-            selectedCount,
-          };
-        })
-        .sort((left, right) =>
-          left.folderPath.localeCompare(right.folderPath, undefined, { sensitivity: "base" })
-        );
+      return windows;
     })()
   );
 
-  let importStep2TotalFileCount = $derived(
-    importStep2FolderGroups.reduce((total, folder) => total + folder.files.length, 0)
+  let importTotalFileCount = $derived(
+    importFolderSummary.reduce((sum, folder) => sum + folder.total, 0)
   );
 
-  let importStep2SelectedFileCount = $derived(
-    importStep2FolderGroups.reduce((total, folder) => total + folder.selectedCount, 0)
+  let importSelectedCount = $derived(
+    importFolderSummary.reduce((sum, folder) => sum + folder.selectedCount, 0)
   );
 
-  let importStep2CanSelectAll = $derived(importStep2SelectedFileCount < importStep2TotalFileCount);
-  let importStep2CanDeselectAll = $derived(importStep2SelectedFileCount > 0);
+  let importCanSelectAll = $derived(importSelectedCount < importTotalFileCount);
+  let importCanDeselectAll = $derived(importSelectedCount > 0);
 
-  function buildImportConfirmWire() {
-    const perFolderAssignments = importSelectedFolderSummaries.map((folder) => {
+  /**
+   * True while a scan/precheck/import action is running. Selection controls
+   * (Select all / Deselect all, folder-level select/deselect) must be disabled
+   * as soon as "Continue" (or the scan/import buttons) is pressed so the review
+   * selection can't be changed mid-flight.
+   */
+  let importSelectionLocked = $derived(importLoading || importActionLoading || busyActive);
+
+  /** Select-all is disabled during a run or when every file is already selected. */
+  let importSelectAllDisabled = $derived(importSelectionLocked || !importCanSelectAll);
+  /** Deselect-all is disabled during a run or when no file is selected. */
+  let importDeselectAllDisabled = $derived(importSelectionLocked || !importCanDeselectAll);
+
+  function buildImportPrecheckRequest() {
+    const selectedFolders = importFolderSummary.filter((folder) => folder.selectedCount > 0);
+    const perFolderAssignments = selectedFolders.map((folder) => {
       const folderPath = folder.folderPath;
       const explicitDesignerId = getImportFolderDesigner(folderPath);
       const explicitSourceId = getImportFolderSource(folderPath);
@@ -479,22 +543,32 @@
       };
     });
 
+    // Serialise the folder-scoped selection (base + exceptions) compactly. The
+    // full selected-file list is NOT sent; the backend reconstructs it from the
+    // stored scan catalogue referenced by `scan_token`.
+    const selectionFolderLists = (
+      /** @type {Record<string, unknown> | null | undefined} */ map
+    ) =>
+      Object.entries(map || {}).map(([folderPath, files]) => ({
+        folder_path: folderPath,
+        files: Array.isArray(files) ? files.map(String) : [],
+      }));
+
     return {
-      wire: {
-        root_paths: getActiveImportRoots(),
-        global_designer_id: importGlobalDesignerId ? Number(importGlobalDesignerId) : null,
-        global_source_id: importGlobalSourceId ? Number(importGlobalSourceId) : null,
-        per_folder_assignments: perFolderAssignments,
-        selected_files: [...importSelectedFiles],
-        create_on_import: true,
+      scan_token: String(importPreview?.scan_token || ""),
+      global_designer_id: importGlobalDesignerId ? Number(importGlobalDesignerId) : null,
+      global_source_id: importGlobalSourceId ? Number(importGlobalSourceId) : null,
+      per_folder_assignments: perFolderAssignments,
+      selection: {
+        deselected: selectionFolderLists(importSelection?.deselected),
+        selected_only: selectionFolderLists(importSelection?.selectedOnly),
       },
-      context_token: null,
-      canonical_confirm: false,
+      create_on_import: true,
     };
   }
 
   async function runImportPrecheck() {
-    if (importSelectedFiles.length === 0) {
+    if (importSelectedCount === 0) {
       addToast("Select at least one file before continuing.", "error");
       return;
     }
@@ -505,17 +579,24 @@
     beginBusy("Checking import selections");
 
     try {
-      const result = await precheckImportWire(buildImportConfirmWire());
+      const result = await precheckImportWire(buildImportPrecheckRequest());
       importPrecheck = result.precheck || null;
       importPrecheckSource = result.source || "mock";
       importPrecheckMessage = result.message || "Precheck complete.";
       importContextToken = String(importPrecheck?.context_token || "");
       navigateTo(importPrecheck ? "#/import/step3" : "#/import/step2");
     } catch (error) {
-      addToast(`Import precheck failed: ${error}`, "error");
-      importPrecheck = null;
-      importContextToken = "";
-      navigateTo("#/import/step2");
+      const message = String(error || "");
+      const scanStale = /expired import scan|scan token/i.test(message);
+      if (scanStale) {
+        addToast("Your import scan expired. Rescanning your folders...", "info");
+        await runImportPreview();
+      } else {
+        addToast(`Import precheck failed: ${error}`, "error");
+        importPrecheck = null;
+        importContextToken = "";
+        navigateTo("#/import/step2");
+      }
     } finally {
       importLoading = false;
       endBusy();
@@ -702,11 +783,11 @@
       importPreview = result.preview || null;
       importPreviewSource = result.source || "mock";
       importPreviewMessage = deriveImportPreviewMessage(result?.preview);
-      importSelectedFiles = Array.isArray(importPreview?.scanned_files)
-        ? importPreview.scanned_files.map((file) => String(file?.full_path || "")).filter(Boolean)
-        : [];
+      importSelection = selCreate();
       importPerFolderAssignmentByPath = {};
-      syncImportPerFolderAssignments();
+      importExpandedByPath = {};
+      importFolderSearchByPath = {};
+      importFolderPageByPath = {};
       importPrecheck = null;
       importPrecheckSource = "mock";
       importPrecheckMessage = "Run precheck after selecting files.";
@@ -717,7 +798,10 @@
       importPreview = null;
       importPreviewSource = "mock";
       importPreviewMessage = `Import preview failed: ${error}`;
-      importSelectedFiles = [];
+      importSelection = selCreate();
+      importExpandedByPath = {};
+      importFolderSearchByPath = {};
+      importFolderPageByPath = {};
       importPerFolderAssignmentByPath = {};
       importPrecheck = null;
       importContextToken = "";
@@ -901,7 +985,10 @@
     importPrecheck = null;
     importPrecheckSource = "mock";
     importPrecheckMessage = "Run precheck after selecting files.";
-    importSelectedFiles = [];
+    importSelection = selCreate();
+    importExpandedByPath = {};
+    importFolderSearchByPath = {};
+    importFolderPageByPath = {};
     importContextToken = "";
     importActionMessage = "";
     importActionSource = "mock";
@@ -1162,7 +1249,7 @@
             Review scanned files
           </p>
           <p class="ui-help-note text-sm text-gray-500">
-            {importStep2FolderGroups.length || importPreview.folder_count || 0} folder(s) scanned - {Array.isArray(
+            {importFolderSummary.length || importPreview.folder_count || 0} folder(s) scanned - {Array.isArray(
               importPreview.scanned_files
             )
               ? importPreview.scanned_files.length
@@ -1216,12 +1303,12 @@
             <button
               class="menu-button-primary ui-action-button ui-action-button-primary"
               onclick={runImportPrecheck}
-              disabled={importLoading || importActionLoading || busyActive || importSelectedFiles.length === 0}
+              disabled={importLoading || importActionLoading || busyActive || importSelectedCount === 0}
             >
               {#if importLoading}
                 Running…
-              {:else if importSelectedFiles.length > 0}
-                Continue with {importSelectedFiles.length} design{importSelectedFiles.length === 1
+              {:else if importSelectedCount > 0}
+                Continue with {importSelectedCount} design{importSelectedCount === 1
                   ? ""
                   : "s"}
               {:else}
@@ -1238,39 +1325,88 @@
             </button>
             <button
               type="button"
-              class={`px-3 py-1.5 rounded border text-xs font-semibold ${importStep2CanSelectAll ? "bg-white hover:bg-gray-50 text-indigo-600" : "text-gray-400 bg-gray-50 cursor-not-allowed"}`}
+              class={`px-3 py-1.5 rounded border text-xs font-semibold ${importSelectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
               onclick={selectAllImportFiles}
-              disabled={importLoading || importActionLoading || busyActive || !importStep2CanSelectAll}
+              disabled={importSelectAllDisabled}
             >
               Select all
             </button>
             <button
               type="button"
-              class={`px-3 py-1.5 rounded border text-xs font-semibold ${importStep2CanDeselectAll ? "bg-white hover:bg-gray-50 text-indigo-600" : "text-gray-400 bg-gray-50 cursor-not-allowed"}`}
-              onclick={clearImportFileSelection}
-              disabled={importLoading || importActionLoading || busyActive || !importStep2CanDeselectAll}
+              class={`px-3 py-1.5 rounded border text-xs font-semibold ${importDeselectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+              onclick={deselectAllImportFiles}
+              disabled={importDeselectAllDisabled}
             >
               Deselect all
             </button>
           </div>
         </div>
 
-        {#if importStep2FolderGroups.length > 0}
+        {#if importFolderSummary.length > 0}
           <div class="space-y-4">
-            {#each importStep2FolderGroups as folder}
+            {#each importFolderSummary as folder (folder.folderPath)}
+              {@const autoExpand = folder.total <= IMPORT_FOLDER_AUTO_EXPAND_MAX}
+              {@const isExpanded = autoExpand || Boolean(importExpandedByPath[folder.folderPath])}
+              {@const fileWindow =
+                importFolderFileWindowByPath[folder.folderPath] || {
+                  page: 1,
+                  pageCount: 1,
+                  filteredCount: 0,
+                  visible: [],
+                }}
+              {@const selectionStatus =
+                folder.kind === "all"
+                  ? `All ${folder.total} selected`
+                  : folder.kind === "none"
+                    ? "None selected"
+                    : `${folder.selectedCount} of ${folder.total} selected`}
+              {@const folderSelectAllDisabled = importSelectionLocked || folder.kind === "all"}
+              {@const folderDeselectAllDisabled = importSelectionLocked || folder.kind === "none"}
               <div
                 class="ui-section-shell overflow-hidden border rounded bg-white import-step2-folder-shell shadow-sm"
+                data-testid="import-folder-shell"
               >
                 <div
                   class="bg-gray-50 border-b px-4 py-2.5 flex flex-wrap items-center gap-3 import-step2-folder-header"
                 >
                   <div class="flex-1 min-w-0">
                     <code class="text-xs text-black font-bold import-step2-folder-label"
-                      >{folder.folderLabel}</code
+                      >{folder.label}</code
                     >
                     <span class="mx-2 text-xs text-gray-400" aria-hidden="true">-</span>
                     <code class="text-xs text-gray-500 break-all">{folder.folderPath}</code>
                   </div>
+                  <span class="text-xs font-semibold text-indigo-700 import-step2-folder-count">
+                    {selectionStatus}
+                  </span>
+                  {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
+                    <button
+                      type="button"
+                      class="text-xs px-2 py-1 rounded border font-semibold bg-white hover:bg-gray-50 text-indigo-600"
+                      onclick={() => toggleFolderExpanded(folder.folderPath)}
+                      disabled={importSelectionLocked}
+                    >
+                      {isExpanded ? "Hide files" : `Show files (${folder.total})`}
+                    </button>
+                  {/if}
+                  <button
+                    type="button"
+                    aria-label={`Select all files in ${folder.label}`}
+                    class={`px-2 py-1 rounded border text-xs font-semibold ${folderSelectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+                    onclick={() => selectAllInFolder(folder.folderPath)}
+                    disabled={folderSelectAllDisabled}
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Deselect all files in ${folder.label}`}
+                    class={`px-2 py-1 rounded border text-xs font-semibold ${folderDeselectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+                    onclick={() => deselectAllInFolder(folder.folderPath)}
+                    disabled={folderDeselectAllDisabled}
+                  >
+                    Deselect all
+                  </button>
                 </div>
 
                 <div class="px-4 py-3 border-b bg-gray-50/50 import-step2-folder-overrides">
@@ -1316,28 +1452,76 @@
                   </div>
                 </div>
 
-                <div class="import-step2-file-list-shell p-4">
-                  <div
-                    class="import-step2-file-columns grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
-                  >
-                    {#each folder.files as file}
-                      <label class="import-step2-file-item flex items-start gap-2 cursor-pointer">
+                {#if isExpanded}
+                  <div class="import-step2-file-list-shell p-4">
+                    {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
+                      <p class="text-xs text-gray-500 mb-2">
+                        This folder contains {folder.total} files. Use Select/Deselect all to work
+                        on the whole folder, or filter to find specific files.
+                      </p>
+                    {/if}
+                    {#if folder.total > IMPORT_FOLDER_PAGE_SIZE}
+                      <div class="mb-2">
                         <input
-                          type="checkbox"
-                          class="ui-checkbox mt-1 accent-indigo-600 rounded"
-                          checked={file.isSelected}
-                          onchange={(event) =>
-                            toggleImportFile(file.fullPath, event.currentTarget.checked)}
-                          disabled={importLoading || importActionLoading}
+                          type="search"
+                          class="ui-text-input ui-control-text-inset w-full border rounded px-3 py-1.5 text-sm"
+                          placeholder="Filter files in this folder…"
+                          value={importFolderSearchByPath[folder.folderPath] || ""}
+                          oninput={(event) =>
+                            setFolderSearch(folder.folderPath, event.currentTarget.value)}
+                          aria-label={`Filter files in ${folder.label}`}
                         />
-                        <span
-                          class="ui-field-label text-sm text-gray-700 break-all font-mono"
-                          title={file.fullPath}>{file.filename}</span
-                        >
-                      </label>
-                    {/each}
+                      </div>
+                    {/if}
+                    {#if fileWindow.visible.length > 0}
+                      <div
+                        class="import-step2-file-columns grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
+                      >
+                        {#each fileWindow.visible as fullPath (fullPath)}
+                          {@const isChecked = selIsSelected(importSelection, folder.folderPath, fullPath)}
+                          <label
+                            class="import-step2-file-item flex items-start gap-2 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              class="ui-checkbox mt-1 accent-indigo-600 rounded"
+                              checked={isChecked}
+                              onchange={(event) =>
+                                toggleImportFile(
+                                  folder.folderPath,
+                                  fullPath,
+                                  event.currentTarget.checked
+                                )}
+                              disabled={importLoading || importActionLoading}
+                            />
+                            <span
+                              class="ui-field-label text-sm text-gray-700 break-all font-mono"
+                              title={fullPath}>{getImportFilenameFromPath(fullPath)}</span
+                            >
+                          </label>
+                        {/each}
+                      </div>
+                    {:else}
+                      <p class="text-sm text-gray-500 italic">No files match your filter.</p>
+                    {/if}
+                    {#if fileWindow.pageCount > 1}
+                      <Pagination
+                        currentPage={fileWindow.page}
+                        totalPages={fileWindow.pageCount}
+                        onPageChange={makeFolderPageHandler(folder.folderPath)}
+                        disabled={importLoading || importActionLoading || busyActive}
+                        ariaLabel={`Files in ${folder.label}`}
+                      />
+                    {/if}
                   </div>
-                </div>
+                {:else}
+                  <div class="import-step2-file-list-shell p-4">
+                    <p class="text-sm text-gray-500 italic">
+                      Files are hidden for this large folder ({folder.total} file{folder.total ===
+                      1 ? "" : "s"}). Use the controls above to select or deselect the whole folder.
+                    </p>
+                  </div>
+                {/if}
               </div>
             {/each}
           </div>
@@ -1385,11 +1569,7 @@
         <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
           <p class="font-semibold text-blue-900">Note on Visual AI Tagging</p>
           <p class="ui-help-note text-blue-900">
-            To ensure imports remain fast, local, and completely offline, automated Visual AI tagging
-            has been separated from the import process. Initial imports only apply fast File &amp;
-            Folder Rules. Once your designs are imported, you can run Visual AI analysis at your own
-            pace from Tagging Actions to enrich selected folders, untagged designs, or your entire
-            collection.
+            Initial import uses fast, offline File &amp Folder Rules to index your designs instantly. Once finished, you can run automated Visual AI tagging anytime from Tagging ActionsView to enrich your collection.
           </p>
         </div>
 

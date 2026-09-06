@@ -31,10 +31,17 @@ export interface ImportSessionState {
   precheckSource: string;
   precheckMessage: string;
 
-  /** Full paths of the files selected for import. */
-  selectedFiles: string[];
+  /**
+   * Folder-scoped selection state (default = all selected; only exceptions are
+   * stored). Shape: { deselected, selectedOnly }, each a record of folder path
+   * -> list of file full paths.
+   */
+  folderSelection: {
+    deselected: Record<string, string[]>;
+    selectedOnly: Record<string, string[]>;
+  };
 
-  /** Backend token minted by precheck_bulk_import_wire. */
+  /** Backend context token returned by the import precheck command. */
   contextToken: string;
 
   /** Global designer/source overrides applied to every folder. */
@@ -60,7 +67,7 @@ function createInitialSessionState(): ImportSessionState {
     precheck: null,
     precheckSource: "mock",
     precheckMessage: "Run precheck after selecting files.",
-    selectedFiles: [],
+    folderSelection: { deselected: {}, selectedOnly: {} },
     contextToken: "",
     globalDesignerId: "",
     globalSourceId: "",

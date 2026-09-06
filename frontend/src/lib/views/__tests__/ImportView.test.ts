@@ -274,6 +274,37 @@ describe("ImportView busy lock during scans", () => {
 
     view.unmount();
   });
+
+  it("disables Select all / Deselect all while a precheck is in flight", async () => {
+    let resolvePrecheck: (value: unknown) => void = () => {};
+    adapterMocks.precheckImportWire.mockImplementation(
+      () =>
+        new Promise((res) => {
+          resolvePrecheck = res;
+        })
+    );
+
+    const { container, view } = renderHarness("#/import");
+    await gotoStep2(container, "C:\\Designs");
+
+    const deselectAll = screen.getByRole("button", { name: "Deselect all" });
+    const selectAll = screen.getByRole("button", { name: "Select all" });
+    // Everything is selected by default, so Select all is already disabled.
+    expect(deselectAll).toBeEnabled();
+    expect(selectAll).toBeDisabled();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Continue with \d+ designs/ }));
+    await tick();
+
+    // Once "Continue" is pressed the selection must be locked.
+    expect(deselectAll).toBeDisabled();
+
+    resolvePrecheck(precheckResponse());
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Import Designs" })).toBeInTheDocument();
+    });
+    view.unmount();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -960,7 +991,7 @@ describe("ImportView step 2 file review and selection", () => {
     expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
   });
 
-  it("continues with only the selected files in the confirm wire", async () => {
+  it("continues by sending compact selection deltas instead of the full file list", async () => {
     const { container } = renderHarness("#/import");
     await gotoStep2(container);
 
@@ -969,13 +1000,19 @@ describe("ImportView step 2 file review and selection", () => {
 
     await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
 
-    const wire = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
-    const innerWire = asRecord(wire.wire);
-    expect(innerWire.create_on_import).toBe(true);
-    expect(innerWire.selected_files).toEqual([
-      "C:/Designs/Rose Studio/rose.pes",
-      "C:/Designs/Winter/snow.vp3",
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    const selection = asRecord(request.selection);
+    expect(request.create_on_import).toBe(true);
+    // The full selected-file list is not sent (Option B).
+    expect(request.selected_files).toBeUndefined();
+    expect(request.wire).toBeUndefined();
+    expect(selection.deselected).toEqual([
+      {
+        folder_path: "C:/Designs/Rose Studio",
+        files: ["C:/Designs/Rose Studio/border.pes"],
+      },
     ]);
+    expect(selection.selected_only).toEqual([]);
   });
 
   it("handles paths with a missing folder gracefully", async () => {
@@ -1091,9 +1128,8 @@ describe("ImportView step 2 reference data and overrides", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue with 3 designs" }));
     await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
 
-    const wire = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
-    const innerWire = asRecord(wire.wire);
-    const perFolder = innerWire.per_folder_assignments as Array<Record<string, unknown>>;
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    const perFolder = request.per_folder_assignments as Array<Record<string, unknown>>;
     const roseFolder = perFolder.find((f) => f.folder_path === "C:/Designs/Rose Studio");
     expect(roseFolder?.designer_id).toBe(2);
   });
@@ -1109,10 +1145,9 @@ describe("ImportView step 2 reference data and overrides", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue with 3 designs" }));
     await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
 
-    const wire = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
-    const innerWire = asRecord(wire.wire);
-    expect(innerWire.global_designer_id).toBe(2);
-    expect(innerWire.global_source_id).toBe(null);
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    expect(request.global_designer_id).toBe(2);
+    expect(request.global_source_id).toBe(null);
   });
 
   it("includes inferred designer/source ids from matching folder names in the wire", async () => {
@@ -1122,9 +1157,8 @@ describe("ImportView step 2 reference data and overrides", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue with 3 designs" }));
     await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
 
-    const wire = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
-    const innerWire = asRecord(wire.wire);
-    const perFolder = innerWire.per_folder_assignments as Array<Record<string, unknown>>;
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    const perFolder = request.per_folder_assignments as Array<Record<string, unknown>>;
     const roseFolder = perFolder.find((f) => f.folder_path === "C:/Designs/Rose Studio");
     expect(roseFolder?.inferred_designer_id).toBe(1);
   });
@@ -1157,19 +1191,25 @@ describe("ImportView precheck flow", () => {
     );
   });
 
-  it("shows the confirm wire with root paths on precheck", async () => {
+  it("sends a compact precheck request (scan token + selection) without the full file list", async () => {
+    adapterMocks.previewImportFromRoots.mockResolvedValue(
+      previewResponse({ scan_token: "tok-scan-1" })
+    );
     const { container } = renderHarness("#/import");
     await gotoStep2(container, "C:\\Sub\\Designs");
     await fireEvent.click(screen.getByRole("button", { name: "Continue with 3 designs" }));
 
     await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
 
-    const call = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
-    const wire = asRecord(call.wire);
-    expect(call.context_token).toBe(null);
-    expect(call.canonical_confirm).toBe(false);
-    expect(wire.root_paths).toEqual(["C:/Sub/Designs"]);
-    expect(wire.create_on_import).toBe(true);
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    expect(request.scan_token).toBe("tok-scan-1");
+    expect(request.create_on_import).toBe(true);
+    expect(request.global_designer_id).toBe(null);
+    expect(request.selected_files).toBeUndefined();
+    expect(request.wire).toBeUndefined();
+    const selection = asRecord(request.selection);
+    expect(selection.deselected).toEqual([]);
+    expect(selection.selected_only).toEqual([]);
   });
 
   it("shows an error toast and stays on step 2 when precheck throws", async () => {
@@ -1763,7 +1803,10 @@ describe("ImportView loading and disabled states", () => {
       precheck: { context_token: "tok-999", ready_for_confirm: true },
       precheckSource: "rust",
       precheckMessage: "custom precheck message",
-      selectedFiles: undefined as unknown as string[],
+      folderSelection: undefined as unknown as {
+        deselected: Record<string, string[]>;
+        selectedOnly: Record<string, string[]>;
+      },
       perFolderAssignmentByPath: undefined as unknown as Record<
         string,
         { designerId: string; sourceId: string }
@@ -1777,5 +1820,106 @@ describe("ImportView loading and disabled states", () => {
       expect(screen.getByRole("heading", { name: "Bulk Import" })).toBeInTheDocument()
     );
     view.unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Step 2: very large folders (Option A scaling behaviour)
+// ---------------------------------------------------------------------------
+describe("ImportView step 2 very large folders", () => {
+  const bigFolderPath = "C:/Designs/Big";
+  const makeBig = (count: number) =>
+    previewResponse({
+      discovered_count: count,
+      selected_count: count,
+      folder_count: 1,
+      scanned_files: Array.from({ length: count }, (_, i) => ({
+        full_path: `${bigFolderPath}/design-${String(i).padStart(3, "0")}.pes`,
+      })),
+    });
+
+  it("renders a large folder collapsed with a summary, not per-file rows", async () => {
+    adapterMocks.previewImportFromRoots.mockResolvedValue(makeBig(300));
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    expect(screen.getByRole("button", { name: "Show files (300)" })).toBeInTheDocument();
+    expect(screen.getByText("All 300 selected")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continue with 300 designs" })
+    ).toBeInTheDocument();
+    // Collapsed: no per-file checkbox rows are rendered.
+    expect(
+      screen.queryByRole("checkbox", { name: "design-000.pes" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("selects/deselects a whole large folder without rendering its files", async () => {
+    adapterMocks.previewImportFromRoots.mockResolvedValue(makeBig(300));
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Deselect all files in Big" }));
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.getByText("None selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select all files in Big" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Deselect all files in Big" })
+    ).toBeDisabled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Select all files in Big" }));
+    expect(
+      screen.getByRole("button", { name: "Continue with 300 designs" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("All 300 selected")).toBeInTheDocument();
+  });
+
+  it("pages the file rows of an expanded large folder", async () => {
+    adapterMocks.previewImportFromRoots.mockResolvedValue(makeBig(300));
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Show files (300)" }));
+    // Page 1 shows the first 250 files.
+    expect(screen.getByRole("checkbox", { name: "design-000.pes" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "design-249.pes" })).toBeChecked();
+    expect(
+      screen.queryByRole("checkbox", { name: "design-299.pes" })
+    ).not.toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    // Page 2 now shows the tail.
+    expect(
+      screen.queryByRole("checkbox", { name: "design-000.pes" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "design-299.pes" })).toBeChecked();
+  });
+
+  it("updates counts and the confirm wire when a single file in a large folder is toggled", async () => {
+    adapterMocks.previewImportFromRoots.mockResolvedValue(makeBig(300));
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Show files (300)" }));
+    await fireEvent.click(screen.getByRole("checkbox", { name: "design-000.pes" }));
+
+    expect(
+      screen.getByRole("button", { name: "Continue with 299 designs" })
+    ).toBeInTheDocument();
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Continue with 299 designs" })
+    );
+    await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
+
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    // Option B: no full file list is sent - only the compact selection delta.
+    expect(request.selected_files).toBeUndefined();
+    expect(request.wire).toBeUndefined();
+    const selection = asRecord(request.selection);
+    expect(selection.selected_only).toEqual([]);
+    expect(selection.deselected).toEqual([
+      { folder_path: bigFolderPath, files: [`${bigFolderPath}/design-000.pes`] },
+    ]);
   });
 });
