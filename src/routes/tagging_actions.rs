@@ -20,7 +20,6 @@ pub struct TaggingActionsViewModel {
     pub ai_commit_every: String,
     pub ai_workers: String,
     pub ai_free_tier: bool,
-    pub import_commit_batch_size: String,
     pub default_batch_size: i64,
     pub default_commit_every: i64,
     pub default_workers: i64,
@@ -43,7 +42,6 @@ const KEY_AI_GOOGLE_API_KEY: &str = "ai.google_api_key";
 const KEY_AI_COMMIT_EVERY: &str = "ai.commit_every";
 const KEY_AI_WORKERS: &str = "ai.workers";
 const KEY_AI_FREE_TIER: &str = "ai.free_tier";
-const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 
 /// Tauri event name streamed to the frontend during a unified backfill run.
 pub const BACKFILL_PROGRESS_EVENT: &str = "backfill-progress";
@@ -94,10 +92,6 @@ pub async fn get_tagging_actions_view_model(
             .await
             .map_err(|e| e.to_string())?,
     );
-    let import_commit_batch_size =
-        get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE)
-            .await
-            .map_err(|e| e.to_string())?;
 
     let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY)
         .await
@@ -112,7 +106,6 @@ pub async fn get_tagging_actions_view_model(
         ai_commit_every,
         ai_workers,
         ai_free_tier,
-        import_commit_batch_size,
         default_batch_size: 100,
         default_commit_every: 100,
         default_workers: if ai_free_tier { 2 } else { 4 },

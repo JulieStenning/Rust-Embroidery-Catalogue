@@ -187,7 +187,6 @@ async fn test_get_tagging_actions_view_model() {
     assert_eq!(vm.ai_batch_size, "");
     assert_eq!(vm.ai_delay, "");
     assert!(!vm.ai_free_tier);
-    assert_eq!(vm.import_commit_batch_size, "");
     assert_eq!(vm.default_batch_size, 100);
     assert_eq!(vm.default_commit_every, 100);
     assert_eq!(vm.default_workers, 4);

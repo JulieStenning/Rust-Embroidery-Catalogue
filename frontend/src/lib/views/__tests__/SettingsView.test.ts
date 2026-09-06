@@ -56,7 +56,6 @@ const defaultModel: SettingsViewModel = {
   ai_commit_every: "",
   ai_workers: "",
   ai_free_tier: false,
-  import_commit_batch_size: "10",
   import_last_browse_folder: "",
   can_configure_data_root: true,
   data_root: "D:\\EmbroideryData",
@@ -137,7 +136,6 @@ describe("SettingsView.svelte", () => {
     // Number inputs report numeric values in jsdom.
     expect(screen.getByLabelText(/AI tagging batch size/)).toHaveValue(100);
     expect(screen.getByLabelText(/Delay between Gemini calls/)).toHaveValue(6.0);
-    expect(screen.getByLabelText(/Import database commit batch size/)).toHaveValue(10);
     expect(screen.getByLabelText(/Database health check interval/)).toHaveValue(1800);
 
     const dataRootInput = screen.getByLabelText("Catalogue data location");
@@ -278,7 +276,6 @@ describe("SettingsView.svelte", () => {
         ai_commit_every: "",
         ai_workers: "",
         ai_free_tier: false,
-        import_commit_batch_size: "10",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -319,7 +316,6 @@ describe("SettingsView.svelte", () => {
         ai_commit_every: "",
         ai_workers: "",
         ai_free_tier: false,
-        import_commit_batch_size: "10",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });

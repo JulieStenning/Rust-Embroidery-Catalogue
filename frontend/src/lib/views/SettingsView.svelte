@@ -25,7 +25,7 @@
    * Subset of SaveSettingsRequest that is both editable in the form and
    * actually persisted by `saveSettings` (deliberately excludes `data_root`,
    * which is only ever changed via the catalogue migration -> restart flow).
-   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; import_commit_batch_size: string; db_idle_check_interval_secs: string; }} EditableSettingsValues
+   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; db_idle_check_interval_secs: string; }} EditableSettingsValues
    */
 
   let settingsLoading = $state(false);
@@ -44,7 +44,6 @@
   let settingsModelsLoading = $state(false);
   let settingsModelTesting = $state(false);
   let settingsModelTestMessage = $state("");
-  let settingsImportCommitBatchSize = $state("");
   let settingsDbIdleCheckIntervalSecs = $state("1800");
   let dbStats = $state(/** @type {DbStats | null} */ (null));
   let isCompacting = $state(false);
@@ -98,7 +97,6 @@
       ai_commit_every: settingsNumericToString(settingsAiCommitEvery),
       ai_workers: settingsNumericToString(settingsAiWorkers),
       ai_free_tier: settingsAiFreeTier,
-      import_commit_batch_size: settingsNumericToString(settingsImportCommitBatchSize),
       db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
     };
   }
@@ -125,7 +123,6 @@
       cur.ai_commit_every !== base.ai_commit_every ||
       cur.ai_workers !== base.ai_workers ||
       cur.ai_free_tier !== base.ai_free_tier ||
-      cur.import_commit_batch_size !== base.import_commit_batch_size ||
       cur.db_idle_check_interval_secs !== base.db_idle_check_interval_secs
     );
   }
@@ -145,7 +142,6 @@
     settingsAiCommitEvery = String(model?.ai_commit_every || "");
     settingsAiWorkers = String(model?.ai_workers || "");
     settingsAiFreeTier = Boolean(model?.ai_free_tier);
-    settingsImportCommitBatchSize = String(model?.import_commit_batch_size || "");
     settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
@@ -721,29 +717,6 @@
         {#if settingsModelTestMessage}
           <p class="mt-1 text-xs text-gray-600">{settingsModelTestMessage}</p>
         {/if}
-      </div>
-
-      <div>
-        <label
-          for="settings-import-commit-batch-size"
-          class="block text-sm font-semibold text-gray-700 mb-1"
-        >
-          Import database commit batch size <span class="font-normal text-gray-500">(optional)</span
-          >
-        </label>
-        <input
-          id="settings-import-commit-batch-size"
-          type="number"
-          min="1"
-          bind:value={settingsImportCommitBatchSize}
-          placeholder="e.g. 10 — leave blank for default"
-          class="settings-input border rounded px-3 py-2 text-sm w-56"
-        />
-        <p class="mt-1 text-xs text-gray-500">
-          Controls how many designs are written or tag-updated before each database commit during
-          import. Leave blank to use the default batch size of 10. Lower values reduce rollback size
-          on failure; higher values reduce commit overhead.
-        </p>
       </div>
 
       <div>

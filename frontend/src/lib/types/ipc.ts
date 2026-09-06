@@ -271,7 +271,6 @@ export interface SettingsViewModel {
   ai_commit_every: string;
   ai_workers: string;
   ai_free_tier: boolean;
-  import_commit_batch_size: string;
   import_last_browse_folder: string;
   can_configure_data_root: boolean;
   data_root: string;
@@ -292,7 +291,6 @@ export interface SaveSettingsRequest {
   ai_commit_every: string;
   ai_workers: string;
   ai_free_tier: boolean;
-  import_commit_batch_size: string;
   data_root: string;
   db_idle_check_interval_secs?: string;
 }
@@ -662,7 +660,6 @@ export interface TaggingActionsViewModel {
   ai_commit_every: string;
   ai_workers: string;
   ai_free_tier: boolean;
-  import_commit_batch_size: string;
   default_batch_size: number;
   default_commit_every: number;
   default_workers: number;

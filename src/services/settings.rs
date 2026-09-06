@@ -13,7 +13,6 @@ pub const KEY_AI_GEMINI_MODEL: &str = "ai.gemini_model";
 pub const KEY_AI_COMMIT_EVERY: &str = "ai.commit_every";
 pub const KEY_AI_WORKERS: &str = "ai.workers";
 pub const KEY_AI_FREE_TIER: &str = "ai.free_tier";
-pub const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
 pub const KEY_DB_IDLE_CHECK_INTERVAL_SECS: &str = "db.idle_check_interval_secs";
@@ -29,7 +28,6 @@ pub struct SettingsViewModel {
     pub ai_commit_every: String,
     pub ai_workers: String,
     pub ai_free_tier: bool,
-    pub import_commit_batch_size: String,
     pub import_last_browse_folder: String,
     pub can_configure_data_root: bool,
     pub data_root: String,
@@ -56,7 +54,6 @@ pub struct SaveSettingsRequest {
     pub ai_workers: String,
     #[serde(default)]
     pub ai_free_tier: bool,
-    pub import_commit_batch_size: String,
     pub data_root: String,
     #[serde(default)]
     pub db_idle_check_interval_secs: String,
@@ -96,8 +93,6 @@ pub(crate) async fn get_settings_view_model_inner(
     let ai_commit_every = get_setting_with_default(&mut conn, KEY_AI_COMMIT_EVERY).await?;
     let ai_workers = get_setting_with_default(&mut conn, KEY_AI_WORKERS).await?;
     let ai_free_tier = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_FREE_TIER).await?);
-    let import_commit_batch_size =
-        get_setting_with_default(&mut conn, KEY_IMPORT_COMMIT_BATCH_SIZE).await?;
     let import_last_browse_folder =
         get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER).await?;
     let db_idle_check_interval_secs =
@@ -132,7 +127,6 @@ pub(crate) async fn get_settings_view_model_inner(
         ai_commit_every,
         ai_workers,
         ai_free_tier,
-        import_commit_batch_size,
         import_last_browse_folder,
         can_configure_data_root,
         data_root,
@@ -170,7 +164,6 @@ pub(crate) async fn save_settings_view_model_inner(
 ) -> Result<SaveSettingsResult, AppError> {
     let preview_3d_profile = normalize_preview_3d_profile(&request.preview_3d_profile);
     let ai_batch_size = normalize_optional_batch_size(&request.ai_batch_size);
-    let import_commit_batch_size = normalize_optional_batch_size(&request.import_commit_batch_size);
     let ai_delay = normalize_optional_delay(&request.ai_delay);
 
     let pool = app_state.db_pool().map_err(AppError::database)?;
@@ -198,12 +191,6 @@ pub(crate) async fn save_settings_view_model_inner(
         &mut conn,
         KEY_AI_FREE_TIER,
         bool_to_setting(request.ai_free_tier),
-    )
-    .await?;
-    upsert_setting(
-        &mut conn,
-        KEY_IMPORT_COMMIT_BATCH_SIZE,
-        &import_commit_batch_size,
     )
     .await?;
     upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, &preview_3d_profile).await?;
@@ -371,7 +358,6 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_COMMIT_EVERY => "",
         KEY_AI_WORKERS => "",
         KEY_AI_FREE_TIER => "false",
-        KEY_IMPORT_COMMIT_BATCH_SIZE => "",
         KEY_PREVIEW_3D_PROFILE => "balanced",
         // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "1800",
@@ -388,7 +374,6 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_COMMIT_EVERY => "How often to report progress/commit during a backfill run (Tagging Actions). Leave blank for the default (100).",
         KEY_AI_WORKERS => "Concurrent designs tagged in parallel by Tagging Actions. Lower this to avoid Gemini rate-limit (429) errors. Leave blank for the default (4).",
         KEY_AI_FREE_TIER => "Whether your Gemini API key is on the free tier. Free-tier keys have strict per-minute and per-day limits; the app stops hard on 429 and tells you how long to wait.",
-        KEY_IMPORT_COMMIT_BATCH_SIZE => "Maximum number of designs to persist or update before each database commit during import. Leave blank to use the default batch size (10).",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "Interval in seconds between automatic database fragmentation checks (default 1800).",

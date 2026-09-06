@@ -163,10 +163,6 @@ fn default_for_key_returns_correct_defaults() {
     assert_eq!(settings::default_for_key(settings::KEY_AI_BATCH_SIZE), "");
     assert_eq!(settings::default_for_key(settings::KEY_AI_DELAY), "");
     assert_eq!(
-        settings::default_for_key(settings::KEY_IMPORT_COMMIT_BATCH_SIZE),
-        ""
-    );
-    assert_eq!(
         settings::default_for_key(settings::KEY_PREVIEW_3D_PROFILE),
         "balanced"
     );
@@ -177,9 +173,6 @@ fn default_for_key_returns_correct_defaults() {
 fn description_for_key_returns_correct_descriptions() {
     assert!(settings::description_for_key(settings::KEY_AI_BATCH_SIZE).contains("designs"));
     assert!(settings::description_for_key(settings::KEY_AI_DELAY).contains("Gemini"));
-    assert!(
-        settings::description_for_key(settings::KEY_IMPORT_COMMIT_BATCH_SIZE).contains("commit")
-    );
     assert!(
         settings::description_for_key(settings::KEY_IMPORT_LAST_BROWSE_FOLDER).contains("picker")
     );
@@ -400,7 +393,6 @@ async fn get_settings_view_model_inner_has_default_values_in_installed_mode() {
     assert!(!vm.ai_free_tier);
     assert_eq!(vm.ai_batch_size, "");
     assert_eq!(vm.ai_delay, "");
-    assert_eq!(vm.import_commit_batch_size, "");
     assert_eq!(vm.import_last_browse_folder, "");
     assert_eq!(vm.google_api_key, "");
     assert!(!vm.has_google_api_key);
@@ -590,7 +582,6 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         ai_commit_every: "".to_string(),
         ai_workers: "".to_string(),
         ai_free_tier: true,
-        import_commit_batch_size: "  100  ".to_string(),
         data_root: String::new(),
         db_idle_check_interval_secs: "1800".to_string(),
     };
@@ -631,10 +622,6 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         "true"
     );
     assert_eq!(
-        read_setting(&mut conn, settings::KEY_IMPORT_COMMIT_BATCH_SIZE).await,
-        "100"
-    );
-    assert_eq!(
         read_setting(&mut conn, settings::KEY_AI_GOOGLE_API_KEY).await,
         "env-key-abc"
     );
@@ -661,7 +648,6 @@ fn settings_view_model_serializes_all_fields() {
         ai_commit_every: "".to_string(),
         ai_workers: "".to_string(),
         ai_free_tier: false,
-        import_commit_batch_size: "".to_string(),
         import_last_browse_folder: "".to_string(),
         can_configure_data_root: true,
         data_root: "/data".to_string(),
@@ -683,7 +669,6 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("ai_commit_every"));
     assert!(map.contains_key("ai_workers"));
     assert!(map.contains_key("ai_free_tier"));
-    assert!(map.contains_key("import_commit_batch_size"));
     assert!(map.contains_key("import_last_browse_folder"));
     assert!(map.contains_key("can_configure_data_root"));
     assert!(map.contains_key("data_root"));
@@ -693,7 +678,7 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("app_mode"));
     assert!(map.contains_key("ai_tagging_help_url"));
     assert!(map.contains_key("db_idle_check_interval_secs"));
-    assert_eq!(map.len(), 19);
+    assert_eq!(map.len(), 18);
 }
 
 #[test]
@@ -703,7 +688,6 @@ fn save_settings_request_deserializes_all_fields() {
         "google_api_key": "xyz",
         "ai_batch_size": "10",
         "ai_delay": "1.0",
-        "import_commit_batch_size": "5",
         "data_root": "/custom"
     });
     let req: SaveSettingsRequest = serde_json::from_value(json).expect("deserialize");
@@ -711,7 +695,6 @@ fn save_settings_request_deserializes_all_fields() {
     assert_eq!(req.google_api_key, "xyz");
     assert_eq!(req.ai_batch_size, "10");
     assert_eq!(req.ai_delay, "1.0");
-    assert_eq!(req.import_commit_batch_size, "5");
     assert_eq!(req.data_root, "/custom");
 }
 
@@ -721,7 +704,6 @@ fn save_settings_request_preview_3d_profile_defaults_to_empty() {
         "google_api_key": "",
         "ai_batch_size": "",
         "ai_delay": "",
-        "import_commit_batch_size": "",
         "data_root": ""
     });
     let req: SaveSettingsRequest = serde_json::from_value(json).expect("deserialize");
@@ -945,7 +927,6 @@ async fn command_save_settings_view_model_persists() {
         ai_commit_every: "".to_string(),
         ai_workers: "".to_string(),
         ai_free_tier: true,
-        import_commit_batch_size: "  100  ".to_string(),
         data_root: String::new(),
         db_idle_check_interval_secs: "1800".to_string(),
     };

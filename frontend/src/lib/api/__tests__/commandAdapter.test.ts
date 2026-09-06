@@ -1751,7 +1751,6 @@ describe("commandAdapter settings", () => {
       ai_commit_every: "",
       ai_workers: "",
       ai_free_tier: false,
-      import_commit_batch_size: "",
       default_batch_size: 100,
       default_commit_every: 100,
       default_workers: 4,

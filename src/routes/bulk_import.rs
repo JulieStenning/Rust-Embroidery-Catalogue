@@ -26,9 +26,11 @@ static BULK_IMPORT_CONTEXT_RESET_COUNTER: AtomicU64 = AtomicU64::new(0);
 static BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS: AtomicU64 = AtomicU64::new(0);
 static BULK_IMPORT_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-const KEY_IMPORT_COMMIT_BATCH_SIZE: &str = "import.commit_batch_size";
-const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 10;
-const MAX_IMPORT_COMMIT_BATCH_SIZE: usize = 10_000;
+/// Number of imported files written per database commit during the bulk-import
+/// execution loop. Held as a code constant (not a user/DB setting) because it is
+/// an internal tuning knob; the old `import.commit_batch_size` DB override and
+/// its settings plumbing were removed (it predated import-time AI tagging).
+const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 100;
 const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
 
 /// TTL/max-entries for the server-side scan catalogue retained between the
@@ -530,30 +532,6 @@ async fn load_catalog_counts(pool: &SqlitePool) -> Result<(i64, i64), String> {
         .map_err(|e| e.to_string())?;
 
     Ok((design_count, hoop_count))
-}
-
-fn normalize_import_commit_batch_size(raw_value: Option<&str>) -> usize {
-    let Some(value) = raw_value.map(str::trim).filter(|value| !value.is_empty()) else {
-        return DEFAULT_IMPORT_COMMIT_BATCH_SIZE;
-    };
-
-    match value.parse::<usize>() {
-        Ok(parsed) if parsed > 0 => parsed.min(MAX_IMPORT_COMMIT_BATCH_SIZE),
-        _ => DEFAULT_IMPORT_COMMIT_BATCH_SIZE,
-    }
-}
-
-async fn load_import_commit_batch_size(pool: &SqlitePool) -> Result<usize, String> {
-    let raw_batch_size: Option<String> =
-        sqlx::query_scalar("SELECT value FROM settings WHERE key = ? LIMIT 1")
-            .bind(KEY_IMPORT_COMMIT_BATCH_SIZE)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-
-    Ok(normalize_import_commit_batch_size(
-        raw_batch_size.as_deref(),
-    ))
 }
 
 async fn load_tag_catalog(pool: &SqlitePool) -> Result<Vec<(i64, String)>, String> {
@@ -1177,7 +1155,7 @@ async fn persist_bulk_import_confirm_wire(
     let resolved_assignments = resolve_bulk_import_assignments(confirm_wire);
     let preview_3d = false;
     let preview_3d_profile = "balanced".to_string();
-    let commit_batch_size = load_import_commit_batch_size(pool).await?;
+    let commit_batch_size = DEFAULT_IMPORT_COMMIT_BATCH_SIZE;
     let tag_catalog = load_tag_catalog(pool).await?;
     let valid_descriptions: HashSet<String> = tag_catalog
         .iter()

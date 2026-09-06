@@ -18,7 +18,6 @@ fn default_for_key_known_keys() {
     assert_eq!(default_for_key(KEY_AI_BATCH_SIZE), "");
     assert_eq!(default_for_key(KEY_AI_DELAY), "");
     assert_eq!(default_for_key(KEY_AI_FREE_TIER), "false");
-    assert_eq!(default_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE), "");
     assert_eq!(default_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER), "");
     assert_eq!(default_for_key(KEY_PREVIEW_3D_PROFILE), "balanced");
     assert_eq!(default_for_key(KEY_DB_IDLE_CHECK_INTERVAL_SECS), "1800");
@@ -38,8 +37,6 @@ fn description_for_key_known_keys() {
     assert!(description_for_key(KEY_AI_BATCH_SIZE).contains("Maximum number of designs"));
     assert!(description_for_key(KEY_AI_DELAY).contains("Seconds to wait"));
     assert!(description_for_key(KEY_AI_FREE_TIER).contains("free tier"));
-    assert!(description_for_key(KEY_IMPORT_COMMIT_BATCH_SIZE)
-        .contains("Maximum number of designs to persist"));
     assert!(
         description_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER).contains("Most recently used folder")
     );

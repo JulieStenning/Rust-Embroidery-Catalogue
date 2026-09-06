@@ -412,45 +412,6 @@ fn persist_bulk_import_confirm_wire_auto_hus_uses_native_backend() {
 }
 
 #[test]
-fn normalize_import_commit_batch_size_defaults_to_10_and_clamps_high_values() {
-    assert_eq!(normalize_import_commit_batch_size(None), 10);
-    assert_eq!(normalize_import_commit_batch_size(Some("")), 10);
-    assert_eq!(normalize_import_commit_batch_size(Some("abc")), 10);
-    assert_eq!(normalize_import_commit_batch_size(Some("0")), 10);
-    assert_eq!(normalize_import_commit_batch_size(Some("10")), 10);
-    assert_eq!(
-        normalize_import_commit_batch_size(Some("1000000")),
-        MAX_IMPORT_COMMIT_BATCH_SIZE
-    );
-}
-
-#[test]
-fn load_import_commit_batch_size_reads_setting_override() {
-    let pool = tauri::async_runtime::block_on(import_test_pool());
-
-    let default_batch_size = tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
-        .expect("default batch size should load");
-    assert_eq!(default_batch_size, 10);
-
-    tauri::async_runtime::block_on(async {
-            sqlx::query(
-                "INSERT INTO settings (key, value, description) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            )
-            .bind(KEY_IMPORT_COMMIT_BATCH_SIZE)
-            .bind("25")
-            .bind("test commit batch size")
-            .execute(&pool)
-            .await
-        })
-        .expect("failed to set import commit batch size");
-
-    let configured_batch_size =
-        tauri::async_runtime::block_on(load_import_commit_batch_size(&pool))
-            .expect("configured batch size should load");
-    assert_eq!(configured_batch_size, 25);
-}
-
-#[test]
 #[serial]
 fn persist_bulk_import_confirm_wire_assigns_path_rule_keyword_tags() {
     let previous_db_url = std::env::var("DATABASE_URL").ok();
