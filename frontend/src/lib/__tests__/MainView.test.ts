@@ -497,7 +497,7 @@ describe("global UI lock during long-running tasks", () => {
     await tick();
     expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("Import").className).toContain("menu-link-disabled");
-    expect(screen.getByText("Orphans")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("System")).toHaveAttribute("aria-disabled", "true");
 
     endBusy();
     await tick();
@@ -573,16 +573,16 @@ describe("routing and navigation", () => {
     expect(screen.getByText("Version v0.1.0")).toBeInTheDocument();
   });
 
-  it("renders the Settings view for #/admin/settings", async () => {
-    renderAtHash("#/admin/settings");
+  it("renders the Settings view for #/admin/system/settings", async () => {
+    renderAtHash("#/admin/system/settings");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Application Settings" })).toBeInTheDocument();
     });
   });
 
-  it("renders the Backup view for #/admin/maintenance/backup", async () => {
-    renderAtHash("#/admin/maintenance/backup");
+  it("renders the Backup view for #/admin/system/backup", async () => {
+    renderAtHash("#/admin/system/backup");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Backup & Restore" })).toBeInTheDocument();
@@ -597,8 +597,8 @@ describe("routing and navigation", () => {
     });
   });
 
-  it("renders the Orphans view for #/admin/orphans", async () => {
-    renderAtHash("#/admin/orphans");
+  it("renders the Orphans view for #/admin/system/orphans", async () => {
+    renderAtHash("#/admin/system/orphans");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Orphans" })).toBeInTheDocument();
@@ -1116,7 +1116,7 @@ describe("admin designers", () => {
       browseResponse([{ id: 1, name: "Rose Studio", design_count: 2 }])
     );
 
-    renderAtHash("#/admin/designers");
+    renderAtHash("#/admin/data/designers");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Manage Designers" })).toBeInTheDocument();
@@ -1126,7 +1126,7 @@ describe("admin designers", () => {
   });
 
   it("creates a new designer via the add form", async () => {
-    renderAtHash("#/admin/designers");
+    renderAtHash("#/admin/data/designers");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Manage Designers" })).toBeInTheDocument();
@@ -1147,7 +1147,7 @@ describe("admin designers", () => {
       browseResponse([{ id: 1, name: "Rose Studio", design_count: 0 }])
     );
 
-    renderAtHash("#/admin/designers");
+    renderAtHash("#/admin/data/designers");
 
     await waitFor(() => {
       expect(screen.getByText("Rose Studio")).toBeInTheDocument();
@@ -1170,7 +1170,7 @@ describe("admin designers", () => {
       browseResponse([{ id: 1, name: "Rose Studio", design_count: 0 }])
     );
 
-    renderAtHash("#/admin/designers");
+    renderAtHash("#/admin/data/designers");
 
     await waitFor(() => {
       expect(screen.getByText("Rose Studio")).toBeInTheDocument();
@@ -1196,7 +1196,7 @@ describe("admin sources", () => {
       browseResponse([{ id: 1, name: "Imported", design_count: 3 }])
     );
 
-    renderAtHash("#/admin/sources");
+    renderAtHash("#/admin/data/sources");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Manage Sources" })).toBeInTheDocument();
@@ -1228,7 +1228,7 @@ describe("admin hoops", () => {
       ])
     );
 
-    renderAtHash("#/admin/hoops");
+    renderAtHash("#/admin/data/hoops");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Manage Hoops" })).toBeInTheDocument();
@@ -1248,7 +1248,7 @@ describe("admin tags", () => {
       ])
     );
 
-    renderAtHash("#/admin/tags");
+    renderAtHash("#/admin/data/tags");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Manage Tags" })).toBeInTheDocument();
@@ -1261,7 +1261,7 @@ describe("admin tags", () => {
   });
 
   it("adds a new tag via the TagsView add form", async () => {
-    renderAtHash("#/admin/tags");
+    renderAtHash("#/admin/data/tags");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Manage Tags" })).toBeInTheDocument();

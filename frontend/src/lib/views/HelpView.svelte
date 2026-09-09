@@ -137,7 +137,7 @@
         <a href="https://aistudio.google.com/" class="text-indigo-600 hover:underline"
           >Google AI Studio</a
         >, then save it in
-        <a href="#/admin/settings" class="text-indigo-600 hover:underline">Settings</a>.
+        <a href="#/admin/system/settings" class="text-indigo-600 hover:underline">Settings</a>.
       </p>
       <p>
         <strong>In-app actions:</strong> run Visual AI from
@@ -197,7 +197,7 @@
   <section id="maintenance">
     <h2 class="text-xl font-semibold mb-3 border-b pb-1">🛠 Maintenance</h2>
     <p class="text-sm text-gray-700 mb-3">
-      Use <a href="#/admin/orphans" class="text-indigo-600 hover:underline">Orphans</a> to find records
+      Use <a href="#/admin/system/orphans" class="text-indigo-600 hover:underline">Orphans</a> to find records
       whose files are missing.
     </p>
     <div class="bg-white rounded shadow p-4 space-y-3 text-sm">

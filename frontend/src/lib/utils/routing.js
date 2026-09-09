@@ -9,14 +9,20 @@ export const ORDERED_ROUTE_HINTS = [
   "#/import",
   "#/projects",
   "#/help",
-  "#/admin/designers",
-  "#/admin/tags",
-  "#/admin/sources",
-  "#/admin/hoops",
-  "#/admin/settings",
-  "#/admin/maintenance/backup",
+  // Reference Data hub (Manage Data) — sub-tabs keep their own URLs so each
+  // is deep-linkable and survives refresh / Back / Forward.
+  "#/admin/data",
+  "#/admin/data/designers",
+  "#/admin/data/tags",
+  "#/admin/data/sources",
+  "#/admin/data/hoops",
+  // Batch Operations destination (single URL; internally sub-tabbed).
   "#/admin/batch-operations",
-  "#/admin/orphans",
+  // System / Maintenance hub.
+  "#/admin/system",
+  "#/admin/system/settings",
+  "#/admin/system/backup",
+  "#/admin/system/orphans",
   "#/about",
 ];
 
@@ -25,16 +31,50 @@ export const ROUTE_UI_KIND = {
   "#/import": "import",
   "#/projects": "projects-list",
   "#/help": "help",
-  "#/admin/designers": "admin-list",
-  "#/admin/tags": "admin-list",
-  "#/admin/sources": "admin-list",
-  "#/admin/hoops": "admin-list",
-  "#/admin/settings": "settings",
-  "#/admin/maintenance/backup": "backup",
+  "#/admin/data": "reference-data",
+  "#/admin/data/designers": "reference-data",
+  "#/admin/data/tags": "reference-data",
+  "#/admin/data/sources": "reference-data",
+  "#/admin/data/hoops": "reference-data",
   "#/admin/batch-operations": "batch-operations",
-  "#/admin/orphans": "orphans",
+  "#/admin/system": "system",
+  "#/admin/system/settings": "system",
+  "#/admin/system/backup": "system",
+  "#/admin/system/orphans": "system",
   "#/about": "about",
 };
+
+/** Sub-tabs shown by the Reference Data hub, in display order. */
+export const REFERENCE_DATA_TABS = ["designers", "tags", "sources", "hoops"];
+
+/** Sub-tabs shown by the System / Maintenance hub, in display order. */
+export const SYSTEM_TABS = ["settings", "backup", "orphans"];
+
+/**
+ * Which Reference Data sub-view a route targets.
+ * Returns one of `REFERENCE_DATA_TABS`, or `"designers"` for the bare hub
+ * root `#/admin/data`, or `null` when the route is not inside this hub.
+ * @param {string} route
+ * @returns {string | null}
+ */
+export function parseReferenceDataTab(route) {
+  if (route === "#/admin/data") return "designers";
+  const match = route.match(/^#\/admin\/data\/(designers|tags|sources|hoops)$/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Which System / Maintenance sub-view a route targets.
+ * Returns one of `SYSTEM_TABS`, or `"settings"` for the bare hub root
+ * `#/admin/system`, or `null` when the route is not inside this hub.
+ * @param {string} route
+ * @returns {string | null}
+ */
+export function parseSystemTab(route) {
+  if (route === "#/admin/system") return "settings";
+  const match = route.match(/^#\/admin\/system\/(settings|backup|orphans)$/);
+  return match ? match[1] : null;
+}
 
 export const HELP_SECTION_IDS = new Set([
   "search",
@@ -94,6 +134,11 @@ export function resolveCurrentUiKind(route) {
   if (parseDesignDetailId(route) !== null) return "design-detail";
   if (parseAboutDocumentSlug(route) !== null) return "about-document";
   if (parseImportWizardStep(route) !== null) return "import";
+  // Admin hubs are recognised by prefix so every sub-tab URL inside a hub
+  // maps to the same (stable) ui kind — this keeps the hub shell mounted
+  // while the user switches sub-tabs, so only the child swaps.
+  if (parseReferenceDataTab(route) !== null) return "reference-data";
+  if (parseSystemTab(route) !== null) return "system";
   return ROUTE_UI_KIND[/** @type {keyof typeof ROUTE_UI_KIND} */ (route)] || null;
 }
 

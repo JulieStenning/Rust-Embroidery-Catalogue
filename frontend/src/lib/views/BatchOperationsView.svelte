@@ -711,7 +711,7 @@
       {#if !taggingHasGoogleApiKey}
         <p class="text-xs text-gray-400 italic">
           Configure a Gemini API key in
-          <a href="#/admin/settings" class="text-indigo-600 underline font-medium">Settings</a>
+          <a href="#/admin/system/settings" class="text-indigo-600 underline font-medium">Settings</a>
           to enable AI-powered tag suggestions.
         </p>
       {/if}

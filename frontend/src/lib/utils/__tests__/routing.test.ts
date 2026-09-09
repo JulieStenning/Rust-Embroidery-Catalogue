@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { normalizeHash, resolveCurrentUiKind, parseProjectDetailId } from "../routing.js";
+import {
+  normalizeHash,
+  resolveCurrentUiKind,
+  parseProjectDetailId,
+  parseReferenceDataTab,
+  parseSystemTab,
+} from "../routing.js";
 
 describe("normalizeHash", () => {
   it("preserves the new-project route", () => {
@@ -28,8 +34,60 @@ describe("resolveCurrentUiKind", () => {
     expect(resolveCurrentUiKind("#/admin/batch-operations")).toBe("batch-operations");
   });
 
+  it("maps every Reference Data sub-tab to the stable reference-data kind", () => {
+    expect(resolveCurrentUiKind("#/admin/data")).toBe("reference-data");
+    expect(resolveCurrentUiKind("#/admin/data/designers")).toBe("reference-data");
+    expect(resolveCurrentUiKind("#/admin/data/tags")).toBe("reference-data");
+    expect(resolveCurrentUiKind("#/admin/data/sources")).toBe("reference-data");
+    expect(resolveCurrentUiKind("#/admin/data/hoops")).toBe("reference-data");
+  });
+
+  it("maps every System sub-tab to the stable system kind", () => {
+    expect(resolveCurrentUiKind("#/admin/system")).toBe("system");
+    expect(resolveCurrentUiKind("#/admin/system/settings")).toBe("system");
+    expect(resolveCurrentUiKind("#/admin/system/backup")).toBe("system");
+    expect(resolveCurrentUiKind("#/admin/system/orphans")).toBe("system");
+  });
+
   it("maps an unrecognised route to null", () => {
     expect(resolveCurrentUiKind("#/unknown/route")).toBeNull();
+  });
+});
+
+describe("parseReferenceDataTab", () => {
+  it("defaults the bare hub root to designers", () => {
+    expect(parseReferenceDataTab("#/admin/data")).toBe("designers");
+  });
+
+  it("parses each sub-tab route", () => {
+    expect(parseReferenceDataTab("#/admin/data/designers")).toBe("designers");
+    expect(parseReferenceDataTab("#/admin/data/tags")).toBe("tags");
+    expect(parseReferenceDataTab("#/admin/data/sources")).toBe("sources");
+    expect(parseReferenceDataTab("#/admin/data/hoops")).toBe("hoops");
+  });
+
+  it("returns null outside the Reference Data hub", () => {
+    expect(parseReferenceDataTab("#/designs")).toBeNull();
+    expect(parseReferenceDataTab("#/admin/system/settings")).toBeNull();
+    expect(parseReferenceDataTab("#/admin/data/unknown")).toBeNull();
+  });
+});
+
+describe("parseSystemTab", () => {
+  it("defaults the bare hub root to settings", () => {
+    expect(parseSystemTab("#/admin/system")).toBe("settings");
+  });
+
+  it("parses each sub-tab route", () => {
+    expect(parseSystemTab("#/admin/system/settings")).toBe("settings");
+    expect(parseSystemTab("#/admin/system/backup")).toBe("backup");
+    expect(parseSystemTab("#/admin/system/orphans")).toBe("orphans");
+  });
+
+  it("returns null outside the System hub", () => {
+    expect(parseSystemTab("#/help")).toBeNull();
+    expect(parseSystemTab("#/admin/data/tags")).toBeNull();
+    expect(parseSystemTab("#/admin/system/unknown")).toBeNull();
   });
 });
 

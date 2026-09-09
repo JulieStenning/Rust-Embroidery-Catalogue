@@ -71,5 +71,5 @@ When using external storage, your operating system assigns it a location (e.g., 
 ## 3. Best Practices for Data Safety
 
 1. **Unplug Safely:** Always use your operating system's "Eject" or "Safely Remove Hardware" option before unplugging your SD card or external drive to prevent database corruption.
-2. **Regular Backups:** External cards and drives can be lost or damaged. Use the built-in backup tools in **Embroidery Catalogue** ([Backup](#/admin/maintenance/backup)) or copy your database and designs to a second drive periodically.
+2. **Regular Backups:** External cards and drives can be lost or damaged. Use the built-in backup tools in **Embroidery Catalogue** ([Backup](#/admin/system/backup)) or copy your database and designs to a second drive periodically.
 3. **Keep Original Files Untouched:** **Embroidery Catalogue** is an offline-first tool that **never moves, modifies, or alters** your original embroidery files. However, keeping an independent backup of your source embroidery purchases is always recommended.

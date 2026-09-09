@@ -3,19 +3,14 @@
   import HelpView from "./views/HelpView.svelte";
   import AboutView from "./views/AboutView.svelte";
   import AboutDocumentView from "./views/AboutDocumentView.svelte";
-  import SettingsView from "./views/SettingsView.svelte";
-  import BackupView from "./views/BackupView.svelte";
+  import ReferenceDataView from "./views/ReferenceDataView.svelte";
+  import SystemMaintenanceView from "./views/SystemMaintenanceView.svelte";
   import BatchOperationsView from "./views/BatchOperationsView.svelte";
-  import OrphansView from "./views/OrphansView.svelte";
   import ProjectsView from "./views/ProjectsView.svelte";
   import DesignDetailView from "./views/DesignDetailView.svelte";
   import DesignPrintView from "./views/DesignPrintView.svelte";
   import ImportView from "./views/ImportView.svelte";
-  import TagsView from "./views/TagsView.svelte";
   import BrowseView from "./views/BrowseView.svelte";
-  import AdminDesignersView from "./views/AdminDesignersView.svelte";
-  import AdminSourcesView from "./views/AdminSourcesView.svelte";
-  import AdminHoopsView from "./views/AdminHoopsView.svelte";
   import { busyState } from "./stores/busyStore.js";
   import { browseSessionStore } from "./stores/browseSessionStore.js";
   import {
@@ -25,6 +20,7 @@
     parseProjectDetailId,
     parseProjectPrintId,
     parseAboutDocumentSlug,
+    parseSystemTab,
     resolveCurrentUiKind,
     ORDERED_ROUTE_HINTS,
     HELP_SECTION_IDS,
@@ -48,14 +44,18 @@
   }
 
 
-  // Utility/reference pages (About, Licensing/AI-Tagging docs, Help, Settings)
-  // are cross-linked from many places. Show a context-aware "Back" button that
-  // returns to the page the user actually came from (e.g. Import step 3), and
-  // hide it when there is no previous route (e.g. app launched directly here).
-  const UTILITY_UI_KINDS_WITH_BACK = new Set(["settings", "about", "about-document", "help"]);
+  // Reference Data / System hubs cross-link heavily; Settings (a System hub
+  // sub-tab) and the utility pages below show a context-aware "Back" button.
+  const UTILITY_UI_KINDS_WITH_BACK = new Set(["about", "about-document", "help"]);
+  // Settings (a System-hub sub-tab) keeps its Back button, while the sibling
+  // Backup / Orphans sub-tabs of the same hub do NOT — this preserves each
+  // sub-view's previous behaviour once it lives inside the shared shell.
+  const systemShowsBack = $derived(
+    currentUiKind === "system" && parseSystemTab(currentRoute) === "settings"
+  );
   let showBackButton = $derived(
     currentUiKind !== null &&
-      UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) &&
+      (UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) || systemShowsBack) &&
       Boolean(previousRoute) &&
       previousRoute !== currentRoute
   );
@@ -148,9 +148,16 @@
     return `menu-link ${isActive ? "menu-link-active" : ""}${disabled}`;
   }
 
-  /** @param {string} target */
-  function adminLinkClass(target) {
-    const isActive = currentRoute === target;
+  /**
+   * Active-highlight class for a consolidated Admin hub link. A hub link is
+   * active when the current route is anywhere inside the hub's URL space, so
+   * the correct hub stays highlighted as the user moves across its sub-tabs.
+   * @param {string[]} hubRoots Hub URL prefixes (e.g. "#/admin/data").
+   */
+  function hubLinkClass(hubRoots) {
+    const isActive = hubRoots.some(
+      (root) => currentRoute === root || currentRoute.startsWith(`${root}/`)
+    );
     const disabled = busyActive ? " menu-link-disabled" : "";
     return `menu-link menu-link-admin ${isActive ? "menu-link-active" : ""}${disabled}`;
   }
@@ -188,60 +195,25 @@
     <div class="menu-admin-group flex items-center gap-3 text-xs text-indigo-200">
       <span class="menu-admin-label opacity-70" aria-hidden="true">Admin:</span>
       <a
-        href="#/admin/designers"
-        class={adminLinkClass("#/admin/designers")}
+        href="#/admin/data/designers"
+        class={hubLinkClass(["#/admin/data"])}
         aria-disabled={busyActive}
         onclick={guardNavClick}
-        >Designers</a
-      >
-      <a
-        href="#/admin/tags"
-        class={adminLinkClass("#/admin/tags")}
-        aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Tags</a
-      >
-      <a
-        href="#/admin/sources"
-        class={adminLinkClass("#/admin/sources")}
-        aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Sources</a
-      >
-      <a
-        href="#/admin/hoops"
-        class={adminLinkClass("#/admin/hoops")}
-        aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Hoops</a
-      >
-      <a
-        href="#/admin/settings"
-        class={adminLinkClass("#/admin/settings")}
-        aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Settings</a
-      >
-      <a
-        href="#/admin/maintenance/backup"
-        class={adminLinkClass("#/admin/maintenance/backup")}
-        aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Backup/Restore</a
+        >Manage Data</a
       >
       <a
         href="#/admin/batch-operations"
-        class={adminLinkClass("#/admin/batch-operations")}
+        class={hubLinkClass(["#/admin/batch-operations"])}
         aria-disabled={busyActive}
         onclick={guardNavClick}
         >Batch Operations</a
       >
       <a
-        href="#/admin/orphans"
-        class={adminLinkClass("#/admin/orphans")}
+        href="#/admin/system/settings"
+        class={hubLinkClass(["#/admin/system"])}
         aria-disabled={busyActive}
         onclick={guardNavClick}
-        >Orphans</a
+        >System</a
       >
     </div>
   </div>
@@ -264,14 +236,12 @@
       {navigateTo}
       bind:browseNeedsRefresh
     />
-  {:else if currentUiKind === "settings"}
-    <SettingsView />
-  {:else if currentUiKind === "backup"}
-    <BackupView />
+  {:else if currentUiKind === "reference-data"}
+    <ReferenceDataView />
   {:else if currentUiKind === "batch-operations"}
     <BatchOperationsView />
-  {:else if currentUiKind === "orphans"}
-    <OrphansView />
+  {:else if currentUiKind === "system"}
+    <SystemMaintenanceView />
   {:else if currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print"}
     <ProjectsView {currentUiKind} {projectDetailId} {projectPrintId} {navigateTo} />
   {:else if currentUiKind === "design-detail"}
@@ -295,14 +265,6 @@
     <AboutDocumentView slug={aboutDocumentSlug} />
   {:else if currentUiKind === "help"}
     <HelpView />
-  {:else if currentUiKind === "admin-list" && currentRoute === "#/admin/designers"}
-    <AdminDesignersView />
-  {:else if currentUiKind === "admin-list" && currentRoute === "#/admin/tags"}
-    <TagsView />
-  {:else if currentUiKind === "admin-list" && currentRoute === "#/admin/sources"}
-    <AdminSourcesView />
-  {:else if currentUiKind === "admin-list" && currentRoute === "#/admin/hoops"}
-    <AdminHoopsView />
   {:else}
     <div class="bg-white rounded-xl shadow p-6 space-y-4 border">
       <h1 class="ui-page-title text-2xl font-bold text-gray-800">Route Not Found</h1>

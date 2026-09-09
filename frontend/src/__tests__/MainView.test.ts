@@ -126,18 +126,13 @@ describe("MainView.svelte", () => {
     expect(screen.getByText("Help")).toBeInTheDocument();
   });
 
-  it("renders the admin navigation links", () => {
+  it("renders the consolidated admin hub navigation links", () => {
     render(MainView);
 
     expect(screen.getByText("Admin:")).toBeInTheDocument();
-    expect(screen.getByText("Designers")).toBeInTheDocument();
-    expect(screen.getByText("Tags")).toBeInTheDocument();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
-    expect(screen.getByText("Hoops")).toBeInTheDocument();
-    expect(screen.getByText("Settings")).toBeInTheDocument();
-    expect(screen.getByText("Backup/Restore")).toBeInTheDocument();
+    expect(screen.getByText("Manage Data")).toBeInTheDocument();
     expect(screen.getByText("Batch Operations")).toBeInTheDocument();
-    expect(screen.getByText("Orphans")).toBeInTheDocument();
+    expect(screen.getByText("System")).toBeInTheDocument();
   });
 
   // --- Global UI lock (busy state) -----------------------------------------
@@ -153,10 +148,10 @@ describe("MainView.svelte", () => {
       expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Projects")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Help")).toHaveAttribute("aria-disabled", "true");
-      // Admin nav
-      expect(screen.getByText("Designers")).toHaveAttribute("aria-disabled", "true");
+      // Admin hub nav
+      expect(screen.getByText("Manage Data")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Batch Operations")).toHaveAttribute("aria-disabled", "true");
-      expect(screen.getByText("Orphans")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("System")).toHaveAttribute("aria-disabled", "true");
       // Footer
       expect(screen.getByText("About")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "true");
@@ -279,21 +274,57 @@ describe("MainView.svelte", () => {
     expect(screen.queryByTestId("design-detail-view")).not.toBeInTheDocument();
   });
 
-  // --- Admin views ----------------------------------------------------------
+  // --- Admin hubs (Manage Data / Batch Operations / System) -------------------
 
-  it("renders SettingsView for #/admin/settings", () => {
-    setHash("#/admin/settings");
+  it("renders the Reference Data hub with the designers sub-view for #/admin/data/designers", async () => {
+    setHash("#/admin/data/designers");
     render(MainView);
 
-    expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
+    });
     expect(screen.queryByTestId("browse-view")).not.toBeInTheDocument();
   });
 
-  it("renders BackupView for #/admin/maintenance/backup", () => {
-    setHash("#/admin/maintenance/backup");
+  it("renders the tags sub-view for #/admin/data/tags", async () => {
+    setHash("#/admin/data/tags");
     render(MainView);
 
-    expect(screen.getByTestId("backup-view")).toBeInTheDocument();
+    expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("tags-view")).toBeInTheDocument();
+    });
+  });
+
+  it("renders the sources sub-view for #/admin/data/sources", async () => {
+    setHash("#/admin/data/sources");
+    render(MainView);
+
+    expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
+    });
+  });
+
+  it("renders the hoops sub-view for #/admin/data/hoops", async () => {
+    setHash("#/admin/data/hoops");
+    render(MainView);
+
+    expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+    });
+  });
+
+  it("renders the bare Reference Data hub root as the designers sub-view", async () => {
+    setHash("#/admin/data");
+    render(MainView);
+
+    expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
+    });
   });
 
   it("renders BatchOperationsView for #/admin/batch-operations", () => {
@@ -301,41 +332,48 @@ describe("MainView.svelte", () => {
     render(MainView);
 
     expect(screen.getByTestId("batch-operations-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("reference-data-tablist")).not.toBeInTheDocument();
   });
 
-  it("renders OrphansView for #/admin/orphans", () => {
-    setHash("#/admin/orphans");
+  it("renders the System hub with the settings sub-view for #/admin/system/settings", async () => {
+    setHash("#/admin/system/settings");
     render(MainView);
 
-    expect(screen.getByTestId("orphans-view")).toBeInTheDocument();
+    expect(screen.getByTestId("system-maintenance-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("browse-view")).not.toBeInTheDocument();
   });
 
-  it("renders AdminDesignersView for #/admin/designers", () => {
-    setHash("#/admin/designers");
+  it("renders the backup sub-view for #/admin/system/backup", async () => {
+    setHash("#/admin/system/backup");
     render(MainView);
 
-    expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
+    expect(screen.getByTestId("system-maintenance-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("backup-view")).toBeInTheDocument();
+    });
   });
 
-  it("renders TagsView for #/admin/tags", () => {
-    setHash("#/admin/tags");
+  it("renders the orphans sub-view for #/admin/system/orphans", async () => {
+    setHash("#/admin/system/orphans");
     render(MainView);
 
-    expect(screen.getByTestId("tags-view")).toBeInTheDocument();
+    expect(screen.getByTestId("system-maintenance-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("orphans-view")).toBeInTheDocument();
+    });
   });
 
-  it("renders AdminSourcesView for #/admin/sources", () => {
-    setHash("#/admin/sources");
+  it("renders the bare System hub root as the settings sub-view", async () => {
+    setHash("#/admin/system");
     render(MainView);
 
-    expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
-  });
-
-  it("renders AdminHoopsView for #/admin/hoops", () => {
-    setHash("#/admin/hoops");
-    render(MainView);
-
-    expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+    expect(screen.getByTestId("system-maintenance-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    });
   });
 
   // --- Static info views ------------------------------------------------------
@@ -486,21 +524,34 @@ describe("MainView.svelte", () => {
   });
 
   it.each([
-    ["#/admin/designers", "Designers"],
-    ["#/admin/tags", "Tags"],
-    ["#/admin/sources", "Sources"],
-    ["#/admin/hoops", "Hoops"],
-    ["#/admin/settings", "Settings"],
-    ["#/admin/maintenance/backup", "Backup/Restore"],
+    ["#/admin/data/designers", "Manage Data"],
     ["#/admin/batch-operations", "Batch Operations"],
-    ["#/admin/orphans", "Orphans"],
-  ])("marks admin link %s active when route matches", (route, label) => {
+    ["#/admin/system/settings", "System"],
+  ])("marks hub link %s active when route matches", (route, label) => {
     setHash(route);
     render(MainView);
 
     const link = screen.getByRole("link", { name: label });
     expect(link).toHaveClass("menu-link-active");
     expect(link).toHaveClass("menu-link-admin");
+  });
+
+  it("keeps the hub link active across its sub-tab routes", async () => {
+    setHash("#/admin/data/tags");
+    render(MainView);
+
+    const dataLink = screen.getByRole("link", { name: "Manage Data" });
+    expect(dataLink).toHaveClass("menu-link-active");
+    await waitFor(() => {
+      expect(screen.getByTestId("tags-view")).toBeInTheDocument();
+    });
+
+    setHash("#/admin/system/orphans");
+    await waitFor(() => {
+      expect(screen.getByTestId("orphans-view")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: "System" })).toHaveClass("menu-link-active");
+    expect(dataLink).not.toHaveClass("menu-link-active");
   });
 
   it("does not mark links active on a non-matching route", () => {
@@ -522,12 +573,12 @@ describe("MainView.svelte", () => {
 
   // --- Context-aware Back button -------------------------------------------------
 
-  it("shows a Back button on a utility page arrived from another page", async () => {
-    // Start on Browse, then navigate to Settings via click/menu.
+  it("shows a Back button on the Settings sub-tab arrived from another page", async () => {
+    // Start on Browse, then navigate to the System hub's Settings sub-tab.
     render(MainView);
     expect(screen.getByTestId("browse-view")).toBeInTheDocument();
 
-    setHash("#/admin/settings");
+    setHash("#/admin/system/settings");
     await waitFor(() => {
       expect(screen.getByTestId("settings-view")).toBeInTheDocument();
     });
@@ -540,7 +591,7 @@ describe("MainView.svelte", () => {
   it("returns to the previous page when Back is clicked", async () => {
     render(MainView);
 
-    setHash("#/admin/settings");
+    setHash("#/admin/system/settings");
     await waitFor(() => {
       expect(screen.getByTestId("settings-view")).toBeInTheDocument();
     });
@@ -563,11 +614,13 @@ describe("MainView.svelte", () => {
     expect(screen.getByRole("button", { name: /\u2190 Back/ })).toBeInTheDocument();
   });
 
-  it("does not show a Back button when launched directly on a utility page", () => {
-    setHash("#/admin/settings");
+  it("does not show a Back button when launched directly on the Settings sub-tab", async () => {
+    setHash("#/admin/system/settings");
     render(MainView);
 
-    expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    });
     expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
   });
 
@@ -654,7 +707,7 @@ describe("MainView.svelte", () => {
     render(MainView);
     expect(screen.getByTestId("browse-view")).toBeInTheDocument();
 
-    setHash("#/admin/settings");
+    setHash("#/admin/system/settings");
 
     await waitFor(() => {
       expect(screen.getByTestId("settings-view")).toBeInTheDocument();
@@ -662,10 +715,12 @@ describe("MainView.svelte", () => {
     expect(screen.queryByTestId("browse-view")).not.toBeInTheDocument();
   });
 
-  it("switches from settings back to browse on hashchange", async () => {
-    setHash("#/admin/settings");
+  it("switches from the System hub back to browse on hashchange", async () => {
+    setHash("#/admin/system/settings");
     render(MainView);
-    expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    });
 
     setHash("#/designs");
 

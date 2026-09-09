@@ -250,7 +250,7 @@ describe("HelpView", () => {
 
       // Internal links
       const settingsLink = section.getByRole("link", { name: "Settings" });
-      expect(settingsLink).toHaveAttribute("href", "#/admin/settings");
+      expect(settingsLink).toHaveAttribute("href", "#/admin/system/settings");
 
       // "Admin → Batch Operations" also appears in the batch-operations section
       // further down the page, so scope this query to the ai-tagging section.
@@ -373,7 +373,7 @@ describe("HelpView", () => {
       ).toBeInTheDocument();
 
       const orphansLink = section.getByRole("link", { name: "Orphans" });
-      expect(orphansLink).toHaveAttribute("href", "#/admin/orphans");
+      expect(orphansLink).toHaveAttribute("href", "#/admin/system/orphans");
 
       expect(section.getByText("What orphaned records are:")).toBeInTheDocument();
       expect(section.getByText("Deleting orphans:")).toBeInTheDocument();
