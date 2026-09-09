@@ -340,6 +340,95 @@ pub async fn run_stitching_backfill(
         .map_err(|err| err.to_string())
 }
 
+/// Maintenance-only batch run. Performs file-level maintenance tasks (preview
+/// generation, colour/stitch-count recalculation, hoop/dimension recalculation)
+/// WITHOUT any tagging. Because no tagging action is present, the run processes
+/// the entire catalogue — this is the "no tagging selected on Tab 1" case of the
+/// two-tab Tagging Actions screen.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct MaintenanceBatchRequest {
+    /// Population scope for every selected task: `"all"` (the whole catalogue) or
+    /// `"missing_previews"` (only designs with no stored preview).
+    pub scope: Option<String>,
+    pub generate_previews: Option<bool>,
+    pub recalc_color_counts: Option<bool>,
+    pub recalc_hoop_dimensions: Option<bool>,
+    pub batch_size: Option<i64>,
+    pub commit_every: Option<i64>,
+    pub workers: Option<i64>,
+}
+
+#[tauri::command]
+pub async fn run_maintenance_batch(
+    state: State<'_, AppState>,
+    request: Option<MaintenanceBatchRequest>,
+) -> Result<backfill::UnifiedBackfillSummary, String> {
+    let request = request.unwrap_or_default();
+    let generate_previews = request.generate_previews.unwrap_or(false);
+    let scope = request.scope.as_deref().unwrap_or("all").trim().to_ascii_lowercase();
+    let missing_previews_only = scope == "missing_previews";
+
+    let backfill_request = backfill::UnifiedBackfillRequest {
+        actions: Some(backfill::UnifiedBackfillActions {
+            tagging: None,
+            stitching: None,
+            images: if generate_previews {
+                // Scope drives the population: "Entire catalogue" regenerates every
+                // preview (`redo = true`); "missing_previews" fills gaps only.
+                Some(backfill::ImageActionOptions {
+                    redo: Some(!missing_previews_only),
+                    enabled: Some(true),
+                })
+            } else {
+                None
+            },
+            color_counts: if request.recalc_color_counts.unwrap_or(false) {
+                Some(backfill::ColorCountsActionOptions {
+                    enabled: Some(true),
+                    missing_previews_only: Some(missing_previews_only),
+                    overwrite: Some(!missing_previews_only),
+                })
+            } else {
+                None
+            },
+            hoop_dimensions: if request.recalc_hoop_dimensions.unwrap_or(false) {
+                Some(backfill::HoopDimensionsActionOptions {
+                    enabled: Some(true),
+                    missing_previews_only: Some(missing_previews_only),
+                    overwrite: Some(!missing_previews_only),
+                })
+            } else {
+                None
+            },
+            fingerprinting: None,
+        }),
+        batch_size: request.batch_size,
+        commit_every: request.commit_every,
+        workers: request.workers,
+        delay_seconds: None,
+        vision_delay_seconds: None,
+    };
+
+    backfill::run_unified_backfill_with_progress(
+        &state.db_pool()?,
+        backfill_request,
+        false,
+        None,
+        &mut |progress| emit_backfill_progress(&progress),
+    )
+    .await
+    .map_err(|err| err.to_string())
+}
+
+/// Number of designs with no stored preview (`image_data IS NULL`) — the "missing
+/// preview" population used by the Maintenance tab's Target Scope card.
+#[tauri::command]
+pub async fn count_missing_preview_designs(state: State<'_, AppState>) -> Result<i64, String> {
+    backfill::count_missing_previews(&state.db_pool()?)
+        .await
+        .map_err(|err| err.to_string())
+}
+
 #[tauri::command]
 pub async fn run_fingerprint_backfill(
     state: State<'_, AppState>,

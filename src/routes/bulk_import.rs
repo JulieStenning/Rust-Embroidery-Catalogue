@@ -627,15 +627,16 @@ fn get_designs_base_path() -> PathBuf {
     derive_data_root_from_database_url().join("MachineEmbroideryDesigns")
 }
 
-/// Returns whether `full_path` resides under the canonical designs base directory.
-/// Uses case-insensitive, separator-normalized boundary-safe prefix matching so that
-/// only files genuinely under AppRoot/data/MachineEmbroideryDesigns are treated as in-library.
-fn is_path_under_designs_base(full_path: &str) -> bool {
+/// Pure, dependency-free prefix check: is `full_path` (separator-normalised and
+/// lowercased) equal to `base`, or located under `base/`? Boundary-safe — a
+/// sibling like `Base2/...`, `Base-extra`, or `BaseOther` is not accepted. This
+/// is the shared logic used by `is_path_under_designs_base` so it can be unit
+/// tested without depending on process environment or a filesystem root.
+fn is_path_under_base(full_path: &str, base: &Path) -> bool {
     let normalized = full_path.trim().replace('\\', "/");
     let normalized_lower = normalized.to_ascii_lowercase();
 
-    let designs_base = get_designs_base_path();
-    let base_norm = designs_base.to_string_lossy().replace('\\', "/");
+    let base_norm = base.to_string_lossy().replace('\\', "/");
     let base_lower = base_norm.to_ascii_lowercase();
 
     if normalized_lower == base_lower {
@@ -644,6 +645,13 @@ fn is_path_under_designs_base(full_path: &str) -> bool {
 
     let base_prefix = format!("{}/", base_lower.trim_end_matches('/'));
     normalized_lower.starts_with(&base_prefix)
+}
+
+/// Returns whether `full_path` resides under the canonical designs base directory.
+/// Uses case-insensitive, separator-normalized boundary-safe prefix matching so that
+/// only files genuinely under AppRoot/data/MachineEmbroideryDesigns are treated as in-library.
+fn is_path_under_designs_base(full_path: &str) -> bool {
+    is_path_under_base(full_path, &get_designs_base_path())
 }
 
 /// Converts a full on-disk file path under the designs base directory to the

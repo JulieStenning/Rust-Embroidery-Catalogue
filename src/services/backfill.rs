@@ -102,11 +102,25 @@ pub struct ImageActionOptions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ColorCountsActionOptions {
     pub enabled: Option<bool>,
+    /// When true, only designs with no stored preview (`image_data IS NULL`) are
+    /// processed — the "missing previews" population scope on the Maintenance tab.
+    pub missing_previews_only: Option<bool>,
+    /// When true, recompute & overwrite the values for every row in the selected
+    /// population (ignore the "value is NULL" gap predicate). Used by the
+    /// "Entire catalogue" Maintenance scope; combined Tagging runs keep it unset.
+    pub overwrite: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct HoopDimensionsActionOptions {
     pub enabled: Option<bool>,
+    /// When true, only designs with no stored preview (`image_data IS NULL`) are
+    /// processed — the "missing previews" population scope on the Maintenance tab.
+    pub missing_previews_only: Option<bool>,
+    /// When true, recompute & overwrite the values for every row in the selected
+    /// population (ignore the "value is NULL" gap predicate). Used by the
+    /// "Entire catalogue" Maintenance scope; combined Tagging runs keep it unset.
+    pub overwrite: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -250,6 +264,28 @@ pub async fn run_unified_backfill_with_progress(
         hoop_dimensions: None,
         fingerprinting: None,
     });
+
+    // When this run carries maintenance actions (images / colour-counts /
+    // hoop-dimensions) alongside an ENABLED tagging action, those maintenance
+    // actions are bounded to the tagging action's candidate scope (mode + folder
+    // union + verified exclusion). With no enabled tagging action, maintenance
+    // runs over the entire catalogue.
+    let maintenance_scope = match &actions.tagging {
+        Some(tag) if tag.enabled.unwrap_or(true) => {
+            let mode = normalize_tag_mode(tag.action.as_deref()).to_string();
+            let folder_scopes = resolve_folder_scopes_from_options(
+                tag.folder_paths.as_deref(),
+                tag.folder_path.as_deref(),
+            )?;
+            Some(ScopedRun {
+                mode,
+                folder_scopes,
+                include_subfolders: tag.include_subfolders.unwrap_or(true),
+                exclude_verified: tag.exclude_verified.unwrap_or(true),
+            })
+        }
+        _ => None,
+    };
 
     let batch_size = resolve_i64_option(
         request.batch_size,
@@ -667,6 +703,7 @@ pub async fn run_unified_backfill_with_progress(
                     images_action.redo.unwrap_or(false),
                     batch_size,
                     image_cursor,
+                    maintenance_scope.as_ref(),
                 )
                 .await?;
                 if image_candidates.is_empty() {
@@ -711,8 +748,15 @@ pub async fn run_unified_backfill_with_progress(
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                let color_candidates =
-                    select_color_count_candidates(pool, batch_size, color_cursor).await?;
+                let color_candidates = select_color_count_candidates(
+                    pool,
+                    batch_size,
+                    color_cursor,
+                    maintenance_scope.as_ref(),
+                    color_counts_action.missing_previews_only.unwrap_or(false),
+                    color_counts_action.overwrite.unwrap_or(false),
+                )
+                .await?;
                 if color_candidates.is_empty() {
                     break;
                 }
@@ -756,8 +800,15 @@ pub async fn run_unified_backfill_with_progress(
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                let hoop_candidates =
-                    select_hoop_dimension_candidates(pool, batch_size, hoop_cursor).await?;
+                let hoop_candidates = select_hoop_dimension_candidates(
+                    pool,
+                    batch_size,
+                    hoop_cursor,
+                    maintenance_scope.as_ref(),
+                    hoop_dimensions_action.missing_previews_only.unwrap_or(false),
+                    hoop_dimensions_action.overwrite.unwrap_or(false),
+                )
+                .await?;
                 if hoop_candidates.is_empty() {
                     break;
                 }
@@ -981,6 +1032,22 @@ pub(crate) struct TaggingFolderScope {
     pub is_root: bool,
 }
 
+/// The candidate scope of an enabled tagging action, captured so maintenance
+/// actions (`images`, `color_counts`, `hoop_dimensions`) that run in the SAME
+/// request are bounded to the exact same designs the tagging action would touch
+/// (its mode + folder union + verified exclusion). When no tagging action is
+/// enabled there is no `ScopedRun` and maintenance actions process the whole
+/// catalogue.
+#[derive(Debug, Clone)]
+pub(crate) struct ScopedRun {
+    /// Normalized tagging action (`tag_untagged`, `retag_all`, …).
+    pub mode: String,
+    /// Validated folder scopes bounding the run (empty = whole library).
+    pub folder_scopes: Vec<TaggingFolderScope>,
+    pub include_subfolders: bool,
+    pub exclude_verified: bool,
+}
+
 /// Validate and resolve an optional absolute `folder_path` into a folder scope
 /// bounded to `root`. Returns `Ok(None)` when no folder was requested; rejects
 /// paths that do not exist, are not directories, or fall outside the root.
@@ -1106,6 +1173,24 @@ fn push_folder_scopes_clauses(
         query.push(" )");
     }
     query.push(" ) ");
+}
+
+/// Append `AND d.id IN (SELECT d.id FROM designs d WHERE …)` restricting a
+/// maintenance candidate query to the designs a tagging action with `scope.mode`
+/// would process, including its folder union and (optionally) verified exclusion.
+/// When `scope` is `None` nothing is appended and the query stays over the whole
+/// catalogue. Requires the outer query to use the `d` alias.
+fn push_tagging_scope_filter(query: &mut QueryBuilder<Sqlite>, scope: Option<&ScopedRun>) {
+    let Some(scope) = scope else {
+        return;
+    };
+    query.push(" AND d.id IN (SELECT d.id ");
+    query.push(tagging_scope_from_where(&scope.mode));
+    push_folder_scopes_clauses(query, &scope.folder_scopes, scope.include_subfolders);
+    if scope.exclude_verified {
+        query.push(" AND COALESCE(d.image_tags_verified, 0) = 0");
+    }
+    query.push(") ");
 }
 
 /// A `COUNT(*)` over the shared scope fragment with an optional verified filter
@@ -1348,7 +1433,7 @@ async fn count_image_tags(pool: &SqlitePool) -> Result<i64, AppError> {
 
 /// Number of designs that have no stored preview (`image_data IS NULL`) — the flagged
 /// "needs attention" set whose preview could not be generated.
-async fn count_missing_previews(pool: &SqlitePool) -> Result<i64, AppError> {
+pub(crate) async fn count_missing_previews(pool: &SqlitePool) -> Result<i64, AppError> {
     let count =
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM designs WHERE image_data IS NULL")
             .fetch_one(pool)
@@ -1521,29 +1606,28 @@ async fn select_image_candidates(
     redo: bool,
     limit: i64,
     min_id: i64,
+    scope: Option<&ScopedRun>,
 ) -> Result<Vec<i64>, AppError> {
-    let sql = if redo {
-        "SELECT id FROM designs WHERE id > ? ORDER BY id ASC LIMIT ?"
-    } else {
-        "SELECT id FROM designs WHERE image_data IS NULL AND id > ? ORDER BY id ASC LIMIT ?"
-    };
+    // When redo is false, only designs with no stored preview are candidates.
+    // `scope` optionally bounds the whole query to an accompanying tagging action's
+    // candidate set (folder union / untagged / vision scopes).
+    let mut query = QueryBuilder::<Sqlite>::new("SELECT d.id FROM designs d WHERE 1 = 1");
+    if !redo {
+        query.push(" AND image_data IS NULL");
+    }
+    push_tagging_scope_filter(&mut query, scope);
+    query.push(" AND d.id > ");
+    query.push_bind(min_id);
+    query.push(" ORDER BY d.id ASC LIMIT ");
+    query.push_bind(limit);
 
-    let rows = sqlx::query(sql)
-        .bind(min_id)
-        .bind(limit)
+    let rows = query
+        .build_query_scalar::<i64>()
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::database(format!("failed to select image candidates: {e}")))?;
 
-    let mut ids = Vec::new();
-    for row in rows {
-        ids.push(
-            row.try_get::<i64, _>("id").map_err(|e| {
-                AppError::database(format!("failed to read image candidate id: {e}"))
-            })?,
-        );
-    }
-    Ok(ids)
+    Ok(rows)
 }
 
 async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
@@ -1622,30 +1706,34 @@ async fn select_color_count_candidates(
     pool: &SqlitePool,
     limit: i64,
     min_id: i64,
+    scope: Option<&ScopedRun>,
+    missing_previews_only: bool,
+    overwrite: bool,
 ) -> Result<Vec<i64>, AppError> {
-    let rows = sqlx::query(
-        "SELECT id
-		 FROM designs
-		 WHERE (stitch_count IS NULL OR color_count IS NULL OR color_change_count IS NULL)
-		 AND id > ?
-		 ORDER BY id ASC
-		 LIMIT ?",
-    )
-    .bind(min_id)
-    .bind(limit)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to select image candidates: {e}")))?;
-
-    let mut ids = Vec::new();
-    for row in rows {
-        ids.push(
-            row.try_get::<i64, _>("id").map_err(|e| {
-                AppError::database(format!("failed to read image candidate id: {e}"))
-            })?,
-        );
+    let mut query = QueryBuilder::<Sqlite>::new(
+        if overwrite {
+            // Recompute & overwrite every row in the population (no NULL gap filter).
+            "SELECT d.id FROM designs d WHERE 1 = 1"
+        } else {
+            "SELECT d.id FROM designs d WHERE 1 = 1 AND (d.stitch_count IS NULL OR d.color_count IS NULL OR d.color_change_count IS NULL)"
+        },
+    );
+    if missing_previews_only {
+        query.push(" AND d.image_data IS NULL");
     }
-    Ok(ids)
+    push_tagging_scope_filter(&mut query, scope);
+    query.push(" AND d.id > ");
+    query.push_bind(min_id);
+    query.push(" ORDER BY d.id ASC LIMIT ");
+    query.push_bind(limit);
+
+    let rows = query
+        .build_query_scalar::<i64>()
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to select colour-count candidates: {e}")))?;
+
+    Ok(rows)
 }
 
 async fn update_color_counts_only(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
@@ -1728,27 +1816,36 @@ async fn select_hoop_dimension_candidates(
     pool: &SqlitePool,
     limit: i64,
     min_id: i64,
+    scope: Option<&ScopedRun>,
+    missing_previews_only: bool,
+    overwrite: bool,
 ) -> Result<Vec<i64>, AppError> {
-    let rows = sqlx::query(
-        "SELECT id
-\t\t FROM designs
-\t\t WHERE (width_mm IS NULL OR height_mm IS NULL OR hoop_id IS NULL) AND id > ?
-\t\t ORDER BY id ASC
-\t\t LIMIT ?",
-    )
-    .bind(min_id)
-    .bind(limit)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to select hoop dimension candidates: {e}")))?;
-
-    let mut ids = Vec::new();
-    for row in rows {
-        ids.push(row.try_get::<i64, _>("id").map_err(|e| {
-            AppError::database(format!("failed to read hoop dimension candidate id: {e}"))
-        })?);
+    let mut query = QueryBuilder::<Sqlite>::new(
+        if overwrite {
+            // Recompute & overwrite every row in the population (no NULL gap filter).
+            "SELECT d.id FROM designs d WHERE 1 = 1"
+        } else {
+            "SELECT d.id FROM designs d WHERE 1 = 1 AND (d.width_mm IS NULL OR d.height_mm IS NULL OR d.hoop_id IS NULL)"
+        },
+    );
+    if missing_previews_only {
+        query.push(" AND d.image_data IS NULL");
     }
-    Ok(ids)
+    push_tagging_scope_filter(&mut query, scope);
+    query.push(" AND d.id > ");
+    query.push_bind(min_id);
+    query.push(" ORDER BY d.id ASC LIMIT ");
+    query.push_bind(limit);
+
+    let rows = query
+        .build_query_scalar::<i64>()
+        .fetch_all(pool)
+        .await
+        .map_err(|e| {
+            AppError::database(format!("failed to select hoop dimension candidates: {e}"))
+        })?;
+
+    Ok(rows)
 }
 
 async fn update_hoop_dimensions_only(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {

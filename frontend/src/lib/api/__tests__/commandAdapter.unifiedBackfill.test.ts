@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   runUnifiedBackfill,
   runStitchingBackfill,
+  runMaintenanceBackfill,
+  countMissingPreviews,
   countTaggingCandidates,
   browseTaggingFolder,
 } from "../commandAdapter";
@@ -394,3 +396,71 @@ describe("commandAdapter merge_mode forwarding", () => {
   });
 
 });
+
+describe("commandAdapter runMaintenanceBackfill wire payload", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({});
+  });
+
+  it("invokes run_maintenance_batch with the whole-catalogue scope", async () => {
+    await runMaintenanceBackfill({
+      scope: "all",
+      generate_previews: true,
+      recalc_color_counts: true,
+      recalc_hoop_dimensions: true,
+      commit_every: 50,
+      batch_size: 33,
+      workers: 2,
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("run_maintenance_batch", {
+      request: {
+        scope: "all",
+        generate_previews: true,
+        recalc_color_counts: true,
+        recalc_hoop_dimensions: true,
+        commit_every: 50,
+        batch_size: 33,
+        workers: 2,
+      },
+    });
+  });
+
+  it("sends the missing_previews scope when selected", async () => {
+    await runMaintenanceBackfill({ scope: "missing_previews", recalc_hoop_dimensions: true });
+    expect(invokeMock).toHaveBeenCalledWith("run_maintenance_batch", {
+      request: {
+        scope: "missing_previews",
+        generate_previews: false,
+        recalc_color_counts: false,
+        recalc_hoop_dimensions: true,
+        commit_every: 100,
+        batch_size: 100,
+        workers: 4,
+      },
+    });
+  });
+
+  it("defaults to the whole-catalogue scope and no tasks when called empty", async () => {
+    await runMaintenanceBackfill({});
+    expect(invokeMock).toHaveBeenCalledWith("run_maintenance_batch", {
+      request: {
+        scope: "all",
+        generate_previews: false,
+        recalc_color_counts: false,
+        recalc_hoop_dimensions: false,
+        commit_every: 100,
+        batch_size: 100,
+        workers: 4,
+      },
+    });
+  });
+
+  it("counts missing preview designs", async () => {
+    invokeMock.mockResolvedValue(293);
+    await expect(countMissingPreviews()).resolves.toBe(293);
+    expect(invokeMock).toHaveBeenCalledWith("count_missing_preview_designs");
+  });
+});
+

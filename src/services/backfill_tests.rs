@@ -1457,7 +1457,7 @@ async fn select_image_candidates_normal_picks_designs_with_null_image() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let ids = select_image_candidates(&pool, false, 100, 0).await.unwrap();
+    let ids = select_image_candidates(&pool, false, 100, 0, None).await.unwrap();
     assert_eq!(ids, vec![2]);
 }
 
@@ -1467,7 +1467,7 @@ async fn select_image_candidates_redo_includes_all() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let ids = select_image_candidates(&pool, true, 100, 0).await.unwrap();
+    let ids = select_image_candidates(&pool, true, 100, 0, None).await.unwrap();
     assert_eq!(ids.len(), 2);
 }
 
@@ -1516,7 +1516,7 @@ async fn select_color_count_candidates_picks_designs_with_null_counts() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1,2,3 with null stitch/color/color_change
 
-    let ids = select_color_count_candidates(&pool, 100, 0).await.unwrap();
+    let ids = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
     assert_eq!(ids.len(), 3);
 }
 
@@ -1529,7 +1529,7 @@ async fn select_color_count_candidates_excludes_designs_with_all_counts() {
             .await
             .unwrap();
 
-    let ids = select_color_count_candidates(&pool, 100, 0).await.unwrap();
+    let ids = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
     assert!(!ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
@@ -1544,7 +1544,7 @@ async fn select_hoop_dimension_candidates_picks_designs_missing_dimensions_or_ho
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1,2,3 with null width/height/hoop
 
-    let ids = select_hoop_dimension_candidates(&pool, 100, 0)
+    let ids = select_hoop_dimension_candidates(&pool, 100, 0, None, false, false)
         .await
         .unwrap();
     assert_eq!(ids.len(), 3);
@@ -1559,12 +1559,87 @@ async fn select_hoop_dimension_candidates_excludes_designs_with_dimensions_and_h
         .await
         .unwrap();
 
-    let ids = select_hoop_dimension_candidates(&pool, 100, 0)
+    let ids = select_hoop_dimension_candidates(&pool, 100, 0, None, false, false)
         .await
         .unwrap();
     assert!(!ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
+}
+
+
+// ---------------------------------------------------------------------------
+// Scoped maintenance: when a tagging action is present in the same request, the
+// maintenance candidate pagers must be bounded to the tagging action's folder /
+// candidate scope (and must NOT touch designs outside it).
+// ---------------------------------------------------------------------------
+
+/// Insert a minimal design row at a given canonical library-relative filepath.
+async fn seed_scoped_design(pool: &SqlitePool, id: i64, filepath: &str) {
+    sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+        .bind(id)
+        .bind(format!("design{id}.pes"))
+        .bind(filepath)
+        .execute(pool)
+        .await
+        .expect("seed scoped design");
+}
+
+fn flowers_scope() -> ScopedRun {
+    ScopedRun {
+        mode: TAG_ACTION_RETAG_ALL.to_string(),
+        folder_scopes: vec![TaggingFolderScope {
+            rel: "Flowers".to_string(),
+            is_root: false,
+        }],
+        include_subfolders: true,
+        exclude_verified: true,
+    }
+}
+
+#[tokio::test]
+async fn select_color_count_candidates_honours_folder_scope() {
+    let pool = make_test_pool().await;
+    seed_scoped_design(&pool, 1, "Flowers/rose.pes").await;
+    seed_scoped_design(&pool, 2, "Flowers/Violets/violet.pes").await;
+    seed_scoped_design(&pool, 3, "Other/cat.pes").await;
+
+    // No scope → the whole catalogue is in scope.
+    let unscoped = select_color_count_candidates(&pool, 100, 0, None, false, false)
+        .await
+        .unwrap();
+    assert!(unscoped.contains(&1) && unscoped.contains(&2) && unscoped.contains(&3));
+
+    // Folder scope "Flowers" (incl. subfolders) must never include Other/cat.pes.
+    let scoped = select_color_count_candidates(&pool, 100, 0, Some(&flowers_scope()), false, false)
+        .await
+        .unwrap();
+    assert!(scoped.contains(&1));
+    assert!(scoped.contains(&2));
+    assert!(
+        !scoped.contains(&3),
+        "folder-scoped maintenance must not touch designs outside the folder"
+    );
+}
+
+#[tokio::test]
+async fn select_image_candidates_redo_honours_folder_scope() {
+    let pool = make_test_pool().await;
+    seed_scoped_design(&pool, 1, "Flowers/rose.pes").await;
+    seed_scoped_design(&pool, 2, "Flowers/Violets/violet.pes").await;
+    seed_scoped_design(&pool, 3, "Other/cat.pes").await;
+
+    // redo=true selects every design in scope, so a folder scope is the only
+    // discriminator.
+    let scoped = select_image_candidates(&pool, true, 100, 0, Some(&flowers_scope()))
+        .await
+        .unwrap();
+    assert!(scoped.contains(&1));
+    assert!(scoped.contains(&2));
+    assert!(
+        !scoped.contains(&3),
+        "folder-scoped preview regeneration must not touch designs outside the folder"
+    );
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2014,6 +2089,8 @@ async fn run_unified_backfill_combined_actions() {
                 images: None,
                 color_counts: Some(ColorCountsActionOptions {
                     enabled: Some(true),
+                    missing_previews_only: None,
+                    overwrite: None,
                 }),
                 hoop_dimensions: None,
                 fingerprinting: None,
@@ -2060,6 +2137,8 @@ async fn run_unified_backfill_hoop_dimensions_action_runs() {
                 color_counts: None,
                 hoop_dimensions: Some(HoopDimensionsActionOptions {
                     enabled: Some(true),
+                    missing_previews_only: None,
+                    overwrite: None,
                 }),
                 fingerprinting: None,
             }),
@@ -2108,6 +2187,8 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
                 }),
                 color_counts: Some(ColorCountsActionOptions {
                     enabled: Some(false),
+                    missing_previews_only: None,
+                    overwrite: None,
                 }),
                 hoop_dimensions: None,
                 fingerprinting: Some(FingerprintActionOptions {
@@ -2448,9 +2529,13 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
                 }),
                 color_counts: Some(ColorCountsActionOptions {
                     enabled: Some(true),
+                    missing_previews_only: None,
+                    overwrite: None,
                 }),
                 hoop_dimensions: Some(HoopDimensionsActionOptions {
                     enabled: Some(true),
+                    missing_previews_only: None,
+                    overwrite: None,
                 }),
                 fingerprinting: None,
             }),
@@ -2496,4 +2581,65 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
         "expected colour counts written"
     );
     assert!(image_type.is_some(), "expected preview image written");
+}
+
+#[tokio::test]
+async fn select_color_count_candidates_respects_missing_previews_only() {
+    let pool = make_test_pool().await;
+    seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
+    seed_design_with_image(&pool, 2, None, None).await;
+
+    let all = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
+    assert!(all.contains(&1) && all.contains(&2));
+
+    let missing_only = select_color_count_candidates(&pool, 100, 0, None, true, false).await.unwrap();
+    assert!(missing_only.contains(&2));
+    assert!(!missing_only.contains(&1), "colour/stitch recalculation must not run on designs that already have a preview");
+}
+
+#[tokio::test]
+async fn select_hoop_dimension_candidates_respects_missing_previews_only() {
+    let pool = make_test_pool().await;
+    seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
+    seed_design_with_image(&pool, 2, None, None).await;
+
+    let missing_only = select_hoop_dimension_candidates(&pool, 100, 0, None, true, false).await.unwrap();
+    assert!(missing_only.contains(&2));
+    assert!(!missing_only.contains(&1), "hoop/dimension recalculation must not run on designs that already have a preview");
+}
+
+#[tokio::test]
+async fn select_color_count_candidates_overwrite_includes_designs_with_existing_counts() {
+    let pool = make_test_pool().await;
+    seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
+    // id 1 already has colour counts persisted.
+    sqlx::query("UPDATE designs SET stitch_count = 100, color_count = 5, color_change_count = 10 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Gap-fill (overwrite = false) skips a design that already has counts.
+    let gap = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
+    assert!(!gap.contains(&1), "gap-fill should not recompute a design that already has counts");
+
+    // Overwrite (scope 'all') recomputes it anyway.
+    let overwritten = select_color_count_candidates(&pool, 100, 0, None, false, true).await.unwrap();
+    assert!(overwritten.contains(&1), "overwrite must recompute a design that already has counts");
+}
+
+#[tokio::test]
+async fn select_hoop_dimension_candidates_overwrite_includes_designs_with_existing_dimensions() {
+    let pool = make_test_pool().await;
+    seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
+    // id 1 already has dimensions + a hoop.
+    sqlx::query("UPDATE designs SET width_mm = 100, height_mm = 80, hoop_id = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let gap = select_hoop_dimension_candidates(&pool, 100, 0, None, false, false).await.unwrap();
+    assert!(!gap.contains(&1), "gap-fill should not recompute a design that already has dimensions");
+
+    let overwritten = select_hoop_dimension_candidates(&pool, 100, 0, None, false, true).await.unwrap();
+    assert!(overwritten.contains(&1), "overwrite must recompute a design that already has dimensions");
 }

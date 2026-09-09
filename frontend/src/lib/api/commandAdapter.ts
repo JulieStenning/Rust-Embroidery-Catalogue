@@ -2377,6 +2377,90 @@ export async function runStitchingBackfill({
   }
 }
 
+/**
+ * Run a maintenance-only batch: preview generation, colour/stitch-count and
+ * hoop/dimension recalculation with NO tagging. Delegates to the dedicated
+ * Rust `run_maintenance_batch` command. `scope` bounds EVERY selected task to
+ * either the whole catalogue ("all") or only designs missing a preview image
+ * ("missing_previews").
+ *
+ * @param {{
+ *   scope?: "all" | "missing_previews",
+ *   generate_previews?: boolean,
+ *   recalc_color_counts?: boolean,
+ *   recalc_hoop_dimensions?: boolean,
+ *   commit_every?: number,
+ *   batch_size?: number,
+ *   workers?: number,
+ * }} [options]
+ */
+export async function runMaintenanceBackfill({
+  scope = "all",
+  generate_previews = false,
+  recalc_color_counts = false,
+  recalc_hoop_dimensions = false,
+  commit_every = 100,
+  batch_size = 100,
+  workers = 4,
+}: {
+  scope?: "all" | "missing_previews";
+  generate_previews?: boolean;
+  recalc_color_counts?: boolean;
+  recalc_hoop_dimensions?: boolean;
+  commit_every?: number;
+  batch_size?: number;
+  workers?: number;
+} = {}): Promise<UnifiedBackfillResult> {
+  try {
+    const result = await invokeLoose<UnifiedBackfillResult>("run_maintenance_batch", {
+      request: {
+        scope: scope === "missing_previews" ? "missing_previews" : "all",
+        generate_previews: Boolean(generate_previews),
+        recalc_color_counts: Boolean(recalc_color_counts),
+        recalc_hoop_dimensions: Boolean(recalc_hoop_dimensions),
+        commit_every: Number(commit_every),
+        batch_size: Number(batch_size),
+        workers: Number(workers),
+      },
+    });
+    return {
+      source: "rust",
+      processed: Number(result?.processed ?? 0),
+      errors: Number(result?.errors ?? 0),
+      stopped: Boolean(result?.stopped),
+      actions: Array.isArray(result?.actions) ? result.actions.map(String) : [],
+      commit_every: Number(result?.commit_every ?? commit_every),
+      batch_size: Number(result?.batch_size ?? batch_size),
+      workers: Number(result?.workers ?? workers),
+      missing_preview_count_before: Number(result?.missing_preview_count_before ?? 0),
+      missing_preview_count_after: Number(result?.missing_preview_count_after ?? 0),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      processed: 0,
+      errors: 1,
+      stopped: false,
+      actions: [],
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * Number of designs with no stored preview (`image_data IS NULL`) — the "missing
+ * preview" population on the Maintenance tab's Target Scope card.
+ */
+export async function countMissingPreviews(): Promise<number> {
+  try {
+    const result = await invokeLoose<number>("count_missing_preview_designs");
+    return Number(result ?? 0);
+  } catch (error) {
+    console.info("count_missing_preview_designs unavailable.", error);
+    return 0;
+  }
+}
+
 export async function getBackupViewModel(): Promise<AdapterBackupViewModelResponse> {
   try {
     const model = await invokeLoose<BackupViewModel>("get_backup_view_model");

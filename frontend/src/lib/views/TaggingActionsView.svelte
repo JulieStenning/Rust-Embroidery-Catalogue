@@ -7,6 +7,8 @@
     stopUnifiedBackfill,
     getBackfillLogEntries,
     runStitchingBackfill,
+    runMaintenanceBackfill,
+    countMissingPreviews,
     countTaggingCandidates,
     browseTaggingFolder,
   } from "../api/commandAdapter";
@@ -150,6 +152,19 @@
   // Protect human-verified designs from being overwritten by an automated pass.
   let excludeVerified = $state(true);
   let showConfirm = $state(false);
+  // Two-tab organisation: "Tagging & Categorisation" (default) vs
+  // "Maintenance & File Processing". Maintenance-only runs process the whole
+  // catalogue via `runMaintenanceBackfill`.
+  let activeTab = $state<"tagging" | "maintenance">("tagging");
+  let showMaintenanceConfirm = $state(false);
+  // Population scope for every maintenance task: the whole catalogue, or only
+  // designs missing a stored preview image.
+  let maintenanceScope = $state<"all" | "missing_previews">("all");
+  let missingPreviewCount = $state<number | null>(null);
+  let missingPreviewCountLoading = $state(false);
+  // Distinguishes a maintenance-only run from a tagging run in the shared summary,
+  // so "processed" is labelled as operations (a design may be counted once per task).
+  let lastRunWasMaintenance = $state(false);
 
   // Folder-scoped retagging (Specific Folder or Category scope). Zero or more
   // library subfolders can be selected (union of their designs).
@@ -164,6 +179,47 @@
   let taggingRunHoopDimensions = $state(false);
   let taggingStitchingOverwrite = $state(false);
   let taggingImageRedo = $state(false);
+
+  // --- Maintenance tab derived state ---------------------------------------
+  // Whether at least one maintenance task is selected (drives the enabled state
+  // of "Review & Start Maintenance").
+  let anyMaintenanceTaskSelected = $derived(
+    taggingRunImages || taggingRunColorCounts || taggingRunHoopDimensions
+  );
+  let maintenanceValid = $derived(anyMaintenanceTaskSelected);
+  let maintenanceRunButtonLabel = $derived.by(() => {
+    const p = backfillProgress;
+    if (p.active && p.processed > 0) {
+      return `Processing ${p.processed} operations…`;
+    }
+    return "Review & Start Maintenance";
+  });
+
+  function switchToMaintenanceTab() {
+    activeTab = "maintenance";
+  }
+
+  // Human-readable label for the selected Target Scope, incl. the live count.
+  const maintenanceScopeLabel = $derived(
+    maintenanceScope === "missing_previews"
+      ? `Designs missing a preview image${
+          missingPreviewCount !== null
+            ? ` (${missingPreviewCount.toLocaleString()} designs)`
+            : ""
+        }`
+      : "Entire catalogue"
+  );
+
+  async function loadMissingPreviewCount() {
+    missingPreviewCountLoading = true;
+    try {
+      missingPreviewCount = await countMissingPreviews();
+    } catch {
+      missingPreviewCount = null;
+    } finally {
+      missingPreviewCountLoading = false;
+    }
+  }
 
   let taggingLastSummary = $state<{
     processed: number;
@@ -414,6 +470,7 @@
     taggingRunInFlight = true;
     taggingLastSummary = null;
     resetBackfillProgress();
+    lastRunWasMaintenance = false;
     beginBusy("Running tagging actions");
     addToast("Running selected actions...", "info");
 
@@ -479,6 +536,51 @@
     }
   }
 
+  async function confirmStartMaintenance() {
+    showMaintenanceConfirm = false;
+    if (taggingRunInFlight) return;
+
+    taggingRunInFlight = true;
+    taggingLastSummary = null;
+    resetBackfillProgress();
+    lastRunWasMaintenance = true;
+    beginBusy("Running maintenance actions");
+    addToast("Running maintenance actions...", "info");
+
+    try {
+      const result = await runMaintenanceBackfill({
+        scope: maintenanceScope,
+        generate_previews: taggingRunImages,
+        recalc_color_counts: taggingRunColorCounts,
+        recalc_hoop_dimensions: taggingRunHoopDimensions,
+        commit_every: taggingCommitValue,
+        batch_size: taggingBatchValue,
+        workers: taggingWorkersValue,
+      });
+
+      taggingLastSummary = result || null;
+      if (result?.error) {
+        addToast(`Maintenance failed: ${result.error}`, "error");
+      } else {
+        addToast(
+          `Maintenance complete: ${Number(result?.processed ?? 0)} operations, ${Number(
+            result?.errors ?? 0
+          )} errors.`,
+          Number(result?.errors ?? 0) > 0 ? "warning" : "success"
+        );
+      }
+
+      await loadTaggingLogEntries();
+      await loadScopeCounts();
+      await loadMissingPreviewCount();
+    } catch (e) {
+      addToast(`Maintenance run failed: ${e}`, "error");
+    } finally {
+      taggingRunInFlight = false;
+      endBusy();
+    }
+  }
+
   async function requestTaggingStop() {
     if (!taggingRunInFlight) return;
     try {
@@ -503,6 +605,7 @@
     loadTaggingViewModel();
     loadTaggingLogEntries();
     loadScopeCounts();
+    loadMissingPreviewCount();
     try {
       backfillProgressUnlisten = await initBackfillProgressEvents();
     } catch (error) {
@@ -525,6 +628,38 @@
   </p>
 
   <div class="tagging-actions-layout max-w-3xl space-y-6">
+    <!-- Sub-tab navigation: tagging config vs file maintenance -->
+    <div
+      class="flex items-end gap-1 border-b border-gray-200 mb-2"
+      role="tablist"
+      aria-label="Tagging actions mode"
+      data-testid="tagging-tablist"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "tagging"}
+        class="px-4 py-2 text-sm font-semibold rounded-t border {activeTab === 'tagging'
+          ? 'border-gray-200 border-b-transparent bg-white text-indigo-600'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}"
+        onclick={() => (activeTab = "tagging")}
+      >
+        Tagging &amp; Categorisation
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "maintenance"}
+        class="px-4 py-2 text-sm font-semibold rounded-t border {activeTab === 'maintenance'
+          ? 'border-gray-200 border-b-transparent bg-white text-indigo-600'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}"
+        onclick={switchToMaintenanceTab}
+      >
+        Maintenance &amp; File Processing
+      </button>
+    </div>
+
+    {#if activeTab === "tagging"}
     <!-- API Key Status -->
     {#if !taggingHasGoogleApiKey}
       <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
@@ -844,15 +979,143 @@
         Stop
       </button>
     </div>
+    {:else}
+    <div class="bg-white rounded shadow p-6 space-y-4">
+      <h2 class="text-base font-semibold text-gray-800">1. Target scope</h2>
+      <p class="text-xs text-gray-500">
+        All tasks below run against the population chosen here. <strong>Entire catalogue</strong>{" "}
+        recomputes &amp; overwrites the data for every design; <strong>missing previews</strong>{" "}
+        fills the gaps in the designs that lack a cached thumbnail. No tags are ever changed.
+      </p>
+      <div class="space-y-2">
+        <label
+          class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope === 'all'
+            ? 'border-indigo-400 bg-indigo-50'
+            : 'hover:bg-gray-50'}"
+        >
+          <input
+            type="radio"
+            name="maintenance-scope"
+            value="all"
+            bind:group={maintenanceScope}
+            disabled={busyActive}
+            class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+          />
+          <div class="flex-1">
+            <span class="font-semibold">Entire catalogue</span>
+            <p class="text-gray-500 text-xs mt-0.5">All designs stored in the local catalogue.</p>
+          </div>
+        </label>
+        <label
+          class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope === 'missing_previews'
+            ? 'border-indigo-400 bg-indigo-50'
+            : 'hover:bg-gray-50'}"
+        >
+          <input
+            type="radio"
+            name="maintenance-scope"
+            value="missing_previews"
+            bind:group={maintenanceScope}
+            disabled={busyActive}
+            class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+          />
+          <div class="flex-1">
+            <div class="flex items-center justify-between gap-3">
+              <span class="font-semibold">Designs missing preview images only</span>
+              {#if missingPreviewCountLoading}
+                <span class="text-xs text-gray-400 italic">(counting…)</span>
+              {:else if missingPreviewCount !== null}
+                <span class="text-xs font-medium text-gray-500"
+                  >{missingPreviewCount.toLocaleString()} designs</span
+                >
+              {/if}
+            </div>
+            <p class="text-gray-500 text-xs mt-0.5">
+              Targets only designs that lack a cached thumbnail.
+            </p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded shadow p-6 space-y-4">
+      <h2 class="text-base font-semibold text-gray-800">2. Maintenance tasks</h2>
+
+      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <input
+          type="checkbox"
+          bind:checked={taggingRunImages}
+          disabled={busyActive}
+          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <div>
+          <span class="font-semibold">Generate preview images</span>
+        </div>
+      </label>
+      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <input
+          type="checkbox"
+          bind:checked={taggingRunColorCounts}
+          disabled={busyActive}
+          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <div>
+          <span class="font-semibold">Recalculate colour / stitch counts</span>
+          <p class="text-gray-500 text-xs mt-0.5">
+            Refresh thread colors, stitch totals, and color changes from the design files.
+          </p>
+        </div>
+      </label>
+      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <input
+          type="checkbox"
+          bind:checked={taggingRunHoopDimensions}
+          disabled={busyActive}
+          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <div>
+          <span class="font-semibold">Recalculate hoops / dimensions</span>
+          <p class="text-gray-500 text-xs mt-0.5">
+            Refresh design dimensions and recommended hoop from the design files.
+          </p>
+        </div>
+      </label>
+    </div>
+
+    <!-- Run / Stop Buttons (Maintenance) -->
+    <div class="flex flex-wrap items-center gap-3">
+      <button
+        class="menu-button-primary"
+        onclick={() => (showMaintenanceConfirm = true)}
+        disabled={!maintenanceValid || taggingRunInFlight || taggingActionsLoading || busyActive}
+      >
+        {taggingRunInFlight ? maintenanceRunButtonLabel : "Review & Start Maintenance"}
+      </button>
+      <button
+        class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+        onclick={requestTaggingStop}
+        disabled={!taggingRunInFlight}
+      >
+        Stop
+      </button>
+    </div>
+    {/if}
 
     <!-- Last summary -->
     {#if taggingLastSummary}
       <div class="bg-white rounded shadow p-4 space-y-1 text-sm">
         <p class="font-semibold text-gray-800">Last run summary</p>
         <p>
-          Processed: <strong>{taggingLastSummary.processed ?? 0}</strong> &middot; Errors:
+          {lastRunWasMaintenance ? "Operations:" : "Processed:"}{" "}
+          <strong>{taggingLastSummary.processed ?? 0}</strong> &middot; Errors:{" "}
           <strong>{taggingLastSummary.errors ?? 0}</strong>
         </p>
+        {#if lastRunWasMaintenance}
+          <p class="text-xs text-gray-500">
+            A design may be counted once per selected task (e.g. previews + hoops = 2 operations on
+            the same design). Tasks run: {(taggingLastSummary.actions || []).join(", ") || "—"}.
+          </p>
+        {/if}
         {#if taggingLastSummary.image_tag_count_before !== undefined}
           <p>
             Image tags: <strong>{taggingLastSummary.image_tag_count_before}</strong> before
@@ -969,6 +1232,50 @@
         <div class="mt-6 flex justify-end gap-3">
           <button class="menu-button-secondary" onclick={() => (showConfirm = false)}>Cancel</button>
           <button class="menu-button-primary" onclick={confirmStartTagging}>Start Tagging</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Maintenance confirmation modal -->
+  {#if showMaintenanceConfirm}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div
+        class="bg-white rounded shadow-lg p-6 max-w-md w-full"
+        role="dialog"
+        aria-modal="true"
+        data-testid="maintenance-confirm-modal"
+      >
+        <h2 class="text-lg font-semibold text-gray-800">Ready to Run Maintenance</h2>
+        <div class="mt-4 space-y-2 text-sm">
+          <p>
+            <span class="font-semibold">Target Scope:</span> {maintenanceScopeLabel}
+          </p>
+          <p class="text-gray-600 text-xs">
+            {maintenanceScope === "all"
+              ? "Entire catalogue: every task recomputes and overwrites the data for all designs."
+              : "Designs missing a preview image only."}
+          </p>
+          <p><span class="font-semibold">Maintenance Tasks:</span></p>
+          <ul class="list-disc pl-5 text-xs text-gray-700 space-y-0.5">
+            {#if taggingRunImages}
+              <li>Generate preview images</li>
+            {/if}
+            {#if taggingRunColorCounts}
+              <li>Recalculate colour / stitch counts</li>
+            {/if}
+            {#if taggingRunHoopDimensions}
+              <li>Recalculate hoops / dimensions</li>
+            {/if}
+          </ul>
+        </div>
+        <div class="mt-6 flex justify-end gap-3">
+          <button class="menu-button-secondary" onclick={() => (showMaintenanceConfirm = false)}>
+            Cancel
+          </button>
+          <button class="menu-button-primary" onclick={confirmStartMaintenance}>
+            Start Maintenance
+          </button>
         </div>
       </div>
     </div>

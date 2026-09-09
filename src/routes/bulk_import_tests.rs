@@ -1234,15 +1234,24 @@ fn prospective_path_longest_root_wins() {
 
 #[test]
 fn is_path_under_designs_base_accepts_actual_subpath() {
-    let designs_base = get_designs_base_path();
-    let file_path = designs_base
+    // Deterministic: test the pure prefix logic against a fixed base rather than
+    // the env/fs-derived data root, which can change between statements when the
+    // full test binary shares DATABASE_URL + filesystem state across threads.
+    let base = std::path::Path::new("C:/Data/MachineEmbroideryDesigns");
+    let file_path = base
         .join("some-folder")
         .join("test.pes")
         .to_string_lossy()
         .replace('\\', "/");
 
-    let is_under = is_path_under_designs_base(&file_path);
-    assert!(is_under);
+    assert!(is_path_under_base(&file_path, base), "real subpath must be in-library");
+
+    // The base itself is in-library, and a sibling is not.
+    assert!(is_path_under_base(&base.to_string_lossy(), base));
+    assert!(
+        !is_path_under_base("C:/Data/MachineEmbroideryDesigns-extra/a.pes", base),
+        "a sibling of the base must not be treated as in-library"
+    );
 }
 
 // =========================================================================
