@@ -49,9 +49,9 @@ vi.mock("../lib/views/BackupView.svelte", async () => {
   const { default: BackupView } = await import("./__mocks__/BackupView.svelte");
   return { default: BackupView };
 });
-vi.mock("../lib/views/TaggingActionsView.svelte", async () => {
-  const { default: TaggingActionsView } = await import("./__mocks__/TaggingActionsView.svelte");
-  return { default: TaggingActionsView };
+vi.mock("../lib/views/BatchOperationsView.svelte", async () => {
+  const { default: BatchOperationsView } = await import("./__mocks__/BatchOperationsView.svelte");
+  return { default: BatchOperationsView };
 });
 vi.mock("../lib/views/OrphansView.svelte", async () => {
   const { default: OrphansView } = await import("./__mocks__/OrphansView.svelte");
@@ -136,7 +136,7 @@ describe("MainView.svelte", () => {
     expect(screen.getByText("Hoops")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Backup/Restore")).toBeInTheDocument();
-    expect(screen.getByText("Tagging Actions")).toBeInTheDocument();
+    expect(screen.getByText("Batch Operations")).toBeInTheDocument();
     expect(screen.getByText("Orphans")).toBeInTheDocument();
   });
 
@@ -155,7 +155,7 @@ describe("MainView.svelte", () => {
       expect(screen.getByText("Help")).toHaveAttribute("aria-disabled", "true");
       // Admin nav
       expect(screen.getByText("Designers")).toHaveAttribute("aria-disabled", "true");
-      expect(screen.getByText("Tagging Actions")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Batch Operations")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Orphans")).toHaveAttribute("aria-disabled", "true");
       // Footer
       expect(screen.getByText("About")).toHaveAttribute("aria-disabled", "true");
@@ -296,11 +296,11 @@ describe("MainView.svelte", () => {
     expect(screen.getByTestId("backup-view")).toBeInTheDocument();
   });
 
-  it("renders TaggingActionsView for #/admin/tagging-actions", () => {
-    setHash("#/admin/tagging-actions");
+  it("renders BatchOperationsView for #/admin/batch-operations", () => {
+    setHash("#/admin/batch-operations");
     render(MainView);
 
-    expect(screen.getByTestId("tagging-actions-view")).toBeInTheDocument();
+    expect(screen.getByTestId("batch-operations-view")).toBeInTheDocument();
   });
 
   it("renders OrphansView for #/admin/orphans", () => {
@@ -492,7 +492,7 @@ describe("MainView.svelte", () => {
     ["#/admin/hoops", "Hoops"],
     ["#/admin/settings", "Settings"],
     ["#/admin/maintenance/backup", "Backup/Restore"],
-    ["#/admin/tagging-actions", "Tagging Actions"],
+    ["#/admin/batch-operations", "Batch Operations"],
     ["#/admin/orphans", "Orphans"],
   ])("marks admin link %s active when route matches", (route, label) => {
     setHash(route);

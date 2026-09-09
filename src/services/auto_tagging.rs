@@ -1,4 +1,4 @@
-//! Shared tagging engine, used by both the unified backfill (Tagging Actions) and
+//! Shared tagging engine, used by both the unified backfill (Batch Operations) and
 //! the bulk import flow. Owns the two tagging modes — **File & Folder Rules** (local
 //! path/name matching) and **Visual AI** (Gemini vision on the rendered thumbnail) —
 //! plus the free-tier defaults, the rate-limit (429) message, and the batched tag
@@ -14,7 +14,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 /// Auto-tagging orchestration contract (mode selection / precedence) used by the
-/// Tagging Actions preview.
+/// Batch Operations preview.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaggingMode {
     /// "File & Folder Rules" — offline, local matching on filename/path tokens (Tier 1).

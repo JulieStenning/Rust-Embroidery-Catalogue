@@ -74,12 +74,12 @@ Tagging during import:
   from its filename and folder path.
 - Visual AI (Gemini) is **not** run during import. To analyse designs with Visual
   AI, add an API key in **Admin → Settings** and run it afterwards from
-  **Admin → Tagging Actions**.
+  **Admin → Batch Operations**.
 
 > **Very important for large libraries:** Visual AI (Gemini) is rate-limited — the
 > free tier is roughly **15 requests per minute** and **1,500 requests per day**.
 > File & Folder Rules run on **every** file, but a 120,000-design library will not
-> finish in one Visual AI session. Plan to run Visual AI from **Tagging Actions**
+> finish in one Visual AI session. Plan to run Visual AI from **Batch Operations**
 > in smaller passes afterwards if you want it.
 
 
@@ -155,6 +155,6 @@ On success, the app:
 - Import workflow (concise version): [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
 - First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
 - Per-folder Designer/Source assignment: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- AI tagging settings and behaviour: [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
+- AI tagging settings and behaviour: [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
 - Getting started quick setup: [GETTING_STARTED.md](GETTING_STARTED.md)
 - Supported formats list: [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)

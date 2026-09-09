@@ -49,7 +49,7 @@ Later imports:
 
 AI tagging:
 - Imports run File & Folder Rules only (local, no API key).
-- Visual AI is run separately from **Admin → Tagging Actions**.
+- Visual AI is run separately from **Admin → Batch Operations**.
 
 ## Step 4 - Confirm and save
 When you continue with import:
@@ -75,7 +75,7 @@ For current list and details: [docs/SUPPORTED_FORMATS.md](../SUPPORTED_FORMATS.m
 ## Related guides
 - First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
 - Per-folder Designer/Source assignment details: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- AI tagging settings and behavior: [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
+- AI tagging settings and behavior: [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
 - Getting started quick setup: [GETTING_STARTED.md](GETTING_STARTED.md)
 
 ## Troubleshooting quick tips

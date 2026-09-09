@@ -22,7 +22,7 @@ pub async fn get_setting_with_default(
     )
     .bind(key)
     .bind(&fallback)
-    .bind("Tagging actions default")
+    .bind("Batch operations default")
     .execute(conn)
     .await
     .map_err(|e| AppError::database(e.to_string()))?;

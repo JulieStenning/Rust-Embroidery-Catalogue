@@ -30,9 +30,9 @@ When you import new designs, the scanner reads pattern data and attempts to popu
 
 If a file cannot be parsed for counts, fields may remain empty until a later backfill run.
 
-### During Tagging Actions backfill
+### During Batch Operations backfill
 
-Use **Admin -> Tagging Actions** and select **Threads and Colours** to backfill missing values for existing designs.
+Use **Admin -> Batch Operations** and select **Threads and Colours** to backfill missing values for existing designs.
 
 This is the recommended path for large libraries that were imported before colour counts were available or for designs with missing technical metadata.
 
@@ -40,7 +40,7 @@ This is the recommended path for large libraries that were imported before colou
 
 ## How to run Threads and Colours
 
-1. Open **Admin -> Tagging Actions**.
+1. Open **Admin -> Batch Operations**.
 2. Tick **Threads and Colours**.
 3. Optionally combine with other actions in the same run.
 4. Choose batch/commit/worker values (or keep defaults).
@@ -48,7 +48,7 @@ This is the recommended path for large libraries that were imported before colou
 6. Keep the page open until completion.
 7. Review progress and, if needed, download the error log.
 
-For full combined-action guidance, see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
+For full combined-action guidance, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 
 ---
 
@@ -88,9 +88,9 @@ Run **Threads and Colours** again after fixing source-file issues.
 | Problem | What to do |
 |---|---|
 | Values stay empty after backfill | Check that the source file exists and is readable, then rerun **Threads and Colours**. |
-| Some designs updated, some not | Download the error log from Tagging Actions and review file-level failures. |
+| Some designs updated, some not | Download the error log from Batch Operations and review file-level failures. |
 | Run is too slow | Use smaller batches and/or lower workers; keep defaults if unsure. |
-| Browser closed during run | Reopen Tagging Actions and run again; keep the page open to monitor completion. |
+| Browser closed during run | Reopen Batch Operations and run again; keep the page open to monitor completion. |
 
 For broader application issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 

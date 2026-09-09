@@ -11,6 +11,6 @@ pub mod projects;
 pub mod restore;
 pub mod settings;
 pub mod storage_migration;
-pub mod tagging_actions;
+pub mod batch_operations;
 
 pub use crate::error::AppError;

@@ -24,6 +24,10 @@ describe("resolveCurrentUiKind", () => {
     expect(resolveCurrentUiKind("#/projects/new")).toBe("project-new");
   });
 
+  it("maps #/admin/batch-operations to batch-operations", () => {
+    expect(resolveCurrentUiKind("#/admin/batch-operations")).toBe("batch-operations");
+  });
+
   it("maps an unrecognised route to null", () => {
     expect(resolveCurrentUiKind("#/unknown/route")).toBeNull();
   });

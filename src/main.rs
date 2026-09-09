@@ -532,7 +532,7 @@ fn main() {
         .manage(app_state)
         .setup(|app| {
             routes::bulk_import::initialize_bulk_import_app_handle(app.handle().clone());
-            routes::tagging_actions::initialize_backfill_app_handle(app.handle().clone());
+            routes::batch_operations::initialize_backfill_app_handle(app.handle().clone());
 
             // â”€â”€ Database health monitor: startup check + idle interval â”€â”€â”€â”€â”€â”€
             // Reads the configured idle interval from the DB (default 1800s),
@@ -685,17 +685,17 @@ fn main() {
             routes::bulk_import::confirm_bulk_import_legacy,
             routes::bulk_import::preview_bulk_import,
             routes::bulk_import::browse_import_folder,
-            routes::tagging_actions::get_tagging_actions_view_model,
-            routes::tagging_actions::preview_tagging_action,
-            routes::tagging_actions::run_unified_backfill,
-            routes::tagging_actions::stop_unified_backfill,
-            routes::tagging_actions::get_backfill_log_entries,
-            routes::tagging_actions::count_tagging_candidates,
-            routes::tagging_actions::count_missing_preview_designs,
-            routes::tagging_actions::browse_tagging_folder,
-            routes::tagging_actions::run_stitching_backfill,
-            routes::tagging_actions::run_maintenance_batch,
-            routes::tagging_actions::run_fingerprint_backfill,
+            routes::batch_operations::get_batch_operations_view_model,
+            routes::batch_operations::preview_tagging_action,
+            routes::batch_operations::run_unified_backfill,
+            routes::batch_operations::stop_unified_backfill,
+            routes::batch_operations::get_backfill_log_entries,
+            routes::batch_operations::count_tagging_candidates,
+            routes::batch_operations::count_missing_preview_designs,
+            routes::batch_operations::browse_tagging_folder,
+            routes::batch_operations::run_stitching_backfill,
+            routes::batch_operations::run_maintenance_batch,
+            routes::batch_operations::run_fingerprint_backfill,
             routes::maintenance::maintenance_scaffold_enabled,
             routes::maintenance::get_backup_view_model,
             routes::maintenance::save_backup_settings,

@@ -3,7 +3,7 @@
 ### 🔄 Core Workflows to Test
 
 ### Scope
-Testing tri-state checkbox behavior, tag preservation, and independent dual-verification (image_tags_verified and stitching_tags_verified) across @MainView.svelte, @TagSelectionModal.svelte, @TaggingActionsView.svelte, and @DesignDetailView.svelte.
+Testing tri-state checkbox behavior, tag preservation, and independent dual-verification (image_tags_verified and stitching_tags_verified) across @MainView.svelte, @TagSelectionModal.svelte, @BatchOperationsView.svelte, and @DesignDetailView.svelte.
 
 ---
 

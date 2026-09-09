@@ -15,7 +15,7 @@ This issue tracks the user-facing functionality and content validation for the *
     - [x] `🔍 Search`
     - [x] `📭 Importing`
     - [x] `🤖 AI Tagging`
-    - [x] `🏷️ Tagging Actions`
+    - [x] `🏷️ Batch Operations`
     - [x] `📁 Projects`
     - [x] `🛠️ Maintenance`
     - [x] `🔧 Troubleshooting`
@@ -28,7 +28,7 @@ This issue tracks the user-facing functionality and content validation for the *
     - [ ] Content blocks for `Choosing folders`, `Review and metadata`, `Tag check before import`, `AI tagging notice`, and `Error files and large scans` match verbatim.
   - [ ] **AI Tagging Section**:
     - [ ] Content blocks for `Get an API key`, `Enable tiers`, `Batch size and delay`, `In-app actions`, `Potential costs`, and `Full guide` match verbatim.
-  - [ ] **Tagging Actions Section**:
+  - [ ] **Batch Operations Section**:
     - [ ] Content blocks for `Tag only untagged designs`, `Tag untagged and unverified designs`, `Re-tag ALL designs`, and `Local stitching backfill` match verbatim.
   - [ ] **Projects Section**:
     - [ ] Content blocks for `What projects are for`, `Adding designs`, `Bulk add`, and `Printing` match verbatim.
@@ -44,7 +44,7 @@ This issue tracks the user-facing functionality and content validation for the *
     - [ ] `Import` link in Importing body text navigates to `/import/`
     - [ ] `Google AI Studio` link opens the external API key portal
     - [ ] `Settings` link in AI Tagging body navigates to setup page
-    - `Admin → Tagging Actions` text breadcrumb references match current view options
+    - `Admin → Batch Operations` text breadcrumb references match current view options
     - [ ] `current pricing` link opens the external Google AI billing overview
     - [ ] `AI Tagging Guide` link opens the deeper markdown documentation resource
     - [ ] `Projects` link in Projects body navigates to `/projects/`

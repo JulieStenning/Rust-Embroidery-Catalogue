@@ -1,6 +1,6 @@
-// Tests for the tagging_actions route.
+// Tests for the batch_operations route.
 //
-// This module was split out of tagging_actions.rs so the route file can stay
+// This module was split out of batch_operations.rs so the route file can stay
 // focused on production logic. It is included via a #[path] declaration in a
 // #[cfg(test)] mod tests; module, so it retains full access to the private
 // items in the parent module through use super::*;.
@@ -159,11 +159,11 @@ async fn test_get_setting_with_default() {
 
 #[tokio::test]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
-async fn test_get_tagging_actions_view_model() {
+async fn test_get_batch_operations_view_model() {
     let _guard = lock_env();
 
     let pool = test_pool().await;
-    let tmp = std::env::temp_dir().join("tagging-actions-test-vm");
+    let tmp = std::env::temp_dir().join("batch-operations-test-vm");
     std::fs::create_dir_all(&tmp).ok();
     let app_state = make_app_state(pool, &tmp);
 
@@ -181,7 +181,7 @@ async fn test_get_tagging_actions_view_model() {
             .unwrap();
     }
 
-    let vm = get_tagging_actions_view_model(state.clone()).await.unwrap();
+    let vm = get_batch_operations_view_model(state.clone()).await.unwrap();
     assert!(vm.has_google_api_key);
     assert!(!vm.ai_vision_auto);
     assert_eq!(vm.ai_batch_size, "");
@@ -207,7 +207,7 @@ async fn test_get_tagging_actions_view_model() {
             .unwrap();
     }
 
-    let vm2 = get_tagging_actions_view_model(state).await.unwrap();
+    let vm2 = get_batch_operations_view_model(state).await.unwrap();
     assert!(vm2.ai_vision_auto);
     assert_eq!(vm2.ai_batch_size, "50");
 
@@ -246,7 +246,7 @@ async fn test_count_tagging_candidates_reports_scope_counts() {
         .await
         .unwrap();
 
-    let tmp = std::env::temp_dir().join("tagging-actions-count-test");
+    let tmp = std::env::temp_dir().join("batch-operations-count-test");
     std::fs::create_dir_all(&tmp).ok();
     let app_state = make_app_state(pool, &tmp);
     let app = tauri::test::mock_app();
@@ -298,11 +298,11 @@ async fn test_count_tagging_candidates_reports_scope_counts() {
 
 #[tokio::test]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
-async fn tagging_actions_view_model_free_tier_uses_conservative_defaults() {
+async fn batch_operations_view_model_free_tier_uses_conservative_defaults() {
     let _guard = lock_env();
 
     let pool = test_pool().await;
-    let tmp = std::env::temp_dir().join("tagging-actions-test-free-tier");
+    let tmp = std::env::temp_dir().join("batch-operations-test-free-tier");
     std::fs::create_dir_all(&tmp).ok();
     let app_state = make_app_state(pool, &tmp);
 
@@ -322,7 +322,7 @@ async fn tagging_actions_view_model_free_tier_uses_conservative_defaults() {
         .unwrap();
     }
 
-    let vm = get_tagging_actions_view_model(state.clone()).await.unwrap();
+    let vm = get_batch_operations_view_model(state.clone()).await.unwrap();
     assert!(vm.ai_free_tier);
     assert_eq!(vm.default_workers, 2);
     assert_eq!(vm.default_delay, 10.0);

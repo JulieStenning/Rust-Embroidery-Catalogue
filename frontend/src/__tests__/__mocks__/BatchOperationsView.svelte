@@ -1,1 +1,1 @@
-<div data-testid="tagging-actions-view">Tagging Actions View</div>
+<div data-testid="batch-operations-view">Batch Operations View</div>

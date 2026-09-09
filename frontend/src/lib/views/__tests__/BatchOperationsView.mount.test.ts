@@ -1,13 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -45,7 +45,7 @@ const viewModel = (overrides = {}) => ({
 
 function configureMocks(overrides = {}) {
   vi.clearAllMocks();
-  adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel(overrides));
+  adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel(overrides));
   adapterMocks.getBackfillLogEntries.mockResolvedValue({
     source: "rust",
     entries: [],
@@ -57,14 +57,14 @@ function configureMocks(overrides = {}) {
   });
 }
 
-describe("TaggingActionsView mount behaviour", () => {
+describe("BatchOperationsView mount behaviour", () => {
   beforeEach(() => configureMocks());
 
   it("loads the view model, backfill log, and scope counts on mount", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     await waitFor(() => {
-      expect(adapterMocks.getTaggingActionsViewModel).toHaveBeenCalledTimes(1);
+      expect(adapterMocks.getBatchOperationsViewModel).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
       expect(adapterMocks.getBackfillLogEntries).toHaveBeenCalledTimes(1);
@@ -75,7 +75,7 @@ describe("TaggingActionsView mount behaviour", () => {
   });
 
   it("shows the no-API-key notice and info toast when no key is set", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(
       await screen.findByText(
@@ -92,7 +92,7 @@ describe("TaggingActionsView mount behaviour", () => {
 
   it("shows the API-key notice and info toast when a key is set", async () => {
     configureMocks({ has_google_api_key: true });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(
       await screen.findByText(/API key detected — AI tagging actions are available\./)
@@ -106,8 +106,8 @@ describe("TaggingActionsView mount behaviour", () => {
   });
 
   it("shows an error toast when the view model fails to load", async () => {
-    adapterMocks.getTaggingActionsViewModel.mockRejectedValue(new Error("no backend"));
-    render(TaggingActionsView);
+    adapterMocks.getBatchOperationsViewModel.mockRejectedValue(new Error("no backend"));
+    render(BatchOperationsView);
 
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
@@ -118,20 +118,20 @@ describe("TaggingActionsView mount behaviour", () => {
   });
 });
 
-describe("TaggingActionsView initial render", () => {
+describe("BatchOperationsView initial render", () => {
   beforeEach(() => configureMocks());
 
   it("renders the page title and subtitle", () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
-    expect(screen.getByRole("heading", { name: "Tagging Actions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Batch Operations" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Retag or backfill your catalogue with clear goals/)
+      screen.getByText(/Automated AI categorisation, rule-based tagging, and library file maintenance\./)
     ).toBeInTheDocument();
   });
 
   it("renders the Goal / Scope / Merge workflow with sensible defaults", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     await waitFor(() => {
       expect(screen.getByRole("radio", { name: /Apply file & folder rules/i })).toBeChecked();
@@ -141,7 +141,7 @@ describe("TaggingActionsView initial render", () => {
   });
 
   it("disables Visual AI goals when no API key is set", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     await waitFor(() => {
       expect(screen.getByRole("radio", { name: /Enrich with visual AI/i })).toBeDisabled();
@@ -150,7 +150,7 @@ describe("TaggingActionsView initial render", () => {
   });
 
   it("enables the Run button when ready (a default action is always selected)", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Review & Start Tagging" })).not.toBeDisabled();

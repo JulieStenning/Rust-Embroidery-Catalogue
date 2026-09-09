@@ -2,13 +2,13 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -58,10 +58,10 @@ async function startRun() {
   await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 }
 
-describe("TaggingActionsView run stitching backfill", () => {
+describe("BatchOperationsView run stitching backfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
@@ -76,7 +76,7 @@ describe("TaggingActionsView run stitching backfill", () => {
   });
 
   it("calls runStitchingBackfill with the default options when enabled", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
@@ -100,7 +100,7 @@ describe("TaggingActionsView run stitching backfill", () => {
   });
 
   it("passes clear_stitching_mode all when overwrite is selected", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
@@ -125,7 +125,7 @@ describe("TaggingActionsView run stitching backfill", () => {
     adapterMocks.runStitchingBackfill.mockResolvedValue(
       backfillResult({ error: "Malformed stitch data" })
     );
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
@@ -143,7 +143,7 @@ describe("TaggingActionsView run stitching backfill", () => {
   });
 
   it("runs both stitching and unified backfills when both are enabled", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });

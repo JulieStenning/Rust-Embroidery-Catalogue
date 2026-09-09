@@ -2,13 +2,13 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -44,10 +44,10 @@ const viewModel = (overrides = {}) => ({
   },
 });
 
-describe("TaggingActionsView workflow selection", () => {
+describe("BatchOperationsView workflow selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
@@ -60,7 +60,7 @@ describe("TaggingActionsView workflow selection", () => {
   });
 
   it("defaults to File & Folder, untagged, and add-new-tags", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(
       await screen.findByRole("radio", { name: /Apply file & folder rules/i })
@@ -70,7 +70,7 @@ describe("TaggingActionsView workflow selection", () => {
   });
 
   it("selects a Visual AI goal and changes the scope and merge", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
@@ -87,7 +87,7 @@ describe("TaggingActionsView workflow selection", () => {
   });
 
   it("selects the Specific Folder or Category scope and shows the folder picker", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
@@ -102,7 +102,7 @@ describe("TaggingActionsView workflow selection", () => {
       paths: ["C:/library/MachineEmbroideryDesigns/Flowers"],
       relative_paths: ["Flowers"],
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await screen.findAllByText("10 unverified · 2 verified");
 
@@ -125,10 +125,10 @@ describe("TaggingActionsView workflow selection", () => {
   });
 
   it("disables Visual AI goals without an API key", async () => {
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(
       viewModel({ has_google_api_key: false })
     );
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(
       await screen.findByRole("radio", { name: /Enrich with visual AI/i })
@@ -137,7 +137,7 @@ describe("TaggingActionsView workflow selection", () => {
   });
 
   it("defaults to excluding verified designs and shows the unverified/verified breakdown", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const toggle = await screen.findByRole("checkbox", {
       name: /Exclude human-verified designs/,
@@ -151,7 +151,7 @@ describe("TaggingActionsView workflow selection", () => {
   });
 
   it("switches the active count to the total when exclusion is unchecked", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const toggle = await screen.findByRole("checkbox", {
       name: /Exclude human-verified designs/,
@@ -169,10 +169,10 @@ describe("TaggingActionsView workflow selection", () => {
   });
 });
 
-describe("TaggingActionsView advanced options", () => {
+describe("BatchOperationsView advanced options", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
@@ -185,7 +185,7 @@ describe("TaggingActionsView advanced options", () => {
   });
 
   it("toggles the stitching checkbox and its overwrite sub-option", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
 
     const stitching = screen.getByRole("checkbox", { name: /Also detect stitching tags/ });
@@ -201,7 +201,7 @@ describe("TaggingActionsView advanced options", () => {
   });
 
   it("toggles the image generation checkbox and its redo sub-option", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
 
     const images = screen.getByRole("checkbox", { name: /Also generate preview images/ });
@@ -214,7 +214,7 @@ describe("TaggingActionsView advanced options", () => {
   });
 
   it("toggles the colour count and hoop dimension checkboxes", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
 
     const colour = screen.getByRole("checkbox", { name: /Recalculate colour/ });

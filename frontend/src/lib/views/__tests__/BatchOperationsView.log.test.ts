@@ -1,13 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -49,10 +49,10 @@ function element(value: Element | null | undefined, message?: string): HTMLEleme
   return value as HTMLElement;
 }
 
-describe("TaggingActionsView backfill log", () => {
+describe("BatchOperationsView backfill log", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
@@ -65,7 +65,7 @@ describe("TaggingActionsView backfill log", () => {
   });
 
   it("shows the empty log placeholder with a zero count", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(await screen.findByText("Backfill log (0 entries)")).toBeInTheDocument();
     expect(
@@ -82,7 +82,7 @@ describe("TaggingActionsView backfill log", () => {
         { level: "error", message: "A design failed to parse" },
       ],
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(await screen.findByText("Backfill log (3 entries)")).toBeInTheDocument();
     expect(screen.getByText("Backfill started")).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("TaggingActionsView backfill log", () => {
         { level: "error", message: "A design failed to parse" },
       ],
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     await screen.findByText("Backfill log (3 entries)");
 
@@ -126,7 +126,7 @@ describe("TaggingActionsView backfill log", () => {
 
   it("swallows log load failures and keeps the empty placeholder", async () => {
     adapterMocks.getBackfillLogEntries.mockRejectedValue(new Error("no log"));
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     expect(
       await screen.findByText("No log entries yet. Run an action to populate the log.")

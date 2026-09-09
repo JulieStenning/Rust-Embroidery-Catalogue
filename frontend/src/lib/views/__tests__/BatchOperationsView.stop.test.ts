@@ -2,14 +2,14 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 import { resetBusy } from "../../stores/busyStore.js";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -43,11 +43,11 @@ const viewModel = () => ({
   },
 });
 
-describe("TaggingActionsView stop behaviour", () => {
+describe("BatchOperationsView stop behaviour", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetBusy();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
@@ -69,7 +69,7 @@ describe("TaggingActionsView stop behaviour", () => {
    */
   async function startInFlightRun() {
     adapterMocks.runUnifiedBackfill.mockReturnValue(new Promise(() => {}));
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });

@@ -12,7 +12,7 @@ pub struct TaggingActionRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct TaggingActionsViewModel {
+pub struct BatchOperationsViewModel {
     pub has_google_api_key: bool,
     pub ai_vision_auto: bool,
     pub ai_batch_size: String,
@@ -64,9 +64,9 @@ fn emit_backfill_progress(progress: &backfill::BackfillProgress) {
 }
 
 #[tauri::command]
-pub async fn get_tagging_actions_view_model(
+pub async fn get_batch_operations_view_model(
     state: State<'_, AppState>,
-) -> Result<TaggingActionsViewModel, String> {
+) -> Result<BatchOperationsViewModel, String> {
     let pool = state.db_pool()?;
     let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
@@ -98,7 +98,7 @@ pub async fn get_tagging_actions_view_model(
         .map_err(|e| e.to_string())?;
     let has_google_api_key = !google_api_key.trim().is_empty();
 
-    Ok(TaggingActionsViewModel {
+    Ok(BatchOperationsViewModel {
         has_google_api_key,
         ai_vision_auto,
         ai_batch_size,
@@ -176,7 +176,7 @@ pub async fn get_backfill_log_entries(
 }
 
 /// Count the designs a tagging run with the given scope `action` would process,
-/// so the Tagging Actions screen can show a pre-flight estimate before the
+/// so the Batch Operations screen can show a pre-flight estimate before the
 /// background worker is launched. Uses the same candidate predicate as the
 /// backfill pager, so the displayed count always matches what a run will touch.
 #[tauri::command]
@@ -344,7 +344,7 @@ pub async fn run_stitching_backfill(
 /// generation, colour/stitch-count recalculation, hoop/dimension recalculation)
 /// WITHOUT any tagging. Because no tagging action is present, the run processes
 /// the entire catalogue — this is the "no tagging selected on Tab 1" case of the
-/// two-tab Tagging Actions screen.
+/// two-tab Batch Operations screen.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct MaintenanceBatchRequest {
     /// Population scope for every selected task: `"all"` (the whole catalogue) or
@@ -474,5 +474,5 @@ fn is_truthy(raw: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "tagging_actions_tests.rs"]
+#[path = "batch_operations_tests.rs"]
 mod tests;

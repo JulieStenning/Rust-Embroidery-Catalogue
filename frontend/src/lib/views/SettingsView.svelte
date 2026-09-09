@@ -665,9 +665,9 @@
         <p class="mt-1 text-xs text-gray-500">
           Seconds to wait between API calls. Increase this if you see <em>429 Too Many Requests</em>
           errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
-          batch tagging actions on the
-          <a href="#/admin/tagging-actions" class="text-indigo-600 hover:underline"
-            >Tagging Actions</a
+          batch operations on the
+          <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
+            >Batch Operations</a
           > page.
         </p>
       </div>

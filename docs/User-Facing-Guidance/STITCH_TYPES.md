@@ -11,7 +11,7 @@ Stitch type detection looks at the pattern itself and suggests tags in the **sti
 It is used in two places:
 
 1. during import, and
-2. from **Admin -> Tagging Actions** using the stitching backfill option.
+2. from **Admin -> Batch Operations** using the stitching backfill option.
 
 The current implementation uses geometry and stitch-path analysis, not example images.
 
@@ -71,13 +71,13 @@ What to expect:
 
 If you also use AI tagging, stitch detection is separate from the Gemini vision (Visual AI) flow.
 
-For the AI tagging flow, see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
+For the AI tagging flow, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 
 ---
 
-## In Admin Tagging Actions
+## In Admin Batch Operations
 
-Use **Admin -> Tagging Actions** when you want to run stitch detection on existing designs.
+Use **Admin -> Batch Operations** when you want to run stitch detection on existing designs.
 
 The stitching action is useful when:
 
@@ -92,7 +92,7 @@ Important behavior:
 - it only updates tags in the stitching group,
 - it keeps running in the browser while the page stays open.
 
-For the full combined maintenance workflow, see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
+For the full combined maintenance workflow, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 
 ---
 
@@ -145,5 +145,5 @@ If you are running the stitching backfill on a large catalogue, keep the page op
 
 ## Related guidance
 
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) - Visual AI tagging, combined maintenance runs, and where stitching fits alongside it
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - Visual AI tagging, combined maintenance runs, and where stitching fits alongside it
 - [GETTING_STARTED.md](GETTING_STARTED.md) - basic application setup and import flow

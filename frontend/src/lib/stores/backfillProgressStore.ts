@@ -2,7 +2,7 @@
  * Backfill progress store.
  *
  * Module-level store mirroring the `backfill-progress` events emitted by the
- * Rust backend during a unified backfill run (Tagging Actions page). The view
+ * Rust backend during a unified backfill run (Batch Operations page). The view
  * subscribes here to render a live "Processed N designs — <action>…" message.
  */
 

@@ -81,6 +81,6 @@ These settings affect how import runs when you continue.
 5. Verify imported designs in Designs list and detail pages.
 
 ## Related Guides
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md)
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
 - [GETTING_STARTED.md](GETTING_STARTED.md)

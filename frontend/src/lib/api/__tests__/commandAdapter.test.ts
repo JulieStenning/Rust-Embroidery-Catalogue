@@ -45,7 +45,7 @@ import {
   getProjectPrintView,
   getProjectsList,
   getSettingsViewModel,
-  getTaggingActionsViewModel,
+  getBatchOperationsViewModel,
   listDesigners,
   listGeminiModels,
   listHoops,
@@ -1716,7 +1716,7 @@ describe("commandAdapter settings", () => {
     expect(result.error).toContain("save key failed");
   });
 
-  it("getTaggingActionsViewModel maps the Rust view model", async () => {
+  it("getBatchOperationsViewModel maps the Rust view model", async () => {
     invokeMock.mockResolvedValue({
       has_google_api_key: true,
       ai_vision_auto: false,
@@ -1729,7 +1729,7 @@ describe("commandAdapter settings", () => {
       default_delay: 8,
     });
 
-    const result = await getTaggingActionsViewModel();
+    const result = await getBatchOperationsViewModel();
 
     expect(result.source).toBe("rust");
     expect(result.model.default_batch_size).toBe(50);
@@ -1737,10 +1737,10 @@ describe("commandAdapter settings", () => {
     expect(result.model.default_delay).toBe(8);
   });
 
-  it("getTaggingActionsViewModel falls back to the default mock model on error", async () => {
+  it("getBatchOperationsViewModel falls back to the default mock model on error", async () => {
     mockReject(new Error("vm failed"));
 
-    const result = await getTaggingActionsViewModel();
+    const result = await getBatchOperationsViewModel();
 
     expect(result.source).toBe("mock");
     expect(result.model).toEqual({

@@ -3,14 +3,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { tick } from "svelte";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 import {
   backfillProgressStore,
   resetBackfillProgress,
 } from "../../stores/backfillProgressStore";
 
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -42,11 +42,11 @@ const viewModel = () => ({
   },
 });
 
-describe("TaggingActionsView live progress", () => {
+describe("BatchOperationsView live progress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetBackfillProgress();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({ source: "rust", entries: [] });
     adapterMocks.countTaggingCandidates.mockResolvedValue({
       source: "rust",
@@ -63,7 +63,7 @@ describe("TaggingActionsView live progress", () => {
   it("shows 'Getting ready for tagging' then the live count on the Run button", async () => {
     // Keep the run in flight so taggingRunInFlight stays true.
     adapterMocks.runUnifiedBackfill.mockReturnValue(new Promise(() => {}));
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });

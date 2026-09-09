@@ -657,7 +657,7 @@ export interface AdapterStopBulkImportResponse {
   message: string;
 }
 
-export interface TaggingActionsViewModel {
+export interface BatchOperationsViewModel {
   has_google_api_key: boolean;
   ai_vision_auto: boolean;
   ai_batch_size: string;
@@ -673,9 +673,9 @@ export interface TaggingActionsViewModel {
   data_storage_location: string;
 }
 
-export interface AdapterTaggingActionsViewModelResponse {
+export interface AdapterBatchOperationsViewModelResponse {
   source: string;
-  model: TaggingActionsViewModel;
+  model: BatchOperationsViewModel;
   error?: string;
 }
 
@@ -704,7 +704,7 @@ export interface BrowseTaggingFolderResult {
 }
 
 /**
- * Flat view-model describing the options the Tagging Actions screen passes to
+ * Flat view-model describing the options the Batch Operations screen passes to
  * the command adapter. The adapter translates this into the nested wire shape
  * expected by the Rust `run_unified_backfill` command (see
  * `UnifiedBackfillWireRequest`).

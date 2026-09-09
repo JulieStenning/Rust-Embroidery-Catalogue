@@ -2,13 +2,13 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -59,10 +59,10 @@ async function gotoMaintenanceTab() {
   await user.click(screen.getByRole("tab", { name: /Maintenance & File Processing/i }));
 }
 
-describe("TaggingActionsView two-tab navigation", () => {
+describe("BatchOperationsView two-tab navigation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({ source: "rust", entries: [] });
     adapterMocks.countTaggingCandidates.mockResolvedValue({
       source: "rust",
@@ -74,7 +74,7 @@ describe("TaggingActionsView two-tab navigation", () => {
   });
 
   it("shows the Tagging tab by default with its actions, not the Maintenance ones", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     expect(screen.getByRole("tab", { name: /Tagging & Categorisation/i })).toHaveAttribute(
       "aria-selected",
       "true"
@@ -86,7 +86,7 @@ describe("TaggingActionsView two-tab navigation", () => {
   });
 
   it("switches to the Maintenance tab and shows only the maintenance tasks", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await gotoMaintenanceTab();
@@ -108,10 +108,10 @@ describe("TaggingActionsView two-tab navigation", () => {
 });
 
 
-describe("TaggingActionsView maintenance run + redirect", () => {
+describe("BatchOperationsView maintenance run + redirect", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({ source: "rust", entries: [] });
     adapterMocks.countTaggingCandidates.mockResolvedValue({
       source: "rust",
@@ -123,7 +123,7 @@ describe("TaggingActionsView maintenance run + redirect", () => {
   });
 
   it("enables Review & Start Maintenance once a task is ticked and dispatches runMaintenanceBackfill", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await gotoMaintenanceTab();
 
@@ -157,7 +157,7 @@ describe("TaggingActionsView maintenance run + redirect", () => {
   });
 
   it("shows the live missing-preview count and dispatches the missing_previews scope", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await gotoMaintenanceTab();
 

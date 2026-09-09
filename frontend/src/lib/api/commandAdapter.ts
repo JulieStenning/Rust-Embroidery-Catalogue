@@ -23,7 +23,7 @@ import type {
   AdapterScanOrphansResponse,
   AdapterStopBulkImportResponse,
   AdapterStopUnifiedBackfillResponse,
-  AdapterTaggingActionsViewModelResponse,
+  AdapterBatchOperationsViewModelResponse,
   AdapterTaggingCandidateCountResponse,
   BrowseTaggingFolderResult,
   TaggingScopeCounts,
@@ -77,7 +77,7 @@ import type {
   SaveSettingsRequest,
   SearchPayload,
   SettingsViewModel,
-  TaggingActionsViewModel,
+  BatchOperationsViewModel,
   UnifiedBackfillActionsWire,
   UnifiedBackfillRequest,
   UnifiedBackfillResult,
@@ -1702,10 +1702,10 @@ export async function getAboutDocuments() {
       },
       {
         slug: "ai-tagging",
-        title: "AI Tagging & Tagging Actions Guide",
+        title: "AI Tagging & Batch Operations Guide",
         description:
-          "How to run Visual AI tagging from Tagging Actions, set up a Google API key, and understand usage costs.",
-        filename: "docs/User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md",
+          "How to run Visual AI tagging from Batch Operations, set up a Google API key, and understand usage costs.",
+        filename: "docs/User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md",
         available: false,
       },
       {
@@ -2056,9 +2056,9 @@ export async function setGoogleApiKey(apiKey: string): Promise<{
   }
 }
 
-export async function getTaggingActionsViewModel(): Promise<AdapterTaggingActionsViewModelResponse> {
+export async function getBatchOperationsViewModel(): Promise<AdapterBatchOperationsViewModelResponse> {
   try {
-    const model = await invokeLoose<TaggingActionsViewModel>("get_tagging_actions_view_model");
+    const model = await invokeLoose<BatchOperationsViewModel>("get_batch_operations_view_model");
     return {
       source: "rust",
       model: {
@@ -2179,7 +2179,7 @@ export async function browseTaggingFolder(
 }
 
 /**
- * Translate the flat view-model from the Tagging Actions screen into the
+ * Translate the flat view-model from the Batch Operations screen into the
  * nested `actions` descriptor the Rust `backfill::UnifiedBackfillRequest`
  * expects. Tagging, image generation and colour counts are independent
  * activities: each section is only included when its checkbox was enabled, so

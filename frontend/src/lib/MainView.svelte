@@ -5,7 +5,7 @@
   import AboutDocumentView from "./views/AboutDocumentView.svelte";
   import SettingsView from "./views/SettingsView.svelte";
   import BackupView from "./views/BackupView.svelte";
-  import TaggingActionsView from "./views/TaggingActionsView.svelte";
+  import BatchOperationsView from "./views/BatchOperationsView.svelte";
   import OrphansView from "./views/OrphansView.svelte";
   import ProjectsView from "./views/ProjectsView.svelte";
   import DesignDetailView from "./views/DesignDetailView.svelte";
@@ -230,11 +230,11 @@
         >Backup/Restore</a
       >
       <a
-        href="#/admin/tagging-actions"
-        class={adminLinkClass("#/admin/tagging-actions")}
+        href="#/admin/batch-operations"
+        class={adminLinkClass("#/admin/batch-operations")}
         aria-disabled={busyActive}
         onclick={guardNavClick}
-        >Tagging Actions</a
+        >Batch Operations</a
       >
       <a
         href="#/admin/orphans"
@@ -268,8 +268,8 @@
     <SettingsView />
   {:else if currentUiKind === "backup"}
     <BackupView />
-  {:else if currentUiKind === "tagging-actions"}
-    <TaggingActionsView />
+  {:else if currentUiKind === "batch-operations"}
+    <BatchOperationsView />
   {:else if currentUiKind === "orphans"}
     <OrphansView />
   {:else if currentUiKind === "projects-list" || currentUiKind === "project-new" || currentUiKind === "project-detail" || currentUiKind === "project-print"}

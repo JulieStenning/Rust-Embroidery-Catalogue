@@ -18,7 +18,7 @@ Use image generation when you want to:
 You can run image generation in two primary ways:
 
 - during import confirmation,
-- from **Admin -> Tagging Actions** for existing designs.
+- from **Admin -> Batch Operations** for existing designs.
 
 ---
 
@@ -42,9 +42,9 @@ You can run image generation in two primary ways:
 3. Confirm import.
 4. Let the import complete and review generated previews.
 
-### Admin Tagging Actions image generation
+### Admin Batch Operations image generation
 
-1. Open **Admin -> Tagging Actions**.
+1. Open **Admin -> Batch Operations**.
 2. Select **Images**.
 3. Choose the image options you need:
    - **Re-process all images**
@@ -104,7 +104,7 @@ Use **Upgrade existing 2D images to 3D** when you already have 2D previews and w
 
 ## Performance controls
 
-The image pipeline in Tagging Actions exposes:
+The image pipeline in Batch Operations exposes:
 
 - **Batch size**
 - **Commit every**
@@ -141,7 +141,7 @@ Error log usage:
 | Run seems slow | Lower workers and run smaller batches. |
 | Existing previews did not change | Use **Re-process all images** or **Upgrade existing 2D images to 3D** depending on goal. |
 | Dimensions/hoop are still missing on some files | Re-run images and check file-specific log errors; some formats may have limited metadata paths. |
-| Browser closed during run | Reopen Tagging Actions and rerun required actions. |
+| Browser closed during run | Reopen Batch Operations and rerun required actions. |
 
 For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 
@@ -166,13 +166,13 @@ For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 
 1. Import with your preferred image mode.
 2. Review results in browse/detail views.
-3. Run Tagging Actions image pass only for records that need refresh or upgrade.
+3. Run Batch Operations image pass only for records that need refresh or upgrade.
 
 ---
 
 ## Related guides
 
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) - unified maintenance actions overview
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - unified maintenance actions overview
 - [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md) - format compatibility and notes
 - [COLOUR_COUNTS.md](COLOUR_COUNTS.md) - stitch/colour metadata behavior
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup guidance before large operations

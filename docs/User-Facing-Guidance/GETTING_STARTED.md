@@ -108,9 +108,9 @@ you want to use optional AI-assisted auto-tagging.
 
 Add the key in **Admin → Settings** — it is stored locally with your catalogue data.
 
-Once the key is saved, run Visual AI on designs from **Admin → Tagging Actions** — imports themselves
+Once the key is saved, run Visual AI on designs from **Admin → Batch Operations** — imports themselves
 are local and only apply File & Folder Rules.
-See [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) for full details, including cost/quota information.
+See [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) for full details, including cost/quota information.
 
 ---
 
@@ -213,7 +213,7 @@ After pulling new changes from the repository:
 
 Advanced users can set supported environment overrides (such as `DATABASE_URL`) via a `.env` file in the
 project root. The Google API key is **not** read from the environment — add it in **Admin → Settings**;
-see [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md).
+see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 
 Imported design files are stored automatically under the managed `MachineEmbroideryDesigns`
 folder in the active data root.
@@ -224,7 +224,7 @@ folder in the active data root.
 
 - [App Installer.md](App Installer.md) — run the release installer or use portable mode on a USB stick / SD card.
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — back up and restore your catalogue database.
-- [TAGGING_ACTIONS_BACKFILL.md](TAGGING_ACTIONS_BACKFILL.md) — enable optional AI-powered design tagging.
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) — enable optional AI-powered design tagging.
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) — first-import and later-import precheck review flow.
 - [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — fix common problems.
 - [../COMMERCIAL.md](../COMMERCIAL.md) — paid Windows installer build for non-technical users.

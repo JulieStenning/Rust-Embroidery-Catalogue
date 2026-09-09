@@ -1,13 +1,13 @@
-# Tagging Actions and Backfill (with AI Tagging)
+# Batch Operations and Backfill (with AI Tagging)
 
-The Embroidery Catalogue includes a **Tagging Actions** page that lets you update existing designs in bulk.
+The Embroidery Catalogue includes a **Batch Operations** page that lets you update existing designs in bulk.
 You can run AI tagging, stitching detection, image generation, and thread/colour count backfills from one place.
 
 ---
 
 ## What this page is for
 
-Use **Admin -> Tagging Actions** when you want to:
+Use **Admin -> Batch Operations** when you want to:
 
 - tag designs based on their images using Visual AI,
 - detect stitch types from embroidery geometry,
@@ -33,7 +33,7 @@ Use **Admin -> Tagging Actions** when you want to:
 
 ## Quick start
 
-1. Open **Admin -> Tagging Actions**.
+1. Open **Admin -> Batch Operations**.
 2. Choose a **Goal**:
    - **Apply file & folder rules** — fast, local, offline, free.
    - **Enrich with visual AI** — sends preview thumbnails to Google Gemini Vision (needs an API key).
@@ -81,14 +81,14 @@ Scopes for a Visual AI / Full Re-Scan run let you target designs by their analys
 ### Add the key in Admin Settings
 
 Open **Admin → Settings** and paste the key into the **Google Gemini API key** field, then click
-**Save settings**. The key is only used by Visual AI in **Tagging Actions** — imports never call Gemini.
+**Save settings**. The key is only used by Visual AI in **Batch Operations** — imports never call Gemini.
 
 > **Security note:** treat the key as a private secret. It is stored locally with your catalogue data
-> (in the app's settings) and is used only by Visual AI in Tagging Actions.
+> (in the app's settings) and is used only by Visual AI in Batch Operations.
 
 ### Batch, delay, model, and free tier
 
-These options on **Admin → Settings** control Visual AI runs in Tagging Actions:
+These options on **Admin → Settings** control Visual AI runs in Batch Operations:
 
 - **AI tagging batch size** — the number of designs fetched and processed together per chunk. A run
   pages through the whole candidate set, so this does not cap how many designs are touched.
@@ -222,7 +222,7 @@ errors occurred, rerun targeted actions after fixing the root cause.
 
 ### Image rebuild pass
 
-1. In Tagging Actions, tick **Also generate preview images**.
+1. In Batch Operations, tick **Also generate preview images**.
 2. Tick **Regenerate images for all designs** to rebuild existing previews too.
 3. Run and monitor until completion.
 
@@ -254,5 +254,5 @@ If you need to tidy the tag library itself, open **Admin → Tags**. New tags mu
 - **`429 Too Many Requests`** — increase the **AI delay** (or tick the free-tier option) in Settings, and/or lower Workers.
 - **`403 Forbidden`** — your key may be restricted to certain APIs. Check the key settings in Google Cloud Console.
 - **Many failures in log** — verify source files still exist and are readable, then rerun affected actions.
-- **Browser closed during run** — reopen Tagging Actions and rerun. Keep the page open until completion.
+- **Browser closed during run** — reopen Batch Operations and rerun. Keep the page open until completion.
 - **Performance is slow** — lower workers and a smaller batch size, or press **Stop running** and re-run later.

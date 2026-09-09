@@ -3,7 +3,7 @@
 //!
 //! The same "re-read the file and re-derive dimensions / recommended hoop"
 //! logic is used by the per-design "Recalculate From File" action and the
-//! bulk Tagging Actions backfills. Keeping it here means a fix or improvement
+//! bulk backfill runs from Batch Operations. Keeping it here means a fix or improvement
 //! only has to be made once instead of being duplicated in each caller.
 
 use crate::services::image_generation::{generate_preview, ImageGenerationRequest};

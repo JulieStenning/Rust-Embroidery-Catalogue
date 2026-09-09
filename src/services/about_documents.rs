@@ -50,9 +50,9 @@ const DOCUMENTS: [AboutDocumentSpec; 5] = [
     },
     AboutDocumentSpec {
         slug: "ai-tagging",
-        title: "AI Tagging & Tagging Actions Guide",
-        filename: "docs/User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md",
-        description: "How to run Visual AI tagging from Tagging Actions, set up a Google API key, and understand usage costs.",
+        title: "AI Tagging & Batch Operations Guide",
+        filename: "docs/User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md",
+        description: "How to run Visual AI tagging from Batch Operations, set up a Google API key, and understand usage costs.",
     },
     AboutDocumentSpec {
         slug: "data-storage",
@@ -201,7 +201,7 @@ mod tests {
         let normalized =
             get_about_document("  AI-TAGGING  ".to_string()).expect("ai-tagging should load");
         assert_eq!(normalized.slug, "ai-tagging");
-        assert_eq!(normalized.title, "AI Tagging & Tagging Actions Guide");
+        assert_eq!(normalized.title, "AI Tagging & Batch Operations Guide");
         assert!(!normalized.document_text.is_empty());
     }
 

@@ -708,7 +708,7 @@
           }
           if (failedCount >= 1) {
             addToast(
-              `${failedCount} ${failedCount === 1 ? "file could" : "files could"} not be read during import (no preview was generated). Regenerate the image under Admin → Tagging Actions, or from each design's page.`,
+              `${failedCount} ${failedCount === 1 ? "file could" : "files could"} not be read during import (no preview was generated). Regenerate the image under Admin → Batch Operations, or from each design's page.`,
               "warning",
               true
             );
@@ -1581,7 +1581,7 @@
         <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
           <p class="font-semibold text-blue-900">Note on Visual AI Tagging</p>
           <p class="ui-help-note text-blue-900">
-            Initial import uses fast, offline File &amp Folder Rules to index your designs instantly. Once finished, you can run automated Visual AI tagging anytime from Tagging Actions to enrich your collection.
+            Initial import uses fast, offline File &amp Folder Rules to index your designs instantly. Once finished, you can run automated Visual AI tagging anytime from Batch Operations to enrich your collection.
           </p>
         </div>
 

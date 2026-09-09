@@ -46,7 +46,7 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;   - \[x] Top global navigation ribbon is active (`Browse`, `Import`, `Projects`, `Help`)
 
-&#x20;   - \[x] Admin sub-menu options are accessible (`Designers`, `Tags`, `Sources`, `Hoops`, `Settings`, `Backup`, `Tagging Actions`, `Orphans`)
+&#x20;   - \[x] Admin sub-menu options are accessible (`Designers`, `Tags`, `Sources`, `Hoops`, `Settings`, `Backup`, `Batch Operations`, `Orphans`)
 
 &#x20;   - \[x] General Search input displays placeholder example text: `e.g. rose "cross stitch" -applique or \*.hus`
 

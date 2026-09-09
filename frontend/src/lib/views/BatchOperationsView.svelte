@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
 
   import {
-    getTaggingActionsViewModel,
+    getBatchOperationsViewModel,
     runUnifiedBackfill,
     stopUnifiedBackfill,
     getBackfillLogEntries,
@@ -438,9 +438,9 @@
 
     taggingActionsLoading = true;
     try {
-      const result = await getTaggingActionsViewModel();
+      const result = await getBatchOperationsViewModel();
       const model =
-        (result?.model as import("../types/ipc").TaggingActionsViewModel | null | undefined) ||
+        (result?.model as import("../types/ipc").BatchOperationsViewModel | null | undefined) ||
         null;
       taggingHasGoogleApiKey = Boolean(model?.has_google_api_key);
       taggingBatchSize = String(model?.ai_batch_size || "100");
@@ -621,19 +621,19 @@
     resetBackfillProgress();
   });
 </script>
-<section class="tagging-actions-page space-y-6 font-sans">
-  <h1 class="ui-page-title tagging-actions-title mb-2">Tagging Actions</h1>
+<section class="batch-operations-page space-y-6 font-sans">
+  <h1 class="ui-page-title batch-operations-title mb-2">Batch Operations</h1>
   <p class="text-sm text-gray-500 mb-4">
-    Retag or backfill your catalogue with clear goals, targeted scope, and predictable tag handling.
+    Automated AI categorisation, rule-based tagging, and library file maintenance.
   </p>
 
-  <div class="tagging-actions-layout max-w-3xl space-y-6">
+  <div class="batch-operations-layout max-w-3xl space-y-6">
     <!-- Sub-tab navigation: tagging config vs file maintenance -->
     <div
       class="flex items-end gap-1 border-b border-gray-200 mb-2"
       role="tablist"
-      aria-label="Tagging actions mode"
-      data-testid="tagging-tablist"
+      aria-label="Batch operations mode"
+      data-testid="batch-operations-tablist"
     >
       <button
         type="button"

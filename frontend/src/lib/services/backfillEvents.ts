@@ -1,7 +1,7 @@
 /**
  * Subscribes to backfill progress events emitted by the Rust backend
  * (`backfill-progress`) and mirrors them into the shared
- * `backfillProgressStore` so the Tagging Actions view can render live metrics.
+ * `backfillProgressStore` so the Batch Operations view can render live metrics.
  */
 
 import type { UnlistenFn } from "@tauri-apps/api/event";

@@ -154,7 +154,7 @@ pub struct UnifiedBackfillSummary {
 }
 
 /// Live progress streamed to the frontend during a unified backfill run so the
-/// Tagging Actions screen can show a "Processed N designs — <action>…" message
+/// Batch Operations screen can show a "Processed N designs — <action>…" message
 /// that updates after each commit. `stage` is one of `started`,
 /// `batch_committed`, `stopped` or `completed`.
 #[derive(Debug, Clone, Serialize)]

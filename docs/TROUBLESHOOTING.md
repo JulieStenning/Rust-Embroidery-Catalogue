@@ -252,7 +252,7 @@ it falls back to **Installed mode** and uses `%APPDATA%\EmbroideryCatalogue`.
 
 ## AI tagging is not working
 
-**Symptom:** Visual AI tagging does not run on the **Tagging Actions** page, or the app
+**Symptom:** Visual AI tagging does not run on the **Batch Operations** page, or the app
 reports that no Gemini API key is configured.
 
 **Fix:**
@@ -260,21 +260,21 @@ reports that no Gemini API key is configured.
 - Ensure the API key is saved in **Admin → Settings** — it is stored locally with your catalogue data
   and read from there (not from a `.env` file).
 
-- Visual AI runs only from **Admin → Tagging Actions** — imports never call Gemini. Confirm
+- Visual AI runs only from **Admin → Batch Operations** — imports never call Gemini. Confirm
   that a run goal which includes Visual AI is selected and that an API key is present.
 
 - Check the key is valid by testing it in [Google AI Studio](https://aistudio.google.com/).
 
 - **Rate limiting (`429 Too Many Requests`).**  Free-tier keys are rate-limited.  If
-  you hit the limit, open the **Tagging Actions** maintenance page and either lower the
+  you hit the limit, open the **Batch Operations** maintenance page and either lower the
   **batch size** or increase the **delay** between requests, then run a smaller retry.
 
-- If you are running a backfill from the **Tagging Actions** maintenance page
+- If you are running a backfill from the **Batch Operations** maintenance page
   (unified backfill, stitching backfill, or fingerprint backfill), confirm the run
   actually includes Visual AI and that the API key was present when the run
   started.
 
-See [TAGGING_ACTIONS_BACKFILL.md](User-Facing-Guidance/TAGGING_ACTIONS_BACKFILL.md) for full setup instructions.
+See [BATCH_OPERATIONS_BACKFILL.md](User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md) for full setup instructions.
 
 ---
 

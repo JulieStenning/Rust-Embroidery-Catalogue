@@ -85,7 +85,7 @@ const adapterMock = vi.hoisted(() => ({
   saveSettings: vi.fn(),
   saveImportLastBrowseFolder: vi.fn(),
   browseSettingsDataRoot: vi.fn(),
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -455,7 +455,7 @@ beforeEach(() => {
     "saveSettings",
     "saveImportLastBrowseFolder",
     "browseSettingsDataRoot",
-    "getTaggingActionsViewModel",
+    "getBatchOperationsViewModel",
     "runUnifiedBackfill",
     "stopUnifiedBackfill",
     "getBackfillLogEntries",
@@ -589,11 +589,11 @@ describe("routing and navigation", () => {
     });
   });
 
-  it("renders the Tagging Actions view for #/admin/tagging-actions", async () => {
-    renderAtHash("#/admin/tagging-actions");
+  it("renders the Batch Operations view for #/admin/batch-operations", async () => {
+    renderAtHash("#/admin/batch-operations");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Tagging Actions" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Batch Operations" })).toBeInTheDocument();
     });
   });
 

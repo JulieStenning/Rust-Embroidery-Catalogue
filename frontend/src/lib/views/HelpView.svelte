@@ -23,9 +23,9 @@
       class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a
     >
     <a
-      href="#/help?section=tagging-actions"
+      href="#/help?section=batch-operations"
       class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
-      >🏷 Tagging Actions</a
+      >🏷 Batch Operations</a
     >
     <a
       href="#/help?section=projects"
@@ -141,8 +141,8 @@
       </p>
       <p>
         <strong>In-app actions:</strong> run Visual AI from
-        <a href="#/admin/tagging-actions" class="text-indigo-600 hover:underline"
-          >Admin → Tagging Actions</a
+        <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
+          >Admin → Batch Operations</a
         >. AI tagging no longer runs automatically during import.
       </p>
       <p>
@@ -154,18 +154,18 @@
       <p>
         <strong>Full guide:</strong> open the
         <a href="#/about/document/ai-tagging" class="text-indigo-600 hover:underline"
-          >AI Tagging &amp; Tagging Actions Guide</a
+          >AI Tagging &amp; Batch Operations Guide</a
         >.
       </p>
     </div>
   </section>
 
-  <section id="tagging-actions">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🏷 Tagging Actions</h2>
+  <section id="batch-operations">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🏷 Batch Operations</h2>
     <p class="text-sm text-gray-700 mb-3">
-      Run AI tagging on existing designs from <a
-        href="#/admin/tagging-actions"
-        class="text-indigo-600 hover:underline">Admin → Tagging Actions</a
+      Run AI tagging and file maintenance on existing designs from <a
+        href="#/admin/batch-operations"
+        class="text-indigo-600 hover:underline">Admin → Batch Operations</a
       >.
     </p>
     <div class="bg-white rounded shadow p-4 space-y-3 text-sm">

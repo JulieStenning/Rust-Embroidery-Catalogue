@@ -2,13 +2,13 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import TaggingActionsView from "../TaggingActionsView.svelte";
+import BatchOperationsView from "../BatchOperationsView.svelte";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
 // ---------------------------------------------------------------------------
 const adapterMocks = vi.hoisted(() => ({
-  getTaggingActionsViewModel: vi.fn(),
+  getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
@@ -64,10 +64,10 @@ async function startRun() {
   await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 }
 
-describe("TaggingActionsView run unified backfill", () => {
+describe("BatchOperationsView run unified backfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
     adapterMocks.getBackfillLogEntries.mockResolvedValue({
       source: "rust",
       entries: [],
@@ -82,12 +82,12 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows the free-tier rate-limit hint when the key is declared free tier", async () => {
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue({
       source: "rust",
       model: { ...viewModel().model, ai_free_tier: true },
     });
 
-    render(TaggingActionsView);
+    render(BatchOperationsView);
 
     await waitFor(() =>
       expect(screen.getByText(/Free tier detected/)).toBeInTheDocument()
@@ -96,7 +96,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("runs unified backfill with the default File & Folder Rules on untagged designs", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
@@ -130,7 +130,7 @@ describe("TaggingActionsView run unified backfill", () => {
       })
     );
 
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
@@ -142,7 +142,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("runs Visual AI on designs missing AI analysis when those options are chosen", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
@@ -171,7 +171,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("passes the chosen scope and merge strategy", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Entire collection/ }));
@@ -187,7 +187,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows a pre-flight summary with the count and cancels without running", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     // Wait for the scope-count badges to resolve so the modal shows a real count.
     await screen.findAllByText("10 designs");
@@ -206,7 +206,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("states verified exclusion in the modal and passes exclude_verified when unchecked", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await screen.findAllByText("10 unverified · 2 verified");
@@ -235,7 +235,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows the rate-limit pacing note only when the run is actually paced", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
@@ -249,11 +249,11 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("shows the rate-limit pacing note for free-tier keys", async () => {
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue({
       source: "rust",
       model: { ...viewModel().model, ai_free_tier: true },
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
@@ -278,7 +278,7 @@ describe("TaggingActionsView run unified backfill", () => {
     });
 
     // Paid key, blank delay -> not paced.
-    const view = render(TaggingActionsView);
+    const view = render(BatchOperationsView);
     let user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
@@ -290,11 +290,11 @@ describe("TaggingActionsView run unified backfill", () => {
     view.unmount();
 
     // Free tier -> paced, should be considerably larger due to the per-call delay.
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue({
       source: "rust",
       model: { ...viewModel().model, ai_free_tier: true },
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
@@ -312,7 +312,7 @@ describe("TaggingActionsView run unified backfill", () => {
       paths: ["C:/library/MachineEmbroideryDesigns/Flowers"],
       relative_paths: ["Flowers"],
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await screen.findAllByText("10 unverified · 2 verified");
@@ -346,7 +346,7 @@ describe("TaggingActionsView run unified backfill", () => {
     adapterMocks.runUnifiedBackfill.mockResolvedValue(
       backfillResult({ processed: 3, errors: 0, stopped: true })
     );
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
@@ -364,7 +364,7 @@ describe("TaggingActionsView run unified backfill", () => {
     adapterMocks.runUnifiedBackfill.mockResolvedValue(
       backfillResult({ error: "Database is locked" })
     );
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
@@ -380,7 +380,7 @@ describe("TaggingActionsView run unified backfill", () => {
 
   it("shows an error toast when the unified backfill throws", async () => {
     adapterMocks.runUnifiedBackfill.mockRejectedValue(new Error("backend unreachable"));
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
@@ -400,11 +400,11 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("does not pass Visual AI when no API key is present", async () => {
-    adapterMocks.getTaggingActionsViewModel.mockResolvedValue({
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue({
       source: "rust",
       model: { ...viewModel().model, has_google_api_key: false },
     });
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     await startRun();
@@ -417,7 +417,7 @@ describe("TaggingActionsView run unified backfill", () => {
   });
 
   it("runs File & Folder Rules and Visual AI on the whole collection for a full re-scan", async () => {
-    render(TaggingActionsView);
+    render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();

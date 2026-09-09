@@ -15,7 +15,7 @@ export const ORDERED_ROUTE_HINTS = [
   "#/admin/hoops",
   "#/admin/settings",
   "#/admin/maintenance/backup",
-  "#/admin/tagging-actions",
+  "#/admin/batch-operations",
   "#/admin/orphans",
   "#/about",
 ];
@@ -31,7 +31,7 @@ export const ROUTE_UI_KIND = {
   "#/admin/hoops": "admin-list",
   "#/admin/settings": "settings",
   "#/admin/maintenance/backup": "backup",
-  "#/admin/tagging-actions": "tagging-actions",
+  "#/admin/batch-operations": "batch-operations",
   "#/admin/orphans": "orphans",
   "#/about": "about",
 };
@@ -41,7 +41,7 @@ export const HELP_SECTION_IDS = new Set([
   "importing",
   "storage",
   "ai-tagging",
-  "tagging-actions",
+  "batch-operations",
   "projects",
   "maintenance",
   "troubleshooting",

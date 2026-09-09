@@ -69,8 +69,8 @@ describe("HelpView", () => {
         },
         { text: "AI Tagging", href: "#/help?section=ai-tagging", emoji: "🤖" },
         {
-          text: "Tagging Actions",
-          href: "#/help?section=tagging-actions",
+          text: "Batch Operations",
+          href: "#/help?section=batch-operations",
           emoji: "🏷",
         },
         { text: "Projects", href: "#/help?section=projects", emoji: "📁" },
@@ -252,15 +252,15 @@ describe("HelpView", () => {
       const settingsLink = section.getByRole("link", { name: "Settings" });
       expect(settingsLink).toHaveAttribute("href", "#/admin/settings");
 
-      // "Admin → Tagging Actions" also appears in the tagging-actions section
+      // "Admin → Batch Operations" also appears in the batch-operations section
       // further down the page, so scope this query to the ai-tagging section.
-      const taggingActionsLink = section.getByRole("link", {
-        name: "Admin → Tagging Actions",
+      const batchOperationsLink = section.getByRole("link", {
+        name: "Admin → Batch Operations",
       });
-      expect(taggingActionsLink).toHaveAttribute("href", "#/admin/tagging-actions");
+      expect(batchOperationsLink).toHaveAttribute("href", "#/admin/batch-operations");
 
       const guideLink = section.getByRole("link", {
-        name: "AI Tagging & Tagging Actions Guide",
+        name: "AI Tagging & Batch Operations Guide",
       });
       expect(guideLink).toHaveAttribute("href", "#/about/document/ai-tagging");
 
@@ -280,28 +280,30 @@ describe("HelpView", () => {
     });
   });
 
-  describe("tagging-actions section", () => {
-    it("renders the Tagging Actions heading", () => {
+  describe("batch-operations section", () => {
+    it("renders the Batch Operations heading", () => {
       render(HelpView);
 
-      expect(screen.getByRole("heading", { name: "🏷 Tagging Actions" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🏷 Batch Operations" })).toBeInTheDocument();
     });
 
-    it("renders the tagging-actions section content", () => {
+    it("renders the batch-operations section content", () => {
       const { container } = render(HelpView);
-      const section = sectionQueries(container, "tagging-actions");
+      const section = sectionQueries(container, "batch-operations");
 
-      // Intro paragraph — text is split by the inline Admin → Tagging Actions link.
+      // Intro paragraph — text is split by the inline Admin → Batch Operations link.
       expect(
         section.getByText(
-          normalizedText("Run AI tagging on existing designs from Admin → Tagging Actions.")
+          normalizedText(
+            "Run AI tagging and file maintenance on existing designs from Admin → Batch Operations."
+          )
         )
       ).toBeInTheDocument();
 
       const adminLink = section.getByRole("link", {
-        name: "Admin → Tagging Actions",
+        name: "Admin → Batch Operations",
       });
-      expect(adminLink).toHaveAttribute("href", "#/admin/tagging-actions");
+      expect(adminLink).toHaveAttribute("href", "#/admin/batch-operations");
 
       expect(section.getByText("Tag only untagged designs:")).toBeInTheDocument();
       expect(section.getByText("Tag untagged and unverified designs:")).toBeInTheDocument();
@@ -309,10 +311,10 @@ describe("HelpView", () => {
       expect(section.getByText("Local stitching backfill:")).toBeInTheDocument();
     });
 
-    it("renders the tagging-actions section with a section id of 'tagging-actions'", () => {
+    it("renders the batch-operations section with a section id of 'batch-operations'", () => {
       const { container } = render(HelpView);
 
-      const section = container.querySelector("#tagging-actions");
+      const section = container.querySelector("#batch-operations");
       expect(section).not.toBeNull();
       expect(section?.tagName).toBe("SECTION");
     });
@@ -427,7 +429,7 @@ describe("HelpView", () => {
         "importing",
         "storage",
         "ai-tagging",
-        "tagging-actions",
+        "batch-operations",
         "projects",
         "maintenance",
         "troubleshooting",
