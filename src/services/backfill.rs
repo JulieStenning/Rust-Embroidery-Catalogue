@@ -133,6 +133,10 @@ pub struct UnifiedBackfillSummary {
     /// Number of image-tag rows (design-subject tags in the `image` tag group) in
     /// `design_tags` after the run finished.
     pub image_tag_count_after: i64,
+    /// Number of designs with no stored preview (`image_data IS NULL`) before the run started.
+    pub missing_preview_count_before: i64,
+    /// Number of designs with no stored preview (`image_data IS NULL`) after the run finished.
+    pub missing_preview_count_after: i64,
 }
 
 /// Live progress streamed to the frontend during a unified backfill run so the
@@ -227,6 +231,7 @@ pub async fn run_unified_backfill_with_progress(
     truncate_logs_for_new_run()?;
     let stitching_tag_count_before = count_stitching_tags(pool).await?;
     let image_tag_count_before = count_image_tags(pool).await?;
+    let missing_preview_count_before = count_missing_previews(pool).await?;
 
     let actions = request.actions.unwrap_or(UnifiedBackfillActions {
         tagging: Some(TaggingActionOptions {
@@ -823,6 +828,7 @@ pub async fn run_unified_backfill_with_progress(
 
     let stitching_tag_count_after = count_stitching_tags(pool).await?;
     let image_tag_count_after = count_image_tags(pool).await?;
+    let missing_preview_count_after = count_missing_previews(pool).await?;
 
     Ok(UnifiedBackfillSummary {
         processed,
@@ -836,6 +842,8 @@ pub async fn run_unified_backfill_with_progress(
         stitching_tag_count_after,
         image_tag_count_before,
         image_tag_count_after,
+        missing_preview_count_before,
+        missing_preview_count_after,
     })
 }
 
@@ -1335,6 +1343,17 @@ async fn count_image_tags(pool: &SqlitePool) -> Result<i64, AppError> {
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::database(format!("failed to count image tags: {e}")))?;
+    Ok(count)
+}
+
+/// Number of designs that have no stored preview (`image_data IS NULL`) — the flagged
+/// "needs attention" set whose preview could not be generated.
+async fn count_missing_previews(pool: &SqlitePool) -> Result<i64, AppError> {
+    let count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM designs WHERE image_data IS NULL")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| AppError::database(format!("failed to count missing previews: {e}")))?;
     Ok(count)
 }
 async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>, AppError> {

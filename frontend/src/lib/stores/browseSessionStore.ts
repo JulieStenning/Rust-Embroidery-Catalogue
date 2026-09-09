@@ -106,6 +106,21 @@ function createBrowseSessionStore() {
     clear() {
       set(createInitialState());
     },
+
+    /**
+     * Pre-apply the "Needs attention" filter so navigating to Browse opens directly on designs
+     * whose preview could not be generated (no stored preview). Resets all other filters/page.
+     */
+    focusNeedsAttention() {
+      set({
+        filters: { ...defaultFilters(), needsAttention: true },
+        currentPage: 1,
+        total: 0,
+        totalPages: 1,
+        designIds: [],
+        scrollY: 0,
+      });
+    },
   };
 }
 

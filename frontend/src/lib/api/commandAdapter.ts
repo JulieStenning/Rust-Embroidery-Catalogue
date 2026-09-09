@@ -2281,6 +2281,8 @@ export async function runUnifiedBackfill(
       stitching_tag_count_after: Number(result?.stitching_tag_count_after ?? 0),
       image_tag_count_before: Number(result?.image_tag_count_before ?? 0),
       image_tag_count_after: Number(result?.image_tag_count_after ?? 0),
+      missing_preview_count_before: Number(result?.missing_preview_count_before ?? 0),
+      missing_preview_count_after: Number(result?.missing_preview_count_after ?? 0),
     };
   } catch (error) {
     return {
@@ -2293,7 +2295,6 @@ export async function runUnifiedBackfill(
     };
   }
 }
-
 export async function stopUnifiedBackfill(): Promise<AdapterStopUnifiedBackfillResponse> {
   try {
     const result = await invokeLoose<{ status?: string }>("stop_unified_backfill");

@@ -812,6 +812,10 @@ export interface UnifiedBackfillResult {
   stitching_tag_count_after?: number;
   image_tag_count_before?: number;
   image_tag_count_after?: number;
+  /** Designs with no stored preview (`image_data IS NULL`) before the run. */
+  missing_preview_count_before?: number;
+  /** Designs with no stored preview (`image_data IS NULL`) after the run. */
+  missing_preview_count_after?: number;
   error?: string;
 }
 

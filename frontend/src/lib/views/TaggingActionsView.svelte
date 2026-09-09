@@ -17,6 +17,7 @@
     backfillProgressStore,
     resetBackfillProgress,
   } from "../stores/backfillProgressStore";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
 
   let backfillProgressUnlisten: (() => void) | null = null;
 
@@ -173,9 +174,19 @@
     stitching_tag_count_after?: number;
     image_tag_count_before?: number;
     image_tag_count_after?: number;
+    missing_preview_count_before?: number;
+    missing_preview_count_after?: number;
     error?: string;
   } | null>(null);
   let taggingLogEntries = $state<Array<{ level: string; message: string }>>([]);
+
+  /** Pre-apply the "Needs attention" Browse filter and jump to Browse Designs. */
+  function reviewNeedsAttentionInBrowse() {
+    browseSessionStore.focusNeedsAttention();
+    if (typeof window !== "undefined") {
+      window.location.hash = "#/designs";
+    }
+  }
 
   let taggingCommitValue = $derived(Math.max(1, Number.parseInt(taggingCommitEvery, 10) || 100));
   let taggingBatchValue = $derived(Math.max(1, Number.parseInt(taggingBatchSize, 10) || 100));
@@ -853,6 +864,28 @@
             Stitching tags: <strong>{taggingLastSummary.stitching_tag_count_before}</strong> before
             &rarr; <strong>{taggingLastSummary.stitching_tag_count_after ?? 0}</strong> after
           </p>
+        {/if}
+        {#if (taggingLastSummary.actions || []).includes("images") &&
+            taggingLastSummary.missing_preview_count_before !== undefined}
+          <p>
+            Needs attention:
+            <strong>{taggingLastSummary.missing_preview_count_before}</strong> before
+            &rarr; <strong>{taggingLastSummary.missing_preview_count_after ?? 0}</strong> after
+          </p>
+          {#if (taggingLastSummary.missing_preview_count_after ?? 0) > 0}
+            <p class="mt-1">
+              <button
+                type="button"
+                class="text-indigo-600 underline cursor-pointer"
+                onclick={reviewNeedsAttentionInBrowse}
+              >
+                Review these in Browse
+              </button>
+              <span class="text-gray-500">
+                (opens Browse with the “Needs attention” filter — designs without a preview)
+              </span>
+            </p>
+          {/if}
         {/if}
         {#if taggingLastSummary.stopped}
           <p class="text-amber-700 font-semibold">Stopped early</p>

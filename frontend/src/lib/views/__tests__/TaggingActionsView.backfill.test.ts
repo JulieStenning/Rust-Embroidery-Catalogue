@@ -119,6 +119,28 @@ describe("TaggingActionsView run unified backfill", () => {
     });
   });
 
+  it("shows the Needs attention summary and Review link when images ran and previews remain missing", async () => {
+    adapterMocks.runUnifiedBackfill.mockResolvedValue(
+      backfillResult({
+        processed: 9313,
+        errors: 293,
+        actions: ["images"],
+        missing_preview_count_before: 400,
+        missing_preview_count_after: 293,
+      })
+    );
+
+    render(TaggingActionsView);
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+
+    await startRun();
+
+    const needsParagraph = await waitFor(() => screen.getByText(/Needs attention:/));
+    expect(needsParagraph).toHaveTextContent("400");
+    expect(needsParagraph).toHaveTextContent("293");
+    expect(screen.getByRole("button", { name: "Review these in Browse" })).toBeInTheDocument();
+  });
+
   it("runs Visual AI on designs missing AI analysis when those options are chosen", async () => {
     render(TaggingActionsView);
     const user = userEvent.setup();
