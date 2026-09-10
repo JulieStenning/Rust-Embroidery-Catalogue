@@ -68,3 +68,10 @@ auto_tagging.py
 gemini_client.py
 src-tauri/resources/tags insert.sql
 scripts/Tag_group_counts.sql
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

@@ -152,7 +152,8 @@
       {#if importing}
         <button
           type="button"
-          class="menu-button-secondary"
+          class="menu-button-primary"
+          style="background-color:#dc2626;border-color:#dc2626;"
           onclick={handleCancelImport}
           disabled={cancelling}
           data-testid="cancel-unmatched-import"
