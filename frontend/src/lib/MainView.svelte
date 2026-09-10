@@ -20,8 +20,8 @@
     parseProjectDetailId,
     parseProjectPrintId,
     parseAboutDocumentSlug,
-    parseSystemTab,
     resolveCurrentUiKind,
+    shouldShowBackButton,
     ORDERED_ROUTE_HINTS,
     HELP_SECTION_IDS,
   } from "./utils/routing.js";
@@ -44,21 +44,15 @@
   }
 
 
-  // Reference Data / System hubs cross-link heavily; Settings (a System hub
-  // sub-tab) and the utility pages below show a context-aware "Back" button.
-  const UTILITY_UI_KINDS_WITH_BACK = new Set(["about", "about-document", "help"]);
-  // Settings (a System-hub sub-tab) keeps its Back button, while the sibling
-  // Backup / Orphans sub-tabs of the same hub do NOT — this preserves each
-  // sub-view's previous behaviour once it lives inside the shared shell.
-  const systemShowsBack = $derived(
-    currentUiKind === "system" && parseSystemTab(currentRoute) === "settings"
-  );
-  let showBackButton = $derived(
-    currentUiKind !== null &&
-      (UTILITY_UI_KINDS_WITH_BACK.has(currentUiKind) || systemShowsBack) &&
-      Boolean(previousRoute) &&
-      previousRoute !== currentRoute
-  );
+  // Context-aware "Back" button. Shows on the content pages (About and its
+  // documents such as the Licence, and Help) when the user arrived from a
+  // different route. It is hidden everywhere else: the Admin hubs (Manage Data,
+  // Batch Operations, System) are self-contained destinations with their own
+  // tab bars, Browse is the home page, Import / Projects are top-level
+  // destinations, and the design detail / print views own their own domain Back
+  // links ("Back to Browse" restores the browse search results, "Back to
+  // Detail").
+  let showBackButton = $derived(shouldShowBackButton(currentRoute, previousRoute));
 
   /** Return to the page the user came from. */
   function goBack() {

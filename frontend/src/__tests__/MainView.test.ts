@@ -573,14 +573,14 @@ describe("MainView.svelte", () => {
 
   // --- Context-aware Back button -------------------------------------------------
 
-  it("shows a Back button on the Settings sub-tab arrived from another page", async () => {
-    // Start on Browse, then navigate to the System hub's Settings sub-tab.
+  it("shows a Back button on the Licence page arrived from another page", async () => {
+    // Start on Browse, then navigate to the Licence page.
     render(MainView);
     expect(screen.getByTestId("browse-view")).toBeInTheDocument();
 
-    setHash("#/admin/system/settings");
+    setHash("#/about/licence");
     await waitFor(() => {
-      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+      expect(screen.getByTestId("about-document-view")).toBeInTheDocument();
     });
 
     // A previous route exists, so the context-aware back button appears.
@@ -591,9 +591,9 @@ describe("MainView.svelte", () => {
   it("returns to the previous page when Back is clicked", async () => {
     render(MainView);
 
-    setHash("#/admin/system/settings");
+    setHash("#/about");
     await waitFor(() => {
-      expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+      expect(screen.getByTestId("about-view")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getByRole("button", { name: /\u2190 Back/ }));
@@ -601,7 +601,7 @@ describe("MainView.svelte", () => {
     await waitFor(() => {
       expect(screen.getByTestId("browse-view")).toBeInTheDocument();
     });
-    expect(screen.queryByTestId("settings-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("about-view")).not.toBeInTheDocument();
   });
 
   it("shows Back on About and Licence pages when a previous route exists", async () => {
@@ -614,7 +614,7 @@ describe("MainView.svelte", () => {
     expect(screen.getByRole("button", { name: /\u2190 Back/ })).toBeInTheDocument();
   });
 
-  it("does not show a Back button when launched directly on the Settings sub-tab", async () => {
+  it("does not show a Back button when launched directly on an Admin page", async () => {
     setHash("#/admin/system/settings");
     render(MainView);
 
@@ -649,11 +649,47 @@ describe("MainView.svelte", () => {
     });
   });
 
-  it("does not show a Back button on non-utility pages", () => {
+  it("does not show a Back button on work-surface pages (design detail)", () => {
     setHash("#/designs/123");
     render(MainView);
 
     expect(screen.getByTestId("design-detail-view")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
+  });
+
+  it("does not show a Back button on the Backup sub-tab arrived from another page", async () => {
+    render(MainView);
+    expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+    setHash("#/admin/system/backup");
+    await waitFor(() => {
+      expect(screen.getByTestId("backup-view")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
+  });
+
+  it("does not show a Back button on a Manage Data sub-tab arrived from another page", async () => {
+    render(MainView);
+    expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+    setHash("#/admin/data/tags");
+    await waitFor(() => {
+      expect(screen.getByTestId("tags-view")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
+  });
+
+  it("does not show a Back button on the Batch Operations page arrived from another page", async () => {
+    render(MainView);
+    expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+    setHash("#/admin/batch-operations");
+    await waitFor(() => {
+      expect(screen.getByTestId("batch-operations-view")).toBeInTheDocument();
+    });
+
     expect(screen.queryByRole("button", { name: /\u2190 Back/ })).not.toBeInTheDocument();
   });
 

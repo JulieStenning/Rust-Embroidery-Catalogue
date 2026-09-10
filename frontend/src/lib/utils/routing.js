@@ -142,6 +142,41 @@ export function resolveCurrentUiKind(route) {
   return ROUTE_UI_KIND[/** @type {keyof typeof ROUTE_UI_KIND} */ (route)] || null;
 }
 
+/**
+ * Content / reference UI kinds that receive the shared context-aware "Back"
+ * button: About (and its documents, e.g. the Licence) and Help. These are the
+ * pages you land on from many different places.
+ *
+ * All Admin hubs are deliberately excluded: Manage Data, Batch Operations and
+ * the System hub (all of its tabs share the stable "system" kind) are
+ * self-contained destinations with their own internal tab bars. The primary
+ * work surfaces are excluded too: browse is the home page, import / projects
+ * are top-level destinations, and the design detail / print views provide their
+ * own domain-specific Back links ("Back to Browse", which restores the browse
+ * session's search results, and "Back to Detail").
+ */
+export const BACK_UI_KINDS = new Set([
+  "about",
+  "about-document",
+  "help",
+]);
+
+/**
+ * Whether the shell Back button should render for the current route. Shows on
+ * BACK_UI_KINDS pages AND only when the user arrived from a different route -
+ * hidden on cold launch / deep link so it never points nowhere.
+ * @param {string} currentRoute
+ * @param {string} previousRoute
+ * @returns {boolean}
+ */
+export function shouldShowBackButton(currentRoute, previousRoute) {
+  const uiKind = resolveCurrentUiKind(currentRoute);
+  if (uiKind === null || !BACK_UI_KINDS.has(uiKind)) {
+    return false;
+  }
+  return Boolean(previousRoute) && previousRoute !== currentRoute;
+}
+
 /** @param {string} hashString */
 export function normalizeHash(hashString) {
   const raw = String(hashString || "").trim();

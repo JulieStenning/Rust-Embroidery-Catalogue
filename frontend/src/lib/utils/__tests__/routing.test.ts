@@ -5,6 +5,7 @@ import {
   parseProjectDetailId,
   parseReferenceDataTab,
   parseSystemTab,
+  shouldShowBackButton,
 } from "../routing.js";
 
 describe("normalizeHash", () => {
@@ -94,5 +95,50 @@ describe("parseSystemTab", () => {
 describe("parseProjectDetailId", () => {
   it("does not treat the new-project route as a numeric id", () => {
     expect(parseProjectDetailId("#/projects/new")).toBeNull();
+  });
+});
+
+describe("shouldShowBackButton", () => {
+  const prev = "#/designs";
+
+  it("shows on content pages when arrived from elsewhere", () => {
+    const routes = ["#/about", "#/about/licence", "#/about/document/licence", "#/help"];
+    for (const route of routes) {
+      expect(shouldShowBackButton(route, prev)).toBe(true);
+    }
+  });
+
+  it("hides on work surfaces and Admin hubs even when arrived from elsewhere", () => {
+    const routes = [
+      "#/designs",
+      "#/import",
+      "#/import/step2",
+      "#/projects",
+      "#/projects/new",
+      "#/projects/7",
+      "#/projects/7/print",
+      "#/designs/123",
+      "#/designs/123/print",
+      "#/admin/data/tags",
+      "#/admin/batch-operations",
+      "#/admin/system/settings",
+      "#/admin/system/backup",
+      "#/admin/system/orphans",
+    ];
+    for (const route of routes) {
+      expect(shouldShowBackButton(route, prev)).toBe(false);
+    }
+  });
+
+  it("hides on cold launch / deep link (no previous route)", () => {
+    expect(shouldShowBackButton("#/help", "")).toBe(false);
+  });
+
+  it("hides when the previous route equals the current route", () => {
+    expect(shouldShowBackButton("#/help", "#/help")).toBe(false);
+  });
+
+  it("hides on an unrecognised route", () => {
+    expect(shouldShowBackButton("#/unknown/route", prev)).toBe(false);
   });
 });
