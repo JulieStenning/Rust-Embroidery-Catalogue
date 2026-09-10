@@ -47,8 +47,9 @@ describe("restoreEvents", () => {
     await initRestoreProgressEvents();
     eventMocks.callback({
       payload: {
-        phase: "db-swap",
-        db_status: "starting",
+        scope: "database",
+        phase: "database",
+        status: "starting",
         scanned: 5,
         copied: 2,
         skipped: 1,
@@ -60,8 +61,10 @@ describe("restoreEvents", () => {
 
     expect(get(restoreProgressStore)).toEqual({
       active: true,
-      phase: "db-swap",
-      dbStatus: "starting",
+      scope: "database",
+      phase: "database",
+      status: "starting",
+      terminal: false,
       scanned: 5,
       copied: 2,
       skipped: 1,
@@ -71,12 +74,33 @@ describe("restoreEvents", () => {
     });
   });
 
+  it("marks the terminal state when the completed phase arrives", async () => {
+    await initRestoreProgressEvents();
+    eventMocks.callback({
+      payload: {
+        scope: "designs",
+        phase: "completed",
+        status: "done",
+        scanned: 3,
+        copied: 3,
+        skipped: 0,
+        total_bytes: 0,
+        percent: 1,
+        error: null,
+      },
+    });
+    const state = get(restoreProgressStore);
+    expect(state.terminal).toBe(true);
+    expect(state.scope).toBe("designs");
+  });
+
   it("maps an error payload onto the store", async () => {
     await initRestoreProgressEvents();
     eventMocks.callback({
       payload: {
-        phase: "db-swap",
-        db_status: "starting",
+        scope: "database",
+        phase: "database",
+        status: "starting",
         scanned: 0,
         copied: 0,
         skipped: 0,

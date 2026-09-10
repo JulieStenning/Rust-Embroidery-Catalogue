@@ -11,12 +11,9 @@
 //!    the (restored) database, and can import them as new catalogue records.
 
 use crate::database::connection::establish_connection;
-use crate::models::{EmbPattern, StitchType};
 use crate::paths::AppPaths;
-use crate::readers::{
-    DstReader, EmbroideryReader, ExpReader, HusReader, JefReader, PesReader, Vp3Reader,
-};
 use crate::routes::maintenance as mnt;
+use crate::services::design_metadata;
 use crate::services::storage_migration::verify_database_at;
 use crate::PoolHolder;
 use serde::Serialize;
@@ -33,10 +30,21 @@ pub const RESTORE_PROGRESS_EVENT: &str = "catalogue-restore-progress";
 const SAMPLE_LIMIT: usize = 20;
 
 /// Per-callback payload describing the current restore state.
+///
+/// `scope` records *what the user asked for* (database / designs / both /
+/// import-unmatched) while `phase` records *which step is running*. Keeping
+/// these separate means a designs-only sync never reports a database status.
 #[derive(Debug, Clone, Serialize)]
 pub struct RestoreProgress {
+    /// The requested operation: `"database"`, `"designs"`, `"both"`, or
+    /// `"import-unmatched"`.
+    pub scope: String,
+    /// The current step: `"database"`, `"designs"`, `"reconcile"`, `"import"`,
+    /// or `"completed"`.
     pub phase: String,
-    pub db_status: String,
+    /// Neutral status for the current step: `"starting"`, `"running"`,
+    /// `"done"`, `"failed"`, or `"rolled-back"`.
+    pub status: String,
     pub scanned: u64,
     pub copied: u64,
     pub skipped: u64,
@@ -46,10 +54,11 @@ pub struct RestoreProgress {
 }
 
 impl RestoreProgress {
-    pub fn new(phase: &str, db_status: &str) -> Self {
+    pub fn new(scope: &str, phase: &str, status: &str) -> Self {
         Self {
+            scope: scope.to_string(),
             phase: phase.to_string(),
-            db_status: db_status.to_string(),
+            status: status.to_string(),
             scanned: 0,
             copied: 0,
             skipped: 0,
@@ -100,9 +109,19 @@ pub struct DetectUnmatchedFilesResult {
 #[derive(Debug, Clone, Serialize)]
 pub struct ImportUnmatchedFilesResult {
     pub detected: usize,
+    /// Rows inserted (includes any flagged rows).
     pub imported: usize,
+    /// Subset of `imported` whose preview could not be generated — the row was
+    /// inserted with a NULL image (flagged import). Mirrors the bulk import's
+    /// `failed_decode_count`.
+    pub flagged: usize,
+    /// Files that could not be imported at all (e.g. DB insert failure).
     pub failed: usize,
     pub failed_samples: Vec<String>,
+    /// True when the run stopped early because cancellation was requested.
+    /// Rows inserted before the stop are kept (cancel is "stop the rest", not
+    /// rollback).
+    pub cancelled: bool,
 }
 
 /// Compute the safety rollback copy path next to the live database.
@@ -329,6 +348,7 @@ pub async fn perform_database_restore(
 pub async fn perform_designs_restore(
     source_root: &Path,
     dest_root: &Path,
+    scope: &str,
     cancel: &AtomicBool,
     progress: &mut impl FnMut(RestoreProgress),
 ) -> Result<DesignsRestoreOutcome, String> {
@@ -352,8 +372,9 @@ pub async fn perform_designs_restore(
                 let total = source_map.len().max(1) as f64;
                 let processed = copied + updated + skipped;
                 progress(RestoreProgress {
+                    scope: scope.to_string(),
                     phase: "designs".to_string(),
-                    db_status: "syncing".to_string(),
+                    status: "running".to_string(),
                     scanned: source_map.len() as u64,
                     copied: copied + updated,
                     skipped,
@@ -399,8 +420,9 @@ pub async fn perform_designs_restore(
         let total = source_map.len().max(1) as f64;
         let processed = copied + updated + skipped;
         progress(RestoreProgress {
+            scope: scope.to_string(),
             phase: "designs".to_string(),
-            db_status: "syncing".to_string(),
+            status: "running".to_string(),
             scanned: source_map.len() as u64,
             copied: copied + updated,
             skipped,
@@ -485,62 +507,30 @@ pub async fn detect_design_files_absent_from_database(
     })
 }
 
-/// Drawable bounds in millimetres, matching the preview pipeline.
-fn drawable_bounds_mm(pattern: &EmbPattern) -> Option<(f64, f64)> {
-    let mut min_x = f32::INFINITY;
-    let mut min_y = f32::INFINITY;
-    let mut max_x = f32::NEG_INFINITY;
-    let mut max_y = f32::NEG_INFINITY;
-    let mut found = false;
-
-    for stitch in &pattern.stitches {
-        if stitch.stitch_type != StitchType::Stitch {
-            continue;
-        }
-        found = true;
-        if stitch.x < min_x {
-            min_x = stitch.x;
-        }
-        if stitch.x > max_x {
-            max_x = stitch.x;
-        }
-        if stitch.y < min_y {
-            min_y = stitch.y;
-        }
-        if stitch.y > max_y {
-            max_y = stitch.y;
-        }
-    }
-
-    if found {
-        Some((
-            ((max_x - min_x) / 10.0) as f64,
-            ((max_y - min_y) / 10.0) as f64,
-        ))
-    } else {
-        None
-    }
-}
-
-/// Parse an embroidery buffer into a pattern, matching the preview pipeline.
-fn parse_pattern(extension: &str, data: &[u8]) -> Result<EmbPattern, String> {
-    match extension.to_ascii_lowercase().as_str() {
-        "pes" => PesReader.read(data).map_err(|e| e.to_string()),
-        "dst" => DstReader.read(data).map_err(|e| e.to_string()),
-        "exp" => ExpReader.read(data).map_err(|e| e.to_string()),
-        "jef" => JefReader.read(data).map_err(|e| e.to_string()),
-        "hus" => HusReader.read(data).map_err(|e| e.to_string()),
-        "vp3" => Vp3Reader.read(data).map_err(|e| e.to_string()),
-        other => Err(format!("Unsupported embroidery extension '.{other}'")),
-    }
+/// Outcome of importing one unmatched file.
+enum SingleImport {
+    /// Row inserted with a generated preview.
+    Imported,
+    /// Row inserted but the preview could not be generated (flagged import:
+    /// `image_data`/counts stored as NULL so the design surfaces as "needs
+    /// attention" instead of being dropped).
+    ImportedFlagged,
+    /// Not an importable embroidery file (unsupported extension) — skipped.
+    Skipped,
 }
 
 /// Insert a single unmatched design file as a new catalogue record.
+///
+/// The file is read once through the shared [`design_metadata`] pipeline, which
+/// both renders a 2D preview and derives the technical metadata — matching the
+/// main bulk import.  A decode/read failure does **not** skip the file: the row
+/// is still inserted with a NULL preview (flagged import) so the user can
+/// regenerate it later.
 async fn import_single_design(
     pool: &SqlitePool,
     relative: &Path,
     full_path: &Path,
-) -> Result<bool, String> {
+) -> Result<SingleImport, String> {
     let extension = full_path
         .extension()
         .and_then(|e| e.to_str())
@@ -550,20 +540,35 @@ async fn import_single_design(
         Some("pes" | "dst" | "exp" | "jef" | "hus" | "vp3")
     );
     if !supported {
-        return Ok(false);
+        return Ok(SingleImport::Skipped);
     }
 
-    let data = fs::read(full_path)
-        .map_err(|e| format!("Could not read '{}': {e}", full_path.display()))?;
-    let pattern = parse_pattern(extension.as_deref().unwrap_or(""), &data)?;
+    // Single parse → preview image + dimensions + counts (or a flagged error).
+    let outcome = design_metadata::parse_design_file_lenient(full_path);
+    let flagged = outcome.is_flagged();
+    if let Some(error) = outcome.error.as_ref() {
+        tracing::error!(
+            "[restore] preview generation failed for '{}': {error}",
+            full_path.display()
+        );
+    }
+    let parsed = outcome.parsed;
 
-    let stitch_count = i64::try_from(pattern.count_stitches()).unwrap_or(i64::MAX);
-    let color_count = i64::try_from(pattern.count_distinct_thread_colors()).unwrap_or(i64::MAX);
-    let color_change_count = i64::try_from(pattern.count_color_changes()).unwrap_or(i64::MAX);
-    let (width_mm, height_mm) = match drawable_bounds_mm(&pattern) {
-        Some((width, height)) => (Some(width), Some(height)),
-        None => (None, None),
-    };
+    // Recommended hoop mirrors the bulk-import behaviour. A hoop-lookup failure
+    // is non-fatal: import the design with no hoop rather than dropping it.
+    let hoop_id =
+        match design_metadata::recommend_hoop_for_design(pool, parsed.width_mm, parsed.height_mm)
+            .await
+        {
+            Ok(hoop_id) => hoop_id,
+            Err(error) => {
+                tracing::warn!(
+                    "[restore] hoop recommendation failed for '{}': {error}",
+                    full_path.display()
+                );
+                None
+            }
+        };
 
     let file_size_bytes = crate::routes::bulk_import::compute_file_size(full_path).ok();
     let file_hash_blake3 = crate::routes::bulk_import::compute_file_hash_blake3(full_path).ok();
@@ -575,31 +580,45 @@ async fn import_single_design(
     let stored_filepath = crate::paths::canonical_design_rel(&relative.to_string_lossy());
 
     sqlx::query(
-        "INSERT INTO designs (filename, filepath, date_added, width_mm, height_mm, \
-         stitch_count, color_count, color_change_count, is_stitched, \
+        "INSERT INTO designs (filename, filepath, date_added, hoop_id, image_data, image_type, \
+         width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, \
          image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
-         VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+         VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
     )
     .bind(&filename)
     .bind(&stored_filepath)
-    .bind(width_mm)
-    .bind(height_mm)
-    .bind(stitch_count)
-    .bind(color_count)
-    .bind(color_change_count)
+    .bind(hoop_id)
+    .bind(parsed.image_data)
+    .bind(parsed.image_type)
+    .bind(parsed.width_mm)
+    .bind(parsed.height_mm)
+    .bind(parsed.stitch_count)
+    .bind(parsed.color_count)
+    .bind(parsed.color_change_count)
     .bind(file_size_bytes)
     .bind(file_hash_blake3)
     .execute(pool)
     .await
     .map_err(|e| format!("Could not insert '{}': {e}", full_path.display()))?;
 
-    Ok(true)
+    Ok(if flagged {
+        SingleImport::ImportedFlagged
+    } else {
+        SingleImport::Imported
+    })
 }
 
 /// Batch import of unmatched design files as new catalogue records.
+///
+/// `progress` receives one event per processed file (and is also used by the
+/// caller to emit the terminal event), mirroring the designs-sync loop.
+/// `cancel` is honoured between files: once set, the remaining files are not
+/// imported (already-inserted rows are kept).
 pub async fn import_unmatched_design_files(
     pool: &SqlitePool,
     designs_root: &Path,
+    cancel: &AtomicBool,
+    progress: &mut impl FnMut(RestoreProgress),
 ) -> Result<ImportUnmatchedFilesResult, String> {
     let disk = mnt::collect_file_snapshots(designs_root, true)?;
     let referenced = referenced_design_paths(pool, designs_root).await?;
@@ -613,14 +632,25 @@ pub async fn import_unmatched_design_files(
 
     let detected = unmatched.len();
     let mut imported = 0usize;
+    let mut flagged = 0usize;
     let mut failed = 0usize;
     let mut failed_samples = Vec::new();
+    let mut cancelled = false;
 
-    for relative in unmatched {
-        let full_path = designs_root.join(&relative);
-        match import_single_design(pool, &relative, &full_path).await {
-            Ok(true) => imported += 1,
-            Ok(false) => {}
+    for (index, relative) in unmatched.iter().enumerate() {
+        if cancel.load(Ordering::SeqCst) {
+            cancelled = true;
+            break;
+        }
+
+        let full_path = designs_root.join(relative);
+        match import_single_design(pool, relative, &full_path).await {
+            Ok(SingleImport::Imported) => imported += 1,
+            Ok(SingleImport::ImportedFlagged) => {
+                imported += 1;
+                flagged += 1;
+            }
+            Ok(SingleImport::Skipped) => {}
             Err(error) => {
                 failed += 1;
                 if failed_samples.len() < SAMPLE_LIMIT {
@@ -628,21 +658,35 @@ pub async fn import_unmatched_design_files(
                 }
             }
         }
+
+        progress(RestoreProgress {
+            scope: "import-unmatched".to_string(),
+            phase: "import".to_string(),
+            status: "running".to_string(),
+            scanned: (index + 1) as u64,
+            copied: imported as u64,
+            skipped: 0,
+            total_bytes: 0,
+            percent: ((index + 1) as f64 / detected.max(1) as f64).min(1.0),
+            error: None,
+        });
     }
 
     if failed > 0 {
         tracing::error!(
-            "[restore] unmatched-file import finished detected={} imported={} failed={} failed_samples={:?}",
+            "[restore] unmatched-file import finished detected={} imported={} flagged={} failed={} failed_samples={:?}",
             detected,
             imported,
+            flagged,
             failed,
             failed_samples,
         );
     } else {
         tracing::info!(
-            "[restore] unmatched-file import finished detected={} imported={} failed={}",
+            "[restore] unmatched-file import finished detected={} imported={} flagged={} failed={}",
             detected,
             imported,
+            flagged,
             failed,
         );
     }
@@ -650,8 +694,10 @@ pub async fn import_unmatched_design_files(
     Ok(ImportUnmatchedFilesResult {
         detected,
         imported,
+        flagged,
         failed,
         failed_samples,
+        cancelled,
     })
 }
 

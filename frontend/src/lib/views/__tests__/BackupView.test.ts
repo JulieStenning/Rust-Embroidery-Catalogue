@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
 import { tick } from "svelte";
 import BackupView from "../BackupView.svelte";
+import { restoreProgressStore, resetRestoreProgress } from "../../stores/restoreProgressStore";
+import { resetUnmatchedFiles } from "../../stores/unmatchedFilesStore";
 
 const adapterMocks = vi.hoisted(() => ({
   getBackupViewModel: vi.fn(),
@@ -17,7 +19,9 @@ const adapterMocks = vi.hoisted(() => ({
   restoreDatabase: vi.fn(),
   restoreDesignsIncremental: vi.fn(),
   restoreBoth: vi.fn(),
+  detectDesignFilesAbsentFromDatabase: vi.fn(),
   importUnmatchedDesignFiles: vi.fn(),
+  requestCancelRestore: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -198,14 +202,23 @@ function mockDefaults() {
     source: "rust",
     detected: 0,
     imported: 0,
+    flagged: 0,
     failed: 0,
     failed_samples: [],
+  });
+  adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
+    source: "rust",
+    checked: 0,
+    unmatched: 0,
+    sample: [],
   });
 }
 
 describe("BackupView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRestoreProgress();
+    resetUnmatchedFiles();
     mockDefaults();
   });
 
@@ -1084,6 +1097,94 @@ describe("BackupView", () => {
       await fireEvent.click(within(dialog).getByRole("button", { name: label }));
       await tick();
     }
+
+    it("renders the restore progress card and clears it when Close is clicked", async () => {
+      restoreProgressStore.set({
+        active: true,
+        scope: "designs",
+        phase: "completed",
+        status: "done",
+        terminal: true,
+        scanned: 3,
+        copied: 2,
+        skipped: 1,
+        totalBytes: 0,
+        percent: 1,
+        error: null,
+      });
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
+
+      expect(screen.getByTestId("restore-progress-panel")).toBeInTheDocument();
+      await fireEvent.click(screen.getByTestId("restore-progress-close"));
+      await tick();
+      expect(screen.queryByTestId("restore-progress-panel")).not.toBeInTheDocument();
+    });
+
+    it("scans for unmatched files and shows the import prompt when any are found", async () => {
+      adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
+        source: "rust",
+        checked: 12,
+        unmatched: 3,
+        sample: ["MachineEmbroideryDesigns/a.pes"],
+      });
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
+
+      await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
+      await waitFor(() =>
+        expect(adapterMocks.detectDesignFilesAbsentFromDatabase).toHaveBeenCalled()
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
+      );
+      expect(screen.getByRole("button", { name: /Import 3 file/ })).toBeInTheDocument();
+    });
+
+    it("reports when a scan finds no unmatched files", async () => {
+      adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
+        source: "rust",
+        checked: 8,
+        unmatched: 0,
+        sample: [],
+      });
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
+
+      await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          expect.stringContaining("No unmatched design files found"),
+          "success"
+        )
+      );
+      expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
+    });
+
+    it("shows an error toast when the unmatched scan fails", async () => {
+      adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
+        source: "mock",
+        error: "boom",
+        checked: 0,
+        unmatched: 0,
+        sample: [],
+      });
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await switchToRestoreTab();
+
+      await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          expect.stringContaining("Scan failed"),
+          "error"
+        )
+      );
+      expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
+    });
 
     it("file picker defaults to the configured database backup folder", async () => {
       render(BackupView);

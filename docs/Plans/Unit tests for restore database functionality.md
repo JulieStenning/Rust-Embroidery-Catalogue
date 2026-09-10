@@ -28,6 +28,10 @@ Here is the **finalized plan**, ready for implementation once you toggle to Act 
 | schema-version-changed banner | 8.4 |
 | rolled-back banner + error toast | 7.6 |
 | invalid designs path → error toast | 6.2 |
+| restore-progress card shown + Close clears it | 2.3 |
+| standalone "Scan for unmatched files" → prompt shown | 5.x |
+| standalone scan finds none → success toast, no prompt | 5.x |
+| standalone scan error → error toast | 5.x |
 
 **Frontend — new files**
 

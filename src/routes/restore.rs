@@ -135,7 +135,7 @@ pub async fn restore_database(
 
     emit_progress(
         &app_handle,
-        restore::RestoreProgress::new("db-swap", "starting"),
+        restore::RestoreProgress::new("database", "database", "starting"),
     );
     let outcome =
         match restore::perform_database_restore(&state.db, &state.paths, &backup_path).await {
@@ -160,9 +160,10 @@ pub async fn restore_database(
     emit_progress(
         &app_handle,
         restore::RestoreProgress {
+            scope: "database".to_string(),
             phase: "completed".to_string(),
-            db_status: if outcome.success {
-                "restored".to_string()
+            status: if outcome.success {
+                "done".to_string()
             } else {
                 "rolled-back".to_string()
             },
@@ -209,10 +210,15 @@ pub async fn restore_designs_incremental(
     );
 
     let dest_root = mnt::derive_designs_source_path();
+    emit_progress(
+        &app_handle,
+        restore::RestoreProgress::new("designs", "designs", "starting"),
+    );
     let mut progress = |p: restore::RestoreProgress| emit_progress(&app_handle, p);
     let outcome = match restore::perform_designs_restore(
         &source_root,
         &dest_root,
+        "designs",
         &RESTORE_CANCEL_REQUESTED,
         &mut progress,
     )
@@ -234,11 +240,17 @@ pub async fn restore_designs_incremental(
         outcome.skipped,
     );
 
+    // Designs-only: never report a database status (the database was untouched).
     emit_progress(
         &app_handle,
         restore::RestoreProgress {
+            scope: "designs".to_string(),
             phase: "completed".to_string(),
-            db_status: "restored".to_string(),
+            status: if RESTORE_CANCEL_REQUESTED.load(Ordering::SeqCst) {
+                "cancelled".to_string()
+            } else {
+                "done".to_string()
+            },
             scanned: outcome.scanned,
             copied: outcome.copied + outcome.updated,
             skipped: outcome.skipped,
@@ -302,7 +314,7 @@ pub async fn restore_both(
     // designs into a mismatched database (which would create orphans).
     emit_progress(
         &app_handle,
-        restore::RestoreProgress::new("db-swap", "starting"),
+        restore::RestoreProgress::new("both", "database", "starting"),
     );
     let database =
         match restore::perform_database_restore(&state.db, &state.paths, &backup_path).await {
@@ -343,6 +355,7 @@ pub async fn restore_both(
     let designs = match restore::perform_designs_restore(
         &source_root,
         &dest_root,
+        "both",
         &RESTORE_CANCEL_REQUESTED,
         &mut progress,
     )
@@ -361,6 +374,20 @@ pub async fn restore_both(
     // Reconciliation: files on disk absent from the restored database.
     // Use the holder directly (not `db_pool`) because `restore_in_progress` is
     // still set for the duration of this command.
+    emit_progress(
+        &app_handle,
+        restore::RestoreProgress {
+            scope: "both".to_string(),
+            phase: "reconcile".to_string(),
+            status: "running".to_string(),
+            scanned: designs.scanned,
+            copied: designs.copied + designs.updated,
+            skipped: designs.skipped,
+            total_bytes: designs.total_bytes_copied,
+            percent: 1.0,
+            error: None,
+        },
+    );
     let pool = state
         .db
         .pool()
@@ -378,8 +405,13 @@ pub async fn restore_both(
     emit_progress(
         &app_handle,
         restore::RestoreProgress {
+            scope: "both".to_string(),
             phase: "completed".to_string(),
-            db_status: "restored".to_string(),
+            status: if RESTORE_CANCEL_REQUESTED.load(Ordering::SeqCst) {
+                "cancelled".to_string()
+            } else {
+                "done".to_string()
+            },
             scanned: designs.scanned,
             copied: designs.copied + designs.updated,
             skipped: designs.skipped,
@@ -429,16 +461,49 @@ pub async fn import_unmatched_design_files(
     tracing::info!("[restore] import_unmatched_design_files requested");
     emit_progress(
         &app_handle,
-        restore::RestoreProgress::new("import-unmatched", "starting"),
+        restore::RestoreProgress::new("import-unmatched", "import", "starting"),
     );
     let pool = state.db_pool()?;
     let dest_root = mnt::derive_designs_source_path();
-    match restore::import_unmatched_design_files(&pool, &dest_root).await {
+    let mut progress = |p: restore::RestoreProgress| emit_progress(&app_handle, p);
+    match restore::import_unmatched_design_files(
+        &pool,
+        &dest_root,
+        &RESTORE_CANCEL_REQUESTED,
+        &mut progress,
+    )
+    .await
+    {
         Ok(result) => {
             tracing::info!(
-                "[restore] import_unmatched_design_files imported={} failed={}",
+                "[restore] import_unmatched_design_files imported={} failed={} cancelled={}",
                 result.imported,
                 result.failed,
+                result.cancelled,
+            );
+            emit_progress(
+                &app_handle,
+                restore::RestoreProgress {
+                    scope: "import-unmatched".to_string(),
+                    phase: "completed".to_string(),
+                    status: if result.cancelled {
+                        "cancelled".to_string()
+                    } else if result.failed > 0 {
+                        "failed".to_string()
+                    } else {
+                        "done".to_string()
+                    },
+                    scanned: result.detected as u64,
+                    copied: result.imported as u64,
+                    skipped: 0,
+                    total_bytes: 0,
+                    percent: 1.0,
+                    error: if result.failed > 0 {
+                        Some(format!("{} file(s) could not be imported.", result.failed))
+                    } else {
+                        None
+                    },
+                },
             );
             Ok(result)
         }

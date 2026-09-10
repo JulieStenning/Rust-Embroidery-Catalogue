@@ -30,24 +30,28 @@ at insert time — i.e. a decode/read failure. This is the corruption flag.
   without a preview attempt) | Regenerate (Tagging Actions or Design Detail) and/or locate/replace the
   file |
 
-### Known gap (deferred, out of scope for this change)
-Any import path that inserts a design record must also generate the preview. Today the restore
+### Resolved: restore reconciliation now generates previews
+Any import path that inserts a design record must also generate the preview. The restore
 reconciliation import (`import_single_design`, reached from the Backup/Restore "Import unmatched
-file(s)" prompt) inserts a **successfully-parsed** file with `image_data NULL` because it never runs
-preview generation. Fixing that path (generate the image on import) is **separate future work** the
-user will handle later.
+file(s)" prompt) previously inserted a **successfully-parsed** file with `image_data NULL` because it
+never ran preview generation.
 
-**For the purposes of this change we assume the image is regenerated** (the design already exists and
-previews can be produced for it through Tagging Actions / Design Detail). This means the NULL = corrupt
-flag is treated as valid for catalogues maintained through the normal import path.
+It now parses each file through the shared `design_metadata::parse_design_file_lenient` pipeline, so
+it stores the **preview image + `image_type` + dimensions + counts** and a recommended hoop, matching
+the main bulk import. A file that cannot be decoded is inserted with a NULL preview (flagged import)
+and reported separately in the import result's `flagged` field, exactly like bulk import.
+
+With this path fixed, `image_data IS NULL` unambiguously means "preview generation failed" — the
+NULL = corrupt flag is valid for every import path.
 
 ## 2. Failure semantics (per import path)
 - **Main bulk import:** a decode/read failure during preview generation does **not** skip or abort —
   the design row is still created with `image_data NULL` (plus NULL dims/counts). This retention is the
   desired flagged-import behaviour. The row stays in the catalogue and the user is told how to
   regenerate it.
-- **Restore reconciliation import:** a read/parse failure currently returns an error and the file is
-  skipped (no row). Out of scope for this change (see deferred gap above).
+- **Restore reconciliation import:** a decode failure is now handled like the main bulk import — the
+  row is inserted with `image_data NULL` (flagged) and counted separately in the import result's
+  `flagged` field; the file is no longer skipped.
 
 ## 3. Backend changes (minimal)
 
@@ -100,12 +104,12 @@ Include a direct CTA to navigate to Browse filtered to the affected items (and/o
 - No structured `StitchParseError` enum or reader dispatcher layer (was only needed to feed the
   removed reason/category columns).
 - No auto-regeneration on file edit (edited files are regenerated explicitly by the user).
-- Fixing preview generation in the restore reconciliation import path is deferred future work.
 
 ## 6. Impacted files
 | Area | File(s) | Change |
 |---|---|---|
 | Rust | `src/routes/bulk_import.rs` | count failed previews; add `failed_decode_count` to confirm result + `failed_count` to progress event |
+| Rust | `src/services/restore.rs`, `src/services/design_metadata.rs` | restore reconciliation import now generates the preview + metadata inline; adds `flagged` to `ImportUnmatchedFilesResult` (via the shared `parse_design_file_lenient`) |
 | Types | `frontend/src/lib/types/ipc.ts`, `types/index.d.ts` | add `failed_decode_count` / `failed_count` fields (type parity) |
 | Adapter | `frontend/src/lib/api/commandAdapter.ts` + tests | expose new fields; assert camelCase keys |
 | View | `frontend/src/lib/views/BrowseView.svelte` | informative no-preview card message; optional "Needs attention" filter (`image_data IS NULL`) |
@@ -114,10 +118,9 @@ Include a direct CTA to navigate to Browse filtered to the affected items (and/o
 | Tests | both `MainView.test.ts` suites + `BrowseView/ImportView/DesignDetailView` tests + `ImportTestHarness.svelte` | assert new copy/summary/CTA paths |
 
 ## 7. Risks & edge cases
-- **Deferred restore reconciliation:** its rows are healthy files with NULL image until regenerated; if
-  it ever runs before previews are added there, those rows will show the "could not be read" message
-  even though the file is fine. Accepted for this change (will be fixed with the deferred import-preview
-  work).
+- **Restore reconciliation import:** now generates the preview + metadata inline, so its rows are
+  healthy designs (never a false "could not be read" message). Only files that genuinely fail to decode
+  are inserted with a NULL image (flagged) and counted in the result's `flagged` field.
 - **Transient read/lock during bulk import** can also leave a NULL image even if the file later reads
   fine; the remedy (Regenerate) is identical, so the message stays truthful about the outcome
   ("could not be read / could not be generated"), not about the cause.

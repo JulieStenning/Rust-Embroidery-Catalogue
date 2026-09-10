@@ -2862,7 +2862,7 @@ export async function restoreBoth(
  * Post-restore reconciliation scan: files on disk absent from the database.
  */
 export async function detectDesignFilesAbsentFromDatabase(): Promise<
-  { source: string } & DetectUnmatchedFilesResult
+  { source: string; error?: string } & DetectUnmatchedFilesResult
 > {
   try {
     const result = await invokeLoose<LooseRecord>("detect_design_files_absent_from_database");
@@ -2872,8 +2872,8 @@ export async function detectDesignFilesAbsentFromDatabase(): Promise<
       unmatched: Number(result?.unmatched ?? 0),
       sample: Array.isArray(result?.sample) ? result.sample.map((p) => String(p)) : [],
     };
-  } catch {
-    return { source: "mock", checked: 0, unmatched: 0, sample: [] };
+  } catch (error) {
+    return { source: "mock", error: String(error), checked: 0, unmatched: 0, sample: [] };
   }
 }
 
@@ -2889,13 +2889,23 @@ export async function importUnmatchedDesignFiles(): Promise<
       source: "rust",
       detected: Number(result?.detected ?? 0),
       imported: Number(result?.imported ?? 0),
+      flagged: Number(result?.flagged ?? 0),
       failed: Number(result?.failed ?? 0),
       failed_samples: Array.isArray(result?.failed_samples)
         ? result.failed_samples.map((p) => String(p))
         : [],
+      cancelled: Boolean(result?.cancelled ?? false),
     };
   } catch {
-    return { source: "mock", detected: 0, imported: 0, failed: 0, failed_samples: [] };
+    return {
+      source: "mock",
+      detected: 0,
+      imported: 0,
+      flagged: 0,
+      failed: 0,
+      failed_samples: [],
+      cancelled: false,
+    };
   }
 }
 

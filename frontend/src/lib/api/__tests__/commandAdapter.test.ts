@@ -3012,14 +3012,32 @@ describe("restore adapters", () => {
     expect(invokeMock).toHaveBeenCalledWith("detect_design_files_absent_from_database");
     expect(result.source).toBe("rust");
     expect(result.unmatched).toBe(1);
+    expect(result.error).toBeUndefined();
+  });
+
+  it("detectDesignFilesAbsentFromDatabase surfaces a scan error", async () => {
+    invokeMock.mockRejectedValue(new Error("scan down"));
+    const result = await detectDesignFilesAbsentFromDatabase();
+    expect(result.source).toBe("mock");
+    expect(result.error).toContain("scan down");
+    expect(result.unmatched).toBe(0);
   });
 
   it("importUnmatchedDesignFiles maps result", async () => {
-    invokeMock.mockResolvedValue({ detected: 1, imported: 1, failed: 0, failed_samples: [] });
+    invokeMock.mockResolvedValue({
+      detected: 2,
+      imported: 2,
+      flagged: 1,
+      failed: 0,
+      failed_samples: [],
+      cancelled: true,
+    });
     const result = await importUnmatchedDesignFiles();
     expect(invokeMock).toHaveBeenCalledWith("import_unmatched_design_files");
     expect(result.source).toBe("rust");
-    expect(result.imported).toBe(1);
+    expect(result.imported).toBe(2);
+    expect(result.flagged).toBe(1);
+    expect(result.cancelled).toBe(true);
   });
 });
 

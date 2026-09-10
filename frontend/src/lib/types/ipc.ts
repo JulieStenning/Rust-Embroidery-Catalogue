@@ -965,8 +965,12 @@ export interface RestoreBothResult {
 
 /** Payload streamed on `catalogue-restore-progress`. */
 export interface RestoreProgress {
+  /** The requested operation: "database" | "designs" | "both" | "import-unmatched". */
+  scope: string;
+  /** The current step: "database" | "designs" | "reconcile" | "import" | "completed". */
   phase: string;
-  db_status: string;
+  /** Neutral status: "starting" | "running" | "done" | "failed" | "rolled-back" | "cancelled". */
+  status: string;
   scanned: number;
   copied: number;
   skipped: number;
@@ -995,8 +999,12 @@ export interface DetectUnmatchedFilesResult {
 export interface ImportUnmatchedFilesResult {
   detected: number;
   imported: number;
+  /** Subset of `imported` whose preview could not be generated (NULL image). */
+  flagged: number;
   failed: number;
   failed_samples: string[];
+  /** True when the run stopped early because cancellation was requested. */
+  cancelled: boolean;
 }
 
 export interface CancelRestoreResult {

@@ -14,8 +14,10 @@ describe("restoreProgressStore", () => {
   it("resetRestoreProgress restores the idle state", () => {
     restoreProgressStore.set({
       active: true,
+      scope: "designs",
       phase: "designs",
-      dbStatus: "syncing",
+      status: "running",
+      terminal: false,
       scanned: 1,
       copied: 1,
       skipped: 0,

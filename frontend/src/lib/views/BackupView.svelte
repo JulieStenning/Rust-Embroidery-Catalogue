@@ -13,16 +13,20 @@
     restoreDatabase,
     restoreDesignsIncremental,
     restoreBoth,
-    importUnmatchedDesignFiles,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
+  import {
+    resetUnmatchedFiles,
+    setUnmatchedFilesDetected,
+  } from "../stores/unmatchedFilesStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import { initDatabaseBackupCompletedEvent } from "../services/backupEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
   import ConfirmRestoreModal from "../components/ConfirmRestoreModal.svelte";
   import RestoreProgressPanel from "../components/RestoreProgressPanel.svelte";
+  import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
 
   let backupDbDestination = $state("");
   let backupDesignsDestination = $state("");
@@ -69,12 +73,6 @@
   let restoreSchemaVersion = $state(/** @type {number | null} */ (null));
   let restorePreviousSchemaVersion = $state(/** @type {number | null} */ (null));
   let restoreRolledBack = $state(false);
-  // Unmatched-files (post-restore reconciliation) prompt.
-  let showUnmatchedPrompt = $state(false);
-  let unmatchedCount = $state(0);
-  let unmatchedChecked = $state(0);
-  let unmatchedSample = $state(/** @type {string[]} */ ([]));
-  let importingUnmatched = $state(false);
   /** @type {import("@tauri-apps/api/event").UnlistenFn | null} */
   let unlistenRestore = $state(null);
 
@@ -458,7 +456,7 @@
     restoreRolledBack = false;
     restoreSchemaVersion = null;
     restorePreviousSchemaVersion = null;
-    showUnmatchedPrompt = false;
+    resetUnmatchedFiles();
     resetRestoreProgress();
     beginBusy("Restoring catalogue");
 
@@ -507,10 +505,11 @@
         }
         const unmatched = result?.unmatched;
         if (unmatched && Number(unmatched.unmatched) > 0) {
-          unmatchedCount = Number(unmatched.unmatched) || 0;
-          unmatchedChecked = Number(unmatched.checked) || 0;
-          unmatchedSample = Array.isArray(unmatched.sample) ? unmatched.sample : [];
-          showUnmatchedPrompt = true;
+          setUnmatchedFilesDetected(
+            Number(unmatched.unmatched) || 0,
+            Number(unmatched.checked) || 0,
+            Array.isArray(unmatched.sample) ? unmatched.sample : []
+          );
         }
         return;
       }
@@ -521,34 +520,6 @@
       if (runsDesigns) restoreDesignsRunning = false;
       endBusy();
     }
-  }
-
-  /** Batch-import unmatched design files as new catalogue records. */
-  async function handleImportUnmatched() {
-    if (importingUnmatched) return;
-    importingUnmatched = true;
-    beginBusy("Importing unmatched design files");
-    try {
-      const result = await importUnmatchedDesignFiles();
-      const message =
-        result.failed > 0
-          ? `Imported ${result.imported} file(s); ${result.failed} failed.`
-          : `Imported ${result.imported} unmatched file(s).`;
-      addToast(message, result.failed > 0 ? "warning" : "success");
-      showUnmatchedPrompt = false;
-    } catch (error) {
-      addToast(`Import failed: ${error}`, "error");
-    } finally {
-      importingUnmatched = false;
-      endBusy();
-    }
-  }
-
-  function dismissUnmatched() {
-    showUnmatchedPrompt = false;
-    unmatchedCount = 0;
-    unmatchedChecked = 0;
-    unmatchedSample = [];
   }
 
   onMount(async () => {
@@ -841,7 +812,7 @@
       </p>
     </div>
 
-    <RestoreProgressPanel />
+    <RestoreProgressPanel onclose={() => resetRestoreProgress()} />
 
   {#if restoreSchemaChanged}
     <div
@@ -981,43 +952,7 @@
     {/if}
   </div>
 
-  {#if showUnmatchedPrompt}
-    <div
-      class="settings-card backup-card bg-white rounded shadow p-6 space-y-3"
-      data-testid="unmatched-files-prompt"
-    >
-      <h2 class="text-base font-semibold text-gray-800">Unmatched files found</h2>
-      <p class="text-sm text-gray-600">
-        {unmatchedCount} design file(s) on disk have no record in the restored database
-        {unmatchedChecked > 0 ? `(scanned ${unmatchedChecked})` : ""}. You can import them as new
-        catalogue records.
-      </p>
-      {#if unmatchedSample.length > 0}
-        <ul class="text-xs text-gray-500 list-disc pl-5 space-y-0.5 max-h-32 overflow-auto">
-          {#each unmatchedSample as path}
-            <li class="font-mono break-all">{path}</li>
-          {/each}
-        </ul>
-      {/if}
-      <div class="flex gap-2 pt-1">
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled={importingUnmatched || busyActive}
-          onclick={handleImportUnmatched}
-        >
-          {importingUnmatched ? "Importing…" : `Import ${unmatchedCount} file(s)`}
-        </button>
-        <button
-          type="button"
-          class="menu-button-secondary"
-          onclick={dismissUnmatched}
-          disabled={busyActive}
-          >Dismiss</button
-        >
-      </div>
-    </div>
-  {/if}
+  <UnmatchedFilesReconciler />
   {/if}
 </section>
 

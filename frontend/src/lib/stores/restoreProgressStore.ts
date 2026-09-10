@@ -3,15 +3,22 @@
  *
  * Module-level store mirroring the `catalogue-restore-progress` events emitted
  * by the Rust backend during a restore. `RestoreProgressPanel` and
- * `BackupView` subscribe here for live database-swap and design-sync metrics.
+ * `BackupView` subscribe here for live restore progress (scope + phase + status
+ * + file metrics).
  */
 
 import { writable } from "svelte/store";
 
 export interface RestoreProgressState {
   active: boolean;
+  /** The requested operation: "database" | "designs" | "both" | "import-unmatched". */
+  scope: string;
+  /** The current step: "database" | "designs" | "reconcile" | "import" | "completed". */
   phase: string;
-  dbStatus: string;
+  /** Neutral status: "starting" | "running" | "done" | "failed" | "rolled-back". */
+  status: string;
+  /** True once the operation has reached its terminal ("completed") phase. */
+  terminal: boolean;
   scanned: number;
   copied: number;
   skipped: number;
@@ -22,8 +29,10 @@ export interface RestoreProgressState {
 
 export const idleRestoreProgress: RestoreProgressState = {
   active: false,
+  scope: "",
   phase: "",
-  dbStatus: "",
+  status: "",
+  terminal: false,
   scanned: 0,
   copied: 0,
   skipped: 0,

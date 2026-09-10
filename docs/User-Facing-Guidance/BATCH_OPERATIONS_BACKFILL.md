@@ -15,6 +15,11 @@ Use **Admin -> Batch Operations** when you want to:
 - fill in missing stitch/colour/count metadata,
 - run multiple maintenance actions in one run.
 
+> Note: designs added from a backup restore ("Import unmatched file(s)") already have
+> their preview image and technical metadata generated automatically, so a
+> **Generate preview images** run is not needed for them. Use this page to refresh
+> or regenerate previews that are missing or out of date.
+
 ---
 
 ## Before you run
@@ -43,6 +48,17 @@ Use **Admin -> Batch Operations** when you want to:
 5. Choose batch/commit/worker values.
 6. Click **Run selected actions**.
 7. Watch the progress message on the page, and download the error log afterwards if needed.
+
+---
+
+## Find unmatched design files (Maintenance tab)
+
+The **Maintenance & File Processing** tab also includes a **Find unmatched design files** card. It
+scans `MachineEmbroideryDesigns` for design files that have no catalogue record — for example after a
+**Backup & Restore → Sync Designs from Backup**, or files added to the design folder outside the app.
+Click **Scan for unmatched files**; if any are found, a prompt lets you **import them as new
+catalogue records** (preview images and technical metadata are generated automatically) or dismiss the
+result. This is the same reconciliation that **Backup & Restore → Restore Both** performs.
 
 ---
 

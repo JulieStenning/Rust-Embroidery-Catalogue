@@ -194,7 +194,7 @@ async fn perform_designs_restore_copies_new_skips_identical_updates_changed() {
     let cancel = AtomicBool::new(false);
     let mut emitted = 0u64;
     let mut progress = |_p: RestoreProgress| emitted += 1;
-    let outcome = perform_designs_restore(&source, &dest, &cancel, &mut progress)
+    let outcome = perform_designs_restore(&source, &dest, "designs", &cancel, &mut progress)
         .await
         .unwrap();
 
@@ -413,7 +413,7 @@ async fn perform_designs_restore_is_graceful_with_missing_source() {
     let mut progress = |_p: RestoreProgress| {};
     // A missing source is a graceful no-op at the service layer (the route
     // guards the directory-existence check before invoking this function).
-    let outcome = perform_designs_restore(&source, &dest, &cancel, &mut progress)
+    let outcome = perform_designs_restore(&source, &dest, "designs", &cancel, &mut progress)
         .await
         .unwrap();
 
@@ -437,7 +437,7 @@ async fn perform_designs_restore_honours_cancel_flag() {
 
     let cancel = AtomicBool::new(true); // cancellation requested up front
     let mut progress = |_p: RestoreProgress| {};
-    let outcome = perform_designs_restore(&source, &dest, &cancel, &mut progress)
+    let outcome = perform_designs_restore(&source, &dest, "designs", &cancel, &mut progress)
         .await
         .unwrap();
 
@@ -474,23 +474,138 @@ async fn import_unmatched_design_files_imports_real_design() {
         .await
         .expect("open db");
 
-    let result = import_unmatched_design_files(&pool, &root).await.unwrap();
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
     assert_eq!(result.detected, 1);
     assert_eq!(result.imported, 1);
+    assert_eq!(result.flagged, 0);
+    assert!(!result.cancelled);
     assert_eq!(result.failed, 0);
 
-    // The imported design is now queryable with parsed metadata.
-    let (filename, filepath, stitch_count): (String, String, i64) =
-        sqlx::query_as("SELECT filename, filepath, stitch_count FROM designs WHERE filepath = ?")
-            .bind("Bean.pes")
-            .fetch_one(&pool)
-            .await
-            .expect("imported design row");
+    // The imported design is now queryable with a generated preview + parsed metadata.
+    let (filename, filepath, stitch_count, has_image, image_type): (
+        String,
+        String,
+        i64,
+        i64,
+        Option<String>,
+    ) = sqlx::query_as(
+        "SELECT filename, filepath, stitch_count, (image_data IS NOT NULL), image_type \
+         FROM designs WHERE filepath = ?",
+    )
+    .bind("Bean.pes")
+    .fetch_one(&pool)
+    .await
+    .expect("imported design row");
     assert_eq!(filename, "Bean.pes");
     assert_eq!(filepath, "Bean.pes");
     assert!(
         stitch_count > 0,
         "stitch_count should be parsed from the fixture"
+    );
+    assert_eq!(
+        has_image, 1,
+        "restore import should generate and store a preview image"
+    );
+    assert!(
+        image_type.is_some(),
+        "image_type should be stored for an imported design"
+    );
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn import_unmatched_design_files_flags_undecodable_file() {
+    let tmp = unique_temp_dir("import-unmatched-corrupt");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+
+    // A supported extension but not a valid embroidery file, so preview
+    // generation fails. The row must still be inserted with a NULL preview
+    // (flagged import) rather than being dropped.
+    fs::write(root.join("broken.pes"), b"not an embroidery file").unwrap();
+
+    let db_path = tmp.join("catalogue.db");
+    make_designs_db(&db_path).await;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+    assert_eq!(result.detected, 1);
+    assert_eq!(
+        result.imported, 1,
+        "flagged files are still imported as catalogue rows"
+    );
+    assert_eq!(result.flagged, 1);
+    assert_eq!(
+        result.failed, 0,
+        "a decode failure is flagged, not counted as a hard failure"
+    );
+
+    let (has_image, stitch_count): (i64, Option<i64>) = sqlx::query_as(
+        "SELECT (image_data IS NOT NULL), stitch_count FROM designs WHERE filepath = ?",
+    )
+    .bind("broken.pes")
+    .fetch_one(&pool)
+    .await
+    .expect("flagged design row");
+    assert_eq!(has_image, 0, "flagged row must have a NULL image");
+    assert!(stitch_count.is_none(), "counts stay NULL for a flagged row");
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn import_unmatched_design_files_honours_cancel_flag() {
+    let tmp = unique_temp_dir("import-unmatched-cancel");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+
+    let bean = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("Test Designs")
+        .join("Bean.pes");
+    fs::copy(&bean, root.join("Bean.pes")).expect("copy Bean.pes fixture");
+
+    let db_path = tmp.join("catalogue.db");
+    make_designs_db(&db_path).await;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    // Cancellation requested up front → nothing is imported and the run reports cancelled.
+    let cancel = AtomicBool::new(true);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+
+    assert_eq!(result.detected, 1);
+    assert_eq!(result.imported, 0);
+    assert!(result.cancelled);
+
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM designs")
+        .fetch_one(&pool)
+        .await
+        .expect("count designs");
+    assert_eq!(
+        count, 0,
+        "no rows should be imported when cancelled up front"
     );
 
     pool.close().await;
@@ -499,15 +614,48 @@ async fn import_unmatched_design_files_imports_real_design() {
 
 #[test]
 fn restore_progress_new_initializes_defaults() {
-    let p = RestoreProgress::new("designs", "syncing");
+    let p = RestoreProgress::new("designs", "designs", "running");
+    assert_eq!(p.scope, "designs");
     assert_eq!(p.phase, "designs");
-    assert_eq!(p.db_status, "syncing");
+    assert_eq!(p.status, "running");
     assert_eq!(p.scanned, 0);
     assert_eq!(p.copied, 0);
     assert_eq!(p.skipped, 0);
     assert_eq!(p.total_bytes, 0);
     assert_eq!(p.percent, 0.0);
     assert!(p.error.is_none());
+}
+
+/// A designs-only restore must never emit a `"restored"`/database status: the
+/// captured progress events should all carry `scope == "designs"` and a status
+/// drawn from the neutral vocabulary.
+#[tokio::test]
+async fn perform_designs_restore_emits_designs_scoped_progress() {
+    let tmp = unique_temp_dir("designs-progress");
+    let source = tmp.join("backup");
+    let dest = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&source).unwrap();
+    fs::create_dir_all(&dest).unwrap();
+    fs::write(source.join("a.pes"), b"aaa").unwrap();
+
+    let cancel = AtomicBool::new(false);
+    let mut events: Vec<RestoreProgress> = Vec::new();
+    let mut progress = |p: RestoreProgress| events.push(p);
+    perform_designs_restore(&source, &dest, "designs", &cancel, &mut progress)
+        .await
+        .unwrap();
+
+    assert!(!events.is_empty(), "the copy loop should emit progress");
+    for event in &events {
+        assert_eq!(event.scope, "designs");
+        assert_ne!(
+            event.status, "restored",
+            "designs sync must not claim a db restore"
+        );
+        assert_eq!(event.phase, "designs");
+    }
+
+    let _ = fs::remove_dir_all(&tmp);
 }
 
 #[tokio::test]

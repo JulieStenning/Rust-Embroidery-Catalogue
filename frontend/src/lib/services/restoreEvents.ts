@@ -18,10 +18,13 @@ export async function initRestoreProgressEvents(): Promise<UnlistenFn> {
   const { listen } = await import("@tauri-apps/api/event");
   return listen<RestoreProgress>(RESTORE_PROGRESS_EVENT, (event) => {
     const p = event.payload;
+    const phase = String(p?.phase || "");
     restoreProgressStore.set({
       active: true,
-      phase: String(p?.phase || ""),
-      dbStatus: String(p?.db_status || ""),
+      scope: String(p?.scope || ""),
+      phase,
+      status: String(p?.status || ""),
+      terminal: phase === "completed",
       scanned: Number(p?.scanned ?? 0),
       copied: Number(p?.copied ?? 0),
       skipped: Number(p?.skipped ?? 0),

@@ -32,6 +32,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.3"
+    "@tailwindcss/vite": "^4.3.3",
+    "node.js": "^0.0.1-security"
   }
 }

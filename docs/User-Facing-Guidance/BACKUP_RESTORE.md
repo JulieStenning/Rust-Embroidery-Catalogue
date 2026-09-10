@@ -63,6 +63,12 @@ The **Backup** page also includes a **Restore** section:
 3. **Restore Both** — runs both of the above, then checks for **unmatched files** (design files on
    disk that have no record in the restored database) and offers to import them as new catalogue
    records.
+4. **Find unmatched design files** — scans `MachineEmbroideryDesigns` for design files that have no
+   catalogue record, without running a restore. Use this after a **Sync Designs from Backup** (which
+   copies files but never changes database records) or any time files are added to the design folder
+   outside the app. If any are found, the same reconciliation prompt appears and offers to import
+   them as new catalogue records (preview images and metadata are generated automatically). The same
+   action is also available on **Admin → Batch Operations** (Maintenance tab).
 
 > **Note:** No automated database migrations are run after a restore. If the backup is from an
 > older version of the app, the app shows a mild warning when the restored schema version differs.

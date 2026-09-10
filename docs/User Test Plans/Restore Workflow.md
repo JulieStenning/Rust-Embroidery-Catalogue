@@ -67,6 +67,9 @@ Some of these tests are carried out via the automated unit tests. These are iden
 * [X]  Trigger the restore again and click **Import Unmatched Files**:
 * [X]  Verify the background batch import process parses the unmatched file without launching a full wizard.
 * [X]  Verify the imported design now appears when browsing @MainView.svelte.
+* [X]  On the Restore tab, click **Scan for unmatched files** to run the same reconciliation **without** performing a restore. - Automated
+* [X]  Verify the unmatched prompt appears when files are found, and an informational "No unmatched design files found" toast appears when none are. - Automated
+* [X]  Verify a scan error shows an error toast rather than falsely reporting "none found". - Automated
 
 ---
 

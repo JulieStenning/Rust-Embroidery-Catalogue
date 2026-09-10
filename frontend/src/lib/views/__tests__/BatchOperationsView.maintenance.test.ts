@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import BatchOperationsView from "../BatchOperationsView.svelte";
+import { resetUnmatchedFiles } from "../../stores/unmatchedFilesStore";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter — prevents real Tauri `invoke` calls.
@@ -17,6 +18,8 @@ const adapterMocks = vi.hoisted(() => ({
   countMissingPreviews: vi.fn(),
   countTaggingCandidates: vi.fn(),
   browseTaggingFolder: vi.fn(),
+  detectDesignFilesAbsentFromDatabase: vi.fn(),
+  importUnmatchedDesignFiles: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -193,5 +196,41 @@ describe("BatchOperationsView maintenance run + redirect", () => {
         })
       );
     });
+  });
+});
+
+describe("BatchOperationsView file reconciliation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetUnmatchedFiles();
+    adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
+    adapterMocks.getBackfillLogEntries.mockResolvedValue({ source: "rust", entries: [] });
+    adapterMocks.countTaggingCandidates.mockResolvedValue({
+      source: "rust",
+      action: "tag_untagged",
+      counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
+    });
+    adapterMocks.countMissingPreviews.mockResolvedValue(0);
+    adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
+      source: "rust",
+      checked: 4,
+      unmatched: 2,
+      sample: ["MachineEmbroideryDesigns/a.pes"],
+    });
+  });
+
+  it("scans from the Maintenance tab and shows the unmatched prompt", async () => {
+    render(BatchOperationsView);
+    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await gotoMaintenanceTab();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("scan-unmatched-button"));
+
+    await waitFor(() =>
+      expect(adapterMocks.detectDesignFilesAbsentFromDatabase).toHaveBeenCalled()
+    );
+    expect(await screen.findByTestId("unmatched-files-prompt")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import 2 file/ })).toBeInTheDocument();
   });
 });

@@ -24,24 +24,39 @@ pub struct ParsedDesignFile {
     pub color_change_count: Option<i64>,
 }
 
-/// Read a design file from disk and extract its technical metadata.
+/// Outcome of a *lenient* parse: the (possibly empty) technical metadata plus
+/// an optional error.  A read/decode/extension failure never aborts; instead
+/// every metadata field is `None` and `error` carries the reason.
 ///
-/// This is the single parsing entry point shared by the "Recalculate From
-/// File" action and the bulk backfill actions.  It always renders a 2D preview
-/// (no 3D profile) because the callers only need the derived counts/dimensions,
-/// not a styled preview.  The original file is never modified.
-pub fn parse_design_file(full_path: &Path) -> Result<ParsedDesignFile, String> {
+/// This is what callers with "flagged import" semantics need — they still want
+/// to insert the catalogue row (with `image_data NULL`) so the design surfaces
+/// as "needs attention" rather than being silently dropped.
+#[derive(Debug, Clone)]
+pub struct ParsedDesignFileOutcome {
+    pub parsed: ParsedDesignFile,
+    pub error: Option<String>,
+}
+
+impl ParsedDesignFileOutcome {
+    /// True when no preview/metadata could be produced (read or decode failed).
+    pub fn is_flagged(&self) -> bool {
+        self.error.is_some()
+    }
+}
+
+/// Read a design file from disk and extract its technical metadata **without
+/// failing**.  The same single parsing entry point as [`parse_design_file`],
+/// but it returns the (empty) result plus the error instead of short-circuiting
+/// to `Err`.  Always renders a 2D preview (no 3D profile).  The original file is
+/// never modified.
+pub fn parse_design_file_lenient(full_path: &Path) -> ParsedDesignFileOutcome {
     let result = generate_preview(&ImageGenerationRequest {
         file_path: full_path.to_string_lossy().to_string(),
         preview_3d: false,
         preview_3d_profile: None,
     });
 
-    if let Some(error) = result.error {
-        return Err(error);
-    }
-
-    Ok(ParsedDesignFile {
+    let parsed = ParsedDesignFile {
         image_data: result.image_data,
         image_type: result.image_type,
         width_mm: result.width_mm.map(|value| value.round() as i64),
@@ -49,7 +64,29 @@ pub fn parse_design_file(full_path: &Path) -> Result<ParsedDesignFile, String> {
         stitch_count: result.stitch_count,
         color_count: result.color_count,
         color_change_count: result.color_change_count,
-    })
+    };
+
+    ParsedDesignFileOutcome {
+        parsed,
+        error: result.error,
+    }
+}
+
+/// Read a design file from disk and extract its technical metadata.
+///
+/// This is the single parsing entry point shared by the "Recalculate From
+/// File" action and the bulk backfill actions.  It always renders a 2D preview
+/// (no 3D profile) because the callers only need the derived counts/dimensions,
+/// not a styled preview.  The original file is never modified.
+///
+/// Callers that must keep going after a decode failure (flagged import) should
+/// use [`parse_design_file_lenient`] instead.
+pub fn parse_design_file(full_path: &Path) -> Result<ParsedDesignFile, String> {
+    let outcome = parse_design_file_lenient(full_path);
+    match outcome.error {
+        Some(error) => Err(error),
+        None => Ok(outcome.parsed),
+    }
 }
 
 /// Select the smallest hoop that fits the given design dimensions, trying
