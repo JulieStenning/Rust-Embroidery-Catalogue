@@ -71,6 +71,7 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - `save_settings_view_model_inner` deliberately ignores `request.data_root` (the `let _ = request.data_root;` line). This is by design: the SQLite database file lives *under* the data root, so the DB cannot store its own location (bootstrapping chicken-and-egg).
 - After a data-root change is persisted, the app **must restart** for the running backend to relocate. A settings-table save alone does NOT relocate the catalogue.
 - The Settings "Browse…" flow should therefore: pick the folder → `setConfiguredDataRoot(path)` → show a restart-required dialog (same pattern as `InitialSetupView.svelte`).
+- **Test / e2e data-root override (`EMBROIDERY_DATA_ROOT`) — debug builds only.** An absolute `EMBROIDERY_DATA_ROOT` redirects the Dev-mode data root so the Playwright harness can run against a throwaway root instead of the developer's real `dev_data/`. It is honoured **only** inside `resolve_paths_from_exe_dir` and **only** under `cfg!(debug_assertions)`; release builds must ignore it so an ambient variable can never relocate a shipped catalogue. Relative/blank values are ignored. Keep it in the `paths.rs` single-source-of-truth rather than re-deriving it anywhere.
 
 ---
 
@@ -93,6 +94,23 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - **Shared process-global state makes Rust tests order-dependent:**
   - `backfill_tests.rs` shares the real `logs/` directory via `truncate_logs_for_new_run()` and the process-wide `STOP_REQUESTED: AtomicBool`. Tests touching shared log files are `#[serial]`, but other modules' `run_unified_backfill` calls truncate the same files concurrently, so assertions like `get_backfill_log_entries_respects_limit_clamp` can pass alone yet fail in the full suite.
   - Any Rust test that mutates shared resources (log files, process-wide atomics, data-root paths) must be `#[serial]`; prefer per-test temp dirs (see `tagging_actions.rs` using `lock_env()` + `temp_dir()`). If a test passes alone or per-module but fails in the full suite, treat it as shared-state pollution and fix the isolation — not the assertion.
+
+---
+
+## 🎭 End-to-End Testing (Playwright → Tauri WebView2)
+
+**Playwright cannot launch a Tauri desktop binary.** The stock `devices['Desktop Chrome']` / Firefox / WebKit scaffold only ever tests a browser. To drive the real app (real Rust backend, real SQLite, real designs) attach over the **WebView2 DevTools Protocol** — the pattern at https://playwright.dev/docs/webview2. This is Windows-only; Tauri's official alternative is `tauri-driver` + WebdriverIO, which is **not** Playwright.
+
+- **Attach, don't launch.** Spawn the exe with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<port>` (optionally `WEBVIEW2_USER_DATA_FOLDER=<dir>` for worker isolation), poll `http://127.0.0.1:<port>/json/version` until it answers, then `chromium.connectOverCDP(...)` and take `browser.contexts()[0].pages()[0]`.
+- **Build the e2e exe with the Tauri CLI, not plain `cargo build`.** A debug binary without the `custom-protocol` feature loads `build.devUrl` (`http://localhost:5173`) and renders a "can't reach this page" document whose title is `localhost`. Use `cargo tauri build --debug --no-bundle` (it embeds `frontend/dist`); wire it to an `e2e:build` npm script and rebuild after **any** Rust or frontend change.
+- **Wait out the initial navigation.** WebView2 opens on `about:blank` and then navigates to the app URL; evaluating too early throws `Execution context was destroyed…`. The `page` fixture must wait for the app root (e.g. `page.waitForSelector("#app", { state: "attached" })`) before handing the page to a test.
+- **Overriding the `browser`/`context`/`page` fixtures disables Playwright's built-in artifacts** (trace, video, screenshots, `testIdAttribute`). Capture a failure screenshot manually via `testInfo.outputPath(...)`; `video` is unsupported over `connectOverCDP`.
+- **`config.rootDir` is the *test directory*, not the repo root**, and `config.configDir` is neither on the public `FullConfig` type nor present at runtime. Derive the repo root from `__dirname` in a shared module (Playwright loads `.ts` as CJS when `package.json` has no `"type"`); never from `rootDir` / `configDir` / `process.cwd()`.
+- **One worker, one app.** All tests share a single SQLite DB and one desktop window → `fullyParallel: false`, `workers: 1`, unless each worker gets its own data root.
+- **`screenshot` uses different enum values to `trace`/`video`:** `screenshot` accepts `'off' | 'on' | 'only-on-failure' | 'on-first-failure'`; `'retain-on-failure'` is valid only for `trace`/`video` (otherwise TS2769).
+- **Match Playwright `outputDir` to `.gitignore`.** A root-only `/test-results/` pattern does NOT ignore a nested `tests/e2e/test-results/`.
+- **Root-level TS configs need a root `tsconfig.json`.** `playwright.config.ts`, `vitest.config.mts` and `tests/e2e/**` sit outside `frontend/jsconfig.json`; without a root project the editor reports `Cannot find name 'process'`. Use `"types": ["node"]` and `"lib": ["ES2022", "DOM", "DOM.Iterable"]` (DOM is needed for `page.evaluate`), and scope `include` to the root config/spec files so the frontend keeps its own `jsconfig.json`.
+- **Test data root.** The harness assembles `tests/e2e/.data-root/` from `tests/Test Assets/EmbroideryCatalogue.db` → `Database/` and `tests/Test Designs` → `MachineEmbroideryDesigns/`, then deletes it on teardown. `tests/Test Assets/EmbroideryCatalogue.db` is an **empty** catalogue (`designs: 0`, `initial_setup_completed = 0`), so keep smoke tests state-agnostic or drive the setup wizard; it is also currently **untracked** in git.
 
 ---
 
@@ -334,6 +352,15 @@ concatenated-parameter error, **re-emit the entire call cleanly from scratch**. 
 near-identical broken variant — after one malformed call, do not resubmit an incrementally
 tweaked version of the same broken shape; reformat the whole invocation first.
 
+### B) CRLF files reject multi-line `replace_in_file` / `write_to_file` matching
+
+**A multi-line `old_text` written with LF newlines will not match a CRLF file** — the edit fails with "No replacement performed: text not found" (this happened with `.gitignore`). Check the line endings first, then either anchor the replacement on a **single line** or append with an explicit insert at `line_count + 1`.
+
+```
+# PowerShell: True => CRLF, False => LF
+(Get-Content <file> -Raw) -match "`r`n"
+```
+
 ---
 
 ## 🖥️ Command Execution Rules (Windows CMD)
@@ -399,6 +426,10 @@ error modal previously had no button once `migrating` became false.
 **Verify "fixed" Rust tests with the full suite, not just the single test.** `cargo test <name>` and
 `cargo test <module>` can pass while the full `cargo test` fails on shared-state ordering (real log
 files, process-wide atomics). Use the full run as the final gate when a test touches shared resources.
+
+**Long builds and full test suites exceed the 30s command timeout — background them and poll.** `cargo tauri build`, the full `cargo test`, and `npx playwright test` all outrun a single `execute_command`. Launch with `Start-Process … -NoNewWindow` redirecting output to a file under `temp/`, then poll the log (and the process list) in short follow-up commands. `Start-Process -NoNewWindow cmd /c …` can appear to "time out" while the child keeps running — trust the log file over the command's exit status.
+
+**`cargo tauri build` regenerates the committed licence manifests.** Its `beforeBuildCommand` runs `npm run generate:licences`, rewriting `src/assets/licences.html` and its `frontend/src/lib/assets/` mirror (and it runs twice — the frontend build re-invokes it). This is a build side-effect, not part of your change — revert it with `git checkout -- src/assets/licences.html frontend/src/lib/assets/licences.html` (same spirit as the rustfmt gotcha above) unless the licence refresh is intended.
 
 ---
 

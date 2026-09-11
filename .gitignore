@@ -70,8 +70,9 @@ src-tauri/resources/tags insert.sql
 scripts/Tag_group_counts.sql
 
 # Playwright
-/test-results/
+tests/e2e/test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+tests/e2e/.data-root/

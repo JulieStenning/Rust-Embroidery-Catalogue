@@ -71,12 +71,19 @@ pub fn resolve_app_paths() -> Result<AppPaths, AppError> {
 /// determines the execution mode and builds the full `AppPaths`.
 ///
 /// The detection priority is:
-/// 1. Debug build (`cfg!(debug_assertions)`) -> Dev.
+/// 1. Debug build (`cfg!(debug_assertions)`) -> Dev, unless an absolute
+///    `EMBROIDERY_DATA_ROOT` override is set (test / e2e only).
 /// 2. Otherwise -> Installed.
 pub fn resolve_paths_from_exe_dir(_exe_dir: &Path) -> AppPaths {
     let (mode, data_root) = if cfg!(debug_assertions) {
-        // Dev mode - data lives inside the project root, outside target/
-        (ExecutionMode::Dev, dev_data_root())
+        // Dev mode - data lives inside the project root, outside target/.
+        // A debug-only test override may redirect the data root so the
+        // Playwright e2e harness runs against `tests/Test Assets` +
+        // `tests/Test Designs` instead of the developer's real `dev_data/`.
+        match test_data_root_override() {
+            Some(root) => (ExecutionMode::Dev, root),
+            None => (ExecutionMode::Dev, dev_data_root()),
+        }
     } else {
         // Installed mode - platform or user-configured data root
         (ExecutionMode::Installed, platform_data_root())
@@ -126,6 +133,37 @@ pub fn resolve_paths_from_exe_dir(_exe_dir: &Path) -> AppPaths {
         database_path,
         log_dir,
     }
+}
+
+/// Environment variable that, in **debug builds only**, redirects the resolved
+/// data root to an absolute path.
+///
+/// This exists so the Playwright end-to-end harness can point a debug build at
+/// a throwaway data root (copied from `tests/Test Assets` and
+/// `tests/Test Designs`) without ever touching the developer's real
+/// `dev_data/` catalogue. It is deliberately ignored in release builds so an
+/// ambient environment variable cannot relocate a shipped app's data.
+pub const TEST_DATA_ROOT_ENV: &str = "EMBROIDERY_DATA_ROOT";
+
+/// Return the debug-only test data-root override, if one is set.
+///
+/// Returns `Some(absolute_path)` only when running a debug build and
+/// `EMBROIDERY_DATA_ROOT` holds a non-empty, absolute path. Relative or blank
+/// values are ignored so a stray variable cannot silently send data to a
+/// path relative to the process working directory.
+fn test_data_root_override() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+
+    let raw = std::env::var(TEST_DATA_ROOT_ENV).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let path = PathBuf::from(trimmed);
+    path.is_absolute().then_some(path)
 }
 
 /// Resolve the Dev-mode data root to `<project root>/dev_data/`.

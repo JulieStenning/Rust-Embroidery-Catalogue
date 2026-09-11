@@ -2,6 +2,10 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:build": "cargo tauri build --debug --no-bundle",
     "generate:licences": "cargo about generate about.hbs -o ./src/assets/licences.html && npx license-checker-rseidelsohn --start ./frontend --json --out ./src/assets/npm-licences.json && node scripts/relativise-npm-licences.mjs ./src/assets/npm-licences.json",
     "postgenerate:licences": "node scripts/sync-licences.mjs"
   },

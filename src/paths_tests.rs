@@ -1326,3 +1326,65 @@ fn normalize_windows_explorer_target_returns_path_unchanged_on_non_windows() {
     let p = PathBuf::from("/home/user/designs/rose.pes");
     assert_eq!(normalize_windows_explorer_target(&p), p);
 }
+
+// ---------------------------------------------------------------------------
+// test_data_root_override (debug-only test / e2e data root)
+// ---------------------------------------------------------------------------
+
+/// An absolute `EMBROIDERY_DATA_ROOT` redirects the Dev-mode data root and the
+/// derived database path, and creates the catalogue layout there.
+#[cfg(debug_assertions)]
+#[test]
+#[serial]
+fn test_data_root_override_redirects_dev_data_root() {
+    let prior = std::env::var(TEST_DATA_ROOT_ENV).ok();
+    let override_root = tmp_dir("test_data_root_override");
+    fs::create_dir_all(&override_root).expect("create override root");
+
+    std::env::set_var(TEST_DATA_ROOT_ENV, &override_root);
+
+    let app_paths = resolve_paths_from_exe_dir(&override_root.join("exe"));
+
+    // Restore the environment before asserting so a failure cannot leak the
+    // override into other (serial) tests.
+    match prior {
+        Some(val) => std::env::set_var(TEST_DATA_ROOT_ENV, val),
+        None => std::env::remove_var(TEST_DATA_ROOT_ENV),
+    }
+
+    assert_eq!(app_paths.mode, ExecutionMode::Dev);
+    assert_eq!(app_paths.data_root, override_root);
+    assert_eq!(
+        app_paths.database_path,
+        override_root.join("Database").join(DATABASE_FILENAME)
+    );
+    assert!(app_paths.database_dir.exists());
+    assert!(app_paths.embroidery_designs_dir.exists());
+    assert!(app_paths.log_dir.exists());
+
+    let _ = fs::remove_dir_all(&override_root);
+}
+
+/// A relative or blank `EMBROIDERY_DATA_ROOT` is ignored so a stray variable
+/// cannot redirect data to a working-directory-relative path.
+#[cfg(debug_assertions)]
+#[test]
+#[serial]
+fn test_data_root_override_ignores_relative_or_blank_values() {
+    let prior = std::env::var(TEST_DATA_ROOT_ENV).ok();
+
+    for value in ["relative/path", "   ", ""] {
+        std::env::set_var(TEST_DATA_ROOT_ENV, value);
+        let app_paths = resolve_paths_from_exe_dir(&tmp_dir("ignored").join("exe"));
+        assert_eq!(
+            app_paths.data_root,
+            dev_data_root(),
+            "value {value:?} should be ignored in favour of dev_data"
+        );
+    }
+
+    match prior {
+        Some(val) => std::env::set_var(TEST_DATA_ROOT_ENV, val),
+        None => std::env::remove_var(TEST_DATA_ROOT_ENV),
+    }
+}
