@@ -2,7 +2,7 @@
  * Browse fixture checker.
  *
  * Validates `tests/Test Assets/EmbroideryCatalogue.db` against the Browse
- * fixture contract (see `docs/temp.md` / `tests/e2e/README.md`) and confirms
+ * fixture contract (see `docs/Help for Developers/e2e testing guide.md`) and confirms
  * that every design row's `filepath` resolves to a real file under
  * `tests/Test Designs`.
  *
