@@ -9,7 +9,7 @@
 //       b. If **any single** meaningful token of the tag appears in the path tokens
 //          — in singular or plural form (powered by `Inflector`) — assign the tag.
 // 3. A small built-in synonym map bridges aliases inflection can never derive
-//    (kitten → Cats, puppy → Dogs, font/monogram/upper/lower → Words and Letters,
+//    (kitten → Cats, puppy → Dogs, alphabet/font/monogram/upper/lower → Words and Letters,
 //    xmas → Christmas, floral → Flowers, baby → Children & Toys).  Synonym target
 //    descriptions are resolved case-insensitively against the live catalogue.
 //
@@ -25,9 +25,10 @@ use std::collections::HashSet;
 // "kitten" from "Cats", "floral" from "Flowers").  Everything else is handled
 // generically by singular ↔ plural token overlap.
 
-const SYNONYM_MAP: [(&str, &str); 11] = [
+const SYNONYM_MAP: [(&str, &str); 12] = [
     ("kitten", "Cats"),
     ("puppy", "Dogs"),
+    ("alphabet", "Words and Letters"),
     ("font", "Words and Letters"),
     ("monogram", "Words and Letters"),
     ("upper", "Words and Letters"),
@@ -404,6 +405,26 @@ mod tests {
             matched.contains(&"Words and Letters".to_string()),
             "filename 'Upper Case Alphabet.pes' should be tagged 'Words and Letters': {matched:?}"
         );
+    }
+
+    #[test]
+    fn suggest_path_rule_synonym_alphabet_words_and_letters() {
+        // The retired "Alphabets" tag used to match alphabet folders via generic
+        // token overlap. After the rename to "Words and Letters" that overlap is
+        // gone, so the synonym restores it — and the singular/plural check makes
+        // one entry cover both "Alphabet" and "Alphabets".
+        let valid = HashSet::from(["Words and Letters".to_string()]);
+        for folder in ["Alphabet", "alphabets", "ALPHABETS"] {
+            let matched = suggest_path_rule_descriptions(
+                "",
+                &format!("C:/imports/{folder}/design.pes"),
+                &valid,
+            );
+            assert!(
+                matched.contains(&"Words and Letters".to_string()),
+                "folder '{folder}' should be tagged 'Words and Letters': {matched:?}"
+            );
+        }
     }
 
     #[test]
