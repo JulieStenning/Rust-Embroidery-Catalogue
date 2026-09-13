@@ -4,6 +4,8 @@
 
 This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
+\> \*\*Automated coverage:\*\* The \*\*Needs attention\*\* filter is also asserted by unit tests — `BrowseView.test.ts` (the invoke payload `additional_filters.needs_attention`), `BatchOperationsView.backfill.test.ts` (the "Needs attention:" summary and \*\*Review these in Browse\*\* link), and the Rust `designs_tests` (\*\*`d.image_data IS NULL`\*\* predicate). The manual checks below cover the end-to-end user experience.
+
 
 
 \### 🔄 Core Workflows to Test
@@ -34,6 +36,14 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;     - \[x] `Cake Applique 2.jef` (Designer: `Brother`, Source: `Previous Owner`, Hoop: `Hoop A`, Rating: `2 Stars`, Image Tags: `\[Footwear]`, Stitching Tags: `\[Applique]`, Stitched Status: `No`)
 
+&#x20;   - \[ ] \*\*Needs Attention Fixture:\*\*
+
+&#x20;     - \[ ] Create a deliberately unreadable file with a supported extension in the import source (e.g. `data\\machine embroidery designs\\user tests\\ZZ-broken.pes` containing the text `not an embroidery file`).
+
+&#x20;     - \[ ] Import it — expect the flagged-import behaviour: the design row is created with \*\*no preview\*\* and a warning toast reads \*"1 need attention (preview could not be generated) — regenerate in Batch Operations."\*
+
+&#x20;     - \[ ] Confirm at least one healthy fixture (e.g. `Cake 3.jef`) \*\*does\*\* have a preview, so the filter's negative case can be proven.
+
 
 
 \- \[x] \*\*Initial Load\*\*
@@ -62,6 +72,10 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;   - \[x] "Reset filters" action button is visible next to Direction dropdown. It is disabled.
 
+&#x20;   - \[ ] "Needs attention" checkbox is present in the \*\*Additional Filters\*\* drawer (hidden until expanded) and defaults to \*\*Unticked\*\*
+
+&#x20;   - \[ ] Helper text under the "Needs attention" checkbox reads: `Designs with no preview image — the file may be corrupt or unreadable.`
+
 &#x20; - \[x] Initial data or records populate as expected:
 
 &#x20;   - \[x] Main grid populates with design cards in a responsive grid layout
@@ -72,7 +86,7 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;   - \[x] Grid includes row-level selection checkboxes on the far left margin for multi-card row selection
 
-&#x20;   - \[x] Each design card cleanly renders its individual components: item thumbnail frame, checkbox in top-left, filename label, hoop size, sources/notes, tag list, rating stars (if set), green checkmark verification status icon, and `▶ + Add to project` collapse bar
+&#x20;   - \[x] Each design card cleanly renders its individual components: item thumbnail frame, checkbox in top-left, filename label, hoop size, sources/notes, tag list, rating stars (if set), green checkmark verification status icon, and `▶ + Add to project` collapse bar; a design with no preview instead renders the placeholder `Preview could not be generated — the file may be corrupt or unreadable` in the thumbnail frame
 
 &#x20;   - \[x] Batch action bottom floating toolbar is \*\*Hidden\*\* when 0 items are selected
 
@@ -102,6 +116,16 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;   - \[x] \*\*Stitched\*\*: Toggle between `Any`, `Yes`, and `No` -> Filters designs based on stitched verification state.
 
+&#x20; - \[ ] \*\*Needs Attention Filter\*\*
+
+&#x20;   - \[ ] Expand \*\*ADDITIONAL FILTERS\*\*: verify the `Needs attention` checkbox sits below `Minimum rating` / `Stitched`, with the helper text `Designs with no preview image — the file may be corrupt or unreadable.`
+
+&#x20;   - \[ ] Tick `Needs attention` -> the grid restricts to the no-preview design(s); the status line count drops to the flagged total.
+
+&#x20;   - \[ ] Untick `Needs attention` -> the grid returns to the full library.
+
+&#x20;   - \[ ] With only `Needs attention` ticked, `Reset filters` becomes enabled; clicking it unticks the box, disables the button again, and refreshes the grid to the full library.
+
 &#x20; - \[x] \*\*Reset Filters Action\*\*
 
 &#x20;   - \[x] Click `Reset filters` button: Purges active search inputs, unchecks all selected Designers, Tags, and Sources list items, restores dropdowns (`Hoop size`, `Rating`, `Stitched`) back to default `Any`, and refreshes grid results.
@@ -123,6 +147,14 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 \- \[x] \*\*Unverified Only Toggle:\*\* Confirm that checking \*\*Unverified only\*\* restricts results to unverified items while preserving any active search terms or additional filters.
 
 \- \[x] \*\*Empty State \& Reset:\*\* Confirm that clearing search inputs or clicking \*\*Reset filters\*\* reverts the results grid back to the full library without SQL errors.
+
+\- \[ ] \*\*Needs Attention Filter (standalone):\*\* Confirm that ticking \*\*Needs attention\*\* restricts results to designs with no stored preview (`image_data IS NULL`), matched against the corrupt fixture, and that unticking restores the full library.
+
+\- \[ ] \*\*Needs Attention combined with other filters (`AND` logic):\*\* Confirm \*\*Needs attention\*\* narrows the intersection when combined with a Designer, Tag, Source, Hoop/Rating/Stitched value, a General Search term, and \*\*Unverified only\*\* (a design that has a preview is excluded even when it matches the other filters).
+
+\- \[ ] \*\*Needs Attention + Sorting/Pagination:\*\* Confirm that sorting (e.g. Name/Rating) and pagination operate only on the flagged result set.
+
+\- \[ ] \*\*Needs Attention empty state:\*\* Confirm that ticking the filter when no flagged designs exist shows `0 designs found` without SQL errors.
 
 
 
@@ -202,6 +234,8 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20; - \[x] Verify grid layout reorganizes immediately upon changing sort parameter or direction.
 
+&#x20; - \[ ] Verify sorting and pagination operate only on the \*\*Needs attention\*\* result set when that filter is ticked.
+
 
 
 \- \[ ] \*\*Primary Action: General Search \& "Search In" Scoping\*\*
@@ -258,6 +292,8 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;       - \[x] Verify entering search terms yields no matching results
 
+&#x20; - \[ ] \*\*Needs Attention + Search combination:\*\* With \*\*Needs attention\*\* ticked, entering a search term keeps the no-preview constraint while applying the query (`AND`); clearing the query returns the full flagged set.
+
 
 
 \- \[ ] \*\*Navigation\*\*
@@ -268,7 +304,23 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20; - \[x] Verify pagination controls operate smoothly at bottom of grid results when total count exceeds page limits.
 
+&#x20; - \[ ] \*\*"Needs attention" filter persistence:\*\* With \*\*Needs attention\*\* ticked, open a flagged design in \*\*Design Detail\*\* and return to \*\*Browse\*\* -> the filter, current page, sorting and results are preserved.
 
+&#x20; - \[ ] Clicking a flagged (no-preview) card opens \*\*Design Detail\*\* for triage (see the \*\*Design Details\*\* test plan for the no-preview banner and \*\*Regenerate\*\* action).
+
+&#x20; - \[ ] Clicking \*\*Reset filters\*\* while \*\*Needs attention\*\* is ticked clears the flag, disables the Reset button, and restores the full library.
+
+
+
+\### 🔗 Cross-View Entry Point: "Review these in Browse"
+
+&#x20; - \[ ] In \*\*Admin -> Batch Operations\*\*, open the \*\*Maintenance & File Processing\*\* tab and run an \*\*images\*\* task while designs are still missing a preview.
+
+&#x20; - \[ ] The run summary shows `Needs attention: N before -> M after`.
+
+&#x20; - \[ ] When the "after" count is greater than 0, a \*\*Review these in Browse\*\* link is shown with the note \*(opens Browse with the "Needs attention" filter — designs without a preview)\*.
+
+&#x20; - \[ ] Clicking it navigates to \*\*Browse Designs\*\* with \*\*Needs attention\*\* ticked, all other filters cleared, and page 1 selected.
 
 \### ❌ Failed Tests / Discovered Friction
 
