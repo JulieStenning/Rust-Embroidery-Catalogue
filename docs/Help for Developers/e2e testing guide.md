@@ -73,8 +73,8 @@ fast pre-flight before `npx playwright test`.
 
 Reference data: designers `Me`, `Wrenwood Studio`, `Thistlebury Stitch`, `Quillmark Designs`;
 sources `Me`, `Heirloom Stash`, `Loomthread Embroidery Suite`, `Threadwise Guild`;
-hoops `Hoop A` (126×110), `Hoop B` (200×140), `Giga Hoop` (230×200); one project
-`Test Project`. The 81 system tags already exist.
+hoops `Hoop A` (126×110), `Hoop B` (200×140), `Giga Hoop` (230×200); no projects
+(the project pickers therefore render their empty state). The 81 system tags already exist.
 
 | filepath | designer | hoop (derived) | rating | stitched | image/stitch verified | tags | preview |
 |---|---|---|---|---|---|---|---|

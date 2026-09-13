@@ -600,6 +600,563 @@ test.describe("navigation persistence", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Browse contract extensions. These mirror the Browse Designs user test plan
+// (`docs/User Test Plans/Browse Designs.md`). Everything below is read-only:
+// modals are cancelled, project checkboxes are never applied, so the shared
+// catalogue is untouched and the mutating suite remains the tail of this file.
+// ---------------------------------------------------------------------------
+
+/** Parse the "0 of Z selected" page size from the selection header. */
+async function pageSizeFromHeader(page: Page): Promise<number> {
+  const text = (await selectionHeader(page).innerText()).replace(/\s+/g, " ");
+  const match = text.match(/of\s+(\d+)\s+selected/i);
+  return match ? Number(match[1]) : 0;
+}
+
+/** Parse the "X designs found" total from the selection header. */
+async function filteredCount(page: Page): Promise<number> {
+  const text = (await selectionHeader(page).innerText()).replace(/\s+/g, " ");
+  const match = text.match(/(\d+)\s+designs? found/i);
+  return match ? Number(match[1]) : 0;
+}
+
+/** Parse the "N designs selected" count from the batch action toolbar. */
+async function selectedCount(page: Page): Promise<number> {
+  const text = (await page.locator(".browse-bulk-bar").innerText()).replace(
+    /\s+/g,
+    " ",
+  );
+  const match = text.match(/(\d+)\s+designs? selected/i);
+  return match ? Number(match[1]) : 0;
+}
+
+const selectAllOnPage = (page: Page): Locator =>
+  page.locator("label", { hasText: "Select all on page" }).locator("input");
+
+const paginationNav = (page: Page): Locator =>
+  page.getByRole("navigation", { name: "Browse pagination" });
+
+test.describe("card presentation", () => {
+  test("renders the tri-state verification indicator", async ({ page }) => {
+    await openBrowse(page);
+
+    // Both tag groups verified -> green check.
+    await search(page, "Cake 3.jef");
+    await expect(
+      browseCard(page, "Cake 3.jef").locator('[aria-label="Verified"]'),
+    ).toBeVisible();
+
+    // Image verified, stitching unverified -> amber half indicator.
+    await search(page, "Cross Stitch Fred");
+    await expect(
+      browseCard(page, "Cake 3 Cross Stitch Fred.jef").locator(
+        '[aria-label="Image Verified, Stitching Unverified"]',
+      ),
+    ).toBeVisible();
+
+    // Neither group verified -> no indicator at all (there is no red "x").
+    await search(page, "to be verified");
+    const unverified = browseCard(page, "Cake 3 - to be verified.jef");
+    await expect(unverified.locator('[aria-label="Verified"]')).toHaveCount(0);
+    await expect(
+      unverified.locator('[aria-label="Image Verified, Stitching Unverified"]'),
+    ).toHaveCount(0);
+    await expect(
+      unverified.locator('[aria-label="Stitching Verified, Image Unverified"]'),
+    ).toHaveCount(0);
+  });
+
+  test("renders the rating marker, unknown hoop and no-preview placeholder", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+
+    await search(page, "Cake 3.jef");
+    await expect(
+      browseCard(page, "Cake 3.jef").locator('[aria-label="Rating 4 out of 5"]'),
+    ).toContainText("4");
+
+    // The unreadable fixtures have no preview, no rating and no hoop.
+    await search(page, "ZZ-broken");
+    for (const name of ["ZZ-broken.pes", "ZZ-broken-2.pes"]) {
+      const card = browseCard(page, name);
+      await expect(
+        card.locator('[data-testid="design-card-no-preview"]'),
+      ).toHaveText(
+        "Preview could not be generated — the file may be corrupt or unreadable",
+      );
+      await expect(card.locator('[aria-label="Not rated"]')).toContainText("—");
+      await expect(card.locator(".browse-card-hoop")).toHaveText(
+        "Hoop unknown",
+      );
+    }
+  });
+
+  test("sizes each page from the grid column count", async ({ page }) => {
+    await openBrowse(page);
+
+    const pageSize = await pageSizeFromHeader(page);
+    expect(pageSize).toBeGreaterThan(0);
+    // Page size is 10 rows x the responsive column count.
+    expect(pageSize % 10).toBe(0);
+    await expect.poll(() => browseCards(page).count()).toBe(pageSize);
+  });
+});
+
+test.describe("additional filter controls", () => {
+  test("filters by the unknown/unset hoop", async ({ page }) => {
+    await openBrowse(page);
+    await openFilters(page);
+
+    await hoopSelect(page).selectOption("__hoop_unknown__");
+    await expectTitlesContain(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
+    await expect(browseCard(page, "Cake 3.jef")).toHaveCount(0);
+
+    await hoopSelect(page).selectOption("");
+    await expect
+      .poll(() => browseCards(page).count(), { timeout: 20_000 })
+      .toBeGreaterThan(2);
+  });
+
+  test("exposes the documented dropdown option sets", async ({ page }) => {
+    await openBrowse(page);
+    await openFilters(page);
+
+    await expect(
+      hoopSelect(page).locator('option[value="__hoop_unknown__"]'),
+    ).toHaveText("Hoop unknown");
+    await expect(ratingSelect(page).locator("option")).toHaveText([
+      "Any",
+      "1★",
+      "2★",
+      "3★",
+      "4★",
+      "5★",
+    ]);
+    await expect(stitchedSelect(page).locator("option")).toHaveText([
+      "Any",
+      "Stitched",
+      "Not Stitched",
+    ]);
+  });
+
+  test("filters by image tags and stitching tags independently", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await openFilters(page);
+
+    // Image tags filter only by image tags.
+    await optionCheckbox(page, "Image tags", "Flowers").click();
+    await expectTitlesContain(page, ["Cake Applique.jef"]);
+    await expect(browseCard(page, "Cake Applique 2.jef")).toHaveCount(0);
+    await resetButton(page).click();
+
+    // Stitching tags filter only by stitching tags.
+    await optionCheckbox(page, "Stitching tags", "Filled").click();
+    await expectTitles(page, ["Cake Applique.jef"]);
+    await resetButton(page).click();
+
+    // The two tag categories combine with AND.
+    await optionCheckbox(page, "Image tags", "Flowers").click();
+    await optionCheckbox(page, "Stitching tags", "Filled").click();
+    await expectTitles(page, ["Cake Applique.jef"]);
+  });
+
+  test("enables Reset filters for any active filter and clears them all", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await openFilters(page);
+    await expect(resetButton(page)).toBeDisabled();
+
+    // A general search term alone enables Reset.
+    await search(page, "Cake 3");
+    await expect(resetButton(page)).toBeEnabled();
+
+    // Add one of every other filter kind.
+    await optionCheckbox(page, "Designer", "Me").click();
+    await hoopSelect(page).selectOption("Hoop B");
+    await ratingSelect(page).selectOption("4");
+    await stitchedSelect(page).selectOption("yes");
+    await unverifiedOnly(page).check();
+    await needsAttention(page).check();
+
+    await resetButton(page).click();
+    await expect(page.locator("#browse-q")).toHaveValue("");
+    await expect(unverifiedOnly(page)).not.toBeChecked();
+    await expect(needsAttention(page)).not.toBeChecked();
+    await expect(hoopSelect(page)).toHaveValue("");
+    await expect(ratingSelect(page)).toHaveValue("");
+    await expect(stitchedSelect(page)).toHaveValue("");
+    await expect(resetButton(page)).toBeDisabled();
+    await expect
+      .poll(() => browseCards(page).count(), { timeout: 20_000 })
+      .toBeGreaterThan(2);
+  });
+});
+
+test.describe("selection cap and delete confirmation", () => {
+  test("sizes the batch selection to the page and scopes it to the page", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+
+    const total = await filteredCount(page);
+    const pageSize = await pageSizeFromHeader(page);
+    // A batch holds at most 50 designs (BROWSE_BULK_DELETE_MAX) and a page
+    // renders at most 10 rows x 5 columns, so the cap is never exceeded.
+    expect(pageSize).toBeGreaterThan(0);
+    expect(pageSize).toBeLessThanOrEqual(50);
+    expect(total).toBeGreaterThanOrEqual(pageSize);
+
+    await selectAllOnPage(page).check();
+    await expect(page.locator(".browse-bulk-bar")).toBeVisible();
+    await expect
+      .poll(() => selectedCount(page), { timeout: 15_000 })
+      .toBe(pageSize);
+
+    // Selection is scoped to the visible page: paging discards it.
+    const nav = paginationNav(page);
+    if ((await nav.getByRole("button", { name: /Next/ }).count()) > 0) {
+      await nav.getByRole("button", { name: /Next/ }).click();
+      await expect(browseCards(page).first()).toBeVisible();
+      await expect(page.locator(".browse-bulk-bar")).toBeHidden();
+    }
+  });
+
+  test("locks selection while the delete confirmation is open", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3");
+
+    await page.locator(".browse-design-checkbox").first().check();
+    await page.getByRole("button", { name: "Delete selected" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: /Delete selected design/ }),
+    ).toBeVisible();
+    await expect(dialog.getByText("1 design selected.")).toBeVisible();
+    await expect(page.locator(".browse-design-checkbox").first()).toBeDisabled();
+
+    // Cancel leaves the catalogue and the selection untouched.
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator(".browse-design-checkbox").first()).toBeEnabled();
+  });
+
+  test("keeps the batch toolbar fixed while the grid scrolls", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await page.locator(".browse-design-checkbox").first().check();
+    await expect(page.locator(".browse-bulk-bar")).toBeVisible();
+
+    const position = await page
+      .locator(".browse-bulk-bar")
+      .evaluate((el: Element) => getComputedStyle(el).position);
+    expect(position).toBe("fixed");
+  });
+});
+
+test.describe("add to project", () => {
+  test("bulk dropdown shows the empty state and a disabled Apply", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3");
+
+    await page.locator(".browse-design-checkbox").first().check();
+    const bar = page.locator(".browse-bulk-bar");
+    const summary = bar.locator("summary", { hasText: "Add to project" });
+    await summary.click();
+
+    const dropdown = bar.locator("details.relative > div");
+    // The seed catalogue has no projects, so the picker renders its empty state
+    // and Apply stays disabled (it only enables once a project is ticked).
+    await expect(
+      dropdown.getByText("No projects found. Create one first."),
+    ).toBeVisible();
+    const apply = bar.getByRole("button", { name: "Apply" });
+    await expect(apply).toBeDisabled();
+
+    // Close without applying so nothing is committed.
+    await summary.click();
+    await expect(apply).toBeHidden();
+    await page.getByRole("button", { name: "Clear selection" }).click();
+  });
+
+  test("per-card bar shows the same project picker", async ({ page }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3.jef");
+
+    const card = browseCard(page, "Cake 3.jef");
+    await card.locator("summary.browse-card-project-summary").click();
+    await expect(
+      card
+        .locator(".browse-card-project-details")
+        .getByText("No projects found. Create one first."),
+    ).toBeVisible();
+  });
+});
+
+test.describe("tag chooser semantics", () => {
+  test("closes on the backdrop and names its taxonomy sections", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3.jef");
+    await page.locator(".browse-design-checkbox").first().check();
+    await page.getByRole("button", { name: "Choose tags" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Image tags")).toBeVisible();
+    await expect(dialog.getByText("Stitching tags")).toBeVisible();
+
+    await expect(
+      dialog.getByRole("button", { name: "Close tag chooser" }),
+    ).toBeAttached();
+    // Click the full-screen backdrop away from the centred dialog panel.
+    await page.mouse.click(5, 5);
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Clear selection" }).click();
+  });
+
+  test("shows a mixed state for disagreeing tags and Untagged clears it", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3");
+
+    // Cake 3.jef carries Food + Cross Stitch; Cake 3 - Food.jef carries none,
+    // so those tags are indeterminate across the selection.
+    await browseCard(page, "Cake 3.jef")
+      .locator(".browse-design-checkbox")
+      .check();
+    await browseCard(page, "Cake 3 - Food.jef")
+      .locator(".browse-design-checkbox")
+      .check();
+    await page.getByRole("button", { name: "Choose tags" }).click();
+
+    const dialog = page.getByRole("dialog");
+    const mixed = dialog.locator('[role="checkbox"][aria-checked="mixed"]');
+    await expect
+      .poll(() => mixed.count(), { timeout: 10_000 })
+      .toBeGreaterThan(0);
+    await expect(mixed.first().locator(".tag-chooser-box")).toHaveText("−");
+
+    // Untagged is replace mode: it wipes the mixed/add/remove state on screen.
+    await dialog.getByRole("checkbox", { name: /Untagged/ }).check();
+    await expect(
+      dialog.locator('[role="checkbox"][aria-checked="mixed"]'),
+    ).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Clear selection" }).click();
+  });
+});
+
+test.describe("tag chooser toggling", () => {
+  test("cycles a shared tag off and back on without committing", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3.jef");
+    await page.locator(".browse-design-checkbox").first().check();
+    await page.getByRole("button", { name: "Choose tags" }).click();
+
+    const dialog = page.getByRole("dialog");
+    const food = dialog.getByRole("checkbox", { name: "Food" });
+    await expect(food).toHaveAttribute("aria-checked", "true");
+    await food.click();
+    await expect(food).toHaveAttribute("aria-checked", "false");
+    await food.click();
+    await expect(food).toHaveAttribute("aria-checked", "true");
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Clear selection" }).click();
+  });
+});
+
+test.describe("sort keys and pagination controls", () => {
+  test("re-queries each sort key without changing the result set", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await search(page, "Cake 3");
+    const expected = [
+      "Cake 3 - Food.jef",
+      "Cake 3 - to be verified.jef",
+      "Cake 3 Cross Stitch Fred.jef",
+      "Cake 3.jef",
+    ];
+
+    for (const key of ["folder", "date_added", "rating", "stitched"]) {
+      await sortSelect(page).selectOption(key);
+      await expect(sortSelect(page)).toHaveValue(key);
+      await expect
+        .poll(async () => (await cardTitles(page)).sort(), { timeout: 15_000 })
+        .toEqual([...expected].sort());
+    }
+  });
+
+  test("resets to page 1 when the sort key changes", async ({ page }) => {
+    await openBrowse(page);
+    const nav = paginationNav(page);
+    await nav.getByRole("button", { name: /Next/ }).click();
+    await expect(nav.locator('[aria-current="page"]')).toHaveText("2");
+
+    await sortSelect(page).selectOption("rating");
+    await expect(nav.locator('[aria-current="page"]')).toHaveText("1");
+  });
+
+  test("supports First, Prev, Next and Last", async ({ page }) => {
+    await openBrowse(page);
+    const nav = paginationNav(page);
+
+    // Last -> the final page, where Next is not offered.
+    await nav.getByRole("button", { name: /Last/ }).click();
+    const lastPage = Number(
+      (await nav.locator('[aria-current="page"]').innerText()).trim(),
+    );
+    expect(lastPage).toBeGreaterThan(1);
+    await expect(nav.getByRole("button", { name: /Next/ })).toHaveCount(0);
+
+    // First -> page 1, where Prev is not offered.
+    await nav.getByRole("button", { name: /First/ }).click();
+    await expect(nav.locator('[aria-current="page"]')).toHaveText("1");
+    await expect(nav.getByRole("button", { name: /Prev/ })).toHaveCount(0);
+
+    // Next then Prev step forward and back.
+    await nav.getByRole("button", { name: /Next/ }).click();
+    await expect(nav.locator('[aria-current="page"]')).toHaveText("2");
+    await nav.getByRole("button", { name: /Prev/ }).click();
+    await expect(nav.locator('[aria-current="page"]')).toHaveText("1");
+  });
+});
+
+test.describe("search operators", () => {
+  test("exposes the Search help link", async ({ page }) => {
+    await openBrowse(page);
+    const link = page.locator("p.browse-general-help a");
+    await expect(link).toHaveAttribute("href", "#/help?section=search");
+    await link.click();
+    await expect(page).toHaveURL(/#\/help/);
+  });
+
+  test("treats OR case-insensitively", async ({ page }) => {
+    await openBrowse(page);
+    const union = [
+      "Bean X.jef",
+      "Bean Z.jef",
+      "Cake 3 - Food.jef",
+      "Cake 3 - to be verified.jef",
+      "Cake 3 Cross Stitch Fred.jef",
+      "Cake 3.jef",
+    ];
+
+    await search(page, "Cake 3 OR Bean");
+    await expectTitles(page, union);
+
+    // The `OR` operator is matched case-insensitively.
+    await search(page, "Cake 3 or Bean");
+    await expectTitles(page, union);
+  });
+});
+
+test.describe("search scoping re-runs", () => {
+  test("supports an exclusion-only query", async ({ page }) => {
+    await openBrowse(page);
+
+    await search(page, "-cross");
+    // Everything that only matched via "cross" is removed...
+    for (const name of [
+      "Bean Z.jef",
+      "Cake 3 Cross Stitch Fred.jef",
+      "Cake 3.jef",
+    ]) {
+      await expect(browseCard(page, name)).toHaveCount(0);
+    }
+    // ...while unrelated designs remain.
+    await expect(browseCard(page, "Bean X.jef")).toBeVisible();
+  });
+
+  test("re-runs the query when the Search in scope changes", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await setSearchIn(page, { file: true, folder: true, tags: true });
+    await search(page, "Cross");
+    await expectTitlesContain(page, [
+      "Bean Z.jef",
+      "Cake 3 Cross Stitch Fred.jef",
+      "Cake 3.jef",
+    ]);
+
+    // Untick Folder name: the folder-only match disappears, the input survives.
+    await setSearchIn(page, { file: true, folder: false, tags: true });
+    await expect(browseCard(page, "Bean Z.jef")).toHaveCount(0);
+    await expect(page.locator("#browse-q")).toHaveValue("Cross");
+  });
+});
+
+test.describe("card navigation and scroll restore", () => {
+  test("opens Design Detail from any card", async ({ page }) => {
+    await openBrowse(page);
+    await browseCards(page).first().locator(".browse-card-link").click();
+    await expect(page).toHaveURL(/#\/designs\/\d+/);
+  });
+
+  test("restores the previous scroll position on return", async ({ page }) => {
+    await openBrowse(page);
+
+    // Open a card low in the grid so the click lands at a non-zero scroll.
+    const lastCard = browseCards(page).last();
+    await lastCard.locator(".browse-card-link").click();
+    await expect(page).toHaveURL(/#\/designs\/\d+/);
+
+    await gotoRoute(page, "#/designs");
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+  });
+});
+
+test.describe("needs attention combinations", () => {
+  test("combines with Unverified only", async ({ page }) => {
+    await openBrowse(page);
+    await openFilters(page);
+
+    await needsAttention(page).check();
+    await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
+
+    // Both flagged designs are unverified, so the AND intersection is unchanged.
+    await unverifiedOnly(page).check();
+    await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
+  });
+
+  test("sorts and paginates only the flagged set", async ({ page }) => {
+    await openBrowse(page);
+    await openFilters(page);
+    await needsAttention(page).check();
+    await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
+
+    // Only two flagged designs, so no pagination controls are offered.
+    await expect(paginationNav(page)).toHaveCount(0);
+
+    await sortSelect(page).selectOption("rating");
+    await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Mutating tests. These change the shared catalogue (tags / verification), so
 // they are declared last and each targets a different design.
 // ---------------------------------------------------------------------------
