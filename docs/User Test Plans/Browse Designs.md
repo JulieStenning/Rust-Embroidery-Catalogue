@@ -34,7 +34,7 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;     - \[x] `Cake Applique.jef` (Designer: `Me`, Source: `Me`, Hoop: `Hoop B`, Rating: `4 Stars`, Image Tags: `\[Flowers]`, Stitching Tags: `\[Filled]`, Stitched Status: `Yes`)
 
-&#x20;     - \[x] `Cake Applique 2.jef` (Designer: `Brother`, Source: `Previous Owner`, Hoop: `Hoop A`, Rating: `2 Stars`, Image Tags: `\[Footwear]`, Stitching Tags: `\[Applique]`, Stitched Status: `No`)
+&#x20;     - \[x] `Cake Applique 2.jef` (Designer: `Wrenwood Studio`, Source: `Heirloom Stash`, Hoop: `Hoop A`, Rating: `2 Stars`, Image Tags: `\[Footwear]`, Stitching Tags: `\[Applique]`, Stitched Status: `No`)
 
 &#x20;   - \[ ] \*\*Needs Attention Fixture:\*\*
 
@@ -102,11 +102,11 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20; - \[x] \*\*Multi-Select Filter Lists\*\*
 
-&#x20;   - \[x] \*\*Designer Selection\*\*: Check multi-select options (e.g., `Alice Scott Morris`, `Bernina`, `Brother`) -> Filter grid updates to matching designs.
+&#x20;   - \[x] \*\*Designer Selection\*\*: Check multi-select options (e.g., `Quillmark Designs`, `Thistlebury Stitch`, `Wrenwood Studio`) -> Filter grid updates to matching designs.
 
 &#x20;   - \[x] \*\*Tag Selection\*\*: Check multi-select options (e.g., `Words and Letters`, `Angels`, `Applique`, `Badges and Crests`) -> Filter grid updates to matching tags.
 
-&#x20;   - \[x] \*\*Source Selection\*\*: Check multi-select options (e.g., `Brother Embroidery Software`, `Craftsy...`) -> Filter grid updates accordingly.
+&#x20;   - \[x] \*\*Source Selection\*\*: Check multi-select options (e.g., `Loomthread Embroidery Suite`, `Threadwise Guild...`) -> Filter grid updates accordingly.
 
 &#x20; - \[x] \*\*Dropdown Filters\*\*
 
@@ -134,7 +134,7 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 
 
-\- \[x] \*\*Category Combinations (`AND` logic):\*\* Verify that selecting options across different filter categories (e.g., Designer: \*Bernina\* `AND` Tag: \*Animals\*) restricts results to designs matching \*\*all\*\* selected categories.
+\- \[x] \*\*Category Combinations (`AND` logic):\*\* Verify that selecting options across different filter categories (e.g., Designer: \*Thistlebury Stitch\* `AND` Tag: \*Animals\*) restricts results to designs matching \*\*all\*\* selected categories.
 
 \- \[x] \*\*Multi-Select Within Category (`OR` logic):\*\* Verify that selecting multiple items within the same category list (e.g., Tags: \*Animals\* `OR` \*Birds\*) returns designs containing \*\*any\*\* of the selected options.
 
