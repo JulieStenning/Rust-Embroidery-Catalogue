@@ -79,3 +79,6 @@ tests/e2e/.data-root/
 tests/e2e/.empty-data-root/
 tests/e2e/.hoops-data-root/
 tests/e2e/.import-source/
+tests/e2e/.empty-import-source/
+tests/e2e/.mixed-import-source/
+

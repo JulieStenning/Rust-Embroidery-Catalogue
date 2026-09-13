@@ -1,6 +1,5 @@
 import { test, expect } from "./app-fixture";
-import type { Page } from "@playwright/test";
-import { gotoRoute } from "./helpers";
+import { gotoRoute, runImportToPrecheck } from "./helpers";
 import {
   cleanupDataRoot,
   IMPORT_SOURCE_PATH,
@@ -26,29 +25,6 @@ import { EMPTY_DATA_ROOT_PATH, HOOPS_DATA_ROOT_PATH } from "./paths";
  * The actual *creation* of hoops is covered separately (Admin -> Hoops). These
  * tests cover the first-import gate: present without hoops, absent with them.
  */
-
-/** Drive the wizard from the folder picker to the "Before You Import" step. */
-async function runImportToPrecheck(
-  page: Page,
-  sourceFolder: string,
-): Promise<void> {
-  await gotoRoute(page, "#/import");
-  await page
-    .getByPlaceholder("Enter path to your embroidery designs folder…")
-    .fill(sourceFolder);
-  await page.getByRole("button", { name: "Scan folder(s)" }).click();
-
-  const continueButton = page.getByRole("button", {
-    name: /^Continue with \d+ design/,
-  });
-  await expect(continueButton).toBeVisible({ timeout: 30_000 });
-  await continueButton.click();
-
-  // Step 3 is ready once the import action is available.
-  await expect(
-    page.getByRole("button", { name: "Import Designs" }),
-  ).toBeVisible({ timeout: 30_000 });
-}
 
 // The generated single-design import source is shared by both describes.
 test.afterAll(() => {

@@ -182,8 +182,8 @@ import { test, expect } from './fixtures';
 import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
-See `navigation.spec.ts`, `settings.spec.ts`, `reference-data.spec.ts` and
-`import.spec.ts` for worked examples.
+See `navigation.spec.ts`, `settings.spec.ts`, `reference-data.spec.ts`,
+`import.spec.ts` and `import-folder-selection.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -208,7 +208,26 @@ See `import-hoop-setup.spec.ts` (the first-import hoop gate) for a worked exampl
   Playwright cannot interact with OS dialogs; those need the picker command
   stubbed at the IPC layer.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
-  one-time "skip hoop setup" prompt, which the test clicks.
+  one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
+  step 2 review contract (summary counts, global override defaults, per-folder shell,
+  select-all/deselect-all) and the step 3 "Before You Import" panel, including
+  **negative** assertions for the AI-tagging banner, the Tier 2/3 counters, "Change in
+  Settings" and the 2D/3D preview picker that were removed from step 3.
+- `import-folder-selection.spec.ts` covers step 1 only. It is read-only against the
+  catalogue (the scans target throwaway folders under `tests/e2e/`), so it is cheap
+  enough to run on its own:
+  `npx playwright test tests/e2e/import-folder-selection.spec.ts`.
+
+## Shared wizard state between tests
+
+The app instance is long-lived (one per worker) and the import wizard mirrors its state
+into a module-level store, so a spec that asserts on step 1's default layout must reset
+it first. Helpers live in `tests/e2e/helpers.ts`:
+
+- `resetImportView(page)` — navigate to `#/import` and click **Reset** (falling back to
+  clearing the input when Reset is disabled because no path is set).
+- `runImportToPrecheck(page, folder)` — drive folder -> scan -> review -> step 3.
+- `folderRows(page)` — the step 1 folder rows (one per source folder).
 
 ## Troubleshooting
 

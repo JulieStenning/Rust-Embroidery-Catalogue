@@ -108,3 +108,77 @@ export function prepareSingleDesignImportSource(): string {
   fs.copyFileSync(sourceDesign, path.join(IMPORT_SOURCE_PATH, uniqueName));
   return IMPORT_SOURCE_PATH;
 }
+
+/** Throwaway import source folder that exists on disk but contains no files. */
+export const EMPTY_IMPORT_SOURCE_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "e2e",
+  ".empty-import-source",
+);
+
+/** Throwaway import source folder mixing designs, a sub-folder and decoy files. */
+export const MIXED_IMPORT_SOURCE_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "e2e",
+  ".mixed-import-source",
+);
+
+/** Layout produced by `prepareMixedImportSource()`. */
+export interface MixedImportSource {
+  /** Absolute path of the source root to type into the import wizard. */
+  root: string;
+  /** Supported design at the root of the source folder. */
+  rootDesign: string;
+  /** Supported design nested one level down (proves sub-folder auto-inclusion). */
+  nestedDesign: string;
+  /** Unsupported decoy files that the scanner must ignore. */
+  decoys: string[];
+}
+
+/** Create an existing-but-empty source folder for the "no supported files" case. */
+export function prepareEmptyImportSource(): string {
+  fs.rmSync(EMPTY_IMPORT_SOURCE_PATH, { recursive: true, force: true });
+  fs.mkdirSync(EMPTY_IMPORT_SOURCE_PATH, { recursive: true });
+  return EMPTY_IMPORT_SOURCE_PATH;
+}
+
+/**
+ * Create a source folder holding two uniquely-named supported designs (one at the
+ * root, one inside a sub-folder) plus two unsupported decoy files.
+ *
+ * The names are unique per run so the preview never filters the designs out as
+ * already-catalogued rows: the backend de-duplicates on the prospective stored path
+ * and on the `(filename, size, blake3)` fingerprint.
+ */
+export function prepareMixedImportSource(): MixedImportSource {
+  const root = MIXED_IMPORT_SOURCE_PATH;
+  const nestedFolder = path.join(root, "Nested");
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.mkdirSync(nestedFolder, { recursive: true });
+
+  const rootSource = path.join(TEST_DESIGNS_PATH, "Cake 3.jef");
+  const nestedSource = path.join(TEST_DESIGNS_PATH, "Flower.pes");
+  if (!fs.existsSync(rootSource) || !fs.existsSync(nestedSource)) {
+    throw new Error(
+      `Mixed import source designs not found at:\n  ${rootSource}\n  ${nestedSource}`,
+    );
+  }
+
+  const stamp = Date.now();
+  const rootDesign = path.join(root, `Playwright Mixed Root ${stamp}.jef`);
+  const nestedDesign = path.join(nestedFolder, `Playwright Mixed Nested ${stamp}.pes`);
+  fs.copyFileSync(rootSource, rootDesign);
+  fs.copyFileSync(nestedSource, nestedDesign);
+
+  const decoys = [
+    path.join(root, "playwright-notes.txt"),
+    path.join(root, "playwright-manual.pdf"),
+  ];
+  fs.writeFileSync(decoys[0], "Playwright decoy: not an embroidery file.\n");
+  fs.writeFileSync(decoys[1], "%PDF-1.4\n% Playwright decoy, not a real PDF.\n");
+
+  return { root, rootDesign, nestedDesign, decoys };
+}
+

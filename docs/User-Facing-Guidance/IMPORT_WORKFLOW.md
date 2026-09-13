@@ -6,65 +6,65 @@ This guide explains the full import workflow from selecting folders to seeing yo
 - Put your embroidery files into one or more folders you can access.
 - The app will copy imported files into managed catalogue storage.
 - Existing-file duplicates are skipped automatically.
+- Import runs entirely locally using **File & Folder Rules** — no Google API key is needed.
 
 ## Step 1 - Select folder(s)
 1. Open Import from the top menu.
-2. Add one or more source folder paths.
-3. Use Browse if you prefer the native folder picker.
-4. Click Scan Folder(s).
+2. Add one or more source folder paths (type them or use **Browse…**).
+3. Click **Scan folder(s)**.
 
 What happens:
 - Subfolders are scanned automatically.
+- Only supported embroidery formats are picked up (JEF, PES, HUS, DST, EXP, VP3).
+- Files already in the catalogue, and non-embroidery files, are ignored.
 - Each selected source folder name is preserved inside managed storage.
 
 ## Step 2 - Review scanned files
-The review screen groups results by source folder and shows:
-- filename,
-- size where available,
-- hoop suggestion where available,
-- per-file status,
-- per-folder Designer and Source controls.
+The review screen groups results by source folder and shows, per folder:
+- the folder label and its full path,
+- a selection counter ("All N selected" / "N of M selected" / "None selected"),
+- "Designer for this folder" and "Source for this folder" controls,
+- the matched files (large folders start collapsed — use **Show files (N)**).
 
 You can:
-- select or deselect files for import,
-- keep inferred Designer/Source,
-- choose existing Designer/Source,
-- create new Designer/Source during import,
-- set Designer/Source to blank deliberately,
-- apply global overrides in multi-folder imports.
+- select or deselect files for import, per file or per folder,
+- use the global "Select all" / "Deselect all" buttons,
+- keep the inferred Designer/Source,
+- choose an existing Designer/Source,
+- apply a global Designer/Source override to every folder.
 
-Then click Continue.
+Then click **Continue with N designs**.
 
-## Step 3 - Choose pre-import actions
-Before importing, the app shows a decision step.
-
-First import into an empty catalogue:
-- You are guided to check setup actions before import.
-- Hoops are emphasized because hoop matching depends on your own machine frames.
-- You can review hoops, tags, sources, and designers.
-
-Later imports:
-- Review actions are optional.
-- You can review reference data or import immediately.
+## Step 3 - Before You Import
+Before importing, the app shows a short confirmation step:
+- an explanatory note about how import and Visual AI tagging work,
+- **Import Designs** and **Cancel**.
 
 AI tagging:
-- Imports run File & Folder Rules only (local, no API key).
-- Visual AI is run separately from **Admin → Batch Operations**.
+- Imports run File & Folder Rules only (local, no API key) and always apply the free
+  keyword and stitching tags.
+- Visual AI is run separately afterwards from **Admin → Batch Operations**.
+
+First import into an empty catalogue with no hoops:
+- Pressing **Import Designs** shows a warning that hoops are not configured and asks for
+  confirmation. Skipping hoop setup does not create hoops for you.
+- Add your own machine hoops in **Admin → Hoops** first if hoop matching matters to you.
 
 ## Step 4 - Confirm and save
-When you continue with import:
+When you run the import:
 - selected files are processed,
 - previews and metadata are generated where possible,
 - designs are written to the catalogue database,
 - files are copied into managed catalogue storage.
 
-After success, you are redirected to Browse Designs.
+The button shows live progress while it runs; **Cancel** becomes **Stop** if you need to
+halt it. After success, you are redirected to Browse Designs.
 
-## Import mode on admin pages
-If you open tags, hoops, sources, or designers from Step 3:
-- the app keeps import context active,
-- save actions keep you in import mode,
-- Continue with import returns you to the confirm path.
+## Leaving the import wizard
+You can leave the Import page at any point using the top navigation — there is no
+"unsaved changes" prompt. The wizard keeps your scan and selections, so returning to
+**Import** restores where you left off. The import context itself is time-limited
+(~15 minutes); if it expires, the app re-checks your selections and retries.
 
 ## Notes about supported formats
 - The app supports many machine embroidery formats.
@@ -80,5 +80,6 @@ For current list and details: [docs/SUPPORTED_FORMATS.md](../SUPPORTED_FORMATS.m
 
 ## Troubleshooting quick tips
 - If no files were selected, return to review and choose at least one file.
-- If you leave import open a long time and context expires, restart from Import.
+- If you leave import open a long time and context expires, the app re-checks your
+  selections automatically; if that fails, restart from Import.
 - If some files fail, the import can still continue for valid files.
