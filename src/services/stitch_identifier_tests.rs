@@ -8,7 +8,7 @@
 use super::*;
 use crate::models::{EmbPattern, Stitch};
 
-/// A wide satin motif from the "Amazing Designs - Patterns" collection. Its
+/// A wide satin motif from the "The Rose Studio - Patterns" collection. Its
 /// legs (mean ~30 units) exceed the old 20-unit mean-length cap that was
 /// meant to separate satin from long-row fills - but it is unmistakably
 /// satin via its strong zigzag signature (consecutive direction-change rate
@@ -17,7 +17,7 @@ use crate::models::{EmbPattern, Stitch};
 /// checkouts do not depend on a local Design folder).
 #[test]
 fn real_10434_pes_is_satin_not_outline() {
-    let path = "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Patterns/10434.PES";
+    let path = "target/debug/Data/MachineEmbroideryDesigns/The Rose Studio - Patterns/10434.PES";
     if !std::path::Path::new(path).exists() {
         eprintln!("SKIPPED: fixture file does not exist at {}", path);
         return;
@@ -359,7 +359,7 @@ fn filled_suppresses_satin_and_outline() {
 /// must tag it as Filled. Skipped when the fixture is absent.
 #[test]
 fn real_89343_hus_is_filled_not_outline() {
-    let path = "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Mailbox Collection I/89343.hus";
+    let path = "target/debug/Data/MachineEmbroideryDesigns/The Rose Studio - Mailbox Collection I/89343.hus";
     if !std::path::Path::new(path).exists() {
         eprintln!("SKIPPED: fixture file does not exist at {}", path);
         return;
@@ -391,7 +391,7 @@ fn real_89343_hus_is_filled_not_outline() {
 /// CI / fresh checkouts do not depend on a local Design folder.
 #[test]
 fn real_53505_hus_is_filled_only() {
-    let path = "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Tea Pot Houses Collection I/53505.hus";
+    let path = "target/debug/Data/MachineEmbroideryDesigns/The Rose Studio - Tea Pot Houses Collection I/53505.hus";
     if !std::path::Path::new(path).exists() {
         eprintln!("SKIPPED: fixture file does not exist at {}", path);
         return;
@@ -419,7 +419,7 @@ fn real_53505_hus_is_filled_only() {
 #[test]
 fn tea_pot_houses_files_are_filled_not_cross_stitch() {
     let base_dir =
-        "target/debug/Data/MachineEmbroideryDesigns/Amazing Designs - Tea Pot Houses Collection I";
+        "target/debug/Data/MachineEmbroideryDesigns/The Rose Studio - Tea Pot Houses Collection I";
     let files = [
         "53500.hus",
         "53503.hus",

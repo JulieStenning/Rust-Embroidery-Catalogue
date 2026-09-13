@@ -310,14 +310,14 @@ async fn create_designer_success() {
     let result = create_designer_with_pool(
         &pool,
         CreateDesignerRequest {
-            name: "Amazing Designs".to_string(),
+            name: "The Rose Studio".to_string(),
         },
     )
     .await
     .expect("expected designer to be created");
 
     assert!(result.id > 0);
-    assert_eq!(result.name, "Amazing Designs");
+    assert_eq!(result.name, "The Rose Studio");
     assert_eq!(result.design_count, 0);
 }
 

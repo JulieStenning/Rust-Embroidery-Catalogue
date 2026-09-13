@@ -2396,7 +2396,7 @@ describe("commandAdapter orphans pages & actions", () => {
 describe("commandAdapter admin designers", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  const summary = { id: 1, name: "Amazing Designs", design_count: 4 };
+  const summary = { id: 1, name: "The Rose Studio", design_count: 4 };
 
   it("listDesigners returns Rust items and a mock fallback", async () => {
     invokeMock.mockResolvedValue([summary]);
@@ -2414,10 +2414,10 @@ describe("commandAdapter admin designers", () => {
   it("createDesigner sends request name and maps item", async () => {
     invokeMock.mockResolvedValue(summary);
 
-    const result = await createDesigner("Amazing Designs");
+    const result = await createDesigner("The Rose Studio");
 
     expect(invokeMock).toHaveBeenCalledWith("create_designer", {
-      request: { name: "Amazing Designs" },
+      request: { name: "The Rose Studio" },
     });
     expect(result.source).toBe("rust");
     expect(result.persisted).toBe(true);

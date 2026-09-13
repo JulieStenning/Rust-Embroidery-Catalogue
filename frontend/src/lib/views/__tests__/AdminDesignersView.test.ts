@@ -29,7 +29,7 @@ vi.mock("../../stores/toastStore.js", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 const defaultDesigners = [
-  { id: 1, name: "Amazing Designs", design_count: 2 },
+  { id: 1, name: "The Rose Studio", design_count: 2 },
   { id: 2, name: "Stitch Studio", design_count: 0 },
   { id: 3, name: "", design_count: 1 },
 ];
@@ -84,7 +84,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
     expect(screen.getByText("Stitch Studio")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fillAddForm("Boutique Stitch");
@@ -153,7 +153,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fillAddForm("Boutique Stitch");
@@ -169,7 +169,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fillAddForm("Boutique Stitch");
@@ -183,7 +183,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fillAddForm("   ");
@@ -195,7 +195,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     const addButton = screen.getByRole("button", { name: "Add" });
@@ -212,7 +212,7 @@ describe("AdminDesignersView.svelte", () => {
     expect(clearButton).toBeEnabled();
 
     await fireEvent.input(screen.getByPlaceholderText("New designer name..."), {
-      target: { value: "Amazing Designs" },
+      target: { value: "The Rose Studio" },
     });
     await tick();
     expect(addButton).toBeEnabled();
@@ -222,7 +222,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.input(screen.getByPlaceholderText("New designer name..."), {
@@ -240,13 +240,13 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     await tick();
 
-    expect(screen.getByDisplayValue("Amazing Designs")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("The Rose Studio")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
@@ -255,7 +255,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     // The guard in beginEditDesigner is unreachable from the UI; this ensures
@@ -268,7 +268,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     // The 3rd row has name: "" so the `designer.name || ""` fallback is used.
@@ -287,7 +287,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -298,7 +298,7 @@ describe("AdminDesignersView.svelte", () => {
     await tick();
 
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-    expect(screen.queryByDisplayValue("Amazing Designs")).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("The Rose Studio")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(3);
   });
 
@@ -306,7 +306,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
@@ -328,13 +328,13 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     await tick();
 
-    await fireEvent.input(screen.getByDisplayValue("Amazing Designs"), {
+    await fireEvent.input(screen.getByDisplayValue("The Rose Studio"), {
       target: { value: "Amazing & Co" },
     });
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -352,13 +352,13 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     await tick();
 
-    await fireEvent.input(screen.getByDisplayValue("Amazing Designs"), {
+    await fireEvent.input(screen.getByDisplayValue("The Rose Studio"), {
       target: { value: "   " },
     });
     await fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -375,7 +375,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -393,7 +393,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -412,14 +412,14 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
     await tick();
 
     expect(addToastMock).toHaveBeenCalledWith(
-      "Deleting 'Amazing Designs' will clear assignment from 2 design(s).",
+      "Deleting 'The Rose Studio' will clear assignment from 2 design(s).",
       "info"
     );
     expect(
@@ -451,7 +451,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
@@ -471,7 +471,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
@@ -491,7 +491,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
@@ -509,7 +509,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
@@ -528,7 +528,7 @@ describe("AdminDesignersView.svelte", () => {
     renderView({ embedded: true });
 
     await waitFor(() => {
-      expect(screen.getByText("Amazing Designs")).toBeInTheDocument();
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
     });
 
     expect(screen.queryByText("Manage Designers")).not.toBeInTheDocument();

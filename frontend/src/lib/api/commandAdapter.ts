@@ -3128,7 +3128,7 @@ export async function listDesigners(): Promise<AdapterListResponse<AdminEntitySu
   return {
     source: "mock",
     items: [
-      { id: 1, name: "Amazing Designs", design_count: 0 },
+      { id: 1, name: "The Rose Studio", design_count: 0 },
       { id: 2, name: "Urban Threads", design_count: 0 },
       { id: 3, name: "Mock Studio", design_count: 0 },
     ],

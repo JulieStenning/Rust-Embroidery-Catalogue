@@ -151,6 +151,13 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
                 search_folder,
                 &general_groups,
             );
+        } else {
+            // The user typed a query but scoped it to no fields at all, so no
+            // design can match. Without this the query would be ignored and the
+            // whole library returned, which contradicts the documented
+            // "untick all -> no matching results" behaviour.
+            push_where_clause(query_builder, &mut has_where);
+            query_builder.push("0 = 1");
         }
     }
 
@@ -1795,6 +1802,11 @@ fn push_general_search_clause(
             }
 
             let pattern = token.pattern.clone();
+            // Wrap the whole per-token clause in parentheses: without them the
+            // token's internal `file OR tags OR folder` alternatives would be
+            // split by SQLite's operator precedence (AND binds tighter than OR),
+            // so `word1 word2` would behave as `word1 OR word2`.
+            query_builder.push("(");
             if token.exclude {
                 query_builder.push("NOT (");
             }
@@ -1829,6 +1841,7 @@ fn push_general_search_clause(
             if token.exclude {
                 query_builder.push(")");
             }
+            query_builder.push(")");
         }
         query_builder.push(")");
     }

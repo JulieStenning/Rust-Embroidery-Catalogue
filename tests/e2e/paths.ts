@@ -18,7 +18,43 @@ export const EXE_PATH = path.join(
 );
 
 /** Absolute path of the throwaway data root prepared by the global setup. */
-export const DATA_ROOT_PATH = path.join(REPO_ROOT, "tests", "e2e", ".data-root");
+export const DATA_ROOT_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "e2e",
+  ".data-root",
+);
+
+/**
+ * Throwaway data roots for specs that need an *empty* catalogue (no designs,
+ * no hoops). The pristine install template is used as the empty seed database.
+ * See `import-hoop-setup.spec.ts`.
+ */
+export const EMPTY_DATA_ROOT_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "e2e",
+  ".empty-data-root",
+);
+
+/** Empty catalogue that already has one hoop configured (the gate's negative case). */
+export const HOOPS_DATA_ROOT_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "e2e",
+  ".hoops-data-root",
+);
+
+/**
+ * Pristine, empty catalogue database shipped as the install template. It has the
+ * full schema and system tags but 0 designs, 0 hoops, 0 designers/sources/projects.
+ */
+export const EMPTY_DB_PATH = path.join(
+  REPO_ROOT,
+  "src-tauri",
+  "resources",
+  "EmbroideryCatalogue.db",
+);
 
 /** Absolute path of the seed catalogue copied into the data root. */
 export const TEST_DB_PATH = path.join(
@@ -43,4 +79,3 @@ export const DESIGNS_CONTAINER = "MachineEmbroideryDesigns";
  * because every test shares one database and one desktop window.
  */
 export const CDP_PORT_BASE = 10000;
-

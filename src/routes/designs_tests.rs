@@ -2164,6 +2164,40 @@ fn push_general_search_clause_with_exclusion_adds_not() {
 }
 
 #[test]
+fn push_general_search_clause_parenthesises_each_token() {
+    let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+    let tokens = vec![
+        GeneralSearchToken {
+            text: "cake".to_string(),
+            pattern: "%cake%".to_string(),
+            phrase: false,
+            exclude: false,
+            is_extension: false,
+        },
+        GeneralSearchToken {
+            text: "3".to_string(),
+            pattern: "%3%".to_string(),
+            phrase: false,
+            exclude: false,
+            is_extension: false,
+        },
+    ];
+    let groups = vec![tokens];
+
+    push_general_search_clause(&mut builder, true, false, false, &groups);
+
+    let sql = builder.sql();
+    // Each token clause must be wrapped, otherwise the token's internal
+    // `file OR tags OR folder` alternatives are re-associated by SQLite's
+    // operator precedence and `word1 word2` behaves as `word1 OR word2`.
+    assert!(
+        sql.as_str().contains(") AND ("),
+        "expected parenthesised token clauses, got: {}",
+        sql.as_str()
+    );
+}
+
+#[test]
 fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
     let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
     let group_a = vec![GeneralSearchToken {

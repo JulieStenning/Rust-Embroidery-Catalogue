@@ -1,22 +1,35 @@
 import { test, expect } from "./fixtures";
 import { gotoRoute } from "./helpers";
-import { TEST_DESIGNS_PATH } from "./paths";
+import {
+  cleanupDataRoot,
+  IMPORT_SOURCE_PATH,
+  prepareSingleDesignImportSource,
+} from "./empty-root";
 
 /**
  * Bulk import coverage: drives the real wizard (typed folder path -> scan ->
  * review -> import) against the throwaway test data root, then proves the
- * designs landed in the library.
+ * design landed in the library.
  *
  * The wizard accepts a typed path, so no native folder picker is needed. The
- * flow is genuinely slow (scan + copy + DB writes), hence the raised timeout.
+ * source is a freshly-created, uniquely-named copy of a real design so a new
+ * row is always created regardless of what the seed catalogue already contains
+ * (the importer deduplicates on stored path and on filename+size+hash).
  */
 test.describe("bulk import", () => {
-  test("imports designs from a folder and they appear in Browse", async ({ page }) => {
+  test.afterAll(() => {
+    cleanupDataRoot(IMPORT_SOURCE_PATH);
+  });
+
+  test("imports designs from a folder and they appear in Browse", async ({
+    page,
+  }) => {
     test.setTimeout(180_000);
 
+    const sourceFolder = prepareSingleDesignImportSource();
     const cards = page.locator("article.browse-card");
 
-    // The catalogue is empty at the start of a run (see global-setup.ts).
+    // Record the catalogue size before the import.
     await gotoRoute(page, "#/designs");
     const before = await cards.count();
 
@@ -24,7 +37,7 @@ test.describe("bulk import", () => {
     await gotoRoute(page, "#/import");
     await page
       .getByPlaceholder("Enter path to your embroidery designs folder…")
-      .fill(TEST_DESIGNS_PATH);
+      .fill(sourceFolder);
     await page.getByRole("button", { name: "Scan folder(s)" }).click();
 
     // Step 2: review the scan, then continue to the precheck.
@@ -39,13 +52,15 @@ test.describe("bulk import", () => {
     await expect(importButton).toBeVisible({ timeout: 30_000 });
     await importButton.click();
 
-    // A first import always asks the user to confirm skipping hoop setup (the
-    // throwaway test catalogue has no hoops configured).
+    // The first import into an empty catalogue asks the user to confirm
+    // skipping hoop setup. The shared test catalogue is normally populated
+    // (hoops present), so only click the confirmation when it appears.
     const hoopsConfirm = page.getByRole("button", {
       name: "Confirm import without hoop setup",
     });
-    await expect(hoopsConfirm).toBeVisible({ timeout: 20_000 });
-    await hoopsConfirm.click();
+    if (await hoopsConfirm.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await hoopsConfirm.click();
+    }
 
     // The import is finished once the action button is gone.
     await expect(importButton).toBeHidden({ timeout: 150_000 });

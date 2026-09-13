@@ -29,9 +29,9 @@ Before executing these tests, prepare the following local environment states:
 
 - [ ] **Folder Group Separation & Per-Folder Configurations**
   - [ ] **Folder Header Rendering**: Each scanned directory renders as a discrete UI card block separating:
-    - [ ] Display name and absolute system path (e.g., `Amazing Designs - Borders - D:/...`)
+    - [ ] Display name and absolute system path (e.g., `The Rose Studio - Borders - D:/...`)
   - [ ] **Per-Folder Metadata Dropdowns**:
-    - [ ] "Designer for this folder" dropdown displays and correctly appends the inferred entity name in brackets (e.g., `Keep inferred (Amazing Designs)`).
+    - [ ] "Designer for this folder" dropdown displays and correctly appends the inferred entity name in brackets (e.g., `Keep inferred (The Rose Studio)`).
     - [ ] "Source for this folder" dropdown defaults cleanly to `Keep inferred`.
     - [ ] Clicking any per-folder dropdown displays a menu containing: *Keep inferred*, *Choose existing* (listing current DB records), *Create new*, and *Leave blank*.
 

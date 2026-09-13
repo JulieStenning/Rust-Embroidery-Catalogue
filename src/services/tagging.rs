@@ -362,7 +362,7 @@ mod tests {
         let valid = HashSet::from(["Cats".to_string(), "Crests".to_string()]);
         let matched = suggest_path_rule_descriptions(
             "17147.hus",
-            "C:/imports/Amazing Designs - 1033 Crests/17147.hus",
+            "C:/imports/The Rose Studio - 1033 Crests/17147.hus",
             &valid,
         );
 
