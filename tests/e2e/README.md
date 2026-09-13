@@ -60,6 +60,58 @@ A desktop window (the real app) briefly opens and closes for each test. No
 browser window opens. Video is not supported over CDP; a screenshot is saved
 under `tests/e2e/test-results/` when a test fails.
 
+## Recording and exploring (authoring new tests)
+
+Playwright's built-in recorder (the Record button in UI mode, or
+`npx playwright codegen`) launches its **own browser**, so it cannot attach to
+the Tauri app and will not record your application. Use these instead:
+
+- **UI mode** (`npm run e2e:ui`): run the suite, click a step to inspect its DOM
+  snapshot and the locator it used, and use the **Pick locator** tool to
+  discover selectors in the live app.
+- **Explore workbench** (`npm run e2e:explore`): opens the app and pauses,
+  leaving the Playwright Inspector attached so you can hover elements, copy
+  locators and step through the UI. This spec is excluded from `npm run e2e`.
+
+Then write the test by hand from the locators you discovered, and run
+`npm run e2e`.
+
+## Authoring a new test (worked example)
+
+The loop is: discover a locator, write the test, run it in UI mode, iterate.
+
+A complete worked example - this is a real, passing test in
+`reference-data.spec.ts`:
+
+```ts
+import { test, expect } from "./fixtures";
+import { gotoRoute } from "./helpers";
+
+test("adds an image tag and it persists across a reload", async ({ page }) => {
+  // Arrange: go straight to the view under test.
+  await gotoRoute(page, "#/admin/data/tags");
+  await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
+
+  // Act: fill the form and submit.
+  await page.locator("#admin-tag-description").fill("Playwright Tag");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+
+  // Assert it appears...
+  await expect(page.getByRole("cell", { name: "Playwright Tag" })).toBeVisible();
+
+  // ...and survived a reload, proving it reached the real database.
+  await page.reload();
+  await expect(page.getByRole("cell", { name: "Playwright Tag" })).toBeVisible();
+});
+```
+
+Locator cheat-sheet for this app:
+
+- ids: `#settings-ai-batch-size`, `#admin-tag-description`, `#admin-tag-group`
+- test ids: `data-testid="reference-data-tab-tags"`, `settings-dirty-hint`
+- roles: `getByRole("heading", { name: "Manage Tags" })`, links, buttons
+- nav is scoped for you in `clickNav(page, "Browse")` (see `helpers.ts`)
+
 ## Writing tests
 
 Import the harness fixtures, not `@playwright/test`:
@@ -69,8 +121,21 @@ import { test, expect } from './fixtures';
 import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
-See `navigation.spec.ts`, `settings.spec.ts` and `reference-data.spec.ts` for
-worked examples.
+See `navigation.spec.ts`, `settings.spec.ts`, `reference-data.spec.ts` and
+`import.spec.ts` for worked examples.
+
+## What can (and cannot) be automated
+
+- **Drivable:** anything reached through the in-app UI - including flows that
+  normally start with a native dialog, provided the page also accepts a typed
+  value. Bulk Import is like this: it takes a typed folder path, so the whole
+  wizard (scan -> review -> import) can be driven without the file picker.
+- **Not drivable:** flows whose *only* entry point is a native OS dialog
+  (Backup / Restore browse, Settings -> data-root browse, Orphans browse).
+  Playwright cannot interact with OS dialogs; those need the picker command
+  stubbed at the IPC layer.
+- `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
+  one-time "skip hoop setup" prompt, which the test clicks.
 
 ## Troubleshooting
 

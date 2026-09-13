@@ -9,8 +9,9 @@
 //       b. If **any single** meaningful token of the tag appears in the path tokens
 //          — in singular or plural form (powered by `Inflector`) — assign the tag.
 // 3. A small built-in synonym map bridges aliases inflection can never derive
-//    (kitten → Cats, puppy → Dogs, xmas → Christmas, floral → Flowers,
-//    baby → Children & Toys).
+//    (kitten → Cats, puppy → Dogs, font/monogram/upper/lower → Words and Letters,
+//    xmas → Christmas, floral → Flowers, baby → Children & Toys).  Synonym target
+//    descriptions are resolved case-insensitively against the live catalogue.
 //
 // This is fully generic: any user-created tag is automatically matched as long as
 // its words overlap with the file path, with no code or config changes required.
@@ -24,10 +25,15 @@ use std::collections::HashSet;
 // "kitten" from "Cats", "floral" from "Flowers").  Everything else is handled
 // generically by singular ↔ plural token overlap.
 
-const SYNONYM_MAP: [(&str, &str); 6] = [
+const SYNONYM_MAP: [(&str, &str); 11] = [
     ("kitten", "Cats"),
     ("puppy", "Dogs"),
-    ("font", "Alphabets"),
+    ("font", "Words and Letters"),
+    ("monogram", "Words and Letters"),
+    ("upper", "Words and Letters"),
+    ("lower", "Words and Letters"),
+    ("uppercase", "Words and Letters"),
+    ("lowercase", "Words and Letters"),
     ("xmas", "Christmas"),
     ("floral", "Flowers"),
     ("baby", "Children & Toys"),
@@ -132,9 +138,16 @@ pub fn suggest_path_rule_descriptions(
 
     // ── Synonym-map pass (tiny, genuinely undecidable aliases only) ──
     for (synonym, description) in SYNONYM_MAP {
-        if !valid_descriptions.contains(description) {
+        // Resolve the catalogue entry case-insensitively so a tag stored with a
+        // different casing still resolves, and carry the catalogue's own casing
+        // forward (downstream tag-id lookups are exact-match).
+        let Some(canonical) = valid_descriptions
+            .iter()
+            .find(|candidate| candidate.eq_ignore_ascii_case(description))
+        else {
             continue;
-        }
+        };
+
         // Check the synonym itself, its singular, and its plural against the
         // path tokens — folder names may be plural ("Kittens") while the
         // synonym is singular ("kitten"), and vice versa.
@@ -144,7 +157,7 @@ pub fn suggest_path_rule_descriptions(
             || path_tokens.contains(&synonym_singular)
             || path_tokens.contains(&synonym_plural)
         {
-            matched.insert(description.to_string());
+            matched.insert(canonical.clone());
         }
     }
 
@@ -267,23 +280,23 @@ mod tests {
     }
 
     #[test]
-    fn suggest_path_rule_compound_tag_alphabet_monogram() {
-        let valid = HashSet::from(["Alphabets & Monograms".to_string()]);
+    fn suggest_path_rule_synonym_maps_monogram_to_words_and_letters() {
+        let valid = HashSet::from(["Words and Letters".to_string()]);
         let matched = suggest_path_rule_descriptions("", "C:/imports/Monogram/design.pes", &valid);
         assert!(
-            matched.contains(&"Alphabets & Monograms".to_string()),
-            "folder 'Monogram' should match 'Alphabets & Monograms' via inflection (no synonym needed): {:?}",
+            matched.contains(&"Words and Letters".to_string()),
+            "folder 'Monogram' should match 'Words and Letters' via the 'monogram' synonym: {:?}",
             matched
         );
     }
 
     #[test]
-    fn suggest_path_rule_synonym_maps_font_to_alphabets() {
-        let valid = HashSet::from(["Alphabets".to_string()]);
+    fn suggest_path_rule_synonym_maps_font_to_words_and_letters() {
+        let valid = HashSet::from(["Words and Letters".to_string()]);
         let matched = suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid);
         assert!(
-            matched.contains(&"Alphabets".to_string()),
-            "folder 'Font' should match 'Alphabets' via the 'font' synonym: {:?}",
+            matched.contains(&"Words and Letters".to_string()),
+            "folder 'Font' should match 'Words and Letters' via the 'font' synonym: {:?}",
             matched
         );
     }
@@ -361,6 +374,49 @@ mod tests {
         let valid = HashSet::new();
         let matched = suggest_path_rule_descriptions("flower.pes", "C:/imports/flowers/", &valid);
         assert!(matched.is_empty());
+    }
+
+    #[test]
+    fn suggest_path_rule_synonym_upper_lower_is_case_insensitive() {
+        // Folder/design names containing "upper" or "lower" must map to
+        // "Words and Letters" regardless of case (path tokens are lowercased by
+        // `normalize_text`, so the lowercase synonym keys match).
+        let valid = HashSet::from(["Words and Letters".to_string()]);
+        for folder in ["Upper", "UPPER", "lower", "Lower Case", "Uppercase"] {
+            let matched = suggest_path_rule_descriptions(
+                "",
+                &format!("C:/imports/{folder}/design.pes"),
+                &valid,
+            );
+            assert!(
+                matched.contains(&"Words and Letters".to_string()),
+                "folder '{folder}' should be tagged 'Words and Letters': {matched:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn suggest_path_rule_synonym_upper_from_filename() {
+        let valid = HashSet::from(["Words and Letters".to_string()]);
+        let matched =
+            suggest_path_rule_descriptions("Upper Case Alphabet.pes", "C:/imports/", &valid);
+        assert!(
+            matched.contains(&"Words and Letters".to_string()),
+            "filename 'Upper Case Alphabet.pes' should be tagged 'Words and Letters': {matched:?}"
+        );
+    }
+
+    #[test]
+    fn suggest_path_rule_synonym_description_is_case_insensitive() {
+        // The synonym map literal is "Words and Letters", but the live catalogue
+        // may store it with a different casing; the catalogue's own casing must
+        // be returned so downstream tag-id lookups still resolve.
+        let valid = HashSet::from(["WORDS AND LETTERS".to_string()]);
+        let matched = suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid);
+        assert!(
+            matched.contains(&"WORDS AND LETTERS".to_string()),
+            "synonym target should resolve case-insensitively to the catalogue casing: {matched:?}"
+        );
     }
 
     #[test]

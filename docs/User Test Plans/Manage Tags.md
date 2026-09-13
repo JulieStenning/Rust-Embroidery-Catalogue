@@ -5,7 +5,7 @@ This issue tracks the user-facing functionality for the **Manage Tags** view.
 ### 🧪 Test Setup
 
 Before starting the test suite, ensure the application is running with a standard database containing:
-- At least 5 embroidery designs that are already tagged with existing tags (e.g., "Alphabets", "Applique").
+- At least 5 embroidery designs that are already tagged with existing tags (e.g., "Words and Letters", "Applique").
 - Ensure a sample tag is associated with a design to verify database dissociation behavior.
 
 ---
@@ -22,7 +22,7 @@ Before starting the test suite, ensure the application is running with a standar
 
 - [ ] **Drawer Interaction & Data Rendering**
   - [ ] Clicking on the "IMAGE TAGS" header toggles the drawer open smoothly
-  - [ ] Opened "IMAGE TAGS" drawer correctly displays descriptions ("Alphabets", "Angels", "Animals", etc.), group dropdowns, and a red "Delete" option for each record (as seen in image_dcbad1.jpg)
+  - [ ] Opened "IMAGE TAGS" drawer correctly displays descriptions ("Words and Letters", "Angels", "Animals", etc.), group dropdowns, and a red "Delete" option for each record (as seen in image_dcbad1.jpg)
   - [ ] Clicking on the "STITCHING TAGS" header toggles the drawer open smoothly
   - [ ] Opened "STITCHING TAGS" drawer correctly displays descriptions ("Applique", "Blackwork", "Cross Stitch", etc.), group dropdowns, and a red "Delete" option for each record (as seen in image_dcbb83.jpg)
   - [ ] Opening one drawer does not forcefully close or break the layout of the other drawer
@@ -42,7 +42,7 @@ Before starting the test suite, ensure the application is running with a standar
   - [ ] Verify that the associated embroidery design record itself **is not** deleted and remains perfectly intact in the catalog
 
 - [ ] **Data Modification: Inline Group Change**
-  - [ ] Changing a tag's group dropdown inline (e.g., changing "Alphabets" from Image to Stitching) re-sorts or updates its location accordingly upon save or auto-save
+  - [ ] Changing a tag's group dropdown inline (e.g., changing "Words and Letters" from Image to Stitching) re-sorts or updates its location accordingly upon save or auto-save
   - [ ] Verified state updates instantly in the underlying database schema
 
 - [ ] **Navigation**

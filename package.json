@@ -6,6 +6,7 @@
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
     "e2e:build": "cargo tauri build --debug --no-bundle",
+    "e2e:explore": "set E2E_EXPLORE=1&& playwright test tests/e2e/explore.spec.ts --debug",
     "generate:licences": "cargo about generate about.hbs -o ./src/assets/licences.html && npx license-checker-rseidelsohn --start ./frontend --json --out ./src/assets/npm-licences.json && node scripts/relativise-npm-licences.mjs ./src/assets/npm-licences.json",
     "postgenerate:licences": "node scripts/sync-licences.mjs"
   },

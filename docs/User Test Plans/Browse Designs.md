@@ -90,7 +90,7 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;   - \[x] \*\*Designer Selection\*\*: Check multi-select options (e.g., `Alice Scott Morris`, `Bernina`, `Brother`) -> Filter grid updates to matching designs.
 
-&#x20;   - \[x] \*\*Tag Selection\*\*: Check multi-select options (e.g., `Alphabets`, `Angels`, `Applique`, `Badges and Crests`) -> Filter grid updates to matching tags.
+&#x20;   - \[x] \*\*Tag Selection\*\*: Check multi-select options (e.g., `Words and Letters`, `Angels`, `Applique`, `Badges and Crests`) -> Filter grid updates to matching tags.
 
 &#x20;   - \[x] \*\*Source Selection\*\*: Check multi-select options (e.g., `Brother Embroidery Software`, `Craftsy...`) -> Filter grid updates accordingly.
 

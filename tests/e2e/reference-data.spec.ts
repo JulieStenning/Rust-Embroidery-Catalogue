@@ -37,4 +37,19 @@ test.describe("reference data", () => {
     ).toBeVisible();
     await expect(page.getByRole("cell", { name })).toBeVisible();
   });
+
+  test("adds an image tag and it persists across a reload", async ({ page }) => {
+    await gotoRoute(page, "#/admin/data/tags");
+    await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
+
+    const name = "Playwright Tag";
+    await page.locator("#admin-tag-description").fill(name);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+
+    await expect(page.getByRole("cell", { name })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
+    await expect(page.getByRole("cell", { name })).toBeVisible();
+  });
 });

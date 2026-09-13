@@ -148,7 +148,7 @@ const MOCK_DESIGNS = [
     filename: "monogram-a.dst",
     designer: "Mock Designer",
     source: "Purchased",
-    tags: ["Alphabets"],
+    tags: ["Words and Letters"],
     hoop: null,
     rating: null,
     is_stitched: false,
@@ -163,7 +163,7 @@ const TAG_SEED = [
   "Applique",
   "Food",
   "Nautical",
-  "Alphabets",
+  "Words and Letters",
   "Floral",
   "Butterflies and Insects",
 ];
