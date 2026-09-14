@@ -65,7 +65,7 @@
   let effectiveRating = $derived(
     ratingHover > 0
       ? ratingHover
-      : (/** @type {DesignDetailItem | null} */ (detailItem))?.rating ?? 0
+      : (/** @type {DesignDetailItem | null} */ (detailItem)?.rating ?? 0)
   );
   let detailNotes = $state("");
   let detailDesignerId = $state("");
@@ -110,11 +110,13 @@
     })()
   );
 
-  /** @param {number | string} designId */
-  async function loadDesignDetail(designId) {
+  /** @param {number | string} designId @param {boolean} [silent=false] */
+  async function loadDesignDetail(designId, silent = false) {
     if (designId == null) return;
 
-    detailLoading = true;
+    if (!silent) {
+      detailLoading = true;
+    }
     detailError = "";
 
     try {
@@ -139,13 +141,15 @@
       detailItem = null;
       detailProjectToAdd = "";
     } finally {
-      detailLoading = false;
+      if (!silent) {
+        detailLoading = false;
+      }
     }
   }
 
   async function refreshDetailAfterAction() {
     if (detailDesignId == null) return;
-    await loadDesignDetail(detailDesignId);
+    await loadDesignDetail(detailDesignId, true);
   }
 
   async function saveDetailMetadata() {
@@ -792,45 +796,41 @@
             {/if}
           </button>
 
-          <!-- Image verification toggle (only shown if tags exist) -->
-          {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
-            <button
-              class="menu-button-toggle {detailItem.imageTagsVerified
-                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
-                : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
-              onclick={toggleImageTagsVerified}
-              disabled={detailSaving}
-              title={detailItem.imageTagsVerified
-                ? "Mark image tags as unverified"
-                : "Mark image tags as verified"}
-            >
-              {#if detailItem.imageTagsVerified}
-                <span aria-hidden="true">&#10003;</span> Image Verified
-              {:else}
-                <span aria-hidden="true">&#9888;</span> Image Unverified
-              {/if}
-            </button>
-          {/if}
+          <!-- Image verification toggle -->
+          <button
+            class="menu-button-toggle {detailItem.imageTagsVerified
+              ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
+              : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
+            onclick={toggleImageTagsVerified}
+            disabled={detailSaving}
+            title={detailItem.imageTagsVerified
+              ? "Mark image tags as unverified"
+              : "Mark image tags as verified"}
+          >
+            {#if detailItem.imageTagsVerified}
+              <span aria-hidden="true">&#10003;</span> Image Verified
+            {:else}
+              <span aria-hidden="true">&#9888;</span> Image Unverified
+            {/if}
+          </button>
 
-          <!-- Stitching verification toggle (only shown if tags exist) -->
-          {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
-            <button
-              class="menu-button-toggle {detailItem.stitchingTagsVerified
-                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
-                : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
-              onclick={toggleStitchingTagsVerified}
-              disabled={detailSaving}
-              title={detailItem.stitchingTagsVerified
-                ? "Mark stitching tags as unverified"
-                : "Mark stitching tags as verified"}
-            >
-              {#if detailItem.stitchingTagsVerified}
-                <span aria-hidden="true">&#10003;</span> Stitching Verified
-              {:else}
-                <span aria-hidden="true">&#9888;</span> Stitching Unverified
-              {/if}
-            </button>
-          {/if}
+          <!-- Stitching verification toggle -->
+          <button
+            class="menu-button-toggle {detailItem.stitchingTagsVerified
+              ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
+              : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
+            onclick={toggleStitchingTagsVerified}
+            disabled={detailSaving}
+            title={detailItem.stitchingTagsVerified
+              ? "Mark stitching tags as unverified"
+              : "Mark stitching tags as verified"}
+          >
+            {#if detailItem.stitchingTagsVerified}
+              <span aria-hidden="true">&#10003;</span> Stitching Verified
+            {:else}
+              <span aria-hidden="true">&#9888;</span> Stitching Unverified
+            {/if}
+          </button>
         </div>
 
         <!-- Tags -->

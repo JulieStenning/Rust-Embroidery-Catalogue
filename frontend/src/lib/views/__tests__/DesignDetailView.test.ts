@@ -511,6 +511,25 @@ describe("DesignDetailView", () => {
       });
     });
 
+    it("marks image tags as unverified when clicked while verified", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({ imageTagsVerified: true, stitchingTagsVerified: true })
+      );
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Image Verified/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignVerification).toHaveBeenCalledWith(42, {
+          imageTagsVerified: false,
+        });
+      });
+    });
+
     it("marks stitching tags as verified", async () => {
       renderDetail();
       await waitFor(() => {
@@ -523,6 +542,47 @@ describe("DesignDetailView", () => {
       await waitFor(() => {
         expect(adapterMocks.setDesignVerification).toHaveBeenCalledWith(42, {
           stitchingTagsVerified: true,
+        });
+      });
+    });
+
+    it("marks stitching tags as unverified when clicked while verified", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({ imageTagsVerified: true, stitchingTagsVerified: true })
+      );
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Stitching Verified/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignVerification).toHaveBeenCalledWith(42, {
+          stitchingTagsVerified: false,
+        });
+      });
+    });
+
+    it("renders verification buttons and allows toggling even when design has no tags", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({ tags: [], imageTagsVerified: false, stitchingTagsVerified: false })
+      );
+      renderDetail();
+      await waitFor(() => {
+        expect(screen.getByText("rose-border-01.pes")).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("button", { name: /Image Unverified/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Stitching Unverified/ })).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /Image Unverified/ }));
+
+      await waitFor(() => {
+        expect(adapterMocks.setDesignVerification).toHaveBeenCalledWith(42, {
+          imageTagsVerified: true,
         });
       });
     });
@@ -1302,10 +1362,7 @@ describe("DesignDetailView", () => {
       await user.click(screen.getByRole("button", { name: /Image Unverified/ }));
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Could not update verification.",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not update verification.", "error");
       });
       expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
     });
@@ -1324,10 +1381,7 @@ describe("DesignDetailView", () => {
       await user.click(screen.getByRole("button", { name: /Stitching Unverified/ }));
 
       await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Could not update verification.",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not update verification.", "error");
       });
       expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
     });
@@ -1376,10 +1430,7 @@ describe("DesignDetailView", () => {
 
       await waitFor(() => {
         expect(adapterMocks.removeDesignFromProject).toHaveBeenCalledWith(42, 1);
-        expect(toastMock.addToast).toHaveBeenCalledWith(
-          "Could not remove from project.",
-          "error"
-        );
+        expect(toastMock.addToast).toHaveBeenCalledWith("Could not remove from project.", "error");
       });
       expect(sessionMock.designSessionStore.trackMutation).not.toHaveBeenCalled();
     });
@@ -1528,12 +1579,9 @@ describe("DesignDetailView", () => {
         })
       );
       renderDetail();
-      await waitFor(() =>
-        expect(screen.getByAltText("Design preview")).toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.getByAltText("Design preview")).toBeInTheDocument());
       // Filename and filepath both fall back to "Unknown".
       expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
     });
   });
-
 });
