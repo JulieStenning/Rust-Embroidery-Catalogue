@@ -188,7 +188,7 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`, `backup.spec.ts`,
-`restore.spec.ts`, `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
+`restore.spec.ts`, `orphans.spec.ts`, `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
 `admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `batch-maintenance.spec.ts`,
 `import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
 
@@ -354,6 +354,16 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   - Combined multi-step Restore ("Restore Both"): executing database restore and designs sync with multi-stage progress tracking (`RestoreProgressPanel`).
   - Unmatched design files reconciler (`UnmatchedFilesReconciler`): scanning clean directory states (`No unmatched design files found`), detecting newly placed design files on disk (`Unmatched files found`), and executing batch unmatched import (`Import X file(s)`).
   - Clean test teardown: resetting backup destinations, removing temporary backup directories, and restoring the pristine seed database.
+- `orphans.spec.ts` covers the **Orphaned Files** workflow on the **System** maintenance page (`#/admin/system/orphans`, reached via top nav *System* -> *Orphaned Files* tab):
+  - Top navigation and deep linking (`#/admin/system/orphans`), plus sub-tab switching between *Settings*, *Backup & Restore*, and *Orphaned Files* with active state validation (`aria-selected="true"`).
+  - Initial clean state verification: asserting `0 orphaned record(s) total` summary counter, empty state table placeholder (`No orphaned records found. Refresh or scan to check.`), table column structure, and action button initial enablement states.
+  - Disk scan execution: triggering `Scan Disk` against clean catalogues, asserting busy state locks, scan progress toasts, and 0-orphan scan result summaries (`Scan complete. Checked X file record(s). Found 0 orphan(s).`).
+  - Synthetic orphan detection & row rendering: injecting uncatalogued file paths into the SQLite test database, executing disk scans, asserting detection counts, and validating table row contents (ID, Filename link, Path, and Locate Folder button).
+  - Selection controls: verifying individual row checkbox toggling, "Select all", "Deselect all", and dynamic button label updates (`Delete selected (N)`).
+  - Action triggers: invoking "Locate Folder" (`browseOrphanPath`) and verifying path resolution toasts (`Opened: ...`).
+  - Selective deletion lifecycle: selecting individual records, verifying native JavaScript confirmation prompt handling, testing dialog cancellation without modification, and testing confirmed deletion with success toasts (`N record(s) deleted.`), table updates, and SQLite database deletion.
+  - Bulk deletion lifecycle: triggering "Delete all", validating prompt message (`Delete ALL {orphanTotal} orphaned records?`), testing dialog dismissal, and testing confirmed purge, verifying UI return to clean empty state and SQLite database synchronization while preserving legitimate catalogue designs.
+  - Pagination handling: injecting multi-page orphan records (e.g. 105 records across 2 pages), testing page navigation controls, and executing bulk cleanup.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,

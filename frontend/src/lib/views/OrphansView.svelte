@@ -174,11 +174,12 @@
         `Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} orphan(s).`,
         "success"
       );
+      orphansLoading = false;
       await loadOrphansPage(1, true);
     } catch (e) {
       addToast(`Could not complete scan: ${e}`, "error");
-      orphansLoading = false;
     } finally {
+      orphansLoading = false;
       endBusy();
     }
   }
