@@ -1728,6 +1728,14 @@
                         >
                           ◑
                         </span>
+                      {:else}
+                        <span
+                          class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 bg-red-500"
+                          title="Unverified"
+                          aria-label="Unverified"
+                        >
+                          ○
+                        </span>
                       {/if}
                     </div>
                     <p class="browse-card-hoop text-xs font-semibold text-indigo-600 mt-1">

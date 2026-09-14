@@ -654,9 +654,10 @@ test.describe("card presentation", () => {
       ),
     ).toBeVisible();
 
-    // Neither group verified -> no indicator at all (there is no red "x").
+    // Neither group verified -> amber unverified indicator.
     await search(page, "to be verified");
     const unverified = browseCard(page, "Cake 3 - to be verified.jef");
+    await expect(unverified.locator('[aria-label="Unverified"]')).toBeVisible();
     await expect(unverified.locator('[aria-label="Verified"]')).toHaveCount(0);
     await expect(
       unverified.locator('[aria-label="Image Verified, Stitching Unverified"]'),

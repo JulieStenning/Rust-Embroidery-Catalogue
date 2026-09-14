@@ -88,7 +88,7 @@ This issue tracks the user-facing functionality for the \*\*Browse view\*\*.
 
 &#x20;   - \[x] Each design card cleanly renders its individual components: item thumbnail frame, checkbox in top-left, filename label, hoop size, sources/notes, tag list, rating marker (`★ N` amber star + bold number, or `☆ —` when unrated), tri-state verification icon, and `▶ + Add to project` collapse bar; a design with no preview instead renders the placeholder `Preview could not be generated — the file may be corrupt or unreadable` in the thumbnail frame
 
-&#x20;   - \[ ] \*\*Verification indicator (tri-state)\*\*: ✓ green when \*\*both\*\* the Image tags and Stitching tags groups are verified; ◐ amber when Image tags are verified but Stitching tags are unverified; ◑ amber when Stitching tags are verified but Image tags are unverified; and \*\*no icon at all\*\* when neither group is verified (there is no red "x").
+&#x20;   - \[ ] \*\*Verification indicator (4-state)\*\*: ✓ green when \*\*both\*\* the Image tags and Stitching tags groups are verified; ◐ amber when Image tags are verified but Stitching tags are unverified; ◑ amber when Stitching tags are verified but Image tags are unverified; and ○ red (`bg-red-500`) when neither group is verified (`aria-label="Unverified"`).
 
 &#x20;   - \[ ] \*\*Preview loading placeholder\*\*: while previews are still being fetched the thumbnail frame shows `Loading image...`, then resolves to the stored preview or the `Preview could not be generated — the file may be corrupt or unreadable` placeholder.
 

@@ -563,6 +563,64 @@ describe("BrowseView", () => {
       expect(screen.getByLabelText("Verified")).toBeInTheDocument();
     });
 
+    it("renders 'Image Verified, Stitching Unverified' badge when only image tags are verified", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({
+            id: 1,
+            filename: "rose.pes",
+            image_tags_verified: true,
+            stitching_tags_verified: false,
+          }),
+        ])
+      );
+
+      renderBrowse();
+
+      expect(
+        await screen.findByLabelText("Image Verified, Stitching Unverified")
+      ).toBeInTheDocument();
+    });
+
+    it("renders 'Stitching Verified, Image Unverified' badge when only stitching tags are verified", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({
+            id: 1,
+            filename: "rose.pes",
+            image_tags_verified: false,
+            stitching_tags_verified: true,
+          }),
+        ])
+      );
+
+      renderBrowse();
+
+      expect(
+        await screen.findByLabelText("Stitching Verified, Image Unverified")
+      ).toBeInTheDocument();
+    });
+
+    it("renders 'Unverified' badge when neither tag group is verified", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({
+            id: 1,
+            filename: "rose.pes",
+            image_tags_verified: false,
+            stitching_tags_verified: false,
+          }),
+        ])
+      );
+
+      renderBrowse();
+
+      const badge = await screen.findByLabelText("Unverified");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass("bg-red-500");
+      expect(badge).toHaveTextContent("○");
+    });
+
     it('shows "Hoop unknown" when hoop is blank', async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([design({ id: 1, hoop: "" })]));
 
