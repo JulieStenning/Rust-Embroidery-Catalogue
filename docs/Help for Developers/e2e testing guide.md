@@ -188,7 +188,7 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`, `backup.spec.ts`,
-`reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
+`restore.spec.ts`, `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
 `admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `batch-maintenance.spec.ts`,
 `import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
 
@@ -342,6 +342,18 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   - Incremental Designs Backup execution: triggering "Run incremental backup", verifying mirrored files on disk (`MachineEmbroideryDesigns` copies), timestamp updates, and testing incremental second-pass skipping (`copied 0, unchanged > 0`).
   - Combined Backup execution: triggering "Backup Everything Now", asserting combined success toasts and dual timestamp updates.
   - Clean test teardown: resetting configured destination paths to empty and removing temporary backup directories.
+- `restore.spec.ts` covers the **Restore** workflow on the **Backup & Restore** page (`#/admin/system/backup`, reached via top nav *System* -> *Backup & Restore* -> *Restore* tab):
+  - Top navigation, deep linking (`#/admin/system/backup`), sub-tab switching between *Backup* and *Restore*, and tab active state assertions (`aria-selected="true"`).
+  - Initial layout verification: warning banner ("Restoring overwrites live data..."), three restore operation cards (*Restore Database*, *Sync Designs from Backup*, *Restore Both*), and *Find unmatched design files* section.
+  - File picker integration: stubbing `browse_restore_file` via WebView2 IPC bridge interception to simulate selecting valid and invalid/corrupt `.db` backup files.
+  - Dynamic button enablement: verifying that action buttons ("Restore Database Now", "Restore Both") are enabled only when valid prerequisites are provided.
+  - Destructive confirmation modal (`ConfirmRestoreModal`): verifying modal dialog appearance, warning prompts, and clean cancellation via the Cancel button, backdrop click, or Escape key.
+  - Full Database Restore execution: triggering database replacement from a snapshot file, confirming in modal, and verifying design count success toasts (`Database restored (X designs).`).
+  - Corrupt database handling: testing restore failure and automatic safety rollback banner (`Restore rolled back`) when attempting to restore invalid files.
+  - Incremental Designs Sync: running design file restoration from a backup directory and asserting progress notifications (`Designs restored: X copied, Y skipped.`).
+  - Combined multi-step Restore ("Restore Both"): executing database restore and designs sync with multi-stage progress tracking (`RestoreProgressPanel`).
+  - Unmatched design files reconciler (`UnmatchedFilesReconciler`): scanning clean directory states (`No unmatched design files found`), detecting newly placed design files on disk (`Unmatched files found`), and executing batch unmatched import (`Import X file(s)`).
+  - Clean test teardown: resetting backup destinations, removing temporary backup directories, and restoring the pristine seed database.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
