@@ -188,8 +188,9 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
-`reference-data.spec.ts`, `import.spec.ts`, `import-folder-selection.spec.ts` and
-`projects.spec.ts` for worked examples.
+`reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
+`import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for
+worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -228,6 +229,12 @@ the modal's own buttons.
   (Backup / Restore browse, Settings -> data-root browse, Orphans browse).
   Playwright cannot interact with OS dialogs; those need the picker command
   stubbed at the IPC layer.
+- `admin-tags.spec.ts` and `admin-designers.spec.ts` cover reference data CRUD
+  operations in the Manage Data admin hub (`#/admin/data/*`). Tag deletion uses
+  inline in-row DOM buttons (`Confirm delete` / `Cancel`) rather than native
+  dialogs. The spec also verifies system tag lock protection (81 seeded system
+  tags are immutable with `is_system = true`) and proves that deleting an assigned
+  user tag dissociates it from designs without deleting the designs themselves.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
@@ -264,12 +271,15 @@ Every spec in a worker shares one long-lived app instance and therefore one SQLi
 database, so a spec that creates rows leaves them behind for the specs that follow.
 Specs are executed in file order for that reason.
 
-`projects.spec.ts` is the main example: the seed catalogue has no projects, so it
-creates its own through the New Project form and declares its tests with
-`test.describe.serial` (later tests reuse projects created earlier). If a spec needs a
-known-empty or otherwise specific catalogue, give it its own data root via
-`app-fixture.ts` + `prepareEmptyDataRoot()` instead of assuming anything about the
-shared one.
+- Reference data specs (`admin-designers.spec.ts`, `admin-tags.spec.ts`) use
+  timestamped entity names (e.g. `Playwright Tag ${Date.now()}`) for newly
+  created or renamed items to avoid unique constraint collisions across test runs.
+- `projects.spec.ts` is the main example: the seed catalogue has no projects, so it
+  creates its own through the New Project form and declares its tests with
+  `test.describe.serial` (later tests reuse projects created earlier). If a spec needs a
+  known-empty or otherwise specific catalogue, give it its own data root via
+  `app-fixture.ts` + `prepareEmptyDataRoot()` instead of assuming anything about the
+  shared one.
 
 ## Troubleshooting
 
