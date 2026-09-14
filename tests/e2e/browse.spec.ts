@@ -637,27 +637,35 @@ const paginationNav = (page: Page): Locator =>
   page.getByRole("navigation", { name: "Browse pagination" });
 
 test.describe("card presentation", () => {
-  test("renders the tri-state verification indicator", async ({ page }) => {
+  test("renders the 4-state verification indicator", async ({ page }) => {
     await openBrowse(page);
 
     // Both tag groups verified -> green check.
     await search(page, "Cake 3.jef");
-    await expect(
-      browseCard(page, "Cake 3.jef").locator('[aria-label="Verified"]'),
-    ).toBeVisible();
+    const verifiedBadge = browseCard(page, "Cake 3.jef").locator(
+      '[aria-label="Verified"]',
+    );
+    await expect(verifiedBadge).toBeVisible();
+    await expect(verifiedBadge).toContainText("✓");
+    await expect(verifiedBadge).toHaveClass(/bg-green-500/);
 
     // Image verified, stitching unverified -> amber half indicator.
     await search(page, "Cross Stitch Fred");
-    await expect(
-      browseCard(page, "Cake 3 Cross Stitch Fred.jef").locator(
-        '[aria-label="Image Verified, Stitching Unverified"]',
-      ),
-    ).toBeVisible();
+    const imageVerifiedBadge = browseCard(
+      page,
+      "Cake 3 Cross Stitch Fred.jef",
+    ).locator('[aria-label="Image Verified, Stitching Unverified"]');
+    await expect(imageVerifiedBadge).toBeVisible();
+    await expect(imageVerifiedBadge).toContainText("◐");
+    await expect(imageVerifiedBadge).toHaveClass(/bg-amber-400/);
 
-    // Neither group verified -> amber unverified indicator.
+    // Neither group verified -> red unverified indicator with white circle.
     await search(page, "to be verified");
     const unverified = browseCard(page, "Cake 3 - to be verified.jef");
-    await expect(unverified.locator('[aria-label="Unverified"]')).toBeVisible();
+    const unverifiedBadge = unverified.locator('[aria-label="Unverified"]');
+    await expect(unverifiedBadge).toBeVisible();
+    await expect(unverifiedBadge).toContainText("○");
+    await expect(unverifiedBadge).toHaveClass(/bg-red-500/);
     await expect(unverified.locator('[aria-label="Verified"]')).toHaveCount(0);
     await expect(
       unverified.locator('[aria-label="Image Verified, Stitching Unverified"]'),
@@ -1203,6 +1211,7 @@ test.describe("batch mutations", () => {
     await expectTitles(page, ["Cake 3 - to be verified.jef"]);
 
     const card = browseCard(page, "Cake 3 - to be verified.jef");
+    await expect(card.locator('[aria-label="Unverified"]')).toBeVisible();
     await expect(card.locator('[aria-label="Verified"]')).toHaveCount(0);
 
     await page.locator(".browse-design-checkbox").first().check();
@@ -1213,5 +1222,10 @@ test.describe("batch mutations", () => {
         '[aria-label="Verified"]',
       ),
     ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      browseCard(page, "Cake 3 - to be verified.jef").locator(
+        '[aria-label="Unverified"]',
+      ),
+    ).toHaveCount(0);
   });
 });
