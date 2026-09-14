@@ -606,23 +606,21 @@
       <div
         class="lg:w-5/12 xl:w-2/5 lg:sticky lg:top-0 lg:self-start lg:max-h-full flex flex-col gap-3 p-4 pb-2 lg:pb-4 lg:border-r border-gray-200 overflow-y-auto"
       >
-        <!-- Filename -->
-        <div class="route-card">
-          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span>
-          <p class="font-medium text-gray-800 text-sm mt-0.5">{detailItem.filename || "Unknown"}</p>
+        <!-- Filename & File Path -->
+        <div class="route-card space-y-2">
+          <div>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span>
+            <p class="font-medium text-gray-800 text-sm mt-0.5">{detailItem.filename || "Unknown"}</p>
+          </div>
+          <div>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">File Path</span>
+            <p
+              class="mt-0.5 break-all font-mono text-xs text-gray-600 bg-gray-50 rounded border px-2.5 py-1.5"
+            >
+              {detailItem.filepath || "Unknown"}
+            </p>
+          </div>
         </div>
-
-        <!-- Filepath (collapsible) -->
-        <details class="text-xs">
-          <summary class="cursor-pointer text-gray-500 hover:text-gray-700 font-medium select-none"
-            >Show file path</summary
-          >
-          <p
-            class="mt-1 break-all font-mono text-xs text-gray-600 bg-gray-50 rounded border px-2.5 py-1.5"
-          >
-            {detailItem.filepath || "Unknown"}
-          </p>
-        </details>
 
         <!-- Preview image -->
         {#if detailItem.imageDataUrl}

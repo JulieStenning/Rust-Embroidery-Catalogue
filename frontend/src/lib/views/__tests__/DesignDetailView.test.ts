@@ -1296,13 +1296,14 @@ describe("DesignDetailView", () => {
       );
     });
 
-    it("renders the collapsible file path details", async () => {
+    it("renders the file path permanently", async () => {
       renderDetail();
 
       await waitFor(() => {
         expect(screen.getByText("C:/designs/rose-border-01.pes")).toBeInTheDocument();
       });
-      expect(screen.getByText("Show file path")).toBeInTheDocument();
+      expect(screen.getByText("File Path")).toBeInTheDocument();
+      expect(screen.queryByText("Show file path")).not.toBeInTheDocument();
     });
   });
 

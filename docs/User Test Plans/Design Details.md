@@ -20,8 +20,8 @@ This issue tracks the user-facing functionality for the **Design Details** view 
   - [ ] Header pagination accurately reflects record count (e.g., `< Prev`, `1 / 74`, `Next >`, `Print`)
   - [ ] **Left Panel Rendering**:
     - [ ] Navigation button `← Back to Browse` renders cleanly
-    - [ ] `FILENAME` card correctly displays active file name (e.g., `01dstPeacock - Copy.dst`)
-    - [ ] Expander `► Show file path` toggles full absolute file path display
+    - [ ] `FILENAME` card correctly displays active file name (e.g., `01dstPeacock - Copy.dst`) and permanent file path
+    - [ ] File path is displayed permanently under Filename (e.g., `C:/designs/01dstPeacock - Copy.dst`)
     - [ ] Image preview area renders 2D design image centered with clean borders
     - [ ] Quick action toolbar renders action buttons: `✏️ Open in Editor`, `📁 Show in Explorer`, `Render 3D Preview`
   - [ ] **Right Panel Rendering**:
