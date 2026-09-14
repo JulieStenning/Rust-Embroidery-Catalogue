@@ -189,7 +189,7 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
 `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
-`admin-sources.spec.ts`, `admin-hoops.spec.ts`, `import.spec.ts`,
+`admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `import.spec.ts`,
 `import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
@@ -294,6 +294,25 @@ await editingRow.getByRole("button", { name: "Save" }).click();
     (`design_count > 0`, e.g. seeded `Hoop B`) warning banner and toast
     (`Deleting '...' will clear assignment from X design(s).`), proving design records are preserved.
   - Sub-tab switching between Designers, Tags, Sources, and Hoops.
+- `batch-tagging.spec.ts` covers the **Tagging & Categorisation** workflow on the Batch
+  Operations admin page (`#/admin/batch-operations`, reached via top nav *Batch Operations*):
+  - Sub-tab switching between *Tagging & Categorisation* and *Maintenance & File Processing*.
+  - Unconfigured Google API key detection banner (`"No Google API key is configured in Settings..."`)
+    and Settings direct link (`#/admin/system/settings`).
+  - Disabling of Visual AI goals (`Enrich with visual AI`, `Full re-scan`) when no API key is set,
+    while keeping offline File & Folder rules enabled by default.
+  - 3-step workflow configuration: Goal selection, Scope selection with live candidate counters
+    (`X designs`, `X unverified · Y verified`), "Exclude human-verified designs" toggle,
+    and Merge strategy (`Add new tags only` vs `Complete reset`).
+  - Advanced options drawer (stitching tags, image regeneration, colour/stitch counts, hoop recalculation).
+  - Pre-flight confirmation modal (`Ready to Retag`) summary assertions and clean cancellation.
+  - Full end-to-end execution of offline File & Folder rules against real SQLite catalogue designs
+    (`Cake 3 - Food.jef`), verifying completion toasts, "Last run summary" metrics, Backfill log entries,
+    and tag persistence across `page.reload()`.
+  - Mock Google API key handling: testing UI enablement and dynamic AI scope attachment
+    (`Designs missing Visual AI analysis`, `Visual AI found no match`, `Re-analyze`) by saving a dummy key
+    in Settings and verifying time estimates in the confirmation modal without exposing real secrets
+    in the repository.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
