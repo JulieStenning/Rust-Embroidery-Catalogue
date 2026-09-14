@@ -189,8 +189,8 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
 `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
-`admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `import.spec.ts`,
-`import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
+`admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `batch-maintenance.spec.ts`,
+`import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -298,7 +298,7 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   Operations admin page (`#/admin/batch-operations`, reached via top nav *Batch Operations*):
   - Sub-tab switching between *Tagging & Categorisation* and *Maintenance & File Processing*.
   - Unconfigured Google API key detection banner (`"No Google API key is configured in Settings..."`)
-    and Settings direct link (`#/admin/system/settings`).
+  - and Settings direct link (`#/admin/system/settings`).
   - Disabling of Visual AI goals (`Enrich with visual AI`, `Full re-scan`) when no API key is set,
     while keeping offline File & Folder rules enabled by default.
   - 3-step workflow configuration: Goal selection, Scope selection with live candidate counters
@@ -313,6 +313,15 @@ await editingRow.getByRole("button", { name: "Save" }).click();
     (`Designs missing Visual AI analysis`, `Visual AI found no match`, `Re-analyze`) by saving a dummy key
     in Settings and verifying time estimates in the confirmation modal without exposing real secrets
     in the repository.
+- `batch-maintenance.spec.ts` covers the **Maintenance & File Processing** workflow on the Batch
+  Operations admin page (`#/admin/batch-operations`, reached via top nav *Batch Operations* -> *Maintenance & File Processing* tab):
+  - Sub-tab navigation and tab active state assertions (`aria-selected="true"`).
+  - Target scope selection (Step 1): "Entire catalogue" (`scope = "all"`) vs "Designs missing preview images only" (`scope = "missing_previews"`), including live missing preview count badge population (seeded `ZZ-broken*.pes`).
+  - Maintenance tasks form validation (Step 2): verifying "Review & Start Maintenance" is disabled when no tasks are checked, and dynamically enabled when checking "Generate preview images", "Recalculate colour / stitch counts", or "Recalculate hoops / dimensions".
+  - Pre-flight confirmation modal (`Ready to Run Maintenance`) summary assertions (target scope and bulleted list of tasks) and cancellation.
+  - Full end-to-end execution of maintenance passes against SQLite catalogue designs, verifying completion toasts (`Maintenance complete: X operations, 0 errors.`), "Last run summary" card metrics and task breakdown (`Tasks run: color_counts, hoop_dimensions`), and Backfill log entries.
+  - Missing previews thumbnail pass & "Needs attention" handling: running preview generation on broken fixtures (`ZZ-broken*.pes`) and verifying the "Needs attention: X before → Y after" summary with the "Review these in Browse" deep link leading to Browse Designs with the filter active.
+  - Unmatched design files reconciler (`UnmatchedFilesReconciler`): scanning clean directory states (`No unmatched design files found`), detecting newly placed design files on disk (`Unmatched files found` prompt), testing user dismissal, and executing batch unmatched import (`Import X file(s)`).
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
