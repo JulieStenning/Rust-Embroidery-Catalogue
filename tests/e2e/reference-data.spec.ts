@@ -29,7 +29,9 @@ test.describe("reference data", () => {
       page.getByRole("heading", { name: "Manage Designers" }),
     ).toBeVisible();
 
-    const name = "Playwright Designer";
+    // A timestamped name keeps the test idempotent across retries (designer names
+    // are unique, case-insensitively).
+    const name = `Playwright Designer ${Date.now()}`;
     await page.getByPlaceholder("New designer name...").fill(name);
     await page.getByRole("button", { name: "Add", exact: true }).click();
 
