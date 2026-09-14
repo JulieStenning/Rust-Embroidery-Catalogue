@@ -187,9 +187,9 @@ import { test, expect } from './fixtures';
 import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
-See `navigation.spec.ts`, `settings.spec.ts`, `reference-data.spec.ts`,
-`import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for
-worked examples.
+See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
+`reference-data.spec.ts`, `import.spec.ts`, `import-folder-selection.spec.ts` and
+`projects.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
