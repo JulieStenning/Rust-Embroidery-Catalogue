@@ -73,7 +73,7 @@ fast pre-flight before `npx playwright test`.
 
 Reference data: designers `Me`, `Wrenwood Studio`, `Thistlebury Stitch`, `Quillmark Designs`;
 sources `Me`, `Heirloom Stash`, `Loomthread Embroidery Suite`, `Threadwise Guild`;
-hoops `Hoop A` (126×110), `Hoop B` (200×140), `Giga Hoop` (230×200); no projects
+hoops `Hoop A` (126×110), `Hoop B` (200×140), `Gigahoop` (230×200); no projects
 (the project pickers therefore render their empty state). The 81 system tags already exist.
 
 `projects.spec.ts` also leans on this contract: the seed has **no projects** (so that
@@ -189,8 +189,8 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
 `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
-`admin-sources.spec.ts`, `import.spec.ts`, `import-folder-selection.spec.ts`
-and `projects.spec.ts` for worked examples.
+`admin-sources.spec.ts`, `admin-hoops.spec.ts`, `import.spec.ts`,
+`import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -280,6 +280,20 @@ await editingRow.getByRole("button", { name: "Save" }).click();
     (`design_count > 0`, e.g. seeded `Threadwise Guild` / `Me`) warning banner and toast
     (`Deleting '...' will clear assignment from X design(s).`), proving design records are preserved.
   - Sub-tab switching between Designers, Tags, Sources, and Hoops.
+- `admin-hoops.spec.ts` covers the Hoop management lifecycle in the Manage Data
+  admin hub (`#/admin/data/hoops`, reached via top nav *Manage Data* -> *Hoops* tab):
+  - Dimension-based sorting verification (`max_width_mm ASC, max_height_mm ASC`) and seed
+    contract verification (`Hoop A` 126×110, `Hoop B` 200×140, `Gigahoop` 230×200).
+  - Add form input validation states (name, width, height) and the `Clear` button.
+  - Reserved hoop name rejection (`"__hoop_unknown__"` is reserved for system use).
+  - Adding new hoops and verifying real SQLite persistence across `page.reload()`.
+  - Backend duplicate rejection (case-insensitive collision returns `invalid input: Hoop '...' already exists.`).
+  - Inline editing with cancellation, input detail validation (`Enter hoop details.`),
+    reserved name rejection, duplicate collision rejection, and persistence across `page.reload()`.
+  - Two-tier deletion flow: 0-design deletion confirmation prompt vs. assigned-hoop
+    (`design_count > 0`, e.g. seeded `Hoop B`) warning banner and toast
+    (`Deleting '...' will clear assignment from X design(s).`), proving design records are preserved.
+  - Sub-tab switching between Designers, Tags, Sources, and Hoops.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
@@ -335,7 +349,8 @@ database, so a spec that creates rows leaves them behind for the specs that foll
 Specs are executed in file order for that reason.
 
 - Reference data specs (`admin-designers.spec.ts`, `admin-tags.spec.ts`,
-  `admin-sources.spec.ts`) use timestamped entity names (e.g. `Playwright Source ${Date.now()}`)
+  `admin-sources.spec.ts`, `admin-hoops.spec.ts`) use timestamped entity names
+  (e.g. `Playwright Source ${Date.now()}`, `Playwright Hoop ${Date.now()}`)
   for newly created or renamed items to avoid unique constraint collisions across test runs.
 - `projects.spec.ts` is the main example: the seed catalogue has no projects, so it
   creates its own through the New Project form and declares its tests with
