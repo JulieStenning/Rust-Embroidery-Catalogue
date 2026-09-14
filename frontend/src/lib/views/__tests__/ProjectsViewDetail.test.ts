@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/svelte";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
 import ProjectsView from "../ProjectsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -196,32 +196,35 @@ describe("ProjectsView detail view", () => {
   });
 
   it("does not delete the project when the confirmation is cancelled", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    try {
-      renderProjects();
-      await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
-      await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
-      expect(adapterMock.deleteProject).not.toHaveBeenCalled();
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    renderProjects();
+    await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+    await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText(/Delete project\?/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Wedding Collection/i)).toBeInTheDocument();
+
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(adapterMock.deleteProject).not.toHaveBeenCalled();
   });
 
   it("deletes the project after confirmation and navigates to #/projects", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const navigateTo = vi.fn();
-    try {
-      renderProjects({ navigateTo });
-      await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
-      await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
-      await waitFor(() => {
-        expect(adapterMock.deleteProject).toHaveBeenCalledWith(1);
-        expect(toastMock.addToast).toHaveBeenCalledWith("Project deleted.", "success");
-      });
-      expect(navigateTo).toHaveBeenCalledWith("#/projects");
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    renderProjects({ navigateTo });
+    await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+    await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Delete project" }));
+    await waitFor(() => {
+      expect(adapterMock.deleteProject).toHaveBeenCalledWith(1);
+      expect(toastMock.addToast).toHaveBeenCalledWith("Project deleted.", "success");
+    });
+    expect(navigateTo).toHaveBeenCalledWith("#/projects");
   });
 
   it("renders the default error message when the detail item is null without an error", async () => {
@@ -278,19 +281,18 @@ describe("ProjectsView detail view", () => {
       message: "Could not delete project: boom",
       error: "boom",
     });
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const navigateTo = vi.fn();
-    try {
-      renderProjects({ navigateTo });
-      await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
-      await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
-      await waitFor(() => {
-        expect(toastMock.addToast).toHaveBeenCalledWith("Could not delete project: boom", "error");
-      });
-      expect(navigateTo).not.toHaveBeenCalled();
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    renderProjects({ navigateTo });
+    await waitFor(() => expect(screen.getByText("rose-border.pes")).toBeInTheDocument());
+    await fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
+
+    const dialog = screen.getByRole("dialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Delete project" }));
+
+    await waitFor(() => {
+      expect(toastMock.addToast).toHaveBeenCalledWith("Could not delete project: boom", "error");
+    });
+    expect(navigateTo).not.toHaveBeenCalled();
   });
 
   it("shows an error toast and does not reload when removing a design fails", async () => {

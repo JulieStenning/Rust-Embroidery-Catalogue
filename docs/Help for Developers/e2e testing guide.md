@@ -76,6 +76,11 @@ sources `Me`, `Heirloom Stash`, `Loomthread Embroidery Suite`, `Threadwise Guild
 hoops `Hoop A` (126×110), `Hoop B` (200×140), `Giga Hoop` (230×200); no projects
 (the project pickers therefore render their empty state). The 81 system tags already exist.
 
+`projects.spec.ts` also leans on this contract: the seed has **no projects** (so that
+spec creates its own through the UI), and its print-sheet test contrasts a
+fully-populated design (`Cake 3.jef` — size/hoop/designer/rating) with one that has no
+metadata at all (`ZZ-broken.pes`) to prove the "skip empty fields" behaviour.
+
 | filepath | designer | hoop (derived) | rating | stitched | image/stitch verified | tags | preview |
 |---|---|---|---|---|---|---|---|
 | `Cake 3.jef` | Me | **Hoop B** (asserted) | 4 | yes | yes / yes | `Food`, `Cross Stitch` | yes |
@@ -183,7 +188,8 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
 See `navigation.spec.ts`, `settings.spec.ts`, `reference-data.spec.ts`,
-`import.spec.ts` and `import-folder-selection.spec.ts` for worked examples.
+`import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for
+worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -196,6 +202,21 @@ test.use({ dataRoot: EMPTY_DATA_ROOT_PATH });
 ```
 
 See `import-hoop-setup.spec.ts` (the first-import hoop gate) for a worked example.
+
+### JavaScript dialogs are not DOM modals
+
+A native `window.confirm` / `window.alert` / `window.prompt` is a JavaScript dialog
+owned by the webview; it is **not** a DOM modal, so `getByRole("dialog")` will not find
+it. Drive it through Playwright's dialog event instead:
+
+```ts
+page.once("dialog", (dialog) => dialog.accept()); // or dialog.dismiss()
+await page.getByRole("button", { name: "Delete Project" }).click();
+```
+
+Assert what the dialog says from inside the handler (`dialog.message()`). If the app
+later replaces it with a styled in-app modal, switch to `getByRole("dialog")` and click
+the modal's own buttons.
 
 ## What can (and cannot) be automated
 
@@ -217,6 +238,14 @@ See `import-hoop-setup.spec.ts` (the first-import hoop gate) for a worked exampl
   catalogue (the scans target throwaway folders under `tests/e2e/`), so it is cheap
   enough to run on its own:
   `npx playwright test tests/e2e/import-folder-selection.spec.ts`.
+- `projects.spec.ts` covers the Projects workflows (list / new / detail / print). The
+  shared catalogue starts with **no projects**, so the spec creates them through the New
+  Project form and links designs from Design Detail; it also proves that deleting a
+  project preserves the design records. It declares its tests with
+  `test.describe.serial` because later tests reuse projects created earlier, and its
+  empty-state case runs against its own throwaway empty root (`app-fixture` +
+  `prepareEmptyDataRoot`). The **Print** trigger is verified by stubbing `window.print()`
+  so the native OS print dialog never opens.
 
 ## Shared wizard state between tests
 
@@ -229,6 +258,19 @@ it first. Helpers live in `tests/e2e/helpers.ts`:
 - `runImportToPrecheck(page, folder)` — drive folder -> scan -> review -> step 3.
 - `folderRows(page)` — the step 1 folder rows (one per source folder).
 
+## Shared catalogue state between tests
+
+Every spec in a worker shares one long-lived app instance and therefore one SQLite
+database, so a spec that creates rows leaves them behind for the specs that follow.
+Specs are executed in file order for that reason.
+
+`projects.spec.ts` is the main example: the seed catalogue has no projects, so it
+creates its own through the New Project form and declares its tests with
+`test.describe.serial` (later tests reuse projects created earlier). If a spec needs a
+known-empty or otherwise specific catalogue, give it its own data root via
+`app-fixture.ts` + `prepareEmptyDataRoot()` instead of assuming anything about the
+shared one.
+
 ## Troubleshooting
 
 - Debug executable not found -> run `npm run e2e:build`.
@@ -238,3 +280,7 @@ it first. Helpers live in `tests/e2e/helpers.ts`:
   plain `cargo build`; rebuild with `npm run e2e:build`.
 - Changes not reflected -> tests run against the built app, so re-run
   `npm run e2e:build` after any Rust or frontend change.
+- **`e2e:build` fails with `Access is denied. (os error 5)`** while removing
+  `target/debug/embroidery-catalogue.exe` -> a previously launched app instance is
+  still running and holds the binary. Close the app window (or
+  `Stop-Process -Name embroidery-catalogue -Force`) and rebuild.

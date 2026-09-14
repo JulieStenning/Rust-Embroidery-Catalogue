@@ -10,6 +10,7 @@
     getProjectPrintView,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import ConfirmDeleteProjectModal from "../components/ConfirmDeleteProjectModal.svelte";
 
   let { currentUiKind, projectDetailId, projectPrintId, navigateTo } = $props();
 
@@ -32,6 +33,7 @@
   let projectDetailDescription = $state("");
   let projectDetailOriginalName = $state("");
   let projectDetailOriginalDescription = $state("");
+  let deleteProjectModalOpen = $state(false);
 
   /** @type {import("../types/ipc").ProjectDetailView | null} */
   let projectPrint = $state(null);
@@ -176,17 +178,23 @@
     }
   }
 
-  async function confirmDeleteProject() {
+  function openDeleteProjectModal() {
     if (!projectDetail?.project?.id || projectDetailSaving) return;
+    deleteProjectModalOpen = true;
+  }
 
-    const confirmed = window.confirm(
-      `Delete project "${projectDetail.project.name || ""}"? This cannot be undone.`
-    );
-    if (!confirmed) return;
+  function closeDeleteProjectModal() {
+    if (projectDetailSaving) return;
+    deleteProjectModalOpen = false;
+  }
+
+  async function executeDeleteProject() {
+    if (!projectDetail?.project?.id || projectDetailSaving) return;
 
     projectDetailSaving = true;
     const result = await deleteProject(projectDetail.project.id);
     projectDetailSaving = false;
+    deleteProjectModalOpen = false;
 
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
@@ -411,7 +419,7 @@
         {/if}
         <button
           class="projects-danger-link text-sm text-red-500 hover:underline"
-          onclick={confirmDeleteProject}
+          onclick={openDeleteProjectModal}
           disabled={projectDetailSaving || !projectDetail?.project?.id}>Delete Project</button
         >
       </div>
@@ -624,3 +632,11 @@
     </div>
   </section>
 {/if}
+
+<ConfirmDeleteProjectModal
+  open={deleteProjectModalOpen}
+  projectName={projectDetail?.project?.name ?? ""}
+  isDeleting={projectDetailSaving}
+  onClose={closeDeleteProjectModal}
+  onConfirm={executeDeleteProject}
+/>
