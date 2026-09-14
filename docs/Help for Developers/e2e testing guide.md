@@ -219,6 +219,27 @@ Assert what the dialog says from inside the handler (`dialog.message()`). If the
 later replaces it with a styled in-app modal, switch to `getByRole("dialog")` and click
 the modal's own buttons.
 
+### In-row inline editing vs static cells
+
+Admin tables (such as Manage Designers and Manage Tags) support in-place inline
+editing. When a row enters edit mode, the static cell text is replaced by an
+`<input class="admin-input">` element.
+
+If your locator filters by cell text (e.g. `page.locator("tr", { has: page.getByRole("cell", { name: originalName }) })`),
+it will **no longer match** while the row is being edited. Scope the active row
+via its input instead:
+
+```ts
+// Enter edit mode
+await row.getByRole("button", { name: "Edit" }).click();
+
+// Locate the editing row and its controls
+const editingRow = page.locator("tr", { has: page.locator("input.admin-input") });
+const editInput = editingRow.locator("input.admin-input");
+await editInput.fill(updatedName);
+await editingRow.getByRole("button", { name: "Save" }).click();
+```
+
 ## What can (and cannot) be automated
 
 - **Drivable:** anything reached through the in-app UI - including flows that
@@ -229,12 +250,23 @@ the modal's own buttons.
   (Backup / Restore browse, Settings -> data-root browse, Orphans browse).
   Playwright cannot interact with OS dialogs; those need the picker command
   stubbed at the IPC layer.
-- `admin-tags.spec.ts` and `admin-designers.spec.ts` cover reference data CRUD
-  operations in the Manage Data admin hub (`#/admin/data/*`). Tag deletion uses
-  inline in-row DOM buttons (`Confirm delete` / `Cancel`) rather than native
-  dialogs. The spec also verifies system tag lock protection (81 seeded system
-  tags are immutable with `is_system = true`) and proves that deleting an assigned
-  user tag dissociates it from designs without deleting the designs themselves.
+- `admin-designers.spec.ts` covers the full Designer management lifecycle in the
+  Manage Data admin hub (`#/admin/data/designers`, reached via top nav *Manage Data*):
+  - Alphabetical case-insensitive sorting and seed contract verification (`Me`,
+    `Quillmark Designs`, `Thistlebury Stitch`, `Wrenwood Studio`).
+  - Add form input validation states and the `Clear` button.
+  - Adding new designers and verifying real SQLite persistence across `page.reload()`.
+  - Backend duplicate rejection (case-insensitive collision returns `invalid input: Designer '...' already exists.`).
+  - Inline editing with cancellation, empty-name validation (`Enter a designer name.`), and persistence.
+  - Two-tier deletion flow: 0-design deletion confirmation prompt vs. assigned-designer
+    (`design_count > 0`, e.g. seeded `Me`) warning banner and toast (`Deleting 'Me' will clear assignment from X design(s).`),
+    proving design records are preserved.
+  - Sub-tab switching between Designers, Tags, Sources, and Hoops.
+- `admin-tags.spec.ts` covers Tag reference data CRUD operations (`#/admin/data/tags`).
+  Tag deletion uses inline in-row DOM buttons (`Confirm delete` / `Cancel`) rather
+  than native dialogs. The spec also verifies system tag lock protection (81 seeded
+  system tags are immutable with `is_system = true`) and proves that deleting an
+  assigned user tag dissociates it from designs without deleting the designs themselves.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
@@ -245,6 +277,13 @@ the modal's own buttons.
   catalogue (the scans target throwaway folders under `tests/e2e/`), so it is cheap
   enough to run on its own:
   `npx playwright test tests/e2e/import-folder-selection.spec.ts`.
+- `help.spec.ts` covers the Help system (`#/help`), including in-page Table of
+  Contents section jumps (`#/help?section=...`), contextual entry points from
+  other views ("Search help" on Browse, "Import help" on Import, and "Learn more"
+  on Projects), and outbound cross-links to app pages and About document guides.
+  External reference links (e.g. Google AI Studio) are asserted with
+  `toHaveAttribute("href", ...)` rather than clicked, avoiding navigating WebView2
+  outside the desktop app.
 - `projects.spec.ts` covers the Projects workflows (list / new / detail / print). The
   shared catalogue starts with **no projects**, so the spec creates them through the New
   Project form and links designs from Design Detail; it also proves that deleting a
@@ -264,6 +303,17 @@ it first. Helpers live in `tests/e2e/helpers.ts`:
   clearing the input when Reset is disabled because no path is set).
 - `runImportToPrecheck(page, folder)` — drive folder -> scan -> review -> step 3.
 - `folderRows(page)` — the step 1 folder rows (one per source folder).
+
+## Shared routing history between tests
+
+The app instance is long-lived within each worker, so in-memory routing state
+(such as `previousRoute` used by the shell's context-aware `← Back` button)
+persists across test cases.
+
+- When testing a cold-launch or deep-link scenario where the `← Back` button
+  should be hidden (e.g. landing on `#/help` directly with no prior history),
+  call `await gotoRoute(page, "#/help")` followed by `await page.reload()` to
+  re-mount the frontend and reset in-memory route history.
 
 ## Shared catalogue state between tests
 
