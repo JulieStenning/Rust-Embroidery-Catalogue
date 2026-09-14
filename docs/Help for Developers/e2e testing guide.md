@@ -189,8 +189,8 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
 `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
-`import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for
-worked examples.
+`admin-sources.spec.ts`, `import.spec.ts`, `import-folder-selection.spec.ts`
+and `projects.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -267,6 +267,19 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   than native dialogs. The spec also verifies system tag lock protection (81 seeded
   system tags are immutable with `is_system = true`) and proves that deleting an
   assigned user tag dissociates it from designs without deleting the designs themselves.
+- `admin-sources.spec.ts` covers the Source management lifecycle in the Manage Data
+  admin hub (`#/admin/data/sources`, reached via top nav *Manage Data* -> *Sources* tab):
+  - Alphabetical case-insensitive sorting and seed contract verification (`Heirloom Stash`,
+    `Loomthread Embroidery Suite`, `Me`, `Threadwise Guild`).
+  - Add form input validation states and the `Clear` button.
+  - Adding new sources and verifying real SQLite persistence across `page.reload()`.
+  - Backend duplicate rejection (case-insensitive collision returns `invalid input: Source '...' already exists.`).
+  - Inline editing with cancellation, empty-name validation (`Enter a source name.`),
+    duplicate collision rejection, and persistence across `page.reload()`.
+  - Two-tier deletion flow: 0-design deletion confirmation prompt vs. assigned-source
+    (`design_count > 0`, e.g. seeded `Threadwise Guild` / `Me`) warning banner and toast
+    (`Deleting '...' will clear assignment from X design(s).`), proving design records are preserved.
+  - Sub-tab switching between Designers, Tags, Sources, and Hoops.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
@@ -321,9 +334,9 @@ Every spec in a worker shares one long-lived app instance and therefore one SQLi
 database, so a spec that creates rows leaves them behind for the specs that follow.
 Specs are executed in file order for that reason.
 
-- Reference data specs (`admin-designers.spec.ts`, `admin-tags.spec.ts`) use
-  timestamped entity names (e.g. `Playwright Tag ${Date.now()}`) for newly
-  created or renamed items to avoid unique constraint collisions across test runs.
+- Reference data specs (`admin-designers.spec.ts`, `admin-tags.spec.ts`,
+  `admin-sources.spec.ts`) use timestamped entity names (e.g. `Playwright Source ${Date.now()}`)
+  for newly created or renamed items to avoid unique constraint collisions across test runs.
 - `projects.spec.ts` is the main example: the seed catalogue has no projects, so it
   creates its own through the New Project form and declares its tests with
   `test.describe.serial` (later tests reuse projects created earlier). If a spec needs a
