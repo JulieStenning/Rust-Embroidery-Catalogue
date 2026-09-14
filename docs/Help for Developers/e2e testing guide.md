@@ -187,7 +187,7 @@ import { test, expect } from './fixtures';
 import { clickNav, gotoRoute, expectMainView } from './helpers';
 ```
 
-See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`,
+See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`, `backup.spec.ts`,
 `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
 `admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `batch-maintenance.spec.ts`,
 `import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
@@ -333,6 +333,15 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   - Database Maintenance & Diagnostics: inspecting storage usage badges (database size, recoverable space) and executing manual compaction (`Optimize & Compact Database`), asserting reclaimed page counts and updated stats.
   - System storage locations inspection and in-page documentation cross-links (Help and Batch Operations).
   - Clean test restoration: resetting configuration back to empty/default states at test completion.
+- `backup.spec.ts` covers the **Backup** workflow on the **Backup & Restore** page (`#/admin/system/backup`, reached via top nav *System* -> *Backup & Restore* tab):
+  - Top navigation and deep linking (`#/admin/system/backup`), sub-tab switching between *Backup* and *Restore*, and tab active state assertions (`aria-selected="true"`).
+  - Initial clean form state verification: ensuring "Save destinations" starts disabled when paths are unchanged and action buttons ("Backup Database Now", "Run incremental backup", "Backup Everything Now") are disabled when destinations are unconfigured.
+  - Granular dirty state tracking: modifying either destination field enables "Save destinations", while reverting to original values re-disables it.
+  - Destination settings persistence across `page.reload()`: saving database and designs destination paths, verifying SQLite round-trip preservation.
+  - Full Database Backup execution: triggering "Backup Database Now" against throwaway test directories, verifying creation and non-zero size of timestamped `catalogue_*.db` snapshot files on disk, toast notifications, and `lastDbBackupAt` timestamp updates that survive page reloads.
+  - Incremental Designs Backup execution: triggering "Run incremental backup", verifying mirrored files on disk (`MachineEmbroideryDesigns` copies), timestamp updates, and testing incremental second-pass skipping (`copied 0, unchanged > 0`).
+  - Combined Backup execution: triggering "Backup Everything Now", asserting combined success toasts and dual timestamp updates.
+  - Clean test teardown: resetting configured destination paths to empty and removing temporary backup directories.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
