@@ -322,6 +322,17 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   - Full end-to-end execution of maintenance passes against SQLite catalogue designs, verifying completion toasts (`Maintenance complete: X operations, 0 errors.`), "Last run summary" card metrics and task breakdown (`Tasks run: color_counts, hoop_dimensions`), and Backfill log entries.
   - Missing previews thumbnail pass & "Needs attention" handling: running preview generation on broken fixtures (`ZZ-broken*.pes`) and verifying the "Needs attention: X before → Y after" summary with the "Review these in Browse" deep link leading to Browse Designs with the filter active.
   - Unmatched design files reconciler (`UnmatchedFilesReconciler`): scanning clean directory states (`No unmatched design files found`), detecting newly placed design files on disk (`Unmatched files found` prompt), testing user dismissal, and executing batch unmatched import (`Import X file(s)`).
+- `settings.spec.ts` covers the **Settings** tab on the **Application Settings** page (`#/admin/system/settings`, reached via top nav *System*):
+  - Top navigation and deep linking (`#/admin/system` defaulting to `#/admin/system/settings`), plus sub-tab switching between *Settings*, *Backup & Restore*, and *Orphaned Files*.
+  - Initial clean form state verification: ensuring "Save settings" starts disabled and the unsaved changes indicator (`settings-dirty-hint`) is hidden.
+  - Granular dirty state tracking and reversion: modifying any editable field marks the form dirty and enables Save, while restoring original values re-cleans the form.
+  - API key password masking/unmasking toggle (`aria-pressed`, `type="password"` vs `type="text"`).
+  - Free-tier rate-limit toggle: dynamically adapting worker (2 vs 4) and delay (10s vs 0s) placeholder guidance.
+  - Mock Gemini API key lifecycle: entering a mock key dynamically enables the Gemini model dropdown, Refresh button, and Test model action without requiring real secrets or incurring external API costs.
+  - Full settings persistence across `page.reload()`: saving batch sizes, commit intervals, workers, delay, idle check intervals, and mock API keys, verifying SQLite round-trip preservation.
+  - Database Maintenance & Diagnostics: inspecting storage usage badges (database size, recoverable space) and executing manual compaction (`Optimize & Compact Database`), asserting reclaimed page counts and updated stats.
+  - System storage locations inspection and in-page documentation cross-links (Help and Batch Operations).
+  - Clean test restoration: resetting configuration back to empty/default states at test completion.
 - `import.spec.ts` is slow (scan + copy + DB writes, ~30-40s) and confirms a
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
