@@ -34,7 +34,7 @@ Create a test coverage skill and establish a release-quality baseline
 ## Body
 We need a reusable workflow for improving test coverage safely before making larger public-release changes. This should define how we expand tests, where to focus first, and what "good enough" coverage means for this app.
 
-Focus first on the highest-risk areas such as `src/routes/bulk_import.rs`, `src/services/auto_tagging.rs`, `src/routes/designs.rs` (search parsing lives here), and portable launcher smoke coverage (e.g., running the built debug/release EXEs via `start-rust-app-no-build.bat` / `start-rust-debug-exe.bat`). This issue should also capture the current `cargo test` baseline — 891 passing as of `docs/Plans/rust-refactor.md` Phase 0 — and set expectations for future test-backed changes.
+Focus first on the highest-risk areas such as `src/routes/bulk_import.rs`, `src/services/auto_tagging.rs`, `src/routes/designs.rs` (search parsing lives here), and portable launcher smoke coverage (e.g., running the built debug/release EXEs via `start-rust-app-no-build.bat` / `start-rust-debug-exe.bat`). This issue should also capture the current `cargo test` baseline and align with the guidelines in [`docs/policies/refactoring/REFACTORING_RULES.md`](../policies/refactoring/REFACTORING_RULES.md) for future test-backed changes.
 
 ---
 
