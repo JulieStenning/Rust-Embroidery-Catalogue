@@ -979,10 +979,17 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
     };
 
     // Recursive: all four Flowers designs (direct + nested), not design 5.
-    let recursive =
-        select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &[scope.clone()], true)
-            .await
-            .unwrap();
+    let recursive = select_tagging_design_ids(
+        &pool,
+        "retag_all",
+        100,
+        0,
+        false,
+        std::slice::from_ref(&scope),
+        true,
+    )
+    .await
+    .unwrap();
     assert!(recursive.contains(&1));
     assert!(recursive.contains(&2));
     assert!(recursive.contains(&3));
@@ -990,23 +997,31 @@ async fn folder_scope_filters_candidates_recursively_and_direct_only() {
     assert!(!recursive.contains(&5));
 
     // Direct-only: designs 1, 3, 4 but not 2 (nested under sub/).
-    let direct =
-        select_tagging_design_ids(&pool, "retag_all", 100, 0, false, &[scope.clone()], false)
-            .await
-            .unwrap();
+    let direct = select_tagging_design_ids(
+        &pool,
+        "retag_all",
+        100,
+        0,
+        false,
+        std::slice::from_ref(&scope),
+        false,
+    )
+    .await
+    .unwrap();
     assert!(direct.contains(&1));
     assert!(direct.contains(&3));
     assert!(direct.contains(&4));
     assert!(!direct.contains(&2));
 
     // Counts align with the candidate set.
-    let counts = count_tagging_candidates(&pool, "retag_all", &[scope.clone()], true)
+    let counts = count_tagging_candidates(&pool, "retag_all", std::slice::from_ref(&scope), true)
         .await
         .unwrap();
     assert_eq!(counts.total_count, 4);
-    let counts_direct = count_tagging_candidates(&pool, "retag_all", &[scope.clone()], false)
-        .await
-        .unwrap();
+    let counts_direct =
+        count_tagging_candidates(&pool, "retag_all", std::slice::from_ref(&scope), false)
+            .await
+            .unwrap();
     assert_eq!(counts_direct.total_count, 3);
 }
 
@@ -1457,7 +1472,9 @@ async fn select_image_candidates_normal_picks_designs_with_null_image() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let ids = select_image_candidates(&pool, false, 100, 0, None).await.unwrap();
+    let ids = select_image_candidates(&pool, false, 100, 0, None)
+        .await
+        .unwrap();
     assert_eq!(ids, vec![2]);
 }
 
@@ -1467,7 +1484,9 @@ async fn select_image_candidates_redo_includes_all() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let ids = select_image_candidates(&pool, true, 100, 0, None).await.unwrap();
+    let ids = select_image_candidates(&pool, true, 100, 0, None)
+        .await
+        .unwrap();
     assert_eq!(ids.len(), 2);
 }
 
@@ -1516,7 +1535,9 @@ async fn select_color_count_candidates_picks_designs_with_null_counts() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1,2,3 with null stitch/color/color_change
 
-    let ids = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
+    let ids = select_color_count_candidates(&pool, 100, 0, None, false, false)
+        .await
+        .unwrap();
     assert_eq!(ids.len(), 3);
 }
 
@@ -1529,7 +1550,9 @@ async fn select_color_count_candidates_excludes_designs_with_all_counts() {
             .await
             .unwrap();
 
-    let ids = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
+    let ids = select_color_count_candidates(&pool, 100, 0, None, false, false)
+        .await
+        .unwrap();
     assert!(!ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
@@ -1566,7 +1589,6 @@ async fn select_hoop_dimension_candidates_excludes_designs_with_dimensions_and_h
     assert!(ids.contains(&2));
     assert!(ids.contains(&3));
 }
-
 
 // ---------------------------------------------------------------------------
 // Scoped maintenance: when a tagging action is present in the same request, the
@@ -2589,12 +2611,19 @@ async fn select_color_count_candidates_respects_missing_previews_only() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let all = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
+    let all = select_color_count_candidates(&pool, 100, 0, None, false, false)
+        .await
+        .unwrap();
     assert!(all.contains(&1) && all.contains(&2));
 
-    let missing_only = select_color_count_candidates(&pool, 100, 0, None, true, false).await.unwrap();
+    let missing_only = select_color_count_candidates(&pool, 100, 0, None, true, false)
+        .await
+        .unwrap();
     assert!(missing_only.contains(&2));
-    assert!(!missing_only.contains(&1), "colour/stitch recalculation must not run on designs that already have a preview");
+    assert!(
+        !missing_only.contains(&1),
+        "colour/stitch recalculation must not run on designs that already have a preview"
+    );
 }
 
 #[tokio::test]
@@ -2603,9 +2632,14 @@ async fn select_hoop_dimension_candidates_respects_missing_previews_only() {
     seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
     seed_design_with_image(&pool, 2, None, None).await;
 
-    let missing_only = select_hoop_dimension_candidates(&pool, 100, 0, None, true, false).await.unwrap();
+    let missing_only = select_hoop_dimension_candidates(&pool, 100, 0, None, true, false)
+        .await
+        .unwrap();
     assert!(missing_only.contains(&2));
-    assert!(!missing_only.contains(&1), "hoop/dimension recalculation must not run on designs that already have a preview");
+    assert!(
+        !missing_only.contains(&1),
+        "hoop/dimension recalculation must not run on designs that already have a preview"
+    );
 }
 
 #[tokio::test]
@@ -2619,12 +2653,22 @@ async fn select_color_count_candidates_overwrite_includes_designs_with_existing_
         .unwrap();
 
     // Gap-fill (overwrite = false) skips a design that already has counts.
-    let gap = select_color_count_candidates(&pool, 100, 0, None, false, false).await.unwrap();
-    assert!(!gap.contains(&1), "gap-fill should not recompute a design that already has counts");
+    let gap = select_color_count_candidates(&pool, 100, 0, None, false, false)
+        .await
+        .unwrap();
+    assert!(
+        !gap.contains(&1),
+        "gap-fill should not recompute a design that already has counts"
+    );
 
     // Overwrite (scope 'all') recomputes it anyway.
-    let overwritten = select_color_count_candidates(&pool, 100, 0, None, false, true).await.unwrap();
-    assert!(overwritten.contains(&1), "overwrite must recompute a design that already has counts");
+    let overwritten = select_color_count_candidates(&pool, 100, 0, None, false, true)
+        .await
+        .unwrap();
+    assert!(
+        overwritten.contains(&1),
+        "overwrite must recompute a design that already has counts"
+    );
 }
 
 #[tokio::test]
@@ -2637,9 +2681,19 @@ async fn select_hoop_dimension_candidates_overwrite_includes_designs_with_existi
         .await
         .unwrap();
 
-    let gap = select_hoop_dimension_candidates(&pool, 100, 0, None, false, false).await.unwrap();
-    assert!(!gap.contains(&1), "gap-fill should not recompute a design that already has dimensions");
+    let gap = select_hoop_dimension_candidates(&pool, 100, 0, None, false, false)
+        .await
+        .unwrap();
+    assert!(
+        !gap.contains(&1),
+        "gap-fill should not recompute a design that already has dimensions"
+    );
 
-    let overwritten = select_hoop_dimension_candidates(&pool, 100, 0, None, false, true).await.unwrap();
-    assert!(overwritten.contains(&1), "overwrite must recompute a design that already has dimensions");
+    let overwritten = select_hoop_dimension_candidates(&pool, 100, 0, None, false, true)
+        .await
+        .unwrap();
+    assert!(
+        overwritten.contains(&1),
+        "overwrite must recompute a design that already has dimensions"
+    );
 }

@@ -579,8 +579,8 @@ async fn test_storage_migration_derives_and_helpers() {
     let _prog_clone = prog.clone();
     let _prog_json = serde_json::to_value(&prog).unwrap();
 
-    let prog_zero = StorageMigrationProgress::new("copy", "msg".to_string())
-        .with_totals(0, 0, 0, 0);
+    let prog_zero =
+        StorageMigrationProgress::new("copy", "msg".to_string()).with_totals(0, 0, 0, 0);
     assert_eq!(prog_zero.percent, 1.0);
 
     let summary = StorageMigrationSummary {
@@ -614,4 +614,3 @@ async fn test_storage_migration_derives_and_helpers() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
-

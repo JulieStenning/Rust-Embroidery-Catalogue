@@ -2594,7 +2594,7 @@ fn bi_scanned_file(full_path: &str) -> scanning::ScannedFile {
     scanning::ScannedFile {
         full_path: full_path.to_string(),
         filename: full_path
-            .rsplit(|c| c == '/' || c == '\\')
+            .rsplit(['/', '\\'])
             .next()
             .unwrap_or(full_path)
             .to_string(),

@@ -587,4 +587,3 @@ fn test_fingerprint_derives_and_helpers() {
     let resolved = resolve_fingerprint_source_path("Flowers/daisy.pes");
     assert!(resolved.to_string_lossy().contains("daisy.pes"));
 }
-

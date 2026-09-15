@@ -181,7 +181,9 @@ async fn test_get_batch_operations_view_model() {
             .unwrap();
     }
 
-    let vm = get_batch_operations_view_model(state.clone()).await.unwrap();
+    let vm = get_batch_operations_view_model(state.clone())
+        .await
+        .unwrap();
     assert!(vm.has_google_api_key);
     assert!(!vm.ai_vision_auto);
     assert_eq!(vm.ai_batch_size, "");
@@ -322,7 +324,9 @@ async fn batch_operations_view_model_free_tier_uses_conservative_defaults() {
         .unwrap();
     }
 
-    let vm = get_batch_operations_view_model(state.clone()).await.unwrap();
+    let vm = get_batch_operations_view_model(state.clone())
+        .await
+        .unwrap();
     assert!(vm.ai_free_tier);
     assert_eq!(vm.default_workers, 2);
     assert_eq!(vm.default_delay, 10.0);
@@ -695,7 +699,8 @@ fn test_backfill_app_handle_and_emission() {
 #[test]
 fn test_dto_derives_and_json_serde() {
     // 1. TaggingActionRequest
-    let req: TaggingActionRequest = serde_json::from_str(r#"{"request_override": true, "settings_default": false}"#).unwrap();
+    let req: TaggingActionRequest =
+        serde_json::from_str(r#"{"request_override": true, "settings_default": false}"#).unwrap();
     assert_eq!(req.request_override, Some(true));
     assert_eq!(req.settings_default, Some(false));
     let debug_str = format!("{:?}", req.clone());

@@ -805,7 +805,9 @@ pub async fn run_unified_backfill_with_progress(
                     batch_size,
                     hoop_cursor,
                     maintenance_scope.as_ref(),
-                    hoop_dimensions_action.missing_previews_only.unwrap_or(false),
+                    hoop_dimensions_action
+                        .missing_previews_only
+                        .unwrap_or(false),
                     hoop_dimensions_action.overwrite.unwrap_or(false),
                 )
                 .await?;
@@ -1710,14 +1712,12 @@ async fn select_color_count_candidates(
     missing_previews_only: bool,
     overwrite: bool,
 ) -> Result<Vec<i64>, AppError> {
-    let mut query = QueryBuilder::<Sqlite>::new(
-        if overwrite {
-            // Recompute & overwrite every row in the population (no NULL gap filter).
-            "SELECT d.id FROM designs d WHERE 1 = 1"
-        } else {
-            "SELECT d.id FROM designs d WHERE 1 = 1 AND (d.stitch_count IS NULL OR d.color_count IS NULL OR d.color_change_count IS NULL)"
-        },
-    );
+    let mut query = QueryBuilder::<Sqlite>::new(if overwrite {
+        // Recompute & overwrite every row in the population (no NULL gap filter).
+        "SELECT d.id FROM designs d WHERE 1 = 1"
+    } else {
+        "SELECT d.id FROM designs d WHERE 1 = 1 AND (d.stitch_count IS NULL OR d.color_count IS NULL OR d.color_change_count IS NULL)"
+    });
     if missing_previews_only {
         query.push(" AND d.image_data IS NULL");
     }
@@ -1731,7 +1731,9 @@ async fn select_color_count_candidates(
         .build_query_scalar::<i64>()
         .fetch_all(pool)
         .await
-        .map_err(|e| AppError::database(format!("failed to select colour-count candidates: {e}")))?;
+        .map_err(|e| {
+            AppError::database(format!("failed to select colour-count candidates: {e}"))
+        })?;
 
     Ok(rows)
 }
@@ -1820,14 +1822,12 @@ async fn select_hoop_dimension_candidates(
     missing_previews_only: bool,
     overwrite: bool,
 ) -> Result<Vec<i64>, AppError> {
-    let mut query = QueryBuilder::<Sqlite>::new(
-        if overwrite {
-            // Recompute & overwrite every row in the population (no NULL gap filter).
-            "SELECT d.id FROM designs d WHERE 1 = 1"
-        } else {
-            "SELECT d.id FROM designs d WHERE 1 = 1 AND (d.width_mm IS NULL OR d.height_mm IS NULL OR d.hoop_id IS NULL)"
-        },
-    );
+    let mut query = QueryBuilder::<Sqlite>::new(if overwrite {
+        // Recompute & overwrite every row in the population (no NULL gap filter).
+        "SELECT d.id FROM designs d WHERE 1 = 1"
+    } else {
+        "SELECT d.id FROM designs d WHERE 1 = 1 AND (d.width_mm IS NULL OR d.height_mm IS NULL OR d.hoop_id IS NULL)"
+    });
     if missing_previews_only {
         query.push(" AND d.image_data IS NULL");
     }

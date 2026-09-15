@@ -327,7 +327,9 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
     // Also test Installed mode
     let mut app_state_installed = app_state;
     app_state_installed.paths.mode = crate::paths::ExecutionMode::Installed;
-    let vm_installed = get_settings_view_model_inner(&app_state_installed).await.unwrap();
+    let vm_installed = get_settings_view_model_inner(&app_state_installed)
+        .await
+        .unwrap();
     assert_eq!(vm_installed.app_mode, "installed");
     assert!(vm_installed.can_configure_data_root);
 
@@ -376,4 +378,3 @@ fn test_settings_struct_derives() {
     assert!(debug_req.contains("soft"));
     let _clone_req = req.clone();
 }
-

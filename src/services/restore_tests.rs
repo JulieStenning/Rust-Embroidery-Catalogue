@@ -738,4 +738,3 @@ fn test_restore_struct_derives() {
     let _imp_clone = imp_res.clone();
     let _imp_json = serde_json::to_value(&imp_res).unwrap();
 }
-

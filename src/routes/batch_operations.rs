@@ -365,7 +365,12 @@ pub async fn run_maintenance_batch(
 ) -> Result<backfill::UnifiedBackfillSummary, String> {
     let request = request.unwrap_or_default();
     let generate_previews = request.generate_previews.unwrap_or(false);
-    let scope = request.scope.as_deref().unwrap_or("all").trim().to_ascii_lowercase();
+    let scope = request
+        .scope
+        .as_deref()
+        .unwrap_or("all")
+        .trim()
+        .to_ascii_lowercase();
     let missing_previews_only = scope == "missing_previews";
 
     let backfill_request = backfill::UnifiedBackfillRequest {

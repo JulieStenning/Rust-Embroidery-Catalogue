@@ -101,7 +101,6 @@ fn app_paths_and_bootstrap_config_derives() {
 // resolve_paths_from_exe_dir
 // ---------------------------------------------------------------------------
 
-
 /// In debug builds, Dev mode is selected and data lives in
 /// `<project>/dev_data/`.
 #[cfg(debug_assertions)]
@@ -1355,7 +1354,6 @@ fn bootstrap_config_path_returns_expected_filename() {
     assert!(path.to_string_lossy().contains("config.json"));
 }
 
-
 // ---------------------------------------------------------------------------
 // normalize_windows_explorer_target & has_existing_database
 // ---------------------------------------------------------------------------
@@ -1386,7 +1384,6 @@ fn normalize_windows_explorer_target_returns_path_unchanged_on_non_windows() {
     let p = PathBuf::from("/home/user/designs/rose.pes");
     assert_eq!(normalize_windows_explorer_target(&p), p);
 }
-
 
 // ---------------------------------------------------------------------------
 // test_data_root_override (debug-only test / e2e data root)

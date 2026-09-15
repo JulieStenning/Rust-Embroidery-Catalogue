@@ -1341,4 +1341,3 @@ fn project_request_derives_and_print_view_serialize() {
     assert!(json.get("designs").is_some());
     let _clone_print = print_view.clone();
 }
-

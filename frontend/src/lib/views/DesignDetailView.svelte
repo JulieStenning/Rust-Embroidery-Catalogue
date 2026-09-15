@@ -63,9 +63,7 @@
     ratingHover = 0;
   }
   let effectiveRating = $derived(
-    ratingHover > 0
-      ? ratingHover
-      : /** @type {DesignDetailItem | null} */ ((detailItem)?.rating ?? 0)
+    ratingHover > 0 ? ratingHover : /** @type {DesignDetailItem | null} */ (detailItem?.rating ?? 0)
   );
   let detailNotes = $state("");
   let detailDesignerId = $state("");

@@ -1213,4 +1213,3 @@ fn test_admin_struct_derives() {
     assert!(format!("{:?}", uh).contains("UpdatedHoop"));
     let _uh_clone = uh.clone();
 }
-

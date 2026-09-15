@@ -368,7 +368,6 @@ mod tests {
         assert!(msg_free.contains("Free-tier Gemini rate limit"));
     }
 
-
     async fn setup_test_pool() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
         sqlx::query(
@@ -434,10 +433,11 @@ mod tests {
             .await
             .unwrap();
 
-        let tags: Vec<i64> = sqlx::query_scalar("SELECT tag_id FROM design_tags WHERE design_id = 10")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+        let tags: Vec<i64> =
+            sqlx::query_scalar("SELECT tag_id FROM design_tags WHERE design_id = 10")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
         assert_eq!(tags, vec![1]);
 
         let (analyzed, matched, verified): (bool, bool, bool) =
@@ -461,11 +461,17 @@ mod tests {
             visual_ai_network: false,
         };
 
-        let res = compute_tags_for_input("Flowers_rose.pes", "Flowers/rose.pes", None, &valid, &opts, None)
-            .await
-            .unwrap();
+        let res = compute_tags_for_input(
+            "Flowers_rose.pes",
+            "Flowers/rose.pes",
+            None,
+            &valid,
+            &opts,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(res.descriptions, vec!["Flowers"]);
         assert!(!res.vision_ai_analyzed);
     }
 }
-

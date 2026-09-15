@@ -109,4 +109,3 @@ mod tests {
         assert!(!is_truthy("other"));
     }
 }
-

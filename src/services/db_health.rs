@@ -556,7 +556,8 @@ mod tests {
         let running = Arc::new(AtomicBool::new(true));
         let shutdown = Arc::new(AtomicBool::new(false));
         let app = tauri::test::mock_app();
-        let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
+        let res =
+            check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
         assert_eq!(res, Ok(false));
     }
 
@@ -566,9 +567,8 @@ mod tests {
         let running = Arc::new(AtomicBool::new(false));
         let shutdown = Arc::new(AtomicBool::new(false));
         let app = tauri::test::mock_app();
-        let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
+        let res =
+            check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
         assert_eq!(res, Ok(false));
     }
 }
-
-

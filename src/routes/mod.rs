@@ -2,6 +2,7 @@
 pub mod about;
 pub mod admin;
 pub mod api;
+pub mod batch_operations;
 pub mod bulk_import;
 pub mod database_recovery;
 pub mod designs;
@@ -11,6 +12,5 @@ pub mod projects;
 pub mod restore;
 pub mod settings;
 pub mod storage_migration;
-pub mod batch_operations;
 
 pub use crate::error::AppError;
