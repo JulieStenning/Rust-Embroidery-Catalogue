@@ -571,3 +571,296 @@ async fn browse_tagging_folder_rejects_start_outside_data_root() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn test_run_maintenance_batch_options() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    let tmp = std::env::temp_dir().join("batch-operations-test-maint");
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool, &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // 1. None request
+    let summary1 = run_maintenance_batch(state.clone(), None).await.unwrap();
+    assert_eq!(summary1.processed, 0);
+
+    // 2. Default request
+    let summary2 = run_maintenance_batch(state.clone(), Some(MaintenanceBatchRequest::default()))
+        .await
+        .unwrap();
+    assert_eq!(summary2.processed, 0);
+
+    // 3. missing_previews scope with all maintenance flags enabled
+    let summary3 = run_maintenance_batch(
+        state.clone(),
+        Some(MaintenanceBatchRequest {
+            scope: Some("missing_previews".to_string()),
+            generate_previews: Some(true),
+            recalc_color_counts: Some(true),
+            recalc_hoop_dimensions: Some(true),
+            batch_size: Some(25),
+            commit_every: Some(25),
+            workers: Some(2),
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(summary3.processed, 0);
+
+    // 4. "all" scope with selective flags
+    let summary4 = run_maintenance_batch(
+        state.clone(),
+        Some(MaintenanceBatchRequest {
+            scope: Some("all".to_string()),
+            generate_previews: Some(false),
+            recalc_color_counts: Some(true),
+            recalc_hoop_dimensions: Some(false),
+            batch_size: Some(10),
+            commit_every: Some(10),
+            workers: Some(1),
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(summary4.processed, 0);
+
+    // 5. "all" scope with preview generation only
+    let summary5 = run_maintenance_batch(
+        state.clone(),
+        Some(MaintenanceBatchRequest {
+            scope: Some("all".to_string()),
+            generate_previews: Some(true),
+            recalc_color_counts: Some(false),
+            recalc_hoop_dimensions: Some(true),
+            batch_size: None,
+            commit_every: None,
+            workers: None,
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(summary5.processed, 0);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn test_count_missing_preview_designs() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    // Insert one design with missing preview (image_data is NULL)
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_data) VALUES (950001, 'nopreview.pes', 'nopreview.pes', NULL)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // Insert one design with preview
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_data) VALUES (950002, 'haspreview.pes', 'haspreview.pes', X'89504E470D0A1A0A')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let tmp = std::env::temp_dir().join("batch-operations-test-missing-previews");
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool, &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    let count = count_missing_preview_designs(state).await.unwrap();
+    assert!(count >= 1);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_backfill_app_handle_and_emission() {
+    let progress = backfill::BackfillProgress {
+        stage: "tagging".to_string(),
+        processed: 5,
+        errors: 0,
+        current_action: "visual_ai".to_string(),
+    };
+    emit_backfill_progress(&progress);
+}
+
+#[test]
+fn test_dto_derives_and_json_serde() {
+    // 1. TaggingActionRequest
+    let req: TaggingActionRequest = serde_json::from_str(r#"{"request_override": true, "settings_default": false}"#).unwrap();
+    assert_eq!(req.request_override, Some(true));
+    assert_eq!(req.settings_default, Some(false));
+    let debug_str = format!("{:?}", req.clone());
+    assert!(debug_str.contains("TaggingActionRequest"));
+    let default_req = TaggingActionRequest::default();
+    assert_eq!(default_req.request_override, None);
+
+    // 2. BatchOperationsViewModel
+    let vm = BatchOperationsViewModel {
+        has_google_api_key: true,
+        ai_vision_auto: false,
+        ai_batch_size: "100".to_string(),
+        ai_delay: "5.0".to_string(),
+        ai_commit_every: "100".to_string(),
+        ai_workers: "4".to_string(),
+        ai_free_tier: false,
+        default_batch_size: 100,
+        default_commit_every: 100,
+        default_workers: 4,
+        default_delay: 5.0,
+        data_storage_location: "/test/designs".to_string(),
+    };
+    let vm_json = serde_json::to_string(&vm).unwrap();
+    assert!(vm_json.contains("has_google_api_key"));
+    let vm_debug = format!("{:?}", vm.clone());
+    assert!(vm_debug.contains("BatchOperationsViewModel"));
+
+    // 3. TaggingActionPreview
+    let preview = TaggingActionPreview {
+        enabled: true,
+        mode_order: vec!["FileFolder".to_string()],
+    };
+    let preview_json = serde_json::to_string(&preview).unwrap();
+    assert!(preview_json.contains("FileFolder"));
+    let preview_debug = format!("{:?}", preview.clone());
+    assert!(preview_debug.contains("TaggingActionPreview"));
+
+    // 4. BrowseTaggingFolderRequest
+    let parsed_browse_req: BrowseTaggingFolderRequest =
+        serde_json::from_str(r#"{"start_dir": "/test", "allow_multi": true}"#).unwrap();
+    assert_eq!(parsed_browse_req.start_dir, Some("/test".to_string()));
+    assert_eq!(parsed_browse_req.allow_multi, Some(true));
+    let browse_req_debug = format!("{:?}", parsed_browse_req.clone());
+    assert!(browse_req_debug.contains("BrowseTaggingFolderRequest"));
+    let default_browse_req = BrowseTaggingFolderRequest::default();
+    assert_eq!(default_browse_req.start_dir, None);
+
+    // 5. BrowseTaggingFolderResult
+    let browse_res = BrowseTaggingFolderResult {
+        path: Some("/test/folder".to_string()),
+        paths: vec!["/test/folder".to_string()],
+        relative_paths: vec!["folder".to_string()],
+        error: None,
+    };
+    let browse_res_json = serde_json::to_string(&browse_res).unwrap();
+    assert!(browse_res_json.contains("/test/folder"));
+    let browse_res_debug = format!("{:?}", browse_res.clone());
+    assert!(browse_res_debug.contains("BrowseTaggingFolderResult"));
+    let default_browse_res = BrowseTaggingFolderResult::default();
+    assert!(default_browse_res.path.is_none());
+
+    // 6. MaintenanceBatchRequest
+    let parsed_maint_req: MaintenanceBatchRequest = serde_json::from_str(
+        r#"{"scope": "missing_previews", "generate_previews": true, "recalc_color_counts": true, "recalc_hoop_dimensions": true, "batch_size": 100, "commit_every": 100, "workers": 4}"#,
+    ).unwrap();
+    assert_eq!(parsed_maint_req.scope, Some("missing_previews".to_string()));
+    assert_eq!(parsed_maint_req.generate_previews, Some(true));
+    assert_eq!(parsed_maint_req.recalc_color_counts, Some(true));
+    assert_eq!(parsed_maint_req.recalc_hoop_dimensions, Some(true));
+    assert_eq!(parsed_maint_req.batch_size, Some(100));
+    assert_eq!(parsed_maint_req.commit_every, Some(100));
+    assert_eq!(parsed_maint_req.workers, Some(4));
+    let maint_req_debug = format!("{:?}", parsed_maint_req.clone());
+    assert!(maint_req_debug.contains("MaintenanceBatchRequest"));
+    let default_maint_req = MaintenanceBatchRequest::default();
+    assert_eq!(default_maint_req.scope, None);
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn test_run_unified_backfill_with_ai_enabled_and_valid_key() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    let tmp = std::env::temp_dir().join("batch-operations-test-ai-key-run");
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool, &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // Set a valid google API key in the settings table
+    {
+        let mut conn = state.db_pool().unwrap().acquire().await.unwrap();
+        sqlx::query("UPDATE settings SET value = 'test-valid-api-key' WHERE key = ?")
+            .bind(KEY_AI_GOOGLE_API_KEY)
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+    }
+
+    let request = backfill::UnifiedBackfillRequest {
+        actions: Some(backfill::UnifiedBackfillActions {
+            tagging: Some(backfill::TaggingActionOptions {
+                action: Some("tag_untagged".to_string()),
+                modes: Some(vec!["path_rule".to_string()]),
+                merge_mode: None,
+                exclude_verified: None,
+                folder_path: None,
+                folder_paths: None,
+                include_subfolders: None,
+                enabled: Some(true),
+            }),
+            stitching: None,
+            images: None,
+            color_counts: None,
+            hoop_dimensions: None,
+            fingerprinting: None,
+        }),
+        batch_size: Some(10),
+        commit_every: Some(10),
+        workers: Some(1),
+        delay_seconds: None,
+        vision_delay_seconds: None,
+    };
+
+    let result = run_unified_backfill(state.clone(), request).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().processed, 0);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn test_count_tagging_candidates_defaults_and_options() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    let tmp = std::env::temp_dir().join("batch-operations-test-candidates-options");
+    let folder = tmp.join("subfolder");
+    std::fs::create_dir_all(&folder).ok();
+    let app_state = make_app_state(pool, &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // Test with completely None options (exercises defaults)
+    let counts = count_tagging_candidates(state.clone(), None, None, None, None)
+        .await
+        .unwrap();
+    assert_eq!(counts.total_count, 0);
+
+    // Test with outside folder path to exercise error mapping
+    let counts2 = count_tagging_candidates(
+        state.clone(),
+        Some("tag_untagged".to_string()),
+        None,
+        Some(vec![folder.to_string_lossy().to_string()]),
+        Some(false),
+    )
+    .await;
+    assert!(counts2.is_err());
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
