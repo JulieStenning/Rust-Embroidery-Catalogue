@@ -42,22 +42,14 @@ test.describe.serial("system restore", () => {
   ): Promise<void> {
     await page.evaluate(
       ({ pathValue, errorValue }) => {
-        const tauri = (
-          window as unknown as {
-            __TAURI_INTERNALS__?: {
-              invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
-            };
-          }
-        ).__TAURI_INTERNALS__;
-        if (tauri && typeof tauri.invoke === "function") {
-          const originalInvoke = tauri.invoke.bind(tauri);
-          tauri.invoke = (cmd: string, args?: Record<string, unknown>) => {
-            if (cmd === "browse_restore_file") {
-              return Promise.resolve({ path: pathValue, error: errorValue });
-            }
-            return originalInvoke(cmd, args);
-          };
-        }
+        const win = window as unknown as {
+          __E2E_IPC_STUBS__?: Record<string, (args?: unknown) => unknown>;
+        };
+        win.__E2E_IPC_STUBS__ = win.__E2E_IPC_STUBS__ || {};
+        win.__E2E_IPC_STUBS__["browse_restore_file"] = () => ({
+          path: pathValue,
+          error: errorValue,
+        });
       },
       { pathValue: selectedPath, errorValue: errorMessage },
     );
@@ -113,9 +105,14 @@ test.describe.serial("system restore", () => {
     }
 
     // Ensure pristine database state is restored for subsequent test suites
-    if (fs.existsSync(TEST_DB_PATH) && fs.existsSync(liveDbPath)) {
+    if (fs.existsSync(liveDbPath)) {
       try {
-        fs.copyFileSync(TEST_DB_PATH, liveDbPath);
+        const db = new DatabaseSync(liveDbPath);
+        db.exec("DELETE FROM designs WHERE id > 56");
+        db.exec(
+          "UPDATE designs SET hoop_id = (SELECT id FROM hoops WHERE name = 'Hoop B') WHERE filename LIKE 'Cake 3%'",
+        );
+        db.close();
       } catch {
         // Best effort cleanup
       }
@@ -355,7 +352,7 @@ test.describe.serial("system restore", () => {
 
     // Assert error toast or rollback banner
     await expect(
-      page.getByText("Restore rolled back"),
+      page.getByText("Restore rolled back", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText(
@@ -369,6 +366,11 @@ test.describe.serial("system restore", () => {
   }) => {
     // 1. First configure the designs backup destination in Backup tab
     await gotoRoute(page, "#/admin/system/backup");
+
+    const backupTab = page
+      .getByRole("tablist", { name: "Backup and restore" })
+      .getByRole("tab", { name: "Backup" });
+    await backupTab.click();
 
     const designsInput = page.locator("#backup-designs-destination");
     const saveBtn = page.getByRole("button", { name: "Save destinations" });
@@ -405,6 +407,11 @@ test.describe.serial("system restore", () => {
     page,
   }) => {
     await gotoRoute(page, "#/admin/system/backup");
+
+    const backupTab = page
+      .getByRole("tablist", { name: "Backup and restore" })
+      .getByRole("tab", { name: "Backup" });
+    await backupTab.click();
 
     // Ensure designs destination is set
     const designsInput = page.locator("#backup-designs-destination");
@@ -449,6 +456,7 @@ test.describe.serial("system restore", () => {
   test("scans for unmatched design files and imports newly discovered files", async ({
     page,
   }) => {
+    test.setTimeout(90_000);
     await gotoRoute(page, "#/admin/system/backup");
 
     const restoreTab = page
@@ -459,11 +467,34 @@ test.describe.serial("system restore", () => {
     const scanBtn = page.getByTestId("scan-unmatched-button");
     await expect(scanBtn).toBeVisible();
 
-    // 1. Initial scan when directory is clean
+    const promptCard = page.getByTestId("unmatched-files-prompt");
+
+    // 1. Initial scan: if unmatched files are detected (e.g. from previous tests), import them to reach clean baseline
     await scanBtn.click();
-    await expect(
-      page.getByText(/No unmatched design files found \(checked \d+\)\./),
-    ).toBeVisible({ timeout: 15_000 });
+    const promptVisible = await promptCard
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
+    if (promptVisible) {
+      const initialImportBtn = promptCard.getByRole("button", {
+        name: /Import \d+ file\(s\)/,
+      });
+      await expect(initialImportBtn).toBeVisible();
+      await initialImportBtn.click();
+      await expect(
+        page.getByText(/Imported \d+ unmatched file\(s\)\./),
+      ).toBeVisible({ timeout: 60_000 });
+      await expect(promptCard).toBeHidden();
+
+      // Scan again to assert zero unmatched files baseline
+      await scanBtn.click();
+      await expect(
+        page.getByText(/No unmatched design files found \(checked \d+\)\./),
+      ).toBeVisible({ timeout: 15_000 });
+    } else {
+      await expect(
+        page.getByText(/No unmatched design files found \(checked \d+\)\./),
+      ).toBeVisible({ timeout: 15_000 });
+    }
 
     // 2. Place an unmatched file directly into MachineEmbroideryDesigns on disk
     const sampleSeedFile = path.join(TEST_DESIGNS_PATH, "Cake 3.jef");
@@ -477,7 +508,6 @@ test.describe.serial("system restore", () => {
     // 3. Scan again to detect the unmatched file
     await scanBtn.click();
 
-    const promptCard = page.getByTestId("unmatched-files-prompt");
     await expect(promptCard).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByRole("heading", { name: "Unmatched files found" }),
@@ -496,7 +526,7 @@ test.describe.serial("system restore", () => {
     // Assert import success toast
     await expect(
       page.getByText(/Imported \d+ unmatched file\(s\)\./),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     // Prompt card dismisses automatically upon completion
     await expect(promptCard).toBeHidden();

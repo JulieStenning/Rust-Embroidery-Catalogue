@@ -134,10 +134,15 @@ test.describe("manage tags", () => {
     await expect(stitchingDetails).toHaveAttribute("open", "");
 
     // Verify localStorage persistence
-    const savedImageState = await page.evaluate(() =>
-      window.localStorage.getItem("admin.tags.collapsible.image"),
-    );
-    expect(savedImageState).toBe("closed");
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() =>
+            window.localStorage.getItem("admin.tags.collapsible.image"),
+          ),
+        { timeout: 10_000 },
+      )
+      .toBe("closed");
 
     // Reload and assert state is restored from localStorage
     await page.reload();
@@ -388,7 +393,7 @@ test.describe("manage tags", () => {
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
 
-    await expect(page.getByText("Tag deleted.")).toBeVisible();
+    await expect(page.getByText("Tag deleted.").first()).toBeVisible();
     await expect(
       imageSection.getByRole("cell", { name: deleteTargetName, exact: true }),
     ).not.toBeVisible();

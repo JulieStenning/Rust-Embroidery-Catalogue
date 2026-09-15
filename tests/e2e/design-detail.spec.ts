@@ -56,6 +56,7 @@ async function openDesignDetail(
   filename = RICH_DESIGN,
 ): Promise<void> {
   await gotoRoute(page, `#/designs/${designId}`);
+  await page.reload();
   await expect(leftColumn(page).locator("p.font-medium")).toHaveText(filename, {
     timeout: 30_000,
   });
@@ -85,7 +86,7 @@ function detailCard(page: Page, headingText: string): Locator {
 
 /** A transient toast carrying message. */
 function toast(page: Page, message: string | RegExp): Locator {
-  return page.locator(".toast-message", { hasText: message });
+  return page.locator(".toast-message", { hasText: message }).first();
 }
 
 // ---------------------------------------------------------------------------
@@ -392,6 +393,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     const textarea = notesCard.getByPlaceholder("Add notes about this design...");
     const saveButton = notesCard.getByRole("button", { name: "Save Notes" });
 
+    // Ensure initial notes state is settled
+    await expect(saveButton).toBeDisabled();
+
     const testNote = `Special embroidery note created at ${Date.now()}`;
     await textarea.fill(testNote);
     await expect(saveButton).toBeEnabled();
@@ -496,7 +500,7 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
     await openEditorBtn.click();
     await expect(
-      page.locator(".toast-message").filter({ hasText: /default app|editor|opened/i }),
+      page.locator(".toast-message").filter({ hasText: /default app|editor|opened/i }).first(),
     ).toBeVisible({ timeout: 10_000 });
 
     const showExplorerBtn = leftColumn(page).getByRole("button", {
@@ -504,7 +508,7 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
     await showExplorerBtn.click();
     await expect(
-      page.locator(".toast-message").filter({ hasText: /explorer|opened/i }),
+      page.locator(".toast-message").filter({ hasText: /explorer/i }).first(),
     ).toBeVisible({ timeout: 10_000 });
 
     const previewGenBtn = leftColumn(page).getByRole("button", {
@@ -512,7 +516,7 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
     await previewGenBtn.click();
     await expect(
-      page.locator(".toast-message").filter({ hasText: /preview/i }),
+      page.locator(".toast-message").filter({ hasText: /preview/i }).first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 

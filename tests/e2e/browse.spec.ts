@@ -1,6 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test, expect } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 import { gotoRoute, mainMenu } from "./helpers";
+import { DATA_ROOT_PATH, DATABASE_FILENAME } from "./paths";
 
 /**
  * Browse Designs end-to-end coverage.
@@ -14,6 +18,28 @@ import { gotoRoute, mainMenu } from "./helpers";
  * The shared database is mutated by the batch-mutation tests at the end of the
  * file; every test before them is read-only, so declaration order matters.
  */
+
+test.beforeAll(() => {
+  const dbPath = path.join(DATA_ROOT_PATH, "Database", DATABASE_FILENAME);
+  if (fs.existsSync(dbPath)) {
+    try {
+      const db = new DatabaseSync(dbPath);
+      db.exec("DELETE FROM design_tags WHERE design_id NOT IN (5, 6, 7)");
+      db.exec(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id NOT IN (4, 9, 10, 11)",
+      );
+      db.exec(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 0 WHERE id = 4",
+      );
+      db.exec(
+        "UPDATE designs SET image_tags_verified = 0, stitching_tags_verified = 0 WHERE id IN (9, 10, 11)",
+      );
+      db.close();
+    } catch (err) {
+      console.error("[browse.spec.ts] beforeAll reset error:", err);
+    }
+  }
+});
 
 const browseCards = (page: Page): Locator =>
   page.locator("article.browse-card");
@@ -1123,12 +1149,16 @@ test.describe("card navigation and scroll restore", () => {
   test("restores the previous scroll position on return", async ({ page }) => {
     await openBrowse(page);
 
-    // Open a card low in the grid so the click lands at a non-zero scroll.
+    // Scroll down so window.scrollY is non-zero and captured into browseSessionStore
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await page.waitForTimeout(200);
+
     const lastCard = browseCards(page).last();
     await lastCard.locator(".browse-card-link").click();
     await expect(page).toHaveURL(/#\/designs\/\d+/);
 
-    await gotoRoute(page, "#/designs");
+    // Return to Browse via Back to Browse button
+    await page.getByRole("button", { name: /Back to Browse/i }).click();
     await expect(
       page.getByRole("heading", { name: "Browse Designs" }),
     ).toBeVisible();

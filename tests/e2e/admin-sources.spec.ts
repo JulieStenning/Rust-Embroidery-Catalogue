@@ -256,7 +256,7 @@ test.describe("manage sources", () => {
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
 
-    await expect(page.getByText("Source deleted.")).toBeVisible();
+    await expect(page.getByText("Source deleted.").first()).toBeVisible();
     await expect(
       page.getByRole("cell", { name: deleteTargetName, exact: true }),
     ).not.toBeVisible();

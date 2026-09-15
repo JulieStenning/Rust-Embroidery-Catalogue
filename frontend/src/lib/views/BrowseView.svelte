@@ -222,7 +222,9 @@
     if (savedY > 0) {
       tick().then(() => {
         if (typeof window !== "undefined") {
-          window.scrollTo(0, savedY);
+          requestAnimationFrame(() => {
+            window.scrollTo(0, savedY);
+          });
         }
       });
     }

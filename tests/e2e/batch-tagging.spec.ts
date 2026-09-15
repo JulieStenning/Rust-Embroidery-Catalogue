@@ -1,5 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test, expect } from "./fixtures";
 import { clickNav, gotoRoute, mainMenu } from "./helpers";
+import { DATA_ROOT_PATH, DATABASE_FILENAME } from "./paths";
 
 /**
  * End-to-end tests for the "Tagging & Categorisation" tab on the Batch Operations
@@ -11,7 +15,8 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
   test("navigates to Batch Operations from the top menu link and defaults to Tagging tab", async ({
     page,
   }) => {
-    // Navigate via top menu link
+    // Navigate from Browse via top menu link
+    await gotoRoute(page, "#/designs");
     await clickNav(page, "Batch Operations");
 
     // Page title and description are rendered
@@ -338,9 +343,15 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
       page.getByRole("heading", { name: "Browse Designs" }),
     ).toBeVisible();
 
+    const resetButton = page.getByRole("button", { name: "Reset filters" });
+    if (await resetButton.isEnabled()) {
+      await resetButton.click();
+    }
+
     // Search for "Cake 3" to find Cake 3 - Food.jef without triggering '-' search negation
     const searchInput = page.getByPlaceholder(/e\.g\. rose/i);
     await searchInput.fill("Cake 3");
+    await page.waitForTimeout(600);
 
     const foodCard = page.locator("article.browse-card", {
       hasText: "Cake 3 - Food.jef",
@@ -356,6 +367,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
 
     const reloadedSearchInput = page.getByPlaceholder(/e\.g\. rose/i);
     await reloadedSearchInput.fill("Cake 3");
+    await page.waitForTimeout(600);
 
     const reloadedCard = page.locator("article.browse-card", {
       hasText: "Cake 3 - Food.jef",
@@ -458,5 +470,28 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(cleanupSaveButton).toBeEnabled();
     await cleanupSaveButton.click();
     await expect(page.getByTestId("settings-dirty-hint")).toBeHidden();
+  });
+
+  test.afterAll(() => {
+    // Restore pristine seed database tags and verification flags for subsequent test suites
+    const dbPath = path.join(DATA_ROOT_PATH, "Database", DATABASE_FILENAME);
+    if (fs.existsSync(dbPath)) {
+      try {
+        const db = new DatabaseSync(dbPath);
+        db.exec("DELETE FROM design_tags WHERE design_id NOT IN (5, 6, 7)");
+        db.exec(
+          "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id NOT IN (4, 9, 10, 11)",
+        );
+        db.exec(
+          "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 0 WHERE id = 4",
+        );
+        db.exec(
+          "UPDATE designs SET image_tags_verified = 0, stitching_tags_verified = 0 WHERE id IN (9, 10, 11)",
+        );
+        db.close();
+      } catch (err) {
+        console.error("[batch-tagging.spec.ts] afterAll reset error:", err);
+      }
+    }
   });
 });

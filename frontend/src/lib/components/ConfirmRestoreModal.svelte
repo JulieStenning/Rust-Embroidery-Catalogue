@@ -53,9 +53,12 @@
 
   /** @param {KeyboardEvent} event */
   function handleKeydown(event) {
+    if (!open) return;
     if (event.key === "Escape") handleBackdropClick();
   }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if open}
   <!-- svelte-ignore a11y_interactive_supports_focus -->

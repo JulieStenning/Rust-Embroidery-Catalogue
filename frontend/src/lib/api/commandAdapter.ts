@@ -97,6 +97,16 @@ type LooseRecord = Record<string, unknown>;
 
 function invokeLoose<T = LooseRecord>(command: string, args?: Record<string, unknown>): Promise<T> {
   try {
+    if (typeof window !== "undefined") {
+      const e2eStubs = (
+        window as unknown as {
+          __E2E_IPC_STUBS__?: Record<string, (args?: Record<string, unknown>) => unknown>;
+        }
+      )?.__E2E_IPC_STUBS__;
+      if (e2eStubs && typeof e2eStubs[command] === "function") {
+        return Promise.resolve(e2eStubs[command](args) as T);
+      }
+    }
     const result = args === undefined ? invoke(command) : invoke(command, args);
 
     if (result && typeof (result as PromiseLike<T>).then === "function") {

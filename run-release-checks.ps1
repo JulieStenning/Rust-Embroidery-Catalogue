@@ -49,6 +49,7 @@ Write-Host "--> Checking frontend tests pass" -ForegroundColor Yellow
 npx vitest run --silent  2>&1 | Out-File ./audit-logs/vitest-results.txt
 
 Write-Host "--> Checking Playwright E2E tests pass..." -ForegroundColor Yellow
+npm run e2e:build | Out-Null
 npx playwright test 2>&1 | Out-File ./audit-logs/playwright-results.txt
 
 # 2. Rust Quality Gates

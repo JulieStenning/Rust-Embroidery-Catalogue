@@ -145,7 +145,16 @@ pub async fn restore_database(
                     "[restore] restore_database failed file='{}': {error}",
                     backup_path.display()
                 );
-                return Err(error);
+                restore::DatabaseRestoreOutcome {
+                    success: false,
+                    restored_path: String::new(),
+                    rollback_copy_path: None,
+                    design_count: 0,
+                    schema_version_hint: None,
+                    previous_schema_version_hint: None,
+                    rolled_back: true,
+                    error: Some(error),
+                }
             }
         };
     refresh_bulk_import_after_restore(&state);
@@ -324,7 +333,16 @@ pub async fn restore_both(
                     "[restore] restore_both database phase failed file='{}': {error}",
                     backup_path.display()
                 );
-                return Err(error);
+                restore::DatabaseRestoreOutcome {
+                    success: false,
+                    restored_path: String::new(),
+                    rollback_copy_path: None,
+                    design_count: 0,
+                    schema_version_hint: None,
+                    previous_schema_version_hint: None,
+                    rolled_back: true,
+                    error: Some(error),
+                }
             }
         };
     refresh_bulk_import_after_restore(&state);

@@ -254,28 +254,12 @@ pub async fn perform_database_restore(
         return Err(message);
     }
 
-    // 4. Re-open the pool against the restored file.
-    let new_pool = match establish_connection(app_paths).await {
-        Ok(pool) => pool,
-        Err(error) => {
-            let _ = fs::copy(&rollback_path, live_path);
-            let _ = holder.take();
-            let message = format!("Could not re-open the database pool: {error}");
-            tracing::error!("[restore] {message}");
-            return Err(message);
-        }
-    };
-    holder.replace(new_pool);
-
-    // 5. Verify the restored database.
+    // 4. Verify the candidate database before opening it as the main pool.
     let valid = verify_database_at(live_path).await.unwrap_or(false);
     tracing::info!("[restore] database restore verification valid={}", valid);
 
     if !valid {
         // Automatic rollback using the safety copy.
-        if let Some(pool) = holder.take() {
-            pool.close().await;
-        }
         if let Err(error) = fs::copy(&rollback_path, live_path) {
             let message =
                 format!("Restore verification failed AND automatic rollback failed: {error}");
@@ -304,6 +288,21 @@ pub async fn perform_database_restore(
             ),
         });
     }
+
+    // 5. Re-open the pool against the verified restored file.
+    let new_pool = match establish_connection(app_paths).await {
+        Ok(pool) => pool,
+        Err(error) => {
+            let _ = fs::copy(&rollback_path, live_path);
+            if let Ok(rolled_pool) = establish_connection(app_paths).await {
+                holder.replace(rolled_pool);
+            }
+            let message = format!("Could not re-open the database pool: {error}");
+            tracing::error!("[restore] {message}");
+            return Err(message);
+        }
+    };
+    holder.replace(new_pool);
 
     // Gather summary stats from the freshly-opened pool.
     let design_count = match holder.pool() {
@@ -489,7 +488,11 @@ pub async fn detect_design_files_absent_from_database(
 
     let mut unmatched: Vec<String> = disk
         .keys()
-        .filter(|relative| !referenced.contains(*relative))
+        .filter(|relative| {
+            let ext = relative.extension().and_then(|e| e.to_str()).unwrap_or("");
+            crate::services::scanning::is_supported_extension(ext)
+                && !referenced.contains(*relative)
+        })
         .map(|relative| relative.to_string_lossy().to_string())
         .collect();
     unmatched.sort();
@@ -531,15 +534,8 @@ async fn import_single_design(
     relative: &Path,
     full_path: &Path,
 ) -> Result<SingleImport, String> {
-    let extension = full_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase());
-    let supported = matches!(
-        extension.as_deref(),
-        Some("pes" | "dst" | "exp" | "jef" | "hus" | "vp3")
-    );
-    if !supported {
+    let extension = full_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if !crate::services::scanning::is_supported_extension(extension) {
         return Ok(SingleImport::Skipped);
     }
 
@@ -625,7 +621,11 @@ pub async fn import_unmatched_design_files(
 
     let mut unmatched: Vec<PathBuf> = disk
         .keys()
-        .filter(|relative| !referenced.contains(*relative))
+        .filter(|relative| {
+            let ext = relative.extension().and_then(|e| e.to_str()).unwrap_or("");
+            crate::services::scanning::is_supported_extension(ext)
+                && !referenced.contains(*relative)
+        })
         .cloned()
         .collect();
     unmatched.sort();

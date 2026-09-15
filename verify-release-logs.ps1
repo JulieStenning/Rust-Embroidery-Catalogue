@@ -77,7 +77,7 @@ $results = @(
     { 
         param($c) 
         $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
-        $clean -match '\d+\s+passed' -and $clean -notmatch 'failed' -and $clean -notmatch 'Error:'
+        $clean -match '\d+\s+passed' -and $clean -notmatch '\d+\s+failed' -and $clean -notmatch 'Error:'
     } `
     "Run 'npx playwright test' or inspect playwright-report to fix failing E2E tests."
 

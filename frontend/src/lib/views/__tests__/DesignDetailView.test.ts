@@ -681,6 +681,8 @@ describe("DesignDetailView", () => {
         expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
           designer_id: null,
           source_id: 3,
+          notes: "Pretty floral border with satin stitches.",
+          hoop_id: 1,
         });
       });
       expect(toastMock.addToast).toHaveBeenCalledWith("Designer updated", "success");
@@ -708,6 +710,8 @@ describe("DesignDetailView", () => {
         expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
           designer_id: 8,
           source_id: 3,
+          notes: "Pretty floral border with satin stitches.",
+          hoop_id: 1,
         });
       });
     });
@@ -749,6 +753,8 @@ describe("DesignDetailView", () => {
         expect(adapterMocks.updateDesignMetadata).toHaveBeenCalledWith(42, {
           designer_id: 7,
           source_id: null,
+          notes: "Pretty floral border with satin stitches.",
+          hoop_id: 1,
         });
       });
       expect(toastMock.addToast).toHaveBeenCalledWith("Source updated", "success");
@@ -798,6 +804,7 @@ describe("DesignDetailView", () => {
           notes: "New notes added in test.",
           designer_id: 7,
           source_id: 3,
+          hoop_id: 1,
         });
       });
     });
@@ -1567,6 +1574,7 @@ describe("DesignDetailView", () => {
           notes: "Updated notes.",
           designer_id: null,
           source_id: null,
+          hoop_id: 1,
         });
       });
     });

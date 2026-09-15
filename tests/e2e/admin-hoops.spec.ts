@@ -180,6 +180,11 @@ test.describe("manage hoops", () => {
     await expect(reloadedRow).toBeVisible();
     await expect(reloadedRow.locator("td").nth(1)).toHaveText("150");
     await expect(reloadedRow.locator("td").nth(2)).toHaveText("150");
+
+    // Clean up created hoop
+    await reloadedRow.getByRole("button", { name: "Delete", exact: true }).click();
+    await reloadedRow.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await expect(page.getByRole("cell", { name, exact: true })).toBeHidden();
   });
 
   test("rejects duplicate hoop name creation", async ({ page }) => {
@@ -292,6 +297,11 @@ test.describe("manage hoops", () => {
     await expect(persistedRow).toBeVisible();
     await expect(persistedRow.locator("td").nth(1)).toHaveText("180");
     await expect(persistedRow.locator("td").nth(2)).toHaveText("160");
+
+    // Clean up edited hoop
+    await persistedRow.getByRole("button", { name: "Delete", exact: true }).click();
+    await persistedRow.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await expect(page.getByRole("cell", { name: updatedName, exact: true })).toBeHidden();
   });
 
   test("deletes an unused hoop with confirmation flow and persistence", async ({
@@ -332,7 +342,7 @@ test.describe("manage hoops", () => {
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
 
-    await expect(page.getByText("Hoop deleted.")).toBeVisible();
+    await expect(page.getByText("Hoop deleted.").first()).toBeVisible();
     await expect(
       page.getByRole("cell", { name: deleteTargetName, exact: true }),
     ).not.toBeVisible();

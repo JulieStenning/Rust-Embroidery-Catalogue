@@ -61,7 +61,7 @@ function projectTile(page: Page, name: string): Locator {
 
 /** A transient toast carrying `message` (see `ToastContainer.svelte`). */
 function toast(page: Page, message: string): Locator {
-  return page.locator(".toast-message", { hasText: message });
+  return page.locator(".toast-message", { hasText: message }).first();
 }
 
 /** The Design Detail "Projects" card. */
@@ -164,8 +164,10 @@ async function addDesignToProject(
   await expect(select).toBeVisible();
   await select.selectOption({ label: projectName });
 
-  await card.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(toast(page, "Design added to project.")).toBeVisible();
+  const addBtn = card.getByRole("button", { name: "Add", exact: true });
+  await expect(addBtn).toBeEnabled({ timeout: 10_000 });
+  await addBtn.click();
+  await expect(toast(page, "Design added to project.")).toBeVisible({ timeout: 15_000 });
 }
 
 

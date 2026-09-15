@@ -257,7 +257,7 @@ test.describe("manage designers", () => {
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
 
-    await expect(page.getByText("Designer deleted.")).toBeVisible();
+    await expect(page.getByText("Designer deleted.").first()).toBeVisible();
     await expect(
       page.getByRole("cell", { name: deleteTargetName, exact: true }),
     ).not.toBeVisible();

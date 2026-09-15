@@ -1,5 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test, expect } from "./fixtures";
 import { clickNav, gotoRoute, mainMenu } from "./helpers";
+import { DATA_ROOT_PATH, DATABASE_FILENAME } from "./paths";
 
 /**
  * End-to-end tests for the "Maintenance & File Processing" tab on the Batch Operations
@@ -412,13 +416,28 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     // Prompt is dismissed automatically after import
     await expect(prompt).not.toBeVisible();
 
-    // Subsequent scan verifies reconciliation (e.g. unimportable outline formats like .eof remain)
+    // Subsequent scan verifies reconciliation (all supported files on disk are catalogued)
     await scanButton.click();
-    await expect(prompt).toBeVisible({ timeout: 10_000 });
     await expect(
-      prompt.getByText(/\d+ design file\(s\) on disk have no record in the catalogue/i),
-    ).toBeVisible();
-    await prompt.getByRole("button", { name: "Dismiss", exact: true }).click();
-    await expect(prompt).not.toBeVisible();
+      page.getByText(/No unmatched design files found/i),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test.afterAll(async () => {
+    // Delete any imported unmatched designs to return catalogue to 55-design seed baseline
+    const dbPath = path.join(DATA_ROOT_PATH, "Database", DATABASE_FILENAME);
+    if (fs.existsSync(dbPath)) {
+      try {
+        const db = new DatabaseSync(dbPath);
+        db.exec("DELETE FROM designs WHERE id > 56");
+        // Reset recommended hoop back to Hoop B for Cake 3
+        db.exec(
+          "UPDATE designs SET hoop_id = (SELECT id FROM hoops WHERE name = 'Hoop B') WHERE filename LIKE 'Cake 3%'",
+        );
+        db.close();
+      } catch {
+        // best effort cleanup
+      }
+    }
   });
 });

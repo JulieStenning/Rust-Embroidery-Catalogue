@@ -37,7 +37,7 @@
   let detailSaving = $state(false);
   let detailReparsing = $state(false);
   /** @type {DesignDetailItem | null} */
-  let detailItem = $state(null);
+  let detailItem = $state(/** @type {DesignDetailItem | null} */ (null));
 
   let ratingHover = $state(0);
   function handleStarClick(/** @type {number} */ score) {
@@ -63,7 +63,9 @@
     ratingHover = 0;
   }
   let effectiveRating = $derived(
-    ratingHover > 0 ? ratingHover : /** @type {DesignDetailItem | null} */ (detailItem?.rating ?? 0)
+    ratingHover > 0
+      ? ratingHover
+      : (/** @type {DesignDetailItem | null} */ (detailItem)?.rating ?? 0)
   );
   let detailNotes = $state("");
   let detailDesignerId = $state("");
@@ -158,6 +160,7 @@
       notes: detailNotes,
       designer_id: detailDesignerId ? Number(detailDesignerId) : null,
       source_id: detailSourceId ? Number(detailSourceId) : null,
+      hoop_id: detailItem?.hoopId ?? null,
     });
     detailSaving = false;
 
@@ -192,6 +195,8 @@
     const result = await updateDesignMetadata(detailItem.id, {
       designer_id: newValue ? Number(newValue) : null,
       source_id: detailSourceId ? Number(detailSourceId) : null,
+      notes: detailNotes,
+      hoop_id: detailItem?.hoopId ?? null,
     });
     detailSaving = false;
 
@@ -225,6 +230,8 @@
     const result = await updateDesignMetadata(detailItem.id, {
       designer_id: detailDesignerId ? Number(detailDesignerId) : null,
       source_id: newValue ? Number(newValue) : null,
+      notes: detailNotes,
+      hoop_id: detailItem?.hoopId ?? null,
     });
     detailSaving = false;
 
