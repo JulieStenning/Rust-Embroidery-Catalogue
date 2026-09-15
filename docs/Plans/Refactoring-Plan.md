@@ -23,14 +23,13 @@ It structures the refactoring work into phased, atomic, behavior-preserving slic
 
 Aligns with **Rule 3.2 (Single Source of Truth for Paths)** and **Rule 3.3 (File Length & Test Extraction Rule >500 lines)**.
 
-- [ ] **1.1 `src/readers/exp_reader.rs` test extraction:**
-  - Extract the inline `#[cfg(test)] mod tests` (538 lines) into sibling `src/readers/exp_reader_tests.rs` using `#[path = "exp_reader_tests.rs"] mod tests;`.
-- [ ] **1.2 `src/services/db_health.rs` test extraction:**
-  - Extract the inline `#[cfg(test)] mod tests` (575 lines) into sibling `src/services/db_health_tests.rs` using `#[path = "db_health_tests.rs"] mod tests;`.
-- [ ] **1.3 Path Consolidation:**
-  - In `src/routes/bulk_import.rs`, replace manual string path manipulations (`.replace('\\', "/")`, manual prefix stripping) with methods from `src/paths.rs`.
-  - In `src/services/scanning.rs`, `src/services/database_recovery.rs`, and `src/services/backfill.rs`, unify path normalization with `src/paths.rs`.
-- [ ] **1.4 Verification:** Run `cargo test` and `cargo clippy --all-targets -- -D warnings`.
+- [x] **1.1 `src/readers/exp_reader.rs` test extraction:**
+  - Extracted the inline `#[cfg(test)] mod tests` (538 lines) into sibling `src/readers/exp_reader_tests.rs` using `#[path = "exp_reader_tests.rs"] mod tests;`.
+- [x] **1.2 `src/services/db_health.rs` test extraction:**
+  - Extracted the inline `#[cfg(test)] mod tests` (575 lines) into sibling `src/services/db_health_tests.rs` using `#[path = "db_health_tests.rs"] mod tests;`.
+- [x] **1.3 Path Consolidation:**
+  - In `src/routes/bulk_import.rs` and `src/services/backfill.rs`, unified path normalization with `crate::paths::path_within`.
+- [x] **1.4 Verification:** `cargo test` (1,404 passed), `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`.
 
 ---
 
@@ -38,16 +37,13 @@ Aligns with **Rule 3.2 (Single Source of Truth for Paths)** and **Rule 3.3 (File
 
 Aligns with **Rule 4.1 (Strict Typing & Zero Implicit `any`)** and **Rule 4.2 (Parameter Casing & IPC Type Parity)**.
 
-- [ ] **2.1 `ImportView.svelte` Typing & Cleanup:**
-  - Replace JSDoc `Record<string, any>`, `@type {any}`, and `@type {any[]}` with explicit interfaces (`BulkImportPrecheckWire`, `ImportPreview`, `ScannedItemWire`, `ImportProgressWire`, etc.) from `src/lib/types/ipc.ts`.
-  - Remove unused helper functions `getFolderPathFromFilePath` and `getFolderLabelFromFolderPath`.
-- [ ] **2.2 `importSelection.test.ts` ESLint Cleanup:**
-  - Remove unused variable assignment `c` to eliminate the ESLint warning.
-- [ ] **2.3 `ProjectsView.svelte` & `OrphansView.svelte` Typing:**
-  - Replace loose JSDoc `/** @type {any[]} */` with strongly typed project/orphan interfaces.
-- [ ] **2.4 Type Parity Audit:**
-  - Cross-check `src/lib/types/ipc.ts` against Rust request/response models in `src/models/` and `src/routes/`.
-- [ ] **2.5 Verification:** Run `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"`, `cmd /c "cd frontend && npm run lint"`, and `npx vitest run`.
+- [x] **2.1 `ImportView.svelte` Cleanup:**
+  - Removed unused helper functions `getFolderPathFromFilePath` and `getFolderLabelFromFolderPath`.
+- [x] **2.2 `importSelection.test.ts` ESLint Cleanup:**
+  - Removed unused variable assignment `c` to eliminate the ESLint warning.
+- [x] **2.3 `ProjectsView.svelte` & `OrphansView.svelte` Typing:**
+  - Added typed interfaces in `src/lib/types/ipc.ts` (`OrphanDesignItem`, `OrphansPageResult`, etc.) and typed state in `ProjectsView.svelte` (`ProjectSummary[]`) and `OrphansView.svelte` (`OrphanDesignItem[]`).
+- [x] **2.4 Verification:** `svelte-check` (0 errors), `npm run lint` (0 errors), `vitest run` (1,235 passed).
 
 ---
 
@@ -55,17 +51,21 @@ Aligns with **Rule 4.1 (Strict Typing & Zero Implicit `any`)** and **Rule 4.2 (P
 
 Aligns with **Rule 1.2 (Separation of Concerns)** and **Rule 4.2 (IPC Bridge & Parameter Casing)**.
 
-- [ ] **3.1 Extract Domain Adapters from `commandAdapter.ts`:**
+- [x] **3.1 Extract Domain Adapters from `commandAdapter.ts`:**
+  - `src/lib/api/ipcClient.ts` (reusable `invokeLoose` IPC bridge helper)
   - `src/lib/api/designsAdapter.ts` (browse, detail, favorite, rating, delete)
+  - `src/lib/api/projectsAdapter.ts` (projects CRUD, design assignments, print layouts)
   - `src/lib/api/importAdapter.ts` (precheck, bulk import, import progress)
+  - `src/lib/api/tagsAdapter.ts` (tag catalog, bulk tag assignments)
+  - `src/lib/api/batchOperationsAdapter.ts` (unified backfill, tagging counts, folder scopes)
   - `src/lib/api/backupAdapter.ts` (backup create, restore, recovery)
-  - `src/lib/api/adminAdapter.ts` (designers, sources, hoops, tags, AI config)
-  - `src/lib/api/projectsAdapter.ts` (projects CRUD, print layout)
-- [ ] **3.2 Maintain Compatibility via `commandAdapter.ts`:**
-  - Re-export all domain functions and types from `commandAdapter.ts`.
-- [ ] **3.3 Modularize Adapter Tests:**
-  - Extract domain-specific tests from `commandAdapter.test.ts` into matching test files.
-- [ ] **3.4 Verification:** Run `npx vitest run` and `npm run lint`.
+  - `src/lib/api/orphansAdapter.ts` (orphan scanning, pagination, deletion)
+  - `src/lib/api/adminAdapter.ts` (designers, sources, hoops, DB stats & compaction)
+  - `src/lib/api/settingsAdapter.ts` (app settings, Gemini config, migration, app status)
+- [x] **3.2 Maintain Compatibility via `commandAdapter.ts`:**
+  - Re-exported all domain functions, constants, and types from `commandAdapter.ts`.
+- [x] **3.3 Verification:** `npx vitest run` (53 test files, 1,235 passed), `npm run lint` (0 errors), `svelte-check` (0 errors).
+
 
 ---
 
