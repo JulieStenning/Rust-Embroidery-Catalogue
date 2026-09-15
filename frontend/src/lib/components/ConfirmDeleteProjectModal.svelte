@@ -74,7 +74,11 @@
         class="confirm-delete-project-modal-header"
         style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:1rem 1.5rem 0;"
       >
-        <h2 id="confirm-delete-project-modal-title" class="text-lg font-bold text-gray-800" style="margin:0;">
+        <h2
+          id="confirm-delete-project-modal-title"
+          class="text-lg font-bold text-gray-800"
+          style="margin:0;"
+        >
           Delete project?
         </h2>
       </div>
@@ -84,7 +88,9 @@
         style="overflow-y:auto;flex:1;padding:1rem 1.5rem;"
       >
         <p class="text-sm text-gray-700" style="margin:0 0 0.75rem 0;">
-          Are you sure you want to delete project <strong class="font-semibold text-gray-900">"{projectName || "Untitled"}"</strong>? This action cannot be undone.
+          Are you sure you want to delete project <strong class="font-semibold text-gray-900"
+            >"{projectName || "Untitled"}"</strong
+          >? This action cannot be undone.
         </p>
 
         <p class="text-xs text-gray-500" style="margin:0;">
@@ -96,12 +102,7 @@
         class="confirm-delete-project-modal-footer"
         style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;padding:1rem 1.5rem;border-top:1px solid #e5e7eb;"
       >
-        <button
-          type="button"
-          class="menu-button-secondary"
-          onclick={onClose}
-          disabled={isDeleting}
-        >
+        <button type="button" class="menu-button-secondary" onclick={onClose} disabled={isDeleting}>
           Cancel
         </button>
         <button

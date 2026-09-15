@@ -76,7 +76,10 @@
     const h = Number(newHoopHeight);
     if (!name || w <= 0 || h <= 0) return;
     if (isReservedHoopName(name)) {
-      addToast(`"${HOOP_UNKNOWN_FILTER}" is reserved for the system and cannot be used as a hoop name.`, "error");
+      addToast(
+        `"${HOOP_UNKNOWN_FILTER}" is reserved for the system and cannot be used as a hoop name.`,
+        "error"
+      );
       return;
     }
 
@@ -120,7 +123,10 @@
       return;
     }
     if (isReservedHoopName(name)) {
-      addToast(`"${HOOP_UNKNOWN_FILTER}" is reserved for the system and cannot be used as a hoop name.`, "error");
+      addToast(
+        `"${HOOP_UNKNOWN_FILTER}" is reserved for the system and cannot be used as a hoop name.`,
+        "error"
+      );
       return;
     }
 

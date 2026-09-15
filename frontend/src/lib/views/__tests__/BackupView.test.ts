@@ -244,9 +244,7 @@ describe("BackupView", () => {
       expect(screen.getByText("Important")).toBeInTheDocument();
       expect(
         screen.getByText(
-          normalizedText(
-            "Ensure backup folders reside on a separate drive from your library."
-          )
+          normalizedText("Ensure backup folders reside on a separate drive from your library.")
         )
       ).toBeInTheDocument();
     });
@@ -868,9 +866,7 @@ describe("BackupView", () => {
       await waitFor(() => card.getByRole("button", { name: "Backup Everything Now" }));
       await fireEvent.click(card.getByRole("button", { name: "Backup Everything Now" }));
       await waitFor(() =>
-        expect(
-          screen.getByRole("button", { name: "Cancel Backup" })
-        ).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: "Cancel Backup" })).toBeInTheDocument()
       );
 
       // The per-card run buttons are replaced while a backup is running.
@@ -1137,9 +1133,7 @@ describe("BackupView", () => {
       await waitFor(() =>
         expect(adapterMocks.detectDesignFilesAbsentFromDatabase).toHaveBeenCalled()
       );
-      await waitFor(() =>
-        expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
       expect(screen.getByRole("button", { name: /Import 3 file/ })).toBeInTheDocument();
     });
 
@@ -1221,7 +1215,9 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Restore Database Now" }));
       await confirmRestoreModal("Restore database");
       await waitFor(() =>
-        expect(adapterMocks.restoreDatabase).toHaveBeenCalledWith("C:\\backups\\catalogue_2026-08-01.db")
+        expect(adapterMocks.restoreDatabase).toHaveBeenCalledWith(
+          "C:\\backups\\catalogue_2026-08-01.db"
+        )
       );
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
@@ -1292,9 +1288,7 @@ describe("BackupView", () => {
 
       await fireEvent.click(screen.getByRole("button", { name: "Restore Both" }));
       await confirmRestoreModal("Restore both");
-      await waitFor(() =>
-        expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
 
       await fireEvent.click(screen.getByRole("button", { name: /Import 2 file/ }));
       await waitFor(() => expect(adapterMocks.importUnmatchedDesignFiles).toHaveBeenCalled());
@@ -1338,9 +1332,7 @@ describe("BackupView", () => {
 
       await fireEvent.click(screen.getByRole("button", { name: "Restore Both" }));
       await confirmRestoreModal("Restore both");
-      await waitFor(() =>
-        expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
 
       await fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
       await tick();

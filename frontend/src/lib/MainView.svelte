@@ -43,7 +43,6 @@
     }
   }
 
-
   // Context-aware "Back" button. Shows on the content pages (About and its
   // documents such as the Licence, and Help) when the user arrived from a
   // different route. It is hidden everywhere else: the Admin hubs (Manage Data,
@@ -174,16 +173,30 @@
         <span aria-hidden="true">🧵</span>
         <span>Embroidery Catalogue</span>
       </a>
-      <a href="#/designs" class={linkClass("#/designs")} aria-disabled={busyActive} onclick={guardNavClick}
-        >Browse</a
+      <a
+        href="#/designs"
+        class={linkClass("#/designs")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}>Browse</a
       >
-      <a href="#/import" class={linkClass("#/import")} aria-disabled={busyActive} onclick={guardNavClick}
-        >Import</a
+      <a
+        href="#/import"
+        class={linkClass("#/import")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}>Import</a
       >
-      <a href="#/projects" class={linkClass("#/projects")} aria-disabled={busyActive} onclick={guardNavClick}
-        >Projects</a
+      <a
+        href="#/projects"
+        class={linkClass("#/projects")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}>Projects</a
       >
-      <a href="#/help" class={linkClass("#/help")} aria-disabled={busyActive} onclick={guardNavClick}>Help</a>
+      <a
+        href="#/help"
+        class={linkClass("#/help")}
+        aria-disabled={busyActive}
+        onclick={guardNavClick}>Help</a
+      >
     </div>
 
     <div class="menu-admin-group flex items-center gap-3 text-xs text-indigo-200">
@@ -192,22 +205,19 @@
         href="#/admin/data/designers"
         class={hubLinkClass(["#/admin/data"])}
         aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Manage Data</a
+        onclick={guardNavClick}>Manage Data</a
       >
       <a
         href="#/admin/batch-operations"
         class={hubLinkClass(["#/admin/batch-operations"])}
         aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >Batch Operations</a
+        onclick={guardNavClick}>Batch Operations</a
       >
       <a
         href="#/admin/system/settings"
         class={hubLinkClass(["#/admin/system"])}
         aria-disabled={busyActive}
-        onclick={guardNavClick}
-        >System</a
+        onclick={guardNavClick}>System</a
       >
     </div>
   </div>
@@ -220,16 +230,12 @@
         type="button"
         class="menu-button-secondary ui-action-button"
         onclick={goBack}
-        disabled={busyActive}
-        >&larr; Back</button
+        disabled={busyActive}>&larr; Back</button
       >
     </div>
   {/if}
   {#if currentUiKind === "browse"}
-    <BrowseView
-      {navigateTo}
-      bind:browseNeedsRefresh
-    />
+    <BrowseView {navigateTo} bind:browseNeedsRefresh />
   {:else if currentUiKind === "reference-data"}
     <ReferenceDataView />
   {:else if currentUiKind === "batch-operations"}
@@ -294,16 +300,14 @@
       href="#/about"
       class="hover:underline text-indigo-650 font-medium"
       aria-disabled={busyActive}
-      onclick={guardNavClick}
-      >About</a
+      onclick={guardNavClick}>About</a
     >
     <span aria-hidden="true">•</span>
     <a
       href="#/about/licence"
       class="hover:underline text-indigo-650 font-medium"
       aria-disabled={busyActive}
-      onclick={guardNavClick}
-      >Licence</a
+      onclick={guardNavClick}>Licence</a
     >
   </div>
 </footer>

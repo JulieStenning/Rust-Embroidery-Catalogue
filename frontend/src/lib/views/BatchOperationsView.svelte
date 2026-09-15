@@ -15,10 +15,7 @@
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { initBackfillProgressEvents } from "../services/backfillEvents";
-  import {
-    backfillProgressStore,
-    resetBackfillProgress,
-  } from "../stores/backfillProgressStore";
+  import { backfillProgressStore, resetBackfillProgress } from "../stores/backfillProgressStore";
   import { browseSessionStore } from "../stores/browseSessionStore.js";
   import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
 
@@ -29,12 +26,7 @@
   // ---------------------------------------------------------------------------
   type TaggingGoal = "file_folder" | "ai_vision" | "full_rescan";
   type TaggingScope =
-    | "untagged"
-    | "folder"
-    | "all"
-    | "vision_not_analyzed"
-    | "vision_no_match"
-    | "vision_analyzed";
+    "untagged" | "folder" | "all" | "vision_not_analyzed" | "vision_no_match" | "vision_analyzed";
   type TaggingMerge = "add" | "reset";
 
   const GOAL_OPTIONS: Array<{
@@ -204,9 +196,7 @@
   const maintenanceScopeLabel = $derived(
     maintenanceScope === "missing_previews"
       ? `Designs missing a preview image${
-          missingPreviewCount !== null
-            ? ` (${missingPreviewCount.toLocaleString()} designs)`
-            : ""
+          missingPreviewCount !== null ? ` (${missingPreviewCount.toLocaleString()} designs)` : ""
         }`
       : "Entire catalogue"
   );
@@ -250,18 +240,20 @@
   let taggingWorkersValue = $derived(Math.max(1, Number.parseInt(taggingWorkers, 10) || 4));
 
   // Which scope options are visible depends on the selected goal's mode(s).
-  const scopeOptionsFor = $derived.by((): Array<{
-    id: string;
-    title: string;
-    subtitle: string;
-    disabled?: boolean;
-  }> => {
-    const list = BASE_SCOPE_OPTIONS.slice();
-    if (goal === "ai_vision" || goal === "full_rescan") {
-      list.push(...MODE_SCOPE_OPTIONS.ai_vision);
+  const scopeOptionsFor = $derived.by(
+    (): Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      disabled?: boolean;
+    }> => {
+      const list = BASE_SCOPE_OPTIONS.slice();
+      if (goal === "ai_vision" || goal === "full_rescan") {
+        list.push(...MODE_SCOPE_OPTIONS.ai_vision);
+      }
+      return list;
     }
-    return list;
-  });
+  );
 
   // If the currently selected scope is no longer offered for this goal, fall back
   // to the always-available untagged scope.
@@ -366,7 +358,11 @@
   ): Promise<void> {
     delete next.folder;
     if (selectedFolderPaths.length === 0) return;
-    const result = await countTaggingCandidates("retag_all", selectedFolderPaths, includeSubfolders);
+    const result = await countTaggingCandidates(
+      "retag_all",
+      selectedFolderPaths,
+      includeSubfolders
+    );
     next.folder = result.counts;
   }
 
@@ -622,6 +618,7 @@
     resetBackfillProgress();
   });
 </script>
+
 <section class="batch-operations-page space-y-6 font-sans">
   <h1 class="ui-page-title batch-operations-title mb-2">Batch Operations</h1>
   <p class="text-sm text-gray-500 mb-4">
@@ -661,227 +658,236 @@
     </div>
 
     {#if activeTab === "tagging"}
-    <!-- API Key Status -->
-    {#if !taggingHasGoogleApiKey}
-      <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
-        No Google API key is configured in Settings. Visual AI tagging will be skipped.
-        File & Folder Rules always run.
-      </div>
-    {:else}
-      <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
-        API key detected — AI tagging actions are available. Gemini calls may incur charges on your
-        Google account.
-      </div>
-    {/if}
-
-    {#if taggingFreeTier && taggingHasGoogleApiKey}
-      <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
-        Free tier detected — Gemini limits are roughly 15 requests/minute and 1,500/day. If a 429
-        rate-limit error occurs the run stops and tells you how long to wait; it will not retry
-        automatically.
-      </div>
-    {/if}
-
-    <!-- Step 1: Goal -->
-    <div class="bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">1. What do you want to do?</h2>
-      <div class="space-y-2">
-        {#each GOAL_OPTIONS as option}
-          <label
-            class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {goal === option.id
-              ? 'border-indigo-400 bg-indigo-50'
-              : 'hover:bg-gray-50'} {option.requiresAi && !taggingHasGoogleApiKey
-              ? 'opacity-50 pointer-events-none'
-              : ''}"
-          >
-            <input
-              type="radio"
-              name="tagging-goal"
-              value={option.id}
-              bind:group={goal}
-              disabled={busyActive || (option.requiresAi && !taggingHasGoogleApiKey)}
-              class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-            />
-            <div>
-              <span class="font-semibold">{option.title}</span>
-              <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
-            </div>
-          </label>
-        {/each}
-      </div>
+      <!-- API Key Status -->
       {#if !taggingHasGoogleApiKey}
-        <p class="text-xs text-gray-400 italic">
-          Configure a Gemini API key in
-          <a href="#/admin/system/settings" class="text-indigo-600 underline font-medium">Settings</a>
-          to enable AI-powered tag suggestions.
-        </p>
+        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
+          No Google API key is configured in Settings. Visual AI tagging will be skipped. File &
+          Folder Rules always run.
+        </div>
+      {:else}
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
+          API key detected — AI tagging actions are available. Gemini calls may incur charges on
+          your Google account.
+        </div>
       {/if}
-    </div>
 
-    <!-- Step 2: Scope -->
-    <div class="bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">2. Which designs should be processed?</h2>
-      <div class="space-y-2">
-        {#each scopeOptionsFor as option}
-          {#if option.disabled}
-            <div
-              class="flex items-start gap-3 text-sm text-gray-400 rounded border border-dashed border-gray-300 p-3"
-            >
-              <input type="radio" disabled class="mt-1 h-4 w-4" />
-              <div class="flex-1">
-                <span class="font-semibold">{option.title}</span>
-                <p class="text-xs mt-0.5">
-                  {option.subtitle} <span class="font-medium text-indigo-500">(coming soon)</span>
-                </p>
-              </div>
-            </div>
-          {:else}
+      {#if taggingFreeTier && taggingHasGoogleApiKey}
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
+          Free tier detected — Gemini limits are roughly 15 requests/minute and 1,500/day. If a 429
+          rate-limit error occurs the run stops and tells you how long to wait; it will not retry
+          automatically.
+        </div>
+      {/if}
+
+      <!-- Step 1: Goal -->
+      <div class="bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">1. What do you want to do?</h2>
+        <div class="space-y-2">
+          {#each GOAL_OPTIONS as option}
             <label
-              class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {scope === option.id
+              class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {goal ===
+              option.id
+                ? 'border-indigo-400 bg-indigo-50'
+                : 'hover:bg-gray-50'} {option.requiresAi && !taggingHasGoogleApiKey
+                ? 'opacity-50 pointer-events-none'
+                : ''}"
+            >
+              <input
+                type="radio"
+                name="tagging-goal"
+                value={option.id}
+                bind:group={goal}
+                disabled={busyActive || (option.requiresAi && !taggingHasGoogleApiKey)}
+                class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <span class="font-semibold">{option.title}</span>
+                <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
+              </div>
+            </label>
+          {/each}
+        </div>
+        {#if !taggingHasGoogleApiKey}
+          <p class="text-xs text-gray-400 italic">
+            Configure a Gemini API key in
+            <a href="#/admin/system/settings" class="text-indigo-600 underline font-medium"
+              >Settings</a
+            >
+            to enable AI-powered tag suggestions.
+          </p>
+        {/if}
+      </div>
+
+      <!-- Step 2: Scope -->
+      <div class="bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">2. Which designs should be processed?</h2>
+        <div class="space-y-2">
+          {#each scopeOptionsFor as option}
+            {#if option.disabled}
+              <div
+                class="flex items-start gap-3 text-sm text-gray-400 rounded border border-dashed border-gray-300 p-3"
+              >
+                <input type="radio" disabled class="mt-1 h-4 w-4" />
+                <div class="flex-1">
+                  <span class="font-semibold">{option.title}</span>
+                  <p class="text-xs mt-0.5">
+                    {option.subtitle} <span class="font-medium text-indigo-500">(coming soon)</span>
+                  </p>
+                </div>
+              </div>
+            {:else}
+              <label
+                class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {scope ===
+                option.id
+                  ? 'border-indigo-400 bg-indigo-50'
+                  : 'hover:bg-gray-50'}"
+              >
+                <input
+                  type="radio"
+                  name="tagging-scope"
+                  value={option.id}
+                  bind:group={scope}
+                  disabled={busyActive}
+                  class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                <div class="flex-1">
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="font-semibold">{option.title}</span>
+                    {#if countsLoading}
+                      <span class="text-xs text-gray-400 italic">(counting…)</span>
+                    {:else if scopeCounts[option.id] !== undefined}
+                      <span class="text-xs font-medium text-gray-500"
+                        >{(activeCountFor(option.id) ?? 0).toLocaleString()} designs</span
+                      >
+                    {/if}
+                  </div>
+                  <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
+                  {#if scopeCounts[option.id]}
+                    <p class="text-xs text-gray-400 mt-0.5">
+                      {scopeCounts[option.id].unverified_count.toLocaleString()} unverified &middot;{" "}
+                      {scopeCounts[option.id].verified_count.toLocaleString()} verified
+                    </p>
+                  {/if}
+                </div>
+              </label>
+            {/if}
+          {/each}
+        </div>
+
+        <!-- Folder selection (Specific Folder or Category scope) -->
+        {#if scope === "folder"}
+          <div class="rounded border border-gray-200 p-3 space-y-3">
+            <p class="text-xs text-gray-600">
+              Choose one or more library folders. Designs under any selected folder will be
+              processed.
+            </p>
+            <button
+              class="menu-button-secondary"
+              onclick={chooseTaggingFolder}
+              disabled={busyActive || countsLoading}
+            >
+              {selectedFolderPaths.length > 0 ? "Add folders…" : "Choose folders…"}
+            </button>
+
+            {#if selectedFolderPaths.length > 0}
+              <ul class="space-y-1.5">
+                {#each selectedFolderPaths as folderPath}
+                  <li
+                    class="tagging-folder-row flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5"
+                    data-folder={folderPath}
+                  >
+                    <span class="flex-1 font-mono text-xs text-gray-700 break-all">
+                      {folderDisplayPath(folderPath)}
+                    </span>
+                    <button
+                      type="button"
+                      class="menu-button-secondary py-1 px-2 text-xs text-red-500 border-red-200"
+                      onclick={() => removeTaggingFolder(folderPath)}
+                      disabled={busyActive}
+                      title="Remove this folder"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+
+              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  bind:checked={includeSubfolders}
+                  onchange={() => loadScopeCounts()}
+                  disabled={busyActive}
+                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>Include subfolders</span>
+              </label>
+            {/if}
+            {#if dataStorageLocation}
+              <p class="text-xs text-gray-400">
+                Library: {dataStorageLocation}
+              </p>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Verified exclusion control -->
+        <label
+          class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3"
+        >
+          <input
+            type="checkbox"
+            bind:checked={excludeVerified}
+            disabled={busyActive}
+            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <div>
+            <span class="font-semibold">Exclude human-verified designs (recommended)</span>
+            <p class="text-gray-500 text-xs mt-0.5">
+              Skip designs whose tags have been manually reviewed or marked as verified.
+            </p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Step 3: Merge -->
+      <div class="bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">
+          3. What should happen to existing tags?
+        </h2>
+        <div class="space-y-2">
+          {#each MERGE_OPTIONS as option}
+            <label
+              class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {merge ===
+              option.id
                 ? 'border-indigo-400 bg-indigo-50'
                 : 'hover:bg-gray-50'}"
             >
               <input
                 type="radio"
-                name="tagging-scope"
+                name="tagging-merge"
                 value={option.id}
-                bind:group={scope}
+                bind:group={merge}
                 disabled={busyActive}
                 class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
               />
-              <div class="flex-1">
-                <div class="flex items-center justify-between gap-3">
-                  <span class="font-semibold">{option.title}</span>
-                  {#if countsLoading}
-                    <span class="text-xs text-gray-400 italic">(counting…)</span>
-                  {:else if scopeCounts[option.id] !== undefined}
-                    <span class="text-xs font-medium text-gray-500"
-                      >{(activeCountFor(option.id) ?? 0).toLocaleString()} designs</span
-                    >
-                  {/if}
-                </div>
+              <div>
+                <span class="font-semibold">{option.title}</span>
                 <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
-                {#if scopeCounts[option.id]}
-                  <p class="text-xs text-gray-400 mt-0.5">
-                    {scopeCounts[option.id].unverified_count.toLocaleString()} unverified &middot;{" "}
-                    {scopeCounts[option.id].verified_count.toLocaleString()} verified
-                  </p>
-                {/if}
               </div>
             </label>
-          {/if}
-        {/each}
+          {/each}
+        </div>
+        <p class="text-xs text-gray-400 italic">
+          Retagging manages image tags only. Non-image tags are never removed. With "Add New Tags"
+          (default), every existing tag is kept; "Complete Reset" replaces the image tags on the
+          selected designs — including any you have added by hand.
+        </p>
       </div>
 
-      <!-- Folder selection (Specific Folder or Category scope) -->
-      {#if scope === "folder"}
-        <div class="rounded border border-gray-200 p-3 space-y-3">
-          <p class="text-xs text-gray-600">
-            Choose one or more library folders. Designs under any selected folder will
-            be processed.
-          </p>
-          <button
-            class="menu-button-secondary"
-            onclick={chooseTaggingFolder}
-            disabled={busyActive || countsLoading}
-          >
-            {selectedFolderPaths.length > 0 ? "Add folders…" : "Choose folders…"}
-          </button>
-
-          {#if selectedFolderPaths.length > 0}
-            <ul class="space-y-1.5">
-              {#each selectedFolderPaths as folderPath}
-                <li
-                  class="tagging-folder-row flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5"
-                  data-folder={folderPath}
-                >
-                  <span class="flex-1 font-mono text-xs text-gray-700 break-all">
-                    {folderDisplayPath(folderPath)}
-                  </span>
-                  <button
-                    type="button"
-                    class="menu-button-secondary py-1 px-2 text-xs text-red-500 border-red-200"
-                    onclick={() => removeTaggingFolder(folderPath)}
-                    disabled={busyActive}
-                    title="Remove this folder"
-                  >
-                    Remove
-                  </button>
-                </li>
-              {/each}
-            </ul>
-
-            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                bind:checked={includeSubfolders}
-                onchange={() => loadScopeCounts()}
-                disabled={busyActive}
-                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span>Include subfolders</span>
-            </label>
-          {/if}
-          {#if dataStorageLocation}
-            <p class="text-xs text-gray-400">
-              Library: {dataStorageLocation}
-            </p>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- Verified exclusion control -->
-      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3">
-        <input
-          type="checkbox"
-          bind:checked={excludeVerified}
-          disabled={busyActive}
-          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-        />
-        <div>
-          <span class="font-semibold">Exclude human-verified designs (recommended)</span>
-          <p class="text-gray-500 text-xs mt-0.5">
-            Skip designs whose tags have been manually reviewed or marked as verified.
-          </p>
-        </div>
-      </label>
-    </div>
-
-    <!-- Step 3: Merge -->
-    <div class="bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">3. What should happen to existing tags?</h2>
-      <div class="space-y-2">
-        {#each MERGE_OPTIONS as option}
-          <label
-            class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {merge === option.id
-              ? 'border-indigo-400 bg-indigo-50'
-              : 'hover:bg-gray-50'}"
-          >
-            <input
-              type="radio"
-              name="tagging-merge"
-              value={option.id}
-              bind:group={merge}
-              disabled={busyActive}
-              class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-            />
-            <div>
-              <span class="font-semibold">{option.title}</span>
-              <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
-            </div>
-          </label>
-        {/each}
-      </div>
-      <p class="text-xs text-gray-400 italic">
-        Retagging manages image tags only. Non-image tags are never removed. With
-        "Add New Tags" (default), every existing tag is kept; "Complete Reset" replaces the
-        image tags on the selected designs — including any you have added by hand.
-      </p>
-    </div>
-
-    <!-- Advanced options (always visible) -->
-    <div class="bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Advanced options</h2>
+      <!-- Advanced options (always visible) -->
+      <div class="bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Advanced options</h2>
 
         <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
           <input
@@ -918,7 +924,9 @@
           />
           <div>
             <span class="font-semibold">Also generate preview images</span>
-            <p class="text-gray-500 text-xs mt-0.5">Generate preview images for designs that lack one.</p>
+            <p class="text-gray-500 text-xs mt-0.5">
+              Generate preview images for designs that lack one.
+            </p>
           </div>
         </label>
         {#if taggingRunImages}
@@ -961,147 +969,151 @@
             </p>
           </div>
         </label>
-    </div>
+      </div>
 
-    <!-- Run / Stop Buttons -->
-    <div class="flex flex-wrap items-center gap-3">
-      <button
-        class="menu-button-primary"
-        onclick={() => (showConfirm = true)}
-        disabled={taggingRunInFlight || taggingActionsLoading || busyActive}
-      >
-        {taggingRunInFlight ? taggingRunButtonLabel : "Review & Start Tagging"}
-      </button>
-      <button
-        class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
-        onclick={requestTaggingStop}
-        disabled={!taggingRunInFlight}
-      >
-        Stop
-      </button>
-    </div>
-    {:else}
-    <div class="bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">1. Target scope</h2>
-      <p class="text-xs text-gray-500">
-        All tasks below run against the population chosen here. <strong>Entire catalogue</strong>{" "}
-        recomputes &amp; overwrites the data for every design; <strong>missing previews</strong>{" "}
-        fills the gaps in the designs that lack a cached thumbnail. No tags are ever changed.
-      </p>
-      <div class="space-y-2">
-        <label
-          class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope === 'all'
-            ? 'border-indigo-400 bg-indigo-50'
-            : 'hover:bg-gray-50'}"
+      <!-- Run / Stop Buttons -->
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          class="menu-button-primary"
+          onclick={() => (showConfirm = true)}
+          disabled={taggingRunInFlight || taggingActionsLoading || busyActive}
         >
+          {taggingRunInFlight ? taggingRunButtonLabel : "Review & Start Tagging"}
+        </button>
+        <button
+          class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+          onclick={requestTaggingStop}
+          disabled={!taggingRunInFlight}
+        >
+          Stop
+        </button>
+      </div>
+    {:else}
+      <div class="bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">1. Target scope</h2>
+        <p class="text-xs text-gray-500">
+          All tasks below run against the population chosen here. <strong>Entire catalogue</strong
+          >{" "}
+          recomputes &amp; overwrites the data for every design;
+          <strong>missing previews</strong>{" "}
+          fills the gaps in the designs that lack a cached thumbnail. No tags are ever changed.
+        </p>
+        <div class="space-y-2">
+          <label
+            class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope ===
+            'all'
+              ? 'border-indigo-400 bg-indigo-50'
+              : 'hover:bg-gray-50'}"
+          >
+            <input
+              type="radio"
+              name="maintenance-scope"
+              value="all"
+              bind:group={maintenanceScope}
+              disabled={busyActive}
+              class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div class="flex-1">
+              <span class="font-semibold">Entire catalogue</span>
+              <p class="text-gray-500 text-xs mt-0.5">All designs stored in the local catalogue.</p>
+            </div>
+          </label>
+          <label
+            class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope ===
+            'missing_previews'
+              ? 'border-indigo-400 bg-indigo-50'
+              : 'hover:bg-gray-50'}"
+          >
+            <input
+              type="radio"
+              name="maintenance-scope"
+              value="missing_previews"
+              bind:group={maintenanceScope}
+              disabled={busyActive}
+              class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div class="flex-1">
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-semibold">Designs missing preview images only</span>
+                {#if missingPreviewCountLoading}
+                  <span class="text-xs text-gray-400 italic">(counting…)</span>
+                {:else if missingPreviewCount !== null}
+                  <span class="text-xs font-medium text-gray-500"
+                    >{missingPreviewCount.toLocaleString()} designs</span
+                  >
+                {/if}
+              </div>
+              <p class="text-gray-500 text-xs mt-0.5">
+                Targets only designs that lack a cached thumbnail.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">2. Maintenance tasks</h2>
+
+        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
           <input
-            type="radio"
-            name="maintenance-scope"
-            value="all"
-            bind:group={maintenanceScope}
+            type="checkbox"
+            bind:checked={taggingRunImages}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
-          <div class="flex-1">
-            <span class="font-semibold">Entire catalogue</span>
-            <p class="text-gray-500 text-xs mt-0.5">All designs stored in the local catalogue.</p>
+          <div>
+            <span class="font-semibold">Generate preview images</span>
           </div>
         </label>
-        <label
-          class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope === 'missing_previews'
-            ? 'border-indigo-400 bg-indigo-50'
-            : 'hover:bg-gray-50'}"
-        >
+        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
           <input
-            type="radio"
-            name="maintenance-scope"
-            value="missing_previews"
-            bind:group={maintenanceScope}
+            type="checkbox"
+            bind:checked={taggingRunColorCounts}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
-          <div class="flex-1">
-            <div class="flex items-center justify-between gap-3">
-              <span class="font-semibold">Designs missing preview images only</span>
-              {#if missingPreviewCountLoading}
-                <span class="text-xs text-gray-400 italic">(counting…)</span>
-              {:else if missingPreviewCount !== null}
-                <span class="text-xs font-medium text-gray-500"
-                  >{missingPreviewCount.toLocaleString()} designs</span
-                >
-              {/if}
-            </div>
+          <div>
+            <span class="font-semibold">Recalculate colour / stitch counts</span>
             <p class="text-gray-500 text-xs mt-0.5">
-              Targets only designs that lack a cached thumbnail.
+              Refresh thread colors, stitch totals, and color changes from the design files.
+            </p>
+          </div>
+        </label>
+        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={taggingRunHoopDimensions}
+            disabled={busyActive}
+            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <div>
+            <span class="font-semibold">Recalculate hoops / dimensions</span>
+            <p class="text-gray-500 text-xs mt-0.5">
+              Refresh design dimensions and recommended hoop from the design files.
             </p>
           </div>
         </label>
       </div>
-    </div>
 
-    <div class="bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">2. Maintenance tasks</h2>
+      <!-- Run / Stop Buttons (Maintenance) -->
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          class="menu-button-primary"
+          onclick={() => (showMaintenanceConfirm = true)}
+          disabled={!maintenanceValid || taggingRunInFlight || taggingActionsLoading || busyActive}
+        >
+          {taggingRunInFlight ? maintenanceRunButtonLabel : "Review & Start Maintenance"}
+        </button>
+        <button
+          class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+          onclick={requestTaggingStop}
+          disabled={!taggingRunInFlight}
+        >
+          Stop
+        </button>
+      </div>
 
-      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
-        <input
-          type="checkbox"
-          bind:checked={taggingRunImages}
-          disabled={busyActive}
-          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-        />
-        <div>
-          <span class="font-semibold">Generate preview images</span>
-        </div>
-      </label>
-      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
-        <input
-          type="checkbox"
-          bind:checked={taggingRunColorCounts}
-          disabled={busyActive}
-          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-        />
-        <div>
-          <span class="font-semibold">Recalculate colour / stitch counts</span>
-          <p class="text-gray-500 text-xs mt-0.5">
-            Refresh thread colors, stitch totals, and color changes from the design files.
-          </p>
-        </div>
-      </label>
-      <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
-        <input
-          type="checkbox"
-          bind:checked={taggingRunHoopDimensions}
-          disabled={busyActive}
-          class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-        />
-        <div>
-          <span class="font-semibold">Recalculate hoops / dimensions</span>
-          <p class="text-gray-500 text-xs mt-0.5">
-            Refresh design dimensions and recommended hoop from the design files.
-          </p>
-        </div>
-      </label>
-    </div>
-
-    <!-- Run / Stop Buttons (Maintenance) -->
-    <div class="flex flex-wrap items-center gap-3">
-      <button
-        class="menu-button-primary"
-        onclick={() => (showMaintenanceConfirm = true)}
-        disabled={!maintenanceValid || taggingRunInFlight || taggingActionsLoading || busyActive}
-      >
-        {taggingRunInFlight ? maintenanceRunButtonLabel : "Review & Start Maintenance"}
-      </button>
-      <button
-        class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
-        onclick={requestTaggingStop}
-        disabled={!taggingRunInFlight}
-      >
-        Stop
-      </button>
-    </div>
-
-    <UnmatchedFilesReconciler />
+      <UnmatchedFilesReconciler />
     {/if}
 
     <!-- Last summary -->
@@ -1121,8 +1133,8 @@
         {/if}
         {#if taggingLastSummary.image_tag_count_before !== undefined}
           <p>
-            Image tags: <strong>{taggingLastSummary.image_tag_count_before}</strong> before
-            &rarr; <strong>{taggingLastSummary.image_tag_count_after ?? 0}</strong> after
+            Image tags: <strong>{taggingLastSummary.image_tag_count_before}</strong> before &rarr;
+            <strong>{taggingLastSummary.image_tag_count_after ?? 0}</strong> after
           </p>
         {/if}
         {#if taggingLastSummary.stitching_tag_count_before !== undefined}
@@ -1131,12 +1143,11 @@
             &rarr; <strong>{taggingLastSummary.stitching_tag_count_after ?? 0}</strong> after
           </p>
         {/if}
-        {#if (taggingLastSummary.actions || []).includes("images") &&
-            taggingLastSummary.missing_preview_count_before !== undefined}
+        {#if (taggingLastSummary.actions || []).includes("images") && taggingLastSummary.missing_preview_count_before !== undefined}
           <p>
             Needs attention:
-            <strong>{taggingLastSummary.missing_preview_count_before}</strong> before
-            &rarr; <strong>{taggingLastSummary.missing_preview_count_after ?? 0}</strong> after
+            <strong>{taggingLastSummary.missing_preview_count_before}</strong> before &rarr;
+            <strong>{taggingLastSummary.missing_preview_count_after ?? 0}</strong> after
           </p>
           {#if (taggingLastSummary.missing_preview_count_after ?? 0) > 0}
             <p class="mt-1">
@@ -1233,7 +1244,8 @@
           {/if}
         </div>
         <div class="mt-6 flex justify-end gap-3">
-          <button class="menu-button-secondary" onclick={() => (showConfirm = false)}>Cancel</button>
+          <button class="menu-button-secondary" onclick={() => (showConfirm = false)}>Cancel</button
+          >
           <button class="menu-button-primary" onclick={confirmStartTagging}>Start Tagging</button>
         </div>
       </div>
@@ -1252,7 +1264,8 @@
         <h2 class="text-lg font-semibold text-gray-800">Ready to Run Maintenance</h2>
         <div class="mt-4 space-y-2 text-sm">
           <p>
-            <span class="font-semibold">Target Scope:</span> {maintenanceScopeLabel}
+            <span class="font-semibold">Target Scope:</span>
+            {maintenanceScopeLabel}
           </p>
           <p class="text-gray-600 text-xs">
             {maintenanceScope === "all"

@@ -4,10 +4,7 @@ import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { tick } from "svelte";
 import BatchOperationsView from "../BatchOperationsView.svelte";
-import {
-  backfillProgressStore,
-  resetBackfillProgress,
-} from "../../stores/backfillProgressStore";
+import { backfillProgressStore, resetBackfillProgress } from "../../stores/backfillProgressStore";
 
 const adapterMocks = vi.hoisted(() => ({
   getBatchOperationsViewModel: vi.fn(),
@@ -71,9 +68,7 @@ describe("BatchOperationsView live progress", () => {
     await user.click(screen.getByRole("button", { name: "Start Tagging" }));
 
     // Before any design completes, the button shows the "getting ready" state.
-    expect(
-      screen.getByRole("button", { name: /Getting ready for tagging/ })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Getting ready for tagging/ })).toBeInTheDocument();
 
     backfillProgressStore.set({
       active: true,

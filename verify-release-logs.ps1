@@ -73,6 +73,14 @@ $results = @(
     } `
     "Fix failing frontend Vitest unit tests."
 
+    Test-LogCondition "Playwright E2E Tests" "$logDir/playwright-results.txt" `
+    { 
+        param($c) 
+        $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
+        $clean -match '\d+\s+passed' -and $clean -notmatch 'failed' -and $clean -notmatch 'Error:'
+    } `
+    "Run 'npx playwright test' or inspect playwright-report to fix failing E2E tests."
+
     Test-LogCondition "Svelte Type Check" "$logDir/svelte-check.txt" `
         { param($c) $c -match 'found 0 errors' -and $c -notmatch 'Error:' } `
         "Fix TypeScript/Svelte errors in @DesignDetailView.svelte."

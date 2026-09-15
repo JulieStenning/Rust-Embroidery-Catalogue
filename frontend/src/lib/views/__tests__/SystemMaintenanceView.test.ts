@@ -81,10 +81,7 @@ describe("SystemMaintenanceView", () => {
       "aria-selected",
       "true"
     );
-    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute(
-      "aria-selected",
-      "false"
-    );
+    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "false");
   });
 
   it("mounts the orphans child for the orphans URL", async () => {

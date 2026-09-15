@@ -15,14 +15,8 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: eventMocks.listen,
 }));
 
-import {
-  BACKFILL_PROGRESS_EVENT,
-  initBackfillProgressEvents,
-} from "../backfillEvents";
-import {
-  backfillProgressStore,
-  resetBackfillProgress,
-} from "../../stores/backfillProgressStore";
+import { BACKFILL_PROGRESS_EVENT, initBackfillProgressEvents } from "../backfillEvents";
+import { backfillProgressStore, resetBackfillProgress } from "../../stores/backfillProgressStore";
 
 describe("backfillEvents", () => {
   beforeEach(() => {
@@ -40,10 +34,7 @@ describe("backfillEvents", () => {
 
   it("subscribes to the backfill-progress event", async () => {
     await initBackfillProgressEvents();
-    expect(eventMocks.listen).toHaveBeenCalledWith(
-      BACKFILL_PROGRESS_EVENT,
-      expect.any(Function)
-    );
+    expect(eventMocks.listen).toHaveBeenCalledWith(BACKFILL_PROGRESS_EVENT, expect.any(Function));
   });
 
   it("maps the payload into the backfill progress store", async () => {

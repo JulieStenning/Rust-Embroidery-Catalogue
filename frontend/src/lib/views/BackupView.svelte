@@ -17,10 +17,7 @@
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
-  import {
-    resetUnmatchedFiles,
-    setUnmatchedFilesDetected,
-  } from "../stores/unmatchedFilesStore.js";
+  import { resetUnmatchedFiles, setUnmatchedFilesDetected } from "../stores/unmatchedFilesStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import { initDatabaseBackupCompletedEvent } from "../services/backupEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
@@ -269,10 +266,7 @@
       if (action === "database") {
         const result = await runDatabaseBackup();
         if (result.cancelled) {
-          addToast(
-            "Database backup cancelled. The partial backup file was removed.",
-            "warning"
-          );
+          addToast("Database backup cancelled. The partial backup file was removed.", "warning");
           return;
         }
         if (!result.success) {
@@ -292,10 +286,7 @@
       if (action === "designs") {
         const result = await runDesignsBackup();
         if (result.cancelled) {
-          addToast(
-            "Designs backup cancelled. Already copied files were kept.",
-            "info"
-          );
+          addToast("Designs backup cancelled. Already copied files were kept.", "info");
           return;
         }
         if (!result.success) {
@@ -333,10 +324,7 @@
       }
 
       if (designsCancelled) {
-        addToast(
-          "Designs backup cancelled. Already copied design files were kept.",
-          "warning"
-        );
+        addToast("Designs backup cancelled. Already copied design files were kept.", "warning");
         return;
       }
 
@@ -552,12 +540,16 @@
 <section class="backup-page space-y-4">
   <h1 class="ui-page-title backup-title mb-2">Backup &amp; Restore</h1>
   <p class="text-sm text-gray-500 mb-4">
-    Back up your catalogue database and embroidery design files to folders of your choice, or restore
-    them from an earlier snapshot. The database backup saves your catalogue data, settings, tags, and
-    projects; the designs backup saves the actual embroidery files.
+    Back up your catalogue database and embroidery design files to folders of your choice, or
+    restore them from an earlier snapshot. The database backup saves your catalogue data, settings,
+    tags, and projects; the designs backup saves the actual embroidery files.
   </p>
 
-  <div class="flex gap-2 border-b border-gray-200 mb-4" role="tablist" aria-label="Backup and restore">
+  <div
+    class="flex gap-2 border-b border-gray-200 mb-4"
+    role="tablist"
+    aria-label="Backup and restore"
+  >
     <button
       type="button"
       role="tab"
@@ -593,202 +585,204 @@
       class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
     >
       <p class="font-semibold">Important</p>
-      <p>
-        Ensure backup folders reside on a separate drive from your library.
-      </p>
+      <p>Ensure backup folders reside on a separate drive from your library.</p>
     </div>
 
     <div class="settings-layout max-w-3xl space-y-6">
-    <form
-      class="settings-card backup-card bg-white rounded shadow p-6 space-y-5"
-      onsubmit={saveBackupDestinations}
-    >
-      <h2 class="text-base font-semibold text-gray-800">Backup Destinations</h2>
-      <p class="text-sm text-gray-600">
-        Set separate destination folders for the database and designs backups.
-      </p>
-
-      <div>
-        <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1"
-          >Database backup folder</label
-        >
-        <div class="flex gap-2">
-          <input
-            id="backup-db-destination"
-            type="text"
-            bind:value={backupDbDestination}
-            placeholder="e.g. C:\\Backups\\EmbroideryDB"
-            spellcheck="false"
-            class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
-          />
-          <button
-            type="button"
-            class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
-            onclick={() => browseBackupDestination("database")}
-            disabled={busyActive}
-          >
-            Browse…
-          </button>
-        </div>
-        <p class="mt-1 text-xs text-gray-500">
-          This backup contains your catalogue data only - <strong>not</strong> the embroidery design files.
-        </p>
-      </div>
-
-      <div>
-        <label
-          for="backup-designs-destination"
-          class="block text-sm font-semibold text-gray-700 mb-1">Designs backup folder</label
-        >
-        <div class="flex gap-2">
-          <input
-            id="backup-designs-destination"
-            type="text"
-            bind:value={backupDesignsDestination}
-            placeholder="e.g. C:\\Backups\\EmbroideryDesigns"
-            spellcheck="false"
-            class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
-          />
-          <button
-            type="button"
-            class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
-            onclick={() => browseBackupDestination("designs")}
-            disabled={busyActive}
-          >
-            Browse…
-          </button>
-        </div>
-        <p class="mt-1 text-xs text-gray-500">
-          This backup contains file copies only - <strong>not</strong> the catalogue database.
-        </p>
-      </div>
-
-      <div class="flex justify-end">
-        <button
-          type="submit"
-          class="settings-primary-button menu-button-primary"
-          disabled={!backupHasUnsavedChanges || busyActive}
-          title={!backupHasUnsavedChanges ? "No unsaved destination changes" : undefined}
-        >
-          Save destinations
-        </button>
-      </div>
-    </form>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
+      <form
+        class="settings-card backup-card bg-white rounded shadow p-6 space-y-5"
+        onsubmit={saveBackupDestinations}
+      >
+        <h2 class="text-base font-semibold text-gray-800">Backup Destinations</h2>
         <p class="text-sm text-gray-600">
-          Creates a timestamped copy of your SQLite database catalogue file.
+          Set separate destination folders for the database and designs backups.
         </p>
-        <div class="text-xs text-gray-500 space-y-0.5">
-          <p>
-            Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
-              >{backupDbSourcePath}</code
+
+        <div>
+          <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1"
+            >Database backup folder</label
+          >
+          <div class="flex gap-2">
+            <input
+              id="backup-db-destination"
+              type="text"
+              bind:value={backupDbDestination}
+              placeholder="e.g. C:\\Backups\\EmbroideryDB"
+              spellcheck="false"
+              class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+            />
+            <button
+              type="button"
+              class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+              onclick={() => browseBackupDestination("database")}
+              disabled={busyActive}
             >
+              Browse…
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            This backup contains your catalogue data only - <strong>not</strong> the embroidery design
+            files.
           </p>
-          <p>Last backup: {formatEpoch(lastDbBackupAt) || "—"}</p>
         </div>
+
+        <div>
+          <label
+            for="backup-designs-destination"
+            class="block text-sm font-semibold text-gray-700 mb-1">Designs backup folder</label
+          >
+          <div class="flex gap-2">
+            <input
+              id="backup-designs-destination"
+              type="text"
+              bind:value={backupDesignsDestination}
+              placeholder="e.g. C:\\Backups\\EmbroideryDesigns"
+              spellcheck="false"
+              class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+            />
+            <button
+              type="button"
+              class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+              onclick={() => browseBackupDestination("designs")}
+              disabled={busyActive}
+            >
+              Browse…
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            This backup contains file copies only - <strong>not</strong> the catalogue database.
+          </p>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="settings-primary-button menu-button-primary"
+            disabled={!backupHasUnsavedChanges || busyActive}
+            title={!backupHasUnsavedChanges ? "No unsaved destination changes" : undefined}
+          >
+            Save destinations
+          </button>
+        </div>
+      </form>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+          <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
+          <p class="text-sm text-gray-600">
+            Creates a timestamped copy of your SQLite database catalogue file.
+          </p>
+          <div class="text-xs text-gray-500 space-y-0.5">
+            <p>
+              Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+                >{backupDbSourcePath}</code
+              >
+            </p>
+            <p>Last backup: {formatEpoch(lastDbBackupAt) || "—"}</p>
+          </div>
+
+          {#if backupAnyRunning}
+            <button
+              type="button"
+              class="settings-primary-button menu-button-primary"
+              disabled
+              title="A backup is already running"
+            >
+              {backupDatabaseRunning ? "Backing up database..." : "Database backup idle"}
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="settings-primary-button menu-button-primary"
+              disabled={!backupHasDbDestination}
+              title={!backupHasDbDestination
+                ? "Set a database backup destination first"
+                : undefined}
+              onclick={() => runBackupAction("database")}
+            >
+              Backup Database Now
+            </button>
+          {/if}
+        </div>
+
+        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+          <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
+          <p class="text-sm text-gray-600">
+            Runs an incremental mirror backup of the designs folder. Only new or changed files are
+            copied; unchanged files are skipped.
+          </p>
+          <div class="text-xs text-gray-500 space-y-0.5">
+            <p>
+              Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+                >{backupDesignsSourcePath}</code
+              >
+            </p>
+            <p>Last sync: {formatEpoch(lastDesignsBackupAt) || "—"}</p>
+          </div>
+
+          {#if backupAnyRunning}
+            <button
+              type="button"
+              class="settings-primary-button menu-button-primary"
+              disabled
+              title="A backup is already running"
+            >
+              {backupDesignsRunning ? "Running incremental backup..." : "Designs backup idle"}
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="settings-primary-button menu-button-primary"
+              disabled={!backupHasDesignsDestination}
+              title={!backupHasDesignsDestination
+                ? "Set a designs backup destination first"
+                : undefined}
+              onclick={() => runBackupAction("designs")}
+            >
+              Run incremental backup
+            </button>
+          {/if}
+        </div>
+      </div>
+
+      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Backup Everything Now</h2>
+        <p class="text-sm text-gray-600">
+          Run the database backup and the incremental designs backup in one step.
+        </p>
 
         {#if backupAnyRunning}
           <button
             type="button"
-            class="settings-primary-button menu-button-primary"
-            disabled
-            title="A backup is already running"
+            class="menu-button-primary"
+            style="background-color:#dc2626;border-color:#dc2626;"
+            disabled={cancelling}
+            onclick={requestCancel}
+            data-testid="cancel-backup-button"
           >
-            {backupDatabaseRunning ? "Backing up database..." : "Database backup idle"}
+            {cancelling ? "Cancelling..." : "Cancel Backup"}
           </button>
         {:else}
           <button
             type="button"
             class="settings-primary-button menu-button-primary"
-            disabled={!backupHasDbDestination}
-            title={!backupHasDbDestination ? "Set a database backup destination first" : undefined}
-            onclick={() => runBackupAction("database")}
+            disabled={!backupHasDbDestination || !backupHasDesignsDestination}
+            title={!backupHasDbDestination || !backupHasDesignsDestination
+              ? "Set both backup destinations first"
+              : undefined}
+            onclick={() => runBackupAction("both")}
           >
-            Backup Database Now
+            Backup Everything Now
           </button>
         {/if}
       </div>
-
-    <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
-      <p class="text-sm text-gray-600">
-        Runs an incremental mirror backup of the designs folder. Only new or changed files are
-        copied; unchanged files are skipped.
-      </p>
-      <div class="text-xs text-gray-500 space-y-0.5">
-        <p>
-          Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
-            >{backupDesignsSourcePath}</code
-          >
-        </p>
-        <p>Last sync: {formatEpoch(lastDesignsBackupAt) || "—"}</p>
-      </div>
-
-      {#if backupAnyRunning}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled
-          title="A backup is already running"
-        >
-          {backupDesignsRunning ? "Running incremental backup..." : "Designs backup idle"}
-        </button>
-      {:else}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled={!backupHasDesignsDestination}
-          title={!backupHasDesignsDestination ? "Set a designs backup destination first" : undefined}
-          onclick={() => runBackupAction("designs")}
-        >
-          Run incremental backup
-        </button>
-      {/if}
     </div>
-
-    </div>
-
-    <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Backup Everything Now</h2>
-      <p class="text-sm text-gray-600">
-        Run the database backup and the incremental designs backup in one step.
-      </p>
-
-      {#if backupAnyRunning}
-        <button
-          type="button"
-          class="menu-button-primary"
-          style="background-color:#dc2626;border-color:#dc2626;"
-          disabled={cancelling}
-          onclick={requestCancel}
-          data-testid="cancel-backup-button"
-        >
-          {cancelling ? "Cancelling..." : "Cancel Backup"}
-        </button>
-      {:else}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled={!backupHasDbDestination || !backupHasDesignsDestination}
-          title={!backupHasDbDestination || !backupHasDesignsDestination
-            ? "Set both backup destinations first"
-            : undefined}
-          onclick={() => runBackupAction("both")}
-        >
-          Backup Everything Now
-        </button>
-      {/if}
-    </div>
-  </div>
   {/if}
 
   <CancelBackupModal
     open={showCancelConfirm}
     activeKind={activeBackupAction}
-    databaseCopyDone={databaseCopyDone}
+    {databaseCopyDone}
     onClose={closeCancelModal}
     onConfirm={confirmCancel}
   />
@@ -814,145 +808,151 @@
 
     <RestoreProgressPanel onclose={() => resetRestoreProgress()} />
 
-  {#if restoreSchemaChanged}
-    <div
-      class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
-    >
-      <p class="font-semibold">Schema version changed</p>
-      <p>
-        The restored database reports schema version {restoreSchemaVersion} (previous was
-        {restorePreviousSchemaVersion}). No automated migrations were run; if this backup is from an
-        older version of the app, some newer features may be unavailable.
-      </p>
-    </div>
-  {/if}
+    {#if restoreSchemaChanged}
+      <div
+        class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
+      >
+        <p class="font-semibold">Schema version changed</p>
+        <p>
+          The restored database reports schema version {restoreSchemaVersion} (previous was
+          {restorePreviousSchemaVersion}). No automated migrations were run; if this backup is from
+          an older version of the app, some newer features may be unavailable.
+        </p>
+      </div>
+    {/if}
 
-  {#if restoreRolledBack}
-    <div
-      class="backup-important mb-2 bg-red-50 border border-red-300 text-red-900 rounded px-4 py-3 text-sm"
-    >
-      <p class="font-semibold">Restore rolled back</p>
-      <p>Your previous database was automatically restored after the restore failed verification.</p>
-    </div>
-  {/if}
+    {#if restoreRolledBack}
+      <div
+        class="backup-important mb-2 bg-red-50 border border-red-300 text-red-900 rounded px-4 py-3 text-sm"
+      >
+        <p class="font-semibold">Restore rolled back</p>
+        <p>
+          Your previous database was automatically restored after the restore failed verification.
+        </p>
+      </div>
+    {/if}
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Restore Database</h2>
+        <p class="text-sm text-gray-600">
+          Replace the live catalogue database with a backup snapshot. A safety copy of the current
+          database is kept before overwriting.
+        </p>
+        <div class="flex gap-2 items-center">
+          <input
+            id="restore-db-file"
+            type="text"
+            readonly
+            bind:value={restoreDbFile}
+            placeholder="Choose an EmbroideryCatalogue.db backup file…"
+            spellcheck="false"
+            class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+          />
+          <button
+            type="button"
+            class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+            onclick={chooseRestoreDbFile}
+            disabled={restoreAnyRunning || busyActive}
+          >
+            Choose file…
+          </button>
+        </div>
+        <div class="text-xs text-gray-500">
+          <p>
+            Defaults to:
+            <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+              >{backupSavedDbDestination || "(not set)"}</code
+            >
+          </p>
+        </div>
+        {#if restoreAnyRunning}
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled
+            title="A restore is already running">Restore database idle</button
+          >
+        {:else}
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled={!restoreDbFile.trim()}
+            title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
+            onclick={() => requestRestore("database")}
+          >
+            Restore Database Now
+          </button>
+        {/if}
+      </div>
+
+      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Sync Designs from Backup</h2>
+        <p class="text-sm text-gray-600">
+          Copies design <strong>files</strong> from the backup folder back into
+          <code>MachineEmbroideryDesigns</code>, skipping files already present there (same size and
+          timestamp). This restores <strong>files only</strong> — it does <strong>not</strong> add or
+          change database records.
+        </p>
+        <div class="text-xs text-gray-500 space-y-0.5">
+          <p>
+            Backup source folder:
+            <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+              >{restoreDesignsSource || backupSavedDesignsDestination || "(not set)"}</code
+            >
+          </p>
+        </div>
+        {#if restoreAnyRunning}
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled
+            title="A restore is already running">Sync designs idle</button
+          >
+        {:else}
+          <button
+            type="button"
+            class="settings-primary-button menu-button-primary"
+            disabled={!restoreDesignsSource.trim() && !backupHasDesignsDestination}
+            title={!restoreDesignsSource.trim() && !backupHasDesignsDestination
+              ? "Set a designs backup folder first"
+              : undefined}
+            onclick={() => requestRestore("designs")}
+          >
+            Sync designs from backup
+          </button>
+        {/if}
+      </div>
+    </div>
+
     <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Restore Database</h2>
-    <p class="text-sm text-gray-600">
-      Replace the live catalogue database with a backup snapshot. A safety copy of the current
-      database is kept before overwriting.
-    </p>
-    <div class="flex gap-2 items-center">
-      <input
-        id="restore-db-file"
-        type="text"
-        readonly
-        bind:value={restoreDbFile}
-        placeholder="Choose an EmbroideryCatalogue.db backup file…"
-        spellcheck="false"
-        class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
-      />
-      <button
-        type="button"
-        class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
-        onclick={chooseRestoreDbFile}
-        disabled={restoreAnyRunning || busyActive}
-      >
-        Choose file…
-      </button>
-    </div>
-    <div class="text-xs text-gray-500">
-      <p>
-        Defaults to:
-        <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
-          >{backupSavedDbDestination || "(not set)"}</code
-        >
+      <h2 class="text-base font-semibold text-gray-800">Restore Both</h2>
+      <p class="text-sm text-gray-600">
+        Restore the database, then sync design files, and finally check for design files on disk
+        that have no database record (you can import those afterwards).
       </p>
-    </div>
-    {#if restoreAnyRunning}
-      <button type="button" class="settings-primary-button menu-button-primary" disabled
-        title="A restore is already running"
-        >Restore database idle</button
-      >
-    {:else}
-      <button
-        type="button"
-        class="settings-primary-button menu-button-primary"
-        disabled={!restoreDbFile.trim()}
-        title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
-        onclick={() => requestRestore("database")}
-      >
-        Restore Database Now
-      </button>
-    {/if}
-  </div>
-
-  <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-    <h2 class="text-base font-semibold text-gray-800">Sync Designs from Backup</h2>
-    <p class="text-sm text-gray-600">
-      Copies design <strong>files</strong> from the backup folder back into
-      <code>MachineEmbroideryDesigns</code>, skipping files already present there (same size and
-      timestamp). This restores <strong>files only</strong> — it does <strong>not</strong> add or
-      change database records.
-    </p>
-    <div class="text-xs text-gray-500 space-y-0.5">
-      <p>
-        Backup source folder:
-        <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
-          >{restoreDesignsSource || backupSavedDesignsDestination || "(not set)"}</code
+      {#if restoreAnyRunning}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled
+          title="A restore is already running">Restore both idle</button
         >
-      </p>
+      {:else}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={!restoreDbFile.trim() ||
+            (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
+          title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
+          onclick={() => requestRestore("both")}
+        >
+          Restore Both
+        </button>
+      {/if}
     </div>
-    {#if restoreAnyRunning}
-      <button type="button" class="settings-primary-button menu-button-primary" disabled
-        title="A restore is already running"
-        >Sync designs idle</button
-      >
-    {:else}
-      <button
-        type="button"
-        class="settings-primary-button menu-button-primary"
-        disabled={!restoreDesignsSource.trim() && !backupHasDesignsDestination}
-        title={
-          !restoreDesignsSource.trim() && !backupHasDesignsDestination
-            ? "Set a designs backup folder first"
-            : undefined
-        }
-        onclick={() => requestRestore("designs")}
-      >
-        Sync designs from backup
-      </button>
-    {/if}
-  </div>
 
-  </div>
-
-  <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-    <h2 class="text-base font-semibold text-gray-800">Restore Both</h2>
-    <p class="text-sm text-gray-600">
-      Restore the database, then sync design files, and finally check for design files on disk that have no
-      database record (you can import those afterwards).
-    </p>
-    {#if restoreAnyRunning}
-      <button type="button" class="settings-primary-button menu-button-primary" disabled
-        title="A restore is already running"
-        >Restore both idle</button
-      >
-    {:else}
-      <button
-        type="button"
-        class="settings-primary-button menu-button-primary"
-        disabled={!restoreDbFile.trim() || (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
-        title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
-        onclick={() => requestRestore("both")}
-      >
-        Restore Both
-      </button>
-    {/if}
-  </div>
-
-  <UnmatchedFilesReconciler />
+    <UnmatchedFilesReconciler />
   {/if}
 </section>
 

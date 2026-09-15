@@ -65,7 +65,7 @@
   let effectiveRating = $derived(
     ratingHover > 0
       ? ratingHover
-      : (/** @type {DesignDetailItem | null} */ (detailItem)?.rating ?? 0)
+      : /** @type {DesignDetailItem | null} */ ((detailItem)?.rating ?? 0)
   );
   let detailNotes = $state("");
   let detailDesignerId = $state("");
@@ -609,11 +609,16 @@
         <!-- Filename & File Path -->
         <div class="route-card space-y-2">
           <div>
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span>
-            <p class="font-medium text-gray-800 text-sm mt-0.5">{detailItem.filename || "Unknown"}</p>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span
+            >
+            <p class="font-medium text-gray-800 text-sm mt-0.5">
+              {detailItem.filename || "Unknown"}
+            </p>
           </div>
           <div>
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">File Path</span>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+              >File Path</span
+            >
             <p
               class="mt-0.5 break-all font-mono text-xs text-gray-600 bg-gray-50 rounded border px-2.5 py-1.5"
             >

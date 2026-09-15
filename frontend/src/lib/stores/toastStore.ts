@@ -56,11 +56,16 @@ export function addToast(
   // When the caller does not specify persistence, error and warning messages
   // stay on screen until manually dismissed (they carry important information).
   // An explicit `persistent` value always wins.
-  const effectivePersistent =
-    persistent ?? (type === "error" || type === "warning");
+  const effectivePersistent = persistent ?? (type === "error" || type === "warning");
 
   const id = nextId++;
-  const toast: Toast = { id, message, type, createdAt: Date.now(), persistent: effectivePersistent };
+  const toast: Toast = {
+    id,
+    message,
+    type,
+    createdAt: Date.now(),
+    persistent: effectivePersistent,
+  };
 
   toasts.update((list) => [...list, toast]);
 

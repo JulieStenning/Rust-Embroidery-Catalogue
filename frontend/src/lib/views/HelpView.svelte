@@ -89,7 +89,10 @@
         <strong>Tag check before import:</strong> first import asks for tag review, later imports can
         continue directly.
       </p>
-      <p><strong>Tagging during import:</strong> imports apply File & Folder Rules only and never call Gemini.</p>
+      <p>
+        <strong>Tagging during import:</strong> imports apply File & Folder Rules only and never call
+        Gemini.
+      </p>
       <p>
         <strong>Error files and large scans:</strong> unreadable files are skipped; large scans may summarise
         rows.
@@ -197,8 +200,8 @@
   <section id="maintenance">
     <h2 class="text-xl font-semibold mb-3 border-b pb-1">🛠 Maintenance</h2>
     <p class="text-sm text-gray-700 mb-3">
-      Use <a href="#/admin/system/orphans" class="text-indigo-600 hover:underline">Orphans</a> to find records
-      whose files are missing.
+      Use <a href="#/admin/system/orphans" class="text-indigo-600 hover:underline">Orphans</a> to find
+      records whose files are missing.
     </p>
     <div class="bg-white rounded shadow p-4 space-y-3 text-sm">
       <p>

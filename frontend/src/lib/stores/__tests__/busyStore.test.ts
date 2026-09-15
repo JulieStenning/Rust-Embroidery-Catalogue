@@ -67,7 +67,11 @@ describe("busyStore", () => {
       endBusy(); // releases only the inner guard
       // The store stays active with one outstanding guard; the label is
       // informational and retains the most recent operation's description.
-      expect(currentState()).toEqual({ active: true, label: "Importing unmatched files", count: 1 });
+      expect(currentState()).toEqual({
+        active: true,
+        label: "Importing unmatched files",
+        count: 1,
+      });
       endBusy(); // releases the outer guard
       expect(currentState()).toEqual({ active: false, label: "", count: 0 });
     });

@@ -43,7 +43,10 @@ describe("ReferenceDataView", () => {
       "href",
       "#/admin/data/sources"
     );
-    expect(screen.getByRole("tab", { name: "Hoops" })).toHaveAttribute("href", "#/admin/data/hoops");
+    expect(screen.getByRole("tab", { name: "Hoops" })).toHaveAttribute(
+      "href",
+      "#/admin/data/hoops"
+    );
   });
 
   it("defaults to the designers sub-view on the bare hub root", async () => {

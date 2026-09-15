@@ -228,9 +228,15 @@ describe("ProjectsView detail view", () => {
   });
 
   it("renders the default error message when the detail item is null without an error", async () => {
-    adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item: null, error: undefined });
+    adapterMock.getProjectDetail.mockResolvedValue({
+      source: "rust",
+      item: null,
+      error: undefined,
+    });
     renderProjects({ projectDetailId: 999 });
-    await waitFor(() => expect(screen.getByText("Could not load project 999.")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Could not load project 999.")).toBeInTheDocument()
+    );
   });
 
   it("shows an error toast when saving with a blank project name", async () => {
@@ -319,7 +325,13 @@ describe("ProjectsView detail view", () => {
     const item = {
       project: { id: 1, name: "Wedding Collection", description: "Bridesmaid gifts." },
       designs: [
-        { id: 103, filename: "plain.pes", filepath: "C:/designs/plain.pes", image_data_url: null, has_image: false },
+        {
+          id: 103,
+          filename: "plain.pes",
+          filepath: "C:/designs/plain.pes",
+          image_data_url: null,
+          has_image: false,
+        },
       ],
     };
     adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item, error: undefined });

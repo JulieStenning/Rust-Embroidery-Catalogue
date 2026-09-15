@@ -55,10 +55,11 @@ The script `verify-release-logs.ps1` identifies successful and failing scripts. 
 * [ ]  Commit any changes resulting from the above actions.
 
 **Test Gate**
-
-* [ ]  Check backend tests pass. See [cargo-test-results2](../../../audit-logs/cargo-test-results2.txt) Covered by verification script.
-* [ ]  Check frontend tests pass. See [vitest-results](../../../audit-logs/vitest-results.txt) Covered by verification script.
-* [ ]  Capture test evidence in the release evidence document.
+ 
+ * [ ]  Check backend tests pass. See [cargo-test-results2](../../../audit-logs/cargo-test-results2.txt) Covered by verification script.
+ * [ ]  Check frontend tests pass. See [vitest-results](../../../audit-logs/vitest-results.txt) Covered by verification script.
+ * [ ]  Check Playwright E2E tests pass. See [playwright-results](../../../audit-logs/playwright-results.txt) Covered by verification script.
+ * [ ]  Capture test evidence in the release evidence document.
 
 **Lint / Format / Type-Check Gate**
 

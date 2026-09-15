@@ -94,9 +94,10 @@ describe("BatchOperationsView two-tab navigation", () => {
 
     await gotoMaintenanceTab();
 
-    expect(
-      screen.getByRole("tab", { name: /Maintenance & File Processing/i })
-    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Maintenance & File Processing/i })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
     expect(screen.getByRole("button", { name: "Review & Start Maintenance" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Review & Start Tagging" })
@@ -104,12 +105,9 @@ describe("BatchOperationsView two-tab navigation", () => {
 
     // No maintenance task is selected → the run is disabled.
     expect(screen.getByRole("checkbox", { name: /Generate preview images/ })).not.toBeChecked();
-    expect(
-      screen.getByRole("button", { name: "Review & Start Maintenance" })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review & Start Maintenance" })).toBeDisabled();
   });
 });
-
 
 describe("BatchOperationsView maintenance run + redirect", () => {
   beforeEach(() => {
@@ -132,9 +130,7 @@ describe("BatchOperationsView maintenance run + redirect", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("checkbox", { name: /Generate preview images/ }));
-    await user.click(
-      screen.getByRole("checkbox", { name: /Recalculate colour \/ stitch counts/ })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Recalculate colour \/ stitch counts/ }));
 
     const runButton = screen.getByRole("button", { name: "Review & Start Maintenance" });
     expect(runButton).toBeEnabled();
@@ -168,22 +164,16 @@ describe("BatchOperationsView maintenance run + redirect", () => {
     await waitFor(() => expect(screen.getByText("293 designs")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("radio", { name: /Designs missing preview images only/ })
-    );
+    await user.click(screen.getByRole("radio", { name: /Designs missing preview images only/ }));
     await user.click(screen.getByRole("checkbox", { name: /Generate preview images/ }));
-    await user.click(
-      screen.getByRole("checkbox", { name: /Recalculate colour \/ stitch counts/ })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Recalculate colour \/ stitch counts/ }));
 
     const runButton = screen.getByRole("button", { name: "Review & Start Maintenance" });
     expect(runButton).toBeEnabled();
     await user.click(runButton);
 
     // The confirm summary reflects the scope + live count.
-    expect(
-      screen.getByText(/Designs missing a preview image \(293 designs\)/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Designs missing a preview image \(293 designs\)/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Start Maintenance" }));
 

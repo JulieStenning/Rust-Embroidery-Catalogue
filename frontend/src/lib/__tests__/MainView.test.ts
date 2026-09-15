@@ -192,54 +192,58 @@ const browseResponse = (items: unknown[] = []) => ({
  * search/filter payload and sorts by filename asc/desc before returning.
  */
 function mockBackendDesigns(all: Array<Record<string, unknown>>) {
-  adapterMock.getBrowseDesigns.mockImplementation(
-    async (payload: Record<string, unknown> = {}) => {
-      let items = all;
-      const q = String(payload?.q || "").trim();
-      if (q) {
-        const searchFile = payload.search_file_name !== false;
-        items = items.filter((item) => {
-          if (searchFile && String(item.filename || "").toLowerCase().includes(q.toLowerCase())) {
-            return true;
-          }
-          return false;
-        });
-      }
-      if (payload.unverified_only) {
-        items = items.filter(
-          (item) => !(item.image_tags_verified && item.stitching_tags_verified)
-        );
-      }
-      const af = (payload.additional_filters || {}) as Record<string, unknown>;
-      const designers = Array.isArray(af.designer_filters)
-        ? af.designer_filters.map(String)
-        : [];
-      if (designers.length > 0) {
-        const set = new Set(designers.map((d) => d.toLowerCase().trim()));
-        items = items.filter((item) =>
-          set.has(String(item.designer || "").toLowerCase().trim())
-        );
-      }
-      const minRating = Number(af.min_rating ?? 0);
-      if (minRating >= 1) {
-        items = items.filter((item) => Number(item.rating ?? 0) >= minRating);
-      }
-      const dir = String(payload.sort_dir || "asc") === "desc" ? -1 : 1;
-      items = [...items].sort((a, b) =>
+  adapterMock.getBrowseDesigns.mockImplementation(async (payload: Record<string, unknown> = {}) => {
+    let items = all;
+    const q = String(payload?.q || "").trim();
+    if (q) {
+      const searchFile = payload.search_file_name !== false;
+      items = items.filter((item) => {
+        if (
+          searchFile &&
+          String(item.filename || "")
+            .toLowerCase()
+            .includes(q.toLowerCase())
+        ) {
+          return true;
+        }
+        return false;
+      });
+    }
+    if (payload.unverified_only) {
+      items = items.filter((item) => !(item.image_tags_verified && item.stitching_tags_verified));
+    }
+    const af = (payload.additional_filters || {}) as Record<string, unknown>;
+    const designers = Array.isArray(af.designer_filters) ? af.designer_filters.map(String) : [];
+    if (designers.length > 0) {
+      const set = new Set(designers.map((d) => d.toLowerCase().trim()));
+      items = items.filter((item) =>
+        set.has(
+          String(item.designer || "")
+            .toLowerCase()
+            .trim()
+        )
+      );
+    }
+    const minRating = Number(af.min_rating ?? 0);
+    if (minRating >= 1) {
+      items = items.filter((item) => Number(item.rating ?? 0) >= minRating);
+    }
+    const dir = String(payload.sort_dir || "asc") === "desc" ? -1 : 1;
+    items = [...items].sort(
+      (a, b) =>
         String(a.filename || "").localeCompare(String(b.filename || ""), undefined, {
           sensitivity: "base",
         }) * dir
-      );
-      return {
-        source: "rust",
-        page: 1,
-        page_size: 50,
-        total: items.length,
-        total_pages: Math.max(1, Math.ceil(items.length / 50)),
-        items,
-      };
-    }
-  );
+    );
+    return {
+      source: "rust",
+      page: 1,
+      page_size: 50,
+      total: items.length,
+      total_pages: Math.max(1, Math.ceil(items.length / 50)),
+      items,
+    };
+  });
 }
 
 /** Full DesignDetail fixture used by the design-detail route test. */

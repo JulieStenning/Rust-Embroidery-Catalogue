@@ -155,11 +155,7 @@ export function resolveCurrentUiKind(route) {
  * own domain-specific Back links ("Back to Browse", which restores the browse
  * session's search results, and "Back to Detail").
  */
-export const BACK_UI_KINDS = new Set([
-  "about",
-  "about-document",
-  "help",
-]);
+export const BACK_UI_KINDS = new Set(["about", "about-document", "help"]);
 
 /**
  * Whether the shell Back button should render for the current route. Shows on

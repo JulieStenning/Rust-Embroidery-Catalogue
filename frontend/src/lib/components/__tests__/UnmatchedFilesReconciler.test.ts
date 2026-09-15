@@ -50,9 +50,7 @@ describe("UnmatchedFilesReconciler", () => {
 
     await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
 
-    await waitFor(() =>
-      expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /Import 3 file/ })).toBeInTheDocument();
   });
 
@@ -103,9 +101,7 @@ describe("UnmatchedFilesReconciler", () => {
     });
     render(UnmatchedFilesReconciler);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
     await fireEvent.click(screen.getByRole("button", { name: /Import 2 file/ }));
 
     await waitFor(() =>
@@ -124,9 +120,7 @@ describe("UnmatchedFilesReconciler", () => {
     setUnmatchedFilesDetected(1, 1, []);
     render(UnmatchedFilesReconciler);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
     await fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
     expect(get(unmatchedFilesStore).showPrompt).toBe(false);
@@ -147,9 +141,7 @@ describe("UnmatchedFilesReconciler", () => {
     setUnmatchedFilesDetected(3, 12, ["a.pes", "b.pes", "c.pes"]);
     render(UnmatchedFilesReconciler);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
     expect(screen.queryByTestId("unmatched-sample-note")).not.toBeInTheDocument();
   });
 
@@ -168,9 +160,7 @@ describe("UnmatchedFilesReconciler", () => {
     });
     render(UnmatchedFilesReconciler);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
     await fireEvent.click(screen.getByRole("button", { name: /Import 2 file/ }));
 
     const cancelButton = await screen.findByTestId("cancel-unmatched-import");

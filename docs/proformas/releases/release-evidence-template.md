@@ -20,7 +20,8 @@ Use this template to capture objective evidence for a specific release.
 
 **Test Gate Evidence**
 - Backend tests (`cargo test`) passed: (Yes/No)
-- Frontend tests (`npm test` / Vitest) passed: (Yes/No)
+- Frontend unit tests (`npm test` / Vitest) passed: (Yes/No)
+- End-to-End tests (`npx playwright test`) passed: (Yes/No)
 - Failures/exceptions (if any):
 - Exception sign-off (if used):
 - Evidence link/snippet:

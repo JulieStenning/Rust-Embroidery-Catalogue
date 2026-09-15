@@ -1845,13 +1845,9 @@ describe("ImportView step 2 very large folders", () => {
 
     expect(screen.getByRole("button", { name: "Show files (300)" })).toBeInTheDocument();
     expect(screen.getByText("All 300 selected")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Continue with 300 designs" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with 300 designs" })).toBeInTheDocument();
     // Collapsed: no per-file checkbox rows are rendered.
-    expect(
-      screen.queryByRole("checkbox", { name: "design-000.pes" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "design-000.pes" })).not.toBeInTheDocument();
   });
 
   it("selects/deselects a whole large folder without rendering its files", async () => {
@@ -1863,14 +1859,10 @@ describe("ImportView step 2 very large folders", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(screen.getByText("None selected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Select all files in Big" })).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Deselect all files in Big" })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Deselect all files in Big" })).toBeDisabled();
 
     await fireEvent.click(screen.getByRole("button", { name: "Select all files in Big" }));
-    expect(
-      screen.getByRole("button", { name: "Continue with 300 designs" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with 300 designs" })).toBeInTheDocument();
     expect(screen.getByText("All 300 selected")).toBeInTheDocument();
   });
 
@@ -1883,15 +1875,11 @@ describe("ImportView step 2 very large folders", () => {
     // Page 1 shows the first 250 files.
     expect(screen.getByRole("checkbox", { name: "design-000.pes" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "design-249.pes" })).toBeChecked();
-    expect(
-      screen.queryByRole("checkbox", { name: "design-299.pes" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "design-299.pes" })).not.toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: /Next/ }));
     // Page 2 now shows the tail.
-    expect(
-      screen.queryByRole("checkbox", { name: "design-000.pes" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "design-000.pes" })).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "design-299.pes" })).toBeChecked();
   });
 
@@ -1903,13 +1891,9 @@ describe("ImportView step 2 very large folders", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Show files (300)" }));
     await fireEvent.click(screen.getByRole("checkbox", { name: "design-000.pes" }));
 
-    expect(
-      screen.getByRole("button", { name: "Continue with 299 designs" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with 299 designs" })).toBeInTheDocument();
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Continue with 299 designs" })
-    );
+    await fireEvent.click(screen.getByRole("button", { name: "Continue with 299 designs" }));
     await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
 
     const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);

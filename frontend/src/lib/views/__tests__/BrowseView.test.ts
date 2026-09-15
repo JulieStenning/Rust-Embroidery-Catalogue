@@ -195,19 +195,19 @@ function applyBackendFilter(
   }
 
   if (payload.unverified_only) {
-    result = result.filter(
-      (item) => !(item.image_tags_verified && item.stitching_tags_verified)
-    );
+    result = result.filter((item) => !(item.image_tags_verified && item.stitching_tags_verified));
   }
 
   const af = (payload.additional_filters || {}) as Record<string, unknown>;
-  const designerFilters = Array.isArray(af.designer_filters)
-    ? af.designer_filters.map(String)
-    : [];
+  const designerFilters = Array.isArray(af.designer_filters) ? af.designer_filters.map(String) : [];
   if (designerFilters.length > 0) {
     const set = new Set(designerFilters.map((d) => d.toLowerCase().trim()));
     result = result.filter((item) =>
-      set.has(String(item.designer || "").toLowerCase().trim())
+      set.has(
+        String(item.designer || "")
+          .toLowerCase()
+          .trim()
+      )
     );
   }
 
@@ -229,8 +229,8 @@ function applyBackendFilter(
   if (stitchingTagFilters.length > 0) {
     const set = new Set(stitchingTagFilters.map((t) => t.toLowerCase().trim()));
     result = result.filter((item) =>
-      (Array.isArray(item.stitching_tags) ? item.stitching_tags.map(String) : []).some(
-        (tag) => set.has(tag.toLowerCase().trim())
+      (Array.isArray(item.stitching_tags) ? item.stitching_tags.map(String) : []).some((tag) =>
+        set.has(tag.toLowerCase().trim())
       )
     );
   }
@@ -239,7 +239,11 @@ function applyBackendFilter(
   if (sourceFilters.length > 0) {
     const set = new Set(sourceFilters.map((s) => s.toLowerCase().trim()));
     result = result.filter((item) =>
-      set.has(String(item.source || "").toLowerCase().trim())
+      set.has(
+        String(item.source || "")
+          .toLowerCase()
+          .trim()
+      )
     );
   }
 
@@ -248,7 +252,10 @@ function applyBackendFilter(
     result = result.filter((item) => !String(item.hoop || "").trim());
   } else if (hoop) {
     result = result.filter(
-      (item) => String(item.hoop || "").toLowerCase().trim() === hoop.toLowerCase()
+      (item) =>
+        String(item.hoop || "")
+          .toLowerCase()
+          .trim() === hoop.toLowerCase()
     );
   }
 
@@ -1520,10 +1527,7 @@ describe("BrowseView", () => {
         expect(args[3]).toBe(false);
       });
 
-      expect(toastMock.addToast).toHaveBeenCalledWith(
-        "Updated tags for 1 design(s).",
-        "success"
-      );
+      expect(toastMock.addToast).toHaveBeenCalledWith("Updated tags for 1 design(s).", "success");
     });
 
     it("shows an error toast when bulk tags fail", async () => {
@@ -1961,17 +1965,19 @@ describe("BrowseView", () => {
       // Backend-paginated response: echo the requested page back and compute
       // total_pages from PAGE_SIZE, since the browse page size is now sent to
       // the backend rather than sliced client-side.
-      adapterMocks.getBrowseDesigns.mockImplementation(async (payload: { page?: number | string }) => {
-        const requestedPage = Math.max(1, Number(payload?.page ?? 1));
-        return {
-          source: "rust",
-          page: requestedPage,
-          page_size: PAGE_SIZE,
-          total: count,
-          total_pages: Math.max(1, Math.ceil(count / PAGE_SIZE)),
-          items: many,
-        };
-      });
+      adapterMocks.getBrowseDesigns.mockImplementation(
+        async (payload: { page?: number | string }) => {
+          const requestedPage = Math.max(1, Number(payload?.page ?? 1));
+          return {
+            source: "rust",
+            page: requestedPage,
+            page_size: PAGE_SIZE,
+            total: count,
+            total_pages: Math.max(1, Math.ceil(count / PAGE_SIZE)),
+            items: many,
+          };
+        }
+      );
       renderBrowse();
     }
 
@@ -2700,7 +2706,6 @@ describe("BrowseView", () => {
       });
     });
   });
-
 
   describe("card normalization edge cases", () => {
     it("handles mixed/absent field types in a raw wire item without crashing", async () => {

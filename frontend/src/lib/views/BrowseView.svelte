@@ -43,10 +43,7 @@
   /** @typedef {{ persisted: boolean, verified_count?: number, updated?: number, error?: string }} BulkVerifyResult */
   /** @typedef {{ image: Array<BrowseTagOption>, stitching: Array<BrowseTagOption>, unclassified: Array<BrowseTagOption> }} TagOptionBuckets */
 
-  let {
-    navigateTo,
-    browseNeedsRefresh = $bindable(false),
-  } = $props();
+  let { navigateTo, browseNeedsRefresh = $bindable(false) } = $props();
 
   // Browse state
   /** @type {BrowseDesignCard[]} */
@@ -206,9 +203,7 @@
       ...f,
       designerFilters: Array.isArray(f.designerFilters) ? [...f.designerFilters] : [],
       imageTagFilters: Array.isArray(f.imageTagFilters) ? [...f.imageTagFilters] : [],
-      stitchingTagFilters: Array.isArray(f.stitchingTagFilters)
-        ? [...f.stitchingTagFilters]
-        : [],
+      stitchingTagFilters: Array.isArray(f.stitchingTagFilters) ? [...f.stitchingTagFilters] : [],
       sourceFilters: Array.isArray(f.sourceFilters) ? [...f.sourceFilters] : [],
     };
   }

@@ -101,9 +101,8 @@
   <h2 class="text-base font-semibold text-gray-800">Find unmatched design files</h2>
   <p class="text-sm text-gray-600">
     Scans <code>MachineEmbroideryDesigns</code> for design files that have no record in the catalogue
-    — for example after syncing designs from a backup without restoring the database. You can then
-    import them as new catalogue records; preview images and technical metadata are generated
-    automatically.
+    — for example after syncing designs from a backup without restoring the database. You can then import
+    them as new catalogue records; preview images and technical metadata are generated automatically.
   </p>
   <div class="flex gap-2 pt-1">
     <button
@@ -165,8 +164,7 @@
         type="button"
         class="menu-button-secondary"
         onclick={dismissUnmatchedFiles}
-        disabled={busyActive}
-        >Dismiss</button
+        disabled={busyActive}>Dismiss</button
       >
     </div>
   </div>

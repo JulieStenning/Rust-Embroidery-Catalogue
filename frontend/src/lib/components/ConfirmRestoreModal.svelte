@@ -21,7 +21,11 @@
   let showsDatabaseNotes = $derived(activeKind === "database" || activeKind === "both");
   let showsDesignsNotes = $derived(activeKind === "designs" || activeKind === "both");
   let confirmLabel = $derived(
-    activeKind === "both" ? "Restore both" : activeKind === "designs" ? "Sync designs" : "Restore database"
+    activeKind === "both"
+      ? "Restore both"
+      : activeKind === "designs"
+        ? "Sync designs"
+        : "Restore database"
   );
 
   /** @param {HTMLElement} node */
@@ -79,32 +83,33 @@
         class="confirm-restore-modal-header"
         style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:1rem 1.5rem 0;"
       >
-        <h2 id="confirm-restore-modal-title" class="text-lg font-bold text-gray-800" style="margin:0;">
+        <h2
+          id="confirm-restore-modal-title"
+          class="text-lg font-bold text-gray-800"
+          style="margin:0;"
+        >
           Are you sure you want to restore?
         </h2>
       </div>
 
-      <div
-        class="confirm-restore-modal-body"
-        style="overflow-y:auto;flex:1;padding:1rem 1.5rem;"
-      >
+      <div class="confirm-restore-modal-body" style="overflow-y:auto;flex:1;padding:1rem 1.5rem;">
         <p class="text-sm text-amber-800" style="margin:0 0 0.75rem 0;">
           Restoring overwrites current data and cannot be undone from this screen.
         </p>
 
         {#if showsDatabaseNotes}
           <p class="text-sm text-gray-700" style="margin:0 0 0.75rem 0;">
-            The current database will be replaced with the selected backup snapshot. A safety copy of
-            your current database will be kept before overwriting and will be restored automatically if
-            verification fails.
+            The current database will be replaced with the selected backup snapshot. A safety copy
+            of your current database will be kept before overwriting and will be restored
+            automatically if verification fails.
           </p>
         {/if}
 
         {#if showsDesignsNotes}
           <p class="text-sm text-gray-700" style="margin:0;">
             Design files from the backup folder will be copied into MachineEmbroideryDesigns. Files
-            already present with identical sizes and timestamps will be skipped. This does not change database
-            records.
+            already present with identical sizes and timestamps will be skipped. This does not
+            change database records.
           </p>
         {/if}
       </div>
@@ -113,9 +118,7 @@
         class="confirm-restore-modal-footer"
         style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;padding:1rem 1.5rem;border-top:1px solid #e5e7eb;"
       >
-        <button type="button" class="menu-button-secondary" onclick={onClose}>
-          Cancel
-        </button>
+        <button type="button" class="menu-button-secondary" onclick={onClose}> Cancel </button>
         <button
           type="button"
           class="settings-primary-button menu-button-primary"

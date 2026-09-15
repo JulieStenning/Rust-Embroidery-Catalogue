@@ -62,9 +62,7 @@ describe("BatchOperationsView workflow selection", () => {
   it("defaults to File & Folder, untagged, and add-new-tags", async () => {
     render(BatchOperationsView);
 
-    expect(
-      await screen.findByRole("radio", { name: /Apply file & folder rules/i })
-    ).toBeChecked();
+    expect(await screen.findByRole("radio", { name: /Apply file & folder rules/i })).toBeChecked();
     expect(screen.getByRole("radio", { name: /Untagged designs only/ })).toBeChecked();
     expect(screen.getByRole("radio", { name: /Add new tags only/i })).toBeChecked();
   });
@@ -77,9 +75,7 @@ describe("BatchOperationsView workflow selection", () => {
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
     expect(screen.getByRole("radio", { name: /Enrich with visual AI/i })).toBeChecked();
 
-    await user.click(
-      screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })
-    );
+    await user.click(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ }));
     expect(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })).toBeChecked();
 
     await user.click(screen.getByRole("radio", { name: /Complete reset/i }));
@@ -130,9 +126,7 @@ describe("BatchOperationsView workflow selection", () => {
     );
     render(BatchOperationsView);
 
-    expect(
-      await screen.findByRole("radio", { name: /Enrich with visual AI/i })
-    ).toBeDisabled();
+    expect(await screen.findByRole("radio", { name: /Enrich with visual AI/i })).toBeDisabled();
     expect(screen.getByRole("radio", { name: /Full re-scan/i })).toBeDisabled();
   });
 

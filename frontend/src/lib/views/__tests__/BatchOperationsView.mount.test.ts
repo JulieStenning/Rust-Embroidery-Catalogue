@@ -126,7 +126,9 @@ describe("BatchOperationsView initial render", () => {
 
     expect(screen.getByRole("heading", { name: "Batch Operations" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Automated AI categorisation, rule-based tagging, and library file maintenance\./)
+      screen.getByText(
+        /Automated AI categorisation, rule-based tagging, and library file maintenance\./
+      )
     ).toBeInTheDocument();
   });
 

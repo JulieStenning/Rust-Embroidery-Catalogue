@@ -89,9 +89,7 @@ describe("BatchOperationsView run unified backfill", () => {
 
     render(BatchOperationsView);
 
-    await waitFor(() =>
-      expect(screen.getByText(/Free tier detected/)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/Free tier detected/)).toBeInTheDocument());
     expect(screen.getByText(/15 requests\/minute and 1,500\/day/)).toBeInTheDocument();
   });
 
@@ -146,9 +144,7 @@ describe("BatchOperationsView run unified backfill", () => {
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
     await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
-    await user.click(
-      screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })
-    );
+    await user.click(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ }));
 
     await startRun();
 
@@ -198,7 +194,9 @@ describe("BatchOperationsView run unified backfill", () => {
     const modal = within(screen.getByTestId("tagging-confirm-modal"));
     expect(modal.getByText(/Ready to Retag/)).toBeInTheDocument();
     expect(modal.getByText(/10 designs/)).toBeInTheDocument();
-    expect(modal.getByText(/Keep all existing tags and append any newly discovered tags/)).toBeInTheDocument();
+    expect(
+      modal.getByText(/Keep all existing tags and append any newly discovered tags/)
+    ).toBeInTheDocument();
 
     await user.click(modal.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByTestId("tagging-confirm-modal")).not.toBeInTheDocument();
@@ -219,9 +217,7 @@ describe("BatchOperationsView run unified backfill", () => {
 
     // Unchecking exclusion flips the modal to "Included" and the run forwards false.
     await user.click(within(modalEl).getByRole("button", { name: "Cancel" }));
-    await user.click(
-      screen.getByRole("checkbox", { name: /Exclude human-verified designs/ })
-    );
+    await user.click(screen.getByRole("checkbox", { name: /Exclude human-verified designs/ }));
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
     modalEl = screen.getByTestId("tagging-confirm-modal");
     expect(modalEl).toHaveTextContent(/Included/);
@@ -392,9 +388,7 @@ describe("BatchOperationsView run unified backfill", () => {
       );
     });
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Review & Start Tagging" })
-      ).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "Review & Start Tagging" })).not.toBeDisabled();
     });
     expect(screen.queryByText("Last run summary")).not.toBeInTheDocument();
   });
@@ -435,5 +429,4 @@ describe("BatchOperationsView run unified backfill", () => {
       );
     });
   });
-
 });

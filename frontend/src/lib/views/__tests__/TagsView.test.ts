@@ -462,5 +462,4 @@ describe("TagsView", () => {
     await screen.findByRole("heading", { name: "Manage Tags" });
     expect(adapterMocks.listTags).toHaveBeenCalled();
   });
-
 });

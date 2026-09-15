@@ -149,13 +149,21 @@ describe("ProjectsView print view", () => {
   });
 
   it("shows Project not found when the print item has no project", async () => {
-    adapterMock.getProjectPrintView.mockResolvedValue({ source: "rust", item: {}, error: undefined });
+    adapterMock.getProjectPrintView.mockResolvedValue({
+      source: "rust",
+      item: {},
+      error: undefined,
+    });
     renderProjects();
     await waitFor(() => expect(screen.getByText("Project not found.")).toBeInTheDocument());
   });
 
   it("shows the default error when the print item is null", async () => {
-    adapterMock.getProjectPrintView.mockResolvedValue({ source: "rust", item: null, error: undefined });
+    adapterMock.getProjectPrintView.mockResolvedValue({
+      source: "rust",
+      item: null,
+      error: undefined,
+    });
     renderProjects();
     await waitFor(() =>
       expect(screen.getByText("Could not load project print view for id 1.")).toBeInTheDocument()

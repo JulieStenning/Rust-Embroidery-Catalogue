@@ -27,7 +27,9 @@ export const IMPORT_UNKNOWN_FOLDER = "Unknown folder";
  * @returns {string}
  */
 function folderPathOf(fullPath) {
-  const normalized = String(fullPath || "").trim().replace(/\\/g, "/");
+  const normalized = String(fullPath || "")
+    .trim()
+    .replace(/\\/g, "/");
   const splitIndex = normalized.lastIndexOf("/");
   if (splitIndex <= 0) return "";
   return normalized.slice(0, splitIndex);
@@ -38,7 +40,10 @@ function folderPathOf(fullPath) {
  * @returns {string}
  */
 function folderLabelOf(folderPath) {
-  const value = String(folderPath || "").trim().replace(/\\/g, "/").replace(/\/+$/g, "");
+  const value = String(folderPath || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/g, "");
   if (!value) return IMPORT_UNKNOWN_FOLDER;
   const segments = value.split("/").filter(Boolean);
   return segments.length > 0 ? segments[segments.length - 1] : value;
@@ -49,7 +54,9 @@ function folderLabelOf(folderPath) {
  * @returns {string}
  */
 function filenameOf(fullPath) {
-  const normalized = String(fullPath || "").trim().replace(/\\/g, "/");
+  const normalized = String(fullPath || "")
+    .trim()
+    .replace(/\\/g, "/");
   const segments = normalized.split("/").filter(Boolean);
   return segments.length > 0 ? segments[segments.length - 1] : String(fullPath || "");
 }
@@ -129,9 +136,7 @@ export function selFromSerialized(raw) {
     if (value && typeof value === "object") {
       for (const key of Object.keys(value)) {
         const list = Array.isArray(value[key])
-          ? value[key]
-              .map((item) => String(item || "").trim())
-              .filter((item) => item.length > 0)
+          ? value[key].map((item) => String(item || "").trim()).filter((item) => item.length > 0)
           : [];
         if (list.length > 0) out[key] = list;
       }
@@ -207,10 +212,7 @@ export function selToggleFile(state, folderPath, fullPath, selected) {
       selectedOnly = withArrayValue(selectedOnly, folderPath, remaining);
     } else if (hasKey(deselected, folderPath)) {
       if (deselected[folderPath].includes(fullPath)) return state;
-      deselected = withArrayValue(deselected, folderPath, [
-        ...deselected[folderPath],
-        fullPath,
-      ]);
+      deselected = withArrayValue(deselected, folderPath, [...deselected[folderPath], fullPath]);
     } else {
       deselected = withArrayValue(deselected, folderPath, [fullPath]);
     }
@@ -298,4 +300,3 @@ export function selMaterializeSelectedPaths(state, catalog) {
   }
   return result;
 }
-

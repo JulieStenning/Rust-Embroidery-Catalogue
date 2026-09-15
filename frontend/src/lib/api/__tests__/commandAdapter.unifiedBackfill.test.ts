@@ -194,11 +194,7 @@ describe("commandAdapter countTaggingCandidates payload", () => {
   });
 
   it("passes folder_paths and include_subfolders to the count command", async () => {
-    await countTaggingCandidates(
-      "retag_all",
-      ["C:/library/Flowers", "C:/library/Animals"],
-      false
-    );
+    await countTaggingCandidates("retag_all", ["C:/library/Flowers", "C:/library/Animals"], false);
 
     expect(invokeMock).toHaveBeenCalledWith("count_tagging_candidates", {
       action: "retag_all",
@@ -394,7 +390,6 @@ describe("commandAdapter merge_mode forwarding", () => {
       },
     });
   });
-
 });
 
 describe("commandAdapter runMaintenanceBackfill wire payload", () => {
@@ -463,4 +458,3 @@ describe("commandAdapter runMaintenanceBackfill wire payload", () => {
     expect(invokeMock).toHaveBeenCalledWith("count_missing_preview_designs");
   });
 });
-

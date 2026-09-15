@@ -161,7 +161,9 @@
     settingsModelsLoading = true;
     try {
       const result = await listGeminiModels(settingsGoogleApiKey.trim());
-      settingsGeminiModels = sortModelsFlashFirst(Array.isArray(result?.models) ? result.models : []);
+      settingsGeminiModels = sortModelsFlashFirst(
+        Array.isArray(result?.models) ? result.models : []
+      );
       if (result?.error) {
         addToast(`Could not list Gemini models: ${result.error}`, "error");
       }
@@ -187,9 +189,7 @@
       if (lower.includes("flash")) return 1;
       return 2;
     };
-    return [...models].sort(
-      (a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b))
-    );
+    return [...models].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b)));
   }
 
   /** Validate the currently selected Gemini model against the API key. */
@@ -379,7 +379,9 @@
 
   /** @param {string} dataRoot */
   function libraryRootForDataRoot(dataRoot) {
-    const trimmed = String(dataRoot || "").trim().replace(/[\\/]+$/, "");
+    const trimmed = String(dataRoot || "")
+      .trim()
+      .replace(/[\\/]+$/, "");
     if (!trimmed) return "";
     const sep = trimmed.includes("/") ? "/" : "\\";
     return `${trimmed}${sep}MachineEmbroideryDesigns`;
@@ -498,26 +500,35 @@
       </div>
     {/if}
 
-    <form class="settings-card settings-form bg-white rounded shadow" onsubmit={saveSettingsFromBackend}>
+    <form
+      class="settings-card settings-form bg-white rounded shadow"
+      onsubmit={saveSettingsFromBackend}
+    >
       <div
         class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-gray-200 bg-white/95 px-6 py-4 backdrop-blur"
         data-testid="settings-header"
       >
-        <h1 class="ui-page-title settings-title text-lg font-bold text-gray-800">Application Settings</h1>
+        <h1 class="ui-page-title settings-title text-lg font-bold text-gray-800">
+          Application Settings
+        </h1>
         <div class="flex shrink-0 items-center gap-3">
           {#if settingsIsDirty}
             <span
               class="flex items-center gap-1.5 text-xs font-medium text-indigo-600"
               data-testid="settings-dirty-hint"
             >
-              <span aria-hidden="true" class="inline-block h-2 w-2 rounded-full bg-indigo-600"></span>
+              <span aria-hidden="true" class="inline-block h-2 w-2 rounded-full bg-indigo-600"
+              ></span>
               Unsaved changes
             </span>
           {/if}
           <button
             type="submit"
             class="settings-primary-button menu-button-primary"
-            disabled={!settingsIsDirty || settingsSaveState === "saving" || busyActive || (settingsLoading && !settingsLoaded)}
+            disabled={!settingsIsDirty ||
+              settingsSaveState === "saving" ||
+              busyActive ||
+              (settingsLoading && !settingsLoaded)}
             title={settingsIsDirty ? "Save your changes" : "No unsaved changes"}
           >
             {settingsSaveState === "saving" ? "Saving..." : "Save settings"}
@@ -528,263 +539,264 @@
       <div class="p-6 space-y-5">
         <div>
           <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
-        <p class="text-sm text-gray-600">
-          The Google API key is only required if you want your designs to be tagged automatically by
-          Google AI.
-          <a href={settingsHelpUrl} class="text-indigo-600 hover:underline"
-            >Press here for more information.</a
-          >
-        </p>
-      </div>
-
-      <div>
-        <label for="settings-google-api-key" class="block text-sm font-semibold text-gray-700 mb-1"
-          >API key</label
-        >
-        <div class="flex items-center gap-2">
-          <input
-            id="settings-google-api-key"
-            type={settingsApiKeyRevealed ? "text" : "password"}
-            bind:value={settingsGoogleApiKey}
-            placeholder="AIzaSy..."
-            autocomplete="off"
-            spellcheck="false"
-            class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
-          />
-          <button
-            type="button"
-            class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
-            aria-label="Show or hide API key"
-            aria-pressed={settingsApiKeyRevealed}
-            title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
-            onclick={toggleSettingsApiKeyVisibility}
-          >
-            <span aria-hidden="true" class="settings-eye-icon"
-              >{settingsApiKeyRevealed ? "🙈" : "👁"}</span
+          <p class="text-sm text-gray-600">
+            The Google API key is only required if you want your designs to be tagged automatically
+            by Google AI.
+            <a href={settingsHelpUrl} class="text-indigo-600 hover:underline"
+              >Press here for more information.</a
             >
-          </button>
-        </div>
-        <p class="mt-2 text-xs text-gray-500">
-          {#if settingsHasGoogleApiKey}
-            A key is currently saved. You can leave it as-is or replace it here.
-          {:else}
-            Leave this blank if you only want File & Folder Rules tagging with no Google AI calls.
-          {/if}
-        </p>
-      </div>
-
-      <div class="border-t pt-4">
-        <label class="flex flex-col gap-1 text-sm text-gray-700 cursor-pointer">
-          <span class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              bind:checked={settingsAiFreeTier}
-              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            My Google API key is on the <strong>free tier</strong>
-          </span>
-          <span class="text-xs text-gray-500"
-            >Tick this only if your key is on the free tier - it has stricter rate limits.</span
-          >
-        </label>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label
-            for="settings-ai-batch-size"
-            class="block text-sm font-semibold text-gray-700 mb-1"
-          >
-            AI tagging batch size <span class="font-normal text-gray-500">(optional)</span>
-          </label>
-          <input
-            id="settings-ai-batch-size"
-            type="number"
-            min="1"
-            bind:value={settingsAiBatchSize}
-            placeholder="e.g. 100"
-            class="settings-input border rounded px-3 py-2 text-sm w-full"
-          />
-          <p class="mt-1 text-xs text-gray-500">Designs processed per batch (default 100).</p>
-        </div>
-        <div>
-          <label
-            for="settings-ai-commit-every"
-            class="block text-sm font-semibold text-gray-700 mb-1"
-          >
-            Commit every <span class="font-normal text-gray-500">(optional)</span>
-          </label>
-          <input
-            id="settings-ai-commit-every"
-            type="number"
-            min="1"
-            bind:value={settingsAiCommitEvery}
-            placeholder="e.g. 100"
-            class="settings-input border rounded px-3 py-2 text-sm w-full"
-          />
-          <p class="mt-1 text-xs text-gray-500">Progress/commit cadence during a run (default 100).</p>
-        </div>
-        <div>
-          <label
-            for="settings-ai-workers"
-            class="block text-sm font-semibold text-gray-700 mb-1"
-          >
-            Workers <span class="font-normal text-gray-500">(optional)</span>
-          </label>
-          <input
-            id="settings-ai-workers"
-            type="number"
-            min="1"
-            max="32"
-            bind:value={settingsAiWorkers}
-            placeholder={`e.g. ${settingsDefaultWorkers}${settingsAiFreeTier ? " (free tier)" : ""}`}
-            class="settings-input border rounded px-3 py-2 text-sm w-full"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Designs tagged in parallel (default {settingsDefaultWorkers}). Lower to avoid Gemini
-            rate-limit (429) errors.
           </p>
         </div>
-      </div>
 
-      <div>
-        <label for="settings-ai-delay" class="block text-sm font-semibold text-gray-700 mb-1">
-          Delay between Gemini calls (seconds) <span class="font-normal text-gray-500"
-            >(optional)</span
+        <div>
+          <label
+            for="settings-google-api-key"
+            class="block text-sm font-semibold text-gray-700 mb-1">API key</label
           >
-        </label>
-        <input
-          id="settings-ai-delay"
-          type="number"
-          min="0"
-          step="0.5"
-          bind:value={settingsAiDelay}
-          placeholder={`e.g. ${settingsDefaultDelay}`}
-          class="settings-input border rounded px-3 py-2 text-sm w-56"
-        />
-        <p class="mt-1 text-xs text-gray-500">
-          Seconds to wait between API calls. Increase this if you see <em>429 Too Many Requests</em>
-          errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
-          batch operations on the
-          <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
-            >Batch Operations</a
-          > page.
-        </p>
-      </div>
-
-      <div>
-        <label for="settings-ai-model" class="block text-sm font-semibold text-gray-700 mb-1">
-          Gemini model <span class="font-normal text-gray-500">(optional)</span>
-        </label>
-        <div class="flex flex-wrap items-center gap-2">
-          <select
-            id="settings-ai-model"
-            bind:value={settingsAiGeminiModel}
-            disabled={!settingsHasGoogleApiKey || busyActive}
-            class="settings-input border rounded px-3 py-2 text-sm w-72"
-          >
-            <option value="">Auto-select (recommended)</option>
-            {#each settingsGeminiModels as modelName}
-              <option value={modelName}>{modelName}</option>
-            {/each}
-          </select>
-          <button
-            type="button"
-            class="menu-button-secondary px-3 py-2 text-sm"
-            onclick={loadGeminiModels}
-            disabled={!settingsHasGoogleApiKey || settingsModelsLoading || busyActive}
-          >
-            {settingsModelsLoading ? "Loading…" : "Refresh"}
-          </button>
-          <button
-            type="button"
-            class="menu-button-secondary px-3 py-2 text-sm"
-            onclick={testSelectedModel}
-            disabled={!settingsHasGoogleApiKey || settingsModelTesting || busyActive}
-          >
-            {settingsModelTesting ? "Testing…" : "Test model"}
-          </button>
-        </div>
-        <p class="mt-1 text-xs text-gray-500">
-          Model used for Visual AI tagging. Leave blank to let the app
-          auto-select an available Gemini model. If a model you pick is later retired, the app
-          falls back to auto-selection at run time.
-        </p>
-        <p class="mt-1 text-xs text-gray-500">
-          <strong>Flash models are recommended</strong> — they are the fastest and cheapest for
-          tagging. Pro/thinking models cost more and run slower for the same small tag prompt.
-        </p>
-        {#if settingsModelTestMessage}
-          <p class="mt-1 text-xs text-gray-600">{settingsModelTestMessage}</p>
-        {/if}
-      </div>
-
-      <div>
-        <label
-          for="settings-db-idle-check-interval"
-          class="block text-sm font-semibold text-gray-700 mb-1"
-        >
-          Database health check interval (seconds)
-        </label>
-        <input
-          id="settings-db-idle-check-interval"
-          type="number"
-          min="5"
-          bind:value={settingsDbIdleCheckIntervalSecs}
-          placeholder="e.g. 1800"
-          class="settings-input border rounded px-3 py-2 text-sm w-48"
-        />
-        <p class="mt-1 text-xs text-gray-500">
-          How often the app checks for database fragmentation (default 1800 = 30 minutes). When free
-          space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without pausing the
-          app. Minimum 5 seconds (for testing).
-        </p>
-      </div>
-
-      <div class="border-t pt-4 space-y-3">
-        <h2 class="text-sm font-semibold text-gray-700 mb-1">Catalogue storage</h2>
-        <p class="text-sm text-gray-600">
-          Large catalogue data lives under a single home folder.
-          {#if settingsCanConfigureDataRoot}
-            For desktop installs you can point this to a larger drive. Changes apply after
-            restarting the app, and any missing managed files are copied into the new location
-            automatically.
-          {:else}
-            In {settingsAppMode} mode this location follows the application folder automatically.
-          {/if}
-        </p>
-
-        {#if settingsCanConfigureDataRoot}
-          <div>
-            <label for="settings-data-root" class="block text-sm font-semibold text-gray-700 mb-1"
-              >Catalogue data location</label
+          <div class="flex items-center gap-2">
+            <input
+              id="settings-google-api-key"
+              type={settingsApiKeyRevealed ? "text" : "password"}
+              bind:value={settingsGoogleApiKey}
+              placeholder="AIzaSy..."
+              autocomplete="off"
+              spellcheck="false"
+              class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+            />
+            <button
+              type="button"
+              class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
+              aria-label="Show or hide API key"
+              aria-pressed={settingsApiKeyRevealed}
+              title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
+              onclick={toggleSettingsApiKeyVisibility}
             >
-            <div class="flex items-center gap-2">
-              <input
-                id="settings-data-root"
-                type="text"
-                bind:value={settingsLibraryRoot}
-                placeholder="D:\\EmbroideryCatalogueData\\MachineEmbroideryDesigns"
-                spellcheck="false"
-                class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
-              />
-              <button
-                type="button"
-                class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
-                onclick={browseDataRootFromBackend}
-                disabled={busyActive}
+              <span aria-hidden="true" class="settings-eye-icon"
+                >{settingsApiKeyRevealed ? "🙈" : "👁"}</span
               >
-                Browse…
-              </button>
-            </div>
+            </button>
+          </div>
+          <p class="mt-2 text-xs text-gray-500">
+            {#if settingsHasGoogleApiKey}
+              A key is currently saved. You can leave it as-is or replace it here.
+            {:else}
+              Leave this blank if you only want File & Folder Rules tagging with no Google AI calls.
+            {/if}
+          </p>
+        </div>
+
+        <div class="border-t pt-4">
+          <label class="flex flex-col gap-1 text-sm text-gray-700 cursor-pointer">
+            <span class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                bind:checked={settingsAiFreeTier}
+                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              My Google API key is on the <strong>free tier</strong>
+            </span>
+            <span class="text-xs text-gray-500"
+              >Tick this only if your key is on the free tier - it has stricter rate limits.</span
+            >
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label
+              for="settings-ai-batch-size"
+              class="block text-sm font-semibold text-gray-700 mb-1"
+            >
+              AI tagging batch size <span class="font-normal text-gray-500">(optional)</span>
+            </label>
+            <input
+              id="settings-ai-batch-size"
+              type="number"
+              min="1"
+              bind:value={settingsAiBatchSize}
+              placeholder="e.g. 100"
+              class="settings-input border rounded px-3 py-2 text-sm w-full"
+            />
+            <p class="mt-1 text-xs text-gray-500">Designs processed per batch (default 100).</p>
+          </div>
+          <div>
+            <label
+              for="settings-ai-commit-every"
+              class="block text-sm font-semibold text-gray-700 mb-1"
+            >
+              Commit every <span class="font-normal text-gray-500">(optional)</span>
+            </label>
+            <input
+              id="settings-ai-commit-every"
+              type="number"
+              min="1"
+              bind:value={settingsAiCommitEvery}
+              placeholder="e.g. 100"
+              class="settings-input border rounded px-3 py-2 text-sm w-full"
+            />
             <p class="mt-1 text-xs text-gray-500">
-              This is the design library folder that directly holds your imported files
-              (MachineEmbroideryDesigns). Choose it or its parent to relocate the catalogue.
+              Progress/commit cadence during a run (default 100).
             </p>
           </div>
-        {/if}
-      </div>
+          <div>
+            <label for="settings-ai-workers" class="block text-sm font-semibold text-gray-700 mb-1">
+              Workers <span class="font-normal text-gray-500">(optional)</span>
+            </label>
+            <input
+              id="settings-ai-workers"
+              type="number"
+              min="1"
+              max="32"
+              bind:value={settingsAiWorkers}
+              placeholder={`e.g. ${settingsDefaultWorkers}${settingsAiFreeTier ? " (free tier)" : ""}`}
+              class="settings-input border rounded px-3 py-2 text-sm w-full"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Designs tagged in parallel (default {settingsDefaultWorkers}). Lower to avoid Gemini
+              rate-limit (429) errors.
+            </p>
+          </div>
+        </div>
 
+        <div>
+          <label for="settings-ai-delay" class="block text-sm font-semibold text-gray-700 mb-1">
+            Delay between Gemini calls (seconds) <span class="font-normal text-gray-500"
+              >(optional)</span
+            >
+          </label>
+          <input
+            id="settings-ai-delay"
+            type="number"
+            min="0"
+            step="0.5"
+            bind:value={settingsAiDelay}
+            placeholder={`e.g. ${settingsDefaultDelay}`}
+            class="settings-input border rounded px-3 py-2 text-sm w-56"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            Seconds to wait between API calls. Increase this if you see <em
+              >429 Too Many Requests</em
+            >
+            errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
+            batch operations on the
+            <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
+              >Batch Operations</a
+            > page.
+          </p>
+        </div>
+
+        <div>
+          <label for="settings-ai-model" class="block text-sm font-semibold text-gray-700 mb-1">
+            Gemini model <span class="font-normal text-gray-500">(optional)</span>
+          </label>
+          <div class="flex flex-wrap items-center gap-2">
+            <select
+              id="settings-ai-model"
+              bind:value={settingsAiGeminiModel}
+              disabled={!settingsHasGoogleApiKey || busyActive}
+              class="settings-input border rounded px-3 py-2 text-sm w-72"
+            >
+              <option value="">Auto-select (recommended)</option>
+              {#each settingsGeminiModels as modelName}
+                <option value={modelName}>{modelName}</option>
+              {/each}
+            </select>
+            <button
+              type="button"
+              class="menu-button-secondary px-3 py-2 text-sm"
+              onclick={loadGeminiModels}
+              disabled={!settingsHasGoogleApiKey || settingsModelsLoading || busyActive}
+            >
+              {settingsModelsLoading ? "Loading…" : "Refresh"}
+            </button>
+            <button
+              type="button"
+              class="menu-button-secondary px-3 py-2 text-sm"
+              onclick={testSelectedModel}
+              disabled={!settingsHasGoogleApiKey || settingsModelTesting || busyActive}
+            >
+              {settingsModelTesting ? "Testing…" : "Test model"}
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            Model used for Visual AI tagging. Leave blank to let the app auto-select an available
+            Gemini model. If a model you pick is later retired, the app falls back to auto-selection
+            at run time.
+          </p>
+          <p class="mt-1 text-xs text-gray-500">
+            <strong>Flash models are recommended</strong> — they are the fastest and cheapest for tagging.
+            Pro/thinking models cost more and run slower for the same small tag prompt.
+          </p>
+          {#if settingsModelTestMessage}
+            <p class="mt-1 text-xs text-gray-600">{settingsModelTestMessage}</p>
+          {/if}
+        </div>
+
+        <div>
+          <label
+            for="settings-db-idle-check-interval"
+            class="block text-sm font-semibold text-gray-700 mb-1"
+          >
+            Database health check interval (seconds)
+          </label>
+          <input
+            id="settings-db-idle-check-interval"
+            type="number"
+            min="5"
+            bind:value={settingsDbIdleCheckIntervalSecs}
+            placeholder="e.g. 1800"
+            class="settings-input border rounded px-3 py-2 text-sm w-48"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            How often the app checks for database fragmentation (default 1800 = 30 minutes). When
+            free space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without
+            pausing the app. Minimum 5 seconds (for testing).
+          </p>
+        </div>
+
+        <div class="border-t pt-4 space-y-3">
+          <h2 class="text-sm font-semibold text-gray-700 mb-1">Catalogue storage</h2>
+          <p class="text-sm text-gray-600">
+            Large catalogue data lives under a single home folder.
+            {#if settingsCanConfigureDataRoot}
+              For desktop installs you can point this to a larger drive. Changes apply after
+              restarting the app, and any missing managed files are copied into the new location
+              automatically.
+            {:else}
+              In {settingsAppMode} mode this location follows the application folder automatically.
+            {/if}
+          </p>
+
+          {#if settingsCanConfigureDataRoot}
+            <div>
+              <label for="settings-data-root" class="block text-sm font-semibold text-gray-700 mb-1"
+                >Catalogue data location</label
+              >
+              <div class="flex items-center gap-2">
+                <input
+                  id="settings-data-root"
+                  type="text"
+                  bind:value={settingsLibraryRoot}
+                  placeholder="D:\\EmbroideryCatalogueData\\MachineEmbroideryDesigns"
+                  spellcheck="false"
+                  class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+                />
+                <button
+                  type="button"
+                  class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
+                  onclick={browseDataRootFromBackend}
+                  disabled={busyActive}
+                >
+                  Browse…
+                </button>
+              </div>
+              <p class="mt-1 text-xs text-gray-500">
+                This is the design library folder that directly holds your imported files
+                (MachineEmbroideryDesigns). Choose it or its parent to relocate the catalogue.
+              </p>
+            </div>
+          {/if}
+        </div>
       </div>
     </form>
 

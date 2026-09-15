@@ -15,10 +15,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: eventMocks.listen,
 }));
 
-import {
-  RESTORE_PROGRESS_EVENT,
-  initRestoreProgressEvents,
-} from "../restoreEvents";
+import { RESTORE_PROGRESS_EVENT, initRestoreProgressEvents } from "../restoreEvents";
 import { restoreProgressStore, resetRestoreProgress } from "../../stores/restoreProgressStore";
 
 describe("restoreEvents", () => {
@@ -37,10 +34,7 @@ describe("restoreEvents", () => {
 
   it("subscribes to the catalogue-restore-progress event", async () => {
     await initRestoreProgressEvents();
-    expect(eventMocks.listen).toHaveBeenCalledWith(
-      RESTORE_PROGRESS_EVENT,
-      expect.any(Function)
-    );
+    expect(eventMocks.listen).toHaveBeenCalledWith(RESTORE_PROGRESS_EVENT, expect.any(Function));
   });
 
   it("maps the payload into the restore progress store", async () => {

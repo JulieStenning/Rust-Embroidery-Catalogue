@@ -281,9 +281,7 @@ export async function getDesignIds(payload?: SearchPayload): Promise<number[]> {
       { payload }
     );
     if (result && Array.isArray(result.ids)) {
-      return result.ids
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id));
+      return result.ids.map((id) => Number(id)).filter((id) => Number.isFinite(id));
     }
   } catch (error) {
     console.info("get_design_ids not available yet.", error);
@@ -2692,9 +2690,7 @@ export async function scanOrphans(): Promise<AdapterScanOrphansResponse> {
  * configured Database backup folder and restricted to `.db` files.
  * @param {string} [startDir]
  */
-export async function browseRestoreFile(
-  startDir = ""
-): Promise<BrowseRestoreFileResponse> {
+export async function browseRestoreFile(startDir = ""): Promise<BrowseRestoreFileResponse> {
   try {
     const result = await invokeLoose<{ path?: string | null; error?: string | null }>(
       "browse_restore_file",

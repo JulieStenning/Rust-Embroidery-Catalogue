@@ -90,15 +90,16 @@
         class="cancel-backup-modal-header"
         style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:1rem 1.5rem 0;"
       >
-        <h2 id="cancel-backup-modal-title" class="text-lg font-bold text-gray-800" style="margin:0;">
+        <h2
+          id="cancel-backup-modal-title"
+          class="text-lg font-bold text-gray-800"
+          style="margin:0;"
+        >
           Are you sure you want to cancel the backup?
         </h2>
       </div>
 
-      <div
-        class="cancel-backup-modal-body"
-        style="overflow-y:auto;flex:1;padding:1rem 1.5rem;"
-      >
+      <div class="cancel-backup-modal-body" style="overflow-y:auto;flex:1;padding:1rem 1.5rem;">
         {#if hasDatabaseCopy}
           <p class="text-sm text-gray-700" style="margin:0 0 0.75rem 0;">
             {databaseCopyDone

@@ -48,6 +48,9 @@ cargo test  > ./audit-logs/cargo-test-results2.txt
 Write-Host "--> Checking frontend tests pass" -ForegroundColor Yellow
 npx vitest run --silent  2>&1 | Out-File ./audit-logs/vitest-results.txt
 
+Write-Host "--> Checking Playwright E2E tests pass..." -ForegroundColor Yellow
+npx playwright test 2>&1 | Out-File ./audit-logs/playwright-results.txt
+
 # 2. Rust Quality Gates
 Write-Host "--> Running Rust Checks, Formatting & Clippy..." -ForegroundColor Yellow
 $env:CARGO_TERM_COLOR="never"; cargo check 2>&1 | Out-File ./audit-logs/cargo-check-results2.txt

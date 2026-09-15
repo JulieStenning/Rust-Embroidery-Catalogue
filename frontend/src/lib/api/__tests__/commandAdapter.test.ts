@@ -2984,7 +2984,15 @@ describe("restore adapters", () => {
         rolled_back: false,
         error: null,
       },
-      designs: { success: true, scanned: 5, copied: 2, updated: 0, skipped: 3, total_bytes_copied: 0, error: null },
+      designs: {
+        success: true,
+        scanned: 5,
+        copied: 2,
+        updated: 0,
+        skipped: 3,
+        total_bytes_copied: 0,
+        error: null,
+      },
       unmatched: { checked: 5, unmatched: 1, sample: ["a.pes"] },
     });
     const result = await restoreBoth("C:/backups/cat.db", { designsSourceDir: "C:/backups" });
@@ -3040,4 +3048,3 @@ describe("restore adapters", () => {
     expect(result.cancelled).toBe(true);
   });
 });
-

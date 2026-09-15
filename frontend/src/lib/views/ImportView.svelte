@@ -546,9 +546,7 @@
     // Serialise the folder-scoped selection (base + exceptions) compactly. The
     // full selected-file list is NOT sent; the backend reconstructs it from the
     // stored scan catalogue referenced by `scan_token`.
-    const selectionFolderLists = (
-      /** @type {Record<string, unknown> | null | undefined} */ map
-    ) =>
+    const selectionFolderLists = (/** @type {Record<string, unknown> | null | undefined} */ map) =>
       Object.entries(map || {}).map(([folderPath, files]) => ({
         folder_path: folderPath,
         files: Array.isArray(files) ? files.map(String) : [],
@@ -1315,14 +1313,15 @@
             <button
               class="menu-button-primary ui-action-button ui-action-button-primary"
               onclick={runImportPrecheck}
-              disabled={importLoading || importActionLoading || busyActive || importSelectedCount === 0}
+              disabled={importLoading ||
+                importActionLoading ||
+                busyActive ||
+                importSelectedCount === 0}
             >
               {#if importLoading}
                 Running…
               {:else if importSelectedCount > 0}
-                Continue with {importSelectedCount} design{importSelectedCount === 1
-                  ? ""
-                  : "s"}
+                Continue with {importSelectedCount} design{importSelectedCount === 1 ? "" : "s"}
               {:else}
                 Continue
               {/if}
@@ -1359,13 +1358,12 @@
             {#each importFolderSummary as folder (folder.folderPath)}
               {@const autoExpand = folder.total <= IMPORT_FOLDER_AUTO_EXPAND_MAX}
               {@const isExpanded = autoExpand || Boolean(importExpandedByPath[folder.folderPath])}
-              {@const fileWindow =
-                importFolderFileWindowByPath[folder.folderPath] || {
-                  page: 1,
-                  pageCount: 1,
-                  filteredCount: 0,
-                  visible: [],
-                }}
+              {@const fileWindow = importFolderFileWindowByPath[folder.folderPath] || {
+                page: 1,
+                pageCount: 1,
+                filteredCount: 0,
+                visible: [],
+              }}
               {@const selectionStatus =
                 folder.kind === "all"
                   ? `All ${folder.total} selected`
@@ -1468,8 +1466,8 @@
                   <div class="import-step2-file-list-shell p-4">
                     {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
                       <p class="text-xs text-gray-500 mb-2">
-                        This folder contains {folder.total} files. Use Select/Deselect all to work
-                        on the whole folder, or filter to find specific files.
+                        This folder contains {folder.total} files. Use Select/Deselect all to work on
+                        the whole folder, or filter to find specific files.
                       </p>
                     {/if}
                     {#if folder.total > IMPORT_FOLDER_PAGE_SIZE}
@@ -1490,7 +1488,11 @@
                         class="import-step2-file-columns grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
                       >
                         {#each fileWindow.visible as fullPath (fullPath)}
-                          {@const isChecked = selIsSelected(importSelection, folder.folderPath, fullPath)}
+                          {@const isChecked = selIsSelected(
+                            importSelection,
+                            folder.folderPath,
+                            fullPath
+                          )}
                           <label
                             class="import-step2-file-item flex items-start gap-2 cursor-pointer"
                           >
@@ -1529,8 +1531,9 @@
                 {:else}
                   <div class="import-step2-file-list-shell p-4">
                     <p class="text-sm text-gray-500 italic">
-                      Files are hidden for this large folder ({folder.total} file{folder.total ===
-                      1 ? "" : "s"}). Use the controls above to select or deselect the whole folder.
+                      Files are hidden for this large folder ({folder.total} file{folder.total === 1
+                        ? ""
+                        : "s"}). Use the controls above to select or deselect the whole folder.
                     </p>
                   </div>
                 {/if}
@@ -1581,7 +1584,9 @@
         <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
           <p class="font-semibold text-blue-900">Note on Visual AI Tagging</p>
           <p class="ui-help-note text-blue-900">
-            Initial import uses fast, offline File &amp Folder Rules to index your designs instantly. Once finished, you can run automated Visual AI tagging anytime from Batch Operations to enrich your collection.
+            Initial import uses fast, offline File &amp Folder Rules to index your designs
+            instantly. Once finished, you can run automated Visual AI tagging anytime from Batch
+            Operations to enrich your collection.
           </p>
         </div>
 
