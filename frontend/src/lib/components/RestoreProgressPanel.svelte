@@ -132,8 +132,7 @@
       <div class="flex justify-end pt-1">
         <button
           type="button"
-          class="menu-button-primary"
-          style="background-color:#dc2626;border-color:#dc2626;"
+          class="menu-button-danger"
           onclick={handleCancel}
           disabled={cancelling || progress.phase !== "designs"}
           title={progress.phase !== "designs" ? "This step can't be interrupted" : undefined}

@@ -1935,36 +1935,29 @@
   <div
     use:portalToBody
     class="tag-chooser-overlay no-print"
-    style="position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;"
     role="dialog"
     aria-modal="true"
     aria-labelledby="bulk-tag-title"
   >
     <button
       type="button"
-      style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:0;"
+      class="tag-chooser-backdrop"
       aria-label="Close tag chooser"
       onclick={closeBulkTagModal}
     ></button>
-    <div
-      class="tag-chooser-dialog"
-      style="position:relative;display:flex;flex-direction:column;max-height:88vh;z-index:1;width:min(40rem, calc(100vw - 2rem));"
-    >
-      <div
-        class="tag-chooser-header"
-        style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;"
-      >
-        <h2 id="bulk-tag-title" class="text-lg font-bold text-gray-800" style="margin:0;">
+    <div class="tag-chooser-dialog">
+      <div class="tag-chooser-header">
+        <h2 id="bulk-tag-title" class="text-lg font-bold text-gray-800 m-0">
           Choose tags for selected designs
         </h2>
       </div>
-      <div class="tag-chooser-body" style="overflow-y:auto;flex:1;">
-        <p class="text-xs text-gray-500 font-semibold" style="margin:0 0 0.75rem 0;">
+      <div class="tag-chooser-body">
+        <p class="text-xs text-gray-500 font-semibold mb-3">
           {browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.
         </p>
 
-        <div class="tag-chooser-section" style="margin-bottom:0.75rem;">
-          <label class="tag-chooser-option" style="font-weight:600;">
+        <div class="tag-chooser-section mb-3">
+          <label class="tag-chooser-option font-semibold">
             <input
               type="checkbox"
               checked={browseBulkClearAll}
@@ -2055,10 +2048,7 @@
           {/if}
         </div>
       </div>
-      <div
-        class="tag-chooser-footer"
-        style="display:flex;align-items:center;gap:0.75rem;justify-content:flex-end;"
-      >
+      <div class="tag-chooser-footer">
         <button type="button" class="menu-button-secondary" onclick={closeBulkTagModal}
           >Cancel</button
         >

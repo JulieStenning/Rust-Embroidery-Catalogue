@@ -754,8 +754,7 @@
         {#if backupAnyRunning}
           <button
             type="button"
-            class="menu-button-primary"
-            style="background-color:#dc2626;border-color:#dc2626;"
+            class="menu-button-danger"
             disabled={cancelling}
             onclick={requestCancel}
             data-testid="cancel-backup-button"

@@ -73,9 +73,10 @@ Aligns with **Rule 1.2 (Separation of Concerns)** and **Rule 4.2 (IPC Bridge & P
 
 Aligns with **Rule 4.4 (UI & Visual Consistency)**.
 
-- [ ] **4.1 Inline Style Audit:**
-  - Review views for ad-hoc inline `style="..."` overrides and replace with standard Tailwind classes and theme tokens (`#4f46d8`, etc.).
-- [ ] **4.2 Verification:** Run `npx vitest run` and visual check.
+- [x] **4.1 Inline Style Audit & Button / Modal Standardisation:**
+  - Added `.menu-button-danger` and `.ui-action-button-danger` design tokens to `src/app.css` and replaced all ad-hoc `style="background-color:#dc2626;border-color:#dc2626;"` overrides across `BackupView.svelte`, `UnmatchedFilesReconciler.svelte`, `RestoreProgressPanel.svelte`, `DeleteDesignsModal.svelte`, `ConfirmDeleteProjectModal.svelte`, and `CancelBackupModal.svelte`.
+  - Added clean `.modal-overlay`, `.modal-backdrop`, `.modal-dialog`, `.modal-header`, `.modal-body`, `.modal-footer` utility classes to `src/app.css` and standardized all dialog wrappers.
+- [x] **4.2 Verification:** `npx vitest run` (53 test files, 1,235 tests passed), `svelte-check` (0 errors), `npm run lint` (0 errors).
 
 ---
 
