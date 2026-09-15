@@ -552,3 +552,39 @@ async fn test_process_one_design_fully_hashed_short_circuits() {
 
     let _ = fs::remove_file(&temp_path);
 }
+
+#[test]
+fn test_fingerprint_derives_and_helpers() {
+    let summary = FingerprintSummary {
+        processed: 10,
+        errors: 2,
+        missing_files: 1,
+        stopped: false,
+    };
+    let debug_str = format!("{:?}", summary);
+    assert!(debug_str.contains("processed: 10"));
+    let cloned = summary.clone();
+    assert_eq!(cloned.processed, 10);
+
+    let candidate = FingerprintCandidate {
+        id: 99,
+        filepath: "Designs/rose.pes".to_string(),
+    };
+    let candidate_dbg = format!("{:?}", candidate);
+    assert!(candidate_dbg.contains("id: 99"));
+    let _cand_clone = candidate.clone();
+
+    let res = ProcessResult { was_missing: true };
+    let res_dbg = format!("{:?}", res);
+    assert!(res_dbg.contains("was_missing: true"));
+    let _res_clone = res.clone();
+
+    assert_eq!(strip_sqlite_prefix("sqlite:///path/to/db"), "path/to/db");
+    assert_eq!(strip_sqlite_prefix("sqlite://path/to/db"), "path/to/db");
+    assert_eq!(strip_sqlite_prefix("sqlite:path/to/db"), "path/to/db");
+    assert_eq!(strip_sqlite_prefix("path/to/db"), "path/to/db");
+
+    let resolved = resolve_fingerprint_source_path("Flowers/daisy.pes");
+    assert!(resolved.to_string_lossy().contains("daisy.pes"));
+}
+

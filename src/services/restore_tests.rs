@@ -687,3 +687,55 @@ async fn perform_database_restore_errors_when_live_db_missing() {
     );
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn test_restore_struct_derives() {
+    let db_outcome = DatabaseRestoreOutcome {
+        success: true,
+        restored_path: "/db.db".to_string(),
+        rollback_copy_path: Some("/db.bak".to_string()),
+        design_count: 50,
+        schema_version_hint: Some(3),
+        previous_schema_version_hint: Some(2),
+        rolled_back: false,
+        error: None,
+    };
+    assert!(format!("{:?}", db_outcome).contains("design_count: 50"));
+    let _dbo_clone = db_outcome.clone();
+    let _dbo_json = serde_json::to_value(&db_outcome).unwrap();
+
+    let des_outcome = DesignsRestoreOutcome {
+        success: true,
+        scanned: 10,
+        copied: 5,
+        updated: 2,
+        skipped: 3,
+        total_bytes_copied: 1024,
+        error: None,
+    };
+    assert!(format!("{:?}", des_outcome).contains("copied: 5"));
+    let _deso_clone = des_outcome.clone();
+    let _deso_json = serde_json::to_value(&des_outcome).unwrap();
+
+    let detect_res = DetectUnmatchedFilesResult {
+        checked: 20,
+        unmatched: 2,
+        sample: vec!["a.pes".to_string()],
+    };
+    assert!(format!("{:?}", detect_res).contains("unmatched: 2"));
+    let _det_clone = detect_res.clone();
+    let _det_json = serde_json::to_value(&detect_res).unwrap();
+
+    let imp_res = ImportUnmatchedFilesResult {
+        detected: 2,
+        imported: 2,
+        flagged: 0,
+        failed: 0,
+        failed_samples: vec![],
+        cancelled: false,
+    };
+    assert!(format!("{:?}", imp_res).contains("imported: 2"));
+    let _imp_clone = imp_res.clone();
+    let _imp_json = serde_json::to_value(&imp_res).unwrap();
+}
+

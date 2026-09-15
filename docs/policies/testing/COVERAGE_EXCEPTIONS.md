@@ -13,7 +13,7 @@ This file tracks modules, frontend components, and backend logic where test cove
 | :-------------------------------- | :----- | :--------- | :------- | :--------- | :--------------- | :------------------------------------------------------------ |
 | src/database/migrations.rs        | 88.37% | 100.00%    | 96.67%   | 2026-09-15 | [ACCEPTED]       | OS/Filesystem                                                 |
 | src/logging.rs                    | 94.51% | 90.00%     | 94.89%   | 2026-08-27 | [ACCEPTED]       | OS/Filesystem                                                 |
-| src/logging.rs                    | 92.47% | 90.00%     | 93.53%   | 2026-09-15 | [PENDING REVIEW] |                                                               |
+| src/logging.rs                    | 92.47% | 90.00%     | 93.53%   | 2026-09-15 | [ACCEPTED]       | OS/Filesystem; all metrics >= 80%                             |
 | src/main.rs                       | 37.84% | 42.31%     | 35.33%   | 2026-09-15 | [ACCEPTED]       | Thin glue                                                     |
 | src/paths.rs                      | 84.21% | 77.55%     | 86.17%   | 2026-09-15 | [ACCEPTED]       | OS/Filesystem                                                 |
 | src/routes/admin.rs               | 92.63% | 79.82%     | 86.78%   | 2026-09-15 | [ACCEPTED]       | Thin glue/Tauri framework limitation.OS/filesystem interfaces |
@@ -40,7 +40,7 @@ This file tracks modules, frontend components, and backend logic where test cove
 | src/services/fingerprint.rs       | 93.06% | 70.37%     | 91.77%   | 2026-08-28 | [ACCEPTED]       | OS/Filesystem                                                 |
 | src/services/fingerprint.rs       | 92.35% | 72.00%     | 90.94%   | 2026-09-15 | [PENDING REVIEW] |                                                               |
 | src/services/gemini_client.rs     | 94.59% | 92.42%     | 94.07%   | 2026-09-04 | [ACCEPTED]       | Network client; injectable-base HTTP mock tests               |
-| src/services/gemini_client.rs     | 94.54% | 92.06%     | 94.35%   | 2026-09-15 | [PENDING REVIEW] |                                                               |
+| src/services/gemini_client.rs     | 94.54% | 92.06%     | 94.35%   | 2026-09-15 | [ACCEPTED]       | Network client; injectable-base HTTP mock tests               |
 | src/services/maintenance.rs       | 97.78% | 83.33%     | 93.75%   | 2026-09-15 | [ACCEPTED]       | Thin glue                                                     |
 | src/services/projects.rs          | 96.09% | 74.36%     | 85.68%   | 2026-09-15 | [ACCEPTED]       | Derive artifacts + high line coverage                         |
 | src/services/restore.rs           | 80.67% | 77.78%     | 78.59%   | 2026-09-15 | [ACCEPTED]       | OS/Filesystem                                                 |
@@ -59,11 +59,11 @@ This file tracks modules, frontend components, and backend logic where test cove
 | src/lib/views/BatchOperationsView.svelte   | 91.97%          | 92.30%              | 73.74%                     | 2026-09-15 | [PENDING REVIEW] |                                                                                             |
 | src/lib/views/BrowseView.svelte            | 92.96%          | 91.94%              | 75.47%                     | 2026-09-15 | [ACCEPTED]       | Residual branch gaps in duplicate-detection / folder filter paths                           |
 | src/lib/views/DesignDetailView.svelte     | 97.49%          | 90.81%              | 80.37%                     | 2026-09-04 | [ACCEPTED]       | Retained for completeness; branch >= 80%                                                    |
-| src/lib/views/DesignDetailView.svelte     | 97.50%          | 90.72%              | 82.13%                     | 2026-09-15 | [PENDING REVIEW] |                                                                                             |
+| src/lib/views/DesignDetailView.svelte     | 97.50%          | 90.72%              | 82.13%                     | 2026-09-15 | [ACCEPTED]       | Retained for completeness; all metrics >= 80%                                               |
 | src/lib/views/ImportView.svelte           | 95.93%          | 95.65%              | 78.85%                     | 2026-09-04 | [ACCEPTED]       | Residual branch gaps in import wizard route/modal states                                    |
 | src/lib/views/ImportView.svelte           | 93.24%          | 93.29%              | 75.59%                     | 2026-09-15 | [PENDING REVIEW] |                                                                                             |
 | src/lib/views/ProjectsView.svelte         | 98.57%          | 93.84%              | 85.64%                     | 2026-09-04 | [ACCEPTED]       | Retained for completeness; all metrics >= 80%                                               |
-| src/lib/views/ProjectsView.svelte         | 98.61%          | 94.20%              | 85.45%                     | 2026-09-15 | [PENDING REVIEW] |                                                                                             |
+| src/lib/views/ProjectsView.svelte         | 98.61%          | 94.20%              | 85.45%                     | 2026-09-15 | [ACCEPTED]       | Retained for completeness; all metrics >= 80%                                               |
 | src/lib/views/ReferenceDataView.svelte     | 93.33%          | 94.11%              | 72.22%                     | 2026-09-15 | [PENDING REVIEW] |                                                                                             |
 | src/lib/views/SettingsView.svelte         | 90.50%          | 96.00%              | 80.34%                     | 2026-09-15 | [ACCEPTED]       | Residual branch gaps in settings sections/toggles; all metrics >= 80%                       |
 | src/lib/views/SystemMaintenanceView.svelte | 92.85%          | 93.75%              | 68.75%                     | 2026-09-15 | [PENDING REVIEW] |                                                                                             |

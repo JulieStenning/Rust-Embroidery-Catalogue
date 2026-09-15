@@ -324,5 +324,56 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
     assert!(!vm.has_google_api_key);
     assert_eq!(vm.preview_3d_profile, "balanced");
 
+    // Also test Installed mode
+    let mut app_state_installed = app_state;
+    app_state_installed.paths.mode = crate::paths::ExecutionMode::Installed;
+    let vm_installed = get_settings_view_model_inner(&app_state_installed).await.unwrap();
+    assert_eq!(vm_installed.app_mode, "installed");
+    assert!(vm_installed.can_configure_data_root);
+
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn test_settings_struct_derives() {
+    let save_res = SaveSettingsResult {
+        saved: true,
+        message: "Saved".to_string(),
+    };
+    let debug_save = format!("{:?}", save_res);
+    assert!(debug_save.contains("Saved"));
+    let _clone_save = save_res.clone();
+
+    let save_folder = SaveImportBrowseFolderResult {
+        saved: true,
+        path: "/path".to_string(),
+    };
+    let debug_folder = format!("{:?}", save_folder);
+    assert!(debug_folder.contains("/path"));
+    let _clone_folder = save_folder.clone();
+
+    let browse_res = BrowseDataRootResult {
+        path: Some("/data".to_string()),
+        error: None,
+    };
+    let debug_browse = format!("{:?}", browse_res);
+    assert!(debug_browse.contains("/data"));
+    let _clone_browse = browse_res.clone();
+
+    let req = SaveSettingsRequest {
+        preview_3d_profile: "soft".to_string(),
+        google_api_key: "key".to_string(),
+        ai_batch_size: "10".to_string(),
+        ai_delay: "1.0".to_string(),
+        ai_gemini_model: "gemini-1.5".to_string(),
+        ai_commit_every: "5".to_string(),
+        ai_workers: "2".to_string(),
+        ai_free_tier: false,
+        data_root: "/root".to_string(),
+        db_idle_check_interval_secs: "60".to_string(),
+    };
+    let debug_req = format!("{:?}", req);
+    assert!(debug_req.contains("soft"));
+    let _clone_req = req.clone();
+}
+

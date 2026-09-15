@@ -68,9 +68,39 @@ fn execution_mode_serialize() {
     assert_eq!(installed, serde_json::json!("Installed"));
 }
 
+#[test]
+fn app_paths_and_bootstrap_config_derives() {
+    let paths = AppPaths {
+        mode: ExecutionMode::Dev,
+        data_root: PathBuf::from("/data"),
+        embroidery_designs_dir: PathBuf::from("/data/designs"),
+        database_dir: PathBuf::from("/data/db"),
+        database_path: PathBuf::from("/data/db/db.db"),
+        log_dir: PathBuf::from("/data/logs"),
+    };
+    let debug_str = format!("{:?}", paths);
+    assert!(debug_str.contains("/data"));
+    let cloned = paths.clone();
+    assert_eq!(cloned.mode, ExecutionMode::Dev);
+    let val = serde_json::to_value(&paths).unwrap();
+    assert!(val.get("data_root").is_some());
+
+    let config = BootstrapConfig {
+        data_root: PathBuf::from("/custom/root"),
+    };
+    let config_dbg = format!("{:?}", config);
+    assert!(config_dbg.contains("/custom/root"));
+    let config_clone = config.clone();
+    assert_eq!(config_clone.data_root, PathBuf::from("/custom/root"));
+    let config_json = serde_json::to_string(&config).unwrap();
+    let config_parsed: BootstrapConfig = serde_json::from_str(&config_json).unwrap();
+    assert_eq!(config_parsed.data_root, PathBuf::from("/custom/root"));
+}
+
 // ---------------------------------------------------------------------------
 // resolve_paths_from_exe_dir
 // ---------------------------------------------------------------------------
+
 
 /// In debug builds, Dev mode is selected and data lives in
 /// `<project>/dev_data/`.
@@ -1309,16 +1339,46 @@ fn relative_path_under_root_strips_leading_slash_when_not_under_root() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn normalize_path_display_keeps_readable_components() {
-    let path = PathBuf::from("data/sample folder/dossier.pes");
+fn normalize_path_display_handles_verbatim_prefixes() {
+    let path = PathBuf::from(r"\\?\C:\data\sample\test.pes");
     let result = normalize_path_display(&path);
-    assert!(result.contains("dossier.pes"));
-    assert!(result.contains("sample folder"));
+    assert!(!result.starts_with(r"\\?\"));
+
+    let unc_path = PathBuf::from(r"\\?\UNC\server\share\test.pes");
+    let unc_result = normalize_path_display(&unc_path);
+    assert!(unc_result.starts_with(r"\\server") || !unc_result.starts_with(r"\\?\UNC\"));
 }
 
+#[test]
+fn bootstrap_config_path_returns_expected_filename() {
+    let path = bootstrap_config_path();
+    assert!(path.to_string_lossy().contains("config.json"));
+}
+
+
 // ---------------------------------------------------------------------------
-// normalize_windows_explorer_target
+// normalize_windows_explorer_target & has_existing_database
 // ---------------------------------------------------------------------------
+
+#[test]
+fn normalize_windows_explorer_target_formats_path() {
+    let p = PathBuf::from("C:/designs/rose.pes");
+    let target = normalize_windows_explorer_target(&p);
+    let s = target.to_string_lossy();
+    assert!(s.contains("rose.pes"));
+}
+
+#[test]
+fn has_existing_database_detects_db() {
+    let tmp = tmp_dir("has_existing_db");
+    fs::create_dir_all(tmp.join("Database")).expect("create db dir");
+    assert!(!has_existing_database(&tmp));
+
+    fs::write(tmp.join("Database").join(DATABASE_FILENAME), b"test").expect("write db");
+    assert!(has_existing_database(&tmp));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
 
 #[cfg(not(target_os = "windows"))]
 #[test]
@@ -1326,6 +1386,7 @@ fn normalize_windows_explorer_target_returns_path_unchanged_on_non_windows() {
     let p = PathBuf::from("/home/user/designs/rose.pes");
     assert_eq!(normalize_windows_explorer_target(&p), p);
 }
+
 
 // ---------------------------------------------------------------------------
 // test_data_root_override (debug-only test / e2e data root)

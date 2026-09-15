@@ -39,6 +39,58 @@ pub fn is_truthy(raw: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::{Connection, SqliteConnection};
+
+    async fn setup_test_conn() -> SqliteConnection {
+        let mut conn = SqliteConnection::connect("sqlite::memory:")
+            .await
+            .expect("failed to create in-memory SQLite connection");
+
+        sqlx::query(
+            "CREATE TABLE settings (
+                key VARCHAR(100) PRIMARY KEY,
+                value TEXT NOT NULL,
+                description TEXT
+            )",
+        )
+        .execute(&mut conn)
+        .await
+        .expect("failed to create settings table");
+
+        conn
+    }
+
+    #[tokio::test]
+    async fn get_setting_with_default_inserts_fallback_when_absent() {
+        let mut conn = setup_test_conn().await;
+        let val = get_setting_with_default(&mut conn, "custom.key")
+            .await
+            .expect("should succeed");
+        assert_eq!(val, "");
+
+        // Second call should return the existing value
+        let val2 = get_setting_with_default(&mut conn, "custom.key")
+            .await
+            .expect("should succeed");
+        assert_eq!(val2, "");
+    }
+
+    #[tokio::test]
+    async fn get_setting_with_default_returns_existing_value() {
+        let mut conn = setup_test_conn().await;
+        sqlx::query("INSERT INTO settings (key, value, description) VALUES (?, ?, ?)")
+            .bind("existing.key")
+            .bind("my_value")
+            .bind("desc")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+
+        let val = get_setting_with_default(&mut conn, "existing.key")
+            .await
+            .expect("should succeed");
+        assert_eq!(val, "my_value");
+    }
 
     #[test]
     fn is_truthy_accepts_expected_variants() {
@@ -57,3 +109,4 @@ mod tests {
         assert!(!is_truthy("other"));
     }
 }
+

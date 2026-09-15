@@ -1106,3 +1106,111 @@ async fn delete_hoop_not_found_errors() {
     let err = delete_hoop_with_pool(&pool, 9999).await.unwrap_err();
     assert!(matches!(err, AppError::NotFound { .. }));
 }
+
+#[test]
+fn test_admin_struct_derives() {
+    let d = AdminDesigner {
+        id: 1,
+        name: "Designer".to_string(),
+        design_count: 5,
+    };
+    assert!(format!("{:?}", d).contains("Designer"));
+    let _d_clone = d.clone();
+    let _d_json = serde_json::to_value(&d).unwrap();
+
+    let cd = CreateDesignerRequest {
+        name: "New".to_string(),
+    };
+    assert!(format!("{:?}", cd).contains("New"));
+    let _cd_clone = cd.clone();
+
+    let ud = UpdateDesignerRequest {
+        designer_id: 1,
+        name: "Updated".to_string(),
+    };
+    assert!(format!("{:?}", ud).contains("Updated"));
+    let _ud_clone = ud.clone();
+
+    let s = AdminSource {
+        id: 2,
+        name: "Source".to_string(),
+        design_count: 3,
+    };
+    assert!(format!("{:?}", s).contains("Source"));
+    let _s_clone = s.clone();
+    let _s_json = serde_json::to_value(&s).unwrap();
+
+    let cs = CreateSourceRequest {
+        name: "NewSource".to_string(),
+    };
+    assert!(format!("{:?}", cs).contains("NewSource"));
+    let _cs_clone = cs.clone();
+
+    let us = UpdateSourceRequest {
+        source_id: 2,
+        name: "UpdatedSource".to_string(),
+    };
+    assert!(format!("{:?}", us).contains("UpdatedSource"));
+    let _us_clone = us.clone();
+
+    let t = AdminTag {
+        id: 3,
+        description: "TagDesc".to_string(),
+        tag_group: Some("image".to_string()),
+        design_count: 10,
+        is_system: false,
+    };
+    assert!(format!("{:?}", t).contains("TagDesc"));
+    let _t_clone = t.clone();
+    let _t_json = serde_json::to_value(&t).unwrap();
+
+    let ct = CreateTagRequest {
+        description: "NewTag".to_string(),
+        tag_group: "image".to_string(),
+    };
+    assert!(format!("{:?}", ct).contains("NewTag"));
+    let _ct_clone = ct.clone();
+
+    let ut = UpdateTagRequest {
+        tag_id: 3,
+        description: "UpdatedTag".to_string(),
+    };
+    assert!(format!("{:?}", ut).contains("UpdatedTag"));
+    let _ut_clone = ut.clone();
+
+    let stg = SetTagGroupRequest {
+        tag_id: 3,
+        tag_group: "stitching".to_string(),
+    };
+    assert!(format!("{:?}", stg).contains("stitching"));
+    let _stg_clone = stg.clone();
+
+    let h = AdminHoop {
+        id: 4,
+        name: "Hoop".to_string(),
+        max_width_mm: 100.0,
+        max_height_mm: 100.0,
+        design_count: 2,
+    };
+    assert!(format!("{:?}", h).contains("Hoop"));
+    let _h_clone = h.clone();
+    let _h_json = serde_json::to_value(&h).unwrap();
+
+    let ch = CreateHoopRequest {
+        name: "NewHoop".to_string(),
+        max_width_mm: 50.0,
+        max_height_mm: 50.0,
+    };
+    assert!(format!("{:?}", ch).contains("NewHoop"));
+    let _ch_clone = ch.clone();
+
+    let uh = UpdateHoopRequest {
+        hoop_id: 4,
+        name: "UpdatedHoop".to_string(),
+        max_width_mm: 60.0,
+        max_height_mm: 60.0,
+    };
+    assert!(format!("{:?}", uh).contains("UpdatedHoop"));
+    let _uh_clone = uh.clone();
+}
+

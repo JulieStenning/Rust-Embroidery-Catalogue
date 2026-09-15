@@ -566,3 +566,52 @@ fn rollback_partial_target_restores_moved_aside_target() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn test_storage_migration_derives_and_helpers() {
+    let prog = StorageMigrationProgress::new("copy", "Starting copy".to_string())
+        .with_totals(10, 1000, 5, 500)
+        .error("err".to_string());
+    assert_eq!(prog.current_phase, "copy");
+    assert_eq!(prog.items_copied, 5);
+    assert_eq!(prog.percent, 0.5);
+    assert_eq!(prog.error, Some("err".to_string()));
+    let _prog_clone = prog.clone();
+    let _prog_json = serde_json::to_value(&prog).unwrap();
+
+    let prog_zero = StorageMigrationProgress::new("copy", "msg".to_string())
+        .with_totals(0, 0, 0, 0);
+    assert_eq!(prog_zero.percent, 1.0);
+
+    let summary = StorageMigrationSummary {
+        success: true,
+        source_root: "/source".to_string(),
+        target_root: "/target".to_string(),
+        database_bytes: 100,
+        asset_items: 2,
+        asset_bytes: 50,
+        requires_restart: true,
+    };
+    assert!(format!("{:?}", summary).contains("/source"));
+    let _sum_clone = summary.clone();
+    let _sum_json = serde_json::to_value(&summary).unwrap();
+
+    let tmp = tmp_dir("helpers_test");
+    let src = tmp.join("src");
+    let tgt = tmp.join("tgt");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::create_dir_all(&tgt).unwrap();
+
+    let notice_res = write_moved_notice(&src, &tgt);
+    assert!(notice_res.is_ok());
+    assert!(src.join("storage location moved.txt").exists());
+
+    let _probe = same_device_probe(&src, &tgt);
+
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    let cp_res = checkpoint_live_database(&pool).await;
+    assert!(cp_res.is_ok());
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+

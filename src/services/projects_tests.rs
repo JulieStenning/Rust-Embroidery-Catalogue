@@ -1307,3 +1307,38 @@ fn remove_project_design_result_serializes_correct_field_names() {
     assert!(map.contains_key("message"));
     assert_eq!(map.len(), 3);
 }
+
+#[test]
+fn project_request_derives_and_print_view_serialize() {
+    let create_req = CreateProjectRequest {
+        name: "Test".to_string(),
+        description: Some("Desc".to_string()),
+    };
+    let debug_str = format!("{:?}", create_req);
+    assert!(debug_str.contains("Test"));
+    let _clone = create_req.clone();
+
+    let update_req = UpdateProjectRequest {
+        name: "Updated".to_string(),
+        description: None,
+    };
+    let debug_update = format!("{:?}", update_req);
+    assert!(debug_update.contains("Updated"));
+    let _clone_update = update_req.clone();
+
+    let print_view = ProjectPrintView {
+        project: ProjectSummary {
+            id: 1,
+            name: "P".to_string(),
+            description: None,
+            date_created: None,
+            design_count: 0,
+        },
+        designs: vec![],
+    };
+    let json = serde_json::to_value(&print_view).expect("serialize");
+    assert!(json.get("project").is_some());
+    assert!(json.get("designs").is_some());
+    let _clone_print = print_view.clone();
+}
+

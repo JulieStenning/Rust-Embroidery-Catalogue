@@ -141,13 +141,14 @@ pub fn should_run_maintenance(
 /// threshold was not met (or a run is already in progress). Errors are
 /// returned only for genuine measurement/emit failures; the compaction task
 /// itself logs errors and never propagates.
-pub async fn check_and_schedule_maintenance(
+pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
     pool: SqlitePool,
     maintenance_running: Arc<AtomicBool>,
     shutdown_requested: Arc<AtomicBool>,
-    app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle<R>,
 ) -> Result<bool, String> {
     // Refuse to start if a run is already in progress.
+
     if maintenance_running.load(Ordering::SeqCst) {
         tracing::info!("DB health check skipped — maintenance already running");
         return Ok(false);
@@ -501,4 +502,73 @@ mod tests {
             "error should mention the failing pragma"
         );
     }
+
+    #[test]
+    fn test_db_health_derives_and_edge_cases() {
+        let fm = FreelistMetrics {
+            page_count: 100,
+            freelist_count: 20,
+        };
+        assert!(format!("{:?}", fm).contains("page_count: 100"));
+        let _fm_clone = fm.clone();
+        let _fm_json = serde_json::to_value(&fm).unwrap();
+
+        let started = DbMaintenanceStartedEvent {
+            page_count: 100,
+            freelist_pages: 20,
+            free_ratio: 0.2,
+            reclaimable_bytes: 81920,
+        };
+        assert!(format!("{:?}", started).contains("reclaimable_bytes: 81920"));
+        let _st_clone = started.clone();
+        let _st_json = serde_json::to_value(&started).unwrap();
+
+        let finished = DbMaintenanceFinishedEvent {
+            reclaimed_pages: 20,
+            reclaimable_bytes_before: 81920,
+            reclaimable_bytes_after: 0,
+            duration_ms: 15,
+        };
+        assert!(format!("{:?}", finished).contains("duration_ms: 15"));
+        let _fn_clone = finished.clone();
+        let _fn_json = serde_json::to_value(&finished).unwrap();
+
+        let snap_empty = MetricsSnapshot {
+            page_count: 0,
+            freelist_count: 0,
+            page_size: 4096,
+        };
+        assert_eq!(snap_empty.free_ratio(), 0.0);
+        let snap_neg = MetricsSnapshot {
+            page_count: -1,
+            freelist_count: -5,
+            page_size: -4096,
+        };
+        assert_eq!(snap_neg.free_ratio(), 0.0);
+        assert_eq!(snap_neg.reclaimable_bytes(), 0);
+        assert!(format!("{:?}", snap_neg).contains("page_size: -4096"));
+        let _snap_clone = snap_neg.clone();
+    }
+
+    #[tokio::test]
+    async fn check_and_schedule_maintenance_skips_when_running() {
+        let pool = test_pool().await;
+        let running = Arc::new(AtomicBool::new(true));
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let app = tauri::test::mock_app();
+        let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
+        assert_eq!(res, Ok(false));
+    }
+
+    #[tokio::test]
+    async fn check_and_schedule_maintenance_skips_when_below_threshold() {
+        let pool = test_pool().await;
+        let running = Arc::new(AtomicBool::new(false));
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let app = tauri::test::mock_app();
+        let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
+        assert_eq!(res, Ok(false));
+    }
 }
+
+
