@@ -190,7 +190,7 @@ import { clickNav, gotoRoute, expectMainView } from './helpers';
 See `navigation.spec.ts`, `help.spec.ts`, `settings.spec.ts`, `backup.spec.ts`,
 `restore.spec.ts`, `orphans.spec.ts`, `reference-data.spec.ts`, `admin-designers.spec.ts`, `admin-tags.spec.ts`,
 `admin-sources.spec.ts`, `admin-hoops.spec.ts`, `batch-tagging.spec.ts`, `batch-maintenance.spec.ts`,
-`import.spec.ts`, `import-folder-selection.spec.ts` and `projects.spec.ts` for worked examples.
+`import.spec.ts`, `import-folder-selection.spec.ts`, `projects.spec.ts` and `design-detail.spec.ts` for worked examples.
 
 For a spec that needs its own catalogue state, import `test`/`expect` from
 `./app-fixture` instead and select the root:
@@ -389,6 +389,33 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   empty-state case runs against its own throwaway empty root (`app-fixture` +
   `prepareEmptyDataRoot`). The **Print** trigger is verified by stubbing `window.print()`
   so the native OS print dialog never opens.
+- `design-detail.spec.ts` covers the **Design Detail** (`#/designs/:id`) and **Design Print**
+  (`#/designs/:id/print`) views:
+  - Deep linking directly to populated designs (`Cake 3.jef`) and unreadable/corrupt
+    designs missing preview images (`ZZ-broken.pes` asserting the "Needs attention"
+    missing preview banner).
+  - Error state handling for invalid/non-existent design IDs (`#/designs/999999`).
+  - Active browse session context tracking: asserting the positional counter (`X / Y`),
+    sequential `Next ›` and `‹ Prev` carousel navigation, and return via `← Back to Browse`.
+  - Auto-saving metadata dropdowns: changing Designer and Source selections with immediate
+    toast feedback and SQLite persistence across `page.reload()`.
+  - Interactive 5-star rating system: selecting individual stars, asserting ratings badge
+    updates, clearing ratings, and persistence.
+  - Stitched status and verification toggle buttons: toggling "Mark as Stitched", "Image Verified",
+    and "Stitching Verified" states with database persistence.
+  - Notes editing and saving: managing design notes with dirty-state tracking and persistence.
+  - Tag management: opening the `TagSelectionModal`, searching tags, toggling selections,
+    verifying tag chips on the detail view, and executing optimistic inline tag removal (`×`)
+    with backend verification synchronization (Rule 1).
+  - Technical data recalculation: triggering "Recalculate From File" to reparse measurements from disk.
+  - External launch and rendering triggers: invoking "Open in Editor", "Show in Explorer",
+    and "Generate 2D/3D Preview" actions.
+  - Design Print view (`#/designs/:id/print`): validating printable sheet structure (header,
+    preview image, technical data table, rating glyphs, stitched badge, notes, tags), verifying
+    `window.print()` interception, and navigating back via "Back to Detail".
+  - Single-design delete modal lifecycle: opening `DeleteDesignsModal`, verifying file action
+    options ("Remove from catalogue only" vs "Move source file to recycle bin"), and testing
+    safe cancellation.
 
 ## Shared wizard state between tests
 
