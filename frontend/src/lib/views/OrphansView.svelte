@@ -19,7 +19,7 @@
   let orphansLoading = $state(false);
   let orphansLoaded = $state(false);
   let orphansError = $state("");
-  /** @type {any[]} */
+  /** @type {import("../types/ipc").OrphanDesignItem[]} */
   let orphanItems = $state([]);
   let orphanPage = $state(1);
   let orphanPageSize = $state(100);

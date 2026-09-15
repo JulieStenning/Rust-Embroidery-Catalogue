@@ -557,7 +557,39 @@ export interface AdapterProjectDesignMutationResponse {
   error?: string;
 }
 
+export interface OrphanDesignItem {
+
+  id: number;
+  filename: string;
+  filepath: string;
+  designer: string;
+  date_added?: string | null;
+}
+
+export interface OrphansPageResult {
+  items: OrphanDesignItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface OrphanScanResult {
+  checked: number;
+  found: number;
+}
+
+export interface DeleteOrphansResult {
+  deleted: number;
+}
+
+export interface BrowseOrphanPathResult {
+  ok: boolean;
+  opened: string;
+}
+
 export interface BulkImportScannedFile {
+
   full_path?: string;
   [key: string]: unknown;
 }

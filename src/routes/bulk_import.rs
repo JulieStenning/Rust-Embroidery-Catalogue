@@ -633,18 +633,7 @@ fn get_designs_base_path() -> PathBuf {
 /// is the shared logic used by `is_path_under_designs_base` so it can be unit
 /// tested without depending on process environment or a filesystem root.
 fn is_path_under_base(full_path: &str, base: &Path) -> bool {
-    let normalized = full_path.trim().replace('\\', "/");
-    let normalized_lower = normalized.to_ascii_lowercase();
-
-    let base_norm = base.to_string_lossy().replace('\\', "/");
-    let base_lower = base_norm.to_ascii_lowercase();
-
-    if normalized_lower == base_lower {
-        return true;
-    }
-
-    let base_prefix = format!("{}/", base_lower.trim_end_matches('/'));
-    normalized_lower.starts_with(&base_prefix)
+    crate::paths::path_within(Path::new(full_path.trim()), base)
 }
 
 /// Returns whether `full_path` resides under the canonical designs base directory.

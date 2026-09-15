@@ -14,7 +14,7 @@
 
   let { currentUiKind, projectDetailId, projectPrintId, navigateTo } = $props();
 
-  /** @type {any[]} */
+  /** @type {import("../types/ipc").ProjectSummary[]} */
   let projectsItems = $state([]);
   let projectsLoading = $state(false);
   let projectsError = $state("");

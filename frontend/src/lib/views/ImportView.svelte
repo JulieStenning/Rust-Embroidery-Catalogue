@@ -351,26 +351,6 @@
   }
 
   /** @param {string} fullPath */
-  function getFolderPathFromFilePath(fullPath) {
-    const value = String(fullPath || "").trim();
-    if (!value) return "";
-    const normalized = value.replace(/\\/g, "/");
-    const splitIndex = normalized.lastIndexOf("/");
-    if (splitIndex <= 0) return "";
-    return normalized.slice(0, splitIndex);
-  }
-
-  /** @param {string} folderPath */
-  function getFolderLabelFromFolderPath(folderPath) {
-    const value = String(folderPath || "").trim();
-    if (!value) return "Unknown folder";
-    const normalized = value.replace(/\\/g, "/").replace(/\/+$/g, "");
-    if (!normalized) return "Unknown folder";
-    const segments = normalized.split("/").filter(Boolean);
-    return segments.length > 0 ? segments[segments.length - 1] : normalized;
-  }
-
-  /** @param {string} fullPath */
   function getImportFilenameFromPath(fullPath) {
     const value = String(fullPath || "").trim();
     if (!value) return "Unknown file";

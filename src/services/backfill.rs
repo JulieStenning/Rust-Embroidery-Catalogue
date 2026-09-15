@@ -1007,22 +1007,8 @@ fn tagging_scope_from_where(mode: &str) -> &'static str {
     }
 }
 
-/// Boundary-safe, case-insensitive check that `candidate` is `root` or a
-/// descendant of `root`. Separators are normalized and a trailing root slash is
-/// trimmed so a sibling like `/root2` cannot pass.
 pub(crate) fn is_path_under_root(candidate: &str, root: &Path) -> bool {
-    let normalize = |p: &Path| {
-        p.to_string_lossy()
-            .replace('\\', "/")
-            .trim_end_matches('/')
-            .to_ascii_lowercase()
-    };
-    let cand = normalize(Path::new(candidate));
-    let base = normalize(root);
-    if cand == base {
-        return true;
-    }
-    cand.starts_with(&format!("{base}/"))
+    crate::paths::path_within(Path::new(candidate), root)
 }
 
 /// A validated folder scope for a tagging run.

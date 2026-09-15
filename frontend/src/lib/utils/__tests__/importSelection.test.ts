@@ -57,7 +57,7 @@ describe("importSelection helpers", () => {
 
   it("deselects and re-selects a single file", () => {
     const record = files();
-    const [a, b, c] = record.filePaths;
+    const [a, b] = record.filePaths;
     let state = selCreate();
 
     state = selToggleFile(state, FOLDER, a, false);
