@@ -33,3 +33,8 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for svelte modules:
 
 Prompt to update tests to increase coverage
 @ModuleName has a NumberHere% function/line/region coverage. Can it be improved? Use information in @/.clinerules for information on how to write the tests. Explain your reasons if the coverage should be under 100%. If you changed a test, update @/docs\policies\testing\COVERAGE_EXCEPTIONS.md with the new coverage at the end of the task.
+
+For antigravity
+You can see the coverage details for @module name in [COVERAGE_EXCEPTIONS.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md). Can we improve the coverage.I don't want to add tests for the sake of it. If we can increase the coverage, please write a plan.The plan should include updating [COVERAGE_EXCEPTIONS.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) using the rules in [Coverage%20Report%20Update%20Prompts.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/Help%20for%20Developers/Coverage%20Report%20Update%20Prompts.md)
+
+If we cannot improve the coverage, please update [COVERAGE_EXCEPTIONS.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) to say ACCEPTED and add the reason why.
