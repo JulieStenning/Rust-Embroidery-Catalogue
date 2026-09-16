@@ -88,12 +88,7 @@
         <button type="button" class="menu-button-secondary" onclick={onClose} disabled={isDeleting}>
           Cancel
         </button>
-        <button
-          type="button"
-          class="menu-button-danger"
-          onclick={onConfirm}
-          disabled={isDeleting}
-        >
+        <button type="button" class="menu-button-danger" onclick={onConfirm} disabled={isDeleting}>
           {isDeleting ? "Deleting..." : "Delete project"}
         </button>
       </div>

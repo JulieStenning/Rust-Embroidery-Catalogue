@@ -558,7 +558,6 @@ export interface AdapterProjectDesignMutationResponse {
 }
 
 export interface OrphanDesignItem {
-
   id: number;
   filename: string;
   filepath: string;
@@ -589,7 +588,6 @@ export interface BrowseOrphanPathResult {
 }
 
 export interface BulkImportScannedFile {
-
   full_path?: string;
   [key: string]: unknown;
 }

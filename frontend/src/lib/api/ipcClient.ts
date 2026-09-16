@@ -2,7 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type LooseRecord = Record<string, unknown>;
 
-export function invokeLoose<T = LooseRecord>(command: string, args?: Record<string, unknown>): Promise<T> {
+export function invokeLoose<T = LooseRecord>(
+  command: string,
+  args?: Record<string, unknown>
+): Promise<T> {
   try {
     if (typeof window !== "undefined") {
       const e2eStubs = (

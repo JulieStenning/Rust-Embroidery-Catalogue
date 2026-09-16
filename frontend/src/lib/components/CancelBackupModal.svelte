@@ -109,11 +109,7 @@
         <button type="button" class="menu-button-secondary" onclick={onClose}>
           Continue backup
         </button>
-        <button
-          type="button"
-          class="menu-button-danger"
-          onclick={onConfirm}
-        >
+        <button type="button" class="menu-button-danger" onclick={onConfirm}>
           Cancel backup
         </button>
       </div>

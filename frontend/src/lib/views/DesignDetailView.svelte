@@ -1,5 +1,5 @@
 <script>
-  import { onMount, untrack } from "svelte";
+  import { untrack } from "svelte";
   import {
     getDesignDetail,
     getDesignImageDataUrl,
@@ -62,11 +62,7 @@
   function onStarBlur() {
     ratingHover = 0;
   }
-  let effectiveRating = $derived(
-    ratingHover > 0
-      ? ratingHover
-      : (/** @type {DesignDetailItem | null} */ (detailItem)?.rating ?? 0)
-  );
+  let effectiveRating = $derived(ratingHover > 0 ? ratingHover : Number(detailItem?.rating ?? 0));
   let detailNotes = $state("");
   let detailDesignerId = $state("");
   let detailSourceId = $state("");
@@ -327,6 +323,7 @@
         ? [...currentProjects, addedProject.name]
         : currentProjects;
       designSessionStore.trackMutation(detailItem.id, { projects: updatedProjects });
+      detailProjectToAdd = "";
       await refreshDetailAfterAction();
     }
   }
@@ -549,12 +546,6 @@
       untrack(() => {
         loadDesignDetail(detailDesignId);
       });
-    }
-  });
-
-  onMount(() => {
-    if (detailDesignId !== null) {
-      loadDesignDetail(detailDesignId);
     }
   });
 </script>

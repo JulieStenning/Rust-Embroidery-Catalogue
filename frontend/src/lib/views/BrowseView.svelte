@@ -1947,17 +1947,17 @@
     ></button>
     <div class="tag-chooser-dialog">
       <div class="tag-chooser-header">
-        <h2 id="bulk-tag-title" class="text-lg font-bold text-gray-800 m-0">
+        <h2 id="bulk-tag-title" class="text-lg font-bold text-gray-800" style="margin:0;">
           Choose tags for selected designs
         </h2>
       </div>
       <div class="tag-chooser-body">
-        <p class="text-xs text-gray-500 font-semibold mb-3">
+        <p class="text-xs text-gray-500 font-semibold" style="margin:0 0 0.75rem 0;">
           {browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.
         </p>
 
-        <div class="tag-chooser-section mb-3">
-          <label class="tag-chooser-option font-semibold">
+        <div class="tag-chooser-section" style="margin-bottom:0.75rem;">
+          <label class="tag-chooser-option" style="font-weight:600;">
             <input
               type="checkbox"
               checked={browseBulkClearAll}
