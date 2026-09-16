@@ -1,6 +1,27 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// Embroidery Catalogue â€” Tauri v2 entry point
+//! # Embroidery Catalogue Backend
+//!
+//! A high-performance desktop application backend built with **Tauri v2** and **Rust**
+//! for indexing, analyzing, cataloguing, and searching embroidery machine design files.
+//!
+//! ## Architectural Layers
+//!
+//! The backend is organized into distinct functional layers:
+//!
+//! - [`readers`]: Binary parsers for industry-standard embroidery formats (`.dst`, `.exp`, `.hus`, `.jef`, `.pes`, `.vp3`).
+//! - [`models`]: Core domain types representing embroidery patterns, stitch geometry, thread colors, and bounding boxes.
+//! - [`database`]: SQLite connection pooling (`sqlx`), schema definitions, and automated database migrations.
+//! - [`services`]: Business logic layer encapsulating catalog scanning, automated AI tagging, image generation, thumbnail caching, database maintenance, and recovery.
+//! - [`routes`]: Tauri IPC command handlers adapting IPC calls from the Svelte frontend to domain services with structured error handling.
+//! - [`paths`], [`config`], [`settings`]: Multi-root storage configuration, portable installation detection, and application preferences.
+//! - [`logging`]: Structured logging with file rotation, console output, and frontend debug support.
+//!
+//! ## Application Lifecycle & State
+//!
+//! The application state ([`AppState`]) is managed by Tauri and injected into IPC command
+//! handlers. It coordinates SQLite connection pooling, background tasks, cancellation tokens,
+//! and database health tracking.
 
 pub mod config;
 pub mod database;

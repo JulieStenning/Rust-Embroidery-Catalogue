@@ -56,8 +56,8 @@ fn read_exact(cursor: &mut Cursor<&[u8]>, n: usize) -> Result<Vec<u8>, binrw::Er
 /// Read EXP stitch data from the cursor into the pattern.
 ///
 /// EXP (Melco Expanded) uses 2-byte records:
-/// - If byte[0] != 0x80: regular stitch with signed 8-bit deltas.
-/// - If byte[0] == 0x80: control command; byte[1] is the control code,
+/// - If `byte[0]` != 0x80: regular stitch with signed 8-bit deltas.
+/// - If `byte[0]` == 0x80: control command; `byte[1]` is the control code,
 ///   followed by 2 extra bytes encoding a position/delta.
 pub fn read_exp_stitches(
     cursor: &mut Cursor<&[u8]>,

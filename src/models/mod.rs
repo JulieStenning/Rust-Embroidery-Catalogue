@@ -1,3 +1,22 @@
+//! # Core Embroidery Domain Models
+//!
+//! This module defines the fundamental in-memory representations of embroidery designs,
+//! geometric stitches, machine control commands, and thread colors.
+//!
+//! ## Key Types
+//!
+//! - [`EmbPattern`]: Top-level container representing an embroidery design, containing stitch sequences,
+//!   thread lists, metadata attributes, and geometric bounds.
+//! - [`Stitch`]: A single coordinate point `(x, y)` paired with a [`StitchType`] command.
+//! - [`StitchType`]: Enumeration of stitch actions (e.g. `Stitch`, `Jump`, `Trim`, `ColorChange`, `Stop`, `End`),
+//!   mapping 1-to-1 with standard embroidery command codes (compatible with pyembroidery constants).
+//! - [`EmbThread`]: RGB thread color representation with optional catalog name, brand, chart, and thread code.
+//!
+//! ## Coordinate System
+//!
+//! - Coordinates are represented in tenths of a millimetre (`0.1 mm = 1 unit`).
+//! - The pattern origin `(0, 0)` typically corresponds to the center of the embroidery hoop or design.
+
 /// Represents the type of a stitch or machine command.
 /// The integer values correspond to the EmbConstant command codes
 /// used by pyembroidery.
