@@ -1,4 +1,5 @@
 import { test as base, expect, type Page } from "@playwright/test";
+import { startCoverage, stopCoverage } from "./coverage-helper";
 import { DATA_ROOT_PATH } from "./paths";
 import { launchDebugApp } from "./app-launcher";
 
@@ -30,9 +31,13 @@ export const test = base.extend<{
       // worker app so both can run within the same worker.
       portOffset: 100,
     });
+
+    await startCoverage(app.page);
+
     try {
       await use(app.page);
     } finally {
+      await stopCoverage(app.page);
       await app.dispose();
     }
   },

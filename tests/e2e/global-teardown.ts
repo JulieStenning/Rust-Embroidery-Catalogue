@@ -6,6 +6,8 @@ import {
 } from "./paths";
 import { IMPORT_SOURCE_PATH } from "./empty-root";
 
+import { getCoverageInstance } from "./coverage-helper";
+
 /**
  * Remove the throwaway data roots created by the global setup (and by specs
  * that need an empty catalogue), plus the generated import source folder.
@@ -15,6 +17,11 @@ import { IMPORT_SOURCE_PATH } from "./empty-root";
  * best-effort so a locked leftover never fails the run.
  */
 export default async function globalTeardown(): Promise<void> {
+  const mcr = getCoverageInstance();
+  if (mcr.hasCache()) {
+    await mcr.generate();
+  }
+
   const roots = [
     DATA_ROOT_PATH,
     EMPTY_DATA_ROOT_PATH,

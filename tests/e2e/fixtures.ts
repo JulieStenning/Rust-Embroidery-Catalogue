@@ -5,6 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { startCoverage, stopCoverage } from "./coverage-helper";
 import { DATA_ROOT_PATH } from "./paths";
 import { firstPage, launchDebugApp } from "./app-launcher";
 
@@ -53,17 +54,23 @@ export const test = base.extend<{
   page: async ({ context }, use, testInfo) => {
     const page = await firstPage(context);
 
+    await startCoverage(page);
+
     // The WebView2 opens on about:blank and navigates to the application URL
     // once the frontend is served. Wait for the real document before handing
     // the page to a test so nothing races the initial navigation.
     await page.waitForSelector("#app", { state: "attached", timeout: 30_000 });
 
-    await use(page);
+    try {
+      await use(page);
+    } finally {
+      await stopCoverage(page);
 
-    if (testInfo.status !== testInfo.expectedStatus) {
-      await page
-        .screenshot({ path: testInfo.outputPath("failure.png") })
-        .catch(() => undefined);
+      if (testInfo.status !== testInfo.expectedStatus) {
+        await page
+          .screenshot({ path: testInfo.outputPath("failure.png") })
+          .catch(() => undefined);
+      }
     }
   },
 });

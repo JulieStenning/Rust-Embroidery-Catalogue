@@ -19,9 +19,9 @@ export default defineConfig({
     emptyOutDir: true,
     // Tauri supports ES modules on all target platforms
     target: ["es2021", "chrome105", "safari14"],
-    // Minify for production; no source maps needed in the bundled binary
+    // Minify for production; inline source maps for CDP coverage in Tauri WebView2
     minify: "esbuild",
-    sourcemap: false,
+    sourcemap: "inline",
   },
 
   // Make Vite environment variables available to Svelte components

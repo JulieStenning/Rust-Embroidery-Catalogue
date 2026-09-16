@@ -316,7 +316,7 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
 
     // Completion toast
     await expect(
-      page.getByText(/Maintenance complete: \d+ operations/i),
+      page.getByText(/Maintenance complete: \d+ operations/i).last(),
     ).toBeVisible({ timeout: 30_000 });
 
     // Last run summary contains Needs attention report (from seeded ZZ-broken*.pes files)

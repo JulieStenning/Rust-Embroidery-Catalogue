@@ -37,7 +37,12 @@ function markInitialSetupComplete(databasePath: string): void {
   }
 }
 
+import { getCoverageInstance } from "./coverage-helper";
+
 export default async function globalSetup(): Promise<void> {
+  const mcr = getCoverageInstance();
+  await mcr.cleanCache();
+
   if (!fs.existsSync(EXE_PATH)) {
     throw new Error(
       `Debug executable not found at:\n  ${EXE_PATH}\n` +
