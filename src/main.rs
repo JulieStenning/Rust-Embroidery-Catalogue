@@ -14,7 +14,6 @@ pub mod readers;
 pub mod routes;
 pub mod services;
 pub mod settings;
-pub mod templating;
 pub mod utils;
 
 use serde::Serialize;
