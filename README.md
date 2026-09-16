@@ -1,146 +1,151 @@
-# Rust-Embroidery-Catalogue
+# Rust Embroidery Catalogue
+
+[![Rust](https://img.shields.io/badge/rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
+[![Tauri](https://img.shields.io/badge/tauri-v2-blue.svg)](https://tauri.app)
+[![Svelte](https://img.shields.io/badge/svelte-v5-ff3e00.svg)](https://svelte.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENCE)
+
+A high-performance, cross-platform desktop application designed to catalog, search, preview, and organize machine embroidery designs (`.pes`, `.dst`, `.jef`, `.exp`, `.hus`, `.vp3`).
+
+Built with **Tauri v2**, **Rust**, **SQLite**, and **Svelte 5**.
+
+---
+
+## Key Features
+
+- **Fast Multi-Format Ingestion:** Native Rust binary parsers extract stitch geometry, bounding boxes, and thread palettes from Tajima (`.dst`), Melco (`.exp`), Husqvarna Viking (`.hus`), Janome (`.jef`), Brother (`.pes`), and Pfaff (`.vp3`).
+- **Real-Time Visual Rendering:** Generates realistic thread previews with lighting, shading, and jump stitch suppression directly from raw stitch coordinates.
+- **Smart Cataloging & AI Tagging:** Automated rule-based tagging and optional Google Gemini AI integration for intelligent subject classification.
+- **Robust SQLite Storage:** Single-file catalog database with WAL (Write-Ahead Logging), multi-root library support, and portable drive relocation.
+- **Batch Operations & Maintenance:** Asynchronous thumbnail regeneration, database compaction, automated backups, and recovery tooling.
+
+---
+
+## Architecture Overview
+
+```mermaid
+graph TD
+    subgraph Frontend ["Frontend (Svelte 5 + TypeScript)"]
+        UI["Views & Components<br/>(Browse, Detail, Import, Settings)"]
+        Stores["Reactive Stores<br/>(browseSession, toastStore, busyStore)"]
+        Adapters["Domain Adapters<br/>(designsAdapter, importAdapter, etc.)"]
+        IPCClient["IPC Transport Layer<br/>(ipcClient.ts & Mock Stubs)"]
+
+        UI --> Stores
+        UI --> Adapters
+        Adapters --> IPCClient
+    end
+
+    subgraph TauriBridge ["Tauri IPC Boundary"]
+        IPCClient <== "Tauri Commands (JSON)" ==> Routes["src/routes/ #[tauri::command]"]
+    end
+
+    subgraph Backend ["Backend (Rust)"]
+        Routes --> Services["Domain Services (src/services/)<br/>(scanning, auto_tagging, backfill, maintenance)"]
+        Services --> Readers["Binary Readers (src/readers/)<br/>(DST, EXP, HUS, JEF, PES, VP3)"]
+        Services --> DB["SQLite Database (src/database/)<br/>(sqlx Connection Pool, Migrations)"]
+        Services --> Models["Domain Models (src/models/)<br/>(EmbPattern, Stitch, EmbThread)"]
+        Services --> ImgGen["PNG Writer (src/png_writer.rs)"]
+    end
+
+    Readers --> Models
+    DB --> LocalDB[("SQLite Database<br/>(catalogue.db)")]
+```
+
+---
+
+## Repository Directory Map
+
+```text
+Rust-Embroidery-Catalogue/
+├── src/                        # Rust Backend (Tauri Core)
+│   ├── database/               # SQLite connection pool, schema, & migrations
+│   ├── models/                 # Core domain models (EmbPattern, Stitch, EmbThread)
+│   ├── readers/                # Binary embroidery format parsers (DST, PES, JEF, etc.)
+│   ├── routes/                 # Tauri IPC command handlers (#[tauri::command])
+│   ├── services/               # Pure business logic (scanning, AI tagging, backfill)
+│   ├── config.rs & settings.rs # App configuration & user preferences
+│   ├── error.rs                # Unified error handling (AppError)
+│   ├── logging.rs              # File & console structured logging
+│   ├── paths.rs                # Multi-root storage paths & portable mode detection
+│   ├── png_writer.rs           # Stitch-to-PNG visual rasterizer
+│   └── main.rs                 # Application entry point & Tauri runtime bootstrap
+├── frontend/                   # Frontend Application (Svelte 5 + TypeScript)
+│   └── src/
+│       ├── App.svelte          # Root application component & layout
+│       └── lib/
+│           ├── api/            # Typed IPC client & domain adapters (*Adapter.ts)
+│           ├── components/     # Reusable UI components (modals, grids, buttons)
+│           ├── services/       # Frontend service coordinators & event listeners
+│           ├── stores/         # Svelte writable/derived state stores
+│           ├── types/          # TypeScript interfaces & domain types
+│           ├── utils/          # Formatting, DOM, and routing helpers
+│           └── views/          # Top-level screen views (Browse, Detail, Import, etc.)
+├── migrations/                 # Sequential SQL migrations for SQLite schema
+├── tests/                      # Integration test assets & Playwright E2E suites
+└── docs/                       # Developer guides, recipes, and architecture specs
+```
+
+---
+
+## Quick Start (Local Development)
+
+### Prerequisites
+
+- **Rust:** `1.80.0+` (managed via `rustup`, see `rust-toolchain.toml`)
+- **Node.js:** `v18+` (LTS recommended) and `npm`
+- **Tauri CLI:** `cargo install tauri-cli --version "^2.0.0"`
+- **Build Tools:**
+  - **Windows:** Visual Studio C++ Build Tools (MSVC)
+  - **macOS:** Xcode Command Line Tools
+  - **Linux:** `libwebkit2gtk-4.1-dev`, `build-essential`, `curl`, `wget`, `libssl-dev`, `libgtk-3-dev`
+
+### 3-Step Setup
+
+```bash
+# 1. Clone repository
+git clone https://github.com/juliestenning/rust-embroidery-catalogue.git
+cd rust-embroidery-catalogue
+
+# 2. Install frontend dependencies
+npm install
+
+# 3. Launch in development mode (hot-reloading frontend + compiled Rust backend)
+cargo tauri dev
+```
+
+---
+
+## Running Quality Checks & Tests
+
+Before submitting pull requests, run the project test suites:
+
+```bash
+# Run Rust unit tests (1400+ tests across readers, services, routes, migrations)
+cargo test
+
+# Run Rust linter & formatting checks
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+
+# Run Frontend Vitest test suite (1200+ unit & store tests)
+npm test
+
+# Run End-to-End Playwright test suite
+npm run e2e
+```
+
+---
+
+## Documentation & Developer Guides
+
+- 📘 [**Developer Guide & How-To Recipes**](docs/DEVELOPER_GUIDE.md): Step-by-step recipes for adding new embroidery formats, adding IPC commands, and writing database migrations.
+- 🤝 [**Contributing Guidelines**](CONTRIBUTING.md): Branch naming, PR process, and code formatting rules.
+- 📂 [**Documentation Portal**](docs/README.md): Index of all architectural specifications, test plans, and release SOPs.
+- 📖 [**In-Code Rustdoc**](target/doc/embroidery_catalogue/index.html): Generate with `cargo doc --no-deps --open`.
+
+---
 
 ## Licence
-This program is free software: you can redistribute it and/or modify it under the terms of the MIT License. See the LICENCE file for full details.
 
-# Developer Environment Setup & Contributing Guide
-
-Welcome to the **Embroidery Catalogue** repository. This document outlines the prerequisites, editor setup, toolchains, and tasks required to set up your local development environment for building and maintaining the application.
-
----
-
-## Workspace Tech Stack
-
-* **Desktop Shell:** Tauri v2
-* **Backend:** Rust (pinned toolchain, SQLite metadata storage, binary embroidery file parsing)
-* **Frontend:** Svelte / TypeScript
-* **UI Structure:** Core application flows managed via main view modules like @App.svelte, @MainView.svelte, @DesignDetailView.svelte, @ImportView.svelte, and test suites like @ImportTestHarness.svelte.
-
----
-
-## 1. Prerequisites & System Dependencies
-
-Before opening the workspace, ensure your system has the base language runtimes installed.
-
-### Rust Toolchain
-
-* **Installer:** Install via [rustup.rs](https://rustup.rs/).
-* **Version:** Pinned via `rust-toolchain.toml` (`1.80.0-x86_64-pc-windows-msvc`).
-* Required system target and compiler components are managed automatically upon running `cargo` or opening the repository.
-
-### Node.js & Package Manager
-
-* **Node.js:** LTS version installed.
-* **Package Manager:** `pnpm` (recommended) or `npm`.
-
-### Tauri v2 System Prerequisites
-
-* **Windows:** C++ build tools via Visual Studio Community / Build Tools (MSVC workload).
-* **macOS / Linux:** Native C compilers and WebKit libraries (see official Tauri v2 prerequisites documentation if developing cross-platform).
-
----
-
-## 2. Mandatory Rust Components & Global Tools
-
-Run the following commands in your terminal to ensure your local Rust environment has all required CLI tooling and components attached to the toolchain:
-
-### Rustup Components
-
-```bash
-rustup component add rust-analyzer clippy rustfmt
-
-```
-
-* `rust-analyzer`: Powers the language server for inline type checking and diagnostics.
-* `clippy`: Runs static code analysis (catches memory inefficiencies when processing `.pes`, `.jef`, or other binary stitch buffers).
-* `rustfmt`: Formats all Rust code on save according to standard style guidelines.
-
-### Global Cargo Subcommands
-
-```bash
-cargo install tauri-cli --version "^2.0.0"
-
-```
-
----
-
-## 3. Recommended VS Code Setup
-
-If developing inside Visual Studio Code (or compatible IDEs like Cursor/Antigravity), workspace recommendations are configured in `.vscode/extensions.json`.
-
-### Automatic Setup
-
-Upon opening the project workspace folder in VS Code, accept the prompt to **"Install Recommended Extensions"**, or open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and select **Extensions: Show Recommended Extensions**.
-
-### Workspace Extension List
-
-| Extension ID | Name / Description | Purpose |
-| --- | --- | --- |
-| `rust-lang.rust-analyzer` | rust-analyzer | Rust language server & inline CodeLens runner |
-| `svelte.svelte-vscode` | Svelte for VS Code | Svelte component support (@App.svelte, @MainView.svelte) |
-| `tauri-apps.tauri-vscode` | Tauri | Tauri v2 config validation & command tooling |
-| `tamasfe.even-better-toml` | Even Better TOML | Schema validation for `Cargo.toml` and `tauri.conf.json` |
-| `vadimcn.vscode-lldb` | CodeLLDB | Native debugging for Rust backend and IPC handlers |
-| `esbenp.prettier-vscode` | Prettier - Code formatter | Formatting TypeScript, Svelte templates, and CSS |
-| `alexcvzz.vscode-sqlite` | SQLite | Direct inspection of local catalog metadata databases |
-| `vitest.explorer` | Vitest Explorer | Discovers and executes Svelte unit test suites in the Beaker panel |
-| `swellaby.vscode-rust-test-adapter` | Rust Test Explorer | Integrates Rust `#[test]` suites into the VS Code Testing panel |
-
----
-
-## 4. Environment Verification & Initial Run
-
-Once all dependencies and extensions are installed, verify your environment setup:
-
-1. **Verify Rust Components:**
-```bash
-rustup component list --installed
-
-```
-
-*Confirm `clippy`, `rustfmt`, and `rust-analyzer` are listed.*
-
-2. **Verify Tauri CLI Version:**
-```bash
-cargo tauri --version
-
-```
-
-3. **Install Frontend Dependencies:**
-```bash
-pnpm install
-
-```
-
-4. **Launch Local Development Environment:**
-```bash
-cargo tauri dev
-
-```
-
-5. **Run Test Suites:**
-* **Rust Unit Tests (Binary Parsers & Database IPC):** `cargo test`
-* **Svelte Component Tests:** `pnpm test` (or execute via the VS Code Testing Panel)
-
-## Reader Requirements
-
-All embroidery file readers (DST, PES, JEF, VP3, EXP, etc.) **must** provide enough data for the PNG renderer to generate a preview image. This means:
-
-- The `stitches` vector in `EmbPattern` must contain all stitch positions and commands.
-- The `threadlist` must contain at least one thread (with color) for each color block.
-
-Readers are not required to provide metadata beyond what is needed for rendering.
-
-This contract ensures that any supported file can be previewed visually in the catalogue.
-
----
-
-For more details, see the doc comment on the `EmbroideryReader` trait in `src/readers/embroidery_reader.rs`.
-
-
-
-
-
-
-
-
+This program is free software: you can redistribute it and/or modify it under the terms of the **MIT License**. See the [LICENCE](LICENCE) file for full details.
