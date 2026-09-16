@@ -87,3 +87,32 @@ Aligns with **Section 5 (Pre-Commit & Verification Quality Gates)**.
 - [x] **5.1 Backend Suite:** `cargo check`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (1,404 passed).
 - [x] **5.2 Frontend Suite:** `svelte-check` (0 errors, 0 warnings), `npm run lint` (0 errors), `npx vitest run` (53 test files, 1,235 passed).
 - [x] **5.3 Release Checks:** `.\run-release-checks.ps1` & `.\verify-release-logs.ps1` (All 9 quality gates passed: Rust Check, Rust Clippy, Rust Tests, Prettier Results, Rust Formatting, Frontend Unit Tests, Playwright E2E Tests [197 passed], Svelte Type Check, and Tauri Packaging with MSI & NSIS installers).
+
+---
+
+## 6. Lessons Learned & Efficiency Guidelines for Future Refactoring
+
+The following practical insights and patterns were discovered during this refactoring exercise and should be applied in future refactoring workflows:
+
+### 6.1 Tauri E2E Test Binary Caching
+- **Context:** Playwright tests run against the built debug desktop binary (`target/debug/embroidery-catalogue.exe`) over WebView2 CDP. Tauri compiles and bundles the built frontend assets (`frontend/dist/`) directly inside the binary.
+- **Rule for Future Work:** When changing frontend templates, CSS, or TypeScript files, **always run `npm run e2e:build` before running individual Playwright tests (`npx playwright test <spec>`)**. Running tests without a rebuild executes against the previous binary bundle, making frontend fixes appear not to take effect.
+
+### 6.2 Modal Dialogs & CSS Flexbox Constraints
+- **Context:** When extracting inline modal styling into CSS utility classes, large content grids (such as tag selection lists with 60+ items) can expand beyond the viewport if flex shrinking rules are omitted.
+- **Rule for Future Work:**
+  - Every `.modal-dialog` and `.tag-chooser-dialog` must include `overflow: hidden;`, `display: flex; flex-direction: column;`, and `max-height: 88vh;`.
+  - Every scrollable body (`.modal-body`, `.tag-chooser-body`) must include `min-height: 0;` alongside `overflow-y: auto; flex: 1;`. Without `min-height: 0;`, CSS flex items default to `min-height: auto`, which prevents shrinking and forces the modal container to grow taller than the window, pushing headers/controls to negative coordinates outside the viewport.
+
+### 6.3 Svelte 5 Runes Lifecycle & Avoiding Dual Data Loads
+- **Context:** In Svelte 5 runes mode, `$effect` runs on initial mount as well as whenever reactive prop dependencies change.
+- **Rule for Future Work:** Do **not** pair `$effect` and `onMount` to trigger the same asynchronous loader (`loadDesignDetail`). Having both hooks fires two concurrent in-flight requests on mount, creating a race condition where the second slower response can wipe out user/test input (e.g. resetting form selections) while the component is being interacted with.
+
+### 6.4 Scripted AST/Regex File Splitting
+- **Context:** Splitting large monolithic adapter files (`commandAdapter.ts` at 3,818 lines) into 9 domain adapters was executed safely via an automated script (`scripts/split-command-adapter.mjs`).
+- **Rule for Future Work:** For files exceeding 1,000 lines, use scripted AST extraction coupled with a backward-compatible barrel re-export file. This avoids manual copy-paste errors, keeps git diffs clean, and eliminates the need to update dozens of importing components.
+
+### 6.5 Incremental Quality Gate Validation
+- **Context:** Catching Svelte type errors (e.g., JSDoc casts in `.svelte` files) and Prettier format discrepancies early avoids long debugging cycles at the final release build stage.
+- **Rule for Future Work:** Run `npx svelte-check --tsconfig frontend/jsconfig.json` and `npx prettier --check frontend/src` at the end of **each individual phase**, rather than deferring to the final release verification.
+
