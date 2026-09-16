@@ -57,6 +57,10 @@ $results = @(
     { param($c) $c -match 'test result: ok\.' -and $c -match '0 failed;' } `
     "Fix failing backend unit tests."
 
+    Test-LogCondition "Rust Coverage" "$logDir/rust-coverage.txt" `
+    { param($c) $c -match 'TOTAL\s+\d+' -and $c -notmatch 'error\[' } `
+    "Run 'cargo llvm-cov --summary-only' and review COVERAGE_EXCEPTIONS.md."
+
     Test-LogCondition "Prettier Results" "$logDir/format-prettier-results.txt" `
         { param($c) $c -match 'All matched files use Prettier code style!' } `
         "Run 'npm --prefix frontend run format' to format files."
@@ -69,17 +73,33 @@ $results = @(
     { 
         param($c) 
         $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
-        $clean -match 'Test Files\s+\d+\s+passed' -and $clean -match 'Tests\s+\d+\s+passed' -and $clean -notmatch 'failed'
+        $clean -cnotmatch 'FAIL\s+' -and $clean -notmatch 'Tests:\s+\d+\s+failed' -and $clean -match 'Coverage enabled'
     } `
     "Fix failing frontend Vitest unit tests."
+
+    Test-LogCondition "Frontend Unit Coverage" "$logDir/vitest-results.txt" `
+    { 
+        param($c) 
+        $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
+        $clean -match 'src/lib/views' -and $clean -match '-------------------|---------|----------|---------|---------|-------------------'
+    } `
+    "Run 'npx vitest run --coverage' and review COVERAGE_EXCEPTIONS.md."
 
     Test-LogCondition "Playwright E2E Tests" "$logDir/playwright-results.txt" `
     { 
         param($c) 
         $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
-        $clean -match '\d+\s+passed' -and $clean -notmatch '\d+\s+failed' -and $clean -notmatch 'Error:'
+        $clean -match '\d+\s+passed' -and $clean -notmatch '\d+\s+failed' -and $clean -notmatch 'Error: expect'
     } `
     "Run 'npx playwright test' or inspect playwright-report to fix failing E2E tests."
+
+    Test-LogCondition "Playwright E2E Coverage" "$logDir/playwright-results.txt" `
+    { 
+        param($c) 
+        $clean = $c -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
+        $clean -match 'Frontend E2E Coverage Report' -and $clean -match 'Coverage %'
+    } `
+    "Run 'npm run e2e' to regenerate E2E CDP coverage."
 
     Test-LogCondition "Svelte Type Check" "$logDir/svelte-check.txt" `
         { param($c) $c -match 'found 0 errors' -and $c -notmatch 'Error:' } `

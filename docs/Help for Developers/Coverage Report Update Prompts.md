@@ -31,6 +31,19 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for svelte modules:
 
 ---
 
+Run `npm run e2e` (or `npm run e2e:coverage`) to generate end-to-end frontend CDP code coverage across all Playwright specs.
+
+Instructions for checking Playwright E2E frontend coverage:
+
+1. The test suite automatically collects Chrome DevTools Protocol (CDP) coverage across the running Tauri WebView2 application and writes reports to:
+   - Interactive HTML report: `coverage/e2e/html/index.html` (view with `npm run e2e:report` or by opening in browser).
+   - Machine-readable LCOV: `coverage/e2e/lcov.info`.
+   - Terminal summary table: printed automatically during `globalTeardown`.
+2. Review the interactive HTML report to identify UI user interaction flows, modal dialogues, or edge-case branches that are missed by unit tests.
+3. Use E2E coverage to substantiate acceptance reasons in COVERAGE_EXCEPTIONS.md when a component or route's logic is primarily glue/framework interaction (e.g., live IPC event streaming, native file dialogs, pool-swap gates) that is validated via full integration rather than unit tests.
+
+---
+
 Prompt to update tests to increase coverage
 @ModuleName has a NumberHere% function/line/region coverage. Can it be improved? Use information in @/.clinerules for information on how to write the tests. Explain your reasons if the coverage should be under 100%. If you changed a test, update @/docs\policies\testing\COVERAGE_EXCEPTIONS.md with the new coverage at the end of the task.
 

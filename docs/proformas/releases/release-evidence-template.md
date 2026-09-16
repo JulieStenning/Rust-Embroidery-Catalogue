@@ -26,6 +26,13 @@ Use this template to capture objective evidence for a specific release.
 - Exception sign-off (if used):
 - Evidence link/snippet:
 
+**Coverage Gate Evidence**
+- Backend Rust coverage (`cargo llvm-cov`): Line: ___%, Function: ___%, Region: ___%
+- Frontend Unit coverage (`vitest --coverage`): Line: ___%, Function: ___%, Branch: ___%
+- Frontend E2E coverage (`playwright` CDP): Line: ___%, Function: ___%, Branch: ___%
+- All exceptions reviewed and accepted in COVERAGE_EXCEPTIONS.md: (Yes/No)
+- Evidence link/snippet:
+
 **Lint & Type-Check Gate Evidence**
 - `cargo check` passed: (Yes/No)
 - `cargo clippy` passed: (Yes/No)

@@ -61,6 +61,13 @@ The script `verify-release-logs.ps1` identifies successful and failing scripts. 
  * [ ]  Check Playwright E2E tests pass. See [playwright-results](../../../audit-logs/playwright-results.txt) Covered by verification script.
  * [ ]  Capture test evidence in the release evidence document.
 
+**Coverage Gate**
+
+* [ ]  **Backend Rust Coverage:** Run `cargo llvm-cov --summary-only` and confirm results in [rust-coverage](../../../audit-logs/rust-coverage.txt). Verify that all modules with <80% coverage are documented and accepted in [COVERAGE_EXCEPTIONS.md](../../policies/testing/COVERAGE_EXCEPTIONS.md). Covered by verification script.
+* [ ]  **Frontend Unit Coverage:** Run `npx vitest run --coverage` and confirm results in [vitest-results](../../../audit-logs/vitest-results.txt). Verify that all view components with <80% coverage are documented and accepted in [COVERAGE_EXCEPTIONS.md](../../policies/testing/COVERAGE_EXCEPTIONS.md). Covered by verification script.
+* [ ]  **Frontend E2E CDP Coverage:** Run `npm run e2e` and review the interactive report at [coverage/e2e/html/index.html](../../../coverage/e2e/html/index.html). Confirm summary metrics in [playwright-results](../../../audit-logs/playwright-results.txt).
+* [ ]  Capture coverage metrics and exception status in the release evidence document.
+
 **Lint / Format / Type-Check Gate**
 
 * [ ]  Compile the project and dependencies. See [cargo-check-results2](../../../audit-logs/cargo-check-results2.txt). Covered by verification script.

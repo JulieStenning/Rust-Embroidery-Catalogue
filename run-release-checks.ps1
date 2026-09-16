@@ -42,15 +42,16 @@ cargo check 2>&1 | Out-File ./audit-logs/cargo-check-results.txt
 Write-Host "--> Checking Outdated Crates..." -ForegroundColor Yellow
 cargo outdated > ./audit-logs/outdated.txt
 
-Write-Host "--> Checking back end tests pass" -ForegroundColor Yellow
-cargo test  > ./audit-logs/cargo-test-results2.txt
+Write-Host "--> Checking Rust backend tests and coverage..." -ForegroundColor Yellow
+cargo llvm-cov --summary-only 2>&1 | Out-File -Encoding utf8 ./audit-logs/rust-coverage.txt
+cargo test 2>&1 | Out-File -Encoding utf8 ./audit-logs/cargo-test-results2.txt
 
-Write-Host "--> Checking frontend tests pass" -ForegroundColor Yellow
-npx vitest run --silent  2>&1 | Out-File ./audit-logs/vitest-results.txt
+Write-Host "--> Checking frontend tests and coverage..." -ForegroundColor Yellow
+npx vitest run --coverage 2>&1 | Out-File -Encoding utf8 ./audit-logs/vitest-results.txt
 
-Write-Host "--> Checking Playwright E2E tests pass..." -ForegroundColor Yellow
+Write-Host "--> Checking Playwright E2E tests and CDP coverage..." -ForegroundColor Yellow
 npm run e2e:build | Out-Null
-npx playwright test 2>&1 | Out-File ./audit-logs/playwright-results.txt
+npx playwright test 2>&1 | Out-File -Encoding utf8 ./audit-logs/playwright-results.txt
 
 # 2. Rust Quality Gates
 Write-Host "--> Running Rust Checks, Formatting & Clippy..." -ForegroundColor Yellow
