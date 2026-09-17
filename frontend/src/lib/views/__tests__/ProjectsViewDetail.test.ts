@@ -139,6 +139,10 @@ describe("ProjectsView detail view", () => {
     const roseImage = screen.getByRole("img", { name: "rose-border.pes" });
     expect(roseImage).toHaveAttribute("src", "data:image/png;base64,AAAA");
     expect(screen.getByText("Image unavailable")).toBeInTheDocument();
+
+    const browseLink = screen.getByRole("link", { name: "Browse Designs" });
+    expect(browseLink).toBeInTheDocument();
+    expect(browseLink).toHaveAttribute("href", "#/designs");
   });
 
   it("enables Save and Undo after an edit and reverts on Undo", async () => {
@@ -341,7 +345,7 @@ describe("ProjectsView detail view", () => {
     expect(screen.queryByText("Rose Studio")).not.toBeInTheDocument();
   });
 
-  it("shows an empty designs message when the project has no designs array", async () => {
+  it("shows an empty designs message with Browse Designs link when the project has no designs array", async () => {
     const item = {
       project: { id: 1, name: "Wedding Collection", description: "Bridesmaid gifts." },
       designs: null,
@@ -349,6 +353,9 @@ describe("ProjectsView detail view", () => {
     adapterMock.getProjectDetail.mockResolvedValue({ source: "rust", item, error: undefined });
     renderProjects();
     await waitFor(() => expect(screen.getByText(/Designs \(0\)/)).toBeInTheDocument());
-    expect(screen.getByText("No designs in this project yet.")).toBeInTheDocument();
+    expect(screen.getByText(/No designs in this project yet/)).toBeInTheDocument();
+    const browseLink = screen.getByRole("link", { name: "Browse Designs" });
+    expect(browseLink).toBeInTheDocument();
+    expect(browseLink).toHaveAttribute("href", "#/designs");
   });
 });

@@ -298,8 +298,9 @@
     </div>
 
     <p class="projects-intro text-sm text-gray-500">
-      <br />
-      Group designs for a planned embroidery task - for example a seasonal set or a quilt block series.
+      Group designs for a planned embroidery task - for example a seasonal set or a quilt block
+      series. To add designs to a project, select them in
+      <a href="#/designs" class="text-indigo-600 hover:underline">Browse Designs</a>.
       <a href="#/help?section=projects" class="text-indigo-600 hover:underline">Learn more</a>
     </p>
 
@@ -361,7 +362,9 @@
     <div class="projects-form-card space-y-3 bg-white rounded shadow p-6 max-w-xl">
       <h2 class="projects-subtitle text-2xl font-bold text-gray-800">New Project</h2>
       <p class="projects-intro text-sm text-gray-500 font-sans">
-        Projects let you group designs for a planned embroidery task.
+        Projects let you group designs for a planned embroidery task. To add designs to a project,
+        select them in
+        <a href="#/designs" class="text-indigo-600 hover:underline font-medium">Browse Designs</a>.
         <a href="#/help?section=projects" class="text-indigo-600 hover:underline font-medium"
           >Help</a
         >
@@ -478,6 +481,10 @@
           Designs ({Array.isArray(projectDetail?.designs) ? projectDetail.designs.length : 0})
         </h2>
         {#if Array.isArray(projectDetail.designs) && projectDetail.designs.length > 0}
+          <p class="projects-designs-intro text-sm text-gray-500 font-sans">
+            To add more designs to this project, select them in
+            <a href="#/designs" class="text-indigo-600 hover:underline">Browse Designs</a>.
+          </p>
           <div
             class="projects-design-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6"
           >
@@ -531,7 +538,10 @@
             {/each}
           </div>
         {:else}
-          <p class="text-gray-500 mb-6 font-sans">No designs in this project yet.</p>
+          <p class="text-gray-500 mb-6 font-sans">
+            No designs in this project yet. To add designs to a project, select them in
+            <a href="#/designs" class="text-indigo-600 hover:underline">Browse Designs</a>.
+          </p>
         {/if}
       </div>
     {/if}

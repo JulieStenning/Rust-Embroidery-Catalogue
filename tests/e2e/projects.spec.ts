@@ -241,10 +241,12 @@ test.describe.serial("projects", () => {
       mainMenu(page).getByRole("link", { name: "Projects", exact: true }),
     ).toHaveClass(/menu-link-active/);
 
-    // Sub-header copy plus the "Learn more" help link.
+    // Sub-header copy plus the "Browse Designs" and "Learn more" links.
     await expect(
       page.getByText("Group designs for a planned embroidery task"),
     ).toBeVisible();
+    const browseLink = page.locator('.projects-intro a[href="#/designs"]');
+    await expect(browseLink).toHaveText("Browse Designs");
     const learnMore = page.locator('a[href="#/help?section=projects"]').first();
     await expect(learnMore).toBeVisible();
 
@@ -294,6 +296,9 @@ test.describe.serial("projects", () => {
     ).toBeVisible();
     await expect(
       page.getByText("No designs in this project yet."),
+    ).toBeVisible();
+    await expect(
+      page.locator('a[href="#/designs"]', { hasText: "Browse Designs" }),
     ).toBeVisible();
   });
 
@@ -411,6 +416,9 @@ test.describe.serial("projects", () => {
     await expect(
       page.getByRole("heading", { name: "Designs (2)" }),
     ).toBeVisible();
+    await expect(
+      page.locator('.projects-designs-intro a[href="#/designs"]'),
+    ).toHaveText("Browse Designs");
 
     const richCard = projectDesignCard(page, RICH_DESIGN);
     await expect(richCard).toBeVisible();

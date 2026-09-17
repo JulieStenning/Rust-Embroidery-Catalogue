@@ -113,4 +113,11 @@ describe("ProjectsView new project view", () => {
     });
     expect(adapterMock.createProject).not.toHaveBeenCalled();
   });
+
+  it("renders the Browse Designs link in the helper text", async () => {
+    renderProjects();
+    const browseLink = screen.getByRole("link", { name: "Browse Designs" });
+    expect(browseLink).toBeInTheDocument();
+    expect(browseLink).toHaveAttribute("href", "#/designs");
+  });
 });

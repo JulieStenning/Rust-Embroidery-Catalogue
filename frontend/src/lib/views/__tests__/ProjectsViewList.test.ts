@@ -138,4 +138,11 @@ describe("ProjectsView list view", () => {
     await waitFor(() => expect(screen.getByText("Sparse")).toBeInTheDocument());
     expect(screen.getByText("0 designs")).toBeInTheDocument();
   });
+
+  it("renders the Browse Designs link in the page intro", async () => {
+    renderProjects();
+    const browseLink = screen.getByRole("link", { name: "Browse Designs" });
+    expect(browseLink).toBeInTheDocument();
+    expect(browseLink).toHaveAttribute("href", "#/designs");
+  });
 });
