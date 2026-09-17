@@ -145,6 +145,16 @@ async fn make_designs_db(path: &Path) {
             file_size_bytes INTEGER,
             file_hash_blake3 TEXT
         );
+        CREATE TABLE tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            tag_group TEXT
+        );
+        CREATE TABLE design_tags (
+            design_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            PRIMARY KEY (design_id, tag_id)
+        );
         "#,
     )
     .execute(&pool)
@@ -513,6 +523,77 @@ async fn import_unmatched_design_files_imports_real_design() {
     assert!(
         image_type.is_some(),
         "image_type should be stored for an imported design"
+    );
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn import_unmatched_design_files_applies_file_folder_and_stitching_tags() {
+    let tmp = unique_temp_dir("import-unmatched-tags");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    let flowers_dir = root.join("Flowers");
+    fs::create_dir_all(&flowers_dir).unwrap();
+
+    let bean = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("Test Designs")
+        .join("Bean.pes");
+    fs::copy(&bean, flowers_dir.join("Rose.pes")).expect("copy fixture to Flowers/Rose.pes");
+
+    let db_path = tmp.join("catalogue.db");
+    make_designs_db(&db_path).await;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    // Seed tags matching path rules ("Flowers") and stitching ("Embroidery").
+    sqlx::query("INSERT INTO tags (id, description, tag_group) VALUES (1, 'Flowers', 'image')")
+        .execute(&pool)
+        .await
+        .expect("insert tag 1");
+    sqlx::query(
+        "INSERT INTO tags (id, description, tag_group) VALUES (2, 'Embroidery', 'stitching')",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert tag 2");
+
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+    assert_eq!(result.detected, 1);
+    assert_eq!(result.imported, 1);
+
+    // Verify the design is tagged with Flowers (tag_id = 1).
+    let design_id: i64 = sqlx::query_scalar("SELECT id FROM designs WHERE filename = 'Rose.pes'")
+        .fetch_one(&pool)
+        .await
+        .expect("fetch design id");
+
+    let assigned_tags: Vec<i64> = sqlx::query_scalar(
+        "SELECT tag_id FROM design_tags WHERE design_id = ? ORDER BY tag_id ASC",
+    )
+    .bind(design_id)
+    .fetch_all(&pool)
+    .await
+    .expect("fetch assigned tags");
+
+    // Must contain tag 1 (Flowers from folder path) and stitching tag (Embroidery).
+    assert!(
+        assigned_tags.contains(&1),
+        "should assign Flowers tag based on folder path, found: {:?}",
+        assigned_tags
+    );
+    assert!(
+        assigned_tags.contains(&2),
+        "should assign Embroidery stitching tag, found: {:?}",
+        assigned_tags
     );
 
     pool.close().await;

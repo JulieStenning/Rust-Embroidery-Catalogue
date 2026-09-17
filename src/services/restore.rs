@@ -18,7 +18,7 @@ use crate::services::storage_migration::verify_database_at;
 use crate::PoolHolder;
 use serde::Serialize;
 use sqlx::SqlitePool;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -522,6 +522,61 @@ enum SingleImport {
     Skipped,
 }
 
+/// Tag lookups used for file/folder and stitching tagging during unmatched-file import.
+struct ImportTaggingContext {
+    valid_descriptions: HashSet<String>,
+    description_to_tag_id: HashMap<String, i64>,
+    valid_stitching_descriptions: HashSet<String>,
+    stitching_tag_lookup: HashMap<String, i64>,
+    default_stitching_tag_id: Option<i64>,
+}
+
+impl ImportTaggingContext {
+    async fn load(pool: &SqlitePool) -> Self {
+        let tag_rows: Vec<(i64, String)> =
+            sqlx::query_as("SELECT id, description FROM tags ORDER BY id ASC")
+                .fetch_all(pool)
+                .await
+                .unwrap_or_default();
+
+        let valid_descriptions: HashSet<String> =
+            tag_rows.iter().map(|(_, desc)| desc.clone()).collect();
+        let description_to_tag_id: HashMap<String, i64> =
+            tag_rows.into_iter().map(|(id, desc)| (desc, id)).collect();
+
+        let stitching_rows: Vec<(i64, String)> = sqlx::query_as(
+            "SELECT id, description FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching'",
+        )
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        let valid_stitching_descriptions: HashSet<String> = stitching_rows
+            .iter()
+            .map(|(_, desc)| desc.clone())
+            .collect();
+        let stitching_tag_lookup: HashMap<String, i64> = stitching_rows
+            .into_iter()
+            .map(|(id, desc)| (desc, id))
+            .collect();
+
+        let default_stitching_tag_id: Option<i64> = sqlx::query_scalar(
+            "SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching' ORDER BY description ASC LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await
+        .unwrap_or_default();
+
+        Self {
+            valid_descriptions,
+            description_to_tag_id,
+            valid_stitching_descriptions,
+            stitching_tag_lookup,
+            default_stitching_tag_id,
+        }
+    }
+}
+
 /// Insert a single unmatched design file as a new catalogue record.
 ///
 /// The file is read once through the shared [`design_metadata`] pipeline, which
@@ -529,10 +584,14 @@ enum SingleImport {
 /// main bulk import.  A decode/read failure does **not** skip the file: the row
 /// is still inserted with a NULL preview (flagged import) so the user can
 /// regenerate it later.
+///
+/// After insertion, automatic file/folder path rules and stitching tags are applied
+/// matching the bulk import behaviour.
 async fn import_single_design(
     pool: &SqlitePool,
     relative: &Path,
     full_path: &Path,
+    tagging_ctx: &ImportTaggingContext,
 ) -> Result<SingleImport, String> {
     let extension = full_path.extension().and_then(|e| e.to_str()).unwrap_or("");
     if !crate::services::scanning::is_supported_extension(extension) {
@@ -575,7 +634,7 @@ async fn import_single_design(
         .unwrap_or_else(|| relative.to_string_lossy().to_string());
     let stored_filepath = crate::paths::canonical_design_rel(&relative.to_string_lossy());
 
-    sqlx::query(
+    let insert_result = sqlx::query(
         "INSERT INTO designs (filename, filepath, date_added, hoop_id, image_data, image_type, \
          width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, \
          image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
@@ -596,6 +655,60 @@ async fn import_single_design(
     .execute(pool)
     .await
     .map_err(|e| format!("Could not insert '{}': {e}", full_path.display()))?;
+
+    let design_id = insert_result.last_insert_rowid();
+
+    // 1. File and folder path-rule tagging matching bulk import.
+    let matched_descriptions = crate::services::tagging::suggest_path_rule_descriptions(
+        &filename,
+        &stored_filepath,
+        &tagging_ctx.valid_descriptions,
+    );
+    for description in &matched_descriptions {
+        if let Some(tag_id) = tagging_ctx.description_to_tag_id.get(description) {
+            let _ =
+                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                    .bind(design_id)
+                    .bind(*tag_id)
+                    .execute(pool)
+                    .await;
+        }
+    }
+
+    // 2. Stitching tag detection matching bulk import.
+    if full_path.exists() {
+        let detected_stitching_descriptions =
+            crate::services::stitch_identifier::suggest_stitching_from_pattern_file(
+                &full_path.to_string_lossy(),
+                &filename,
+                &stored_filepath,
+                &tagging_ctx.valid_stitching_descriptions,
+                Some(0.70),
+            );
+
+        let mut stitching_tag_ids: Vec<i64> = detected_stitching_descriptions
+            .iter()
+            .filter_map(|description| tagging_ctx.stitching_tag_lookup.get(description).copied())
+            .collect();
+
+        if stitching_tag_ids.is_empty() {
+            if let Some(default_tag_id) = tagging_ctx.default_stitching_tag_id {
+                stitching_tag_ids.push(default_tag_id);
+            }
+        }
+
+        stitching_tag_ids.sort_unstable();
+        stitching_tag_ids.dedup();
+
+        for tag_id in stitching_tag_ids {
+            let _ =
+                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                    .bind(design_id)
+                    .bind(tag_id)
+                    .execute(pool)
+                    .await;
+        }
+    }
 
     Ok(if flagged {
         SingleImport::ImportedFlagged
@@ -636,6 +749,7 @@ pub async fn import_unmatched_design_files(
     let mut failed = 0usize;
     let mut failed_samples = Vec::new();
     let mut cancelled = false;
+    let tagging_ctx = ImportTaggingContext::load(pool).await;
 
     for (index, relative) in unmatched.iter().enumerate() {
         if cancel.load(Ordering::SeqCst) {
@@ -644,7 +758,7 @@ pub async fn import_unmatched_design_files(
         }
 
         let full_path = designs_root.join(relative);
-        match import_single_design(pool, relative, &full_path).await {
+        match import_single_design(pool, relative, &full_path, &tagging_ctx).await {
             Ok(SingleImport::Imported) => imported += 1,
             Ok(SingleImport::ImportedFlagged) => {
                 imported += 1;

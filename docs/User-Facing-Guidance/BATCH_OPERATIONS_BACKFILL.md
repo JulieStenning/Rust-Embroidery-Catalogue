@@ -57,8 +57,7 @@ The **Maintenance & File Processing** tab also includes a **Find unmatched desig
 scans `MachineEmbroideryDesigns` for design files that have no catalogue record — for example after a
 **Backup & Restore → Sync Designs from Backup**, or files added to the design folder outside the app.
 Click **Scan for unmatched files**; if any are found, a prompt lets you **import them as new
-catalogue records** (preview images and technical metadata are generated automatically) or dismiss the
-result. This is the same reconciliation that **Backup & Restore → Restore Both** performs.
+catalogue records** or dismiss the result. This is the same reconciliation that **Backup & Restore → Restore Both** performs.
 
 ---
 

@@ -1,4 +1,5 @@
 <script>
+  import { onMount, onDestroy } from "svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import {
@@ -11,11 +12,43 @@
     setUnmatchedFilesDetected,
     dismissUnmatchedFiles,
   } from "../stores/unmatchedFilesStore.js";
+  import { restoreProgressStore, resetRestoreProgress } from "../stores/restoreProgressStore.js";
+  import { initRestoreProgressEvents } from "../services/restoreEvents.js";
 
   let busyActive = $derived($busyState.active);
   let scanning = $state(false);
   let importing = $state(false);
   let cancelling = $state(false);
+  let totalToImport = $state(0);
+  /** @type {(() => void) | null} */
+  let unlistenRestore = null;
+
+  onMount(async () => {
+    try {
+      unlistenRestore = await initRestoreProgressEvents();
+    } catch (error) {
+      console.info("Restore progress events unavailable.", error);
+    }
+  });
+
+  onDestroy(() => {
+    if (unlistenRestore) {
+      unlistenRestore();
+      unlistenRestore = null;
+    }
+  });
+
+  let importButtonLabel = $derived.by(() => {
+    if (importing) {
+      const progress = $restoreProgressStore;
+      const total = totalToImport || $unmatchedFilesStore.count;
+      if (progress.active && progress.scope === "import-unmatched" && progress.scanned > 0) {
+        return `Processing ${progress.scanned} of ${total} files`;
+      }
+      return "Importing…";
+    }
+    return `Import ${$unmatchedFilesStore.count} file(s)`;
+  });
 
   /** Scan for design files on disk that have no catalogue record. */
   async function handleScan() {
@@ -55,6 +88,7 @@
     if (importing || busyActive) return;
     importing = true;
     cancelling = false;
+    totalToImport = $unmatchedFilesStore.count;
     beginBusy("Importing unmatched design files");
     try {
       const result = await importUnmatchedDesignFiles();
@@ -81,6 +115,8 @@
     } finally {
       importing = false;
       cancelling = false;
+      totalToImport = 0;
+      resetRestoreProgress();
       endBusy();
     }
   }
@@ -102,7 +138,7 @@
   <p class="text-sm text-gray-600">
     Scans <code>MachineEmbroideryDesigns</code> for design files that have no record in the catalogue
     — for example after syncing designs from a backup without restoring the database. You can then import
-    them as new catalogue records; preview images and technical metadata are generated automatically.
+    them as new catalogue records.
   </p>
   <div class="flex gap-2 pt-1">
     <button
@@ -123,22 +159,8 @@
     <p class="text-sm text-gray-600">
       {$unmatchedFilesStore.count} design file(s) on disk have no record in the catalogue
       {$unmatchedFilesStore.checked > 0 ? `(scanned ${$unmatchedFilesStore.checked})` : ""}. You can
-      import them as new catalogue records — preview images and technical metadata are generated
-      automatically.
+      import them as new catalogue records.
     </p>
-    {#if $unmatchedFilesStore.sample.length > 0}
-      <ul class="text-xs text-gray-500 list-disc pl-5 space-y-0.5 max-h-32 overflow-auto">
-        {#each $unmatchedFilesStore.sample as path}
-          <li class="font-mono break-all">{path}</li>
-        {/each}
-      </ul>
-      {#if $unmatchedFilesStore.count > $unmatchedFilesStore.sample.length}
-        <p class="text-xs text-gray-500" data-testid="unmatched-sample-note">
-          Showing the first {$unmatchedFilesStore.sample.length} of {$unmatchedFilesStore.count}
-          unmatched files — all of them will be imported.
-        </p>
-      {/if}
-    {/if}
     <div class="flex gap-2 pt-1">
       <button
         type="button"
@@ -146,7 +168,7 @@
         disabled={importing || busyActive}
         onclick={handleImport}
       >
-        {importing ? "Importing…" : `Import ${$unmatchedFilesStore.count} file(s)`}
+        {importButtonLabel}
       </button>
       {#if importing}
         <button

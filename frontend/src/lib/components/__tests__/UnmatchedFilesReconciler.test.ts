@@ -8,6 +8,7 @@ import {
   resetUnmatchedFiles,
   setUnmatchedFilesDetected,
 } from "../../stores/unmatchedFilesStore";
+import { restoreProgressStore, resetRestoreProgress } from "../../stores/restoreProgressStore";
 
 const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
@@ -23,6 +24,7 @@ describe("UnmatchedFilesReconciler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetUnmatchedFiles();
+    resetRestoreProgress();
     adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
       source: "rust",
       checked: 0,
@@ -126,23 +128,57 @@ describe("UnmatchedFilesReconciler", () => {
     expect(get(unmatchedFilesStore).showPrompt).toBe(false);
   });
 
-  it("notes when the sample list is truncated", async () => {
-    const sample = Array.from({ length: 20 }, (_, index) => `file-${index}.pes`);
-    setUnmatchedFilesDetected(25, 30, sample);
-    render(UnmatchedFilesReconciler);
-
-    const note = await screen.findByTestId("unmatched-sample-note");
-    expect(note).toHaveTextContent(
-      "Showing the first 20 of 25 unmatched files — all of them will be imported."
+  it("displays live progress on the import button while importing", async () => {
+    setUnmatchedFilesDetected(5, 10, ["a.pes"]);
+    let resolveImport!: (value: unknown) => void;
+    adapterMocks.importUnmatchedDesignFiles.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveImport = resolve;
+        })
     );
-  });
-
-  it("omits the truncation note when nothing is omitted", async () => {
-    setUnmatchedFilesDetected(3, 12, ["a.pes", "b.pes", "c.pes"]);
     render(UnmatchedFilesReconciler);
 
     await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
-    expect(screen.queryByTestId("unmatched-sample-note")).not.toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("button", { name: /Import 5 file/ }));
+
+    // Before progress arrives, button shows "Importing…"
+    expect(screen.getByRole("button", { name: "Importing…" })).toBeInTheDocument();
+
+    // Stream progress update
+    restoreProgressStore.set({
+      active: true,
+      scope: "import-unmatched",
+      phase: "import",
+      status: "running",
+      terminal: false,
+      scanned: 2,
+      copied: 2,
+      skipped: 0,
+      totalBytes: 0,
+      percent: 0.4,
+      error: null,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Processing 2 of 5 files" })).toBeInTheDocument()
+    );
+
+    resolveImport({
+      source: "rust",
+      detected: 5,
+      imported: 5,
+      flagged: 0,
+      failed: 0,
+      failed_samples: [],
+    });
+
+    await waitFor(() =>
+      expect(toastMock.addToast).toHaveBeenCalledWith(
+        expect.stringContaining("Imported 5 unmatched file(s)."),
+        "success"
+      )
+    );
   });
 
   it("cancels a running import and reports the partial result", async () => {

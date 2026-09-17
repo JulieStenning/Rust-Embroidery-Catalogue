@@ -360,7 +360,7 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await expect(scanButton).toBeVisible();
     await scanButton.click();
 
-    // Prompt appears with detected uncatalogued count and sample paths
+    // Prompt appears with detected uncatalogued count
     const prompt = page.getByTestId("unmatched-files-prompt");
     await expect(prompt).toBeVisible({ timeout: 10_000 });
     await expect(
@@ -369,7 +369,6 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await expect(
       prompt.getByText(/\d+ design file\(s\) on disk have no record in the catalogue/i),
     ).toBeVisible();
-    await expect(prompt.locator("li").first()).toBeVisible();
 
     // Test Dismiss button
     const dismissButton = prompt.getByRole("button", {
