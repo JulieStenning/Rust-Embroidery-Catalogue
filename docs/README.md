@@ -16,12 +16,18 @@ Welcome to the documentation portal for the **Rust Embroidery Catalogue**. This 
 
 ## 🏛️ Architecture & Specifications
 
-### Core Subsystems
+### System Architecture & Specifications
 
+- [**Desktop Architecture Guardrails**](Specs/desktop-only-architecture-guardrails.md): Core platform scope, local-first principles, and Rust IPC boundaries.
 - [**Stitch Identifier Architecture**](<Help for Developers/stitch-identifier-architecture.md>): Format detection, magic byte analysis, and reader routing.
-- [**State Synchronization Architecture**](<Specs/State Synchronization Architecture.md>): Reactive frontend stores, cross-view synchronisation, and backend event channels.
+- [**State Synchronization Architecture**](<Specs/State Synchronization Architecture.md>): Reactive frontend stores, cross-view synchronisation, and mutation patching.
 - [**Import & Folder Assignment Spec**](Specs/import-folder-assignment-backend-spec.md): Import scanner, multi-folder library assignment, and duplicate resolution.
-- [**UI Management Overview**](<Specs/Embroidery Design Management UI Overview.md>): High-level UI/UX layouts and interaction patterns.
+- [**Import Refactor Checklist**](Specs/import-folder-assignment-refactor-checklist.md): Invariant safety checklist for import parsing and assignment.
+
+### UI & Styling Standards
+
+- [**UI Global Standards**](Specs/ui-global-standards.md): Cross-page layout rules, card contract, responsive breakpoints, and accessibility.
+- [**Look & Feel Implementation Spec**](Specs/look-and-feel-implementation-spec.md): Design tokens, typography, form styling, and component density.
 
 ### Frontend Guides
 
