@@ -8,7 +8,7 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 - **Frontend:** Svelte / TypeScript
 - **Database:** Local SQLite database for metadata, tags, and file references
 - **Core Logic:** Interfacing with binary embroidery file formats (reading metadata, stitches, and properties from formats like `.jef`, `.pes`, `.hus`, `.vp3`, etc., migrating logic inspired by `pyembroidery`).
-- **AI Integration (Optional):** Google Gemini API for Tier 2 (text analysis) and Tier 3 (vision analysis for thumbnails) to handle automated metadata/tag suggestions.
+- **AI Integration (Optional):** Google Gemini API for Visual AI (vision analysis on rendered thumbnails) to handle automated metadata/tag suggestions (Tier 2 text analysis has been retired; tagging relies on offline File & Folder rules and online Visual AI).
 
 ---
 
@@ -376,19 +376,13 @@ cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"
 cd frontend && npx svelte-check --tsconfig ./jsconfig.json
 ```
 
-**Run Vitest from the repo root — never from inside `frontend/`.** The Vitest config
-(`vitest.config.mts`) and jsdom setup (`vitest.setup.ts`) live at the **repo root** and are
-**silently dropped** when you run `npx vitest` from inside `frontend/`, causing every test to
-fail with `ReferenceError: document is not defined` (visible as `setup: 0ms`,
-`environment: 0ms`). Use the repo-root invocation with paths relative to the repo root:
-
-```
-cmd /c "npx vitest run frontend/src/__tests__/MainView.test.ts"
-```
-
-`frontend/package.json` defines no `test` script, so `cd frontend && npx vitest` is the wrong
-form. Treat a wall of `document is not defined` failures as a test-runner invocation problem
-first, not a code problem.
+**Run `npm test` / Vitest from the repo root — never from inside `frontend/`.**
+- The root `package.json` defines `"test": "vitest run"`. `frontend/package.json` defines **no** `test` script, so running `npm test` from inside `frontend/` fails with `Missing script: "test"`.
+- The Vitest config (`vitest.config.mts`) and jsdom setup (`vitest.setup.ts`) live at the **repo root** and are **silently dropped** when you run `npx vitest` from inside `frontend/`, causing every test to fail with `ReferenceError: document is not defined` (visible as `setup: 0ms`, `environment: 0ms`).
+- Use the repo-root invocation with paths relative to the repo root:
+  - All tests: `npm test` (or `npx vitest run`)
+  - Single test file: `cmd /c "npx vitest run frontend/src/__tests__/MainView.test.ts"`
+- Treat a wall of `document is not defined` or `Missing script: "test"` failures as a test-runner invocation problem first, not a code problem.
 
 **Never run `cargo fmt -- <paths>` to format specific files.** The trailing args are passed
 to `rustfmt` as *options*, so `cargo fmt` will reformat the **entire crate**. To format only
