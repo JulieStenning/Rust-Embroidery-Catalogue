@@ -108,6 +108,10 @@ $results = @(
     Test-LogCondition "Tauri Packaging" "$logDir/build-results.txt" `
         { param($c) $c -match 'Release build successful!' } `
         "Review compilation/bundling error trace in build log."
+
+    Test-LogCondition "Gitignore Audit" "$logDir/gitignore-audit.txt" `
+        { param($c) $c -match 'STATUS: PASS' -and $c -notmatch 'STATUS: ISSUES DETECTED' } `
+        "Remove stale paths or tracked files from .gitignore."
 )
 
 Write-Host "`n=======================================================" -ForegroundColor Cyan

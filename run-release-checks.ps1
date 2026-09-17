@@ -2,7 +2,11 @@
 New-Item -ItemType Directory -Force -Path "./audit-logs" | Out-Null
 Write-Host "Starting Pre-Release Automated Checks..." -ForegroundColor Cyan
 
-# 1. License & Security Audits
+# 1. Repository Hygiene & .gitignore Audit
+Write-Host "--> Auditing .gitignore for stale or conflicting entries..." -ForegroundColor Yellow
+pwsh ./scripts/audit-gitignore.ps1 -OutputFile ./audit-logs/gitignore-audit.txt
+
+# 2. License & Security Audits
 Write-Host "--> Checking Rust SPDX License Compliance..." -ForegroundColor Yellow
 cargo about generate about.hbs -o ./audit-logs/licences-preview.html
 
