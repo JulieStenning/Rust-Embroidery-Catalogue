@@ -354,7 +354,7 @@
   <section class="projects-page space-y-4 font-sans">
     <div>
       <button
-        class="projects-back-link text-indigo-600 text-sm hover:underline"
+        class="menu-button-primary text-xs px-2.5 py-1"
         onclick={() => navigateTo("#/projects")}>← Projects</button
       >
     </div>
@@ -410,7 +410,7 @@
   <section class="projects-page space-y-4 font-sans">
     <div class="projects-detail-top flex items-center justify-between gap-3 no-print">
       <button
-        class="projects-back-link text-indigo-600 text-sm hover:underline"
+        class="menu-button-primary text-xs px-2.5 py-1"
         onclick={() => navigateTo("#/projects")}>← Projects</button
       >
       <div class="flex flex-wrap gap-3">
