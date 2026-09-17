@@ -1646,7 +1646,7 @@
 
           {#each rowItems as item (item.id)}
             <article
-              class="browse-card border rounded-lg bg-white overflow-hidden shadow-sm flex flex-col hover:shadow transition relative"
+              class="browse-card border rounded-lg overflow-hidden shadow-sm flex flex-col hover:shadow transition relative"
               data-id={item.id}
             >
               <!-- Selection checkbox -->
@@ -1669,7 +1669,7 @@
               >
                 {#if browsePreviewById[item.id]}
                   <div
-                    class="browse-card-image-frame bg-gray-50 p-2 flex items-center justify-center h-48 border-b"
+                    class="browse-card-image-frame p-2 flex items-center justify-center h-48 border-b"
                   >
                     <img
                       src={browsePreviewById[item.id]}
@@ -1680,10 +1680,10 @@
                   </div>
                 {:else}
                   <div
-                    class="browse-card-image-frame bg-gray-50 p-3 flex items-center justify-center h-48 border-b"
+                    class="browse-card-image-frame p-3 flex items-center justify-center h-48 border-b"
                   >
                     <p
-                      class="text-xs text-gray-600 text-center leading-snug"
+                      class="text-xs ui-help-note text-center leading-snug"
                       data-testid="design-card-no-preview"
                     >
                       {browsePreviewsLoading
@@ -1696,7 +1696,7 @@
                   <div>
                     <div class="browse-card-title-row flex items-start justify-between gap-1.5">
                       <p
-                        class="browse-card-title text-sm font-semibold text-gray-800 truncate flex-1"
+                        class="browse-card-title text-sm font-semibold truncate flex-1"
                         title={item.filename}
                       >
                         {item.filename}
@@ -1735,12 +1735,12 @@
                         </span>
                       {/if}
                     </div>
-                    <p class="browse-card-hoop text-xs font-semibold text-indigo-600 mt-1">
+                    <p class="browse-card-hoop text-xs font-semibold mt-1">
                       {item.hoop || "Hoop unknown"}
                     </p>
                     {#if item.projects.length > 0}
                       <p
-                        class="browse-card-projects text-[11px] text-gray-500 mt-1 truncate"
+                        class="browse-card-projects text-[11px] mt-1 truncate"
                         title={item.projects.join(", ")}
                       >
                         {item.projects.join(", ")}
@@ -1749,14 +1749,11 @@
                   </div>
                   <div class="pt-2">
                     {#if item.tags.length > 0}
-                      <p
-                        class="browse-card-tags text-[11px] text-gray-500 truncate"
-                        title={item.tags.join(", ")}
-                      >
+                      <p class="browse-card-tags text-[11px] truncate" title={item.tags.join(", ")}>
                         {item.tags.join(", ")}
                       </p>
                     {:else}
-                      <p class="browse-card-tags text-[11px] text-gray-300 italic">No tags</p>
+                      <p class="browse-card-tags text-[11px] text-gray-400 italic">No tags</p>
                     {/if}
                     <p
                       class="browse-card-rating text-xs mt-1"
@@ -1765,8 +1762,8 @@
                         : "Not rated"}
                     >
                       {#if item.rating != null && item.rating > 0}
-                        <span class="text-amber-600">★</span>
-                        <span class="text-gray-700 font-bold ml-0.5">{item.rating}</span>
+                        <span class="text-amber-500">★</span>
+                        <span class="font-bold ml-0.5">{item.rating}</span>
                       {:else}
                         <span class="text-gray-400">☆ —</span>
                       {/if}
@@ -1776,22 +1773,20 @@
               </button>
 
               <details
-                class="browse-card-project-details px-4 py-2 bg-gray-50 border-t no-print"
+                class="browse-card-project-details px-4 py-2 border-t no-print"
                 ontoggle={(event) =>
                   handleBrowseCardProjectDetailsToggle(item, event.currentTarget)}
               >
                 <summary
-                  class="browse-card-project-summary text-xs font-semibold text-gray-500 cursor-pointer hover:text-indigo-600 select-none"
+                  class="browse-card-project-summary text-xs font-semibold cursor-pointer select-none"
                 >
                   + Add to project
                 </summary>
                 <div
-                  class="ui-checkbox-list-shell mt-1.5 max-h-36 overflow-auto px-2 py-1.5 border rounded bg-white space-y-1"
+                  class="ui-checkbox-list-shell mt-1.5 max-h-36 overflow-auto px-2 py-1.5 border rounded space-y-1"
                 >
                   {#each browseProjects as project}
-                    <label
-                      class="ui-field-label flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer"
-                    >
+                    <label class="ui-field-label flex items-center gap-1.5 text-xs cursor-pointer">
                       <input
                         type="checkbox"
                         class="ui-checkbox accent-indigo-650 rounded"
@@ -1839,9 +1834,9 @@
   <div
     bind:this={browseBulkBarNode}
     use:portalToBody
-    class="browse-bulk-bar ui-section-shell no-print fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-lg flex flex-wrap items-center justify-between gap-4 z-40"
+    class="browse-bulk-bar ui-section-shell no-print fixed bottom-0 left-0 right-0 border-t p-4 shadow-lg flex flex-wrap items-center justify-between gap-4 z-40"
   >
-    <div class="flex items-center gap-3 text-sm text-gray-700">
+    <div class="flex items-center gap-3 text-sm">
       <span class="font-semibold"
         >{browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected</span
       >
@@ -1879,13 +1874,13 @@
           Add to project…
         </summary>
         <div
-          class="absolute bottom-full mb-2 right-0 bg-white border rounded shadow-lg p-3 max-h-48 overflow-auto min-w-[12rem] space-y-1.5 z-50"
+          class="browse-bulk-project-panel absolute bottom-full mb-2 right-0 border rounded shadow-lg p-3 max-h-48 overflow-auto min-w-[12rem] space-y-1.5 z-50"
         >
           {#if browseProjects.length === 0}
             <p class="text-xs text-gray-500 italic">No projects found. Create one first.</p>
           {:else}
             {#each browseProjects as project}
-              <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+              <label class="ui-field-label flex items-center gap-2 text-xs cursor-pointer">
                 <input
                   type="checkbox"
                   class="ui-checkbox accent-indigo-650 rounded"

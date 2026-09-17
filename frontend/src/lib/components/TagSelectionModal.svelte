@@ -252,10 +252,10 @@
               placeholder="🔍 Search or create tag..."
               bind:value={searchQuery}
               onkeydown={handleKeydown}
-              style="flex:1;border:1px solid #d1d5db;border-radius:0.375rem;padding:0.5rem 0.75rem;font-size:0.875rem;background:white;"
+              class="ui-text-input flex-1 px-3 py-2 text-sm"
             />
             {#if modalSaving}
-              <span class="text-xs text-gray-400 shrink-0">Saving...</span>
+              <span class="text-xs text-[var(--text-muted)] shrink-0">Saving...</span>
             {/if}
           </div>
 
@@ -270,10 +270,10 @@
               >
                 ➕ Create "{queryTrimmed}"
               </button>
-              <span class="text-xs text-gray-500">as</span>
+              <span class="text-xs text-[var(--text-secondary)]">as</span>
               <select
                 bind:value={createTagGroup}
-                class="text-xs border rounded px-1.5 py-1 bg-white"
+                class="ui-select-input text-xs px-2 py-1"
                 disabled={modalSaving}
               >
                 <option value="image">Image</option>

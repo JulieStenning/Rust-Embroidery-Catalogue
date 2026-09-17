@@ -184,18 +184,19 @@
 </script>
 
 {#if !embedded}
-  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800 font-sans">Manage Hoops</h1>
-  <p class="text-sm text-gray-500">
+  <h1 class="ui-page-title admin-title text-2xl font-bold font-sans">Manage Hoops</h1>
+  <p class="text-sm text-[var(--text-muted)]">
     Hoop sizes depend on your machine and the frames you own. Add your own hoops below.
   </p>
 {/if}
 
-<div class="admin-card bg-white rounded shadow p-5 max-w-4xl border mt-2">
-  <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new hoop</h2>
+<div class="admin-card rounded shadow p-5 max-w-4xl border mt-2">
+  <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new hoop</h2>
   <form class="flex gap-3 items-end flex-wrap" onsubmit={addHoop}>
     <div>
-      <label for="admin-hoop-name" class="block text-xs font-semibold text-gray-650 mb-1"
-        >Name</label
+      <label
+        for="admin-hoop-name"
+        class="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Name</label
       >
       <input
         id="admin-hoop-name"
@@ -207,8 +208,9 @@
       />
     </div>
     <div>
-      <label for="admin-hoop-width" class="block text-xs font-semibold text-gray-650 mb-1"
-        >Max Width (mm)</label
+      <label
+        for="admin-hoop-width"
+        class="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Max Width (mm)</label
       >
       <input
         id="admin-hoop-width"
@@ -221,8 +223,9 @@
       />
     </div>
     <div>
-      <label for="admin-hoop-height" class="block text-xs font-semibold text-gray-650 mb-1"
-        >Max Height (mm)</label
+      <label
+        for="admin-hoop-height"
+        class="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Max Height (mm)</label
       >
       <input
         id="admin-hoop-height"
@@ -246,9 +249,11 @@
   </form>
 </div>
 
-<div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border">
+<div class="admin-card rounded shadow overflow-hidden max-w-3xl border">
   <table class="w-full text-sm text-left">
-    <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
+    <thead
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] font-semibold border-b border-[var(--border-default)] text-xs"
+    >
       <tr>
         <th class="px-4 py-3">Name</th>
         <th class="px-4 py-3 text-right">Max width (mm)</th>
@@ -257,17 +262,17 @@
         <th class="px-4 py-3"></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-gray-100">
+    <tbody class="divide-y divide-[var(--border-subtle)]">
       {#if hoops.length === 0}
         <tr>
-          <td colspan="5" class="px-4 py-3 text-gray-400 italic"
+          <td colspan="5" class="px-4 py-3 text-[var(--text-muted)] italic"
             >No hoops defined yet. Add your own machine hoops above.</td
           >
         </tr>
       {:else}
         {#each hoops as hoop}
-          <tr class="hover:bg-gray-50">
-            <td class="px-4 py-2 font-medium">
+          <tr class="hover:bg-[var(--surface-hover)]">
+            <td class="px-4 py-2 font-medium text-[var(--text-primary)]">
               {#if editingHoopId === hoop.id}
                 <input
                   type="text"
@@ -278,7 +283,7 @@
                 {hoop.name}
               {/if}
             </td>
-            <td class="px-4 py-2 text-right font-mono">
+            <td class="px-4 py-2 text-right font-mono text-[var(--text-primary)]">
               {#if editingHoopId === hoop.id}
                 <input
                   type="number"
@@ -291,7 +296,7 @@
                 {hoop.maxWidthMm.toFixed(0)}
               {/if}
             </td>
-            <td class="px-4 py-2 text-right font-mono">
+            <td class="px-4 py-2 text-right font-mono text-[var(--text-primary)]">
               {#if editingHoopId === hoop.id}
                 <input
                   type="number"
@@ -304,20 +309,22 @@
                 {hoop.maxHeightMm.toFixed(0)}
               {/if}
             </td>
-            <td class="px-4 py-2 text-right text-gray-600 font-mono">{hoop.designCount}</td>
+            <td class="px-4 py-2 text-right text-[var(--text-muted)] font-mono"
+              >{hoop.designCount}</td
+            >
             <td class="px-4 py-2 text-right">
               <div class="flex justify-end gap-2.5 flex-wrap">
                 {#if editingHoopId === hoop.id}
                   <button
                     type="button"
-                    class="text-indigo-650 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
                     onclick={() => saveHoopEdit(hoop.id)}
                   >
                     Save
                   </button>
                   <button
                     type="button"
-                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
                     onclick={cancelEditHoop}
                   >
                     Cancel
@@ -332,7 +339,7 @@
                   </button>
                   <button
                     type="button"
-                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
                     onclick={cancelDeleteHoop}
                   >
                     Cancel
@@ -340,14 +347,14 @@
                 {:else}
                   <button
                     type="button"
-                    class="text-indigo-655 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
                     onclick={() => beginEditHoop(hoop)}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="text-red-400 hover:underline text-xs font-semibold"
+                    class="text-red-400 hover:text-red-600 hover:underline text-xs font-semibold"
                     onclick={() => requestDeleteHoop(hoop)}
                   >
                     Delete

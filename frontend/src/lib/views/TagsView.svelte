@@ -111,17 +111,18 @@
 </script>
 
 <section class="admin-page space-y-4">
-  <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800">Manage Tags</h1>
-  <p class="text-sm text-gray-500">
+  <h1 class="ui-page-title admin-title text-2xl font-bold">Manage Tags</h1>
+  <p class="text-sm text-[var(--text-muted)]">
     Use Image tags for subject categories and Stitching tags for technique or style.
   </p>
 
-  <div class="admin-card bg-white rounded shadow p-5 max-w-3xl border">
-    <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new tag</h2>
+  <div class="admin-card rounded shadow p-5 max-w-3xl border">
+    <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new tag</h2>
     <form class="flex flex-wrap gap-3 items-end" onsubmit={addTag}>
       <div>
-        <label for="admin-tag-description" class="block text-xs font-semibold text-gray-650 mb-1"
-          >Description</label
+        <label
+          for="admin-tag-description"
+          class="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Description</label
         >
         <input
           id="admin-tag-description"
@@ -133,13 +134,14 @@
         />
       </div>
       <div>
-        <label for="admin-tag-group" class="block text-xs font-semibold text-gray-650 mb-1"
-          >Group</label
+        <label
+          for="admin-tag-group"
+          class="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Group</label
         >
         <select
           id="admin-tag-group"
           bind:value={newTagGroup}
-          class="admin-input border rounded px-3 py-2 text-sm bg-white font-sans"
+          class="admin-input border rounded px-3 py-2 text-sm font-sans"
         >
           <option value="image">Image</option>
           <option value="stitching">Stitching</option>
@@ -150,7 +152,7 @@
   </div>
 
   <details
-    class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border"
+    class="admin-card rounded shadow overflow-hidden max-w-3xl border"
     open={adminImageTagsOpen}
     ontoggle={(event) => handleAdminTagPanelToggle("image", event)}
   >
@@ -175,7 +177,7 @@
   </details>
 
   <details
-    class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border"
+    class="admin-card rounded shadow overflow-hidden max-w-3xl border"
     open={adminStitchingTagsOpen}
     ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}
   >

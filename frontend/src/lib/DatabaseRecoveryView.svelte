@@ -145,7 +145,7 @@
   data-testid="database-recovery-view"
 >
   <div class="max-w-lg w-full p-6 space-y-4">
-    <div class="bg-white rounded-xl shadow p-6 space-y-4">
+    <div class="route-card bg-white rounded-xl shadow p-6 space-y-4">
       <h1 class="text-xl font-bold text-gray-800">Your catalogue database could not be found</h1>
 
       {#if scanning}

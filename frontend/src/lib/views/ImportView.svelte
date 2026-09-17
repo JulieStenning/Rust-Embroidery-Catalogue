@@ -1113,7 +1113,7 @@
       >
     </p>
 
-    <div class="import-step1-card bg-white rounded shadow p-6 w-full space-y-4">
+    <div class="import-step1-card rounded shadow p-6 w-full space-y-4">
       <form
         id="importScanForm"
         class="space-y-4"
@@ -1123,7 +1123,7 @@
         }}
       >
         <div>
-          <label for="import-root-path" class="ui-field-label text-sm font-semibold text-gray-700">
+          <label for="import-root-path" class="ui-field-label text-sm font-semibold">
             <span class="block mb-1">Source Folder(s) *</span>
           </label>
           <div class="space-y-2.5">
@@ -1166,7 +1166,7 @@
               >
                 <input
                   type="text"
-                  class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono border rounded px-3 py-2 text-sm bg-gray-50"
+                  class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono border rounded px-3 py-2 text-sm"
                   value={rootPath}
                   readonly
                   aria-label={`Source folder path ${rowIndex + 2}`}
@@ -1235,32 +1235,26 @@
     {#if importPreview}
       <div class="ui-section-shell import-panel space-y-4">
         <div class="space-y-1">
-          <p class="ui-field-label import-field-label font-bold text-gray-800 text-lg">
-            Review scanned files
-          </p>
-          <p class="ui-help-note text-sm text-gray-500">
+          <p class="ui-field-label import-field-label font-bold text-lg">Review scanned files</p>
+          <p class="ui-help-note text-sm">
             {importFolderSummary.length || importPreview.folder_count || 0} folder(s) scanned - {Array.isArray(
               importPreview.scanned_files
             )
               ? importPreview.scanned_files.length
               : 0} file(s) found. Selected files will be <strong>copied into the catalogue</strong>.
-            <a href="#/help?section=importing" class="text-indigo-600 hover:underline ml-1"
-              >Import help</a
-            >
+            <a href="#/help?section=importing" class="ui-app-link ml-1">Import help</a>
           </p>
         </div>
 
-        <div
-          class="ui-section-shell p-4 border rounded bg-gray-50 space-y-3 import-step2-global-shell"
-        >
-          <p class="ui-field-label import-field-label font-semibold text-gray-800 text-sm">
+        <div class="ui-section-shell p-4 border rounded space-y-3 import-step2-global-shell">
+          <p class="ui-field-label import-field-label font-semibold text-sm">
             Apply to all folders (optional override)
           </p>
           <div class="grid grid-cols-2 gap-3 text-sm import-step2-global-grid">
             <label class="ui-field-label text-sm block">
-              <span class="block font-medium mb-1 text-gray-700">Designer</span>
+              <span class="block font-medium mb-1">Designer</span>
               <select
-                class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5 bg-white"
+                class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
                 bind:value={importGlobalDesignerId}
                 disabled={importReferenceLoading || importLoading || importActionLoading}
               >
@@ -1271,9 +1265,9 @@
               </select>
             </label>
             <label class="ui-field-label text-sm block">
-              <span class="block font-medium mb-1 text-gray-700">Source</span>
+              <span class="block font-medium mb-1">Source</span>
               <select
-                class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5 bg-white"
+                class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
                 bind:value={importGlobalSourceId}
                 disabled={importReferenceLoading || importLoading || importActionLoading}
               >
@@ -1316,7 +1310,7 @@
             </button>
             <button
               type="button"
-              class={`px-3 py-1.5 rounded border text-xs font-semibold ${importSelectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+              class="import-folder-action-btn px-3 py-1.5 rounded border text-xs font-semibold"
               onclick={selectAllImportFiles}
               disabled={importSelectAllDisabled}
             >
@@ -1324,7 +1318,7 @@
             </button>
             <button
               type="button"
-              class={`px-3 py-1.5 rounded border text-xs font-semibold ${importDeselectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+              class="import-folder-action-btn px-3 py-1.5 rounded border text-xs font-semibold"
               onclick={deselectAllImportFiles}
               disabled={importDeselectAllDisabled}
             >
@@ -1353,26 +1347,24 @@
               {@const folderSelectAllDisabled = importSelectionLocked || folder.kind === "all"}
               {@const folderDeselectAllDisabled = importSelectionLocked || folder.kind === "none"}
               <div
-                class="ui-section-shell overflow-hidden border rounded bg-white import-step2-folder-shell shadow-sm"
+                class="ui-section-shell overflow-hidden border rounded import-step2-folder-shell shadow-sm"
                 data-testid="import-folder-shell"
               >
                 <div
-                  class="bg-gray-50 border-b px-4 py-2.5 flex flex-wrap items-center gap-3 import-step2-folder-header"
+                  class="border-b px-4 py-2.5 flex flex-wrap items-center gap-3 import-step2-folder-header"
                 >
                   <div class="flex-1 min-w-0">
-                    <code class="text-xs text-black font-bold import-step2-folder-label"
-                      >{folder.label}</code
-                    >
+                    <code class="text-xs font-bold import-step2-folder-label">{folder.label}</code>
                     <span class="mx-2 text-xs text-gray-400" aria-hidden="true">-</span>
-                    <code class="text-xs text-gray-500 break-all">{folder.folderPath}</code>
+                    <code class="text-xs text-gray-400 break-all">{folder.folderPath}</code>
                   </div>
-                  <span class="text-xs font-semibold text-indigo-700 import-step2-folder-count">
+                  <span class="text-xs font-semibold text-indigo-500 import-step2-folder-count">
                     {selectionStatus}
                   </span>
                   {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
                     <button
                       type="button"
-                      class="text-xs px-2 py-1 rounded border font-semibold bg-white hover:bg-gray-50 text-indigo-600"
+                      class="import-folder-action-btn text-xs px-2 py-1 rounded border font-semibold"
                       onclick={() => toggleFolderExpanded(folder.folderPath)}
                       disabled={importSelectionLocked}
                     >
@@ -1382,7 +1374,7 @@
                   <button
                     type="button"
                     aria-label={`Select all files in ${folder.label}`}
-                    class={`px-2 py-1 rounded border text-xs font-semibold ${folderSelectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+                    class="import-folder-action-btn px-2 py-1 rounded border text-xs font-semibold"
                     onclick={() => selectAllInFolder(folder.folderPath)}
                     disabled={folderSelectAllDisabled}
                   >
@@ -1391,7 +1383,7 @@
                   <button
                     type="button"
                     aria-label={`Deselect all files in ${folder.label}`}
-                    class={`px-2 py-1 rounded border text-xs font-semibold ${folderDeselectAllDisabled ? "text-gray-400 bg-gray-50 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-indigo-600"}`}
+                    class="import-folder-action-btn px-2 py-1 rounded border text-xs font-semibold"
                     onclick={() => deselectAllInFolder(folder.folderPath)}
                     disabled={folderDeselectAllDisabled}
                   >
@@ -1399,14 +1391,12 @@
                   </button>
                 </div>
 
-                <div class="px-4 py-3 border-b bg-gray-50/50 import-step2-folder-overrides">
+                <div class="px-4 py-3 border-b import-step2-folder-overrides">
                   <div class="grid grid-cols-2 gap-3 text-sm">
                     <label class="ui-field-label text-sm block">
-                      <span class="block font-medium mb-1 text-gray-700"
-                        >Designer for this folder</span
-                      >
+                      <span class="block font-medium mb-1">Designer for this folder</span>
                       <select
-                        class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5 bg-white"
+                        class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
                         value={getImportFolderDesigner(folder.folderPath)}
                         onchange={(event) =>
                           setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
@@ -1421,11 +1411,9 @@
                       </select>
                     </label>
                     <label class="ui-field-label text-sm block">
-                      <span class="block font-medium mb-1 text-gray-700"
-                        >Source for this folder</span
-                      >
+                      <span class="block font-medium mb-1">Source for this folder</span>
                       <select
-                        class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5 bg-white"
+                        class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
                         value={getImportFolderSource(folder.folderPath)}
                         onchange={(event) =>
                           setImportFolderSource(folder.folderPath, event.currentTarget.value)}
@@ -1445,7 +1433,7 @@
                 {#if isExpanded}
                   <div class="import-step2-file-list-shell p-4">
                     {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
-                      <p class="text-xs text-gray-500 mb-2">
+                      <p class="text-xs ui-help-note mb-2">
                         This folder contains {folder.total} files. Use Select/Deselect all to work on
                         the whole folder, or filter to find specific files.
                       </p>
@@ -1489,14 +1477,14 @@
                               disabled={importLoading || importActionLoading}
                             />
                             <span
-                              class="ui-field-label text-sm text-gray-700 break-all font-mono"
+                              class="ui-field-label text-sm break-all font-mono"
                               title={fullPath}>{getImportFilenameFromPath(fullPath)}</span
                             >
                           </label>
                         {/each}
                       </div>
                     {:else}
-                      <p class="text-sm text-gray-500 italic">No files match your filter.</p>
+                      <p class="text-sm ui-help-note italic">No files match your filter.</p>
                     {/if}
                     {#if fileWindow.pageCount > 1}
                       <Pagination
@@ -1510,7 +1498,7 @@
                   </div>
                 {:else}
                   <div class="import-step2-file-list-shell p-4">
-                    <p class="text-sm text-gray-500 italic">
+                    <p class="text-sm ui-help-note italic">
                       Files are hidden for this large folder ({folder.total} file{folder.total === 1
                         ? ""
                         : "s"}). Use the controls above to select or deselect the whole folder.
@@ -1541,8 +1529,8 @@
         {/if}
       </div>
     {:else}
-      <div class="ui-section-shell import-panel space-y-2 border rounded p-4 bg-white text-center">
-        <p class="ui-help-note italic text-gray-500">Step 2 needs a completed preview first.</p>
+      <div class="ui-section-shell import-panel space-y-2 border rounded p-4 text-center">
+        <p class="ui-help-note italic">Step 2 needs a completed preview first.</p>
         <div class="pt-2">
           <button
             type="button"
@@ -1557,9 +1545,7 @@
   {#if importRouteStep === 3}
     {#if importPrecheck}
       <div class="ui-section-shell import-panel space-y-4">
-        <p class="ui-field-label import-field-label font-bold text-gray-800 text-lg">
-          Before You Import
-        </p>
+        <p class="ui-field-label import-field-label font-bold text-lg">Before You Import</p>
 
         <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
           <p class="font-semibold text-blue-900">Note on Tagging</p>
@@ -1629,10 +1615,8 @@
         {/if}
       </div>
     {:else}
-      <div class="ui-section-shell import-panel space-y-2 border rounded p-4 bg-white text-center">
-        <p class="ui-help-note italic text-gray-500">
-          Step 3 needs precheck to be completed first.
-        </p>
+      <div class="ui-section-shell import-panel space-y-2 border rounded p-4 text-center">
+        <p class="ui-help-note italic">Step 3 needs precheck to be completed first.</p>
         <div class="pt-2">
           <button
             type="button"

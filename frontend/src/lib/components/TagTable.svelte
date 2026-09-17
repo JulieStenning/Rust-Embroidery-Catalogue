@@ -107,22 +107,24 @@
 </script>
 
 <table class="w-full text-sm text-left">
-  <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
+  <thead
+    class="bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] font-semibold border-b border-[var(--border-default)] text-xs"
+  >
     <tr>
       <th class="px-4 py-2.5">Description</th>
       <th class="px-4 py-2.5 text-right">Used by</th>
       <th class="px-4 py-2.5"></th>
     </tr>
   </thead>
-  <tbody class="divide-y divide-gray-100">
+  <tbody class="divide-y divide-[var(--border-subtle)]">
     {#if sortedTags.length === 0}
       <tr>
-        <td colspan="3" class="px-4 py-3 text-gray-400 italic">No {group} tags yet.</td>
+        <td colspan="3" class="px-4 py-3 text-[var(--text-muted)] italic">No {group} tags yet.</td>
       </tr>
     {:else}
       {#each sortedTags as tag}
-        <tr class="hover:bg-gray-50">
-          <td class="px-4 py-2 font-medium">
+        <tr class="hover:bg-[var(--surface-hover)]">
+          <td class="px-4 py-2 font-medium text-[var(--text-primary)]">
             {#if editingTagId === tag.id}
               <input
                 type="text"
@@ -133,7 +135,7 @@
               {tag.description}
             {/if}
           </td>
-          <td class="px-4 py-2 text-right text-gray-600 font-mono"
+          <td class="px-4 py-2 text-right text-[var(--text-muted)] font-mono"
             >{Number(tag.design_count) || 0}</td
           >
           <td class="px-4 py-2 text-right">
@@ -141,14 +143,14 @@
               {#if editingTagId === tag.id}
                 <button
                   type="button"
-                  class="text-indigo-650 hover:underline text-xs font-semibold"
+                  class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
                   onclick={() => saveEdit(tag)}
                 >
                   Save
                 </button>
                 <button
                   type="button"
-                  class="text-gray-500 hover:underline text-xs font-semibold"
+                  class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
                   onclick={cancelEdit}
                 >
                   Cancel
@@ -163,27 +165,27 @@
                 </button>
                 <button
                   type="button"
-                  class="text-gray-500 hover:underline text-xs font-semibold"
+                  class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
                   onclick={cancelDelete}
                 >
                   Cancel
                 </button>
               {:else if isSystemTag(tag)}
                 <span
-                  class="text-xs text-gray-300 select-none"
+                  class="text-xs text-[var(--text-dim)] select-none"
                   title="System tags cannot be edited or deleted.">Locked</span
                 >
               {:else}
                 <button
                   type="button"
-                  class="text-indigo-655 hover:underline text-xs font-semibold"
+                  class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
                   onclick={() => beginEdit(tag)}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
-                  class="text-red-400 hover:underline text-xs font-semibold"
+                  class="text-red-400 hover:text-red-600 hover:underline text-xs font-semibold"
                   onclick={() => requestDelete(tag)}
                 >
                   Delete

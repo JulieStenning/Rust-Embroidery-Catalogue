@@ -147,13 +147,15 @@
 
 {#if !embedded}
   <div class="space-y-1 font-sans">
-    <h1 class="ui-page-title admin-title text-2xl font-bold text-gray-800">Manage Designers</h1>
-    <p class="text-gray-600 text-sm">Designers are the creators or brands of embroidery designs.</p>
+    <h1 class="ui-page-title admin-title text-2xl font-bold">Manage Designers</h1>
+    <p class="text-[var(--text-muted)] text-sm">
+      Designers are the creators or brands of embroidery designs.
+    </p>
   </div>
 {/if}
 
-<div class="admin-card bg-white rounded shadow p-5 max-w-xl border mt-2">
-  <h2 class="text-sm font-semibold text-gray-700 mb-3">Add new designer</h2>
+<div class="admin-card rounded shadow p-5 max-w-xl border mt-2">
+  <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new designer</h2>
   <form class="flex gap-2" onsubmit={addDesigner}>
     <input
       type="text"
@@ -173,24 +175,26 @@
   </form>
 </div>
 
-<div class="admin-card bg-white rounded shadow overflow-hidden max-w-3xl border">
+<div class="admin-card rounded shadow overflow-hidden max-w-3xl border">
   <table class="w-full text-sm text-left">
-    <thead class="bg-gray-50 text-gray-700 font-semibold border-b text-xs">
+    <thead
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] font-semibold border-b border-[var(--border-default)] text-xs"
+    >
       <tr>
         <th class="px-4 py-3">Name</th>
         <th class="px-4 py-3 text-right">Used by</th>
         <th class="px-4 py-3"></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-gray-100">
+    <tbody class="divide-y divide-[var(--border-subtle)]">
       {#if designers.length === 0}
         <tr>
-          <td colspan="3" class="px-4 py-3 text-gray-400 italic">No designers yet.</td>
+          <td colspan="3" class="px-4 py-3 text-[var(--text-muted)] italic">No designers yet.</td>
         </tr>
       {:else}
         {#each designers as designer}
-          <tr class="hover:bg-gray-50">
-            <td class="px-4 py-2 font-medium">
+          <tr class="hover:bg-[var(--surface-hover)]">
+            <td class="px-4 py-2 font-medium text-[var(--text-primary)]">
               {#if editingDesignerId === designer.id}
                 <input
                   type="text"
@@ -201,20 +205,22 @@
                 {designer.name}
               {/if}
             </td>
-            <td class="px-4 py-2 text-right text-gray-600 font-mono">{designer.designCount}</td>
+            <td class="px-4 py-2 text-right text-[var(--text-muted)] font-mono"
+              >{designer.designCount}</td
+            >
             <td class="px-4 py-2 text-right">
               <div class="flex justify-end gap-2.5 flex-wrap">
                 {#if editingDesignerId === designer.id}
                   <button
                     type="button"
-                    class="text-indigo-650 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
                     onclick={() => saveDesignerEdit(designer.id)}
                   >
                     Save
                   </button>
                   <button
                     type="button"
-                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
                     onclick={cancelEditDesigner}
                   >
                     Cancel
@@ -229,7 +235,7 @@
                   </button>
                   <button
                     type="button"
-                    class="text-gray-500 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
                     onclick={cancelDeleteDesigner}
                   >
                     Cancel
@@ -237,14 +243,14 @@
                 {:else}
                   <button
                     type="button"
-                    class="text-indigo-655 hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
                     onclick={() => beginEditDesigner(designer)}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="text-red-400 hover:underline text-xs font-semibold"
+                    class="text-red-400 hover:text-red-600 hover:underline text-xs font-semibold"
                     onclick={() => requestDeleteDesigner(designer)}
                   >
                     Delete

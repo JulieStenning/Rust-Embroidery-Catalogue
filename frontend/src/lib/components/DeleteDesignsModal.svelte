@@ -121,22 +121,28 @@
 
     <div class="delete-modal-dialog">
       <div class="delete-modal-header">
-        <h2 id="delete-modal-title" class="text-lg font-bold text-gray-800 m-0">
+        <h2 id="delete-modal-title" class="text-lg font-bold text-[var(--text-primary)] m-0">
           Delete selected design{selectedCount === 1 ? "" : "s"}?
         </h2>
       </div>
 
       <div class="delete-modal-body">
         {#if selectedCount > 0}
-          <p class="text-xs text-gray-500 font-semibold mb-3">
+          <p class="text-xs text-[var(--text-muted)] font-semibold mb-3">
             {selectedCount} design{selectedCount === 1 ? "" : "s"} selected.
           </p>
         {/if}
 
         <!-- File action toggle -->
-        <div class="border rounded p-3 mb-3 bg-gray-50 space-y-2">
-          <p class="text-xs font-semibold text-gray-700">What should happen to the source files?</p>
-          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+        <div
+          class="border border-[var(--border-default)] rounded p-3 mb-3 bg-[var(--surface-card-subtle)] space-y-2"
+        >
+          <p class="text-xs font-semibold text-[var(--text-primary)]">
+            What should happen to the source files?
+          </p>
+          <label
+            class="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer"
+          >
             <input
               type="radio"
               name="delete-file-action"
@@ -149,7 +155,9 @@
             />
             <span>Remove from catalogue only (keep files on disk)</span>
           </label>
-          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+          <label
+            class="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer"
+          >
             <input
               type="radio"
               name="delete-file-action"
@@ -174,32 +182,37 @@
 
         <!-- Collapsible preview list (hidden for single-item context) -->
         {#if !isSingleItem}
-          <details class="border rounded p-2 bg-gray-50" bind:open={previewOpen}>
+          <details
+            class="border border-[var(--border-default)] rounded p-2 bg-[var(--surface-card-subtle)]"
+            bind:open={previewOpen}
+          >
             <summary
-              class="text-xs font-semibold text-gray-600 cursor-pointer select-none list-none flex items-center gap-1"
+              class="text-xs font-semibold text-[var(--text-secondary)] cursor-pointer select-none list-none flex items-center gap-1"
             >
               <span>{previewOpen ? "▼" : "▶"}</span>
               <span>Review selected designs ({previewItems.length})</span>
             </summary>
             <div class="mt-2 space-y-1 max-h-48 overflow-y-auto">
               {#each previewItems as item (item.id)}
-                <div class="flex items-center gap-2 px-2 py-1 bg-white rounded border text-xs">
+                <div
+                  class="flex items-center gap-2 px-2 py-1 bg-[var(--surface-card)] rounded border border-[var(--border-default)] text-xs"
+                >
                   {#if item.dataUrl}
                     <img
                       src={item.dataUrl}
                       alt={item.filename}
-                      class="w-8 h-8 object-contain rounded"
+                      class="w-8 h-8 object-contain rounded bg-[var(--surface-preview)]"
                     />
                   {:else}
                     <div
-                      class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-400 font-bold"
+                      class="w-8 h-8 bg-[var(--surface-preview)] rounded flex items-center justify-center text-[var(--text-muted)] font-bold"
                     >
                       ?
                     </div>
                   {/if}
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-800 truncate">{item.filename}</p>
-                    <p class="text-gray-400 truncate" title={item.filepath}>
+                    <p class="font-medium text-[var(--text-primary)] truncate">{item.filename}</p>
+                    <p class="text-[var(--text-muted)] truncate" title={item.filepath}>
                       {item.filepath || "No filepath"}
                     </p>
                   </div>

@@ -629,7 +629,7 @@
   <div class="batch-operations-layout max-w-3xl space-y-6">
     <!-- Sub-tab navigation: tagging config vs file maintenance -->
     <div
-      class="flex items-end gap-1 border-b border-gray-200 mb-2"
+      class="flex items-end gap-1 border-b border-[var(--border-default)] mb-2"
       role="tablist"
       aria-label="Batch operations mode"
       data-testid="batch-operations-tablist"
@@ -639,8 +639,8 @@
         role="tab"
         aria-selected={activeTab === "tagging"}
         class="px-4 py-2 text-sm font-semibold rounded-t border {activeTab === 'tagging'
-          ? 'border-gray-200 border-b-transparent bg-white text-indigo-600'
-          : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}"
+          ? 'border-[var(--border-default)] border-b-transparent bg-[var(--surface-card)] text-[var(--text-brand)]'
+          : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'}"
         onclick={() => (activeTab = "tagging")}
       >
         Tagging &amp; Categorisation
@@ -650,8 +650,8 @@
         role="tab"
         aria-selected={activeTab === "maintenance"}
         class="px-4 py-2 text-sm font-semibold rounded-t border {activeTab === 'maintenance'
-          ? 'border-gray-200 border-b-transparent bg-white text-indigo-600'
-          : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}"
+          ? 'border-[var(--border-default)] border-b-transparent bg-[var(--surface-card)] text-[var(--text-brand)]'
+          : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'}"
         onclick={switchToMaintenanceTab}
       >
         Maintenance &amp; File Processing
@@ -681,15 +681,17 @@
       {/if}
 
       <!-- Step 1: Goal -->
-      <div class="bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">1. What do you want to do?</h2>
+      <div class="route-card p-6 space-y-4">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">
+          1. What do you want to do?
+        </h2>
         <div class="space-y-2">
           {#each GOAL_OPTIONS as option}
             <label
-              class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {goal ===
+              class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer rounded border border-[var(--border-default)] p-3 {goal ===
               option.id
-                ? 'border-indigo-400 bg-indigo-50'
-                : 'hover:bg-gray-50'} {option.requiresAi && !taggingHasGoogleApiKey
+                ? 'border-[var(--border-focus)] bg-[var(--surface-card-subtle)] ring-1 ring-[var(--border-focus)]'
+                : 'hover:bg-[var(--surface-hover)]'} {option.requiresAi && !taggingHasGoogleApiKey
                 ? 'opacity-50 pointer-events-none'
                 : ''}"
             >
@@ -703,13 +705,13 @@
               />
               <div>
                 <span class="font-semibold">{option.title}</span>
-                <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
+                <p class="text-[var(--text-muted)] text-xs mt-0.5">{option.subtitle}</p>
               </div>
             </label>
           {/each}
         </div>
         {#if !taggingHasGoogleApiKey}
-          <p class="text-xs text-gray-400 italic">
+          <p class="text-xs text-[var(--text-muted)] italic">
             Configure a Gemini API key in
             <a href="#/admin/system/settings" class="text-indigo-600 underline font-medium"
               >Settings</a
@@ -720,13 +722,15 @@
       </div>
 
       <!-- Step 2: Scope -->
-      <div class="bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">2. Which designs should be processed?</h2>
+      <div class="route-card p-6 space-y-4">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">
+          2. Which designs should be processed?
+        </h2>
         <div class="space-y-2">
           {#each scopeOptionsFor as option}
             {#if option.disabled}
               <div
-                class="flex items-start gap-3 text-sm text-gray-400 rounded border border-dashed border-gray-300 p-3"
+                class="flex items-start gap-3 text-sm text-gray-400 rounded border border-dashed border-[var(--border-default)] p-3"
               >
                 <input type="radio" disabled class="mt-1 h-4 w-4" />
                 <div class="flex-1">
@@ -738,10 +742,10 @@
               </div>
             {:else}
               <label
-                class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {scope ===
+                class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer rounded border border-[var(--border-default)] p-3 {scope ===
                 option.id
-                  ? 'border-indigo-400 bg-indigo-50'
-                  : 'hover:bg-gray-50'}"
+                  ? 'border-[var(--border-focus)] bg-[var(--surface-card-subtle)] ring-1 ring-[var(--border-focus)]'
+                  : 'hover:bg-[var(--surface-hover)]'}"
               >
                 <input
                   type="radio"
@@ -757,14 +761,14 @@
                     {#if countsLoading}
                       <span class="text-xs text-gray-400 italic">(counting…)</span>
                     {:else if scopeCounts[option.id] !== undefined}
-                      <span class="text-xs font-medium text-gray-500"
+                      <span class="text-xs font-medium text-[var(--text-muted)]"
                         >{(activeCountFor(option.id) ?? 0).toLocaleString()} designs</span
                       >
                     {/if}
                   </div>
-                  <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
+                  <p class="text-[var(--text-muted)] text-xs mt-0.5">{option.subtitle}</p>
                   {#if scopeCounts[option.id]}
-                    <p class="text-xs text-gray-400 mt-0.5">
+                    <p class="text-xs text-[var(--text-muted)] mt-0.5">
                       {scopeCounts[option.id].unverified_count.toLocaleString()} unverified &middot;{" "}
                       {scopeCounts[option.id].verified_count.toLocaleString()} verified
                     </p>
@@ -777,8 +781,8 @@
 
         <!-- Folder selection (Specific Folder or Category scope) -->
         {#if scope === "folder"}
-          <div class="rounded border border-gray-200 p-3 space-y-3">
-            <p class="text-xs text-gray-600">
+          <div class="rounded border border-[var(--border-default)] p-3 space-y-3">
+            <p class="text-xs text-[var(--text-secondary)]">
               Choose one or more library folders. Designs under any selected folder will be
               processed.
             </p>
@@ -794,10 +798,10 @@
               <ul class="space-y-1.5">
                 {#each selectedFolderPaths as folderPath}
                   <li
-                    class="tagging-folder-row flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5"
+                    class="tagging-folder-row flex items-center gap-2 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] px-2 py-1.5"
                     data-folder={folderPath}
                   >
-                    <span class="flex-1 font-mono text-xs text-gray-700 break-all">
+                    <span class="flex-1 font-mono text-xs text-[var(--text-primary)] break-all">
                       {folderDisplayPath(folderPath)}
                     </span>
                     <button
@@ -813,7 +817,9 @@
                 {/each}
               </ul>
 
-              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <label
+                class="flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   bind:checked={includeSubfolders}
@@ -825,7 +831,7 @@
               </label>
             {/if}
             {#if dataStorageLocation}
-              <p class="text-xs text-gray-400">
+              <p class="text-xs text-[var(--text-muted)]">
                 Library: {dataStorageLocation}
               </p>
             {/if}
@@ -834,7 +840,7 @@
 
         <!-- Verified exclusion control -->
         <label
-          class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3"
+          class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer rounded border border-[var(--border-default)] p-3"
         >
           <input
             type="checkbox"
@@ -844,7 +850,7 @@
           />
           <div>
             <span class="font-semibold">Exclude human-verified designs (recommended)</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Skip designs whose tags have been manually reviewed or marked as verified.
             </p>
           </div>
@@ -852,17 +858,17 @@
       </div>
 
       <!-- Step 3: Merge -->
-      <div class="bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">
+      <div class="route-card p-6 space-y-4">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">
           3. What should happen to existing tags?
         </h2>
         <div class="space-y-2">
           {#each MERGE_OPTIONS as option}
             <label
-              class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {merge ===
+              class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer rounded border border-[var(--border-default)] p-3 {merge ===
               option.id
-                ? 'border-indigo-400 bg-indigo-50'
-                : 'hover:bg-gray-50'}"
+                ? 'border-[var(--border-focus)] bg-[var(--surface-card-subtle)] ring-1 ring-[var(--border-focus)]'
+                : 'hover:bg-[var(--surface-hover)]'}"
             >
               <input
                 type="radio"
@@ -874,12 +880,12 @@
               />
               <div>
                 <span class="font-semibold">{option.title}</span>
-                <p class="text-gray-500 text-xs mt-0.5">{option.subtitle}</p>
+                <p class="text-[var(--text-muted)] text-xs mt-0.5">{option.subtitle}</p>
               </div>
             </label>
           {/each}
         </div>
-        <p class="text-xs text-gray-400 italic">
+        <p class="text-xs text-[var(--text-muted)] italic">
           Retagging manages image tags only. Non-image tags are never removed. With "Add New Tags"
           (default), every existing tag is kept; "Complete Reset" replaces the image tags on the
           selected designs — including any you have added by hand.
@@ -887,10 +893,10 @@
       </div>
 
       <!-- Advanced options (always visible) -->
-      <div class="bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Advanced options</h2>
+      <div class="route-card p-6 space-y-4">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">Advanced options</h2>
 
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunStitching}
@@ -899,13 +905,15 @@
           />
           <div>
             <span class="font-semibold">Also detect stitching tags</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Analyze stitch coverage to tag designs (e.g. light fill, dense embroidery).
             </p>
           </div>
         </label>
         {#if taggingRunStitching}
-          <label class="ml-8 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label
+            class="ml-8 flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
+          >
             <input
               type="checkbox"
               bind:checked={taggingStitchingOverwrite}
@@ -916,7 +924,7 @@
           </label>
         {/if}
 
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunImages}
@@ -925,13 +933,15 @@
           />
           <div>
             <span class="font-semibold">Also generate preview images</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Generate preview images for designs that lack one.
             </p>
           </div>
         </label>
         {#if taggingRunImages}
-          <label class="ml-8 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label
+            class="ml-8 flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
+          >
             <input
               type="checkbox"
               bind:checked={taggingImageRedo}
@@ -942,7 +952,7 @@
           </label>
         {/if}
 
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunColorCounts}
@@ -951,12 +961,12 @@
           />
           <div>
             <span class="font-semibold">Recalculate colour / stitch counts</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Refresh thread colors, stitch totals, and color changes from the design files.
             </p>
           </div>
         </label>
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunHoopDimensions}
@@ -965,7 +975,7 @@
           />
           <div>
             <span class="font-semibold">Recalculate hoops / dimensions</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Refresh design dimensions and recommended hoop from the design files.
             </p>
           </div>
@@ -990,9 +1000,9 @@
         </button>
       </div>
     {:else}
-      <div class="bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">1. Target scope</h2>
-        <p class="text-xs text-gray-500">
+      <div class="route-card p-6 space-y-4">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">1. Target scope</h2>
+        <p class="text-xs text-[var(--text-muted)]">
           All tasks below run against the population chosen here. <strong>Entire catalogue</strong
           >{" "}
           recomputes &amp; overwrites the data for every design;
@@ -1001,10 +1011,10 @@
         </p>
         <div class="space-y-2">
           <label
-            class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope ===
+            class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer rounded border border-[var(--border-default)] p-3 {maintenanceScope ===
             'all'
-              ? 'border-indigo-400 bg-indigo-50'
-              : 'hover:bg-gray-50'}"
+              ? 'border-[var(--border-focus)] bg-[var(--surface-card-subtle)] ring-1 ring-[var(--border-focus)]'
+              : 'hover:bg-[var(--surface-hover)]'}"
           >
             <input
               type="radio"
@@ -1016,14 +1026,16 @@
             />
             <div class="flex-1">
               <span class="font-semibold">Entire catalogue</span>
-              <p class="text-gray-500 text-xs mt-0.5">All designs stored in the local catalogue.</p>
+              <p class="text-[var(--text-muted)] text-xs mt-0.5">
+                All designs stored in the local catalogue.
+              </p>
             </div>
           </label>
           <label
-            class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer rounded border border-gray-200 p-3 {maintenanceScope ===
+            class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer rounded border border-[var(--border-default)] p-3 {maintenanceScope ===
             'missing_previews'
-              ? 'border-indigo-400 bg-indigo-50'
-              : 'hover:bg-gray-50'}"
+              ? 'border-[var(--border-focus)] bg-[var(--surface-card-subtle)] ring-1 ring-[var(--border-focus)]'
+              : 'hover:bg-[var(--surface-hover)]'}"
           >
             <input
               type="radio"
@@ -1039,12 +1051,12 @@
                 {#if missingPreviewCountLoading}
                   <span class="text-xs text-gray-400 italic">(counting…)</span>
                 {:else if missingPreviewCount !== null}
-                  <span class="text-xs font-medium text-gray-500"
+                  <span class="text-xs font-medium text-[var(--text-muted)]"
                     >{missingPreviewCount.toLocaleString()} designs</span
                   >
                 {/if}
               </div>
-              <p class="text-gray-500 text-xs mt-0.5">
+              <p class="text-[var(--text-muted)] text-xs mt-0.5">
                 Targets only designs that lack a preview image.
               </p>
             </div>
@@ -1052,10 +1064,10 @@
         </div>
       </div>
 
-      <div class="bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">2. Maintenance tasks</h2>
+      <div class="route-card p-6 space-y-4">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">2. Maintenance tasks</h2>
 
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunImages}
@@ -1066,7 +1078,7 @@
             <span class="font-semibold">Generate preview images</span>
           </div>
         </label>
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunColorCounts}
@@ -1075,12 +1087,12 @@
           />
           <div>
             <span class="font-semibold">Recalculate colour / stitch counts</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Refresh thread colors, stitch totals, and color changes from the design files.
             </p>
           </div>
         </label>
-        <label class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
             bind:checked={taggingRunHoopDimensions}
@@ -1089,7 +1101,7 @@
           />
           <div>
             <span class="font-semibold">Recalculate hoops / dimensions</span>
-            <p class="text-gray-500 text-xs mt-0.5">
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
               Refresh design dimensions and recommended hoop from the design files.
             </p>
           </div>
@@ -1119,15 +1131,15 @@
 
     <!-- Last summary -->
     {#if taggingLastSummary}
-      <div class="bg-white rounded shadow p-4 space-y-1 text-sm">
-        <p class="font-semibold text-gray-800">Last run summary</p>
+      <div class="route-card p-4 space-y-1 text-sm">
+        <p class="font-semibold text-[var(--text-primary)]">Last run summary</p>
         <p>
           {lastRunWasMaintenance ? "Operations:" : "Processed:"}{" "}
           <strong>{taggingLastSummary.processed ?? 0}</strong> &middot; Errors:{" "}
           <strong>{taggingLastSummary.errors ?? 0}</strong>
         </p>
         {#if lastRunWasMaintenance}
-          <p class="text-xs text-gray-500">
+          <p class="text-xs text-[var(--text-muted)]">
             A design may be counted once per selected task (e.g. previews + hoops = 2 operations on
             the same design). Tasks run: {(taggingLastSummary.actions || []).join(", ") || "—"}.
           </p>
@@ -1159,7 +1171,7 @@
               >
                 Review these in Browse
               </button>
-              <span class="text-gray-500">
+              <span class="text-[var(--text-muted)]">
                 (opens Browse with the “Needs attention” filter — designs without a preview)
               </span>
             </p>
@@ -1175,15 +1187,15 @@
     {/if}
 
     <!-- Log -->
-    <details class="bg-white rounded shadow">
+    <details class="route-card p-0 overflow-hidden">
       <summary
-        class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 select-none"
+        class="cursor-pointer px-4 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] select-none"
       >
         Backfill log ({taggingLogEntries.length} entries)
       </summary>
       <div class="max-h-80 overflow-y-auto px-4 pb-3 space-y-1">
         {#if taggingLogEntries.length === 0}
-          <p class="text-xs text-gray-400 italic py-2">
+          <p class="text-xs text-[var(--text-muted)] italic py-2">
             No log entries yet. Run an action to populate the log.
           </p>
         {:else}
@@ -1206,40 +1218,50 @@
 
   <!-- Pre-flight confirmation modal -->
   {#if showConfirm}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="modal-overlay">
+      <button
+        type="button"
+        class="modal-backdrop"
+        aria-label="Close confirmation dialog"
+        onclick={() => (showConfirm = false)}
+      ></button>
       <div
-        class="bg-white rounded shadow-lg p-6 max-w-md w-full"
+        class="modal-dialog p-6 max-w-md w-full"
         role="dialog"
         aria-modal="true"
         data-testid="tagging-confirm-modal"
       >
-        <h2 class="text-lg font-semibold text-gray-800">Ready to Retag</h2>
-        <div class="mt-4 space-y-2 text-sm">
-          <p><span class="font-semibold">Action:</span> {goalLabel}</p>
+        <h2 class="text-lg font-semibold text-[var(--text-primary)]">Ready to Retag</h2>
+        <div class="mt-4 space-y-2 text-sm text-[var(--text-secondary)]">
+          <p><span class="font-semibold text-[var(--text-primary)]">Action:</span> {goalLabel}</p>
           <p>
-            <span class="font-semibold">Target Scope:</span>
+            <span class="font-semibold text-[var(--text-primary)]">Target Scope:</span>
             {selectedCount !== null ? selectedCount.toLocaleString() : "…"} designs ({scopeLabel})
           </p>
           {#if scope === "folder" && selectedFolderPaths.length > 0}
             <p>
-              <span class="font-semibold">Folder(s):</span>
+              <span class="font-semibold text-[var(--text-primary)]">Folder(s):</span>
               {selectedFolderPaths.length}
               {#if includeSubfolders}(incl. subfolders){/if}
             </p>
-            <ul class="list-disc pl-5 text-xs text-gray-600 space-y-0.5">
+            <ul class="list-disc pl-5 text-xs text-[var(--text-muted)] space-y-0.5">
               {#each selectedFolderPaths as folderPath}
                 <li>{folderDisplayPath(folderPath)}</li>
               {/each}
             </ul>
           {/if}
-          <p><span class="font-semibold">Tag Strategy:</span> {mergeLabel}</p>
           <p>
-            <span class="font-semibold">Verified designs:</span>
+            <span class="font-semibold text-[var(--text-primary)]">Tag Strategy:</span>
+            {mergeLabel}
+          </p>
+          <p>
+            <span class="font-semibold text-[var(--text-primary)]">Verified designs:</span>
             {excludeVerified ? "Excluded" : "Included"}
           </p>
           {#if estimateMinutes !== null}
-            <p class="text-gray-500">
-              <span class="font-semibold">Estimated Time:</span> ~{estimateMinutes} minutes
+            <p class="text-[var(--text-muted)]">
+              <span class="font-semibold text-[var(--text-primary)]">Estimated Time:</span>
+              ~{estimateMinutes} minutes
               {#if visualAiPaced}(paced to respect Gemini rate limits){/if}
             </p>
           {/if}
@@ -1255,26 +1277,32 @@
 
   <!-- Maintenance confirmation modal -->
   {#if showMaintenanceConfirm}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="modal-overlay">
+      <button
+        type="button"
+        class="modal-backdrop"
+        aria-label="Close maintenance confirmation dialog"
+        onclick={() => (showMaintenanceConfirm = false)}
+      ></button>
       <div
-        class="bg-white rounded shadow-lg p-6 max-w-md w-full"
+        class="modal-dialog p-6 max-w-md w-full"
         role="dialog"
         aria-modal="true"
         data-testid="maintenance-confirm-modal"
       >
-        <h2 class="text-lg font-semibold text-gray-800">Ready to Run Maintenance</h2>
-        <div class="mt-4 space-y-2 text-sm">
+        <h2 class="text-lg font-semibold text-[var(--text-primary)]">Ready to Run Maintenance</h2>
+        <div class="mt-4 space-y-2 text-sm text-[var(--text-secondary)]">
           <p>
-            <span class="font-semibold">Target Scope:</span>
+            <span class="font-semibold text-[var(--text-primary)]">Target Scope:</span>
             {maintenanceScopeLabel}
           </p>
-          <p class="text-gray-600 text-xs">
+          <p class="text-[var(--text-muted)] text-xs">
             {maintenanceScope === "all"
               ? "Entire catalogue: every task recomputes and overwrites the data for all designs."
               : "Designs missing a preview image only."}
           </p>
-          <p><span class="font-semibold">Maintenance Tasks:</span></p>
-          <ul class="list-disc pl-5 text-xs text-gray-700 space-y-0.5">
+          <p><span class="font-semibold text-[var(--text-primary)]">Maintenance Tasks:</span></p>
+          <ul class="list-disc pl-5 text-xs text-[var(--text-muted)] space-y-0.5">
             {#if taggingRunImages}
               <li>Generate preview images</li>
             {/if}

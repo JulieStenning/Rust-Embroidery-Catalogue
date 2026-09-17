@@ -16,16 +16,18 @@
   {#each items as item, i}
     <div
       class="flex items-baseline gap-2 {i < items.length - 1 && i % 2 === 0
-        ? 'sm:border-b sm:border-gray-100 sm:pb-1'
+        ? 'sm:border-b sm:border-[var(--border-subtle)] sm:pb-1'
         : ''} {i < items.length - 1 && i % 2 !== 0
-        ? 'sm:border-b sm:border-gray-100 sm:pb-1'
-        : ''} {i < items.length - 1 ? 'border-b border-gray-100 pb-1' : ''}"
+        ? 'sm:border-b sm:border-[var(--border-subtle)] sm:pb-1'
+        : ''} {i < items.length - 1 ? 'border-b border-[var(--border-subtle)] pb-1' : ''}"
     >
       <span
-        class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide shrink-0 w-[6rem] sm:w-[7rem]"
+        class="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide shrink-0 w-[6rem] sm:w-[7rem]"
         >{item.label}</span
       >
-      <span class="text-sm font-medium text-gray-800 truncate">{item.value ?? "?"}</span>
+      <span class="text-sm font-medium text-[var(--text-primary)] truncate"
+        >{item.value ?? "?"}</span
+      >
     </div>
   {/each}
 </div>

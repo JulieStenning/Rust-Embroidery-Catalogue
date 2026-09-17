@@ -333,7 +333,7 @@
   </div>
 
   <!-- Main card -->
-  <div class="bg-white rounded-xl shadow p-6 space-y-4">
+  <div class="route-card bg-white rounded-xl shadow p-6 space-y-4">
     <h1 class="ui-page-title text-2xl font-bold text-gray-800">Let's set up your catalogue</h1>
     <p class="text-sm text-gray-600">
       {#if hasDataFirstFlow}

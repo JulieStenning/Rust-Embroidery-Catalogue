@@ -145,35 +145,35 @@
 
 {#if isLicenceView}
   <div class="max-w-5xl mx-auto space-y-4 font-sans">
-    <div class="bg-white rounded-xl shadow">
-      <div class="border-b border-gray-200">
+    <div class="route-card rounded-xl shadow">
+      <div class="border-b border-[var(--border-default)]">
         <nav class="flex gap-1 px-4 pt-3" aria-label="Licence information">
           <button
             type="button"
-            class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition
+            class="px-4 py-2 text-sm font-semibold rounded-t border border-b-0 transition
               {activeLicenceTab === 'application'
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
+              ? 'border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-brand)]'
+              : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'}"
             onclick={() => selectLicenceTab("application")}
           >
             Application Licence
           </button>
           <button
             type="button"
-            class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition
+            class="px-4 py-2 text-sm font-semibold rounded-t border border-b-0 transition
               {activeLicenceTab === 'rust'
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
+              ? 'border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-brand)]'
+              : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'}"
             onclick={() => selectLicenceTab("rust")}
           >
             Rust Dependencies
           </button>
           <button
             type="button"
-            class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition
+            class="px-4 py-2 text-sm font-semibold rounded-t border border-b-0 transition
               {activeLicenceTab === 'frontend'
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300'}"
+              ? 'border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-brand)]'
+              : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'}"
             onclick={() => selectLicenceTab("frontend")}
           >
             Frontend Dependencies
@@ -186,40 +186,46 @@
           <div data-testid="licence-application-tab">
             <div class="flex items-center justify-between gap-4 mb-4">
               <div>
-                <h2 class="text-lg font-bold text-gray-800 font-sans">Application Licence</h2>
-                <p class="text-sm text-gray-600 mt-1">
+                <h2 class="text-lg font-bold text-[var(--text-primary)] font-sans">
+                  Application Licence
+                </h2>
+                <p class="text-sm text-[var(--text-secondary)] mt-1">
                   Embroidery Catalogue is licensed under
                   <strong> AGPL-3.0-or-later</strong>.
                 </p>
               </div>
             </div>
             <pre
-              class="whitespace-pre-wrap text-xs text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner licence-primary-text">{primaryLicense}</pre>
+              class="whitespace-pre-wrap text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 overflow-x-auto font-mono shadow-inner licence-primary-text">{primaryLicense}</pre>
           </div>
         {:else if activeLicenceTab === "rust"}
           <div data-testid="licence-rust-tab">
             <div class="flex items-center justify-between gap-4 mb-4">
               <div>
-                <h2 class="text-lg font-bold text-gray-800 font-sans">Rust Dependencies</h2>
-                <p class="text-sm text-gray-600 mt-1">
+                <h2 class="text-lg font-bold text-[var(--text-primary)] font-sans">
+                  Rust Dependencies
+                </h2>
+                <p class="text-sm text-[var(--text-secondary)] mt-1">
                   Open-source Rust crates used by the Embroidery Catalogue backend.
                 </p>
               </div>
             </div>
             {#if hasRustLicences}
-              <div class="licence-rust-list text-sm text-gray-700">
+              <div class="licence-rust-list text-sm text-[var(--text-secondary)]">
                 {@html sanitizedRustLicencesHtml}
               </div>
             {:else}
-              <p class="text-sm text-gray-500">No Rust licence data is available.</p>
+              <p class="text-sm text-[var(--text-muted)]">No Rust licence data is available.</p>
             {/if}
           </div>
         {:else}
           <div data-testid="licence-frontend-tab">
             <div class="flex items-center justify-between gap-4 mb-4">
               <div>
-                <h2 class="text-lg font-bold text-gray-800 font-sans">Frontend Dependencies</h2>
-                <p class="text-sm text-gray-600 mt-1">
+                <h2 class="text-lg font-bold text-[var(--text-primary)] font-sans">
+                  Frontend Dependencies
+                </h2>
+                <p class="text-sm text-[var(--text-secondary)] mt-1">
                   Open-source NPM packages used by the Embroidery Catalogue frontend.
                 </p>
               </div>
@@ -227,29 +233,35 @@
             {#if hasFrontendLicences}
               <div class="space-y-2">
                 {#each frontendLicenceRows as pkg}
-                  <details class="licence-card border border-gray-200 rounded-lg bg-gray-50">
+                  <details
+                    class="licence-card border border-[var(--border-default)] rounded-lg bg-[var(--surface-card-subtle)]"
+                  >
                     <summary
-                      class="licence-header px-4 py-3 cursor-pointer hover:bg-gray-100 transition"
+                      class="licence-header px-4 py-3 cursor-pointer hover:bg-[var(--surface-hover)] transition"
                     >
-                      <span class="font-medium text-gray-800">{pkg.name}</span>
+                      <span class="font-medium text-[var(--text-primary)]">{pkg.name}</span>
                       {#if pkg.version}
-                        <span class="text-gray-500"> (v{pkg.version})</span>
+                        <span class="text-[var(--text-muted)]"> (v{pkg.version})</span>
                       {/if}
                       <span
-                        class="ml-2 text-xs font-semibold text-indigo-700 bg-indigo-100 border border-indigo-200 rounded px-2 py-0.5"
+                        class="ml-2 text-xs font-semibold text-[var(--text-brand)] bg-[var(--surface-card)] border border-[var(--border-default)] rounded px-2 py-0.5"
                         >{pkg.licenses}</span
                       >
                     </summary>
-                    <div class="licence-crates px-4 pb-3 pt-2 border-t border-gray-200">
-                      <h4 class="ui-section-label font-semibold text-gray-850 mb-1">Licence</h4>
-                      <p class="text-sm text-gray-700">{pkg.licenses}</p>
+                    <div
+                      class="licence-crates px-4 pb-3 pt-2 border-t border-[var(--border-default)]"
+                    >
+                      <h4 class="ui-section-label font-semibold text-[var(--text-primary)] mb-1">
+                        Licence
+                      </h4>
+                      <p class="text-sm text-[var(--text-secondary)]">{pkg.licenses}</p>
                       {#if pkg.repository}
                         <p class="text-sm mt-2">
                           <a
                             href={pkg.repository}
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="text-indigo-600 hover:underline font-medium break-all"
+                            class="text-[var(--text-brand)] hover:underline font-medium break-all"
                             >{pkg.repository}</a
                           >
                         </p>
@@ -259,7 +271,7 @@
                 {/each}
               </div>
             {:else}
-              <p data-testid="frontend-licences-empty" class="text-sm text-gray-500">
+              <p data-testid="frontend-licences-empty" class="text-sm text-[var(--text-muted)]">
                 No frontend packages recorded.
               </p>
             {/if}
@@ -270,30 +282,30 @@
   </div>
 {:else}
   <div class="max-w-5xl mx-auto space-y-4 font-sans">
-    <div class="bg-white rounded-xl shadow p-6">
+    <div class="route-card rounded-xl shadow p-6">
       {#if loading}
-        <p class="text-sm text-gray-500">Loading document...</p>
+        <p class="text-sm text-[var(--text-muted)]">Loading document...</p>
       {:else if error}
         <p class="text-sm text-red-650 bg-red-50 border border-red-200 rounded p-3">{error}</p>
       {:else if documentItem?.document_text}
         {#if shouldRenderAsHtml(documentItem)}
           <div
-            class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 space-y-4 shadow-inner"
+            class="text-sm text-gray-700 bg-gray-50 text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-4 shadow-inner"
           >
             {@html documentItem.document_text}
           </div>
         {:else if shouldRenderAsMarkdown(documentItem)}
           <div
-            class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 prose prose-gray max-w-none shadow-inner document-markdown"
+            class="text-sm text-gray-700 bg-gray-50 text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 prose dark:prose-invert max-w-none shadow-inner document-markdown"
           >
             {@html renderMarkdown(documentItem.document_text)}
           </div>
         {:else}
           <pre
-            class="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 border rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>
+            class="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>
         {/if}
       {:else}
-        <p class="text-sm text-gray-500 italic">Document content is unavailable.</p>
+        <p class="text-sm text-[var(--text-muted)] italic">Document content is unavailable.</p>
       {/if}
     </div>
   </div>
@@ -312,9 +324,9 @@
   }
 
   :global(.licence-rust-list .license-card) {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-default);
     border-radius: 0.5rem;
-    background-color: #f9fafb;
+    background-color: var(--surface-card-subtle);
     overflow: hidden;
   }
 
@@ -329,22 +341,22 @@
   }
 
   :global(.licence-rust-list .license-header:hover) {
-    background-color: #f3f4f6;
+    background-color: var(--surface-hover);
   }
 
   :global(.licence-rust-list .license-name) {
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
   }
 
   :global(.licence-rust-list .license-used-by) {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   :global(.licence-rust-list .license-crates) {
     padding: 0.75rem 1rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-default);
   }
 
   :global(.licence-rust-list .license-crates h4) {
@@ -352,7 +364,7 @@
     line-height: 1.2;
     font-weight: 600;
     margin: 0 0 0.375rem;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   :global(.licence-rust-list .license-crates ul) {
@@ -363,12 +375,12 @@
   :global(.licence-rust-list .license-crates li) {
     font-size: 0.8125rem;
     line-height: 1.4;
-    color: #4b5563;
+    color: var(--text-secondary);
     margin: 0.25rem 0;
   }
 
   :global(.licence-rust-list .license-crates a) {
-    color: #4f46e5;
+    color: var(--text-brand);
     text-decoration: underline;
     text-underline-offset: 2px;
     word-break: break-all;
@@ -376,7 +388,7 @@
 
   :global(.licence-rust-list .license-text) {
     padding: 0.75rem 1rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-default);
   }
 
   :global(.licence-rust-list .license-text pre) {
@@ -388,25 +400,23 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.75rem;
     line-height: 1.5;
-    color: #374151;
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb;
+    color: var(--text-secondary);
+    background-color: var(--surface-preview);
+    border: 1px solid var(--border-default);
     border-radius: 0.375rem;
     padding: 0.75rem;
   }
 
   /* -----------------------------------------------------------------
    * Injected {@html} Markdown is not Svelte-scoped, so target it via a
-   * dedicated class with :global() selectors. Tailwind Typography (the
-   * "prose" classes) is not installed, so restore heading hierarchy and
-   * vertical rhythm manually.
+   * dedicated class with :global() selectors.
    * ----------------------------------------------------------------- */
   :global(.document-markdown h1) {
     font-size: 1.75rem;
     line-height: 1.25;
     font-weight: 700;
     margin: 0 0 0.75rem;
-    color: #111827;
+    color: var(--text-primary);
   }
 
   :global(.document-markdown h2) {
@@ -415,8 +425,8 @@
     font-weight: 650;
     margin: 1.5rem 0 0.5rem;
     padding-bottom: 0.25rem;
-    border-bottom: 1px solid #e5e7eb;
-    color: #1f2937;
+    border-bottom: 1px solid var(--border-default);
+    color: var(--text-primary);
   }
 
   :global(.document-markdown h3) {
@@ -424,7 +434,7 @@
     line-height: 1.35;
     font-weight: 650;
     margin: 1.25rem 0 0.5rem;
-    color: #1f2937;
+    color: var(--text-primary);
   }
 
   :global(.document-markdown h4) {
@@ -432,7 +442,7 @@
     line-height: 1.4;
     font-weight: 650;
     margin: 1rem 0 0.5rem;
-    color: #1f2937;
+    color: var(--text-primary);
   }
 
   :global(.document-markdown p) {
@@ -452,12 +462,12 @@
   :global(.document-markdown blockquote) {
     margin: 0.75rem 0;
     padding-left: 0.75rem;
-    border-left: 3px solid #c7d2fe;
-    color: #4b5563;
+    border-left: 3px solid var(--border-focus);
+    color: var(--text-secondary);
   }
 
   :global(.document-markdown a) {
-    color: #4f46e5;
+    color: var(--text-brand);
     text-decoration: underline;
     text-underline-offset: 2px;
   }
@@ -465,7 +475,8 @@
   :global(.document-markdown code) {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.875em;
-    background: #f3f4f6;
+    background: var(--surface-card-subtle);
+    color: var(--text-primary);
     border-radius: 0.25rem;
     padding: 0.125rem 0.25rem;
   }
@@ -474,78 +485,9 @@
     margin: 0.75rem 0;
     padding: 0.75rem;
     border-radius: 0.375rem;
-    background: #1f2937;
-    color: #e5e7eb;
+    background: var(--surface-card-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
     overflow-x: auto;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :global(.licence-rust-list .license-card) {
-      background-color: #1e293b;
-      border-color: #334155;
-    }
-
-    :global(.licence-rust-list .license-header:hover) {
-      background-color: #334155;
-    }
-
-    :global(.licence-rust-list .license-name) {
-      color: #f1f5f9;
-    }
-
-    :global(.licence-rust-list .license-used-by) {
-      color: #94a3b8;
-    }
-
-    :global(.licence-rust-list .license-crates) {
-      border-top-color: #334155;
-    }
-
-    :global(.licence-rust-list .license-crates h4) {
-      color: #e2e8f0;
-    }
-
-    :global(.licence-rust-list .license-crates li) {
-      color: #cbd5e1;
-    }
-
-    :global(.licence-rust-list .license-crates a) {
-      color: #818cf8;
-    }
-
-    :global(.licence-rust-list .license-text) {
-      border-top-color: #334155;
-    }
-
-    :global(.licence-rust-list .license-text pre) {
-      background-color: #0f172a;
-      border-color: #334155;
-      color: #cbd5e1;
-    }
-
-    :global(.document-markdown h1),
-    :global(.document-markdown h2),
-    :global(.document-markdown h3),
-    :global(.document-markdown h4) {
-      color: #f1f5f9;
-    }
-
-    :global(.document-markdown h2) {
-      border-bottom-color: #334155;
-    }
-
-    :global(.document-markdown blockquote) {
-      color: #cbd5e1;
-      border-left-color: #6366f1;
-    }
-
-    :global(.document-markdown code) {
-      background: #1e293b;
-      color: #e2e8f0;
-    }
-
-    :global(.document-markdown a) {
-      color: #818cf8;
-    }
   }
 </style>

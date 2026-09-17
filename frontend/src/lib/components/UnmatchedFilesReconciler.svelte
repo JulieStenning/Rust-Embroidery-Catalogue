@@ -136,7 +136,7 @@
   }
 </script>
 
-<div class="bg-white rounded shadow p-6 space-y-3">
+<div class="route-card rounded shadow p-6 space-y-3">
   <h2 class="text-base font-semibold text-gray-800">Find unmatched design files</h2>
   <p class="text-sm text-gray-600">
     Scans <code>MachineEmbroideryDesigns</code> for design files that have no record in the catalogue
@@ -157,7 +157,7 @@
 </div>
 
 {#if $unmatchedFilesStore.showPrompt}
-  <div class="bg-white rounded shadow p-6 space-y-3" data-testid="unmatched-files-prompt">
+  <div class="route-card rounded shadow p-6 space-y-3" data-testid="unmatched-files-prompt">
     <h2 class="text-base font-semibold text-gray-800">Unmatched files found</h2>
     <p class="text-sm text-gray-600">
       {$unmatchedFilesStore.count} design file(s) on disk have no record in the catalogue

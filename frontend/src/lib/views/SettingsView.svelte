@@ -15,6 +15,7 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
+  import { themeStore, setTheme } from "../stores/themeStore";
   /** @typedef {import("../types/ipc").StorageMigrationProgress} StorageMigrationProgress */
 
   /** @typedef {import("../types/ipc").SettingsViewModel} SettingsViewModel */
@@ -506,7 +507,7 @@
       onsubmit={saveSettingsFromBackend}
     >
       <div
-        class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-gray-200 bg-white/95 px-6 py-4 backdrop-blur"
+        class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-gray-200 bg-[var(--surface-card)] px-6 py-4 backdrop-blur"
         data-testid="settings-header"
       >
         <h1 class="ui-page-title settings-title text-lg font-bold text-gray-800">
@@ -538,6 +539,52 @@
       </div>
 
       <div class="p-6 space-y-5">
+        <div class="border-b border-gray-200 pb-5" data-testid="settings-appearance-section">
+          <h2 class="text-sm font-semibold text-gray-700 mb-1">Appearance</h2>
+          <p class="text-sm text-gray-600 mb-3">
+            Choose whether the application should follow your operating system theme, or force a
+            light or dark theme.
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+              <input
+                type="radio"
+                name="theme-mode"
+                value="system"
+                class="accent-indigo-600 cursor-pointer"
+                checked={$themeStore === "system"}
+                onchange={() => setTheme("system")}
+                data-testid="theme-option-system"
+              />
+              <span>🌓 System Default</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+              <input
+                type="radio"
+                name="theme-mode"
+                value="light"
+                class="accent-indigo-600 cursor-pointer"
+                checked={$themeStore === "light"}
+                onchange={() => setTheme("light")}
+                data-testid="theme-option-light"
+              />
+              <span>☀️ Light</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+              <input
+                type="radio"
+                name="theme-mode"
+                value="dark"
+                class="accent-indigo-600 cursor-pointer"
+                checked={$themeStore === "dark"}
+                onchange={() => setTheme("dark")}
+                data-testid="theme-option-dark"
+              />
+              <span>🌙 Dark</span>
+            </label>
+          </div>
+        </div>
+
         <div>
           <h2 class="text-sm font-semibold text-gray-700 mb-1">Google Gemini API key</h2>
           <p class="text-sm text-gray-600">
@@ -892,7 +939,7 @@
     aria-label="Restart required"
     data-testid="settings-restart-dialog"
   >
-    <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+    <div class="modal-dialog bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-800">Restart required</h2>
       <p class="text-sm text-gray-600">
         Your new data location has been saved. Embroidery Catalogue needs to restart so it can begin
@@ -927,7 +974,7 @@
     aria-label="Catalogue storage migration"
     data-testid="catalogue-migration-dialog"
   >
-    <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+    <div class="modal-dialog bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
       <h2 class="text-lg font-bold text-gray-800">Moving your catalogue…</h2>
       <p class="text-sm text-gray-600">
         Your database and design library are being moved to the new storage location. Your original

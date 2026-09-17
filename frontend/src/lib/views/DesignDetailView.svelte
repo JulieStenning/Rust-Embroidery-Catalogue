@@ -600,23 +600,24 @@
     <div class="flex-1 flex flex-col lg:flex-row min-h-0">
       <!-- LEFT COLUMN: Preview + Actions (sticky on large screens) -->
       <div
-        class="lg:w-5/12 xl:w-2/5 lg:sticky lg:top-0 lg:self-start lg:max-h-full flex flex-col gap-3 p-4 pb-2 lg:pb-4 lg:border-r border-gray-200 overflow-y-auto"
+        class="lg:w-5/12 xl:w-2/5 lg:sticky lg:top-0 lg:self-start lg:max-h-full flex flex-col gap-3 p-4 pb-2 lg:pb-4 lg:border-r border-[var(--border-default)] overflow-y-auto"
       >
         <!-- Filename & File Path -->
         <div class="route-card space-y-2">
           <div>
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filename</span
+            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
+              >Filename</span
             >
-            <p class="font-medium text-gray-800 text-sm mt-0.5">
+            <p class="font-medium text-[var(--text-primary)] text-sm mt-0.5">
               {detailItem.filename || "Unknown"}
             </p>
           </div>
           <div>
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
               >File Path</span
             >
             <p
-              class="mt-0.5 break-all font-mono text-xs text-gray-600 bg-gray-50 rounded border px-2.5 py-1.5"
+              class="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)] px-2.5 py-1.5"
             >
               {detailItem.filepath || "Unknown"}
             </p>
@@ -628,7 +629,7 @@
           <img
             src={detailItem.imageDataUrl}
             alt={detailItem.filename || "Design preview"}
-            class="w-full rounded border border-gray-200 bg-white p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
+            class="w-full rounded border border-[var(--border-default)] bg-[var(--surface-preview)] p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
           />
         {:else}
           <div
@@ -669,14 +670,16 @@
         <!-- ZONE A: Editable Metadata (Designer + Source) -->
         <!-- ============================================ -->
         <div class="route-card space-y-2">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <h3 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
             Designer & Source
           </h3>
           <div class="grid sm:grid-cols-2 gap-2.5">
             <label class="block text-sm">
-              <span class="block mb-0.5 font-medium text-gray-600 text-xs">Designer</span>
+              <span class="block mb-0.5 font-medium text-[var(--text-secondary)] text-xs"
+                >Designer</span
+              >
               <select
-                class="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                class="ui-select-input w-full px-2 py-1.5 text-sm"
                 bind:value={detailDesignerId}
                 onchange={handleDesignerChange}
               >
@@ -687,9 +690,11 @@
               </select>
             </label>
             <label class="block text-sm">
-              <span class="block mb-0.5 font-medium text-gray-600 text-xs">Source</span>
+              <span class="block mb-0.5 font-medium text-[var(--text-secondary)] text-xs"
+                >Source</span
+              >
               <select
-                class="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                class="ui-select-input w-full px-2 py-1.5 text-sm"
                 bind:value={detailSourceId}
                 onchange={handleSourceChange}
               >
@@ -707,7 +712,7 @@
         <!-- ============================================ -->
         <div class="route-card space-y-1.5">
           <div class="flex items-center justify-between gap-2">
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <h3 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
               Technical Data
             </h3>
             <button
@@ -731,7 +736,9 @@
         <!-- ZONE C: Rating & Status (interactive)        -->
         <!-- ============================================ -->
         <div class="route-card flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <h3 class="w-full text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+          <h3
+            class="w-full text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-0.5"
+          >
             Rating & Status
           </h3>
           <!-- 5 Interactive Stars -->
@@ -783,7 +790,7 @@
           <button
             class="menu-button-toggle {detailItem.isStitched
               ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
-              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400'}"
+              : 'bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'}"
             onclick={toggleDetailStitched}
             disabled={detailSaving}
             title={detailItem.isStitched ? "Mark as not stitched" : "Mark as stitched"}
@@ -834,7 +841,9 @@
 
         <!-- Tags -->
         <div class="route-card space-y-1.5">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tags</h3>
+          <h3 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+            Tags
+          </h3>
           {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.tags as tag}
@@ -857,7 +866,7 @@
               {/each}
             </div>
           {:else}
-            <p class="text-xs text-gray-400 italic">No tags assigned.</p>
+            <p class="text-xs text-[var(--text-muted)] italic">No tags assigned.</p>
           {/if}
           <button
             class="menu-button-primary text-xs px-2.5 py-1"
@@ -868,9 +877,11 @@
 
         <!-- Notes -->
         <div class="route-card space-y-1.5">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</h3>
+          <h3 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+            Notes
+          </h3>
           <textarea
-            class="w-full border rounded px-2.5 py-1.5 text-sm bg-white"
+            class="ui-text-input w-full px-2.5 py-1.5 text-sm"
             rows="2"
             bind:value={detailNotes}
             placeholder="Add notes about this design..."
@@ -888,7 +899,9 @@
 
         <!-- Projects -->
         <div class="route-card space-y-1.5">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Projects</h3>
+          <h3 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+            Projects
+          </h3>
 
           {#if Array.isArray(detailItem.projects) && detailItem.projects.length > 0}
             <div class="flex flex-wrap gap-1.5">
@@ -908,13 +921,13 @@
               {/each}
             </div>
           {:else}
-            <p class="text-xs text-gray-400 italic">Not assigned to any projects.</p>
+            <p class="text-xs text-[var(--text-muted)] italic">Not assigned to any projects.</p>
           {/if}
 
           {#if Array.isArray(detailItem.availableProjects) && detailItem.availableProjects.length > 0}
             <div class="flex gap-2 pt-0.5">
               <select
-                class="flex-1 border rounded px-2.5 py-1.5 text-sm bg-white"
+                class="ui-select-input flex-1 px-2.5 py-1.5 text-sm"
                 bind:value={detailProjectToAdd}
                 disabled={detailSaving}
               >

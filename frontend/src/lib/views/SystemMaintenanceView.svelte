@@ -27,18 +27,25 @@
 
   const activeTab = $derived(parseSystemTab(currentHash) ?? "settings");
 
-  /** Prevent a sub-tab from routing away while a long-running task runs. */
+  /**
+   * Prevent a sub-tab from routing away while a long-running task runs.
+   * @param {MouseEvent} event
+   */
   function guardTabClick(event) {
     if (busyActive) {
       event.preventDefault();
     }
   }
 
+  /**
+   * @param {boolean} active
+   * @returns {string}
+   */
   function tabLinkClass(active) {
     const base = "px-4 py-2 text-sm font-semibold rounded-t border inline-block select-none";
     const state = active
-      ? "border-gray-200 border-b-transparent bg-white text-indigo-600"
-      : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50";
+      ? "border-[var(--border-default)] border-b-transparent bg-[var(--surface-card)] text-[var(--text-brand)]"
+      : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]";
     const disabled = busyActive ? " opacity-50" : "";
     return `${base} ${state}${disabled}`;
   }
@@ -55,7 +62,7 @@
 
 <div class="space-y-2">
   <div
-    class="flex flex-wrap items-end gap-1 border-b border-gray-200"
+    class="flex flex-wrap items-end gap-1 border-b border-[var(--border-default)]"
     role="tablist"
     aria-label="System maintenance"
     data-testid="system-maintenance-tablist"

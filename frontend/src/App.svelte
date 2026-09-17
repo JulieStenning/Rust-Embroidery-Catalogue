@@ -6,9 +6,12 @@
   import ToastContainer from "./lib/components/ToastContainer.svelte";
   import { initDbMaintenanceEvents } from "./lib/services/dbMaintenanceEvents";
   import { checkInitialSetup, getDatabaseStatus } from "./lib/api/commandAdapter";
+  import { initTheme } from "./lib/stores/themeStore";
 
   /** Cleanup function returned by initDbMaintenanceEvents(), if subscribed. */
   let stopDbMaintenanceEvents = $state(() => {});
+  /** Cleanup function returned by initTheme(). */
+  let stopTheme = () => {};
 
   /** Whether the startup check has completed */
   let loading = $state(true);
@@ -67,6 +70,7 @@
   // Subscribe to database maintenance lifecycle events as early as possible
   // (so the completion toast is shown even if ToastContainer mounts later).
   onMount(() => {
+    stopTheme = initTheme();
     initDbMaintenanceEvents().then((stop) => {
       stopDbMaintenanceEvents = stop;
     });
@@ -74,6 +78,7 @@
 
   onDestroy(() => {
     stopDbMaintenanceEvents();
+    stopTheme();
   });
 
   // Run the check when the component first mounts
