@@ -280,8 +280,7 @@ See [BATCH_OPERATIONS_BACKFILL.md](User-Facing-Guidance/BATCH_OPERATIONS_BACKFIL
 
 ## Still stuck?
 
-Check the log file for the exact error message, then search for that message in the
-planning documents in `docs/Plans/`.
+Check the log file for the exact error message, and refer to [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) and [docs/Specs/](Specs/).
 
 The log files are:
 

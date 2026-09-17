@@ -34,15 +34,12 @@ Welcome to the documentation portal for the **Rust Embroidery Catalogue**. This 
 
 - [**E2E Testing Guide**](<Help for Developers/e2e testing guide.md>): Playwright test suite setup, fixtures, running headed/headless, and mock modes.
 - [**Coverage Report Updates**](<Help for Developers/Coverage Report Update Prompts.md>): Measuring and reporting code coverage across Rust and frontend suites.
-- [**Database Restore Unit Tests**](<Plans/Unit tests for restore database functionality.md>): Testing backup and recovery pipelines.
+- [**Testing Strategy & Verification**](<User Test Plans/README.md>): Testing pyramid, Playwright feature matrix, and manual acceptance suites.
 
 ---
 
-## 📋 Feature Specifications & Plans
+## 📦 Release Procedures & Runbooks
 
-- [**Bulk Deletion Plan**](<Plans/Bulk Deletion.md>): Design specification for bulk deletion with transaction safety.
-- [**Long-Running Action Guards**](<Plans/Disabling menu and buttons during long running actions.md>): UI lockout and busy indicators for background operations.
-- [**Database Compaction & Vacuuming**](Plans/chunk.md): Freelisting, page size tuning, and vacuum scheduling.
-- [**Design Details Layout**](<Plans/design details layout refactor.md>): Full-screen and drawer design details view specifications.
-- [**Star Rating System**](<Plans/Star Rating on Browse Designs.md>): User rating mechanics and database schema.
-- [**Windows Installer & Update Delivery SOP**](Plans/windows-installer-update-delivery-sop.md): Release packaging and auto-update checklists.
+- [**Windows Installer & Update Delivery SOP**](<Help for Developers/windows-installer-update-delivery-sop.md>): Detailed operator steps for building, verifying, and delivering Windows installer updates.
+- [**Windows Installer Update Quick Checklist**](<Help for Developers/windows-installer-update-quick-checklist.md>): One-page release-day verification checklist.
+- [**Release Checklist & Quality Gates**](proformas/releases/release-checklist.md): Integrated pre-release auditing, licensing checks, and quality gates.
