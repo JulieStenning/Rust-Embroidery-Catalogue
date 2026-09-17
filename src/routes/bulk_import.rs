@@ -27,9 +27,7 @@ static BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS: AtomicU64 = AtomicU64::new(0);
 static BULK_IMPORT_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 /// Number of imported files written per database commit during the bulk-import
-/// execution loop. Held as a code constant (not a user/DB setting) because it is
-/// an internal tuning knob; the old `import.commit_batch_size` DB override and
-/// its settings plumbing were removed (it predated import-time AI tagging).
+/// execution loop. Held as an internal tuning constant.
 const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 100;
 const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
 
@@ -2047,14 +2045,6 @@ pub fn confirm_bulk_import_wire(
         selected_file_count: confirm_wire.wire.selected_files.len(),
         resolved_assignments,
     })
-}
-
-#[tauri::command]
-pub fn confirm_bulk_import_legacy(
-    request: BulkImportRequest,
-) -> Result<BulkImportConfirmExecutionResult, String> {
-    let precheck = precheck_bulk_import_wire(BulkImportConfirmWire::from(request))?;
-    do_confirm_bulk_import_wire(precheck.context_token)
 }
 
 pub fn resolve_assignment_field(

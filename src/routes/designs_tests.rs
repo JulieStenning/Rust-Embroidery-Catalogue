@@ -2135,8 +2135,7 @@ fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
     assert!(sql.as_str().contains("LOWER(d.filename) LIKE"));
     assert!(sql.as_str().contains("design_tags"));
     assert!(sql.as_str().contains("LOWER(tags.description) LIKE"));
-    // Folder search matches the canonical relative filepath directly (stored
-    // paths no longer carry the MachineEmbroideryDesigns container prefix).
+    // Folder search matches the canonical relative filepath directly.
     assert!(sql.as_str().contains("LOWER(d.filepath) LIKE"));
     assert!(sql.as_str().contains("LIKE "));
     // The bind values are stored as parameters, so count the `?` placeholders.

@@ -1553,8 +1553,7 @@ describe("BrowseView", () => {
     });
 
     it("lets 'Untagged' clear tags on an already-tagged design (clearAllTags=true)", async () => {
-      // A design that ALREADY has a tag — the case that previously left the
-      // Untagged checkbox disabled (addIds was non-empty when the modal opened).
+      // Verify Untagged clears existing tags on an already-tagged design.
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([design({ id: 1, filename: "design-1.pes", tags: ["Floral"] })])
       );

@@ -864,22 +864,6 @@ fn canonical_confirm_wire_marks_ready_for_persistence() {
 }
 
 #[test]
-fn legacy_confirm_wire_shims_into_canonical_confirm() {
-    let result = confirm_bulk_import_legacy(BulkImportRequest {
-        root_path: Some("C:/imports".to_string()),
-        root_paths: Vec::new(),
-        fallback_designer_id: Some(7),
-        fallback_source_id: Some(8),
-    })
-    .expect("legacy confirm should succeed");
-
-    assert!(result.canonical_confirm);
-    assert!(result.ready_for_persistence);
-    assert_eq!(result.root_path_count, 1);
-    assert_eq!(result.selected_file_count, 0);
-}
-
-#[test]
 fn precheck_stores_context_and_do_confirm_consumes_it() {
     let precheck = precheck_bulk_import_wire(BulkImportConfirmWire {
         wire: BulkImportWire {
@@ -1151,14 +1135,13 @@ fn stored_filepath_from_designs_base_subdirectory() {
     assert!(result.is_err(), "unrelated path must not be in-library");
 }
 
-/// The old substring-based in-library detection is gone: paths containing
-/// "machineembroiderydesigns" as a substring but not actually under the
-/// canonical designs base must now be treated as external (not in-library).
+/// In-library path detection requires strict base-prefix matching; paths containing
+/// "machineembroiderydesigns" as a substring but not under the canonical designs
+/// base are treated as external.
 #[test]
 fn unrelated_path_containing_sentinel_is_not_in_library() {
     // A path like C:/tmp/machineembroiderydesigns-test/file.pes
-    // was previously treated as in-library by the old substring scan.
-    // With strict base-prefix validation it must now be external.
+    // must be treated as external under strict base-prefix validation.
     let is_under = is_path_under_designs_base("C:/tmp/machineembroiderydesigns-test/design.pes");
     assert!(!is_under);
 

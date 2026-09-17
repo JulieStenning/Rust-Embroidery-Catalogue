@@ -438,13 +438,10 @@ fn main() {
     let bootstrap_config = config::BootstrapConfig::from_app_paths(&app_paths);
     tracing::info!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
 
-    // Export the resolved database URL as DATABASE_URL so that legacy
+    // Export the resolved database URL as DATABASE_URL so that
     // path-derivation helpers (bulk_import, designs, fingerprint, maintenance)
     // which read BootstrapConfig::from_env() agree with the startup connection
-    // path. Without this they fall back to the relative default
-    // "sqlite:data/database/EmbroideryCatalogue.db", resolving design paths
-    // against the project root (./data) instead of the resolved AppPaths data
-    // root (e.g. target\debug\Data).
+    // path.
     std::env::set_var("DATABASE_URL", &bootstrap_config.database_url);
 
     // Compute the database status for state registration.
@@ -702,7 +699,6 @@ fn main() {
             routes::bulk_import::do_confirm_bulk_import_wire,
             routes::bulk_import::execute_bulk_import_confirm_wire,
             routes::bulk_import::confirm_bulk_import_wire,
-            routes::bulk_import::confirm_bulk_import_legacy,
             routes::bulk_import::preview_bulk_import,
             routes::bulk_import::browse_import_folder,
             routes::batch_operations::get_batch_operations_view_model,

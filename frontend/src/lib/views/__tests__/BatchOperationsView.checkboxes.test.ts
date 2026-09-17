@@ -76,7 +76,9 @@ describe("BatchOperationsView workflow selection", () => {
     expect(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i })).toBeChecked();
 
     await user.click(screen.getByRole("radio", { name: /Designs missing Gemini Vision analysis/ }));
-    expect(screen.getByRole("radio", { name: /Designs missing Gemini Vision analysis/ })).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: /Designs missing Gemini Vision analysis/ })
+    ).toBeChecked();
 
     await user.click(screen.getByRole("radio", { name: /Complete reset/i }));
     expect(screen.getByRole("radio", { name: /Complete reset/i })).toBeChecked();

@@ -9,12 +9,10 @@ use super::*;
 use crate::models::{EmbPattern, Stitch};
 
 /// A wide satin motif from the "The Rose Studio - Patterns" collection. Its
-/// legs (mean ~30 units) exceed the old 20-unit mean-length cap that was
-/// meant to separate satin from long-row fills - but it is unmistakably
-/// satin via its strong zigzag signature (consecutive direction-change rate
-/// is very high). This pins the regression that caused it to be mis-tagged
-/// as Line Outline. Skipped when the fixture is absent (CI / fresh
-/// checkouts do not depend on a local Design folder).
+/// legs (mean ~30 units) exhibit a strong zigzag signature (high consecutive
+/// direction-change rate) identifying it as Satin Stitch rather than Line Outline.
+/// Skipped when the fixture is absent (CI / fresh checkouts do not depend on
+/// a local Design folder).
 #[test]
 fn real_10434_pes_is_satin_not_outline() {
     let path = "target/debug/Data/MachineEmbroideryDesigns/The Rose Studio - Patterns/10434.PES";
@@ -330,7 +328,7 @@ fn applique_keyword_beats_filled() {
 }
 
 /// A dense uniform fill must be reported as Filled ONLY - not Satin or
-/// Outline. This is the core regression for the 53505.hus case.
+/// Outline.
 #[test]
 fn filled_suppresses_satin_and_outline() {
     let pattern = filled_pattern();
@@ -351,12 +349,9 @@ fn filled_suppresses_satin_and_outline() {
     assert_eq!(tags, vec!["Filled".to_string()]);
 }
 
-/// A three-colour mailbox design. It reads visually as a filled design even
-/// though it has 3 colour blocks. Previously the per-colour fragmentation
-/// locked out the single-block fill boosts, so a sparse block could win the
-/// priority chain and tag the whole design "Line Outline". Identifying it on
-/// a colour-flattened view (stitch density does not depend on colour count)
-/// must tag it as Filled. Skipped when the fixture is absent.
+/// A three-colour mailbox design. It reads visually as a filled design across
+/// its colour blocks, tagging it as Filled rather than Line Outline.
+/// Skipped when the fixture is absent.
 #[test]
 fn real_89343_hus_is_filled_not_outline() {
     let path = "target/debug/Data/MachineEmbroideryDesigns/The Rose Studio - Mailbox Collection I/89343.hus";
@@ -386,8 +381,7 @@ fn real_89343_hus_is_filled_not_outline() {
 }
 
 /// Verifies the real 53505.hus fixture (a solid dense fill) is reported as
-/// Filled ONLY - the original regression that returned filled, outline and
-/// satin together. The test is skipped when the fixture file is absent so
+/// Filled ONLY. The test is skipped when the fixture file is absent so
 /// CI / fresh checkouts do not depend on a local Design folder.
 #[test]
 fn real_53505_hus_is_filled_only() {

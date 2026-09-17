@@ -139,7 +139,7 @@ fn normalize_optional_delay_handles_blank_invalid_and_whole_numbers() {
 }
 
 #[test]
-fn truthy_parser_matches_expected_legacy_values() {
+fn truthy_parser_matches_expected_values() {
     assert!(settings::is_truthy("1"));
     assert!(settings::is_truthy("true"));
     assert!(settings::is_truthy("YES"));

@@ -18,9 +18,6 @@ fn test_read_bean_jef_file() {
     let path = std::path::Path::new(FIXTURES_DIR).join("Bean.jef");
     let data = std::fs::read(path).expect("Failed to read test JEF file");
     let pattern = read_jef(&data).expect("Failed to parse JEF file");
-    for _s in pattern.stitches.iter() {
-        // (removed verbose per-stitch debug print)
-    }
     assert_eq!(pattern.stitches.len(), 324, "Unexpected stitch count");
     let (min_x, min_y, max_x, max_y) = pattern.bounds();
     assert_eq!((max_x - min_x).abs() as i32, 500, "Unexpected width");
@@ -52,7 +49,7 @@ fn test_read_jef_synthetic_large_fixture() {
     let data = std::fs::read(path).expect("Failed to read SyntheticLarge.jef fixture");
     let pattern = read_jef(&data).expect("Failed to parse SyntheticLarge.jef");
 
-    // --- Same assertions as the removed Bear Mask test ------------------
+    // --- Assertions for synthetic large design ------------------
     assert!(
         !pattern.stitches.is_empty(),
         "Expected stitches in synthetic large design"

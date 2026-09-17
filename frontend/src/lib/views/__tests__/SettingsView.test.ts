@@ -583,8 +583,7 @@ describe("SettingsView.svelte", () => {
       expect(screen.getByTestId("catalogue-migration-dialog")).toBeInTheDocument();
     });
 
-    // Terminal error state must offer a dismiss control (regression: previously
-    // the modal had no button and the only escape was quitting the app).
+    // Terminal error state must offer a dismiss control.
     const closeButton = screen.getByTestId("close-catalogue-migration");
     expect(closeButton).toHaveTextContent("Close");
 

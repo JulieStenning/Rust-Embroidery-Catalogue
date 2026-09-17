@@ -409,10 +409,8 @@ mod tests {
 
     #[test]
     fn suggest_path_rule_synonym_alphabet_words_and_letters() {
-        // The retired "Alphabets" tag used to match alphabet folders via generic
-        // token overlap. After the rename to "Words and Letters" that overlap is
-        // gone, so the synonym restores it — and the singular/plural check makes
-        // one entry cover both "Alphabet" and "Alphabets".
+        // "Alphabet" and "Alphabets" map via synonym to the "Words and Letters"
+        // tag (singular/plural check covers both forms).
         let valid = HashSet::from(["Words and Letters".to_string()]);
         for folder in ["Alphabet", "alphabets", "ALPHABETS"] {
             let matched = suggest_path_rule_descriptions(

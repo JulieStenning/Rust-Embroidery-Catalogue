@@ -280,7 +280,7 @@ describe("commandAdapter merge_mode forwarding", () => {
     });
   });
 
-  it("omits merge_mode when not provided, preserving legacy behaviour", async () => {
+  it("omits merge_mode when not provided", async () => {
     await runUnifiedBackfill({
       action_mode: "tag_all",
       run_vision: true,

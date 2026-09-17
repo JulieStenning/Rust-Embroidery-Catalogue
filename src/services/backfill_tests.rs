@@ -104,8 +104,7 @@ async fn run_unified_backfill_retag_all_processes_all_designs_beyond_batch_size(
     clear_stop_signal();
     let pool = make_test_pool().await;
     // seed_basic provides the 'Cats' image tag plus designs 1..=3. Add more so
-    // the total exceeds the batch size, proving pagination reaches EVERY design
-    // (previously a single `LIMIT batch_size` run only ever touched the first batch).
+    // the total exceeds the batch size, proving pagination reaches EVERY design.
     seed_basic(&pool).await;
     for id in 4..=250_i64 {
         sqlx::query(

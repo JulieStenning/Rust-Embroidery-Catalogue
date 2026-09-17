@@ -393,9 +393,8 @@ fn collapse_dup_slashes(input: &str) -> String {
 ///   treated as the root);
 /// * exact case is preserved — never lower-cased here.
 ///
-/// Inputs that still carry an absolute root (e.g. a legacy `C:/…` path with no
-/// container marker) are returned unchanged so a resolver can reproduce the
-/// old absolute passthrough behaviour rather than inventing a wrong base.
+/// Inputs that carry an absolute root (e.g. a `C:/…` path with no
+/// container marker) are returned unchanged.
 pub fn canonical_design_rel(input: &str) -> String {
     let slashed = input.trim().replace('\\', "/");
     let collapsed = collapse_dup_slashes(&slashed);
@@ -403,8 +402,7 @@ pub fn canonical_design_rel(input: &str) -> String {
         return String::new();
     }
 
-    // A leading '/' marks the library/base root in legacy stored paths, so it is
-    // stripped to yield a base-relative path (the canonical form has no leading
+    // A leading '/' is stripped to yield a base-relative path (the canonical form has no leading
     // slash). A leading `MachineEmbroideryDesigns` container segment is dropped too.
     let trimmed = collapsed.trim_start_matches('/');
     if trimmed.is_empty() {
@@ -418,8 +416,7 @@ pub fn canonical_design_rel(input: &str) -> String {
         return tail.trim_start_matches('/').to_string();
     }
 
-    // A Windows drive prefix (e.g. "C:/...") is a real absolute path and cannot
-    // be reduced without a base; preserve it for the legacy absolute passthrough.
+    // A Windows drive prefix (e.g. "C:/...") is an absolute path; preserve it.
     if head.len() == 2 && head.ends_with(':') {
         return collapsed;
     }
@@ -468,9 +465,7 @@ pub fn design_rel_from_full(full: &str, library_root: &Path) -> Option<String> {
 ///
 /// * empty → `library_root` itself;
 /// * canonical relative → `library_root.join(rel)`;
-/// * a leftover absolute string → returned as-is (`PathBuf::join` semantics
-///   reproduce the legacy absolute passthrough for any row the migration could
-///   not reduce).
+/// * an absolute path → returned as-is.
 pub fn resolve_design_filepath(stored: &str, library_root: &Path) -> PathBuf {
     let canonical = canonical_design_rel(stored);
     if canonical.is_empty() {
@@ -515,21 +510,24 @@ pub fn bootstrap_config_path() -> PathBuf {
 /// The base platform app-data directory (`%APPDATA%` on Windows, etc.).
 fn app_data_base_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
-    {
-        std::env::var("APPDATA")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("."))
-    }
+    return std::env::var("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."));
+
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(home).join("Library/Application Support")
+        return PathBuf::from(home).join("Library/Application Support");
     }
+
     #[cfg(target_os = "linux")]
     {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(home).join(".local/share")
+        return PathBuf::from(home).join(".local/share");
     }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    PathBuf::from(".")
 }
 
 /// Read the persisted user data-root from the bootstrap config.

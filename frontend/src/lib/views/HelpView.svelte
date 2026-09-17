@@ -146,7 +146,7 @@
         <strong>In-app actions:</strong> run Gemini Vision from
         <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
           >Admin → Batch Operations</a
-        >. AI tagging no longer runs automatically during import.
+        >. AI tagging runs on demand in Batch Operations rather than during import.
       </p>
       <p>
         <strong>Potential costs:</strong> review

@@ -9,8 +9,7 @@ import { beginBusy, endBusy, resetBusy } from "../lib/stores/busyStore.js";
 // Mock normalizeHash as a passthrough (minus query strings). The real
 // implementation collapses unknown routes to "#/designs", which makes the
 // Route Not Found branch unreachable in tests (by design, unknown routes
-// land on the browse page in production). The "#/projects/new" route is
-// handled by the real normalizeHash, so it no longer needs mocking.
+// land on the browse page in production).
 // Keeping the query-stripping behavior lets help-section scrolling work too.
 // ---------------------------------------------------------------------------
 vi.mock("../lib/utils/routing.js", async (importOriginal) => {

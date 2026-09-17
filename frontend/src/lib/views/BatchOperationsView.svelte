@@ -51,7 +51,8 @@
     {
       id: "full_rescan",
       title: "Full re-scan (both methods)",
-      subtitle: "Run file & folder rules and Gemini Vision and merge the results. (Requires API key)",
+      subtitle:
+        "Run file & folder rules and Gemini Vision and merge the results. (Requires API key)",
       requiresAi: true,
     },
   ];

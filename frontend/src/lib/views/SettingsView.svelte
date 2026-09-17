@@ -720,9 +720,9 @@
             </button>
           </div>
           <p class="mt-1 text-xs text-gray-500">
-            Model used for Gemini Vision tagging. Leave blank to let the app auto-select an available
-            Gemini model. If a model you pick is later retired, the app falls back to auto-selection
-            at run time.
+            Model used for Gemini Vision tagging. Leave blank to let the app auto-select an
+            available Gemini model. If a model you pick is later retired, the app falls back to
+            auto-selection at run time.
           </p>
           <p class="mt-1 text-xs text-gray-500">
             <strong>Flash models are recommended</strong> — they are the fastest and cheapest for tagging.

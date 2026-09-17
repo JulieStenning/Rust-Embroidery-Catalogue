@@ -48,28 +48,6 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
     Ok(pool)
 }
 
-/// Legacy convenience wrapper for code paths not yet migrated to `AppPaths`.
-/// Uses `BootstrapConfig::from_env()` to derive the database URL and returns
-/// a typed error instead of panicking.
-pub async fn establish_connection_from_env() -> Result<SqlitePool, ConnectionError> {
-    let database_url = BootstrapConfig::from_env().database_url;
-
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect(&database_url)
-        .await
-        .map_err(|e| {
-            ConnectionError::PoolConnect(format!(
-                "Failed to connect to database '{}': {}",
-                database_url, e
-            ))
-        })?;
-
-    configure_pragmas(&pool, &database_url).await?;
-
-    Ok(pool)
-}
-
 /// Apply the standard SQLite PRAGMA configuration on a freshly opened
 /// connection:
 ///  - `busy_timeout = 30000` — wait up to 30s for a busy database.
@@ -176,11 +154,6 @@ mod tests {
         ))
     }
 
-    /// Convert a filesystem path to forward slashes for use in a `sqlite:///` URL.
-    fn path_to_sqlite_abs_url(path: &std::path::Path) -> String {
-        format!("sqlite:///{}", path.to_string_lossy().replace('\\', "/"))
-    }
-
     // ─── ConnectionError::Display ────────────────────────────────────────────
 
     #[test]
@@ -267,81 +240,5 @@ mod tests {
 
         // No database file should have been created.
         assert!(!tmp.exists(), "tmp dir should not have been created");
-    }
-
-    // ─── establish_connection_from_env (happy path) ──────────────────────────
-
-    #[tokio::test]
-    async fn establish_connection_from_env_succeeds_with_valid_url() {
-        let tmp = unique_tmp_dir("env-happy");
-        let database_path = tmp.join("env_test.db");
-
-        // Ensure parent directory exists.
-        if let Some(parent) = database_path.parent() {
-            std::fs::create_dir_all(parent).expect("create parent dir");
-        }
-
-        // Create empty db file so SQLite can open it.
-        std::fs::write(&database_path, []).expect("create empty db file");
-
-        // Use the `sqlite:///` URI form with forward slashes — the standard
-        // absolute-path URI format that SQLx understands on all platforms.
-        let database_url = path_to_sqlite_abs_url(&database_path);
-
-        // Save and override DATABASE_URL.
-        let prior = std::env::var("DATABASE_URL").ok();
-        std::env::set_var("DATABASE_URL", &database_url);
-
-        let pool = establish_connection_from_env()
-            .await
-            .expect("database connection should succeed");
-
-        // Verify the pool is usable.
-        let row: (i64,) = sqlx::query_as("SELECT 1")
-            .fetch_one(&pool)
-            .await
-            .expect("query should succeed");
-        assert_eq!(row.0, 1);
-
-        pool.close().await;
-
-        // Restore the original variable.
-        if let Some(val) = prior {
-            std::env::set_var("DATABASE_URL", val);
-        } else {
-            std::env::remove_var("DATABASE_URL");
-        }
-
-        // Clean up.
-        let _ = std::fs::remove_dir_all(&tmp);
-    }
-
-    // ─── establish_connection_from_env (error path) ─────────────────────────
-
-    #[tokio::test]
-    async fn establish_connection_from_env_returns_error_for_invalid_path() {
-        let tmp = unique_tmp_dir("env-error");
-        // Do NOT create tmp — the parent directory is missing, so connect will fail.
-        let database_path = tmp.join("nonexistent").join("db.db");
-        let database_url = path_to_sqlite_abs_url(&database_path);
-
-        let prior = std::env::var("DATABASE_URL").ok();
-        std::env::set_var("DATABASE_URL", &database_url);
-
-        let result = establish_connection_from_env().await;
-
-        // Restore (only reached if the panic doesn't fire).
-        if let Some(val) = prior {
-            std::env::set_var("DATABASE_URL", val);
-        } else {
-            std::env::remove_var("DATABASE_URL");
-        }
-
-        assert!(result.is_err(), "expected an error for an invalid DB path");
-        let err = result.unwrap_err();
-        assert!(
-            err.to_string().contains("Failed to connect to database"),
-            "unexpected error: {err}"
-        );
     }
 }

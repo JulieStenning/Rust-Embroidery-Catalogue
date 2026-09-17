@@ -1767,9 +1767,7 @@ fn like_pattern(term: &str) -> String {
     }
 }
 
-/// Folder-name search matches the canonical relative `filepath` directly — no
-/// container stripping is needed because stored paths no longer carry the
-/// `MachineEmbroideryDesigns` marker or a leading slash (see `crate::paths`).
+/// Folder-name search matches the canonical relative `filepath` directly.
 fn library_folder_sql_expr(column: &str) -> String {
     column.to_string()
 }

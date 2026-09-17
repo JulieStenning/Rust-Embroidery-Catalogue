@@ -2,8 +2,8 @@
 
 The import wizard's final step is **Before You Import**. For a brand-new catalogue it
 pauses once to point out that no hoops are configured, and it explains how automatic
-tagging works. There is no longer a set of "Review Hoops / Tags / Sources / Designers"
-buttons on this step — reference data is managed in the Admin pages at any time.
+tagging works. Reference data (hoops, tags, sources, designers) can be managed in the
+Admin pages at any time.
 
 ## What the final step shows
 

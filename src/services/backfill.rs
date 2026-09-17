@@ -404,9 +404,7 @@ pub async fn run_unified_backfill_with_progress(
 
             // Page through ALL matching designs in ascending-id batches of
             // `batch_size`, processing each batch with up to `workers` concurrent
-            // tasks. Previously the query ran once with `LIMIT batch_size` and a
-            // serial loop, so an "ALL" mode like retag_all could only ever touch
-            // the first batch and the Workers control was never used.
+            // tasks.
             let mut tagging_cursor: i64 = 0;
             let mut tagging_total: i64 = 0;
             loop {

@@ -1,4 +1,4 @@
-// Backward compatibility barrel re-exporting all domain adapters
+// Domain adapter barrel exports
 export * from "./ipcClient";
 export * from "./designsAdapter";
 export * from "./projectsAdapter";
