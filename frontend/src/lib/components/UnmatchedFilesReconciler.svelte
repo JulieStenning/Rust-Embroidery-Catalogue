@@ -41,9 +41,11 @@
   let importButtonLabel = $derived.by(() => {
     if (importing) {
       const progress = $restoreProgressStore;
-      const total = totalToImport || $unmatchedFilesStore.count;
       if (progress.active && progress.scope === "import-unmatched" && progress.scanned > 0) {
-        return `Processing ${progress.scanned} of ${total} files`;
+        const total =
+          progress.total > 0 ? progress.total : totalToImport || $unmatchedFilesStore.count;
+        const current = Math.min(progress.scanned, total);
+        return `Processing ${current} of ${total} files`;
       }
       return "Importing…";
     }
@@ -86,6 +88,7 @@
   /** Batch-import unmatched design files as new catalogue records. */
   async function handleImport() {
     if (importing || busyActive) return;
+    resetRestoreProgress();
     importing = true;
     cancelling = false;
     totalToImport = $unmatchedFilesStore.count;

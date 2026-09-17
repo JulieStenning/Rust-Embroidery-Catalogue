@@ -20,6 +20,7 @@ export interface RestoreProgressState {
   /** True once the operation has reached its terminal ("completed") phase. */
   terminal: boolean;
   scanned: number;
+  total: number;
   copied: number;
   skipped: number;
   totalBytes: number;
@@ -34,6 +35,7 @@ export const idleRestoreProgress: RestoreProgressState = {
   status: "",
   terminal: false,
   scanned: 0,
+  total: 0,
   copied: 0,
   skipped: 0,
   totalBytes: 0,

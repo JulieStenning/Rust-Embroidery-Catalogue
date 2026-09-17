@@ -1002,6 +1002,7 @@ export interface RestoreProgress {
   /** Neutral status: "starting" | "running" | "done" | "failed" | "rolled-back" | "cancelled". */
   status: string;
   scanned: number;
+  total: number;
   copied: number;
   skipped: number;
   total_bytes: number;

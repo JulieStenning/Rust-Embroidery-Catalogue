@@ -177,6 +177,7 @@ pub async fn restore_database(
                 "rolled-back".to_string()
             },
             scanned: 0,
+            total: 0,
             copied: 0,
             skipped: 0,
             total_bytes: 0,
@@ -261,6 +262,7 @@ pub async fn restore_designs_incremental(
                 "done".to_string()
             },
             scanned: outcome.scanned,
+            total: outcome.scanned,
             copied: outcome.copied + outcome.updated,
             skipped: outcome.skipped,
             total_bytes: outcome.total_bytes_copied,
@@ -399,6 +401,7 @@ pub async fn restore_both(
             phase: "reconcile".to_string(),
             status: "running".to_string(),
             scanned: designs.scanned,
+            total: designs.scanned,
             copied: designs.copied + designs.updated,
             skipped: designs.skipped,
             total_bytes: designs.total_bytes_copied,
@@ -431,6 +434,7 @@ pub async fn restore_both(
                 "done".to_string()
             },
             scanned: designs.scanned,
+            total: designs.scanned,
             copied: designs.copied + designs.updated,
             skipped: designs.skipped,
             total_bytes: designs.total_bytes_copied,
@@ -512,6 +516,7 @@ pub async fn import_unmatched_design_files(
                         "done".to_string()
                     },
                     scanned: result.detected as u64,
+                    total: result.detected as u64,
                     copied: result.imported as u64,
                     skipped: 0,
                     total_bytes: 0,

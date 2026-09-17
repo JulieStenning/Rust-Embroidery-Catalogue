@@ -153,6 +153,7 @@ describe("UnmatchedFilesReconciler", () => {
       status: "running",
       terminal: false,
       scanned: 2,
+      total: 5,
       copied: 2,
       skipped: 0,
       totalBytes: 0,
@@ -179,6 +180,50 @@ describe("UnmatchedFilesReconciler", () => {
         "success"
       )
     );
+  });
+
+  it("clamps live progress count so scanned does not exceed total", async () => {
+    setUnmatchedFilesDetected(5, 10, ["a.pes"]);
+    let resolveImport!: (value: unknown) => void;
+    adapterMocks.importUnmatchedDesignFiles.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveImport = resolve;
+        })
+    );
+    render(UnmatchedFilesReconciler);
+
+    await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
+    await fireEvent.click(screen.getByRole("button", { name: /Import 5 file/ }));
+
+    // Stream progress update where scanned exceeds total
+    restoreProgressStore.set({
+      active: true,
+      scope: "import-unmatched",
+      phase: "import",
+      status: "running",
+      terminal: false,
+      scanned: 9,
+      total: 5,
+      copied: 5,
+      skipped: 0,
+      totalBytes: 0,
+      percent: 1.0,
+      error: null,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Processing 5 of 5 files" })).toBeInTheDocument()
+    );
+
+    resolveImport({
+      source: "rust",
+      detected: 5,
+      imported: 5,
+      flagged: 0,
+      failed: 0,
+      failed_samples: [],
+    });
   });
 
   it("cancels a running import and reports the partial result", async () => {

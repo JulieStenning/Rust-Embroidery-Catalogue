@@ -700,6 +700,7 @@ fn restore_progress_new_initializes_defaults() {
     assert_eq!(p.phase, "designs");
     assert_eq!(p.status, "running");
     assert_eq!(p.scanned, 0);
+    assert_eq!(p.total, 0);
     assert_eq!(p.copied, 0);
     assert_eq!(p.skipped, 0);
     assert_eq!(p.total_bytes, 0);

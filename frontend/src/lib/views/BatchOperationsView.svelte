@@ -996,7 +996,7 @@
           >{" "}
           recomputes &amp; overwrites the data for every design;
           <strong>missing previews</strong>{" "}
-          fills the gaps in the designs that lack a cached thumbnail. No tags are ever changed.
+          fills the gaps in the designs that lack an image. No tags are ever changed.
         </p>
         <div class="space-y-2">
           <label
@@ -1044,7 +1044,7 @@
                 {/if}
               </div>
               <p class="text-gray-500 text-xs mt-0.5">
-                Targets only designs that lack a cached thumbnail.
+                Targets only designs that lack a preview image.
               </p>
             </div>
           </label>

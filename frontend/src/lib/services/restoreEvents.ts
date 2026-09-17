@@ -26,6 +26,7 @@ export async function initRestoreProgressEvents(): Promise<UnlistenFn> {
       status: String(p?.status || ""),
       terminal: phase === "completed",
       scanned: Number(p?.scanned ?? 0),
+      total: Number(p?.total ?? 0),
       copied: Number(p?.copied ?? 0),
       skipped: Number(p?.skipped ?? 0),
       totalBytes: Number(p?.total_bytes ?? 0),
