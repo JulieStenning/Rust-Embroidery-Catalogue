@@ -1,80 +1,30 @@
-# --- Rust specific ---
-/target/
+# ==========================================
+# Rust & Cargo
+# ==========================================
+target/
 **/*.rs.bk
+
+# ==========================================
+# Node & Frontend
+# ==========================================
 node_modules/
-
-# --- Python specific ---
-__pycache__/
-venv/
-.venv/
-env/
-.env/
-build/
 dist/
-*.spec
-
-# --- OS specific ---
-.DS_Store
-Thumbs.db
-
-# --- Logs and temporary files ---
-audit-logs/
-
-# --- Data specific ---
-data/
-/dev_data/
-beta testing cline.txt
-rust.csv
-preview.png
-settings.csv
-Google Api Key.txt
-.env
-bash.exe.stackdump
-current chat.txt
-Start the ollama server.url
-logs/
-Zed ollama qwen.txt
-docs/Specs/Embroidery Design Management UI Overview.md
-tests/user tests template.md
-tests/Browse.md
-tests/User test git issues/Browse.md
-tests/User test git issues/user tests template.md
-tests/User test git issues/import.md
-tests/User test git issues/Bulk Import - Pre-import Actions
-tests/User test git issues/Bulk Import - Review Scanned Files
-tests/User test git issues/Help.md
-tests/User test git issues/Projects.md
-tests/User test git issues/Bulk Import - Pre-import Actions.md
-tests/User test git issues/Bulk Import - Review Scanned Files.md
-tests/User test git issues/Designers.md
-tests/User test git issues/Hoops.md
-tests/User test git issues/Sources.md
-tests/User test git issues/Tags.md
+build/
+*.tsbuildinfo
 frontend/eslint_errors.txt
-tests/Test Designs/Rose.eof
-copy portable files for Julie.bat
-examples/gen_jef_fixture.rs
+
+# ==========================================
+# Testing & Coverage
+# ==========================================
 coverage/
-temp
 vitest-coverage-confirm.txt
-Deepseek Key.txt
-copy_database.bat
-copy_seed_database.bat
-Install.lnk
-Tag Rules.xlsx
-dev-datax
-cargo_deny_report.txt
-auto_tagging.py
-gemini_client.py
-src-tauri/resources/tags insert.sql
-scripts/Tag_group_counts.sql
 
 # Playwright
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
 tests/e2e/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
 tests/e2e/.data-root/
 tests/e2e/.empty-data-root/
 tests/e2e/.hoops-data-root/
@@ -82,4 +32,48 @@ tests/e2e/.import-source/
 tests/e2e/.empty-import-source/
 tests/e2e/.mixed-import-source/
 
-docs/temp-tidyup.md
+# ==========================================
+# Python & Virtual Environments
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+
+# ==========================================
+# Environment Secrets & API Keys
+# ==========================================
+.env
+.env.*
+!*.env.example
+Google Api Key.txt
+Deepseek Key.txt
+*Key.txt
+* Key.txt
+
+# ==========================================
+# Logs & Temporary Directories
+# ==========================================
+audit-logs/
+logs/
+temp/
+*.log
+
+# ==========================================
+# Operating System & System Dumps
+# ==========================================
+.DS_Store
+Thumbs.db
+*.stackdump
+*.lnk
+
+# ==========================================
+# Local Data & Dev Scratch Files
+# ==========================================
+data/
+dev_data/
+src-tauri/resources/tags insert.sql
+tests/Test Designs/Rose.eof

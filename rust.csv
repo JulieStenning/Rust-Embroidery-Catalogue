@@ -1,6 +1,0 @@
-format,stitch_count,width_mm,height_mm,begin_x,begin_y,end_x,end_y,thread_changes,colour_changes
-dst,324,500.00,500.00,-83.00,-83.00,-250.00,-250.00,0,1
-exp,324,500.00,500.00,-125.00,-125.00,0.00,0.00,2,1
-jef,324,500.00,500.00,-125.00,-125.00,0.00,0.00,1,0
-pes,323,500.00,506.00,-250.00,6.00,0.00,0.00,2,1
-vp3,Bean.vp3,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR
