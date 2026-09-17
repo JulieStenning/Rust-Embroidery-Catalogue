@@ -227,4 +227,3 @@ folder in the active data root.
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) — enable optional AI-powered design tagging.
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) — first-import and later-import precheck review flow.
 - [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — fix common problems.
-- [../COMMERCIAL.md](../COMMERCIAL.md) — paid Windows installer build for non-technical users.
