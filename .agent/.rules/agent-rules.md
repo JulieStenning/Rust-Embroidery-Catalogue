@@ -49,8 +49,8 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 - Maintain strict type parity across the IPC bridge. If a Rust `struct` is returned by a Tauri command, you must create a matching TypeScript `interface` in `src/lib/types/`.
 
 ### 2. Strict Typing & No Implicit Any
-- **No Implicit Any:** You must never write code that triggers the TypeScript compiler error: `"Parameter 'xxxx' implicitly has an 'any' type."`
-- **Strict Parameter Typing:** Every single function, method, and arrow function parameter must be explicitly typed (e.g., `function handleSelect(id: string, event: Event)`). Never leave parameters unannotated.
+- **No Implicit Any (TS7006):** You must never write code that triggers `"Parameter 'xxxx' implicitly has an 'any' type."` Every single function, method, callback, and arrow function parameter must be explicitly typed (e.g., `function handleSelect(id: string, event: Event)` or `const rank = (/** @type {string} */ name) => { ... }`). Never leave parameters unannotated.
+- **Empty Collection State (TS7005):** When initializing empty array or object state with `$state([])` or `$state({})` in JS/Svelte components, always provide an explicit JSDoc type annotation (e.g. `/** @type {string[]} */ let items = $state([]);` or `let items = $state(/** @type {string[]} */ ([]));`), otherwise TypeScript infers `any[]`.
 - **Tauri Invoke Typing:** When calling `invoke("command_name", { arg: value })`, ensure that the data type of the payload object matches the exact structure expected by the Rust backend command.
 
 ### 3. Lint & Type Verification

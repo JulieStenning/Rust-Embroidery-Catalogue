@@ -40,6 +40,7 @@
   let settingsAiCommitEvery = $state("");
   let settingsAiWorkers = $state("");
   let settingsAiFreeTier = $state(false);
+  /** @type {string[]} */
   let settingsGeminiModels = $state([]);
   let settingsModelsLoading = $state(false);
   let settingsModelTesting = $state(false);
@@ -183,7 +184,7 @@
    * @returns {string[]}
    */
   function sortModelsFlashFirst(models) {
-    const rank = (name) => {
+    const rank = (/** @type {string} */ name) => {
       const lower = String(name || "").toLowerCase();
       if (lower.startsWith("gemini-flash")) return 0;
       if (lower.includes("flash")) return 1;

@@ -130,7 +130,9 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
 - Maintain strict type parity across the IPC bridge. If a Rust `struct` is returned by a Tauri command, create a matching TypeScript `interface` in `src/lib/types/`.
 
 ### 2. Strict Typing & No Implicit Any
-- Every single function/method/arrow parameter must be explicitly typed.
+- Every single function/method/arrow parameter must be explicitly typed:
+  - **No Implicit Any (TS7006):** Never leave arrow functions or inner closure parameters untyped (e.g. `const rank = (/** @type {string} */ name) => { ... }`).
+  - **Empty Collection State (TS7005):** Always provide explicit JSDoc annotations when initializing empty array/object state with `$state([])` or `$state({})` (e.g. `/** @type {string[]} */ let items = $state([]);` or `let items = $state(/** @type {string[]} */ ([]));`), otherwise TypeScript infers `any[]`.
 - **Guard nullable values before narrowing calls:** Short-circuit `null` first when passing into APIs requiring non-null types:
   ```typescript
   const uiKind = resolveCurrentUiKind(route); // string | null
