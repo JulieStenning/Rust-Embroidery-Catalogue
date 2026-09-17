@@ -2,6 +2,12 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "format": "npm --prefix frontend run format && npx prettier --write README.md CONTRIBUTING.md SECURITY.md docs/DEVELOPER_GUIDE.md docs/README.md",
+    "format:check": "npm --prefix frontend run format:check && npx prettier --check README.md CONTRIBUTING.md SECURITY.md docs/DEVELOPER_GUIDE.md docs/README.md",
+    "check:frontend": "npm test && npm run format:check && npm run lint:frontend",
+    "check:rust": "cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo doc --no-deps && cargo test",
+    "check:all": "npm run check:frontend && npm run check:rust",
     "e2e": "playwright test",
     "e2e:coverage": "playwright test",
     "e2e:report": "start coverage/e2e/html/index.html",

@@ -1,0 +1,10 @@
+node_modules
+target
+coverage
+dist
+build
+.system_generated
+src/lib/assets/licences.html
+src/lib/assets/npm-licences.json
+src/assets/licences.html
+src/assets/npm-licences.json
