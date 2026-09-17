@@ -173,8 +173,8 @@ describe("InitialSetupView.svelte", () => {
     const button = screen.getByRole("button", { name: "Continue →" });
     expect(button).toBeEnabled();
     // Back is hidden on the first step.
-    const backButton = screen.getByRole("button", { name: "← Back" });
-    expect(backButton).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "← Back" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("initial-setup-back")).not.toBeInTheDocument();
   });
 
   it("advances to the Sources step when Continue is clicked", async () => {
@@ -348,8 +348,8 @@ describe("InitialSetupView.svelte", () => {
     await tick();
     expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
-    const backButton = screen.getByRole("button", { name: "← Back" });
-    expect(backButton).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "← Back" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("initial-setup-back")).not.toBeInTheDocument();
 
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
   });
@@ -478,6 +478,7 @@ describe("InitialSetupView.svelte", () => {
     });
     expect(screen.getByTestId("data-root-input")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-browse")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "← Back" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
   });
 

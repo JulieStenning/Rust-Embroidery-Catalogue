@@ -1270,7 +1270,7 @@ describe("ImportView step 3 actions", () => {
     await gotoStep3(container);
 
     expect(screen.getByText("Before You Import")).toBeInTheDocument();
-    expect(screen.getByText("Note on Visual AI Tagging")).toBeInTheDocument();
+    expect(screen.getByText("Note on Tagging")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import Designs" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });

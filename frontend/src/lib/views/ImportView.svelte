@@ -1562,9 +1562,9 @@
         </p>
 
         <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
-          <p class="font-semibold text-blue-900">Note on Visual AI Tagging</p>
+          <p class="font-semibold text-blue-900">Note on Tagging</p>
           <p class="ui-help-note text-blue-900">
-            Initial import uses fast, offline File &amp Folder Rules to index your designs
+            The initial import uses fast, offline File &amp Folder Rules to index your designs
             instantly. Once finished, you can run automated Visual AI tagging anytime from Batch
             Operations to enrich your collection.
           </p>

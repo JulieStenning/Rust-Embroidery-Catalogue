@@ -28,7 +28,7 @@ All references are to `frontend/src/lib/views/ImportView.svelte` unless stated o
 
 | Spec claim | Reality today | Location |
 |---|---|---|
-| Step 3 shows an AI-tagging banner (API key present, rate limits, `Tier 2 auto: on`, "Change in Settings") | Removed. Step 3 shows one static blue note: "Initial import uses fast, offline File & Folder Rules to index your designs instantly. Once finished, you can run automated Visual AI tagging anytime from Batch Operations to enrich your collection." | `:1581-1586` |
+| Step 3 shows an AI-tagging banner (API key present, rate limits, `Tier 2 auto: on`, "Change in Settings") | Removed. Step 3 shows one static blue note: "The initial import uses fast, offline File & Folder Rules to index your designs instantly. Once finished, you can run automated Visual AI tagging anytime from Batch Operations to enrich your collection." | `:1581-1586` |
 | Step 3 has a 2D/3D preview-preference radio group with "(Saved setting: 3D)" | Removed entirely (no hits anywhere in `frontend/src`) | grep |
 | Step 3 has Review Hoops / Tags / Sources / Designers + "Continue with import" | Removed. Step 3 has `Import Designs` and `Cancel` only | `:1588-1619` |
 | Button label "Browse..." | Actual label is `Browse…` (single U+2026 ellipsis) | `:1167`, `:1202` |

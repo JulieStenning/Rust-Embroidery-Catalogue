@@ -458,18 +458,24 @@
     {/if}
 
     <!-- Bottom buttons -->
-    <div class="flex items-center justify-between pt-2 border-t border-gray-200">
-      <button
-        type="button"
-        onclick={handleBack}
-        disabled={!showBack || finishing}
-        class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded text-sm font-medium
-               hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-               disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        data-testid="initial-setup-back"
-      >
-        ← Back
-      </button>
+    <div
+      class="flex items-center pt-2 border-t border-gray-200 {showBack
+        ? 'justify-between'
+        : 'justify-end'}"
+    >
+      {#if showBack}
+        <button
+          type="button"
+          onclick={handleBack}
+          disabled={finishing}
+          class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded text-sm font-medium
+                 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
+                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          data-testid="initial-setup-back"
+        >
+          ← Back
+        </button>
+      {/if}
       <button
         type="button"
         onclick={handleContinue}

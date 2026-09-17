@@ -84,10 +84,10 @@ test.describe("bulk import", () => {
     await expect(page.getByText("Before You Import")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByText("Note on Visual AI Tagging")).toBeVisible();
+    await expect(page.getByText("Note on Tagging")).toBeVisible();
     await expect(
       page.getByText(
-        "Initial import uses fast, offline File & Folder Rules to index your designs instantly",
+        "THe initial import uses fast, offline File & Folder Rules to index your designs instantly",
       ),
     ).toBeVisible();
 
