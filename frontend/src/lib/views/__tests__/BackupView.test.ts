@@ -1102,6 +1102,7 @@ describe("BackupView", () => {
         status: "done",
         terminal: true,
         scanned: 3,
+        total: 3,
         copied: 2,
         skipped: 1,
         totalBytes: 0,

@@ -19,6 +19,7 @@ describe("restoreProgressStore", () => {
       status: "running",
       terminal: false,
       scanned: 1,
+      total: 1,
       copied: 1,
       skipped: 0,
       totalBytes: 0,

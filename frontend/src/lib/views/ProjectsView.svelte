@@ -354,7 +354,7 @@
   <section class="projects-page space-y-4 font-sans">
     <div>
       <button
-        class="menu-button-primary text-xs px-2.5 py-1"
+        class="projects-back-link menu-button-primary text-xs px-2.5 py-1"
         onclick={() => navigateTo("#/projects")}>← Projects</button
       >
     </div>
@@ -393,8 +393,7 @@
             rows="3"
             class="projects-input projects-textarea w-full border rounded px-3 py-1.5 text-sm"
             bind:value={projectNewDescription}
-            placeholder="Optional notes, goals, or deadline"
-          ></textarea>
+            placeholder="Optional notes, goals, or deadline"></textarea>
         </label>
         <button
           type="submit"
@@ -410,7 +409,7 @@
   <section class="projects-page space-y-4 font-sans">
     <div class="projects-detail-top flex items-center justify-between gap-3 no-print">
       <button
-        class="menu-button-primary text-xs px-2.5 py-1"
+        class="projects-back-link menu-button-primary text-xs px-2.5 py-1"
         onclick={() => navigateTo("#/projects")}>← Projects</button
       >
       <div class="flex flex-wrap gap-3">
@@ -454,8 +453,7 @@
             rows="2"
             class="projects-input projects-textarea w-full border rounded px-2 py-1 text-sm focus:outline-none text-gray-700"
             bind:value={projectDetailDescription}
-            placeholder="Description..."
-          ></textarea>
+            placeholder="Description..."></textarea>
           <button
             type="submit"
             class="menu-button-primary font-medium"

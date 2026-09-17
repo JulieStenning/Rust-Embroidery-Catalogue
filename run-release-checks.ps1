@@ -74,7 +74,7 @@ npx prettier --check frontend/src 2>&1 | Out-File ./audit-logs/format-prettier-r
 
 # 4. License Asset Generation & Build
 Write-Host "--> Generating License Assets..." -ForegroundColor Yellow
-Set-Location frontend; $env:FORCE_COLOR=0; npm run generate:licences 2>&1 | Out-File ../audit-logs/license-assets.txt; Set-Location ..
+$env:FORCE_COLOR=0; npm run generate:licences 2>&1 | Out-File ./audit-logs/license-assets.txt
 Write-Host "--> Executing Release Build. This will take time ..." -ForegroundColor Yellow
 $env:RUST_APP_NO_PAUSE="1"
 $ErrorActionPreference = "SilentlyContinue"

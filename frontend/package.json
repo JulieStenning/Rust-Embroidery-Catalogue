@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "generate:licences": "npm --prefix .. run generate:licences",
     "prebuild": "npm --prefix .. run generate:licences",
     "build": "vite build",
     "preview": "vite preview",
