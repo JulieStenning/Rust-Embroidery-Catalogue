@@ -166,9 +166,9 @@ function buildUnifiedBackfillWireRequest(
         ? String(request.action_mode)
         : "tag_untagged";
 
-  // File & Folder Rules (path_rule) always runs; Visual AI (ai_vision) runs when
+  // File & Folder Rules (path_rule) always runs; Gemini Vision (ai_vision) runs when
   // its toggle is on (and is additionally gated on an API key by the backend).
-  // The new workflow passes an explicit `modes` list so a Visual-AI-only goal is
+  // The new workflow passes an explicit `modes` list so a Gemini-Vision-only goal is
   // expressible without the always-on path_rule fallback.
   let modes: string[];
   if (Array.isArray(request.modes) && request.modes.length) {

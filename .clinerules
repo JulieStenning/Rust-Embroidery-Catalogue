@@ -3,16 +3,18 @@
 You are an expert AI developer assistant specializing in Rust desktop application development, modern frontend frameworks, and computational geometry/textile arts. You are helping build **Embroidery Catalogue**, a local, offline desktop tool for cataloguing and browsing digital embroidery designs.
 
 ## 🛠️ Application Architecture & Tech Stack
+
 - **Backend:** Rust (Idiomatic, clean, explicitly typed)
 - **Desktop Framework:** Tauri (v2)
 - **Frontend:** Svelte / TypeScript
 - **Database:** Local SQLite database for metadata, tags, and file references
 - **Core Logic:** Interfacing with binary embroidery file formats (reading metadata, stitches, and properties from formats like `.jef`, `.pes`, `.hus`, `.vp3`, etc., migrating logic inspired by `pyembroidery`).
-- **AI Integration (Optional):** Google Gemini API for Visual AI (vision analysis on rendered thumbnails) to handle automated metadata/tag suggestions (Tier 2 text analysis has been retired; tagging relies on offline File & Folder rules and online Visual AI).
+- **AI Integration (Optional):** Google Gemini API for Gemini Vision(vision analysis on rendered thumbnails) to handle automated metadata/tag suggestions.
 
 ---
 
 ## 🧭 Core Philosophy & Constraints
+
 - **Local & Offline First:** The app must run entirely locally. Original embroidery files must **NEVER** be moved, renamed, modified, or altered. The app only reads them to extract metadata and cache generated thumbnail previews locally.
 - **Performance:** Reading binary stitch files and rendering/caching previews efficiently in Rust is a critical priority. Keep the UI responsive.
 - **Separation of Concerns:** Maintain a clean architectural boundary between the Rust backend and the Svelte frontend.
@@ -26,8 +28,8 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 When a configured resource (database, data root, seed asset) is absent or invalid:
 
 1. **Audit every side effect** that touches the stale/invalid path — folder creation, log writes, cache/thumbnail generation, temp files, background tasks — and gate ALL of them on the same single recovery/invalid-state decision. Example: the database-recovery flow correctly stopped seeding the DB when missing, but still re-created empty `Database/`, `MachineEmbroideryDesigns/` and `logs/` at the stale root via `create_dir_all` and `logging::init_logging`. Each had to be gated separately.
-2. **Write the "must NOT happen" test explicitly.** A test suite that only asserts what *should* be created will always be blind to leftovers at an invalid path. Add negative assertions (e.g. "recovery mode must NOT create dirs at the stale root") alongside the positive ones.
-3. **Enumerate the full state space before designing the flow.** *exists-valid*, *missing*, and *exists-but-invalid/corrupt* are distinct states with different user paths. If a follow-up reveals a state you didn't model (e.g. "what if the DB exists but is corrupt?"), the plan was incomplete — re-plan, don't patch.
+2. **Write the "must NOT happen" test explicitly.** A test suite that only asserts what _should_ be created will always be blind to leftovers at an invalid path. Add negative assertions (e.g. "recovery mode must NOT create dirs at the stale root") alongside the positive ones.
+3. **Enumerate the full state space before designing the flow.** _exists-valid_, _missing_, and _exists-but-invalid/corrupt_ are distinct states with different user paths. If a follow-up reveals a state you didn't model (e.g. "what if the DB exists but is corrupt?"), the plan was incomplete — re-plan, don't patch.
 4. **Order writes so nothing is persisted until a valid decision is made.** In multi-step flows, an "invalid" branch must not write config/persist state before the user resolves the situation (or explicitly confirms replacement). And for replacement of an invalid file, prefer **rename-aside** (`<file>.corrupt-<timestamp>`) over delete — it is never safe to destroy the only copy of user data.
 5. **Single source of truth for the invalid state.** Compute the recovery/invalid condition once (e.g. `paths::database_recovery_mode(&AppPaths)`) and reference it everywhere — startup, logging, background init, UI gating — instead of re-deriving the condition in each caller.
 
@@ -36,11 +38,13 @@ When a configured resource (database, data root, seed asset) is absent or invali
 ## 🧱 Core Architectural Boundaries
 
 ### 1. Database & Queries
-- Keep all SQLite queries **strictly inside the Rust backend**. 
+
+- Keep all SQLite queries **strictly inside the Rust backend**.
 - Never expose raw SQL or database connections to the frontend. Expose data to Svelte only via high-level, intentional Tauri commands.
 - Manage the SQLite connection via Tauri's native managed state (`tauri::State`). Do not spin up or open separate database instances per command.
 
 ### 2. Tauri IPC Bridge
+
 - All backend functions exposed to the frontend must use Tauri commands returning a `Result<T, E>`.
 - The error type `E` must be a custom, descriptive, and serializable enum (e.g., using `thiserror` and `serde::Serialize`) so the frontend receives explicit error strings instead of generic panics.
 - **CamelCase Invoke Keys (CRITICAL):** Tauri v2 automatically maps camelCase JavaScript invoke keys to snake_case Rust command parameters. **All `invoke()` payload keys MUST use camelCase** matching the Rust parameter names. Passing snake_case keys will cause Tauri to silently drop them — the parameters arrive as `None` with **NO error** — leading to hours of debugging.
@@ -54,8 +58,8 @@ When a configured resource (database, data root, seed asset) is absent or invali
   ```typescript
   // Correct JavaScript invoke — camelCase keys map to snake_case Rust params
   invoke("run_stitching_backfill", {
-      clearStitchingMode: "all",   // camelCase → maps to clear_stitching_mode
-      batchSize: 100,              // camelCase → maps to batch_size
+    clearStitchingMode: "all", // camelCase → maps to clear_stitching_mode
+    batchSize: 100, // camelCase → maps to batch_size
   });
   ```
 - **Adapter tests MUST assert exact camelCase keys:** Every `commandAdapter` test that mocks `invoke()` MUST assert the exact camelCase payload keys that Tauri expects to exchange with the Rust command. Tests pass with snake_case keys because the mock never performs Tauri deserialization — they only pass if they check the exact wire keys.
@@ -63,12 +67,14 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - **`AppHandle::path()` needs the `Manager` trait:** Tauri v2's `PathResolver` (used for `app_handle.path().document_dir()` etc.) comes from the `Manager` trait. Without `use tauri::Manager;` you get `no method named "path" found for AppHandle`. Prefer `app_handle.path().document_dir()` over hand-rolled env-var Documents resolution.
 
 ### 3. Frontend Isolation
-- Svelte components must **not** call `invoke()` directly. 
+
+- Svelte components must **not** call `invoke()` directly.
 - Abstract all Tauri IPC calls into dedicated TypeScript service modules under `src/lib/services/` (e.g., `src/lib/services/db.ts`, `src/lib/services/parser.ts`).
 
 ### 4. Catalogue Data Root Persistence
+
 - **The catalogue data root is persisted ONLY to the bootstrap `config.json`** via `paths::write_bootstrap_data_root` / the `set_configured_data_root` Tauri command — **never** to the SQLite settings table.
-- `save_settings_view_model_inner` deliberately ignores `request.data_root` (the `let _ = request.data_root;` line). This is by design: the SQLite database file lives *under* the data root, so the DB cannot store its own location (bootstrapping chicken-and-egg).
+- `save_settings_view_model_inner` deliberately ignores `request.data_root` (the `let _ = request.data_root;` line). This is by design: the SQLite database file lives _under_ the data root, so the DB cannot store its own location (bootstrapping chicken-and-egg).
 - After a data-root change is persisted, the app **must restart** for the running backend to relocate. A settings-table save alone does NOT relocate the catalogue.
 - The Settings "Browse…" flow should therefore: pick the folder → `setConfiguredDataRoot(path)` → show a restart-required dialog (same pattern as `InitialSetupView.svelte`).
 - **Test / e2e data-root override (`EMBROIDERY_DATA_ROOT`) — debug builds only.** An absolute `EMBROIDERY_DATA_ROOT` redirects the Dev-mode data root so the Playwright harness can run against a throwaway root instead of the developer's real `dev_data/`. It is honoured **only** inside `resolve_paths_from_exe_dir` and **only** under `cfg!(debug_assertions)`; release builds must ignore it so an ambient variable can never relocate a shipped catalogue. Relative/blank values are ignored. Keep it in the `paths.rs` single-source-of-truth rather than re-deriving it anywhere.
@@ -87,7 +93,7 @@ When a configured resource (database, data root, seed asset) is absent or invali
   - When a feature migrates across the IPC boundary, grep both `src/` and `frontend/src/` for assertions/contracts referencing the old surface (slugs, commands, routes, mock keys) and update them together.
 
 - **Static-import roots differ per tool, and the difference silently masks breakage:**
-  - Vite's production build is rooted at `frontend/` and **cannot** import files outside it (`?raw`, JSON, etc.); Vitest is repo-rooted and *can*, so an import that works in tests can still break `vite build`.
+  - Vite's production build is rooted at `frontend/` and **cannot** import files outside it (`?raw`, JSON, etc.); Vitest is repo-rooted and _can_, so an import that works in tests can still break `vite build`.
   - When an asset generator writes outside the frontend root (e.g. `npm run generate:licences` → repo-root `src/assets/`), add an explicit **sync step** — a small Node script plus an npm lifecycle hook (`"postgenerate:licences": "node scripts/sync-licences.mjs"`) — that mirrors the files inside `frontend/src/` so both build and tests resolve the same paths.
   - **Reconcile any example import path against where the generator actually writes, including filename spelling** (e.g. `LICENSE` vs `LICENCE`). A snippet that resolves in dev/tests can fail the production build when the real file lives elsewhere or is spelled differently.
 
@@ -105,7 +111,7 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - **Build the e2e exe with the Tauri CLI, not plain `cargo build`.** A debug binary without the `custom-protocol` feature loads `build.devUrl` (`http://localhost:5173`) and renders a "can't reach this page" document whose title is `localhost`. Use `cargo tauri build --debug --no-bundle` (it embeds `frontend/dist`); wire it to an `e2e:build` npm script and rebuild after **any** Rust or frontend change.
 - **Wait out the initial navigation.** WebView2 opens on `about:blank` and then navigates to the app URL; evaluating too early throws `Execution context was destroyed…`. The `page` fixture must wait for the app root (e.g. `page.waitForSelector("#app", { state: "attached" })`) before handing the page to a test.
 - **Overriding the `browser`/`context`/`page` fixtures disables Playwright's built-in artifacts** (trace, video, screenshots, `testIdAttribute`). Capture a failure screenshot manually via `testInfo.outputPath(...)`; `video` is unsupported over `connectOverCDP`.
-- **`config.rootDir` is the *test directory*, not the repo root**, and `config.configDir` is neither on the public `FullConfig` type nor present at runtime. Derive the repo root from `__dirname` in a shared module (Playwright loads `.ts` as CJS when `package.json` has no `"type"`); never from `rootDir` / `configDir` / `process.cwd()`.
+- **`config.rootDir` is the _test directory_, not the repo root**, and `config.configDir` is neither on the public `FullConfig` type nor present at runtime. Derive the repo root from `__dirname` in a shared module (Playwright loads `.ts` as CJS when `package.json` has no `"type"`); never from `rootDir` / `configDir` / `process.cwd()`.
 - **One worker, one app.** All tests share a single SQLite DB and one desktop window → `fullyParallel: false`, `workers: 1`, unless each worker gets its own data root.
 - **`screenshot` uses different enum values to `trace`/`video`:** `screenshot` accepts `'off' | 'on' | 'only-on-failure' | 'on-first-failure'`; `'retain-on-failure'` is valid only for `trace`/`video` (otherwise TS2769).
 - **Match Playwright `outputDir` to `.gitignore`.** A root-only `/test-results/` pattern does NOT ignore a nested `tests/e2e/test-results/`.
@@ -115,6 +121,7 @@ When a configured resource (database, data root, seed asset) is absent or invali
 ---
 
 ## 🦀 Rust Coding Standards
+
 - **Zero Panics:** Absolute ban on `unwrap()` or `expect()` in binary parsing modules. Handle all out-of-bounds, empty, or malformed files gracefully via strict error types. Always write idiomatic Rust with clear, robust error types.
 - **Performance-Focused I/O:** Use buffered readers (`BufReader`) and streaming/lazy parsing logic where possible to avoid loading huge design buffers into memory at once.
 - **Automated Verification:** You **MUST** run `cargo check` or `cargo test` after editing any Rust code to ensure the borrow checker is completely satisfied and the project compiles before asking for user feedback.
@@ -122,14 +129,14 @@ When a configured resource (database, data root, seed asset) is absent or invali
 
 ### 💾 Canonical `designs.filepath` format (single source of truth)
 
-- **Invariant:** every row in `designs.filepath` is a *canonical relative path from the designs
-  library root* (`<data_root>/MachineEmbroideryDesigns` = `AppPaths.embroidery_designs_dir`).
+- **Invariant:** every row in `designs.filepath` is a _canonical relative path from the designs
+  library root_ (`<data_root>/MachineEmbroideryDesigns` = `AppPaths.embroidery_designs_dir`).
 - **Format rules:** forward slashes (`/`) only; **no leading slash**; **no absolute path or
   Windows drive letter**; preserves the filesystem's exact case (never `lower()`-ed). A design at
   the library root is stored as a bare filename (`rose.pes`) with **no** `/`; subfolder designs are
   `Flowers/rose.pes`, `Flowers/Roses/rose.pes`, etc.
-- `MachineEmbroideryDesigns` is the *container the app creates under the data root on first
-  install* — it must NEVER be stored as a path prefix in `filepath`. Do not reconstruct the library
+- `MachineEmbroideryDesigns` is the _container the app creates under the data root on first
+  install_ — it must NEVER be stored as a path prefix in `filepath`. Do not reconstruct the library
   root / container by string-matching that name; resolve it from `AppPaths`.
 - **Single source of truth:** all path logic goes through the helpers in `src/paths.rs`
   (`canonical_design_rel`, `design_rel_from_full`, `resolve_design_filepath`). Every scan/import/
@@ -144,6 +151,7 @@ When a configured resource (database, data root, seed asset) is absent or invali
 Any Rust source file whose total line count exceeds **500 lines** (production plus embedded test code) MUST have its `#[cfg(test)]` module(s) extracted into a separate sibling file.
 
 **Mechanism**
+
 - Move the body of `#[cfg(test)] mod tests { … }` into `<basename>_tests.rs` (e.g. `bulk_import_tests.rs`).
 - Replace the embedded block with a `#[path]` module declaration:
   ```rust
@@ -155,15 +163,18 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
 - `scripts/batch_extract.ps1` is a reusable template for this process; adapt its `$jobs` array for new files and run the verification steps below.
 
 **Scope**
+
 - Only the `#[cfg(test)] mod tests` body is moved. Tiny `#[cfg(test)]` helper functions and constants scattered in production code may stay in place if they are small.
 - Goal: **functional production code** in each file should be clearly separated from test infrastructure, and no single file should exceed 500 lines.
 
 **Edge cases**
+
 - **Tail-block layout** (most common): the test module is at the end of the file and no production code follows it. Extraction keeps only the production head.
 - **Interleaved layout** (e.g. `designs.rs`, which had three `#[cfg(test)]` modules between production segments): merge the module bodies into one `_tests.rs` file as nested `mod` blocks. Production segments are concatenated in order.
 - **Top-module layout** (e.g. `png_writer.rs`, where `mod tests` sits at the top): extract the body into the test file, keep the imports followed by the production code that follows the module close.
 
 **Verification**
+
 - **MUST** run `cargo check` immediately after extraction.
 - **MUST** run `cargo test <module>` to confirm all tests pass through the `#[path]` indirection.
 - `rustfmt --edition 2021` must be applied to the new test file (the crate
@@ -175,9 +186,11 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
 ## 🎨 Frontend & TypeScript Coding Standards
 
 ### 1. Type Parity
+
 - Maintain strict type parity across the IPC bridge. If a Rust `struct` is returned by a Tauri command, you must create a matching TypeScript `interface` in `src/lib/types/`.
 
 ### 2. Strict Typing & No Implicit Any
+
 - **No Implicit Any:** You must never write code that triggers the TypeScript compiler error: `"Parameter 'xxxx' implicitly has an 'any' type."`
 - **Strict Parameter Typing:** Every single function, method, and arrow function parameter must be explicitly typed (e.g., `function handleSelect(id: string, event: Event)`). Never leave parameters unannotated.
 - **Tauri Invoke Typing:** When calling `invoke("command_name", { arg: value })`, ensure that the data type of the payload object matches the exact structure expected by the Rust backend command.
@@ -189,6 +202,7 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
   ```
 
 ### 3. Lint & Type Verification
+
 - If the workspace contains a TypeScript or Svelte type-check command (such as `npm run check` or `npx svelte-check`), you **MUST** execute it after modifying frontend files to ensure zero type errors before completing your task.
 - The `check` script lives in **`frontend/package.json`** (`"check": "svelte-check"`), not in the repo-root `package.json`. Run it from inside `frontend/`:
   ```
@@ -197,11 +211,14 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
   Do **not** run `npm run check` from the repo root — it fails with `Missing script: "check"`. If a command unexpectedly reports a missing script, read the relevant `package.json` to find where it is actually defined before retrying.
 
 ### 4. Handling file edits
+
 When making changes to Svelte components or Rust backend files:
+
 - Prefer small, localized search-and-replace diffs (replace_in_file).
 - If an edit impacts more than ~30 lines or rewrites significant parts of a view, use write_to_file to replace the full file content rather than generating a massive diff.
 
 ### 5. Route-Level State Persistence
+
 - **`MainView.svelte` conditionally mounts exactly one view per `currentUiKind`.** Any route change that leaves that UI kind unmounts the view and destroys its local `$state`. Do **not** keep multi-step wizard state only in component locals if the user can navigate away and expect to return (e.g. Import step 3 linking to Admin Settings / AI Tagging Guide / About / Licence).
 - Lift such state into a module-level store (see `frontend/src/lib/stores/importSessionStore.ts`): restore it on mount, mirror every change back via `$effect`, and call its `clear()` from the wizard's reset/cancel paths. Remember to clear the store in each test's `beforeEach` (a module singleton persists across tests).
 - **Shared cross-linked navigation:** for utility/reference pages reachable from many places (About, Licence, Settings, Help, AI-Tagging Guide), use **context-aware back navigation** via `previousRoute` (already tracked in `MainView.svelte`) rather than a hardcoded "Back to X". Show the button only when a previous route actually exists.
@@ -209,16 +226,17 @@ When making changes to Svelte components or Rust backend files:
 
 ### 6. Ambient module declarations (.d.ts)
 
-- **A `.d.ts` file with any top-level `import`/`export` is a module, not an ambient script.** Its `declare module "*.ext" { … }` blocks become *module augmentations* and silently stop applying globally — the wildcard import types never apply, and `svelte-check`/TS report "Cannot find module". Keep a file of global wildcard declarations a pure *script* (no top-level import/export) and pull in library types with a triple-slash reference (e.g. `/// <reference types="vite/client" />` for `*?raw`).
-- **A concrete module import always wins over an ambient wildcard declaration.** TypeScript prefers the *actual inferred type* of a real JSON/data file over your `declare module "*.json"` shape (resulting in errors like `Property 'x' does not exist on type { … } | { … }`). Don't fight the ambient declaration — route the import through a typed accessor function whose parameter carries the desired shape (e.g. a JSDoc `Record<string, T>`), and call `String(record.field || …)` defensively since emitted record fields are optional.
+- **A `.d.ts` file with any top-level `import`/`export` is a module, not an ambient script.** Its `declare module "*.ext" { … }` blocks become _module augmentations_ and silently stop applying globally — the wildcard import types never apply, and `svelte-check`/TS report "Cannot find module". Keep a file of global wildcard declarations a pure _script_ (no top-level import/export) and pull in library types with a triple-slash reference (e.g. `/// <reference types="vite/client" />` for `*?raw`).
+- **A concrete module import always wins over an ambient wildcard declaration.** TypeScript prefers the _actual inferred type_ of a real JSON/data file over your `declare module "*.json"` shape (resulting in errors like `Property 'x' does not exist on type { … } | { … }`). Don't fight the ambient declaration — route the import through a typed accessor function whose parameter carries the desired shape (e.g. a JSDoc `Record<string, T>`), and call `String(record.field || …)` defensively since emitted record fields are optional.
 
 ### 7. Button colour / visual consistency
+
 - **Primary action buttons use the app's purple/indigo + white look** — the `settings-primary-button menu-button-primary` classes (indigo `#4f46d8` background, white text). Do **not** add ad-hoc inline `style="background-color:…"` overrides that drift the colour (e.g. amber `#d97706`). This includes restore/confirm actions: restore buttons and their confirmation-modal button are purple + white, not orange/amber.
 
 ## Running cargo tests
-Cargo tests of the full application time out when being run via cline, so either run the tests for the elements that have been changed and when neccessary ask the user to run cargo build --tests 
----
 
+Cargo tests of the full application time out when being run via cline, so either run the tests for the elements that have been changed and when neccessary ask the user to run cargo build --tests
+---
 
 ## 🧪 Svelte 5 View Testing Rules
 
@@ -232,8 +250,8 @@ After any `fireEvent` that **synchronously** changes `$state` (dropdown changes,
 import { tick } from "svelte";
 
 await fireEvent.change(select, { target: { value: "some-value" } });
-await tick();                                     // ← flush Svelte's reactive chain
-const cards = screen.getAllByRole("article");      // ← synchronous, DOM is settled
+await tick(); // ← flush Svelte's reactive chain
+const cards = screen.getAllByRole("article"); // ← synchronous, DOM is settled
 ```
 
 **Never** use `await new Promise((resolve) => setTimeout(resolve))` — it's non-deterministic and slow. **Avoid** `waitFor(() => screen.getAllByRole(...))` — the polling loop fights Svelte's microtask queue.
@@ -242,19 +260,24 @@ const cards = screen.getAllByRole("article");      // ← synchronous, DOM is se
 
 ### 2. Scope `getByText` with `within()` when text appears in multiple DOM regions (and beware raw-string matching)
 
-**Testing Library normalizes the *DOM node* it found, but compares against your *raw* matcher string.** Leading/trailing whitespace in the matcher breaks exact `getByText` matches (e.g. `getByText(" (v1.2.3)")` fails when the node renders `(v1.2.3)`). Prefer scoping with `within(container)`, then assert on `element.textContent` with `.toContain(…)` or a normalizing matcher.
+**Testing Library normalizes the _DOM node_ it found, but compares against your _raw_ matcher string.** Leading/trailing whitespace in the matcher breaks exact `getByText` matches (e.g. `getByText(" (v1.2.3)")` fails when the node renders `(v1.2.3)`). Prefer scoping with `within(container)`, then assert on `element.textContent` with `.toContain(…)` or a normalizing matcher.
 
 Mock components and `<details>` panels can cause the same text to render in multiple places (filter panels, card details, modals). Use `within()` to restrict the query:
 
 ```typescript
 const dialog = screen.getByRole("dialog");
-const checkbox = within(dialog).getByText("Tag Name").closest("label")?.querySelector("input");
+const checkbox = within(dialog)
+  .getByText("Tag Name")
+  .closest("label")
+  ?.querySelector("input");
 ```
 
 Or use a unique CSS selector:
 
 ```typescript
-const dropdown = document.querySelector("details[style*='display:inline-block']") as HTMLElement;
+const dropdown = document.querySelector(
+  "details[style*='display:inline-block']",
+) as HTMLElement;
 within(dropdown).getByText("Project Name");
 ```
 
@@ -330,9 +353,10 @@ Failing to re-import `render`/`tick` along with the component causes a dual-`sve
 
 The XML tag-nesting hazard applies to **every** tool call, not just `write_to_file`. Every
 parameter tag in **any** tool invocation MUST be closed with its exact matching closer, and
-must be closed *before* the next parameter tag begins:
+must be closed _before_ the next parameter tag begins:
 
 **CORRECT:**
+
 ```xml
 <write_to_file>
 <path>path/to/file.rs</path>
@@ -342,7 +366,7 @@ must be closed *before* the next parameter tag begins:
 </write_to_file>
 ```
 
-**Symptom of a violation:** the error message contains the *literal closing tag text* inside a
+**Symptom of a violation:** the error message contains the _literal closing tag text_ inside a
 parameter value, e.g. `File not found: ...\ipc.ts</path> <start_line>…` (the `</path>` became
 part of the filename) or `Missing value for required parameter 'regex'` (a mangled
 `search_files` call never registered its `regex` parameter).
@@ -368,15 +392,19 @@ tweaked version of the same broken shape; reformat the whole invocation first.
 Every `execute_command` runs in a fresh terminal rooted at the repo root. Chaining `cd <subdir> && <cmd>` does **not** reliably change the working directory for the rest of the command; use an explicit `cmd /c "cd <subdir> && <cmd>"` whenever the command must execute inside a subdirectory (e.g. `frontend`), so relative paths like `jsconfig.json` resolve correctly.
 
 **Correct:**
+
 ```
 cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"
 ```
+
 **Fragile** (relative `./jsconfig.json` resolves against the repo root, not `frontend/`):
+
 ```
 cd frontend && npx svelte-check --tsconfig ./jsconfig.json
 ```
 
 **Run `npm test` / Vitest from the repo root — never from inside `frontend/`.**
+
 - The root `package.json` defines `"test": "vitest run"`. `frontend/package.json` defines **no** `test` script, so running `npm test` from inside `frontend/` fails with `Missing script: "test"`.
 - The Vitest config (`vitest.config.mts`) and jsdom setup (`vitest.setup.ts`) live at the **repo root** and are **silently dropped** when you run `npx vitest` from inside `frontend/`, causing every test to fail with `ReferenceError: document is not defined` (visible as `setup: 0ms`, `environment: 0ms`).
 - Use the repo-root invocation with paths relative to the repo root:
@@ -385,7 +413,7 @@ cd frontend && npx svelte-check --tsconfig ./jsconfig.json
 - Treat a wall of `document is not defined` or `Missing script: "test"` failures as a test-runner invocation problem first, not a code problem.
 
 **Never run `cargo fmt -- <paths>` to format specific files.** The trailing args are passed
-to `rustfmt` as *options*, so `cargo fmt` will reformat the **entire crate**. To format only
+to `rustfmt` as _options_, so `cargo fmt` will reformat the **entire crate**. To format only
 specific files, invoke `rustfmt` directly:
 
 ```

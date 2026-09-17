@@ -370,7 +370,7 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_GOOGLE_API_KEY => "Google Gemini API key used for optional automated AI tagging.",
         KEY_AI_BATCH_SIZE => "Maximum number of designs to tag with AI per import run. Leave blank to tag all imported designs.",
         KEY_AI_DELAY => "Seconds to wait between Gemini API calls. Leave blank for no delay on paid, or 10 s on the free tier. Increase if you hit 429 errors.",
-        KEY_AI_GEMINI_MODEL => "Gemini model name for Visual AI tagging. Leave blank to auto-select an available model.",
+        KEY_AI_GEMINI_MODEL => "Gemini model name for Gemini Vision tagging. Leave blank to auto-select an available model.",
         KEY_AI_COMMIT_EVERY => "How often to report progress/commit during a backfill run (Batch Operations). Leave blank for the default (100).",
         KEY_AI_WORKERS => "Concurrent designs tagged in parallel by Batch Operations. Lower this to avoid Gemini rate-limit (429) errors. Leave blank for the default (4).",
         KEY_AI_FREE_TIER => "Whether your Gemini API key is on the free tier. Free-tier keys have strict per-minute and per-day limits; the app stops hard on 429 and tells you how long to wait.",

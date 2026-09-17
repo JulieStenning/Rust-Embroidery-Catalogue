@@ -15,7 +15,7 @@ Use this runbook when you need to:
 
 Open **Admin -> Settings** to manage:
 - default image preview mode for imports (2D vs 3D),
-- Google Gemini API key (used by Visual AI in Batch Operations),
+- Google Gemini API key (used by Gemini Vision in Batch Operations),
 - AI and throughput tuning values for Batch Operations runs,
 - desktop catalogue data location,
 - read-only storage location display.
@@ -28,10 +28,10 @@ Some settings are used by tagging (Batch Operations) or import workflows. Others
 
 1. Keep the app open while saving so redirects and status messages are visible.
 2. Back up first before major storage-location changes.
-3. If enabling Visual AI, confirm you understand API costs and quotas.
+3. If enabling Gemini Vision, confirm you understand API costs and quotas.
 4. For large catalogues, test with a small run before increasing throughput settings.
 
-For AI key setup and Visual AI details, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
+For AI key setup and Gemini Vision details, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 
 ---
 
@@ -70,14 +70,14 @@ Related:
 ### Google Gemini API key
 
 Purpose:
-- Enables Visual AI tagging features.
+- Enables Gemini Vision tagging features.
 
 Behavior:
 - The key is stored in the app's local settings, alongside your catalogue data.
-- You can leave this blank to run File & Folder Rules only (no Visual AI).
+- You can leave this blank to run File & Folder Rules only (no Gemini Vision).
 
 Operational guidance:
-- Paste the key and save; Visual AI can then run from Admin → Batch Operations.
+- Paste the key and save; Gemini Vision can then run from Admin → Batch Operations.
 - Use the show/hide button to verify pasted key format before saving.
 
 Security guidance:
@@ -88,13 +88,13 @@ Security guidance:
 Related:
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
 
-### Visual AI (runs from Batch Operations)
+### Gemini Vision (runs from Batch Operations)
 
-Visual AI (Gemini vision on the preview image) is **not** run automatically during import. There is no
+Gemini Vision (Gemini vision on the preview image) is **not** run automatically during import. There is no
 Settings toggle for it. Imports always apply **File & Folder Rules** only (local, free, no API key).
 
-To run Visual AI on your existing designs, open **Admin → Batch Operations**, choose a goal that
-includes Visual AI, and run it there.
+To run Gemini Vision on your existing designs, open **Admin → Batch Operations**, choose a goal that
+includes Gemini Vision, and run it there.
 
 Related:
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
@@ -196,14 +196,14 @@ Use it for:
 ### Workflow A: Conservative defaults for reliability
 
 1. Keep image preference at 2D.
-2. Keep Visual AI disabled unless needed.
+2. Keep Gemini Vision disabled unless needed.
 3. Add API key only when preparing to use AI tagging.
 4. Leave batch and commit fields blank/default.
 
 ### Workflow B: AI quality-first tagging
 
 1. Configure the API key in Settings.
-2. Run Visual AI from Admin → Batch Operations (e.g. on untagged or Visual-AI-missing designs).
+2. Run Gemini Vision from Admin → Batch Operations (e.g. on untagged or Gemini-Vision-missing designs).
 3. Start with a moderate batch size.
 4. Increase the delay if rate-limit errors appear.
 5. Review tagging outcomes and costs after the run.
@@ -230,9 +230,9 @@ Use it for:
 | Symptom | Likely cause | What to do |
 |---|---|---|
 | Settings save shows error banner | Settings could not be saved (write or path issue) | Retry save; verify write permissions; for data-root path confirm drive exists and is writable. |
-| Visual AI not running | Missing API key, or run has no Visual AI goal | Confirm key saved, then run a Visual AI goal from Admin → Batch Operations; see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md). |
+| Gemini Vision not running | Missing API key, or run has no Gemini Vision goal | Confirm key saved, then run a Gemini Vision goal from Admin → Batch Operations; see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md). |
 | Frequent `429 Too Many Requests` | API call pressure too high | Increase delay value and/or lower AI batch size; retry smaller runs. |
-| AI runs feel slow | High delay or a large candidate scope | Lower batch size or reduce Visual AI usage for routine runs; reserve full Visual AI runs for targeted updates. |
+| AI runs feel slow | High delay or a large candidate scope | Lower batch size or reduce Gemini Vision usage for routine runs; reserve full Gemini Vision runs for targeted updates. |
 | Backup actions fail due missing destination | Backup folders not configured | Configure backup destinations in maintenance backup UI; see [BACKUP_RESTORE.md](BACKUP_RESTORE.md). |
 | Data-root move appears not applied | App not restarted or wrong target path | Restart app, check Storage locations panel, then verify browse/import behavior. |
 | Designs not where expected after move | Pointing to unexpected data folder | Revert to prior known-good data location, restart, validate, then migrate again carefully. |
@@ -249,7 +249,7 @@ Use it for:
 
 ## Related guides
 
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - Visual AI tagging, costs, and bulk workflows
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - Gemini Vision tagging, costs, and bulk workflows
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) - first-import defaults and action flow
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup and restore operations
 - [GETTING_STARTED.md](GETTING_STARTED.md) - installation and basic setup

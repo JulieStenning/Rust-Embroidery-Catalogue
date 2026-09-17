@@ -1,6 +1,6 @@
 //! Shared tagging engine, used by both the unified backfill (Batch Operations) and
 //! the bulk import flow. Owns the two tagging modes — **File & Folder Rules** (local
-//! path/name matching) and **Visual AI** (Gemini vision on the rendered thumbnail) —
+//! path/name matching) and **Gemini Vision** (Gemini vision on the rendered thumbnail) —
 //! plus the free-tier defaults, the rate-limit (429) message, and the batched tag
 //! writer. Callers provide the design inputs (filename/filepath/image_data) and the
 //! DB pool for the batched write.
@@ -17,9 +17,9 @@ use tokio::time::sleep;
 /// Batch Operations preview.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaggingMode {
-    /// "File & Folder Rules" — offline, local matching on filename/path tokens (Tier 1).
+    /// "File & Folder Rules" — offline, local matching on filename/path tokens.
     FileFolder,
-    /// "Vision AI" — Gemini Vision on the rendered thumbnail (Tier 3). Needs an API key.
+    /// "Gemini Vision" — Gemini Vision on the rendered thumbnail. Needs an API key.
     VisualAi,
 }
 
@@ -56,14 +56,14 @@ pub fn ordered_modes() -> [TaggingMode; 2] {
 /// `too_many_arguments` limit.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct TaggingModeOptions {
-    /// Whether File & Folder Rules (offline path/name matching, Tier 1) runs.
+    /// Whether File & Folder Rules (offline path/name matching) runs.
     pub path_rule_enabled: bool,
-    /// Whether Vision AI (Gemini on the rendered thumbnail) runs.
+    /// Whether Gemini Vision (Gemini on the rendered thumbnail) runs.
     pub visual_ai_enabled: bool,
     /// Seconds to wait between AI calls. Only applies when the mode makes a real
     /// outbound Gemini request.
     pub visual_ai_delay_seconds: f64,
-    /// Whether Vision AI performs a real network call that needs rate-limit pacing.
+    /// Whether Gemini Vision performs a real network call that needs rate-limit pacing.
     pub visual_ai_network: bool,
 }
 
@@ -113,7 +113,7 @@ pub(crate) struct TagComputeResult {
 
 /// Compute the tagging suggestions for a single design WITHOUT writing to the
 /// database. Every selected mode runs (run-all + merge): File & Folder Rules
-/// (offline path/name matching) and Vision AI (Gemini on the thumbnail). A mode
+/// (offline path/name matching) and Gemini Vision (Gemini on the thumbnail). A mode
 /// that errors propagates the error and does NOT mark that mode as analyzed (so
 /// it is retried on a later run). The caller applies the result later in a batched
 /// write (see [`apply_tagging_batch`]).
@@ -138,7 +138,7 @@ pub(crate) async fn compute_tags_for_input(
         ));
     }
 
-    // Vision AI — Gemini on the rendered thumbnail. Needs image data. When no API
+    // Gemini Vision — Gemini on the rendered thumbnail. Needs image data. When no API
     // key is configured (gemini is `None`) a local token-match heuristic runs as
     // the offline fallback.
     if mode_options.visual_ai_enabled && image_data.is_some() {
@@ -171,7 +171,7 @@ pub(crate) async fn compute_tags_for_input(
     })
 }
 
-/// Local (offline) Visual AI fallback: match a description when every one of its
+/// Local (offline) Gemini Vision fallback: match a description when every one of its
 /// significant tokens appears in the combined filename + filepath, with a
 /// "Don't Know" fallback when nothing matches.
 pub(crate) fn suggest_visual_ai_descriptions(

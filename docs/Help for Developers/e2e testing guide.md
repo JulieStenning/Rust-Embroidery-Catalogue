@@ -299,7 +299,7 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   - Sub-tab switching between *Tagging & Categorisation* and *Maintenance & File Processing*.
   - Unconfigured Google API key detection banner (`"No Google API key is configured in Settings..."`)
   - and Settings direct link (`#/admin/system/settings`).
-  - Disabling of Visual AI goals (`Enrich with visual AI`, `Full re-scan`) when no API key is set,
+  - Disabling of Gemini Vision goals (`Enrich with Gemini Vision`, `Full re-scan`) when no API key is set,
     while keeping offline File & Folder rules enabled by default.
   - 3-step workflow configuration: Goal selection, Scope selection with live candidate counters
     (`X designs`, `X unverified · Y verified`), "Exclude human-verified designs" toggle,
@@ -310,7 +310,7 @@ await editingRow.getByRole("button", { name: "Save" }).click();
     (`Cake 3 - Food.jef`), verifying completion toasts, "Last run summary" metrics, Backfill log entries,
     and tag persistence across `page.reload()`.
   - Mock Google API key handling: testing UI enablement and dynamic AI scope attachment
-    (`Designs missing Visual AI analysis`, `Visual AI found no match`, `Re-analyze`) by saving a dummy key
+    (`Designs missing Gemini Vision analysis`, `Gemini Vision found no match`, `Re-analyze`) by saving a dummy key
     in Settings and verifying time estimates in the confirmation modal without exposing real secrets
     in the repository.
 - `batch-maintenance.spec.ts` covers the **Maintenance & File Processing** workflow on the Batch
@@ -368,7 +368,7 @@ await editingRow.getByRole("button", { name: "Save" }).click();
   one-time "skip hoop setup" prompt, which the test clicks. It also asserts the
   step 2 review contract (summary counts, global override defaults, per-folder shell,
   select-all/deselect-all) and the step 3 "Before You Import" panel, including
-  **negative** assertions for the AI-tagging banner, the Tier 2/3 counters, "Change in
+  **negative** assertions for the AI-tagging banner, obsolete counters, "Change in
   Settings" and the 2D/3D preview picker that were removed from step 3.
 - `import-folder-selection.spec.ts` covers step 1 only. It is read-only against the
   catalogue (the scans target throwaway folders under `tests/e2e/`), so it is cheap

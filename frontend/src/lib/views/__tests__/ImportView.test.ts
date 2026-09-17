@@ -1265,7 +1265,7 @@ describe("ImportView precheck flow", () => {
 // Step 3: actions and completion
 // ---------------------------------------------------------------------------
 describe("ImportView step 3 actions", () => {
-  it("renders the precheck summary and the Visual AI note", async () => {
+  it("renders the precheck summary and the Gemini Vision note", async () => {
     const { container } = renderHarness("#/import");
     await gotoStep3(container);
 

@@ -37,13 +37,13 @@ Then click **Continue with N designs**.
 
 ## Step 3 - Before You Import
 Before importing, the app shows a short confirmation step:
-- an explanatory note about how import and Visual AI tagging work,
+- an explanatory note about how import and Gemini Vision tagging work,
 - **Import Designs** and **Cancel**.
 
 AI tagging:
 - Imports run File & Folder Rules only (local, no API key) and always apply the free
   keyword and stitching tags.
-- Visual AI is run separately afterwards from **Admin → Batch Operations**.
+- Gemini Vision is run separately afterwards from **Admin → Batch Operations**.
 
 First import into an empty catalogue with no hoops:
 - Pressing **Import Designs** shows a warning that hoops are not configured and asks for

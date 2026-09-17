@@ -1,4 +1,4 @@
-//! Google Gemini API client for Visual AI (vision) tagging.
+//! Google Gemini API client for Gemini Vision tagging.
 //!
 //! The app is local/offline-first, so Gemini is optional: a client is only
 //! constructed when a non-empty API key is configured. The prompt builders and
@@ -103,7 +103,7 @@ impl GeminiClient {
     /// is marked bad and the next candidate is auto-selected. The chosen model is
     /// *probed* with a real `generateContent` call so "listed but restricted"
     /// models are rejected up front (fail-fast). `needs_vision` is `true` for
-    /// Visual AI and biases auto-selection toward vision-capable models.
+    /// Gemini Vision and biases auto-selection toward vision-capable models.
     pub async fn resolve_model(
         &self,
         configured: Option<&str>,
@@ -229,7 +229,7 @@ impl GeminiClient {
             .is_some_and(|guard| guard.contains(model))
     }
 
-    /// Visual AI: suggest image tags from the design preview image (PNG bytes).
+    /// Gemini Vision: suggest image tags from the design preview image (PNG bytes).
     pub async fn suggest_tags_vision(
         &self,
         filename: &str,
@@ -384,7 +384,7 @@ pub fn retry_after_seconds(error: &crate::error::AppError) -> Option<u64> {
     })
 }
 
-/// Build the Visual AI (vision) prompt asking for tags from the preview image.
+/// Build the Gemini Vision prompt asking for tags from the preview image.
 pub fn build_vision_prompt(filename: &str, valid_descriptions: &HashSet<String>) -> String {
     format!(
         "You are tagging embroidery design files. Look at the attached design preview image \

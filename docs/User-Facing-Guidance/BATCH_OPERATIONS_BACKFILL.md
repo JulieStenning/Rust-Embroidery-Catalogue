@@ -9,7 +9,7 @@ You can run AI tagging, stitching detection, image generation, and thread/colour
 
 Use **Admin -> Batch Operations** when you want to:
 
-- tag designs based on their images using Visual AI,
+- tag designs based on their images using Gemini Vision,
 - detect stitch types from embroidery geometry,
 - generate or refresh preview images and dimensions,
 - fill in missing stitch/colour/count metadata,
@@ -26,7 +26,7 @@ Use **Admin -> Batch Operations** when you want to:
 
 1. Keep the page open while actions run.
 2. Make a backup first for large runs.
-3. If using Visual AI, confirm your API key is configured in **Admin -> Settings**.
+3. If using Gemini Vision, confirm your API key is configured in **Admin -> Settings**.
 4. Start with a small run if this is your first time using combined actions.
 
 > Tip: A single run processes **all** designs that match the selected action(s);
@@ -41,8 +41,8 @@ Use **Admin -> Batch Operations** when you want to:
 1. Open **Admin -> Batch Operations**.
 2. Choose a **Goal**:
    - **Apply file & folder rules** — fast, local, offline, free.
-   - **Enrich with visual AI** — sends preview thumbnails to Google Gemini Vision (needs an API key).
-   - **Full re-scan (both methods)** — runs File & Folder Rules and Visual AI and merges results.
+   - **Enrich with Gemini Vision** — sends preview thumbnails to Google Gemini Vision (needs an API key).
+   - **Full re-scan (both methods)** — runs File & Folder Rules and Gemini Vision and merges results.
 3. Choose a **Scope** (see below), then a merge mode.
 4. Configure any options for the other actions you ticked (Stitch types, Images, Threads and Colours).
 5. Choose batch/commit/worker values.
@@ -61,7 +61,7 @@ catalogue records** or dismiss the result. This is the same reconciliation that 
 
 ---
 
-## AI tagging (Visual AI)
+## AI tagging (Gemini Vision)
 
 AI tagging uses Google Gemini to suggest image-group tags for a design. It is entirely optional — the
 application works fully without it.
@@ -71,14 +71,14 @@ Two tagging modes are available when tagging a design:
 - **File & Folder Rules** — instantaneous, local matching of the filename and folder path against your
   tag catalogue. It runs only when the chosen goal includes it, is free, and never calls the network.
   Does **not** require an API key.
-- **Visual AI** — Gemini Vision, which sends the design's rendered preview image to the API for
+- **Gemini Vision** — sends the design's rendered preview image to the API for
   analysis. It requires an API key and consumes quota from your account. It needs a rendered preview
   image, so run the **Images** action first if a design has none.
 
-Scopes for a Visual AI / Full Re-Scan run let you target designs by their analysis state:
+Scopes for a Gemini Vision / Full Re-Scan run let you target designs by their analysis state:
 
-- **Designs missing Visual AI analysis** — designs not yet scanned by Visual AI.
-- **Visual AI found no match** — designs Visual AI analyzed but produced no tags.
+- **Designs missing Gemini Vision analysis** — designs not yet scanned by Gemini Vision.
+- **Gemini Vision found no match** — designs Gemini Vision analyzed but produced no tags.
 - **Re-analyze (already analyzed)** — designs already analyzed, run again.
 - **Untagged designs only**, **Specific Folder(s)**, and **Entire collection** are also available.
 
@@ -96,14 +96,14 @@ Scopes for a Visual AI / Full Re-Scan run let you target designs by their analys
 ### Add the key in Admin Settings
 
 Open **Admin → Settings** and paste the key into the **Google Gemini API key** field, then click
-**Save settings**. The key is only used by Visual AI in **Batch Operations** — imports never call Gemini.
+**Save settings**. The key is only used by Gemini Vision in **Batch Operations** — imports never call Gemini.
 
 > **Security note:** treat the key as a private secret. It is stored locally with your catalogue data
-> (in the app's settings) and is used only by Visual AI in Batch Operations.
+> (in the app's settings) and is used only by Gemini Vision in Batch Operations.
 
 ### Batch, delay, model, and free tier
 
-These options on **Admin → Settings** control Visual AI runs in Batch Operations:
+These options on **Admin → Settings** control Gemini Vision runs in Batch Operations:
 
 - **AI tagging batch size** — the number of designs fetched and processed together per chunk. A run
   pages through the whole candidate set, so this does not cap how many designs are touched.
@@ -137,7 +137,7 @@ the rest of the day).
 | Scenario | Approximate cost |
 |---|---|
 | File & Folder Rules only | Free |
-| Visual AI on 4,000 images | ~$0.33 on the paid tier (February 2026 estimate) |
+| Gemini Vision on 4,000 images | ~$0.33 on the paid tier (February 2026 estimate) |
 
 > **Note:** actual costs depend on the Gemini model pricing at the time of use, which may have changed
 > since the above estimate. Check the current rates at <https://ai.google.dev/pricing>.
@@ -146,16 +146,16 @@ the rest of the day).
 
 ## Action guide
 
-### Tagging (File & Folder Rules + Visual AI)
+### Tagging (File & Folder Rules + Gemini Vision)
 
 Use this to apply or refresh image-group tags.
 
 - **Tag only untagged** — safe routine top-up; never touches verified tags.
-- **Re-tag unverified / Visual AI scopes** — process designs missing or no-match analysis.
+- **Re-tag unverified / Gemini Vision scopes** — process designs missing or no-match analysis.
 - **Re-tag ALL (including verified)** — overwrites everything; requires confirmation.
 
 File & Folder Rules runs only when the chosen goal includes it (it is not run automatically).
-Visual AI requires a configured Google API key and is skipped when no key is present.
+Gemini Vision requires a configured Google API key and is skipped when no key is present.
 
 ### Stitch types
 
@@ -178,7 +178,7 @@ Options:
 - **Regenerate images for all designs** (shown once the option above is ticked) — also regenerate
   previews for designs that already have one.
 
-Visual AI needs a preview image, so run this before Visual AI tagging on designs without one.
+Gemini Vision needs a preview image, so run this before Gemini Vision tagging on designs without one.
 
 ### Threads and Colours
 
@@ -222,15 +222,15 @@ errors occurred, rerun targeted actions after fixing the root cause.
 
 ### Safe routine maintenance
 
-1. Run **Tag only untagged** (File & Folder Rules, optionally Visual AI).
+1. Run **Tag only untagged** (File & Folder Rules, optionally Gemini Vision).
 2. Run **Stitch types** (without clearing existing) if needed.
 3. Run **Threads and Colours**.
 4. Check results and verify tags in Browse/Detail views.
 
-### Full Visual AI refresh
+### Full Gemini Vision refresh
 
 1. Back up first.
-2. Run **Re-tag ALL unverified** (or a Visual AI scope such as *missing analysis*).
+2. Run **Re-tag ALL unverified** (or a Gemini Vision scope such as *missing analysis*).
 3. If any designs lack a preview image, run the Images action to generate one.
 4. Run **Threads and Colours**.
 5. Review and download the error log.
@@ -262,10 +262,10 @@ If you need to tidy the tag library itself, open **Admin → Tags**. New tags mu
 ## Troubleshooting
 
 - **Run does not start** — confirm at least one action is selected, then try again.
-- **Visual AI not available** — check the API key in Settings and save. Without a key only File & Folder Rules run.
+- **Gemini Vision not available** — check the API key in Settings and save. Without a key only File & Folder Rules run.
 - **API key not set** — add the key in Admin → Settings. Without a key only File & Folder Rules run.
 - **`404 Model not found`** — the chosen Gemini model was retired. Clear the **Gemini model** field in Settings (or pick a current model) and retry.
-- **Visual AI does not seem to run** — Visual AI needs a preview image. Run the **Images** action first, then retry tagging.
+- **Gemini Vision does not seem to run** — Gemini Vision needs a preview image. Run the **Images** action first, then retry tagging.
 - **`429 Too Many Requests`** — increase the **AI delay** (or tick the free-tier option) in Settings, and/or lower Workers.
 - **`403 Forbidden`** — your key may be restricted to certain APIs. Check the key settings in Google Cloud Console.
 - **Many failures in log** — verify source files still exist and are readable, then rerun affected actions.

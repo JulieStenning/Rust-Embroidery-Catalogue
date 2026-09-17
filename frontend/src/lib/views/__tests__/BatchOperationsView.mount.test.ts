@@ -79,7 +79,7 @@ describe("BatchOperationsView mount behaviour", () => {
 
     expect(
       await screen.findByText(
-        /No Google API key is configured in Settings\. Visual AI tagging will be skipped\./
+        /No Google API key is configured in Settings\. Gemini Vision tagging will be skipped\./
       )
     ).toBeInTheDocument();
     await waitFor(() => {
@@ -142,11 +142,11 @@ describe("BatchOperationsView initial render", () => {
     expect(screen.getByRole("radio", { name: /Add new tags only/i })).toBeChecked();
   });
 
-  it("disables Visual AI goals when no API key is set", async () => {
+  it("disables Gemini Vision goals when no API key is set", async () => {
     render(BatchOperationsView);
 
     await waitFor(() => {
-      expect(screen.getByRole("radio", { name: /Enrich with visual AI/i })).toBeDisabled();
+      expect(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i })).toBeDisabled();
     });
     expect(screen.getByRole("radio", { name: /Full re-scan/i })).toBeDisabled();
   });

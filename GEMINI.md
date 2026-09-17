@@ -11,7 +11,7 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
 - **Frontend:** Svelte (v5) / TypeScript
 - **Database:** Local SQLite database for metadata, tags, and file references
 - **Core Logic:** Interfacing with binary embroidery file formats (reading metadata, stitches, and properties from formats like `.jef`, `.pes`, `.hus`, `.vp3`, etc., migrating logic inspired by `pyembroidery`).
-- **AI Integration (Optional):** Google Gemini API for Visual AI (vision analysis on rendered thumbnails) to handle automated metadata/tag suggestions (Tier 2 text analysis has been retired; tagging relies on offline File & Folder rules and online Visual AI).
+- **AI Integration (Optional):** Google Gemini API for Gemini Vision (vision analysis on rendered thumbnails) to handle automated metadata/tag suggestions (tagging relies on offline File & Folder rules and online Gemini Vision tagging).
 
 ---
 

@@ -252,7 +252,7 @@ it falls back to **Installed mode** and uses `%APPDATA%\EmbroideryCatalogue`.
 
 ## AI tagging is not working
 
-**Symptom:** Visual AI tagging does not run on the **Batch Operations** page, or the app
+**Symptom:** Gemini Vision tagging does not run on the **Batch Operations** page, or the app
 reports that no Gemini API key is configured.
 
 **Fix:**
@@ -260,8 +260,8 @@ reports that no Gemini API key is configured.
 - Ensure the API key is saved in **Admin → Settings** — it is stored locally with your catalogue data
   and read from there (not from a `.env` file).
 
-- Visual AI runs only from **Admin → Batch Operations** — imports never call Gemini. Confirm
-  that a run goal which includes Visual AI is selected and that an API key is present.
+- Gemini Vision runs only from **Admin → Batch Operations** — imports never call Gemini. Confirm
+  that a run goal which includes Gemini Vision is selected and that an API key is present.
 
 - Check the key is valid by testing it in [Google AI Studio](https://aistudio.google.com/).
 
@@ -271,7 +271,7 @@ reports that no Gemini API key is configured.
 
 - If you are running a backfill from the **Batch Operations** maintenance page
   (unified backfill, stitching backfill, or fingerprint backfill), confirm the run
-  actually includes Visual AI and that the API key was present when the run
+  actually includes Gemini Vision and that the API key was present when the run
   started.
 
 See [BATCH_OPERATIONS_BACKFILL.md](User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md) for full setup instructions.

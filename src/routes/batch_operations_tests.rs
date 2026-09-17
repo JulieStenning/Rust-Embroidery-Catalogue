@@ -506,7 +506,7 @@ async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
     app.manage(app_state);
     let state = app.state::<AppState>();
 
-    // Tagging is explicitly disabled, so the Visual AI guard is skipped even
+    // Tagging is explicitly disabled, so the Gemini Vision guard is skipped even
     // though ai_vision is listed and no API key is configured.
     let request = backfill::UnifiedBackfillRequest {
         actions: Some(backfill::UnifiedBackfillActions {

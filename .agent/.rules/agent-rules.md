@@ -8,7 +8,7 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 - **Frontend:** Svelte / TypeScript
 - **Database:** Local SQLite database for metadata, tags, and file references
 - **Core Logic:** Interfacing with binary embroidery file formats (reading metadata, stitches, and properties from formats like `.jef`, `.pes`, `.hus`, `.vp3`, etc., migrating logic inspired by `pyembroidery`).
-- **AI Integration (Optional):** Google Gemini API for Tier 2 (text analysis) and Tier 3 (vision analysis for thumbnails) to handle automated metadata/tag suggestions.
+- **AI Integration (Optional):** Google Gemini API  for vision analysis for thumbnails to handle automated tag suggestions.
 
 ---
 

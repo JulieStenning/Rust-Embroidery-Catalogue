@@ -43,7 +43,7 @@
     },
     {
       id: "ai_vision",
-      title: "Enrich with visual AI",
+      title: "Enrich with Gemini Vision",
       subtitle:
         "Analyze design thumbnails using Gemini Vision to detect subject matter. (Requires API key)",
       requiresAi: true,
@@ -51,7 +51,7 @@
     {
       id: "full_rescan",
       title: "Full re-scan (both methods)",
-      subtitle: "Run file & folder rules and visual AI and merge the results. (Requires API key)",
+      subtitle: "Run file & folder rules and Gemini Vision and merge the results. (Requires API key)",
       requiresAi: true,
     },
   ];
@@ -78,18 +78,18 @@
     ai_vision: [
       {
         id: "vision_not_analyzed",
-        title: "Designs missing Visual AI analysis",
-        subtitle: "Designs that haven't been scanned with Visual AI yet",
+        title: "Designs missing Gemini Vision analysis",
+        subtitle: "Designs that haven't been scanned with Gemini Vision yet",
       },
       {
         id: "vision_no_match",
-        title: "Visual AI found no match",
-        subtitle: "Designs Visual AI analyzed but found no tags for",
+        title: "Gemini Vision found no match",
+        subtitle: "Designs Gemini Vision analyzed but found no tags for",
       },
       {
         id: "vision_analyzed",
-        title: "Re-analyze (already analyzed by Visual AI)",
-        subtitle: "Designs already analyzed by Visual AI — run again",
+        title: "Re-analyze (already analyzed by Gemini Vision)",
+        subtitle: "Designs already analyzed by Gemini Vision — run again",
       },
     ],
   };
@@ -366,10 +366,10 @@
     next.folder = result.counts;
   }
 
-  // Whether Vision AI participates in the run (drives the legacy `run_vision` flag).
+  // Whether Gemini Vision participates in the run (drives the legacy `run_vision` flag).
   const visionInvolved = $derived(goal === "ai_vision" || goal === "full_rescan");
 
-  // The effective per-request delay for a Visual AI run: the configured AI delay
+  // The effective per-request delay for a Gemini Vision run: the configured AI delay
   // wins if set; otherwise the free tier falls back to a conservative 10s and
   // paid keys use no artificial pacing.
   const effectiveVisualAiDelay = $derived.by((): number => {
@@ -381,7 +381,7 @@
   // this is true does the estimate reflect rate-limit throttling.
   const visualAiPaced = $derived(effectiveVisualAiDelay > 0);
 
-  // Rough wall-clock estimate for Visual AI runs (paced by delay and workers).
+  // Rough wall-clock estimate for Gemini Vision runs (paced by delay and workers).
   // Paced runs are dominated by the per-call delay, so they take much longer than
   // non-paced runs; the free tier's ~15 req/min rate limit (~4s per call) is a
   // hard floor regardless of the configured worker count.
@@ -390,7 +390,7 @@
     if (count === null || count <= 0 || goal === "file_folder") return null;
     const delay = effectiveVisualAiDelay;
     const workers = Math.max(1, taggingWorkersValue);
-    // Only Visual AI makes a Gemini call; File & Folder Rules are local and free.
+    // Only Gemini Vision makes a Gemini call; File & Folder Rules are local and free.
     const aiModeCount = 1;
     let perDesignSeconds: number;
     if (delay > 0) {
@@ -661,7 +661,7 @@
       <!-- API Key Status -->
       {#if !taggingHasGoogleApiKey}
         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
-          No Google API key is configured in Settings. Visual AI tagging will be skipped. File &
+          No Google API key is configured in Settings. Gemini Vision tagging will be skipped. File &
           Folder Rules always run.
         </div>
       {:else}

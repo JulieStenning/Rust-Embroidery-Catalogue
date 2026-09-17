@@ -31,7 +31,7 @@ Use this checklist when changing per-folder Designer/Source assignment during im
 - [ ] Commit-batch resolution remains explicit and consistent between route settings and service defaults (`import.commit_batch_size`; default 10 in `src/routes/bulk_import.rs`).
 - [ ] Interleaved selected-file processing and confirm persistence behavior remains intentional and documented.
 - [ ] Existing-file skip behavior remains stable.
-- [ ] AI Tier 2/3 gating by API key/settings remains unchanged unless explicitly approved (`normalize_tiers()` in `src/services/backfill.rs` drops tiers ≥ 2 when no `GOOGLE_API_KEY` is set).
+- [ ] AI Vision gating by API key/settings remains unchanged unless explicitly approved (AI Vision requires a configured `GOOGLE_API_KEY`).
 
 ## 6. Structural Convergence
 - [ ] Confirm path convergence is explicit (single canonical execution path, compatibility shim documented if present).

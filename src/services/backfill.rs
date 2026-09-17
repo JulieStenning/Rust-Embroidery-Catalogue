@@ -20,7 +20,7 @@ static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
 const TAG_ACTION_RETAG_ALL_UNVERIFIED: &str = "retag_all_unverified";
-// Per-mode Vision AI scopes (tracking columns `vision_ai_*`).
+// Per-mode Gemini Vision scopes (tracking columns `vision_ai_*`).
 const TAG_ACTION_RETAG_VISION_NOT_ANALYZED: &str = "retag_all_vision_not_analyzed";
 const TAG_ACTION_RETAG_VISION_NO_MATCH: &str = "retag_all_vision_no_match";
 const TAG_ACTION_RETAG_VISION_ANALYZED: &str = "retag_all_vision_analyzed";
@@ -61,7 +61,7 @@ pub struct UnifiedBackfillActions {
 pub struct TaggingActionOptions {
     pub action: Option<String>,
     /// Tagging modes to run: `"path_rule"` (File & Folder Rules) and/or `"ai_vision"`
-    /// (Visual AI). Visual AI additionally requires a configured Google API key.
+    /// (Gemini Vision). Gemini Vision additionally requires a configured Google API key.
     pub modes: Option<Vec<String>>,
     /// How existing image-group tags are handled: `"add"` (append only, keep
     /// existing) or `"reset"` (clear and re-tag). Non-image / manually-added
@@ -232,7 +232,7 @@ pub async fn run_unified_backfill(
 /// Same as [`run_unified_backfill`], but streams live [`BackfillProgress`]
 /// updates to `progress` (e.g. after each commit) so the UI can display a
 /// running status message, and accepts the actual API key (`api_key`) used to
-/// drive real Gemini Visual AI calls when present. Callers that do not need live
+/// drive real Gemini Vision calls when present. Callers that do not need live
 /// progress or AI tagging can use the plain [`run_unified_backfill`] wrapper.
 pub async fn run_unified_backfill_with_progress(
     pool: &SqlitePool,
@@ -372,7 +372,7 @@ pub async fn run_unified_backfill_with_progress(
             let valid = Arc::new(valid_descriptions);
             let pool_arc = Arc::new(pool.clone());
             // Build the Gemini client only when a non-empty API key is present;
-            // otherwise Visual AI falls back to a local heuristic and never sleeps.
+            // otherwise Gemini Vision falls back to a local heuristic and never sleeps.
             let gemini = api_key
                 .as_ref()
                 .map(|key| key.trim().to_string())
@@ -1326,7 +1326,7 @@ async fn compute_design_tagging(
     mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
 ) -> Result<TagComputeResult, AppError> {
-    // Only fetch the preview image when Visual AI (vision) is enabled, so large
+    // Only fetch the preview image when Gemini Vision is enabled, so large
     // BLOBs aren't read for every design in a File & Folder Rules-only run.
     let select_sql = if mode_options.visual_ai_enabled {
         "SELECT filename, filepath, image_data FROM designs WHERE id = ?"

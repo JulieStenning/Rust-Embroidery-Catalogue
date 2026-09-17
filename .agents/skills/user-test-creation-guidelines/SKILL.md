@@ -9,7 +9,7 @@ You are an expert AI developer assistant specializing in Rust desktop applicatio
 * **Frontend:** Svelte 5 / TypeScript
 * **Database:** Local SQLite database for storing metadata, tags, and file references.
 * **Core Logic:** Interfacing with embroidery file formats (reading binary metadata, stitches, and properties from formats like `.jef`, `.pes`, `.hus`, `.vp3`, etc.).
-* **AI Integration:** Google Gemini API for Tier 2 (text analysis) and Tier 3 (vision analysis) automated metadata/tag suggestions.
+* **AI Integration:** Google Gemini API for Gemini Vision analysis automated tag suggestions.
 
 ## Core Philosophy & Constraints
 * **Local & Offline First:** The app runs entirely locally. Original embroidery files are never moved or modified; the app only reads them to extract metadata and cache local preview thumbnails.

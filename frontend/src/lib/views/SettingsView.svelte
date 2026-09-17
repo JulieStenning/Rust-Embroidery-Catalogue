@@ -178,7 +178,7 @@
    * Sort the available Gemini models so flash models come first (preferred
    * `gemini-flash*` aliases, then other `*-flash`, then the rest), matching the
    * backend's auto-selection preference. Flash is recommended for tagging: it is
-   * the fastest and cheapest tier for the tiny text/vision prompts used here.
+   * the fastest and cheapest option for the image vision prompts used here.
    * @param {string[]} models
    * @returns {string[]}
    */
@@ -719,7 +719,7 @@
             </button>
           </div>
           <p class="mt-1 text-xs text-gray-500">
-            Model used for Visual AI tagging. Leave blank to let the app auto-select an available
+            Model used for Gemini Vision tagging. Leave blank to let the app auto-select an available
             Gemini model. If a model you pick is later retired, the app falls back to auto-selection
             at run time.
           </p>

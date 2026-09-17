@@ -9,7 +9,7 @@ buttons on this step — reference data is managed in the Admin pages at any tim
 
 - The **Before You Import** panel.
 - A note explaining that the import itself uses fast, offline **File & Folder Rules**, and
-  that automated **Visual AI** tagging can be run later from **Batch Operations**.
+  that automated **Gemini Vision** tagging can be run later from **Batch Operations**.
 - Two actions: **Import Designs** and **Cancel**.
 
 ## Where It Appears
@@ -57,7 +57,7 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 
 - The import itself never calls an AI service and needs no Google API key. It always
   applies the free, local keyword and stitching tags.
-- **Visual AI** auto-tagging is run separately, after the import, from
+- **Gemini Vision** auto-tagging is run separately, after the import, from
   **Admin → Batch Operations**. See [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 - There is no per-import 2D/3D preview choice. The preview style is a global setting under
   **Admin → Settings**.
@@ -68,7 +68,7 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 |---|---|
 | Import Designs reports the import context expired | The import context is time-limited (~15 minutes). The app re-checks your selections automatically and retries; if it cannot, rescan and continue again. |
 | You skipped hoops and now want auto hoop matching | Add hoops in **Admin → Hoops**, then run another import or regenerate previews as needed. |
-| Visual AI did not run | Visual AI is not part of import. Run it from **Admin → Batch Operations** and check the API key and Visual AI settings in **Admin → Settings**. |
+| Gemini Vision did not run | Gemini Vision is not part of import. Run it from **Admin → Batch Operations** and check the API key and Gemini Vision settings in **Admin → Settings**. |
 | You cannot find Review Hoops / Tags / Sources / Designers | Those buttons were removed from the import wizard. Use the Admin pages instead — your import selections are preserved while you are away. |
 
 ## Recommended First-Run Workflow
@@ -77,7 +77,7 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 2. Check Tags, Sources and Designers in the Admin pages if your defaults are incomplete.
 3. Import your designs.
 4. Verify the imported designs in Browse and the design detail pages.
-5. Optionally run **Batch Operations** to add Visual AI tags.
+5. Optionally run **Batch Operations** to add Gemini Vision tags.
 
 ## Related Guides
 - [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)

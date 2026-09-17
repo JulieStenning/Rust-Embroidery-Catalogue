@@ -108,7 +108,7 @@ you want to use optional AI-assisted auto-tagging.
 
 Add the key in **Admin → Settings** — it is stored locally with your catalogue data.
 
-Once the key is saved, run Visual AI on designs from **Admin → Batch Operations** — imports themselves
+Once the key is saved, run Gemini Vision on designs from **Admin → Batch Operations** — imports themselves
 are local and only apply File & Folder Rules.
 See [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) for full details, including cost/quota information.
 

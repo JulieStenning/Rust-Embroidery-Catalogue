@@ -95,7 +95,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     // Missing API key banner
     await expect(
       page.getByText(
-        "No Google API key is configured in Settings. Visual AI tagging will be skipped. File & Folder Rules always run.",
+        "No Google API key is configured in Settings. Gemini Vision tagging will be skipped. File & Folder Rules always run.",
       ),
     ).toBeVisible();
 
@@ -117,7 +117,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(fileFolderRadio).toBeEnabled();
     await expect(fileFolderRadio).toBeChecked();
 
-    // Goal 2 & 3: Visual AI and Full re-scan (Disabled without API key)
+    // Goal 2 & 3: Gemini Vision and Full re-scan (Disabled without API key)
     const aiVisionRadio = page.locator(
       'input[name="tagging-goal"][value="ai_vision"]',
     );
@@ -422,7 +422,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(aiVisionRadio).toBeEnabled();
     await expect(fullRescanRadio).toBeEnabled();
 
-    // 3. Select "Enrich with visual AI" goal
+    // 3. Select "Enrich with Gemini Vision" goal
     await aiVisionRadio.check();
     await expect(aiVisionRadio).toBeChecked();
 
@@ -448,7 +448,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     const modal = page.getByTestId("tagging-confirm-modal");
     await expect(modal).toBeVisible();
 
-    await expect(modal.getByText("Enrich with visual AI")).toBeVisible();
+    await expect(modal.getByText("Enrich with Gemini Vision")).toBeVisible();
     await expect(modal.getByText("Estimated Time:")).toBeVisible();
 
     // Cancel modal

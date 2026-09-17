@@ -67,16 +67,16 @@ describe("BatchOperationsView workflow selection", () => {
     expect(screen.getByRole("radio", { name: /Add new tags only/i })).toBeChecked();
   });
 
-  it("selects a Visual AI goal and changes the scope and merge", async () => {
+  it("selects a Gemini Vision goal and changes the scope and merge", async () => {
     render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
-    expect(screen.getByRole("radio", { name: /Enrich with visual AI/i })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i }));
+    expect(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i })).toBeChecked();
 
-    await user.click(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ }));
-    expect(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Designs missing Gemini Vision analysis/ }));
+    expect(screen.getByRole("radio", { name: /Designs missing Gemini Vision analysis/ })).toBeChecked();
 
     await user.click(screen.getByRole("radio", { name: /Complete reset/i }));
     expect(screen.getByRole("radio", { name: /Complete reset/i })).toBeChecked();
@@ -120,13 +120,13 @@ describe("BatchOperationsView workflow selection", () => {
     });
   });
 
-  it("disables Visual AI goals without an API key", async () => {
+  it("disables Gemini Vision goals without an API key", async () => {
     adapterMocks.getBatchOperationsViewModel.mockResolvedValue(
       viewModel({ has_google_api_key: false })
     );
     render(BatchOperationsView);
 
-    expect(await screen.findByRole("radio", { name: /Enrich with visual AI/i })).toBeDisabled();
+    expect(await screen.findByRole("radio", { name: /Enrich with Gemini Vision/i })).toBeDisabled();
     expect(screen.getByRole("radio", { name: /Full re-scan/i })).toBeDisabled();
   });
 

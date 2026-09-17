@@ -139,12 +139,12 @@ describe("BatchOperationsView run unified backfill", () => {
     expect(screen.getByRole("button", { name: "Review these in Browse" })).toBeInTheDocument();
   });
 
-  it("runs Visual AI on designs missing AI analysis when those options are chosen", async () => {
+  it("runs Gemini Vision on designs missing AI analysis when those options are chosen", async () => {
     render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
-    await user.click(screen.getByRole("radio", { name: /Designs missing Visual AI analysis/ }));
+    await user.click(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i }));
+    await user.click(screen.getByRole("radio", { name: /Designs missing Gemini Vision analysis/ }));
 
     await startRun();
 
@@ -234,7 +234,7 @@ describe("BatchOperationsView run unified backfill", () => {
     render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
+    await user.click(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i }));
     await screen.findAllByText("10 unverified · 2 verified");
 
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
@@ -252,7 +252,7 @@ describe("BatchOperationsView run unified backfill", () => {
     render(BatchOperationsView);
     const user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
+    await user.click(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i }));
     await screen.findAllByText("10 unverified · 2 verified");
 
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
@@ -277,7 +277,7 @@ describe("BatchOperationsView run unified backfill", () => {
     const view = render(BatchOperationsView);
     let user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
+    await user.click(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i }));
     await screen.findAllByText(/unverified ·/);
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
     const paidEl = screen.getByTestId("tagging-confirm-modal");
@@ -293,7 +293,7 @@ describe("BatchOperationsView run unified backfill", () => {
     render(BatchOperationsView);
     user = userEvent.setup();
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-    await user.click(screen.getByRole("radio", { name: /Enrich with visual AI/i }));
+    await user.click(screen.getByRole("radio", { name: /Enrich with Gemini Vision/i }));
     await screen.findAllByText(/unverified ·/);
     await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
     const freeEl = screen.getByTestId("tagging-confirm-modal");
@@ -393,7 +393,7 @@ describe("BatchOperationsView run unified backfill", () => {
     expect(screen.queryByText("Last run summary")).not.toBeInTheDocument();
   });
 
-  it("does not pass Visual AI when no API key is present", async () => {
+  it("does not pass Gemini Vision when no API key is present", async () => {
     adapterMocks.getBatchOperationsViewModel.mockResolvedValue({
       source: "rust",
       model: { ...viewModel().model, has_google_api_key: false },
@@ -410,7 +410,7 @@ describe("BatchOperationsView run unified backfill", () => {
     });
   });
 
-  it("runs File & Folder Rules and Visual AI on the whole collection for a full re-scan", async () => {
+  it("runs File & Folder Rules and Gemini Vision on the whole collection for a full re-scan", async () => {
     render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 

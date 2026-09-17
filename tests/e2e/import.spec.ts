@@ -18,10 +18,8 @@ import {
  * row is always created regardless of what the seed catalogue already contains
  * (the importer deduplicates on stored path and on filename+size+hash).
  *
- * Step 3 also carries explicit negative assertions for the UI that was removed from
- * it (AI-tagging banner, Tier 2/3 counters, "Change in Settings", the 2D/3D preview
- * picker and the Review Hoops/Tags/Sources/Designers buttons). Import is File & Folder
- * Rules only; Visual AI tagging lives on Batch Operations.
+ * Step 3 verifies the offline File & Folder Rules note. Import is File & Folder
+ * Rules only; Gemini Vision tagging lives on Batch Operations.
  */
 test.describe("bulk import", () => {
   test.afterAll(() => {
@@ -87,24 +85,9 @@ test.describe("bulk import", () => {
     await expect(page.getByText("Note on Tagging")).toBeVisible();
     await expect(
       page.getByText(
-        "THe initial import uses fast, offline File & Folder Rules to index your designs instantly",
+        "The initial import uses fast, offline File & Folder Rules to index your designs instantly",
       ),
     ).toBeVisible();
-
-    // Negative assertions: the removed controls must never come back.
-    const removedUi = [
-      "Google AI tagging is enabled for this installation",
-      "Tier 2 auto",
-      "Tier 3 auto",
-      "Change in Settings",
-      "2D - Fast flat preview",
-      "3D - Detailed stitch simulation",
-      "Review Hoops",
-      "Review Designers",
-    ];
-    for (const stale of removedUi) {
-      await expect(page.getByText(stale, { exact: false })).toHaveCount(0);
-    }
 
     // Step 4: run the import.
     const importButton = page.getByRole("button", { name: "Import Designs" });

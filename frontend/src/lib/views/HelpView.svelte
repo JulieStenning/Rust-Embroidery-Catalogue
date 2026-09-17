@@ -143,7 +143,7 @@
         <a href="#/admin/system/settings" class="text-indigo-600 hover:underline">Settings</a>.
       </p>
       <p>
-        <strong>In-app actions:</strong> run Visual AI from
+        <strong>In-app actions:</strong> run Gemini Vision from
         <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
           >Admin → Batch Operations</a
         >. AI tagging no longer runs automatically during import.

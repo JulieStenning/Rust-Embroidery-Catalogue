@@ -1565,7 +1565,7 @@
           <p class="font-semibold text-blue-900">Note on Tagging</p>
           <p class="ui-help-note text-blue-900">
             The initial import uses fast, offline File &amp Folder Rules to index your designs
-            instantly. Once finished, you can run automated Visual AI tagging anytime from Batch
+            instantly. Once finished, you can run automated Gemini Vision tagging anytime from Batch
             Operations to enrich your collection.
           </p>
         </div>

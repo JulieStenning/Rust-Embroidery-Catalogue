@@ -66,7 +66,7 @@ export async function getAboutDocuments() {
         slug: "ai-tagging",
         title: "AI Tagging & Batch Operations Guide",
         description:
-          "How to run Visual AI tagging from Batch Operations, set up a Google API key, and understand usage costs.",
+          "How to run Gemini Vision tagging from Batch Operations, set up a Google API key, and understand usage costs.",
         filename: "docs/User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md",
         available: false,
       },

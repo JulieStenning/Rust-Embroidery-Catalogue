@@ -1764,7 +1764,7 @@ describe("commandAdapter settings", () => {
 describe("commandAdapter runUnifiedBackfill edge cases", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  it("maps a Visual AI-only tagging run", async () => {
+  it("maps a Gemini Vision-only tagging run", async () => {
     invokeMock.mockResolvedValue({
       processed: 3,
       errors: 0,

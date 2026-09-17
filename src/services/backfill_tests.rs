@@ -692,7 +692,7 @@ async fn select_tagging_respects_limit() {
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// DB helper: apply_image_tags_and_tier
+// DB helper: flush_tagging_batch (vision flags)
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tokio::test]
@@ -770,7 +770,7 @@ async fn flush_tagging_batch_replaces_existing_image_tags() {
     map.insert("Cats".to_string(), 1);
     map.insert("Don't Know".to_string(), 3);
 
-    // Replace Cats with Don't Know (Vision AI produced the suggestion)
+    // Replace Cats with Don't Know (Gemini Vision produced the suggestion)
     flush_tagging_batch(
         &pool,
         &map,
@@ -860,18 +860,18 @@ async fn count_tagging_candidates_returns_total_unverified_verified_breakdown() 
 async fn per_mode_ai_scope_counts_and_pager_parity() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // designs 1..=3 (AI flags default 0)
-                             // design 1: Vision AI analyzed + matched.
+                             // design 1: Gemini Vision analyzed + matched.
     sqlx::query("UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 1 WHERE id = 1")
         .execute(&pool)
         .await
         .unwrap();
-    // design 2: Vision AI analyzed but no match.
+    // design 2: Gemini Vision analyzed but no match.
     sqlx::query("UPDATE designs SET vision_ai_analyzed = 1, vision_ai_matched = 0 WHERE id = 2")
         .execute(&pool)
         .await
         .unwrap();
 
-    // Vision AI scopes.
+    // Gemini Vision scopes.
     let vision_not = count_tagging_candidates(&pool, "retag_all_vision_not_analyzed", &[], true)
         .await
         .unwrap();
@@ -1750,7 +1750,7 @@ async fn compute_design_tagging_path_rule_match_returns_suggestion() {
 #[tokio::test]
 async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
     let pool = make_test_pool().await;
-    // design with no path-rule match but token match works in Visual AI's local fallback
+    // design with no path-rule match but token match works in Gemini Vision's local fallback
     sqlx::query("INSERT INTO designs (id, filename, filepath, image_data, image_tags_verified, stitching_tags_verified) VALUES (?, ?, ?, ?, 0, 0)")
         .bind(10_i64)
         .bind("abstract_blob.pes")
@@ -1782,7 +1782,7 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
         .await
         .unwrap();
 
-    // Path rules produce no match, so Visual AI's local fallback runs and yields
+    // Path rules produce no match, so Gemini Vision's local fallback runs and yields
     // "Don't Know" (no network client, image present).
     assert!(result.descriptions.iter().any(|d| d == "Don't Know"));
     assert!(result.vision_ai_analyzed);

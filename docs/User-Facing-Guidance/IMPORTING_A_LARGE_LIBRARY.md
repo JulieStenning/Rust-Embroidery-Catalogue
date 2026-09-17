@@ -72,14 +72,14 @@ Tagging during import:
 - Imports always apply **File & Folder Rules** only — instant, local path/name
   matching that never calls the internet. Every imported file gets tags matched
   from its filename and folder path.
-- Visual AI (Gemini) is **not** run during import. To analyse designs with Visual
-  AI, add an API key in **Admin → Settings** and run it afterwards from
+- Gemini Vision is **not** run during import. To analyse designs with Gemini
+  Vision, add an API key in **Admin → Settings** and run it afterwards from
   **Admin → Batch Operations**.
 
-> **Very important for large libraries:** Visual AI (Gemini) is rate-limited — the
+> **Very important for large libraries:** Gemini Vision is rate-limited — the
 > free tier is roughly **15 requests per minute** and **1,500 requests per day**.
 > File & Folder Rules run on **every** file, but a 120,000-design library will not
-> finish in one Visual AI session. Plan to run Visual AI from **Batch Operations**
+> finish in one Gemini Vision session. Plan to run Gemini Vision from **Batch Operations**
 > in smaller passes afterwards if you want it.
 
 
@@ -141,7 +141,7 @@ On success, the app:
 
 - **Import in one session if you can.** It is safe to stop and resume (finished
   files are skipped next time), but one continuous run avoids repeating work.
-- **Tier 1 tags are free and local.** Every imported design gets keyword and
+- **File & Folder Rule tags are free and local.** Every imported design gets keyword and
   stitching tags even with no API key.
 - **AI tagging is optional and rate-limited.** Do not depend on it to tag a
   120,000-design library during import. Set it up in Settings and run smaller
