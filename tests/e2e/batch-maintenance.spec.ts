@@ -73,6 +73,11 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await expect(
       page.getByRole("heading", { name: "Find unmatched design files" }),
     ).toBeVisible();
+    await expect(
+      page.getByText(
+        /Scans MachineEmbroideryDesigns for design files that have no record in the catalogue/i,
+      ),
+    ).toBeVisible();
 
     // Primary run button is disabled when no maintenance tasks are checked
     const runButton = page.getByRole("button", {
@@ -207,9 +212,7 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await maintenanceTab.click();
 
     // Ensure "Entire catalogue" scope is selected
-    await page
-      .locator('input[name="maintenance-scope"][value="all"]')
-      .check();
+    await page.locator('input[name="maintenance-scope"][value="all"]').check();
 
     // Check hoop dimensions task only for fast execution across full catalogue
     await page
@@ -251,9 +254,7 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await expect(page.getByText("Last run summary")).toBeVisible();
     await expect(page.getByText(/Operations:\s*\d+/i)).toBeVisible();
     await expect(page.getByText(/Errors:\s*\d+/i)).toBeVisible();
-    await expect(
-      page.getByText(/Tasks run:\s*hoop_dimensions/i),
-    ).toBeVisible();
+    await expect(page.getByText(/Tasks run:\s*hoop_dimensions/i)).toBeVisible();
 
     // Backfill log contains entries
     const logDetails = page
@@ -367,7 +368,9 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
       prompt.getByRole("heading", { name: "Unmatched files found" }),
     ).toBeVisible();
     await expect(
-      prompt.getByText(/\d+ design file\(s\) on disk have no record in the catalogue/i),
+      prompt.getByText(
+        /\d+ design file\(s\) on disk have no record in the catalogue/i,
+      ),
     ).toBeVisible();
 
     // Test Dismiss button
@@ -414,6 +417,22 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
 
     // Prompt is dismissed automatically after import
     await expect(prompt).not.toBeVisible();
+
+    // Verify automatic tagging (file, folder, and stitching tags) applied to imported designs
+    const dbPath = path.join(DATA_ROOT_PATH, "Database", DATABASE_FILENAME);
+    if (fs.existsSync(dbPath)) {
+      const db = new DatabaseSync(dbPath);
+      const taggedDesigns = db
+        .prepare(
+          "SELECT d.id, d.filename, COUNT(dt.tag_id) AS tag_count FROM designs d JOIN design_tags dt ON dt.design_id = d.id WHERE d.id > 56 GROUP BY d.id",
+        )
+        .all() as { id: number; filename: string; tag_count: number }[];
+      expect(taggedDesigns.length).toBeGreaterThan(0);
+      for (const row of taggedDesigns) {
+        expect(row.tag_count).toBeGreaterThan(0);
+      }
+      db.close();
+    }
 
     // Subsequent scan verifies reconciliation (all supported files on disk are catalogued)
     await scanButton.click();
