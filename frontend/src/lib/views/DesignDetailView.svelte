@@ -884,8 +884,7 @@
             class="ui-text-input w-full px-2.5 py-1.5 text-sm"
             rows="2"
             bind:value={detailNotes}
-            placeholder="Add notes about this design..."
-          ></textarea>
+            placeholder="Add notes about this design..."></textarea>
           <div class="flex justify-end">
             <button
               class="menu-button-primary text-xs px-2.5 py-1"
