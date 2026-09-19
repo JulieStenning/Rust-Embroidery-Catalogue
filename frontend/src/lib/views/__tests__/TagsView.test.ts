@@ -146,6 +146,33 @@ describe("TagsView", () => {
     expect(document.activeElement).toBe(descInput);
   });
 
+  it("enables Clear but not Add for whitespace-only input, and clears input on click", async () => {
+    render(TagsView);
+
+    await screen.findByRole("heading", { name: "Manage Tags" });
+
+    const descInput = screen.getByPlaceholderText("e.g. Animals, Cross stitch...");
+    const addButton = screen.getByRole("button", { name: "Add" });
+    const clearButton = screen.getByRole("button", { name: "Clear" });
+
+    expect(addButton).toBeDisabled();
+    expect(clearButton).toBeDisabled();
+
+    await fireEvent.input(descInput, { target: { value: "   " } });
+    expect(addButton).toBeDisabled();
+    expect(clearButton).toBeEnabled();
+
+    await fireEvent.input(descInput, { target: { value: "Embroidery" } });
+    expect(addButton).toBeEnabled();
+    expect(clearButton).toBeEnabled();
+
+    await fireEvent.click(clearButton);
+    expect(descInput).toHaveValue("");
+    expect(addButton).toBeDisabled();
+    expect(clearButton).toBeDisabled();
+    expect(document.activeElement).toBe(descInput);
+  });
+
   it("deletes a tag from the table after confirmation", async () => {
     adapterMocks.listTags.mockResolvedValue(
       listResponse([{ id: 7, description: "Floral", tag_group: "image", design_count: 0 }])

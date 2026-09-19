@@ -20,6 +20,9 @@
   let adminStitchingTagsOpen = $state(true);
   let tagsLoading = $state(false);
 
+  let canAddTag = $derived(newTagDescription.trim().length > 0);
+  let canClearTagForm = $derived(newTagDescription.length > 0);
+
   /**
    * @template T
    * @param {{ items?: T[] } | null | undefined} response
@@ -77,6 +80,11 @@
     tagDescriptionInput?.focus();
     addToast("Tag added.", "success");
     await loadTags(true);
+  }
+
+  function clearNewTagForm() {
+    newTagDescription = "";
+    tagDescriptionInput?.focus();
   }
 
   /** @param {string} panel @param {Event} event */
@@ -152,7 +160,13 @@
           <option value="stitching">Stitching</option>
         </select>
       </div>
-      <button type="submit" class="menu-button-primary text-sm py-2">Add</button>
+      <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddTag}>Add</button>
+      <button
+        type="button"
+        class="menu-button-secondary text-sm py-2"
+        onclick={clearNewTagForm}
+        disabled={!canClearTagForm}>Clear</button
+      >
     </form>
   </div>
 

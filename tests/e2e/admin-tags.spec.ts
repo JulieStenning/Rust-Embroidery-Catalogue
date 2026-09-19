@@ -64,12 +64,16 @@ test.describe("manage tags", () => {
     const descInput = page.locator("#admin-tag-description");
     const groupSelect = page.locator("#admin-tag-group");
     const addButton = page.locator("form").getByRole("button", { name: "Add", exact: true });
+    const clearButton = page.locator("form").getByRole("button", { name: "Clear", exact: true });
 
     await expect(descInput).toBeVisible();
     await expect(descInput).toHaveValue("");
     await expect(groupSelect).toBeVisible();
     await expect(groupSelect).toHaveValue("image");
     await expect(addButton).toBeVisible();
+    await expect(addButton).toBeDisabled();
+    await expect(clearButton).toBeVisible();
+    await expect(clearButton).toBeDisabled();
 
     // Both Image Tags and Stitching Tags drawers are rendered
     await expect(
@@ -78,6 +82,43 @@ test.describe("manage tags", () => {
     await expect(
       page.getByRole("heading", { name: "Stitching Tags" }),
     ).toBeVisible();
+  });
+
+  test("enforces add form input validation and clear button behavior", async ({
+    page,
+  }) => {
+    await gotoRoute(page, "#/admin/data/tags");
+    await expect(
+      page.getByRole("heading", { name: "Manage Tags" }),
+    ).toBeVisible();
+
+    const descInput = page.locator("#admin-tag-description");
+    const addButton = page.locator("form").getByRole("button", { name: "Add", exact: true });
+    const clearButton = page.locator("form").getByRole("button", { name: "Clear", exact: true });
+
+    // Initial empty state: both disabled, input auto-focused
+    await expect(descInput).toBeVisible();
+    await expect(descInput).toHaveValue("");
+    await expect(addButton).toBeDisabled();
+    await expect(clearButton).toBeDisabled();
+    await expect(descInput).toBeFocused();
+
+    // Whitespace only: Clear enabled, Add disabled
+    await descInput.fill("   ");
+    await expect(addButton).toBeDisabled();
+    await expect(clearButton).toBeEnabled();
+
+    // Clear clicked: resets input and disables buttons, retains focus
+    await clearButton.click();
+    await expect(descInput).toHaveValue("");
+    await expect(addButton).toBeDisabled();
+    await expect(clearButton).toBeDisabled();
+    await expect(descInput).toBeFocused();
+
+    // Valid description: both enabled
+    await descInput.fill("Valid Tag");
+    await expect(addButton).toBeEnabled();
+    await expect(clearButton).toBeEnabled();
   });
 
   test("renders seeded tags in case-insensitive alphabetical order in each drawer", async ({
