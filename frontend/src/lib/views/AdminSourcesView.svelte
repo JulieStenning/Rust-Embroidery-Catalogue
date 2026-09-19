@@ -17,6 +17,8 @@
   /** @type {AdminEntityRow[]} */
   let sources = $state([]);
   let newSourceName = $state("");
+  /** @type {HTMLInputElement | null} */
+  let sourceNameInput = $state(null);
   /** @type {number | null} */
   let editingSourceId = $state(null);
   let editingSourceName = $state("");
@@ -69,6 +71,7 @@
     }
 
     newSourceName = "";
+    sourceNameInput?.focus();
     addToast("Source added.", "success");
     await loadSources(true);
   }
@@ -138,10 +141,12 @@
 
   function clearNewSourceForm() {
     newSourceName = "";
+    sourceNameInput?.focus();
   }
 
   onMount(() => {
     loadSources();
+    sourceNameInput?.focus();
   });
 </script>
 
@@ -156,6 +161,7 @@
   <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new source</h2>
   <form class="flex gap-2" onsubmit={addSource}>
     <input
+      bind:this={sourceNameInput}
       type="text"
       bind:value={newSourceName}
       required

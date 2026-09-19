@@ -107,12 +107,14 @@ describe("TagsView", () => {
     });
   });
 
-  it("adds a new tag with the default image group", async () => {
+  it("adds a new tag with the default image group and refocuses description input", async () => {
     render(TagsView);
 
     await screen.findByRole("heading", { name: "Manage Tags" });
 
     const descInput = screen.getByPlaceholderText("e.g. Animals, Cross stitch...");
+    expect(document.activeElement).toBe(descInput);
+
     await fireEvent.input(descInput, { target: { value: "Bees" } });
 
     await fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -120,6 +122,8 @@ describe("TagsView", () => {
     await waitFor(() => {
       expect(adapterMocks.createTag).toHaveBeenCalledWith("Bees", "image");
     });
+    expect(descInput).toHaveValue("");
+    expect(document.activeElement).toBe(descInput);
   });
 
   it("adds a new tag with the stitching group when selected", async () => {
@@ -138,6 +142,8 @@ describe("TagsView", () => {
     await waitFor(() => {
       expect(adapterMocks.createTag).toHaveBeenCalledWith("Satin stitch", "stitching");
     });
+    expect(descInput).toHaveValue("");
+    expect(document.activeElement).toBe(descInput);
   });
 
   it("deletes a tag from the table after confirmation", async () => {

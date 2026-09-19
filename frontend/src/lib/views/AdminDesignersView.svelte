@@ -17,6 +17,8 @@
   /** @type {AdminEntityRow[]} */
   let designers = $state([]);
   let newDesignerName = $state("");
+  /** @type {HTMLInputElement | null} */
+  let designerNameInput = $state(null);
   /** @type {number | null} */
   let editingDesignerId = $state(null);
   let editingDesignerName = $state("");
@@ -69,6 +71,7 @@
     }
 
     newDesignerName = "";
+    designerNameInput?.focus();
     addToast("Designer added.", "success");
     await loadDesigners(true);
   }
@@ -138,10 +141,12 @@
 
   function clearNewDesignerForm() {
     newDesignerName = "";
+    designerNameInput?.focus();
   }
 
   onMount(() => {
     loadDesigners();
+    designerNameInput?.focus();
   });
 </script>
 
@@ -158,6 +163,7 @@
   <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new designer</h2>
   <form class="flex gap-2" onsubmit={addDesigner}>
     <input
+      bind:this={designerNameInput}
       type="text"
       bind:value={newDesignerName}
       required

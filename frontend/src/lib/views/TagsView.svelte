@@ -14,6 +14,8 @@
   let stitchingTags = $state([]);
   let newTagDescription = $state("");
   let newTagGroup = $state("image");
+  /** @type {HTMLInputElement | null} */
+  let tagDescriptionInput = $state(null);
   let adminImageTagsOpen = $state(true);
   let adminStitchingTagsOpen = $state(true);
   let tagsLoading = $state(false);
@@ -72,6 +74,7 @@
     }
 
     newTagDescription = "";
+    tagDescriptionInput?.focus();
     addToast("Tag added.", "success");
     await loadTags(true);
   }
@@ -107,6 +110,7 @@
       }
     }
     loadTags();
+    tagDescriptionInput?.focus();
   });
 </script>
 
@@ -126,6 +130,7 @@
         >
         <input
           id="admin-tag-description"
+          bind:this={tagDescriptionInput}
           type="text"
           bind:value={newTagDescription}
           required

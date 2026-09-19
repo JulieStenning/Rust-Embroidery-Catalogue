@@ -141,10 +141,29 @@ describe("AdminDesignersView.svelte", () => {
       expect(createDesignerMock).toHaveBeenCalledWith("Boutique Stitch");
     });
     expect(screen.getByPlaceholderText("New designer name...")).toHaveValue("");
+    expect(document.activeElement).toBe(screen.getByPlaceholderText("New designer name..."));
     expect(addToastMock).toHaveBeenCalledWith("Designer added.", "success");
     await waitFor(() => {
       expect(listDesignersMock).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("focuses the designer name input on mount and when clear is clicked", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
+    });
+
+    const nameInput = screen.getByPlaceholderText("New designer name...");
+    expect(document.activeElement).toBe(nameInput);
+
+    await fireEvent.input(nameInput, { target: { value: "Draft Designer" } });
+    const clearButton = screen.getByRole("button", { name: "Clear" });
+    await fireEvent.click(clearButton);
+
+    expect(nameInput).toHaveValue("");
+    expect(document.activeElement).toBe(nameInput);
   });
 
   it("shows an error toast when createDesigner is not persisted", async () => {

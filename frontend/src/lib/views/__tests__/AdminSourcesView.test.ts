@@ -141,10 +141,29 @@ describe("AdminSourcesView.svelte", () => {
       expect(createSourceMock).toHaveBeenCalledWith("Bought");
     });
     expect(screen.getByPlaceholderText("e.g. Purchased, Downloaded...")).toHaveValue("");
+    expect(document.activeElement).toBe(screen.getByPlaceholderText("e.g. Purchased, Downloaded..."));
     expect(addToastMock).toHaveBeenCalledWith("Source added.", "success");
     await waitFor(() => {
       expect(listSourcesMock).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("focuses the source name input on mount and when clear is clicked", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Purchased")).toBeInTheDocument();
+    });
+
+    const nameInput = screen.getByPlaceholderText("e.g. Purchased, Downloaded...");
+    expect(document.activeElement).toBe(nameInput);
+
+    await fireEvent.input(nameInput, { target: { value: "Draft Source" } });
+    const clearButton = screen.getByRole("button", { name: "Clear" });
+    await fireEvent.click(clearButton);
+
+    expect(nameInput).toHaveValue("");
+    expect(document.activeElement).toBe(nameInput);
   });
 
   it("shows an error toast when createSource is not persisted", async () => {

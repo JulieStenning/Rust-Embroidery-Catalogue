@@ -155,7 +155,26 @@ describe("AdminHoopsView.svelte", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("");
     expect(screen.getByLabelText("Max Width (mm)")).toHaveValue(0);
     expect(screen.getByLabelText("Max Height (mm)")).toHaveValue(0);
+    expect(document.activeElement).toBe(screen.getByLabelText("Name"));
     expect(addToastMock).toHaveBeenCalledWith("Hoop added.", "success");
+  });
+
+  it("focuses the name input on mount and when clear is clicked", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("5x7 Hoop")).toBeInTheDocument();
+    });
+
+    const nameInput = screen.getByLabelText("Name");
+    expect(document.activeElement).toBe(nameInput);
+
+    await fireEvent.input(nameInput, { target: { value: "Draft" } });
+    const clearButton = screen.getByRole("button", { name: "Clear" });
+    await fireEvent.click(clearButton);
+
+    expect(nameInput).toHaveValue("");
+    expect(document.activeElement).toBe(nameInput);
   });
 
   it("rejects adding a hoop with the reserved system name", async () => {

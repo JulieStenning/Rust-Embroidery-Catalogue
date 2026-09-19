@@ -20,6 +20,8 @@
   let newHoopName = $state("");
   let newHoopWidth = $state(0);
   let newHoopHeight = $state(0);
+  /** @type {HTMLInputElement | null} */
+  let hoopNameInput = $state(null);
   /** @type {number | null} */
   let editingHoopId = $state(null);
   let editingHoopName = $state("");
@@ -92,6 +94,7 @@
     newHoopName = "";
     newHoopWidth = 0;
     newHoopHeight = 0;
+    hoopNameInput?.focus();
     addToast("Hoop added.", "success");
     await loadHoops(true);
   }
@@ -176,10 +179,12 @@
     newHoopName = "";
     newHoopWidth = 0;
     newHoopHeight = 0;
+    hoopNameInput?.focus();
   }
 
   onMount(() => {
     loadHoops();
+    hoopNameInput?.focus();
   });
 </script>
 
@@ -200,6 +205,7 @@
       >
       <input
         id="admin-hoop-name"
+        bind:this={hoopNameInput}
         type="text"
         bind:value={newHoopName}
         required
