@@ -109,7 +109,7 @@
   const apiKeyCopy = {
     question: "Would you like automated tagging?",
     answer:
-      "Automated tagging lets Google's AI read your design names — and optionally the preview image — to suggest tags automatically. This requires a free Google API key. Without one, the app still uses built-in keyword tagging, which is free and always available.",
+      "Automated tagging uses Google's Gemini Vision AI to analyze your design preview images and automatically suggest descriptive tags. This requires a Google Gemini API key (both free-tier and paid accounts are supported). Without one, the app still tags designs using built-in File & Folder rules, which are completely free and run offline.",
     whyNowTitle: "Why do this now?",
     whyNow:
       "Adding your API key now means automated tagging is ready the moment you import your first designs. You can add or change it later via Admin → System (Settings).",
