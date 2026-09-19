@@ -141,7 +141,9 @@ describe("AdminSourcesView.svelte", () => {
       expect(createSourceMock).toHaveBeenCalledWith("Bought");
     });
     expect(screen.getByPlaceholderText("e.g. Purchased, Downloaded...")).toHaveValue("");
-    expect(document.activeElement).toBe(screen.getByPlaceholderText("e.g. Purchased, Downloaded..."));
+    expect(document.activeElement).toBe(
+      screen.getByPlaceholderText("e.g. Purchased, Downloaded...")
+    );
     expect(addToastMock).toHaveBeenCalledWith("Source added.", "success");
     await waitFor(() => {
       expect(listSourcesMock).toHaveBeenCalledTimes(2);

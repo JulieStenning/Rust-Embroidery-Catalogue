@@ -160,7 +160,9 @@
           <option value="stitching">Stitching</option>
         </select>
       </div>
-      <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddTag}>Add</button>
+      <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddTag}
+        >Add</button
+      >
       <button
         type="button"
         class="menu-button-secondary text-sm py-2"
