@@ -88,21 +88,23 @@ test.describe("manage designers", () => {
     const addButton = page.getByRole("button", { name: "Add", exact: true });
     const clearButton = page.getByRole("button", { name: "Clear", exact: true });
 
-    // Initial empty state: both disabled
+    // Initial empty state: both disabled, input auto-focused
     await expect(input).toHaveValue("");
     await expect(addButton).toBeDisabled();
     await expect(clearButton).toBeDisabled();
+    await expect(input).toBeFocused();
 
     // Whitespace only: Clear enabled, Add disabled
     await input.fill("   ");
     await expect(addButton).toBeDisabled();
     await expect(clearButton).toBeEnabled();
 
-    // Clear clicked: resets input and disables buttons
+    // Clear clicked: resets input and disables buttons, retains focus
     await clearButton.click();
     await expect(input).toHaveValue("");
     await expect(addButton).toBeDisabled();
     await expect(clearButton).toBeDisabled();
+    await expect(input).toBeFocused();
 
     // Valid name: both enabled
     await input.fill("Valid Designer");

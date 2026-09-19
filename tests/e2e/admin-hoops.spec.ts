@@ -94,25 +94,27 @@ test.describe("manage hoops", () => {
     const addButton = page.getByRole("button", { name: "Add", exact: true });
     const clearButton = page.getByRole("button", { name: "Clear", exact: true });
 
-    // Initial empty state: both buttons disabled
+    // Initial empty state: both buttons disabled, name input auto-focused
     await expect(nameInput).toHaveValue("");
     await expect(widthInput).toHaveValue("0");
     await expect(heightInput).toHaveValue("0");
     await expect(addButton).toBeDisabled();
     await expect(clearButton).toBeDisabled();
+    await expect(nameInput).toBeFocused();
 
     // Name filled only: Clear enabled, Add disabled (width/height still 0)
     await nameInput.fill("Partial Hoop");
     await expect(addButton).toBeDisabled();
     await expect(clearButton).toBeEnabled();
 
-    // Clear clicked: resets input and disables buttons
+    // Clear clicked: resets input and disables buttons, retains focus
     await clearButton.click();
     await expect(nameInput).toHaveValue("");
     await expect(widthInput).toHaveValue("0");
     await expect(heightInput).toHaveValue("0");
     await expect(addButton).toBeDisabled();
     await expect(clearButton).toBeDisabled();
+    await expect(nameInput).toBeFocused();
 
     // Fill valid name, width, and height: both buttons enabled
     await nameInput.fill("Valid Hoop");
