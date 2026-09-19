@@ -81,7 +81,7 @@
     whyNow:
       "Setting up your frequent designers now enables the Bulk Import tool to display them in drop-down menus. This makes it effortless to assign a designer to an entire folder at once during import, rather than tagging designs individually later.",
     mandatory:
-      "Not at all! This step is completely optional. You can skip this now and add or edit designers at any time in the settings.",
+      "Not at all! You can skip this step and start importing right away. You can add, edit, or import designers later under Manage Data.",
   };
 
   const sourcesCopy = {
@@ -92,7 +92,7 @@
     whyNow:
       "Setting up your common sources now enables the Bulk Import tool to display them in drop-down menus. This lets you tag an entire folder's designs with the same source during import, rather than editing each design individually later.",
     mandatory:
-      "Not at all! This step is completely optional. You can skip this now and add or edit sources at any time in the settings.",
+      "Not at all! You can skip this step and start importing right away. You can customize your list of sources at any time under Manage Data.",
   };
 
   const hoopsCopy = {
@@ -101,9 +101,9 @@
       "Hoops are the frames your embroidery machine uses. Knowing the sizes you own lets the app suggest which hoop each design fits, so you can see at a glance whether a design will stitch within the frame you have.",
     whyNowTitle: "Why do this now?",
     whyNow:
-      "Adding the hoops you own now means the app can automatically recommend a hoop size when you inspect a design or share one to a project. You can add more hoops or edit these later in the settings.",
+      "Adding the hoops you own now means the app can automatically recommend a hoop size when you inspect a design or share one to a project. You can add more hoops or edit these later under Manage Data.",
     mandatory:
-      "Not at all! This step is completely optional. You can skip it now and add or edit hoops at any time in the settings.",
+      "Not at all! You can skip this step and configure your embroidery hoops later under Manage Data.",
   };
 
   const apiKeyCopy = {
@@ -112,9 +112,9 @@
       "Automated tagging lets Google's AI read your design names — and optionally the preview image — to suggest tags automatically. This requires a free Google API key. Without one, the app still uses built-in keyword tagging, which is free and always available.",
     whyNowTitle: "Why do this now?",
     whyNow:
-      "Adding your API key now means automated tagging is ready the moment you import your first designs. You can add or change it later via Admin → Settings.",
+      "Adding your API key now means automated tagging is ready the moment you import your first designs. You can add or change it later via Admin → System (Settings).",
     mandatory:
-      "Not at all! This step is completely optional. Leave it blank to skip automated tagging and add a key later in the settings.",
+      "Not at all! This step is completely optional. Leave it blank to skip automated tagging and add a key later via Admin → System (Settings).",
   };
 
   const dataCopy = {
@@ -123,7 +123,7 @@
       "Your design files and database are stored in a data folder. You can choose any folder on your computer, including one on a portable drive. Once the location is chosen, the app will restart.",
     whyNowTitle: "Why choose now?",
     whyNow:
-      "Choosing a location now ensures your data lives exactly where you want it before you start importing designs. You can change this later via Settings.",
+      "Choosing a location now ensures your data lives exactly where you want it before you start importing designs.",
     mandatory: "You can keep the suggested location, or choose your own folder.",
   };
 
@@ -451,8 +451,8 @@
           </button>
         </div>
         <p class="text-xs text-gray-500">
-          Leave this blank to skip automated tagging — you can add a key later via Admin → Settings.
-          The key is stored locally and is only sent to Google's Gemini API.
+          Leave this blank to skip automated tagging — you can add a key later via Admin → System
+          (Settings). The key is stored locally and is only sent to Google's Gemini API.
         </p>
       </div>
     {/if}

@@ -165,7 +165,9 @@ describe("InitialSetupView.svelte", () => {
     expect(screen.getByText(/Why do this now\?/)).toBeInTheDocument();
     expect(screen.getByText(/Setting up your frequent designers now/)).toBeInTheDocument();
     expect(screen.getByText("Are they mandatory?")).toBeInTheDocument();
-    expect(screen.getByText(/Not at all! This step is completely optional/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Not at all! You can skip this step and start importing right away/)
+    ).toBeInTheDocument();
 
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-sources-view")).not.toBeInTheDocument();
@@ -193,7 +195,9 @@ describe("InitialSetupView.svelte", () => {
       screen.getByText(/Sources describe where your embroidery designs came from/)
     ).toBeInTheDocument();
     expect(screen.getByText(/Setting up your common sources now/)).toBeInTheDocument();
-    expect(screen.getByText(/Not at all! This step is completely optional/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Not at all! You can skip this step and start importing right away/)
+    ).toBeInTheDocument();
 
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-designers-view")).not.toBeInTheDocument();
