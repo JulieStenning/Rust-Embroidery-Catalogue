@@ -14,6 +14,7 @@
     getSettingsViewModel,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { triggerFirstImportBanner } from "../stores/firstImportStore";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import {
     buildImportFolderCatalog,
@@ -681,8 +682,11 @@
         if (hashRoute === "#/designs") {
           const persistedCount = Number(actionResult?.confirm_result?.persisted_design_count ?? 0);
           const failedCount = Number(actionResult?.confirm_result?.failed_decode_count ?? 0);
-          if (persistedCount >= 1 && typeof onImportCompleted === "function") {
-            onImportCompleted(persistedCount);
+          if (persistedCount >= 1) {
+            triggerFirstImportBanner();
+            if (typeof onImportCompleted === "function") {
+              onImportCompleted(persistedCount);
+            }
           }
           if (failedCount >= 1) {
             addToast(

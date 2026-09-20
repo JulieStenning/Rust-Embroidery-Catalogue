@@ -14,8 +14,6 @@ const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const configureFreshDataRootMock = vi.hoisted(() => vi.fn());
 const browseDataRootFolderMock = vi.hoisted(() => vi.fn());
 const restartApplicationMock = vi.hoisted(() => vi.fn());
-const getGoogleApiKeyMock = vi.hoisted(() => vi.fn());
-const setGoogleApiKeyMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/api/commandAdapter", () => ({
@@ -26,8 +24,6 @@ vi.mock("../lib/api/commandAdapter", () => ({
   configureFreshDataRoot: configureFreshDataRootMock,
   browseDataRootFolder: browseDataRootFolderMock,
   restartApplication: restartApplicationMock,
-  getGoogleApiKey: getGoogleApiKeyMock,
-  setGoogleApiKey: setGoogleApiKeyMock,
 }));
 
 vi.mock("../lib/stores/toastStore.js", () => ({
@@ -142,13 +138,11 @@ describe("InitialSetupView.svelte", () => {
     vi.clearAllMocks();
     completeInitialSetupMock.mockResolvedValue(undefined);
     restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
-    getGoogleApiKeyMock.mockResolvedValue({ source: "rust", key: "" });
-    setGoogleApiKeyMock.mockResolvedValue({ source: "rust", persisted: true });
     mockDevMode();
   });
 
   // -----------------------------------------------------------------------
-  // Dev mode — no data step, Designers → Sources → Hoops → API Key
+  // Dev mode — no data step, Designers → Sources → Hoops
   // -----------------------------------------------------------------------
 
   it("renders the Designers step by default", async () => {
@@ -159,7 +153,7 @@ describe("InitialSetupView.svelte", () => {
 
     expect(screen.getByText("Welcome to Embroidery Catalogue!")).toBeInTheDocument();
     expect(screen.getByText("Let's set up your catalogue")).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
     expect(screen.getByText("What are Designers?")).toBeInTheDocument();
     expect(screen.getByText(/Designers are the digitizers or creators/)).toBeInTheDocument();
     expect(screen.getByText(/Why do this now\?/)).toBeInTheDocument();
@@ -189,7 +183,7 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
 
-    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
     expect(screen.getByText("What are Sources?")).toBeInTheDocument();
     expect(
       screen.getByText(/Sources describe where your embroidery designs came from/)
@@ -205,7 +199,7 @@ describe("InitialSetupView.svelte", () => {
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
   });
 
-  it("advances to the Hoops step from Sources", async () => {
+  it("advances to the Hoops step from Sources and shows Finish button", async () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
@@ -216,38 +210,22 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
 
-    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 3 — Hoops")).toBeInTheDocument();
     expect(screen.getByText("What are Hoops?")).toBeInTheDocument();
     expect(
       screen.getByText(/Hoops are the frames your embroidery machine uses/)
     ).toBeInTheDocument();
     expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-sources-view")).not.toBeInTheDocument();
-  });
-
-  it("advances to the Google API Key step from Hoops", async () => {
-    render(InitialSetupView, {
-      props: { onInitialSetupCompleted: vi.fn() },
-    });
-    await tick();
-
-    for (let i = 0; i < 3; i += 1) {
-      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-      await tick();
-    }
-
-    expect(screen.getByText("Step 4 of 4 — Google API Key")).toBeInTheDocument();
-    expect(screen.getByText("Would you like automated tagging?")).toBeInTheDocument();
-    expect(screen.getByTestId("initial-setup-api-key-input")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
   });
 
-  it("completes setup and invokes the callback on the final step", async () => {
+  it("completes setup and invokes the callback on the final Hoops step", async () => {
     const onInitialSetupCompleted = vi.fn();
     render(InitialSetupView, { props: { onInitialSetupCompleted } });
     await tick();
 
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -260,119 +238,31 @@ describe("InitialSetupView.svelte", () => {
     });
   });
 
-  it("saves a non-blank API key when finishing", async () => {
-    render(InitialSetupView, {
-      props: { onInitialSetupCompleted: vi.fn() },
-    });
-    await tick();
-
-    for (let i = 0; i < 3; i += 1) {
-      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-      await tick();
-    }
-
-    const apiInput = screen.getByTestId("initial-setup-api-key-input");
-    await fireEvent.input(apiInput, { target: { value: "AIza-Setup-Key" } });
-    await tick();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-
-    await waitFor(() => {
-      expect(setGoogleApiKeyMock).toHaveBeenCalledWith("AIza-Setup-Key");
-    });
-    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not save an empty API key when finishing", async () => {
-    render(InitialSetupView, {
-      props: { onInitialSetupCompleted: vi.fn() },
-    });
-    await tick();
-
-    for (let i = 0; i < 3; i += 1) {
-      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-      await tick();
-    }
-
-    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-
-    await waitFor(() => {
-      expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
-    });
-    expect(setGoogleApiKeyMock).not.toHaveBeenCalled();
-  });
-
-  it("saves the API key when navigating back from the API Key step", async () => {
-    render(InitialSetupView, {
-      props: { onInitialSetupCompleted: vi.fn() },
-    });
-    await tick();
-
-    for (let i = 0; i < 3; i += 1) {
-      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-      await tick();
-    }
-
-    const apiInput = screen.getByTestId("initial-setup-api-key-input");
-    await fireEvent.input(apiInput, { target: { value: "AIza-Back-Key" } });
-    await tick();
-
-    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
-    await tick();
-
-    await waitFor(() => {
-      expect(setGoogleApiKeyMock).toHaveBeenCalledWith("AIza-Back-Key");
-    });
-    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
-  });
-
   it("back navigates through the steps", async () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
     await tick();
 
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
-    expect(screen.getByText("Step 4 of 4 — Google API Key")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 3 — Hoops")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     await tick();
-    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
-
-    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
-    await tick();
-    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     await tick();
-    expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "← Back" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("initial-setup-back")).not.toBeInTheDocument();
 
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
-  });
-
-  it("loads an existing API key on mount", async () => {
-    getGoogleApiKeyMock.mockResolvedValue({ source: "rust", key: "existing-key" });
-    render(InitialSetupView, {
-      props: { onInitialSetupCompleted: vi.fn() },
-    });
-    await tick();
-
-    for (let i = 0; i < 3; i += 1) {
-      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-      await tick();
-    }
-
-    await waitFor(() => {
-      expect(screen.getByTestId("initial-setup-api-key-input")).toHaveValue("existing-key");
-    });
   });
 
   it("disables the button and shows 'Saving…' while finishing setup", async () => {
@@ -388,7 +278,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -416,7 +306,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -439,7 +329,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -470,7 +360,7 @@ describe("InitialSetupView.svelte", () => {
   // Installed mode, first run — data root first, then restart
   // -----------------------------------------------------------------------
 
-  it("shows a five-step wizard with Data Location first on first run", async () => {
+  it("shows a four-step wizard with Data Location first on first run", async () => {
     mockInstalledNoConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
@@ -478,7 +368,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-input")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-browse")).toBeInTheDocument();
@@ -494,7 +384,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -530,7 +420,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -558,7 +448,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -592,7 +482,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -623,7 +513,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
 
     const finishButton = screen.getByRole("button", { name: "Continue →" });
@@ -645,7 +535,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-missing-notice")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-input")).toHaveValue("G:/OldPortableData");
@@ -663,25 +553,20 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
     });
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByTestId("data-root-input")).not.toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
-    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
-    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 3 — Hoops")).toBeInTheDocument();
     expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
-    await tick();
-    expect(screen.getByText("Step 4 of 4 — Google API Key")).toBeInTheDocument();
-    expect(screen.getByTestId("initial-setup-api-key-input")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(configureFreshDataRootMock).not.toHaveBeenCalled();

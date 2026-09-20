@@ -9,11 +9,8 @@
     configureFreshDataRoot,
     getAppStatus,
     getConfiguredDataRoot,
-    getGoogleApiKey,
     restartApplication,
-    setGoogleApiKey,
   } from "./api/commandAdapter";
-  import { addToast } from "./stores/toastStore.js";
 
   /** Callback prop — called when the user has finished or skipped setup */
   let { onInitialSetupCompleted } = $props();
@@ -45,10 +42,6 @@
    */
   let dataStepFirst = $state(false);
 
-  /** Google API key (optional, for automated tagging) */
-  let apiKeyInput = $state("");
-  let apiKeyRevealed = $state(false);
-
   /** Whether the visible flow includes a leading Data Location step. */
   const hasDataFirstFlow = $derived(needsDataStep && dataStepFirst);
   /** Index of the Data Location step in the visible flow (`-1` when hidden). */
@@ -59,17 +52,13 @@
   const sourceStepIndex = $derived(hasDataFirstFlow ? 2 : 1);
   /** Index of the Hoops step in the visible flow. */
   const hoopStepIndex = $derived(hasDataFirstFlow ? 3 : 2);
-  /** Index of the Google API Key step in the visible flow. */
-  const apiKeyStepIndex = $derived(hasDataFirstFlow ? 4 : 3);
   /** Total number of visible steps. */
-  const totalSteps = $derived(hasDataFirstFlow ? 5 : 4);
+  const totalSteps = $derived(hasDataFirstFlow ? 4 : 3);
 
   /** Is the current step the Data Location step? */
   const isDataStep = $derived(needsDataStep && step === dataStepIndex);
-  /** Is the current step the API Key step (the last step)? */
-  const isApiKeyStep = $derived(step === apiKeyStepIndex);
   /** Is the current step the last visible step? */
-  const isLastStep = $derived(isApiKeyStep);
+  const isLastStep = $derived(step === hoopStepIndex);
   /** Show the Back button on any step after the first visible step. */
   const showBack = $derived(step > 0);
 
@@ -106,17 +95,6 @@
       "Not at all! You can skip this step and configure your embroidery hoops later under Manage Data.",
   };
 
-  const apiKeyCopy = {
-    question: "Would you like automated tagging?",
-    answer:
-      "Automated tagging uses Google's Gemini Vision AI to analyze your design preview images and automatically suggest descriptive tags. This requires a Google Gemini API key (both free-tier and paid accounts are supported). Without one, the app still tags designs using built-in File & Folder rules, which are completely free and run offline.",
-    whyNowTitle: "Why do this now?",
-    whyNow:
-      "Adding your API key now means automated tagging is ready the moment you import your first designs. You can add or change it later via Admin → System (Settings).",
-    mandatory:
-      "Not at all! This step is completely optional. Leave it blank to skip automated tagging and add a key later via Admin → System (Settings).",
-  };
-
   const dataCopy = {
     question: "Where should your catalogue data live?",
     answer:
@@ -146,15 +124,9 @@
         stepLabel: `Step ${sourceStepIndex + 1} of ${totalSteps} — Sources`,
       };
     }
-    if (step === hoopStepIndex) {
-      return {
-        ...hoopsCopy,
-        stepLabel: `Step ${hoopStepIndex + 1} of ${totalSteps} — Hoops`,
-      };
-    }
     return {
-      ...apiKeyCopy,
-      stepLabel: `Step ${apiKeyStepIndex + 1} of ${totalSteps} — Google API Key`,
+      ...hoopsCopy,
+      stepLabel: `Step ${hoopStepIndex + 1} of ${totalSteps} — Hoops`,
     };
   });
 
@@ -168,17 +140,6 @@
    *    go straight to Designers → Sources.
    *  - Dev/Portable mode: never show the Data step. */
   onMount(async () => {
-    // Load any existing API key (best-effort; never blocks the wizard).
-    getGoogleApiKey()
-      .then((res) => {
-        if (res && res.key) {
-          apiKeyInput = res.key;
-        }
-      })
-      .catch((e) => {
-        console.info("get_google_api_key failed during setup:", e);
-      });
-
     const statusRes = await getAppStatus();
     if (statusRes.status) {
       mode = statusRes.status.execution_mode;
@@ -261,33 +222,9 @@
     // Nothing further to do here.
   }
 
-  /** Persist a non-blank API key when leaving the API Key step. */
-  async function saveApiKeyIfPresent() {
-    const trimmed = apiKeyInput.trim();
-    if (!trimmed) return;
-    try {
-      const saved = await setGoogleApiKey(trimmed);
-      if (saved?.persisted === false) {
-        addToast(`Could not save the API key: ${saved.error || "unknown error"}`, "error");
-      } else {
-        addToast("Google API key saved.", "success");
-      }
-    } catch (e) {
-      addToast(`Failed to save the API key: ${e}`, "error");
-      console.error("api key save failed:", e);
-    }
-  }
-
-  function toggleApiKeyRevealed() {
-    apiKeyRevealed = !apiKeyRevealed;
-  }
-
-  /** Move back to the previous visible step (saving the API key if leaving it). */
+  /** Move back to the previous visible step. */
   async function handleBack() {
     if (finishing || step <= 0) return;
-    if (isApiKeyStep) {
-      await saveApiKeyIfPresent();
-    }
     error = "";
     step = step - 1;
   }
@@ -312,7 +249,6 @@
     finishing = true;
     error = "";
     try {
-      await saveApiKeyIfPresent();
       await completeInitialSetup();
       onInitialSetupCompleted();
     } catch (e) {
@@ -328,8 +264,7 @@
   <!-- Welcome banner -->
   <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm">
     <span class="font-semibold">Welcome to Embroidery Catalogue!</span>
-    Before you import files, you can optionally add a few of your main Designers, Sources and Hoops, plus
-    an optional Google API key for automated tagging.
+    Before you import files, you can optionally add a few of your main Designers, Sources and Hoops.
   </div>
 
   <!-- Main card -->
@@ -338,10 +273,10 @@
     <p class="text-sm text-gray-600">
       {#if hasDataFirstFlow}
         First, choose where your data lives. Then you can add your frequent Designers, Sources and
-        Hoops, plus an optional Google API key for automated tagging.
+        Hoops.
       {:else}
         Adding your frequent Designers, Sources and Hoops now makes the Bulk Import tool faster and
-        easier to use. An optional Google API key enables automated AI tagging.
+        easier to use.
       {/if}
     </p>
 
@@ -421,40 +356,6 @@
       <AdminSourcesView embedded={true} />
     {:else if step === hoopStepIndex}
       <AdminHoopsView embedded={true} />
-    {:else if step === apiKeyStepIndex}
-      <div class="space-y-3">
-        <label for="initial-setup-api-key-input" class="block text-sm font-medium text-gray-700">
-          Google API key
-        </label>
-        <div class="flex items-center gap-2">
-          <input
-            id="initial-setup-api-key-input"
-            type={apiKeyRevealed ? "text" : "password"}
-            bind:value={apiKeyInput}
-            placeholder="AIzaSy..."
-            autocomplete="off"
-            spellcheck="false"
-            class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            data-testid="initial-setup-api-key-input"
-          />
-          <button
-            type="button"
-            onclick={toggleApiKeyRevealed}
-            aria-label="Show or hide API key"
-            aria-pressed={apiKeyRevealed}
-            title={apiKeyRevealed ? "Hide API key" : "Show API key"}
-            class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded text-sm font-medium
-                   hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            data-testid="initial-setup-api-key-toggle"
-          >
-            <span aria-hidden="true">{apiKeyRevealed ? "🙈" : "👁"}</span>
-          </button>
-        </div>
-        <p class="text-xs text-gray-500">
-          Leave this blank to skip automated tagging — you can add a key later via Admin → System
-          (Settings). The key is stored locally and is only sent to Google's Gemini API.
-        </p>
-      </div>
     {/if}
 
     <!-- Bottom buttons -->

@@ -132,6 +132,28 @@ test.describe("bulk import", () => {
       )
       .toBe(true);
 
+    // Assert: First-import success banner is displayed above browse search on first import.
+    const banner = page.getByTestId("first-import-success-banner");
+    await expect(banner).toBeVisible({ timeout: 10_000 });
+    await expect(banner.getByText("First import complete!")).toBeVisible();
+    await expect(
+      banner.getByText(/Your designs are tagged with fast, offline File & Folder rules/)
+    ).toBeVisible();
+    await expect(banner.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "#/admin/system/settings",
+    );
+    await expect(banner.getByRole("link", { name: "Batch Operations" })).toHaveAttribute(
+      "href",
+      "#/admin/batch-operations",
+    );
+
+    // Dismiss the banner.
+    await banner
+      .getByRole("button", { name: "Dismiss first import notice" })
+      .click();
+    await expect(banner).toBeHidden();
+
     const importedStem = path.parse(sourceFilesBefore[0]).name;
     await page.locator("#browse-q").fill(importedStem);
 

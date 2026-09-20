@@ -17,6 +17,7 @@
     bulkSetTagsForDesigns,
   } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
+  import FirstImportSuccessBanner from "../components/FirstImportSuccessBanner.svelte";
   import Pagination from "../components/Pagination.svelte";
   import SelectionHeader from "../components/SelectionHeader.svelte";
   import { SvelteSet } from "svelte/reactivity";
@@ -1342,6 +1343,7 @@
 <svelte:window onresize={refreshBrowseGridColumns} />
 
 <section class="browse-section space-y-4">
+  <FirstImportSuccessBanner />
   <h1 class="ui-page-title browse-title text-2xl font-bold text-gray-800">Browse Designs</h1>
   <br />
   <form
