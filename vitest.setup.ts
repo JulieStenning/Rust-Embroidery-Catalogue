@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import "@testing-library/jest-dom/vitest";
 
 // NOTE: `@testing-library/svelte` auto-registers its own beforeEach/afterEach

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Julie Stenning -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 <script>
   import { deleteTag as removeTag, updateTag } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";

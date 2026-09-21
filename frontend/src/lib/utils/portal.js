@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 /**
  * Svelte action that portals a node to document.body.
  * Extracted from MainView.svelte.

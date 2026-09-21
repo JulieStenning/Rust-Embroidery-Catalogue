@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // SQLx does not require a generated schema module.
 // Table name constants are defined here for code readability and to avoid
 // hard-coding strings throughout the codebase.

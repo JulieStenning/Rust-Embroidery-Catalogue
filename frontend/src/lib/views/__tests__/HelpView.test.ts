@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/svelte";

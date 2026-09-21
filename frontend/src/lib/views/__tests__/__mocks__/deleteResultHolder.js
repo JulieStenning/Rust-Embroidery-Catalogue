@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 /**
  * Shared mutable holder so tests can override the result passed to
  * `onDeleted` when the DeleteDesignsModal mock's Confirm button is clicked.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::error::AppError;
 use crate::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};

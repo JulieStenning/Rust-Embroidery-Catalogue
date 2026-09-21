@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 /**
  * Subscribes to restore progress events emitted by the Rust backend
  * (`catalogue-restore-progress`) and mirrors them into the shared

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 /**
  * Subscribes to backfill progress events emitted by the Rust backend
  * (`backfill-progress`) and mirrors them into the shared

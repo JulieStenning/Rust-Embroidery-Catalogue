@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the bulk-import route.
 //
 // This module was split out of bulk_import.rs so the route file can stay

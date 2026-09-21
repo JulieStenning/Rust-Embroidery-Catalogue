@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the projects service.
 //
 // This module was split out of projects.rs so the service file can stay

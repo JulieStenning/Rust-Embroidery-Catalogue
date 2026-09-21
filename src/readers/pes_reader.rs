@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use std::io::{Cursor, Seek, SeekFrom};
 
 use crate::models::{EmbPattern, EmbThread, StitchType};

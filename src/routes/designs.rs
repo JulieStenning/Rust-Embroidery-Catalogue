@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::config::BootstrapConfig;
 use crate::paths::normalize_windows_explorer_target;
 use crate::services::compaction::schedule_incremental_vacuum;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the restore route (thin IPC over services::restore).
 //
 // Included via #[path]. Covers the RestoreGuard drop behaviour, the

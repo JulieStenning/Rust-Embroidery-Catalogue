@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Initial setup logic — track whether the user has completed or skipped the
 // first-run setup wizard (designers/sources onboarding) via the settings table.
 // Uses SQLx for database access.

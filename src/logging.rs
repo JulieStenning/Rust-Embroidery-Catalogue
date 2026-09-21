@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Structured logging via tracing + tracing-appender.
 // Provides daily-rolling file output for release builds and
 // dual file+stdout output for debug builds (cargo tauri dev).

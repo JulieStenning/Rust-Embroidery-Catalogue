@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Shared tagging engine, used by both the unified backfill (Batch Operations) and
 //! the bulk import flow. Owns the two tagging modes — **File & Folder Rules** (local
 //! path/name matching) and **Gemini Vision** (Gemini vision on the rendered thumbnail) —

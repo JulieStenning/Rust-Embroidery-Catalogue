@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Julie Stenning -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 <div class="space-y-10 max-w-3xl">
   <div class="space-y-1 font-sans no-print">
     <h1 class="ui-page-title text-2xl font-bold text-gray-800">Help</h1>

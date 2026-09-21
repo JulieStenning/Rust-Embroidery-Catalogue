@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Content fingerprinting backfill: compute BLAKE3 hash and file size for designs
 // missing those columns, storing results incrementally into the database.
 //

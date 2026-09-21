@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::error::AppError;
 use crate::services::auto_tagging::{TagBatchEntry, TagComputeResult, TaggingModeOptions};
 use crate::services::design_metadata;

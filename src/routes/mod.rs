@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! # Tauri IPC Routes Layer
 //!
 //! The routes module exposes the backend API to the Svelte frontend via Tauri's IPC

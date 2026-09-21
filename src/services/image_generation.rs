@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::models::EmbPattern;
 use crate::png_writer::{render_pattern_to_png, RenderSettings, ThreeDStyle};
 use crate::readers::{

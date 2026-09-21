@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::services::gemini_client::GeminiClient;
 use crate::services::settings::{
     self, BrowseDataRootResult, SaveImportBrowseFolderResult, SaveSettingsRequest,

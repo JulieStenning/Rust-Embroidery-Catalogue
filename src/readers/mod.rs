@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! # Binary Embroidery File Readers
 //!
 //! This module provides parsing implementations for major embroidery machine file formats.

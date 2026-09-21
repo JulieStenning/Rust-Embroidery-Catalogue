@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Runtime settings persistence.
 // Bootstrap config (environment and startup defaults) lives in `crate::config`.
 use crate::database::models::Setting;

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Julie Stenning -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 <script>
   /**
    * Renders label/value pairs in a responsive two-column layout.

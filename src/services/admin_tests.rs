@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the admin service.
 //
 // This module was split out of admin.rs so the service file can stay

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Unit tests for `src/services/database_recovery.rs`.
 //!
 //! Included via `#[path]` so the production file stays under the

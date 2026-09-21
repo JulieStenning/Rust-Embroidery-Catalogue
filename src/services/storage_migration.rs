@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Catalogue storage migration.
 //!
 //! Moves the active catalogue (SQLite database + managed design library)

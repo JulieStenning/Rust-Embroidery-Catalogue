@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! # Core Embroidery Domain Models
 //!
 //! This module defines the fundamental in-memory representations of embroidery designs,

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the PES reader.
 //
 // This module was split out of pes_reader.rs so the reader file can stay

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Bootstrap configuration ownership (environment + startup defaults).
 use crate::error::AppError;
 use crate::paths::AppPaths;

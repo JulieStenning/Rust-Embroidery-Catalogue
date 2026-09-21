@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 /**
  * Subscribes to the `database-backup-completed` event emitted by the Rust
  * backend the moment the database phase of a combined ("both") backup finishes.

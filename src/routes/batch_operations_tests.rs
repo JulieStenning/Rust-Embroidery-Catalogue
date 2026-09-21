@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the batch_operations route.
 //
 // This module was split out of batch_operations.rs so the route file can stay

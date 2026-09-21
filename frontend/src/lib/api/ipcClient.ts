@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import { invoke } from "@tauri-apps/api/core";
 
 export type LooseRecord = Record<string, unknown>;

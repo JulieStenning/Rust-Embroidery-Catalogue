@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::config::BootstrapConfig;
 use crate::services::{
     folder_picker, image_generation, scanning, stitch_identifier, tagging, validation,

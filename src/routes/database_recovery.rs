@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tauri command surface for the database-recovery flow.
 //
 // Exposes the commands the frontend `DatabaseRecoveryView` calls when a

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // File & Folder Rules — generic token-overlap matcher driven by the live tag catalogue.
 //
 // Design

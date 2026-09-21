@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Shared helpers for recalculating design technical metadata from the
 //! on-disk binary file.
 //!

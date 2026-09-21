@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! # Domain Services Layer
 //!
 //! The services module encapsulates core business logic for the embroidery catalogue.

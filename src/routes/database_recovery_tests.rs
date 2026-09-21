@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the database-recovery route.
 //
 // Included via #[path] so the route file stays focused on the command surface.

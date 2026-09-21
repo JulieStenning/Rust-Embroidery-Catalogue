@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::services::{auto_tagging, backfill, fingerprint, folder_picker, maintenance};
 use crate::AppState;
 use serde::{Deserialize, Serialize};

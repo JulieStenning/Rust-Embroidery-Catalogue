@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import type { Page } from "@playwright/test";
 import MCR from "monocart-coverage-reports";
 

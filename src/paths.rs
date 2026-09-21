@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Path resolution for Dev and Installed execution modes.
 //!
 //! This module centralises all filesystem layout decisions so that every

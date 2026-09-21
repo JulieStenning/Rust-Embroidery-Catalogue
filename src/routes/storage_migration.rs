@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Tauri command surface for catalogue storage migration.
 //!
 //! `start_catalogue_storage_migration` runs the migration on a blocking task
