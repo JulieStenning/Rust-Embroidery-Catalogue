@@ -454,6 +454,41 @@ files, process-wide atomics). Use the full run as the final gate when a test tou
 
 ---
 
+## ⚖️ Licence & Attribution Policy (GPL-3.0-or-later)
+
+Embroidery Catalogue is licensed under **GPL-3.0-or-later**. Never reintroduce MIT or AGPL wording
+for the application itself.
+
+- **Root `LICENSE` is byte-verbatim GNU GPL-3.0 text.** Nothing may be prepended, appended or edited
+  in it — GNU forbids modifying the licence text. All attributions belong in `NOTICE`. Mirrored to
+  `frontend/src/LICENSE` and imported as `LICENSE?raw` by `AboutDocumentView.svelte`.
+- **Root `NOTICE`** holds the app copyright + the GPL "how to apply these terms" notice, the
+  Corresponding Source location (GPL §6), the pyembroidery attribution — covering **both** the
+  `src/readers/` binary readers **and** `src/png_writer.rs` — the thank-you to Tatarize and the
+  EmbroidePy contributors, and the verbatim upstream MIT notice (including its nameless
+  `Copyright (c) 2018` line). Mirrored to `frontend/src/NOTICE` and rendered in the Licence view's
+  "Third-Party Notices" block. Both mirrors come from `scripts/sync-licences.mjs`
+  (`postgenerate:licences` hook): edit the root file, then re-run that script and keep the mirrors
+  byte-identical.
+- **`about.toml` `accepted[]` must contain `"GPL-3.0-or-later"`.** `cargo-about` processes the
+  workspace crate itself (it appears in `licences.html` as *"Used by: Rust-Embroidery-Catalogue"*),
+  so an unaccepted SPDX id breaks `npm run generate:licences` — the `beforeBuildCommand` for every
+  installer build. `deny.toml` `[licenses] allow[]` mirrors the entry.
+- **Every source file carries an SPDX header**
+  (`SPDX-FileCopyrightText: 2026 Julie Stenning` / `SPDX-License-Identifier: GPL-3.0-or-later`;
+  HTML-comment form in `.svelte`). Re-run `pwsh ./scripts/add-spdx-headers.ps1` after adding new
+  `.rs`/`.svelte`/`.ts`/`.js`/`.mts`/`.mjs` files. It is idempotent, preserves each file's CRLF/LF
+  style and BOM, and keeps a `#!` shebang on line 1 — note a Rust `#![...]` inner attribute is
+  **not** a shebang and must not be treated as one.
+- **Spelling:** UI prose noun = British *licence* ("Application Licence", "View Full Licences");
+  verb = US *license* ("is licensed under"); proper names and metadata = US
+  (`GNU General Public License v3.0`, `MIT License`, `license = "GPL-3.0-or-later"`). Existing
+  identifiers stay unchanged: route slug `#/about/licence`, `data-testid="licence-*-tab"`,
+  `.licence-card` CSS and the generated `.license-*` `:global()` selectors.
+- **Prettier re-wraps Svelte markup**, which can drop a line break inside a rendered phrase and
+  break a raw-string `toContain` on `textContent`. Normalize first:
+  `(el.textContent ?? "").replace(/\s+/g, " ")`.
+
 ## 🧠 Context & Exploration Discipline
 
 - **Do not re-read** a file whose content you already have (pasted in the user's message, or read earlier) unless you have reason to believe it changed. Re-reads of large files (e.g. `bulk_import.rs`, view/test files) waste context and trigger "DUPLICATE READ" warnings.

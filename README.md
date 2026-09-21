@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
 [![Tauri](https://img.shields.io/badge/tauri-v2-blue.svg)](https://tauri.app)
 [![Svelte](https://img.shields.io/badge/svelte-v5-ff3e00.svg)](https://svelte.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENCE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
 A high-performance, cross-platform desktop application designed to catalog, search, preview, and organize machine embroidery designs (`.pes`, `.dst`, `.jef`, `.exp`, `.hus`, `.vp3`).
 
@@ -148,4 +148,25 @@ npm run e2e
 
 ## Licence
 
-This program is free software: you can redistribute it and/or modify it under the terms of the **MIT License**. See the [LICENCE](LICENCE) file for full details.
+Embroidery Catalogue is free software: you can redistribute it and/or modify it under the terms of
+the **GNU General Public License** as published by the Free Software Foundation, either version 3 of
+the License, or (at your option) any later version (`GPL-3.0-or-later`).
+
+Embroidery Catalogue is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not,
+see <https://www.gnu.org/licenses/>.
+
+- Full licence text (verbatim, unmodified): [LICENSE](LICENSE)
+- Third-party notices, attributions and Corresponding Source location: [NOTICE](NOTICE)
+
+The embroidery binary readers under `src/readers/` (`.pes`, `.jef`, `.hus`, `.vp3`, `.dst`, `.exp`)
+and the PNG preview renderer in `src/png_writer.rs` are ported or derived from
+[pyembroidery](https://github.com/EmbroidePy/pyembroidery), Copyright (c) 2018 Tatarize and the
+EmbroidePy pyembroidery contributors, and are used under the MIT License. The verbatim MIT notice is
+reproduced in [NOTICE](NOTICE) and in the application under About.
+
+Every source file in this repository carries an SPDX header
+(`SPDX-License-Identifier: GPL-3.0-or-later`) so the licence is machine-readable.

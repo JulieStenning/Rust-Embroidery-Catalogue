@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // ---------------------------------------------------------------------------
 // sync-licences.mjs
 //
@@ -8,7 +11,8 @@
 //
 //   src/assets/licences.html        -> frontend/src/lib/assets/licences.html
 //   src/assets/npm-licences.json    -> frontend/src/lib/assets/npm-licences.json
-//   LICENCE (repo root)             -> frontend/src/LICENSE
+//   LICENSE (repo root)             -> frontend/src/LICENSE
+//   NOTICE (repo root)              -> frontend/src/NOTICE
 //
 // Run automatically via the root package.json "postgenerate:licences" hook.
 // ---------------------------------------------------------------------------
@@ -29,8 +33,12 @@ const copies = [
     to: join(repoRoot, "frontend", "src", "lib", "assets", "npm-licences.json"),
   },
   {
-    from: join(repoRoot, "LICENCE"),
+    from: join(repoRoot, "LICENSE"),
     to: join(repoRoot, "frontend", "src", "LICENSE"),
+  },
+  {
+    from: join(repoRoot, "NOTICE"),
+    to: join(repoRoot, "frontend", "src", "NOTICE"),
   },
 ];
 

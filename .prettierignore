@@ -14,4 +14,6 @@ frontend/src/lib/assets/licences.html
 frontend/src/lib/assets/npm-licences.json
 src/assets/licences.html
 src/assets/npm-licences.json
+frontend/src/LICENSE
+frontend/src/NOTICE
 gen

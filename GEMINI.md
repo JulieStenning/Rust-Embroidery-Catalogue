@@ -185,5 +185,10 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
   - **Full quality check:** Run from repo root via `npm run check:all`.
 - **Formatting specific Rust files:** Run `rustfmt --edition 2021 <files...>`. Never use `cargo fmt -- <files>` as it reformats the whole crate.
 - **License manifest build side-effect:** `cargo tauri build` regenerates `src/assets/licences.html`. Revert unintended changes with `git checkout -- src/assets/licences.html frontend/src/lib/assets/licences.html`.
+- **Project licence is GPL-3.0-or-later (never MIT, never AGPL):**
+  - Root `LICENSE` is a **byte-verbatim** copy of the GNU GPL-3.0 text — never prepend, append or edit anything in it. All attributions live in the root `NOTICE` file. Both are mirrored into `frontend/src/` by `scripts/sync-licences.mjs` (the `postgenerate:licences` hook); edit the root file, then re-run that script.
+  - `about.toml` `accepted[]` **must** keep `"GPL-3.0-or-later"`: `cargo-about` processes the workspace crate itself, so dropping it breaks `npm run generate:licences`, which is the `beforeBuildCommand` for every installer build. `deny.toml` mirrors the entry.
+  - Every `.rs`/`.svelte`/`.ts`/`.js` file carries an SPDX header (`SPDX-License-Identifier: GPL-3.0-or-later`). Re-run `pwsh ./scripts/add-spdx-headers.ps1` (idempotent, preserves CRLF/LF + BOM, keeps a `#!` shebang first) after adding new source files.
+  - Spelling: UI prose noun = British **licence**, verb = US **license**, proper names/metadata = US (`GNU General Public License`, `license = "GPL-3.0-or-later"`). Existing identifiers (`#/about/licence`, `data-testid="licence-*-tab"`, `.licence-card`) stay as they are.
 - **Commit message tense:** Write commit messages in the **past tense** (e.g. `refactored(frontend): ...`, not `refactor(frontend): ...`).
 

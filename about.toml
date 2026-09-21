@@ -13,4 +13,8 @@ accepted = [
     "Unicode-3.0",
     "NCSA",
     "Apache-2.0 WITH LLVM-exception",
+    # Embroidery Catalogue itself is GPL-3.0-or-later. cargo-about also
+    # processes the workspace crate, so its own SPDX id must be accepted
+    # or `npm run generate:licences` (the release beforeBuildCommand) fails.
+    "GPL-3.0-or-later",
 ]

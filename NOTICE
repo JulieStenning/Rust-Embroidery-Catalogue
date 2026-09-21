@@ -1,0 +1,93 @@
+Embroidery Catalogue
+Copyright (C) 2026 Julie Stenning
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+The complete, unmodified text of the GNU General Public License
+version 3 is provided in the LICENSE file that accompanies this
+program.
+
+Source code
+
+The Corresponding Source for this program, as required by the GNU
+General Public License version 3, is available at:
+
+    https://github.com/JulieStenning/Rust-Embroidery-Catalogue
+
+------------------------------------------------------------------------
+
+ACKNOWLEDGEMENTS & SPECIAL ATTRIBUTIONS
+
+Embroidery Catalogue includes code and algorithms ported or derived
+from the following third-party projects. Their original copyright
+notices and licence terms are reproduced below and remain in force for
+the portions of code to which they apply.
+
+* pyembroidery (https://github.com/EmbroidePy/pyembroidery)
+  Copyright (c) 2018 Tatarize and the EmbroidePy pyembroidery contributors.
+  Licensed under the MIT License. The notice required by that licence is
+  reproduced in full below.
+
+  Used as the algorithmic basis for:
+
+    - the native Rust embroidery binary file readers for the .jef, .pes,
+      .hus, .vp3, .dst and .exp formats under src/readers/, including
+      their stitch-decoding, jump/trim command-token, bounding-box and
+      thread-palette logic; and
+
+    - the PNG preview rendering logic in src/png_writer.rs, which derives
+      from pyembroidery's PngWriter module.
+
+  The Rust modules ported or derived from pyembroidery are distributed as
+  part of Embroidery Catalogue under the GNU General Public License
+  version 3 or later, which the MIT License permits. The MIT terms
+  reproduced below continue to apply to the original pyembroidery source
+  from which they were derived.
+
+  Our thanks go to Tatarize and the EmbroidePy pyembroidery contributors
+  for publishing their work under a permissive licence, and for providing
+  the reference implementations of the embroidery file formats that made
+  this application possible.
+
+    MIT License
+
+    Copyright (c) 2018
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+------------------------------------------------------------------------
+
+Third-party dependencies
+
+Embroidery Catalogue is built with a large number of open-source Rust
+crates and NPM packages. Their individual licences are listed in full in
+the application under About -> Licence ("Rust Dependencies" and
+"Frontend Dependencies"), and in the generated manifests
+src/assets/licences.html and src/assets/npm-licences.json.

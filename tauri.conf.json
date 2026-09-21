@@ -44,8 +44,12 @@
       }
     },
     "resources": [
-      "src-tauri/resources/EmbroideryCatalogue.db"
+      "src-tauri/resources/EmbroideryCatalogue.db",
+      "LICENSE",
+      "NOTICE"
     ],
+    "copyright": "Copyright (C) 2026 Julie Stenning",
+    "license": "GPL-3.0-or-later",
     "licenseFile": "src-tauri/disclaimer.rtf"
   }
 }

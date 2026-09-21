@@ -1,4 +1,6 @@
 {
+  "private": true,
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

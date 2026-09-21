@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Julie Stenning -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 <script>
   import { onMount } from "svelte";
   import DOMPurify from "dompurify";
@@ -5,6 +8,7 @@
   import { renderMarkdown } from "../utils/markdown.js";
 
   import primaryLicense from "../../LICENSE?raw";
+  import thirdPartyNotices from "../../NOTICE?raw";
   import rustLicencesHtml from "../assets/licences.html?raw";
   import npmLicencesDataRaw from "../assets/npm-licences.json";
 
@@ -34,6 +38,16 @@
   });
 
   const hasRustLicences = sanitizedRustLicencesHtml.trim().length > 0;
+
+  /**
+   * Third-party notices (pyembroidery attribution + the verbatim MIT notice it
+   * requires). These live in the repo-root `NOTICE` file rather than in
+   * `LICENSE`, because the GPL-3.0 text must remain byte-verbatim with nothing
+   * appended to it. Mirrored into `frontend/src/NOTICE` by
+   * `scripts/sync-licences.mjs` so Vite can bundle it as a static asset.
+   */
+  const noticeText = String(thirdPartyNotices || "");
+  const hasThirdPartyNotices = noticeText.trim().length > 0;
 
   /**
    * Shape of a single NPM licence record emitted by `license-checker-rseidelsohn
@@ -190,13 +204,32 @@
                   Application Licence
                 </h2>
                 <p class="text-sm text-[var(--text-secondary)] mt-1">
-                  Embroidery Catalogue is licensed under
-                  <strong> AGPL-3.0-or-later</strong>.
+                  Embroidery Catalogue is free software, licensed under
+                  <strong> GPL-3.0-or-later</strong>
+                  (GNU General Public License v3.0 or later). The Corresponding Source is available at
+                  <a
+                    href="https://github.com/JulieStenning/Rust-Embroidery-Catalogue"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-[var(--text-brand)] hover:underline font-medium break-all"
+                    >https://github.com/JulieStenning/Rust-Embroidery-Catalogue</a
+                  >.
                 </p>
               </div>
             </div>
             <pre
               class="whitespace-pre-wrap text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 overflow-x-auto font-mono shadow-inner licence-primary-text">{primaryLicense}</pre>
+            {#if hasThirdPartyNotices}
+              <h3
+                data-testid="licence-third-party-notices-heading"
+                class="ui-section-label font-semibold text-[var(--text-primary)] mt-6 mb-2"
+              >
+                Third-Party Notices
+              </h3>
+              <pre
+                data-testid="licence-third-party-notices"
+                class="whitespace-pre-wrap text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 overflow-x-auto font-mono shadow-inner licence-notice-text">{noticeText}</pre>
+            {/if}
           </div>
         {:else if activeLicenceTab === "rust"}
           <div data-testid="licence-rust-tab">

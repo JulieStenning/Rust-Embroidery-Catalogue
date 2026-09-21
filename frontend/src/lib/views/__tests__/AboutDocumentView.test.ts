@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/svelte";
@@ -24,7 +27,9 @@ const assetMocks = vi.hoisted(() => ({
   WHIPPED_LICENCE_HTML:
     '<details class="license-card"><summary class="license-header"><span class="license-name">Apache License 2.0</span><span class="license-used-by">Crates using this license:</span></summary><div class="license-crates"><h4>Used by:</h4><ul><li><strong>tokio</strong> (v1.0) — <a href="https://github.com/tokio-rs/tokio" target="_blank" rel="noopener">https://github.com/tokio-rs/tokio</a></li></ul></div><div class="license-text"><pre>Apache license text.</pre></div></details>',
   WHIPPED_APP_LICENCE:
-    "GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 3, 19 November 2007\n\nCopyright (c) 2026",
+    "GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007\n\nCopyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>",
+  WHIPPED_NOTICE:
+    "Embroidery Catalogue\nCopyright (C) 2026 Julie Stenning\n\nACKNOWLEDGEMENTS & SPECIAL ATTRIBUTIONS\n\n* pyembroidery (https://github.com/EmbroidePy/pyembroidery)",
   WHIPPED_NPM_LICENCES: {
     "@esbuild/win32-x64@0.25.12": {
       licenses: "MIT",
@@ -44,6 +49,9 @@ const assetMocks = vi.hoisted(() => ({
 
 vi.mock("../../../LICENSE?raw", () => ({
   default: assetMocks.WHIPPED_APP_LICENCE,
+}));
+vi.mock("../../../NOTICE?raw", () => ({
+  default: assetMocks.WHIPPED_NOTICE,
 }));
 vi.mock("../../assets/licences.html?raw", () => ({
   default: assetMocks.WHIPPED_LICENCE_HTML,
@@ -96,7 +104,53 @@ describe("AboutDocumentView", () => {
         document.querySelector("pre.licence-primary-text"),
         "Expected the primary licence <pre> block."
       );
-      expect(pre.textContent).toContain("GNU AFFERO GENERAL PUBLIC LICENSE");
+      expect(pre.textContent).toContain("GNU GENERAL PUBLIC LICENSE");
+    });
+
+    it("states the GPL-3.0-or-later licence and the Corresponding Source location", () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      const tab = screen.getByTestId("licence-application-tab");
+      // Normalize whitespace before matching: Prettier may re-wrap the markup,
+      // which puts line breaks in the middle of a rendered phrase.
+      const text = (tab.textContent ?? "").replace(/\s+/g, " ");
+      expect(text).toContain("Embroidery Catalogue is free software, licensed under");
+      expect(text).toContain("GPL-3.0-or-later");
+      expect(text).toContain("GNU General Public License v3.0 or later");
+      // The application is no longer AGPL-licensed.
+      expect(text).not.toContain("AGPL");
+      expect(text).not.toContain("Affero");
+
+      const sourceLink = within(tab).getByRole("link", {
+        name: "https://github.com/JulieStenning/Rust-Embroidery-Catalogue",
+      });
+      expect(sourceLink).toHaveAttribute(
+        "href",
+        "https://github.com/JulieStenning/Rust-Embroidery-Catalogue"
+      );
+      expect(sourceLink).toHaveAttribute("target", "_blank");
+      expect(sourceLink).toHaveAttribute("rel", "noopener noreferrer");
+    });
+
+    it("renders the third-party notices from NOTICE in their own block", () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      expect(screen.getByTestId("licence-third-party-notices-heading")).toHaveTextContent(
+        "Third-Party Notices"
+      );
+
+      const notices = screen.getByTestId("licence-third-party-notices");
+      expect(notices.textContent).toContain("ACKNOWLEDGEMENTS & SPECIAL ATTRIBUTIONS");
+      expect(notices.textContent).toContain("pyembroidery");
+
+      // The GPL-3.0 text must stay byte-verbatim: the attributions live in the
+      // separate NOTICE block, never appended to the licence text itself.
+      const primary = element(
+        document.querySelector("pre.licence-primary-text"),
+        "Expected the primary licence <pre> block."
+      );
+      expect(primary.textContent).not.toContain("pyembroidery");
+      expect(primary.textContent).not.toContain("ACKNOWLEDGEMENTS");
     });
 
     it("switches to the Rust Dependencies tab and renders the sanitized rust licence HTML", async () => {
@@ -193,6 +247,25 @@ describe("AboutDocumentView", () => {
       expect(screen.getByTestId("frontend-licences-empty")).toHaveTextContent(
         "No frontend packages recorded."
       );
+
+      view.unmount();
+    });
+
+    it("omits the third-party notices block when the NOTICE asset is empty", async () => {
+      // Re-evaluate the component against an empty NOTICE asset to exercise the
+      // guarded fallback. `vi.resetModules()` re-evaluates the `svelte` runtime,
+      // so the test harness pieces are re-imported from the same module graph to
+      // avoid the Svelte 5 `effect_orphan` dual-instance error.
+      vi.resetModules();
+      vi.doMock("../../../NOTICE?raw", () => ({ default: "" }));
+
+      const { render: renderLazy } = await import("@testing-library/svelte");
+      const { default: AboutDocumentViewLazy } = await import("../AboutDocumentView.svelte");
+      const view = renderLazy(AboutDocumentViewLazy, { props: { slug: "licence" } });
+
+      expect(screen.getByTestId("licence-application-tab")).toBeInTheDocument();
+      expect(screen.queryByTestId("licence-third-party-notices")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("licence-third-party-notices-heading")).not.toBeInTheDocument();
 
       view.unmount();
     });
