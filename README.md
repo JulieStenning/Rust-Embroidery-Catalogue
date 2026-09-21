@@ -104,8 +104,8 @@ Rust-Embroidery-Catalogue/
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/juliestenning/rust-embroidery-catalogue.git
-cd rust-embroidery-catalogue
+git clone https://github.com/JulieStenning/Rust-Embroidery-Catalogue.git
+cd Rust-Embroidery-Catalogue
 
 # 2. Install frontend dependencies
 npm install

@@ -76,8 +76,8 @@ Clone (or download and unzip) the repository to a folder on your PC, for example
 If you have Git installed:
 
 ```bat
-git clone https://github.com/juliestenning/rust-embroidery-catalogue.git
-cd rust-embroidery-catalogue
+git clone https://github.com/JulieStenning/Rust-Embroidery-Catalogue.git
+cd Rust-Embroidery-Catalogue
 ```
 
 Otherwise, download the ZIP from GitHub (*Code → Download ZIP*), extract it, and
