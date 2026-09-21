@@ -77,3 +77,4 @@ data/
 dev_data/
 src-tauri/resources/tags insert.sql
 tests/Test Designs/Rose.eof
+scratch/
