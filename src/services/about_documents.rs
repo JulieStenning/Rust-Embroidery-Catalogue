@@ -3,8 +3,6 @@
 
 use crate::error::AppError;
 use serde::Serialize;
-use std::fs;
-use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AboutDocumentSummary {
@@ -24,12 +22,29 @@ pub struct AboutDocumentDetail {
     pub document_text: String,
 }
 
+/// A single About document.
+///
+/// `content` is embedded at compile time via `include_str!` rather than read
+/// from disk at runtime. The previous implementation resolved documents against
+/// `env!("CARGO_MANIFEST_DIR")`, which expands to the *build machine's* repo
+/// path and so does not exist in an installed release: every document reported
+/// `available: false` and the detail command returned `not_found`.
+///
+/// Embedding follows the pattern already used elsewhere in this crate
+/// (`include_bytes!` for the seed database in `paths.rs`, `sqlx::migrate!` for
+/// migrations) and removes filesystem resolution entirely, so dev builds, tests
+/// and installed releases all behave identically. Cargo tracks `include_str!`
+/// targets through rustc dep-info, so editing a document still triggers a
+/// rebuild without any `build.rs` change.
 #[derive(Debug, Clone, Copy)]
 struct AboutDocumentSpec {
     slug: &'static str,
     title: &'static str,
+    /// Repo-relative path, surfaced to the UI. Must match the on-disk casing
+    /// exactly, because it mirrors the `include_str!` target below.
     filename: &'static str,
     description: &'static str,
+    content: &'static str,
 }
 
 const DOCUMENTS: [AboutDocumentSpec; 5] = [
@@ -38,60 +53,53 @@ const DOCUMENTS: [AboutDocumentSpec; 5] = [
         title: "Disclaimer",
         filename: "DISCLAIMER.html",
         description: "Important use-at-your-own-risk and limitation-of-liability information.",
+        content: include_str!("../../DISCLAIMER.html"),
     },
     AboutDocumentSpec {
         slug: "privacy",
         title: "Privacy",
-        filename: "templates/info/PRIVACY.html",
+        filename: "templates/info/privacy.html",
         description: "Explains what data is stored locally and what optional AI features may send externally.",
+        content: include_str!("../../templates/info/privacy.html"),
     },
     AboutDocumentSpec {
         slug: "security",
         title: "Security",
-        filename: "templates/info/SECURITY.html",
+        filename: "templates/info/security.html",
         description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
+        content: include_str!("../../templates/info/security.html"),
     },
     AboutDocumentSpec {
         slug: "ai-tagging",
         title: "AI Tagging & Batch Operations Guide",
         filename: "docs/User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md",
         description: "How to run Gemini Vision tagging from Batch Operations, set up a Google API key, and understand usage costs.",
+        content: include_str!("../../docs/User-Facing-Guidance/BATCH_OPERATIONS_BACKFILL.md"),
     },
     AboutDocumentSpec {
         slug: "data-storage",
         title: "Data Storage & External Drives Guide",
         filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
         description: "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
+        content: include_str!("../../docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md"),
     },
-
 ];
-
-pub fn project_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-}
 
 fn resolve_document(slug: &str) -> Option<AboutDocumentSpec> {
     DOCUMENTS.into_iter().find(|doc| doc.slug == slug)
 }
 
-fn resolve_document_path(root: &Path, filename: &str) -> PathBuf {
-    root.join(filename)
-}
-
 pub fn get_about_documents() -> Vec<AboutDocumentSummary> {
-    let root = project_root();
-
     DOCUMENTS
         .into_iter()
-        .map(|doc| {
-            let path = resolve_document_path(&root, doc.filename);
-            AboutDocumentSummary {
-                slug: doc.slug.to_string(),
-                title: doc.title.to_string(),
-                description: doc.description.to_string(),
-                filename: doc.filename.to_string(),
-                available: path.exists(),
-            }
+        .map(|doc| AboutDocumentSummary {
+            slug: doc.slug.to_string(),
+            title: doc.title.to_string(),
+            description: doc.description.to_string(),
+            filename: doc.filename.to_string(),
+            // The content is embedded, so availability can only be false if a
+            // source document was accidentally emptied.
+            available: !doc.content.trim().is_empty(),
         })
         .collect()
 }
@@ -99,29 +107,21 @@ pub fn get_about_documents() -> Vec<AboutDocumentSummary> {
 pub fn get_about_document(slug: String) -> Result<AboutDocumentDetail, AppError> {
     let normalized_slug = slug.trim().to_lowercase();
     let doc = resolve_document(&normalized_slug)
-        .ok_or_else(|| AppError::not_found("document", Some(slug)))?;
+        .ok_or_else(|| AppError::not_found("document", Some(slug.clone())))?;
 
-    let path = resolve_document_path(&project_root(), doc.filename);
-    if !path.exists() {
-        return Err(AppError::not_found(
-            "document file",
-            Some(doc.filename.to_string()),
-        ));
+    // Mirrors the previous "document file missing" guard: with the content
+    // embedded there is no path to check, so an empty body is the only way a
+    // document can be unavailable.
+    if doc.content.trim().is_empty() {
+        return Err(AppError::not_found("document", Some(slug)));
     }
-
-    let document_text = fs::read_to_string(&path).map_err(|error| {
-        AppError::io(format!(
-            "Could not read document '{}': {}",
-            doc.filename, error
-        ))
-    })?;
 
     Ok(AboutDocumentDetail {
         slug: doc.slug.to_string(),
         title: doc.title.to_string(),
         description: doc.description.to_string(),
         filename: doc.filename.to_string(),
-        document_text,
+        document_text: doc.content.to_string(),
     })
 }
 
@@ -130,25 +130,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn project_root_points_to_cargo_manifest_dir() {
-        let root = project_root();
-        assert!(root.exists(), "project_root should exist");
-        assert!(
-            root.join("Cargo.toml").exists(),
-            "project_root should contain Cargo.toml"
-        );
-    }
-
-    #[test]
     fn resolve_document_returns_none_for_empty_string() {
         assert!(resolve_document("").is_none());
-    }
-
-    #[test]
-    fn resolve_document_path_joins_correctly() {
-        let root = Path::new("/base");
-        let path = resolve_document_path(root, "docs/file.html");
-        assert_eq!(path, Path::new("/base/docs/file.html"));
     }
 
     #[test]
@@ -181,14 +164,33 @@ mod tests {
             assert!(!doc.title.is_empty());
             assert!(!doc.description.is_empty());
             assert!(!doc.filename.is_empty());
-            // available must reflect the real on-disk state of the bundled file.
-            let path = resolve_document_path(&project_root(), &doc.filename);
-            assert_eq!(
-                doc.available,
-                path.exists(),
-                "availability mismatch for {}",
+            // Content is embedded at compile time, so every document must be
+            // available in dev builds, tests and installed releases alike.
+            assert!(doc.available, "{} should always be available", doc.slug);
+        }
+    }
+
+    /// Proves the `include_str!` embedding actually resolved: every document
+    /// carries real content, and the detail command returns exactly that
+    /// content. This replaces the old on-disk `path.exists()` cross-check,
+    /// which could only ever pass on a machine with the source tree present.
+    #[test]
+    fn all_documents_embed_non_empty_content() {
+        for doc in DOCUMENTS {
+            assert!(
+                !doc.content.trim().is_empty(),
+                "embedded content for {} should not be empty",
                 doc.slug
             );
+
+            let detail = get_about_document(doc.slug.to_string())
+                .unwrap_or_else(|error| panic!("{} should load: {error:?}", doc.slug));
+            assert_eq!(
+                detail.document_text, doc.content,
+                "document_text should be the embedded content for {}",
+                doc.slug
+            );
+            assert_eq!(detail.filename, doc.filename);
         }
     }
 
