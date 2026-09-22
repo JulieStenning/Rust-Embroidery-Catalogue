@@ -1,1 +1,9 @@
 * text=auto
+
+# Batch scripts must keep CRLF in the working tree: cmd.exe can mishandle
+# labels/goto when a file uses LF-only line endings. Relying on each developer's
+# core.autocrlf is not enough, so force it here for every clone.
+# Note: .gitattributes does NOT support brace expansion (it uses gitignore-style
+# wildmatch), so *.bat and *.cmd need separate lines - unlike .editorconfig.
+*.bat text eol=crlf
+*.cmd text eol=crlf
