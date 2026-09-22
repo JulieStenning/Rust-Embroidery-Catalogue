@@ -166,6 +166,7 @@ Any Rust source file whose total line count exceeds **500 lines** (production pl
 
 - Only the `#[cfg(test)] mod tests` body is moved. Tiny `#[cfg(test)]` helper functions and constants scattered in production code may stay in place if they are small.
 - Goal: **functional production code** in each file should be clearly separated from test infrastructure, and no single file should exceed 500 lines.
+- **The SPDX header counts toward the 500-line total.** Every `.rs` file now carries a 3-line `SPDX-FileCopyrightText` / `SPDX-License-Identifier` preamble, so a file sitting at 498 lines has no headroom left. Check `(Get-Content <file>).Count` before adding code — `src/readers/dst_reader.rs`, `src/readers/hus_reader.rs` and `src/services/gemini_client.rs` are all within a few lines of the limit. (The GPL-3.0 header sweep itself pushed no file over the threshold.)
 
 **Edge cases**
 
@@ -452,6 +453,14 @@ files, process-wide atomics). Use the full run as the final gate when a test tou
 
 **`cargo tauri build` regenerates the committed licence manifests.** Its `beforeBuildCommand` runs `npm run generate:licences`, rewriting `src/assets/licences.html` and its `frontend/src/lib/assets/` mirror (and it runs twice — the frontend build re-invokes it). This is a build side-effect, not part of your change — revert it with `git checkout -- src/assets/licences.html frontend/src/lib/assets/licences.html` (same spirit as the rustfmt gotcha above) unless the licence refresh is intended.
 
+**Never `git add -A`, `git add .` or `git commit -a` — stage by explicit path.** This workspace is frequently edited by more than one agent at a time, so unrelated work-in-progress can appear *mid-task*. During the GPL-3.0 migration another agent added ~200 lines to `src/png_writer.rs`, `src/png_writer_tests.rs`, `src/services/gemini_client.rs` and `src/services/gemini_client_tests.rs` while the licence commits were being prepared; a blanket add would have buried that unfinished work inside an unrelated commit. The discipline:
+
+- Before staging, run `git diff --numstat` and account for **every** file you did not touch. Re-run it immediately before each commit — a list that was clean ten minutes ago may not be now.
+- Stage an explicit path list, then verify with `git diff --cached --numstat` / `--name-only` that the index contains only your files and that the foreign ones still show as ` M`.
+- When a mechanical sweep touches hundreds of files, **guard it**: assert each candidate's numstat has the expected shape *and* that every changed line matches the intended pattern, then abort rather than commit if anything unexpected appears. (The 283-file SPDX commit was gated on "every staged line is an SPDX comment or blank, zero deletions".)
+- Files carrying someone else's edits are simply left unstaged — a shared header or formatting change rides along with *their* commit, and nothing is lost.
+- Remember `git mv` stages the rename immediately, so the index is not empty even before you add anything; check `git diff --cached --name-status` first, and re-`git add` the moved file if you then rewrote its contents.
+
 ---
 
 ## ⚖️ Licence & Attribution Policy (GPL-3.0-or-later)
@@ -480,6 +489,13 @@ for the application itself.
   `.rs`/`.svelte`/`.ts`/`.js`/`.mts`/`.mjs` files. It is idempotent, preserves each file's CRLF/LF
   style and BOM, and keeps a `#!` shebang on line 1 — note a Rust `#![...]` inner attribute is
   **not** a shebang and must not be treated as one.
+- **`bundle.resources` in the root `tauri.conf.json` ships `LICENSE` and `NOTICE`** inside the
+  installer, alongside `src-tauri/resources/EmbroideryCatalogue.db`. Renaming or moving either root
+  file therefore breaks `cargo tauri build`, not just the About pages. Only the **root**
+  `tauri.conf.json` is consumed — `cargo tauri info` reports `frontendDist: frontend/dist`, while the
+  near-duplicate `src-tauri/tauri.conf.json` says `../frontend/dist` — so keep the two in sync by
+  hand, treat the root one as authoritative, and never add `../`-relative resources to the
+  `src-tauri/` copy.
 - **Spelling:** UI prose noun = British *licence* ("Application Licence", "View Full Licences");
   verb = US *license* ("is licensed under"); proper names and metadata = US
   (`GNU General Public License v3.0`, `MIT License`, `license = "GPL-3.0-or-later"`). Existing

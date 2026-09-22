@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Google Gemini API client for Gemini Vision tagging.
 //!
 //! The app is local/offline-first, so Gemini is optional: a client is only
@@ -246,7 +249,10 @@ impl GeminiClient {
                     { "inline_data": inline },
                     { "text": build_vision_prompt(filename, valid_descriptions) }
                 ]
-            }]
+            }],
+            "generationConfig": {
+                "temperature": 0.0
+            }
         });
         let text = self.generate(payload).await?;
         Ok(parse_tag_list(&text, valid_descriptions))

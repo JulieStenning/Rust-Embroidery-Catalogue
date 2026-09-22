@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the Gemini client. Split out of gemini_client.rs (via `#[path]`) so
 // the production file stays focused and under the line-count guideline.
 
@@ -446,4 +449,31 @@ fn list_models_surfaces_json_parse_error() {
     let err =
         tauri::async_runtime::block_on(client.list_models()).expect_err("bad json should error");
     assert!(err.to_string().contains("parse failed"));
+}
+
+#[test]
+fn suggest_tags_vision_sends_deterministic_temperature_zero() {
+    let mut server = mockito::Server::new();
+    let body = serde_json::json!({ "candidates": [{ "content": { "parts": [{ "text": "Cats" }] } }] })
+        .to_string();
+    let mock = server
+        .mock("POST", "/gemini-2.0-flash:generateContent")
+        .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+            "generationConfig": {
+                "temperature": 0.0
+            }
+        })))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(body)
+        .match_query(mockito::Matcher::Any)
+        .create();
+    let base = format!("{}/", server.url().trim_end_matches('/'));
+    let client = GeminiClient::with_base("key", base).with_model("gemini-2.0-flash");
+    let valid = allowed_tags();
+    let tags =
+        tauri::async_runtime::block_on(client.suggest_tags_vision("cat.pes", b"PNG", &valid))
+            .expect("tagging should succeed");
+    assert_eq!(tags, vec!["Cats".to_string()]);
+    mock.assert();
 }

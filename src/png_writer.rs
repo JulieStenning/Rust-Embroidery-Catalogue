@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::error::AppError;
 /// PNG rendering for embroidery previews (Rust replacement for Python PngWriter)
 use crate::models::{EmbPattern, StitchType};
@@ -5,6 +8,7 @@ use image::ImageEncoder;
 use image::{Rgba, RgbaImage};
 use imageproc::drawing::draw_antialiased_line_segment_mut;
 use imageproc::pixelops::interpolate;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PreviewMode {
     TwoD,
@@ -73,6 +77,10 @@ pub struct RenderSettings {
     pub background: Rgba<u8>,
     pub preview_mode: PreviewMode,
     pub three_d_style: ThreeDStyle,
+    /// Target max dimension (width or height) in pixels. When `Some(N)`, the
+    /// design is scaled to fit within `N` pixels with standard padding and
+    /// proportional thread stroke thickness. Default is `Some(600)`.
+    pub target_dimension: Option<u32>,
 }
 
 impl Default for RenderSettings {
@@ -81,6 +89,7 @@ impl Default for RenderSettings {
             background: Rgba([224, 224, 224, 255]), // pale grey
             preview_mode: PreviewMode::TwoD,
             three_d_style: ThreeDStyle::default(),
+            target_dimension: Some(600),
         }
     }
 }
@@ -97,6 +106,11 @@ impl RenderSettings {
 
     pub fn with_three_d_style(mut self, style: ThreeDStyle) -> Self {
         self.three_d_style = style;
+        self
+    }
+
+    pub fn with_target_dimension(mut self, target: Option<u32>) -> Self {
+        self.target_dimension = target;
         self
     }
 }
@@ -119,14 +133,16 @@ fn lighten_color(color: Rgba<u8>, amount: u8) -> Rgba<u8> {
     ])
 }
 
-fn draw_segment_2d(img: &mut RgbaImage, from: (i32, i32), to: (i32, i32), color: Rgba<u8>) {
-    // Match pyembroidery's default 2D thread thickness more closely so
-    // satin columns render as filled thread paths rather than hairline combs.
-    const THREAD_RADIUS: i32 = 2;
-
-    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
-        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
-            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+fn draw_segment_2d(
+    img: &mut RgbaImage,
+    from: (i32, i32),
+    to: (i32, i32),
+    color: Rgba<u8>,
+    thread_radius: i32,
+) {
+    for ox in -thread_radius..=thread_radius {
+        for oy in -thread_radius..=thread_radius {
+            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
                 continue;
             }
 
@@ -147,32 +163,26 @@ fn draw_segment_3d(
     to: (i32, i32),
     color: Rgba<u8>,
     style: ThreeDStyle,
+    thread_radius: i32,
 ) {
     let shadow = darken_color(color, style.shadow_strength);
     let highlight = lighten_color(color, style.highlight_strength);
 
-    // Faux thread volume: shadow underlay, core, then highlight ridge.
-    // Use the same disk-fill approach as draw_segment_2d so that 3D
-    // has at least as much pixel coverage as 2D (3 overlapping thick
-    // lines vs a single thick line).
-    const THREAD_RADIUS: i32 = 2;
+    let shadow_offset =
+        ((style.shadow_offset as f32 * thread_radius as f32 / 2.0).round() as i32).max(1);
+    let highlight_offset =
+        ((style.highlight_offset as f32 * thread_radius as f32 / 2.0).round() as i32).max(1);
 
     // Shadow layer (offset down-right)
-    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
-        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
-            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+    for ox in -thread_radius..=thread_radius {
+        for oy in -thread_radius..=thread_radius {
+            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
                 continue;
             }
             draw_antialiased_line_segment_mut(
                 img,
-                (
-                    from.0 + ox + style.shadow_offset,
-                    from.1 + oy + style.shadow_offset,
-                ),
-                (
-                    to.0 + ox + style.shadow_offset,
-                    to.1 + oy + style.shadow_offset,
-                ),
+                (from.0 + ox + shadow_offset, from.1 + oy + shadow_offset),
+                (to.0 + ox + shadow_offset, to.1 + oy + shadow_offset),
                 shadow,
                 interpolate,
             );
@@ -180,9 +190,9 @@ fn draw_segment_3d(
     }
 
     // Core layer (centred)
-    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
-        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
-            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+    for ox in -thread_radius..=thread_radius {
+        for oy in -thread_radius..=thread_radius {
+            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
                 continue;
             }
             draw_antialiased_line_segment_mut(
@@ -196,21 +206,18 @@ fn draw_segment_3d(
     }
 
     // Highlight layer (offset up-left)
-    for ox in -THREAD_RADIUS..=THREAD_RADIUS {
-        for oy in -THREAD_RADIUS..=THREAD_RADIUS {
-            if (ox * ox) + (oy * oy) > THREAD_RADIUS * THREAD_RADIUS {
+    for ox in -thread_radius..=thread_radius {
+        for oy in -thread_radius..=thread_radius {
+            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
                 continue;
             }
             draw_antialiased_line_segment_mut(
                 img,
                 (
-                    from.0 + ox - style.highlight_offset,
-                    from.1 + oy - style.highlight_offset,
+                    from.0 + ox - highlight_offset,
+                    from.1 + oy - highlight_offset,
                 ),
-                (
-                    to.0 + ox - style.highlight_offset,
-                    to.1 + oy - style.highlight_offset,
-                ),
+                (to.0 + ox - highlight_offset, to.1 + oy - highlight_offset),
                 highlight,
                 interpolate,
             );
@@ -223,55 +230,87 @@ pub fn render_pattern_to_png(
     pattern: &EmbPattern,
     settings: &RenderSettings,
 ) -> Result<Vec<u8>, AppError> {
-    let (min_x, min_y, max_x, max_y) = drawable_bounds(pattern).unwrap_or((0.0, 0.0, 1.0, 1.0));
-    let width = (max_x - min_x).ceil() as u32 + 4;
-    let height = (max_y - min_y).ceil() as u32 + 4;
+    let bounds = drawable_bounds(pattern);
+    let (min_x, min_y, max_x, max_y) = bounds.unwrap_or((0.0, 0.0, 0.0, 0.0));
+    let span_x = (max_x - min_x).max(0.0);
+    let span_y = (max_y - min_y).max(0.0);
+    let max_span = span_x.max(span_y);
+
+    let (width, height, scale, margin, thread_radius) = match settings.target_dimension {
+        Some(target_dim) if max_span > 0.0 => {
+            let target_f = target_dim as f32;
+            let margin = (target_f * 0.05).round().max(8.0);
+            let inner_max = (target_f - 2.0 * margin).max(1.0);
+            let scale = inner_max / max_span;
+            let width = ((span_x * scale) + 2.0 * margin).round().max(16.0) as u32;
+            let height = ((span_y * scale) + 2.0 * margin).round().max(16.0) as u32;
+
+            // #40 thread diameter is ~0.4 mm (= 4.0 decimillimeter units).
+            // Scale thread radius with the coordinate-to-pixel scale factor.
+            let thread_radius = ((4.0 * scale) / 2.0).round() as i32;
+            let thread_radius = thread_radius.clamp(1, 4);
+
+            (width, height, scale, margin, thread_radius)
+        }
+        Some(_) => (64, 64, 1.0, 8.0, 2),
+        None => {
+            let width = span_x.ceil() as u32 + 4;
+            let height = span_y.ceil() as u32 + 4;
+            (width.max(1), height.max(1), 1.0, 2.0, 2)
+        }
+    };
+
     let mut img = RgbaImage::from_pixel(width, height, settings.background);
 
-    // Draw stitches as colored lines (2D only, one color per thread block)
-    // This mimics the basic 2D preview in the Python PngWriter.
-    let mut thread_index = usize::from(!pattern.threadlist.is_empty());
-    let mut last_point: Option<(i32, i32)> = None;
-    // Default to black if no threads
-    let mut current_color = if pattern.threadlist.is_empty() {
-        Rgba([0, 0, 0, 255])
-    } else {
-        let thread = &pattern.threadlist[0];
-        Rgba([thread.get_red(), thread.get_green(), thread.get_blue(), 255])
-    };
-    for stitch in &pattern.stitches {
-        // Color change: update thread color
-        if stitch.stitch_type == StitchType::ColorChange && thread_index < pattern.threadlist.len()
-        {
-            let thread = &pattern.threadlist[thread_index];
-            current_color = Rgba([thread.get_red(), thread.get_green(), thread.get_blue(), 255]);
-            thread_index += 1;
-            last_point = None;
-            continue;
-        }
-        // Only draw actual stitches
-        if stitch.stitch_type == StitchType::Stitch {
-            let x = (stitch.x - min_x + 2.0).round() as i32;
-            let y = (stitch.y - min_y + 2.0).round() as i32;
-            if let Some((lx, ly)) = last_point {
-                if settings.preview_mode == PreviewMode::ThreeD {
-                    draw_segment_3d(
-                        &mut img,
-                        (lx, ly),
-                        (x, y),
-                        current_color,
-                        settings.three_d_style,
-                    );
-                } else {
-                    draw_segment_2d(&mut img, (lx, ly), (x, y), current_color);
-                }
+    // If no drawable stitches, return the background canvas
+    if bounds.is_some() {
+        let mut thread_index = usize::from(!pattern.threadlist.is_empty());
+        let mut last_point: Option<(i32, i32)> = None;
+        let mut current_color = if pattern.threadlist.is_empty() {
+            Rgba([0, 0, 0, 255])
+        } else {
+            let thread = &pattern.threadlist[0];
+            Rgba([thread.get_red(), thread.get_green(), thread.get_blue(), 255])
+        };
+
+        for stitch in &pattern.stitches {
+            if stitch.stitch_type == StitchType::ColorChange
+                && thread_index < pattern.threadlist.len()
+            {
+                let thread = &pattern.threadlist[thread_index];
+                current_color =
+                    Rgba([thread.get_red(), thread.get_green(), thread.get_blue(), 255]);
+                thread_index += 1;
+                last_point = None;
+                continue;
             }
-            last_point = Some((x, y));
-        } else if stitch.stitch_type == StitchType::Jump || stitch.stitch_type == StitchType::Trim {
-            // Discontinuity: do not connect lines
-            last_point = None;
+
+            if stitch.stitch_type == StitchType::Stitch {
+                let x = ((stitch.x - min_x) * scale + margin).round() as i32;
+                let y = ((stitch.y - min_y) * scale + margin).round() as i32;
+                if let Some((lx, ly)) = last_point {
+                    if settings.preview_mode == PreviewMode::ThreeD {
+                        draw_segment_3d(
+                            &mut img,
+                            (lx, ly),
+                            (x, y),
+                            current_color,
+                            settings.three_d_style,
+                            thread_radius,
+                        );
+                    } else {
+                        draw_segment_2d(&mut img, (lx, ly), (x, y), current_color, thread_radius);
+                    }
+                }
+                last_point = Some((x, y));
+            } else if stitch.stitch_type == StitchType::Jump
+                || stitch.stitch_type == StitchType::Trim
+            {
+                last_point = None;
+            }
         }
     }
+
     let mut buf = Vec::new();
     use image::codecs::png::PngEncoder;
     PngEncoder::new(&mut buf)
@@ -284,6 +323,7 @@ pub fn render_pattern_to_png(
         .map_err(|err| AppError::parse(format!("failed to encode PNG: {err}")))?;
     Ok(buf)
 }
+
 #[cfg(test)]
 #[path = "png_writer_tests.rs"]
 mod tests;

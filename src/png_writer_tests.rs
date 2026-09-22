@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Julie Stenning
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Tests for the PNG writer.
 //
 // This module was split out of png_writer.rs so the writer file can stay
@@ -199,7 +202,7 @@ fn ignores_jump_only_outliers_when_framing_preview() {
     let (width, height) = image_dimensions(&png);
 
     assert!(
-        width < 200 && height < 200,
+        width <= 600 && height <= 600,
         "jump-only outlier should not inflate preview size"
     );
 }
@@ -292,4 +295,70 @@ fn three_d_style_profile_changes_render_output() {
         soft_png, punchy_png,
         "3D style tuning should affect output image"
     );
+}
+
+#[test]
+fn scaled_canvas_fits_within_target_dimension() {
+    let mut pattern = EmbPattern::new();
+    pattern.stitches.push(Stitch {
+        x: 0.0,
+        y: 0.0,
+        stitch_type: StitchType::Stitch,
+    });
+    pattern.stitches.push(Stitch {
+        x: 1200.0,
+        y: 800.0,
+        stitch_type: StitchType::Stitch,
+    });
+    pattern.threadlist.push(EmbThread::new(0xFF0000));
+
+    let settings = RenderSettings::default().with_target_dimension(Some(600));
+    let png = render_pattern_to_png(&pattern, &settings).unwrap();
+    let (w, h) = image_dimensions(&png);
+
+    assert_eq!(w, 600, "major axis should match target dimension");
+    assert!(h < 600, "minor axis should scale proportionally");
+    assert!(h > 400, "minor axis should maintain aspect ratio (~420px)");
+}
+
+#[test]
+fn different_physical_scales_produce_consistent_normalized_canvas() {
+    // 2.5 inch equivalent (~635 decimillimeters) vs 3.5 inch equivalent (~889 decimillimeters)
+    let mut pattern_small = EmbPattern::new();
+    pattern_small.stitches.push(Stitch {
+        x: 0.0,
+        y: 0.0,
+        stitch_type: StitchType::Stitch,
+    });
+    pattern_small.stitches.push(Stitch {
+        x: 380.0,
+        y: 635.0,
+        stitch_type: StitchType::Stitch,
+    });
+    pattern_small.threadlist.push(EmbThread::new(0x00FF00));
+
+    let mut pattern_large = EmbPattern::new();
+    pattern_large.stitches.push(Stitch {
+        x: 0.0,
+        y: 0.0,
+        stitch_type: StitchType::Stitch,
+    });
+    pattern_large.stitches.push(Stitch {
+        x: 532.0,
+        y: 889.0,
+        stitch_type: StitchType::Stitch,
+    });
+    pattern_large.threadlist.push(EmbThread::new(0x00FF00));
+
+    let settings = RenderSettings::default().with_target_dimension(Some(600));
+    let png_small = render_pattern_to_png(&pattern_small, &settings).unwrap();
+    let png_large = render_pattern_to_png(&pattern_large, &settings).unwrap();
+
+    let (w_small, h_small) = image_dimensions(&png_small);
+    let (w_large, h_large) = image_dimensions(&png_large);
+
+    assert_eq!(h_small, 600);
+    assert_eq!(h_large, 600);
+    // Aspect ratios should match within 2 pixels
+    assert!((w_small as i32 - w_large as i32).abs() <= 2);
 }
