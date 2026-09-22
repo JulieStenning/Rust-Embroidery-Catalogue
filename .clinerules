@@ -385,6 +385,22 @@ tweaked version of the same broken shape; reformat the whole invocation first.
 (Get-Content <file> -Raw) -match "`r`n"
 ```
 
+### C) `.editorconfig` and line endings — what governs what
+
+Three independent mechanisms control formatting, and they do **not** all read the same files:
+
+- **`.gitattributes`** (`* text=auto`, plus `*.bat` / `*.cmd text eol=crlf`) is authoritative for what git stores and checks out. Every blob is LF; the worktree is CRLF on Windows because `core.autocrlf=true`.
+- **`.editorconfig`** only tells *editors* what to write. It is deliberately set to mirror the formatters exactly, so adding or editing it must never cause a reformat. Like the other root dotfiles (`.gitattributes`, `.prettierignore`, `.clinerules`) it carries **no SPDX header** — `scripts/add-spdx-headers.ps1` only handles `.rs`/`.svelte`/`.ts`/`.js`/`.mts`/`.mjs`.
+- **rustfmt does NOT read `.editorconfig`** — there is no `rustfmt.toml`, so it uses its own defaults (4 spaces, `max_width 100`). **Prettier DOES parse `.editorconfig`**, but `frontend/.prettierrc` overrides it.
+
+**Before changing any value in `.editorconfig`, read `frontend/.prettierrc` first.** It sets `printWidth: 100` but leaves `tabWidth` (default 2) and `endOfLine` (default `"lf"`) unset, so those two *would* come from `.editorconfig` if they ever disagreed. Setting `end_of_line = crlf` or `indent_size = 4` for frontend types would rewrite ~160 files. Note that Prettier's own docs suggest a copy-paste `.editorconfig` with `max_line_length = 80` — that contradicts this repo's `printWidth: 100`, so do not paste it blindly.
+
+**`.gitattributes` does not support brace expansion** (it uses gitignore-style wildmatch), so `*.bat` and `*.cmd` need separate lines — unlike `.editorconfig`, where `[*.{bat,cmd}]` is valid.
+
+**Gate a formatting-config change on a no-op proof, never on an assumed-clean baseline.** Run `npm run format:check` both *with* and *without* the new file and compare the warn lists — they must be byte-identical. A bare "it failed" tells you nothing, because `format:check` **already fails on this machine** for an unrelated pre-existing reason:
+
+**Pre-existing: `npm run format:check` reports 161 files on a Windows worktree.** Prettier's default `endOfLine` is `"lf"`, but `core.autocrlf=true` checks the worktree out as CRLF, so every CRLF file is flagged. This is not caused by `.editorconfig` (proven by the identical with/without comparison) and it passes on Linux CI, where checkout yields LF. Do **not** "fix" it by running `npm run format` — that would rewrite 161 files to LF in a single commit. A genuine fix needs `eol=lf` attributes in `.gitattributes` plus a renormalisation, which is a separate decision.
+
 ---
 
 ## 🖥️ Command Execution Rules (Windows CMD)

@@ -184,6 +184,13 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
   - **Backend Rust tests:** Run from repo root via `cargo test` (or `cargo test <module_or_test_name>`).
   - **Full quality check:** Run from repo root via `npm run check:all`.
 - **Formatting specific Rust files:** Run `rustfmt --edition 2021 <files...>`. Never use `cargo fmt -- <files>` as it reformats the whole crate.
+- **Formatting config — `.editorconfig`, `.prettierrc` and `.gitattributes` are three separate mechanisms:**
+  - `.gitattributes` (`* text=auto`, plus `*.bat` / `*.cmd text eol=crlf`) is authoritative for git: every blob is LF, and the worktree is CRLF on Windows via `core.autocrlf=true`.
+  - `.editorconfig` only tells *editors* what to write and is set to mirror the formatters exactly, so it never triggers a reformat. It carries no SPDX header, matching the other root dotfiles.
+  - **rustfmt does NOT read `.editorconfig`** (no `rustfmt.toml`; its defaults are 4 spaces and `max_width 100`). **Prettier DOES parse it**, but `frontend/.prettierrc` overrides it.
+  - `.prettierrc` sets `printWidth: 100` but leaves `tabWidth` (2) and `endOfLine` (`"lf"`) unset, so those two would come from `.editorconfig` if they ever disagreed. Never set `end_of_line = crlf` or `indent_size = 4` for frontend types — that rewrites ~160 files. Prettier's own docs suggest `max_line_length = 80`, which contradicts this repo's `printWidth: 100`; don't paste it blindly.
+  - `.gitattributes` has **no brace expansion** (gitignore-style wildmatch) — use separate `*.bat` and `*.cmd` lines. `.editorconfig` does support `[*.{bat,cmd}]`.
+  - **Prove a formatting-config change is a no-op:** run `npm run format:check` with *and* without the new file and diff the warn lists. `format:check` **already fails here** (161 files) because Prettier's default `endOfLine` is `lf` while the Windows worktree is CRLF — pre-existing, passes on Linux CI, and not something to "fix" with `npm run format`.
 - **License manifest build side-effect:** `cargo tauri build` regenerates `src/assets/licences.html`. Revert unintended changes with `git checkout -- src/assets/licences.html frontend/src/lib/assets/licences.html`.
 - **Project licence is GPL-3.0-or-later (never MIT, never AGPL):**
   - Root `LICENSE` is a **byte-verbatim** copy of the GNU GPL-3.0 text — never prepend, append or edit anything in it. All attributions live in the root `NOTICE` file. Both are mirrored into `frontend/src/` by `scripts/sync-licences.mjs` (the `postgenerate:licences` hook); edit the root file, then re-run that script.

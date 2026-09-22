@@ -1,0 +1,50 @@
+# EditorConfig - https://editorconfig.org
+#
+# Every value below mirrors what this repo's formatters already emit, so this
+# file changes editor behaviour only and must never trigger a reformat:
+#   * Prettier 3.x (frontend/.prettierrc) sets useTabs:false and printWidth:100,
+#     and leaves tabWidth and endOfLine at their defaults of 2 and "lf".
+#   * rustfmt (no rustfmt.toml) uses 4 spaces and max_width 100. rustfmt does
+#     NOT read this file, so the [*.rs] block is purely for the editor.
+# Line endings in git are governed by .gitattributes ("* text=auto"), which
+# stores LF in every blob; end_of_line = lf below matches that.
+#
+# Note: Prettier does parse .editorconfig, but .prettierrc overrides it. Keeping
+# the two identical means the result is the same either way - do not "fix" a
+# value here without checking frontend/.prettierrc first.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+max_line_length = 100
+trim_trailing_whitespace = true
+
+[*.rs]
+indent_size = 4
+
+[*.toml]
+indent_size = 4
+
+[*.{ps1,psm1,psd1}]
+indent_size = 4
+
+# cmd.exe can mishandle labels/goto in LF-only batch files. .gitattributes also
+# forces eol=crlf for these, so a fresh clone is correct regardless of the
+# developer's core.autocrlf setting.
+[*.{bat,cmd}]
+end_of_line = crlf
+indent_size = 4
+
+# Two trailing spaces are a hard line break in Markdown - do not strip them.
+[*.md]
+trim_trailing_whitespace = false
+
+# Machine-generated, never hand-edited, and already excluded from Prettier.
+# insert_final_newline = false only avoids adding one; it never removes one.
+[{gen/**,src/assets/licences.html,src/assets/npm-licences.json,frontend/src/lib/assets/licences.html,frontend/src/lib/assets/npm-licences.json}]
+insert_final_newline = false
