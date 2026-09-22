@@ -27,6 +27,19 @@
 //! - **Color Blocks:** When format headers supply thread color or palette information (e.g. PES, JEF, VP3, HUS),
 //!   colors are populated into the pattern's thread list. Formats without embedded palettes (e.g. DST, EXP)
 //!   rely on color change commands and default fallback palettes.
+//!
+//! ## Attribution
+//!
+//! The stitch-decoding, jump/trim command-token, bounding-box and thread-palette logic in these
+//! readers was ported or derived from [pyembroidery](https://github.com/EmbroidePy/pyembroidery),
+//! Copyright (c) 2018 Tatarize and the EmbroidePy pyembroidery contributors, licensed under the
+//! MIT License. The same applies to the PNG preview rendering in
+//! [`crate::png_writer`], which derives from pyembroidery's `PngWriter` module.
+//!
+//! The verbatim MIT notice required by that licence is reproduced in the repo-root `NOTICE` file
+//! (mirrored to `frontend/src/NOTICE`) and in the application under About -> Acknowledgements &
+//! Code Porting Attributions. These Rust modules are distributed as part of Embroidery Catalogue
+//! under the GNU General Public License version 3 or later, which the MIT License permits.
 
 pub mod embroidery_reader;
 pub use crate::readers::dst_reader::DstReader;

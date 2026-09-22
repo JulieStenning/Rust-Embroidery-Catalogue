@@ -37,7 +37,8 @@ As this codebase will be made publicly available on GitHub to comply with third-
 
 ### 2.2 License & Attribution Compliance
 - Maintain all third-party license notices, headers, and attribution manifests generated via `cargo-about` and `npm run generate:licences`.
-- Do not remove or bypass license checks defined in `deny.toml` or `LICENCE`.
+- Do not remove or bypass license checks defined in `deny.toml` or `about.toml`.
+- Never edit the root `LICENSE` file — it must remain a byte-verbatim copy of the GNU General Public License v3.0 text with nothing prepended or appended. All third-party attributions belong in the root `NOTICE` file (mirrored to `frontend/src/NOTICE` by `scripts/sync-licences.mjs`).
 
 ---
 
