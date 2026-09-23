@@ -58,16 +58,16 @@ const DOCUMENTS: [AboutDocumentSpec; 5] = [
     AboutDocumentSpec {
         slug: "privacy",
         title: "Privacy",
-        filename: "templates/info/privacy.html",
+        filename: "docs/info/privacy.html",
         description: "Explains what data is stored locally and what optional AI features may send externally.",
-        content: include_str!("../../templates/info/privacy.html"),
+        content: include_str!("../../docs/info/privacy.html"),
     },
     AboutDocumentSpec {
         slug: "security",
         title: "Security",
-        filename: "templates/info/security.html",
+        filename: "docs/info/security.html",
         description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
-        content: include_str!("../../templates/info/security.html"),
+        content: include_str!("../../docs/info/security.html"),
     },
     AboutDocumentSpec {
         slug: "ai-tagging",

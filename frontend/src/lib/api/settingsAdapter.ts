@@ -55,14 +55,14 @@ export async function getAboutDocuments() {
         title: "Privacy",
         description:
           "Explains what data is stored locally and what optional AI features may send externally.",
-        filename: "templates/info/PRIVACY.html",
+        filename: "docs/info/privacy.html",
         available: false,
       },
       {
         slug: "security",
         title: "Security",
         description: "Guidance on secrets, API keys, portable deployments, and safe usage.",
-        filename: "templates/info/security.html",
+        filename: "docs/info/security.html",
         available: false,
       },
       {
