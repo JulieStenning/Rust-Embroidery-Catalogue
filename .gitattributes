@@ -7,3 +7,17 @@
 # wildmatch), so *.bat and *.cmd need separate lines - unlike .editorconfig.
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Generated licence manifests (npm run generate:licences / cargo tauri build).
+# cargo-about splices in bundled licence texts whose own endings are CRLF, so its
+# output mixes CRLF and LF lines, and scripts/sync-licences.mjs normalises it to
+# LF. With "* text=auto" plus core.autocrlf=true git would check these out as
+# CRLF, so the generator could never produce a worktree copy matching what git
+# expected - every build left both licences.html files looking modified even
+# though their content was byte-identical. Pinning them to LF aligns the checkout
+# with the generator. Their committed blobs are already LF, so this requires no
+# renormalisation and changes no stored content.
+src/assets/licences.html text eol=lf
+src/assets/npm-licences.json text eol=lf
+frontend/src/lib/assets/licences.html text eol=lf
+frontend/src/lib/assets/npm-licences.json text eol=lf
