@@ -992,7 +992,7 @@
         "path": "frontend/node_modules/prelude-ls",
         "licenseFile": "frontend/node_modules/prelude-ls/LICENSE"
     },
-    "prettier-plugin-svelte@3.5.2": {
+    "prettier-plugin-svelte@4.1.1": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/prettier-plugin-svelte",
         "publisher": "James Birtles",
@@ -1000,7 +1000,7 @@
         "path": "frontend/node_modules/prettier-plugin-svelte",
         "licenseFile": "frontend/node_modules/prettier-plugin-svelte/LICENSE"
     },
-    "prettier@3.9.5": {
+    "prettier@3.9.6": {
         "licenses": "MIT",
         "repository": "https://github.com/prettier/prettier",
         "publisher": "James Long",
