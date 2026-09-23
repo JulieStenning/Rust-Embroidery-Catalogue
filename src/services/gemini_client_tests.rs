@@ -454,8 +454,9 @@ fn list_models_surfaces_json_parse_error() {
 #[test]
 fn suggest_tags_vision_sends_deterministic_temperature_zero() {
     let mut server = mockito::Server::new();
-    let body = serde_json::json!({ "candidates": [{ "content": { "parts": [{ "text": "Cats" }] } }] })
-        .to_string();
+    let body =
+        serde_json::json!({ "candidates": [{ "content": { "parts": [{ "text": "Cats" }] } }] })
+            .to_string();
     let mock = server
         .mock("POST", "/gemini-2.0-flash:generateContent")
         .match_body(mockito::Matcher::PartialJson(serde_json::json!({
