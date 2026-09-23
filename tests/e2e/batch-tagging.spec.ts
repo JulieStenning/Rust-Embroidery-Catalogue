@@ -96,11 +96,16 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     ).toBeVisible();
 
     // Missing API key banner
-    await expect(
-      page.getByText(
-        "No Google API key is configured in Settings. Gemini Vision tagging will be skipped. File & Folder Rules always run.",
-      ),
-    ).toBeVisible();
+    const banner = page.getByText(
+      "No Google API key is configured in Settings. Gemini Vision tagging will be skipped. File & Folder Rules always run.",
+    );
+    await expect(banner).toBeVisible();
+    const bannerSettingsLink = banner.getByRole("link", { name: "Settings" });
+    await expect(bannerSettingsLink).toBeVisible();
+    await expect(bannerSettingsLink).toHaveAttribute(
+      "href",
+      "#/admin/system/settings",
+    );
 
     // Settings helper link under Step 1
     const settingsLink = page

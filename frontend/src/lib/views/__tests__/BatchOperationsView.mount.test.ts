@@ -80,11 +80,11 @@ describe("BatchOperationsView mount behaviour", () => {
   it("shows the no-API-key notice and info toast when no key is set", async () => {
     render(BatchOperationsView);
 
-    expect(
-      await screen.findByText(
-        /No Google API key is configured in Settings\. Gemini Vision tagging will be skipped\./
-      )
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/No Google API key is configured in/)).toBeInTheDocument();
+    const settingsLinks = screen.getAllByRole("link", { name: "Settings" });
+    expect(settingsLinks.some((l) => l.getAttribute("href") === "#/admin/system/settings")).toBe(
+      true
+    );
     await waitFor(() => {
       expect(toastMock.addToast).toHaveBeenCalledWith(
         "No Google API key set. AI tagging actions will be skipped.",

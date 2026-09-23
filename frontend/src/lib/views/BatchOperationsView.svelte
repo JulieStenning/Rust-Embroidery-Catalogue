@@ -648,8 +648,10 @@
       <!-- API Key Status -->
       {#if !taggingHasGoogleApiKey}
         <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
-          No Google API key is configured in Settings. Gemini Vision tagging will be skipped. File &
-          Folder Rules always run.
+          No Google API key is configured in <a
+            href="#/admin/system/settings"
+            class="underline font-semibold hover:opacity-80">Settings</a
+          >. Gemini Vision tagging will be skipped. File &amp; Folder Rules always run.
         </div>
       {:else}
         <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
