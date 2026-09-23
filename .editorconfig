@@ -1,17 +1,32 @@
 # EditorConfig - https://editorconfig.org
 #
 # Every value below mirrors what this repo's formatters already emit, so this
-# file changes editor behaviour only and must never trigger a reformat:
-#   * Prettier 3.x (frontend/.prettierrc) sets useTabs:false and printWidth:100,
-#     and leaves tabWidth and endOfLine at their defaults of 2 and "lf".
+# file changes editor behaviour only and must never trigger a reformat.
+#
+# Prettier resolves its config per file, and this repo has TWO regimes:
+#
+#   * Under frontend/, frontend/.prettierrc exists and wins: printWidth 100,
+#     useTabs false, with tabWidth and endOfLine left at their defaults of 2
+#     and "lf".
+#
+#   * Outside frontend/ (root .md/.json/.yml/.ts/.mts, scripts/, .github/
+#     workflows/) there is NO .prettierrc, so Prettier falls back to its own
+#     defaults PLUS this file. max_line_length in [*] must therefore stay at
+#     Prettier's default of 80: raising it to 100 silently reflows
+#     tauri.conf.json and tsconfig.json and breaks the root-level
+#     "npx prettier --check ." that .github/workflows/ci.yml runs.
+#
 #   * rustfmt (no rustfmt.toml) uses 4 spaces and max_width 100. rustfmt does
 #     NOT read this file, so the [*.rs] block is purely for the editor.
+#
 # Line endings in git are governed by .gitattributes ("* text=auto"), which
 # stores LF in every blob; end_of_line = lf below matches that.
 #
-# Note: Prettier does parse .editorconfig, but .prettierrc overrides it. Keeping
-# the two identical means the result is the same either way - do not "fix" a
-# value here without checking frontend/.prettierrc first.
+# Before changing any value here, run BOTH commands below from the repo root and
+# confirm they flag the same files - a difference means this file is overriding
+# Prettier somewhere there is no .prettierrc:
+#   npx prettier --check . --end-of-line auto --no-editorconfig
+#   npx prettier --check . --end-of-line auto
 
 root = true
 
@@ -21,11 +36,17 @@ end_of_line = lf
 indent_style = space
 indent_size = 2
 insert_final_newline = true
-max_line_length = 100
+max_line_length = 80
 trim_trailing_whitespace = true
+
+# frontend/.prettierrc sets printWidth 100 and is authoritative for Prettier;
+# this block only guides editors.
+[frontend/**]
+max_line_length = 100
 
 [*.rs]
 indent_size = 4
+max_line_length = 100
 
 [*.toml]
 indent_size = 4
