@@ -62,7 +62,9 @@ test.describe("main navigation", () => {
     ).toBeVisible();
 
     await gotoRoute(page, "#/admin/data/tags");
-    await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Manage Tags" }),
+    ).toBeVisible();
 
     await gotoRoute(page, "#/projects");
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();

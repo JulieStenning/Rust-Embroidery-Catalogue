@@ -69,9 +69,7 @@ test.describe.serial("application settings", () => {
     await orphansTab.click();
     await expect(orphansTab).toHaveAttribute("aria-selected", "true");
     await expect(backupTab).toHaveAttribute("aria-selected", "false");
-    await expect(
-      page.getByRole("heading", { name: "Orphans" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Orphans" })).toBeVisible();
 
     // Switch back to Settings tab
     await settingsTab.click();
@@ -97,7 +95,9 @@ test.describe.serial("application settings", () => {
     await expect(page.locator("#settings-ai-workers")).toBeVisible();
     await expect(page.locator("#settings-ai-delay")).toBeVisible();
     await expect(page.locator("#settings-ai-model")).toBeVisible();
-    await expect(page.locator("#settings-db-idle-check-interval")).toBeVisible();
+    await expect(
+      page.locator("#settings-db-idle-check-interval"),
+    ).toBeVisible();
 
     // Save button is initially disabled and dirty hint is hidden
     const saveButton = page.getByRole("button", { name: "Save settings" });
@@ -162,9 +162,7 @@ test.describe.serial("application settings", () => {
     page,
   }) => {
     await gotoRoute(page, "#/admin/system/settings");
-    const freeTierCheckbox = page.locator(
-      'input[type="checkbox"]',
-    );
+    const freeTierCheckbox = page.locator('input[type="checkbox"]');
     const workersInput = page.locator("#settings-ai-workers");
     const delayInput = page.locator("#settings-ai-delay");
 
@@ -250,9 +248,7 @@ test.describe.serial("application settings", () => {
 
     // Verify save completed and dirty hint cleared
     await expect(dirtyHint).toBeHidden();
-    await expect(
-      page.getByText("Settings saved successfully."),
-    ).toBeVisible();
+    await expect(page.getByText("Settings saved successfully.")).toBeVisible();
 
     // Reload page to verify SQLite round-trip persistence
     await page.reload();
@@ -267,9 +263,9 @@ test.describe.serial("application settings", () => {
     await expect(page.locator("#settings-ai-commit-every")).toHaveValue("75");
     await expect(page.locator("#settings-ai-workers")).toHaveValue("3");
     await expect(page.locator("#settings-ai-delay")).toHaveValue("1.5");
-    await expect(
-      page.locator("#settings-db-idle-check-interval"),
-    ).toHaveValue("900");
+    await expect(page.locator("#settings-db-idle-check-interval")).toHaveValue(
+      "900",
+    );
 
     // Model dropdown remains enabled on re-mount
     await expect(page.locator("#settings-ai-model")).toBeEnabled();
@@ -317,7 +313,9 @@ test.describe.serial("application settings", () => {
       page.getByRole("heading", { name: "Storage locations" }),
     ).toBeVisible();
     await expect(
-      page.getByText("The catalogue database and imported embroidery files live under"),
+      page.getByText(
+        "The catalogue database and imported embroidery files live under",
+      ),
     ).toBeVisible();
 
     const metaCard = page.locator(".settings-meta");
@@ -331,11 +329,11 @@ test.describe.serial("application settings", () => {
       metaCard.getByText("Catalogue data location", { exact: true }),
     ).toBeVisible();
     // Database path
-    await expect(
-      metaCard.getByText("Database", { exact: true }),
-    ).toBeVisible();
+    await expect(metaCard.getByText("Database", { exact: true })).toBeVisible();
     // Log folder
-    await expect(metaCard.getByText("Log folder", { exact: true })).toBeVisible();
+    await expect(
+      metaCard.getByText("Log folder", { exact: true }),
+    ).toBeVisible();
 
     // Contextual cross-links in the form
     const form = page.locator("form.settings-form");
@@ -373,9 +371,7 @@ test.describe.serial("application settings", () => {
     await saveButton.click();
 
     await expect(page.getByTestId("settings-dirty-hint")).toBeHidden();
-    await expect(
-      page.getByText("Settings saved successfully."),
-    ).toBeVisible();
+    await expect(page.getByText("Settings saved successfully.")).toBeVisible();
 
     // Verify clean state on reload
     await page.reload();

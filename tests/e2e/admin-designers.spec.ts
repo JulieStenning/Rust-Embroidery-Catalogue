@@ -22,7 +22,9 @@ test.describe("manage designers", () => {
       page.getByRole("heading", { name: "Manage Designers" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Designers are the creators or brands of embroidery designs."),
+      page.getByText(
+        "Designers are the creators or brands of embroidery designs.",
+      ),
     ).toBeVisible();
 
     // Tablist has Designers selected
@@ -75,7 +77,11 @@ test.describe("manage designers", () => {
 
     // Verify alphabetical ordering of rows in the designers table
     const tableRows = page.locator("table tbody tr");
-    const firstRowName = await tableRows.first().locator("td").first().textContent();
+    const firstRowName = await tableRows
+      .first()
+      .locator("td")
+      .first()
+      .textContent();
     expect(firstRowName?.trim().toLowerCase()).toBe("me");
   });
 
@@ -89,7 +95,10 @@ test.describe("manage designers", () => {
 
     const input = page.getByPlaceholder("New designer name...");
     const addButton = page.getByRole("button", { name: "Add", exact: true });
-    const clearButton = page.getByRole("button", { name: "Clear", exact: true });
+    const clearButton = page.getByRole("button", {
+      name: "Clear",
+      exact: true,
+    });
 
     // Initial empty state: both disabled, input auto-focused
     await expect(input).toHaveValue("");
@@ -115,7 +124,9 @@ test.describe("manage designers", () => {
     await expect(clearButton).toBeEnabled();
   });
 
-  test("adds a new designer and persists it across reload", async ({ page }) => {
+  test("adds a new designer and persists it across reload", async ({
+    page,
+  }) => {
     await gotoRoute(page, "#/admin/data/designers");
     await expect(
       page.getByRole("heading", { name: "Manage Designers" }),
@@ -131,7 +142,9 @@ test.describe("manage designers", () => {
     await expect(input).toHaveValue("");
 
     // Designer appears in table with 0 designs used
-    const row = page.locator("tr", { has: page.getByRole("cell", { name, exact: true }) });
+    const row = page.locator("tr", {
+      has: page.getByRole("cell", { name, exact: true }),
+    });
     await expect(row).toBeVisible();
     await expect(row.locator("td").nth(1)).toHaveText("0");
 
@@ -156,7 +169,9 @@ test.describe("manage designers", () => {
 
     // Error toast is displayed
     await expect(
-      page.getByText(/Could not add designer:.*Designer 'me' already exists\./i),
+      page.getByText(
+        /Could not add designer:.*Designer 'me' already exists\./i,
+      ),
     ).toBeVisible();
   });
 
@@ -188,12 +203,18 @@ test.describe("manage designers", () => {
     await expect(editInput).toBeVisible();
     await expect(editInput).toHaveValue(originalName);
 
-    await editingRow.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("cell", { name: originalName, exact: true })).toBeVisible();
+    await editingRow
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(
+      page.getByRole("cell", { name: originalName, exact: true }),
+    ).toBeVisible();
 
     // 2. Validate empty edit name rejection
     await page
-      .locator("tr", { has: page.getByRole("cell", { name: originalName, exact: true }) })
+      .locator("tr", {
+        has: page.getByRole("cell", { name: originalName, exact: true }),
+      })
       .getByRole("button", { name: "Edit", exact: true })
       .click();
     await editInput.fill("   ");
@@ -204,7 +225,9 @@ test.describe("manage designers", () => {
     await editInput.fill("Me");
     await editingRow.getByRole("button", { name: "Save", exact: true }).click();
     await expect(
-      page.getByText(/Could not update designer:.*Designer 'Me' already exists\./i),
+      page.getByText(
+        /Could not update designer:.*Designer 'Me' already exists\./i,
+      ),
     ).toBeVisible();
 
     // 4. Successful update and persistence
@@ -213,7 +236,9 @@ test.describe("manage designers", () => {
     await editingRow.getByRole("button", { name: "Save", exact: true }).click();
 
     await expect(page.getByText("Designer updated.")).toBeVisible();
-    await expect(page.getByRole("cell", { name: updatedName, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: updatedName, exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("cell", { name: originalName, exact: true }),
     ).not.toBeVisible();
@@ -223,7 +248,9 @@ test.describe("manage designers", () => {
     await expect(
       page.getByRole("heading", { name: "Manage Designers" }),
     ).toBeVisible();
-    await expect(page.getByRole("cell", { name: updatedName, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: updatedName, exact: true }),
+    ).toBeVisible();
   });
 
   test("deletes an unused designer with confirmation flow and persistence", async ({
@@ -248,19 +275,32 @@ test.describe("manage designers", () => {
     // Click Delete -> shows prompt toast and confirmation row
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(
-      page.getByText(`Delete '${deleteTargetName}'? Click confirm delete to continue.`),
+      page.getByText(
+        `Delete '${deleteTargetName}'? Click confirm delete to continue.`,
+      ),
     ).toBeVisible();
-    await expect(page.getByText("Confirm deletion for this designer.")).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this designer."),
+    ).toBeVisible();
 
     // Cancel deletion
-    const cancelButton = row.getByRole("button", { name: "Cancel", exact: true });
+    const cancelButton = row.getByRole("button", {
+      name: "Cancel",
+      exact: true,
+    });
     await cancelButton.click();
-    await expect(page.getByText("Confirm deletion for this designer.")).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: deleteTargetName, exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this designer."),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: deleteTargetName, exact: true }),
+    ).toBeVisible();
 
     // Confirm deletion
     await row.getByRole("button", { name: "Delete", exact: true }).click();
-    await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await row
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
 
     await expect(page.getByText("Designer deleted.").first()).toBeVisible();
     await expect(
@@ -291,7 +331,9 @@ test.describe("manage designers", () => {
     });
     await expect(meRow).toBeVisible();
 
-    const designCountText = (await meRow.locator("td").nth(1).textContent())?.trim();
+    const designCountText = (
+      await meRow.locator("td").nth(1).textContent()
+    )?.trim();
     const designCount = Number(designCountText);
     expect(designCount).toBeGreaterThan(0);
 
@@ -312,7 +354,9 @@ test.describe("manage designers", () => {
 
     // Cancel to preserve seed data
     await meRow.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("cell", { name: "Me", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Me", exact: true }),
+    ).toBeVisible();
   });
 
   test("switches tabs between Reference Data sub-tabs and returns to Designers", async ({

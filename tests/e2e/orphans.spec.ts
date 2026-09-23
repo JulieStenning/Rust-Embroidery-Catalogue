@@ -67,7 +67,9 @@ function deleteSyntheticOrphans(ids: number[]) {
     const db = getTestDb();
     try {
       const placeholders = ids.map(() => "?").join(",");
-      db.prepare(`DELETE FROM designs WHERE id IN (${placeholders})`).run(...ids);
+      db.prepare(`DELETE FROM designs WHERE id IN (${placeholders})`).run(
+        ...ids,
+      );
     } finally {
       db.close();
     }
@@ -255,9 +257,9 @@ test.describe.serial("orphaned files management", () => {
     await scanButton.click();
 
     // Scan toast confirms detection
-    await expect(
-      page.getByText(/Found 3 orphan\(s\)\./i),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Found 3 orphan\(s\)\./i)).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Counter updates
     await expect(
@@ -329,9 +331,7 @@ test.describe.serial("orphaned files management", () => {
     await gotoRoute(page, "#/admin/system/orphans");
     await page.reload();
 
-    await expect(
-      page.getByText(/3 orphaned record\(s\) total/i),
-    ).toBeVisible();
+    await expect(page.getByText(/3 orphaned record\(s\) total/i)).toBeVisible();
 
     const deleteSelectedBtn = page.getByRole("button", {
       name: /^Delete selected/i,
@@ -427,9 +427,7 @@ test.describe.serial("orphaned files management", () => {
     await gotoRoute(page, "#/admin/system/orphans");
     await page.reload();
 
-    await expect(
-      page.getByText(/2 orphaned record\(s\) total/i),
-    ).toBeVisible();
+    await expect(page.getByText(/2 orphaned record\(s\) total/i)).toBeVisible();
 
     // Uncheck Keep row so only Delete row is selected
     const keepRowCheckbox = page
@@ -470,9 +468,9 @@ test.describe.serial("orphaned files management", () => {
     await deleteSelectedBtn.click();
 
     // Toast confirms deletion
-    await expect(
-      page.getByText("1 record(s) deleted."),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("1 record(s) deleted.")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Deleted record is removed from UI
     await expect(
@@ -509,9 +507,7 @@ test.describe.serial("orphaned files management", () => {
     await gotoRoute(page, "#/admin/system/orphans");
     await page.reload();
 
-    await expect(
-      page.getByText(/2 orphaned record\(s\) total/i),
-    ).toBeVisible();
+    await expect(page.getByText(/2 orphaned record\(s\) total/i)).toBeVisible();
 
     const deleteAllBtn = page.getByRole("button", {
       name: "Delete all (2)",
@@ -520,7 +516,9 @@ test.describe.serial("orphaned files management", () => {
 
     // 1. Test Cancellation
     page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Delete ALL {orphanTotal} orphaned records?");
+      expect(dialog.message()).toContain(
+        "Delete ALL {orphanTotal} orphaned records?",
+      );
       await dialog.dismiss();
     });
 
@@ -538,16 +536,18 @@ test.describe.serial("orphaned files management", () => {
 
     // 2. Test Confirmation
     page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Delete ALL {orphanTotal} orphaned records?");
+      expect(dialog.message()).toContain(
+        "Delete ALL {orphanTotal} orphaned records?",
+      );
       await dialog.accept();
     });
 
     await deleteAllBtn.click();
 
     // Toast confirms all deleted
-    await expect(
-      page.getByText("2 record(s) deleted."),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("2 record(s) deleted.")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // UI returns to clean empty state
     await expect(
@@ -584,7 +584,9 @@ test.describe.serial("orphaned files management", () => {
 
     // Summary indicates multi-page setup
     await expect(
-      page.getByText(/105 orphaned record\(s\) total, page 1 of 2, showing 100/i),
+      page.getByText(
+        /105 orphaned record\(s\) total, page 1 of 2, showing 100/i,
+      ),
     ).toBeVisible({ timeout: 15_000 });
 
     const pagination = page.getByRole("navigation", {
@@ -612,9 +614,9 @@ test.describe.serial("orphaned files management", () => {
     });
     await deleteAllBtn.click();
 
-    await expect(
-      page.getByText("105 record(s) deleted."),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("105 record(s) deleted.")).toBeVisible({
+      timeout: 15_000,
+    });
 
     await expect(
       page.getByText(/0 orphaned record\(s\) total, page 1 of 1, showing 0/i),

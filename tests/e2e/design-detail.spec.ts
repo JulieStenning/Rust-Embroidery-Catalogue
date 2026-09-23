@@ -84,7 +84,9 @@ function rightColumn(page: Page): Locator {
 function detailCard(page: Page, headingText: string): Locator {
   return rightColumn(page)
     .locator(".route-card")
-    .filter({ has: page.getByRole("heading", { name: headingText, exact: true }) });
+    .filter({
+      has: page.getByRole("heading", { name: headingText, exact: true }),
+    });
 }
 
 /** A transient toast carrying message. */
@@ -114,14 +116,22 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     await openDesignDetail(page, richDesignId);
 
     // Top action bar
-    await expect(page.getByRole("button", { name: "← Back to Browse" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Print", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "← Back to Browse" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Print", exact: true }),
+    ).toBeVisible();
 
     // Left column: Filename & File Path
     await expect(leftColumn(page).getByText("Filename")).toBeVisible();
-    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(RICH_DESIGN);
+    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(
+      RICH_DESIGN,
+    );
     await expect(leftColumn(page).getByText("File Path")).toBeVisible();
-    await expect(leftColumn(page).locator("p.font-mono")).toContainText(RICH_DESIGN);
+    await expect(leftColumn(page).locator("p.font-mono")).toContainText(
+      RICH_DESIGN,
+    );
 
     // Left column: Preview image rendered
     const previewImg = leftColumn(page).locator(`img[alt="${RICH_DESIGN}"]`);
@@ -135,7 +145,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
       leftColumn(page).getByRole("button", { name: /Show in Explorer/i }),
     ).toBeVisible();
     await expect(
-      leftColumn(page).getByRole("button", { name: /Generate (2D|3D) Preview/i }),
+      leftColumn(page).getByRole("button", {
+        name: /Generate (2D|3D) Preview/i,
+      }),
     ).toBeVisible();
 
     // Right column: Zone A (Designer & Source)
@@ -147,25 +159,41 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     const techCard = detailCard(page, "Technical Data");
     await expect(techCard).toBeVisible();
     await expect(techCard.getByText("Hoop", { exact: true })).toBeVisible();
-    await expect(techCard.getByText("Dimensions", { exact: true })).toBeVisible();
+    await expect(
+      techCard.getByText("Dimensions", { exact: true }),
+    ).toBeVisible();
     await expect(techCard.getByText("Stitches", { exact: true })).toBeVisible();
     await expect(techCard.getByText("Colours", { exact: true })).toBeVisible();
-    await expect(techCard.getByText("Colour Changes", { exact: true })).toBeVisible();
-    await expect(techCard.getByRole("button", { name: /Recalculate From File/i })).toBeVisible();
+    await expect(
+      techCard.getByText("Colour Changes", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      techCard.getByRole("button", { name: /Recalculate From File/i }),
+    ).toBeVisible();
 
     // Right column: Zone C (Rating & Status)
     const ratingCard = detailCard(page, "Rating & Status");
     await expect(ratingCard).toBeVisible();
-    await expect(ratingCard.getByRole("radiogroup", { name: "Rating" })).toBeVisible();
-    await expect(ratingCard.getByText(/Rating:\s*★\s*4\s*\/\s*5/)).toBeVisible();
-    await expect(ratingCard.getByRole("button", { name: /Stitched/i })).toBeVisible();
+    await expect(
+      ratingCard.getByRole("radiogroup", { name: "Rating" }),
+    ).toBeVisible();
+    await expect(
+      ratingCard.getByText(/Rating:\s*★\s*4\s*\/\s*5/),
+    ).toBeVisible();
+    await expect(
+      ratingCard.getByRole("button", { name: /Stitched/i }),
+    ).toBeVisible();
 
     // Right column: Tags
     const tagsCard = detailCard(page, "Tags");
     await expect(tagsCard).toBeVisible();
     await expect(tagsCard.locator("span", { hasText: "Food" })).toBeVisible();
-    await expect(tagsCard.locator("span", { hasText: "Cross Stitch" })).toBeVisible();
-    await expect(tagsCard.getByRole("button", { name: "Choose tags..." })).toBeVisible();
+    await expect(
+      tagsCard.locator("span", { hasText: "Cross Stitch" }),
+    ).toBeVisible();
+    await expect(
+      tagsCard.getByRole("button", { name: "Choose tags..." }),
+    ).toBeVisible();
 
     // Right column: Notes
     const notesCard = detailCard(page, "Notes");
@@ -173,7 +201,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     await expect(
       notesCard.getByPlaceholder("Add notes about this design..."),
     ).toBeVisible();
-    await expect(notesCard.getByRole("button", { name: "Save Notes" })).toBeDisabled();
+    await expect(
+      notesCard.getByRole("button", { name: "Save Notes" }),
+    ).toBeDisabled();
 
     // Right column: Projects
     const projectsCard = detailCard(page, "Projects");
@@ -189,9 +219,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     page,
   }) => {
     await gotoRoute(page, "#/designs/999999");
-    await expect(
-      page.getByText("No design found for id 999999."),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("No design found for id 999999.")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("renders missing preview warning banner for unreadable designs", async ({
@@ -241,12 +271,16 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     // Click Prev to go back to the first design
     await prevButton.click();
     await expect(nav.getByText(/^1\s*\/\s*\d+$/)).toBeVisible();
-    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(firstTitle!);
+    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(
+      firstTitle!,
+    );
 
     // Click "Back to Browse" to return to browse catalogue
     await page.getByRole("button", { name: "← Back to Browse" }).click();
     await expect(page).toHaveURL(/#\/designs$/);
-    await expect(page.getByRole("heading", { name: "Browse Designs" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
   });
 
   test("persists Designer and Source dropdown changes across reload", async ({
@@ -257,8 +291,12 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     const metadataCard = detailCard(page, "Designer & Source");
     await expect(metadataCard).toBeVisible();
 
-    const designerSelect = metadataCard.locator("label", { hasText: "Designer" }).locator("select");
-    const sourceSelect = metadataCard.locator("label", { hasText: "Source" }).locator("select");
+    const designerSelect = metadataCard
+      .locator("label", { hasText: "Designer" })
+      .locator("select");
+    const sourceSelect = metadataCard
+      .locator("label", { hasText: "Source" })
+      .locator("select");
 
     // Change Designer to "Wrenwood Studio"
     await designerSelect.selectOption({ label: "Wrenwood Studio" });
@@ -272,14 +310,22 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     await page.reload();
     await expect(detailCard(page, "Designer & Source")).toBeVisible();
     await expect(
-      detailCard(page, "Designer & Source").locator("label", { hasText: "Designer" }).locator("select"),
+      detailCard(page, "Designer & Source")
+        .locator("label", { hasText: "Designer" })
+        .locator("select"),
     ).toHaveValue(
-      await designerSelect.locator('option:has-text("Wrenwood Studio")').getAttribute("value") || "",
+      (await designerSelect
+        .locator('option:has-text("Wrenwood Studio")')
+        .getAttribute("value")) || "",
     );
     await expect(
-      detailCard(page, "Designer & Source").locator("label", { hasText: "Source" }).locator("select"),
+      detailCard(page, "Designer & Source")
+        .locator("label", { hasText: "Source" })
+        .locator("select"),
     ).toHaveValue(
-      await sourceSelect.locator('option:has-text("Threadwise Guild")').getAttribute("value") || "",
+      (await sourceSelect
+        .locator('option:has-text("Threadwise Guild")')
+        .getAttribute("value")) || "",
     );
 
     // Restore original fixture values (Designer: "Me", Source: "None")
@@ -308,7 +354,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     const star5 = ratingCard.getByRole("button", { name: "5 stars" });
     await star5.click();
     await expect(toast(page, /rating/i)).toBeVisible();
-    await expect(ratingCard.getByText(/Rating:\s*★\s*5\s*\/\s*5/)).toBeVisible();
+    await expect(
+      ratingCard.getByText(/Rating:\s*★\s*5\s*\/\s*5/),
+    ).toBeVisible();
 
     // Reload to verify persistence
     await page.reload();
@@ -317,10 +365,13 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     ).toBeVisible();
 
     // Clear rating
-    const clearButton = detailCard(page, "Rating & Status").getByRole("button", {
-      name: "Clear",
-      exact: true,
-    });
+    const clearButton = detailCard(page, "Rating & Status").getByRole(
+      "button",
+      {
+        name: "Clear",
+        exact: true,
+      },
+    );
     await clearButton.click();
     await expect(toast(page, /rating/i)).toBeVisible();
     await expect(
@@ -345,7 +396,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
 
     const ratingCard = detailCard(page, "Rating & Status");
     const stitchedBtn = ratingCard.getByRole("button", { name: /Stitched/i });
-    const imageVerifyBtn = ratingCard.getByRole("button", { name: /Image (Verified|Unverified)/i });
+    const imageVerifyBtn = ratingCard.getByRole("button", {
+      name: /Image (Verified|Unverified)/i,
+    });
     const stitchingVerifyBtn = ratingCard.getByRole("button", {
       name: /Stitching (Verified|Unverified)/i,
     });
@@ -353,17 +406,23 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     // Toggle Stitched off
     await stitchedBtn.click();
     await expect(toast(page, /stitched/i)).toBeVisible();
-    await expect(ratingCard.getByRole("button", { name: "Mark as Stitched" })).toBeVisible();
+    await expect(
+      ratingCard.getByRole("button", { name: "Mark as Stitched" }),
+    ).toBeVisible();
 
     // Toggle Image Verification off
     await imageVerifyBtn.click();
     await expect(toast(page, /verification/i)).toBeVisible();
-    await expect(ratingCard.getByRole("button", { name: /Image Unverified/i })).toBeVisible();
+    await expect(
+      ratingCard.getByRole("button", { name: /Image Unverified/i }),
+    ).toBeVisible();
 
     // Toggle Stitching Verification off
     await stitchingVerifyBtn.click();
     await expect(toast(page, /verification/i)).toBeVisible();
-    await expect(ratingCard.getByRole("button", { name: /Stitching Unverified/i })).toBeVisible();
+    await expect(
+      ratingCard.getByRole("button", { name: /Stitching Unverified/i }),
+    ).toBeVisible();
 
     // Reload page to verify persistence
     await page.reload();
@@ -379,13 +438,19 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     ).toBeVisible();
 
     // Restore original states (Stitched: yes, Image Verified: yes, Stitching Verified: yes)
-    await reloadedCard.getByRole("button", { name: "Mark as Stitched" }).click();
+    await reloadedCard
+      .getByRole("button", { name: "Mark as Stitched" })
+      .click();
     await expect(toast(page, /stitched/i)).toBeVisible();
 
-    await reloadedCard.getByRole("button", { name: /Image Unverified/i }).click();
+    await reloadedCard
+      .getByRole("button", { name: /Image Unverified/i })
+      .click();
     await expect(toast(page, /verification/i)).toBeVisible();
 
-    await reloadedCard.getByRole("button", { name: /Stitching Unverified/i }).click();
+    await reloadedCard
+      .getByRole("button", { name: /Stitching Unverified/i })
+      .click();
     await expect(toast(page, /verification/i)).toBeVisible();
   });
 
@@ -393,7 +458,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     await openDesignDetail(page, richDesignId);
 
     const notesCard = detailCard(page, "Notes");
-    const textarea = notesCard.getByPlaceholder("Add notes about this design...");
+    const textarea = notesCard.getByPlaceholder(
+      "Add notes about this design...",
+    );
     const saveButton = notesCard.getByRole("button", { name: "Save Notes" });
 
     // Ensure initial notes state is settled
@@ -410,7 +477,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     // Reload to verify persistence
     await page.reload();
     await expect(
-      detailCard(page, "Notes").getByPlaceholder("Add notes about this design..."),
+      detailCard(page, "Notes").getByPlaceholder(
+        "Add notes about this design...",
+      ),
     ).toHaveValue(testNote);
 
     // Clean up notes back to empty
@@ -418,7 +487,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
       "Add notes about this design...",
     );
     await reloadedTextarea.fill("");
-    await detailCard(page, "Notes").getByRole("button", { name: "Save Notes" }).click();
+    await detailCard(page, "Notes")
+      .getByRole("button", { name: "Save Notes" })
+      .click();
     await expect(toast(page, /metadata|notes|saved/i)).toBeVisible();
   });
 
@@ -457,11 +528,15 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     await expect(tagModal).not.toBeVisible();
 
     // Applique tag chip should now be visible on detail view
-    await expect(tagsCard.locator("span", { hasText: "Applique" })).toBeVisible();
+    await expect(
+      tagsCard.locator("span", { hasText: "Applique" }),
+    ).toBeVisible();
 
     // Reload page to verify persistence
     await page.reload();
-    await expect(detailCard(page, "Tags").locator("span", { hasText: "Applique" })).toBeVisible();
+    await expect(
+      detailCard(page, "Tags").locator("span", { hasText: "Applique" }),
+    ).toBeVisible();
 
     // Inline tag chip removal: click '×' button on the Applique tag chip
     const appliqueChip = detailCard(page, "Tags")
@@ -469,11 +544,15 @@ test.describe.serial("Design Detail & Design Print Views", () => {
       .locator('button[title="Remove tag"]');
     await appliqueChip.click();
     await expect(toast(page, /tag/i)).toBeVisible();
-    await expect(detailCard(page, "Tags").locator("span", { hasText: "Applique" })).not.toBeVisible();
+    await expect(
+      detailCard(page, "Tags").locator("span", { hasText: "Applique" }),
+    ).not.toBeVisible();
 
     // Reload to verify removal persisted
     await page.reload();
-    await expect(detailCard(page, "Tags").locator("span", { hasText: "Applique" })).not.toBeVisible();
+    await expect(
+      detailCard(page, "Tags").locator("span", { hasText: "Applique" }),
+    ).not.toBeVisible();
   });
 
   test("executes technical data recalculation from file", async ({ page }) => {
@@ -485,9 +564,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
 
     await recalcButton.click();
-    await expect(
-      toast(page, /recalculated|technical data/i),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(toast(page, /recalculated|technical data/i)).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Technical data grid should retain valid measurements
     await expect(techCard.getByText("Hoop B")).toBeVisible();
@@ -503,7 +582,10 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
     await openEditorBtn.click();
     await expect(
-      page.locator(".toast-message").filter({ hasText: /default app|editor|opened/i }).first(),
+      page
+        .locator(".toast-message")
+        .filter({ hasText: /default app|editor|opened/i })
+        .first(),
     ).toBeVisible({ timeout: 10_000 });
 
     const showExplorerBtn = leftColumn(page).getByRole("button", {
@@ -511,7 +593,10 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
     await showExplorerBtn.click();
     await expect(
-      page.locator(".toast-message").filter({ hasText: /explorer/i }).first(),
+      page
+        .locator(".toast-message")
+        .filter({ hasText: /explorer/i })
+        .first(),
     ).toBeVisible({ timeout: 10_000 });
 
     const previewGenBtn = leftColumn(page).getByRole("button", {
@@ -519,7 +604,10 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     });
     await previewGenBtn.click();
     await expect(
-      page.locator(".toast-message").filter({ hasText: /preview/i }).first(),
+      page
+        .locator(".toast-message")
+        .filter({ hasText: /preview/i })
+        .first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -530,15 +618,23 @@ test.describe.serial("Design Detail & Design Print Views", () => {
 
     // Click Print button in top navigation bar
     await page.getByRole("button", { name: "Print", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`#/designs/${richDesignId}/print$`));
+    await expect(page).toHaveURL(
+      new RegExp(`#/designs/${richDesignId}/print$`),
+    );
 
     // Print view header controls
-    await expect(page.getByRole("button", { name: "Back to Detail" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Print", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Back to Detail" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Print", exact: true }),
+    ).toBeVisible();
 
     // Printable sheet content
     const sheet = page.locator(".route-panel");
-    await expect(sheet.getByRole("heading", { name: RICH_DESIGN })).toBeVisible();
+    await expect(
+      sheet.getByRole("heading", { name: RICH_DESIGN }),
+    ).toBeVisible();
     await expect(sheet.locator(`img[alt="${RICH_DESIGN}"]`)).toBeVisible();
 
     // Metadata items on sheet
@@ -568,7 +664,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     // Return to Detail view
     await page.getByRole("button", { name: "Back to Detail" }).click();
     await expect(page).toHaveURL(new RegExp(`#/designs/${richDesignId}$`));
-    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(RICH_DESIGN);
+    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(
+      RICH_DESIGN,
+    );
   });
 
   test("opens deletion modal and cancels cleanly without deleting design", async ({
@@ -576,7 +674,10 @@ test.describe.serial("Design Detail & Design Print Views", () => {
   }) => {
     await openDesignDetail(page, richDesignId);
 
-    const deleteBtn = page.getByRole("button", { name: "Delete design", exact: true });
+    const deleteBtn = page.getByRole("button", {
+      name: "Delete design",
+      exact: true,
+    });
     await deleteBtn.click();
 
     // Modal dialog assertions
@@ -600,6 +701,8 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     await expect(modal).not.toBeVisible();
 
     // Design is still intact
-    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(RICH_DESIGN);
+    await expect(leftColumn(page).locator("p.font-medium")).toHaveText(
+      RICH_DESIGN,
+    );
   });
 });

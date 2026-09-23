@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thank you for testing the application! Please fill out the form below to help us improve the experience.
-  
+
   - type: textarea
     id: what-happened
     attributes:

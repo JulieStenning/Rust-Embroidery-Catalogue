@@ -51,7 +51,9 @@ function relativisePath(value) {
 
   // Locate the repo's `frontend` segment and keep everything from it onward.
   const segments = normalised.split("/");
-  const frontendIndex = segments.findIndex((s) => s.toLowerCase() === "frontend");
+  const frontendIndex = segments.findIndex(
+    (s) => s.toLowerCase() === "frontend",
+  );
   if (frontendIndex === -1) return value;
   return segments.slice(frontendIndex).join("/");
 }
@@ -89,4 +91,3 @@ if (targets.length > 0) {
     }
   }
 }
-

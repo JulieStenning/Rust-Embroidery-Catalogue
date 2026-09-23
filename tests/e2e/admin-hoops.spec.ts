@@ -79,7 +79,11 @@ test.describe("manage hoops", () => {
     // Verify ordering: max_width_mm ASC, max_height_mm ASC, name COLLATE NOCASE ASC
     // Hoop A (126mm) < Hoop B (200mm) < Giga Hoop (230mm)
     const tableRows = page.locator("table tbody tr:not(.bg-amber-50)");
-    const firstRowName = await tableRows.first().locator("td").first().textContent();
+    const firstRowName = await tableRows
+      .first()
+      .locator("td")
+      .first()
+      .textContent();
     expect(firstRowName?.trim()).toBe("Hoop A");
   });
 
@@ -95,7 +99,10 @@ test.describe("manage hoops", () => {
     const widthInput = page.locator("#admin-hoop-width");
     const heightInput = page.locator("#admin-hoop-height");
     const addButton = page.getByRole("button", { name: "Add", exact: true });
-    const clearButton = page.getByRole("button", { name: "Clear", exact: true });
+    const clearButton = page.getByRole("button", {
+      name: "Clear",
+      exact: true,
+    });
 
     // Initial empty state: both buttons disabled, name input auto-focused
     await expect(nameInput).toHaveValue("");
@@ -170,7 +177,9 @@ test.describe("manage hoops", () => {
     await expect(heightInput).toHaveValue("0");
 
     // Hoop appears in table with correct dimensions and 0 designs used
-    const row = page.locator("tr", { has: page.getByRole("cell", { name, exact: true }) });
+    const row = page.locator("tr", {
+      has: page.getByRole("cell", { name, exact: true }),
+    });
     await expect(row).toBeVisible();
     await expect(row.locator("td").nth(1)).toHaveText("150");
     await expect(row.locator("td").nth(2)).toHaveText("150");
@@ -181,14 +190,20 @@ test.describe("manage hoops", () => {
     await expect(
       page.getByRole("heading", { name: "Manage Hoops" }),
     ).toBeVisible();
-    const reloadedRow = page.locator("tr", { has: page.getByRole("cell", { name, exact: true }) });
+    const reloadedRow = page.locator("tr", {
+      has: page.getByRole("cell", { name, exact: true }),
+    });
     await expect(reloadedRow).toBeVisible();
     await expect(reloadedRow.locator("td").nth(1)).toHaveText("150");
     await expect(reloadedRow.locator("td").nth(2)).toHaveText("150");
 
     // Clean up created hoop
-    await reloadedRow.getByRole("button", { name: "Delete", exact: true }).click();
-    await reloadedRow.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await reloadedRow
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    await reloadedRow
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
     await expect(page.getByRole("cell", { name, exact: true })).toBeHidden();
   });
 
@@ -245,12 +260,18 @@ test.describe("manage hoops", () => {
     await expect(editWidthInput).toHaveValue("120");
     await expect(editHeightInput).toHaveValue("120");
 
-    await editingRow.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("cell", { name: originalName, exact: true })).toBeVisible();
+    await editingRow
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(
+      page.getByRole("cell", { name: originalName, exact: true }),
+    ).toBeVisible();
 
     // 2. Validate empty edit details rejection
     await page
-      .locator("tr", { has: page.getByRole("cell", { name: originalName, exact: true }) })
+      .locator("tr", {
+        has: page.getByRole("cell", { name: originalName, exact: true }),
+      })
       .getByRole("button", { name: "Edit", exact: true })
       .click();
     await editNameInput.fill("   ");
@@ -304,9 +325,15 @@ test.describe("manage hoops", () => {
     await expect(persistedRow.locator("td").nth(2)).toHaveText("160");
 
     // Clean up edited hoop
-    await persistedRow.getByRole("button", { name: "Delete", exact: true }).click();
-    await persistedRow.getByRole("button", { name: "Confirm delete", exact: true }).click();
-    await expect(page.getByRole("cell", { name: updatedName, exact: true })).toBeHidden();
+    await persistedRow
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    await persistedRow
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
+    await expect(
+      page.getByRole("cell", { name: updatedName, exact: true }),
+    ).toBeHidden();
   });
 
   test("deletes an unused hoop with confirmation flow and persistence", async ({
@@ -333,19 +360,32 @@ test.describe("manage hoops", () => {
     // Click Delete -> shows prompt toast and confirmation row
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(
-      page.getByText(`Delete '${deleteTargetName}'? Click confirm delete to continue.`),
+      page.getByText(
+        `Delete '${deleteTargetName}'? Click confirm delete to continue.`,
+      ),
     ).toBeVisible();
-    await expect(page.getByText("Confirm deletion for this hoop.")).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this hoop."),
+    ).toBeVisible();
 
     // Cancel deletion
-    const cancelButton = row.getByRole("button", { name: "Cancel", exact: true });
+    const cancelButton = row.getByRole("button", {
+      name: "Cancel",
+      exact: true,
+    });
     await cancelButton.click();
-    await expect(page.getByText("Confirm deletion for this hoop.")).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: deleteTargetName, exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this hoop."),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: deleteTargetName, exact: true }),
+    ).toBeVisible();
 
     // Confirm deletion
     await row.getByRole("button", { name: "Delete", exact: true }).click();
-    await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await row
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
 
     await expect(page.getByText("Hoop deleted.").first()).toBeVisible();
     await expect(
@@ -376,7 +416,9 @@ test.describe("manage hoops", () => {
     });
     await expect(hoopBRow).toBeVisible();
 
-    const designCountText = (await hoopBRow.locator("td").nth(3).textContent())?.trim();
+    const designCountText = (
+      await hoopBRow.locator("td").nth(3).textContent()
+    )?.trim();
     const designCount = Number(designCountText);
     expect(designCount).toBeGreaterThan(0);
 

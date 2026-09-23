@@ -43,9 +43,7 @@
         "dialogImagePath": "icons/wix-dialog.bmp"
       }
     },
-    "resources": [
-      "resources/EmbroideryCatalogue.db"
-    ],
+    "resources": ["resources/EmbroideryCatalogue.db"],
     "copyright": "Copyright (C) 2026 Julie Stenning",
     "license": "GPL-3.0-or-later",
     "licenseFile": "disclaimer.rtf"

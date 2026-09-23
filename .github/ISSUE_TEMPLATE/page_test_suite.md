@@ -1,7 +1,7 @@
 ---
 name: 📋 New Page Test Suite
 about: Create a master tracking issue for a specific page or view's user tests.
-title: '[Test Suite]: '
+title: "[Test Suite]: "
 labels: testing-hub
 ---
 
@@ -18,11 +18,12 @@ This issue tracks the user-facing functionality for the **[Page Name]** view.
 
 - [ ] **Primary Action: [e.g., Run Import / Save Design]**
   - [ ] [test]
-  
+
 - [ ] **Navigation**
   - [ ] User can safely exit or go back without freezing the app
   - [ ] Leaving the page midway prompts a "Save changes?" warning if data is unsaved
   - [ ] [test]
 
 ### ❌ Failed Tests / Discovered Friction
-*Hover over a failed subtest above and click "Convert to issue", or track them below:*
+
+_Hover over a failed subtest above and click "Convert to issue", or track them below:_

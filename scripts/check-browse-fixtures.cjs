@@ -16,7 +16,12 @@ const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 
 const repoRoot = path.resolve(__dirname, "..");
-const dbPath = path.join(repoRoot, "tests", "Test Assets", "EmbroideryCatalogue.db");
+const dbPath = path.join(
+  repoRoot,
+  "tests",
+  "Test Assets",
+  "EmbroideryCatalogue.db",
+);
 const designsRoot = path.join(repoRoot, "tests", "Test Designs");
 
 if (!fs.existsSync(dbPath)) {
@@ -72,14 +77,18 @@ console.log(`Designs: ${rows.length}\n`);
 // --- Files on disk ----------------------------------------------------------
 const missingFiles = [];
 for (const row of rows) {
-  const relative = String(row.filepath || row.filename).split("/").join(path.sep);
+  const relative = String(row.filepath || row.filename)
+    .split("/")
+    .join(path.sep);
   const full = path.join(designsRoot, relative);
   if (!fs.existsSync(full)) {
     missingFiles.push(`tests/Test Designs/${row.filepath}`);
   }
 }
 if (missingFiles.length > 0) {
-  console.log(`MISSING design files under tests/Test Designs (${missingFiles.length}):`);
+  console.log(
+    `MISSING design files under tests/Test Designs (${missingFiles.length}):`,
+  );
   for (const line of missingFiles) console.log(`  - ${line}`);
   console.log("");
 } else {
@@ -96,7 +105,8 @@ for (const r of noPreview) console.log(`  needs attention: ${r.filename}`);
 
 const unverified = rows.filter(
   (r) =>
-    Number(r.image_tags_verified) === 0 || Number(r.stitching_tags_verified) === 0,
+    Number(r.image_tags_verified) === 0 ||
+    Number(r.stitching_tags_verified) === 0,
 );
 check(
   unverified.length === 4,
@@ -108,14 +118,19 @@ for (const r of unverified) {
   );
 }
 
-const highRating = rows.filter((r) => r.rating !== null && Number(r.rating) >= 4);
+const highRating = rows.filter(
+  (r) => r.rating !== null && Number(r.rating) >= 4,
+);
 check(
   highRating.length === 2,
   `Minimum rating >= 4: expected exactly 2 rows, found ${highRating.length}`,
 );
 
 const stitched = rows.filter((r) => Number(r.is_stitched) === 1);
-check(stitched.length === 2, `Stitched = yes: expected exactly 2 rows, found ${stitched.length}`);
+check(
+  stitched.length === 2,
+  `Stitched = yes: expected exactly 2 rows, found ${stitched.length}`,
+);
 
 const fillers = rows.filter((r) => /^Filler \d+\.jef$/i.test(r.filename));
 check(
@@ -153,7 +168,8 @@ check(
 const designerCounts = {};
 const sourceCounts = {};
 for (const r of rows) {
-  if (r.designer) designerCounts[r.designer] = (designerCounts[r.designer] || 0) + 1;
+  if (r.designer)
+    designerCounts[r.designer] = (designerCounts[r.designer] || 0) + 1;
   if (r.source) sourceCounts[r.source] = (sourceCounts[r.source] || 0) + 1;
 }
 check(
@@ -164,7 +180,10 @@ check(
   designerCounts["Wrenwood Studio"] === 1,
   `Designer "Wrenwood Studio": expected 1 row, found ${designerCounts["Wrenwood Studio"] || 0}`,
 );
-check(designerCounts["Me"] === 2, `Designer "Me": expected 2 rows, found ${designerCounts["Me"] || 0}`);
+check(
+  designerCounts["Me"] === 2,
+  `Designer "Me": expected 2 rows, found ${designerCounts["Me"] || 0}`,
+);
 check(
   sourceCounts["Threadwise Guild"] === 1,
   `Source "Threadwise Guild": expected 1 row, found ${sourceCounts["Threadwise Guild"] || 0}`,
@@ -180,14 +199,21 @@ const EXPECTED_TAG_COUNTS = {
 };
 for (const [tag, expected] of Object.entries(EXPECTED_TAG_COUNTS)) {
   const found = Number(tagRows.find((t) => t.tag === tag)?.n ?? 0);
-  check(found === expected, `Tag "${tag}": expected ${expected} design(s), found ${found}`);
+  check(
+    found === expected,
+    `Tag "${tag}": expected ${expected} design(s), found ${found}`,
+  );
 }
 
 const unverifiedFillers = fillers.filter(
   (r) =>
-    Number(r.image_tags_verified) === 0 || Number(r.stitching_tags_verified) === 0,
+    Number(r.image_tags_verified) === 0 ||
+    Number(r.stitching_tags_verified) === 0,
 );
-check(unverifiedFillers.length === 0, `${unverifiedFillers.length} filler(s) are not fully verified`);
+check(
+  unverifiedFillers.length === 0,
+  `${unverifiedFillers.length} filler(s) are not fully verified`,
+);
 
 // --- Summary ----------------------------------------------------------------
 console.log("");
@@ -200,7 +226,9 @@ console.log(`Sources:   ${JSON.stringify(sourceCounts)}`);
 console.log("");
 
 if (missingFiles.length > 0) {
-  console.log(`WARNING: ${missingFiles.length} design file(s) missing from tests/Test Designs.\n`);
+  console.log(
+    `WARNING: ${missingFiles.length} design file(s) missing from tests/Test Designs.\n`,
+  );
 }
 
 if (failures.length === 0) {

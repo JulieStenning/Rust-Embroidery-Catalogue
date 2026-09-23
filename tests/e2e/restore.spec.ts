@@ -30,8 +30,14 @@ test.describe.serial("system restore", () => {
   const liveDbPath = path.join(DATA_ROOT_PATH, "Database", DATABASE_FILENAME);
   const liveDesignsDir = path.join(DATA_ROOT_PATH, DESIGNS_CONTAINER);
 
-  const validBackupDbFile = path.join(testRestoreDbDir, "valid-catalogue-backup.db");
-  const corruptBackupDbFile = path.join(testRestoreDbDir, "corrupt-catalogue-backup.db");
+  const validBackupDbFile = path.join(
+    testRestoreDbDir,
+    "valid-catalogue-backup.db",
+  );
+  const corruptBackupDbFile = path.join(
+    testRestoreDbDir,
+    "corrupt-catalogue-backup.db",
+  );
   const unmatchedTestFileName = "Playwright_Unmatched_Design.jef";
   const unmatchedFilePath = path.join(liveDesignsDir, unmatchedTestFileName);
 
@@ -192,7 +198,10 @@ test.describe.serial("system restore", () => {
 
     // 5. Sync Designs from Backup card layout
     await expect(
-      page.getByRole("heading", { name: "Sync Designs from Backup", exact: true }),
+      page.getByRole("heading", {
+        name: "Sync Designs from Backup",
+        exact: true,
+      }),
     ).toBeVisible();
     await expect(
       page.getByText("Copies design files from the backup folder back into"),
@@ -328,7 +337,9 @@ test.describe.serial("system restore", () => {
     await confirmBtn.click();
 
     // Assert success toast containing design count
-    await expect(page.getByText(/Database restored \(\d+ designs\)\./)).toBeVisible({
+    await expect(
+      page.getByText(/Database restored \(\d+ designs\)\./),
+    ).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -381,9 +392,7 @@ test.describe.serial("system restore", () => {
     await designsInput.fill(testRestoreDesignsDir);
     if (await saveBtn.isEnabled()) {
       await saveBtn.click();
-      await expect(
-        page.getByText("Backup destinations saved."),
-      ).toBeVisible();
+      await expect(page.getByText("Backup destinations saved.")).toBeVisible();
     }
 
     // 2. Switch to Restore tab
@@ -422,9 +431,7 @@ test.describe.serial("system restore", () => {
     await designsInput.fill(testRestoreDesignsDir);
     if (await saveBtn.isEnabled()) {
       await saveBtn.click();
-      await expect(
-        page.getByText("Backup destinations saved."),
-      ).toBeVisible();
+      await expect(page.getByText("Backup destinations saved.")).toBeVisible();
     }
 
     // Switch to Restore tab
@@ -516,7 +523,9 @@ test.describe.serial("system restore", () => {
       page.getByRole("heading", { name: "Unmatched files found" }),
     ).toBeVisible();
     await expect(
-      page.getByText(/design file\(s\) on disk have no record in the catalogue/),
+      page.getByText(
+        /design file\(s\) on disk have no record in the catalogue/,
+      ),
     ).toBeVisible();
 
     // 4. Execute batch import of the unmatched file
@@ -555,9 +564,7 @@ test.describe.serial("system restore", () => {
 
     if (await saveBtn.isEnabled()) {
       await saveBtn.click();
-      await expect(
-        page.getByText("Backup destinations saved."),
-      ).toBeVisible();
+      await expect(page.getByText("Backup destinations saved.")).toBeVisible();
     }
   });
 });

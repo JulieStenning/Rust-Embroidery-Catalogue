@@ -14,9 +14,7 @@ export function mainMenu(page: Page): Locator {
 
 /** Click a link in the top navigation menu. */
 export async function clickNav(page: Page, name: string): Promise<void> {
-  await mainMenu(page)
-    .getByRole("link", { name, exact: true })
-    .click();
+  await mainMenu(page).getByRole("link", { name, exact: true }).click();
 }
 
 /**
@@ -98,7 +96,9 @@ export async function runImportToPrecheck(
   await continueButton.click();
 
   // Step 3 is ready once the import action is available.
-  await expect(page.getByRole("button", { name: "Import Designs" })).toBeVisible({
+  await expect(
+    page.getByRole("button", { name: "Import Designs" }),
+  ).toBeVisible({
     timeout: 30_000,
   });
 }

@@ -65,7 +65,9 @@ export default async function globalSetup(): Promise<void> {
   markInitialSetupComplete(databasePath);
 
   if (!fs.existsSync(TEST_DESIGNS_PATH)) {
-    throw new Error(`Test designs folder not found at:\n  ${TEST_DESIGNS_PATH}`);
+    throw new Error(
+      `Test designs folder not found at:\n  ${TEST_DESIGNS_PATH}`,
+    );
   }
   fs.cpSync(TEST_DESIGNS_PATH, path.join(DATA_ROOT_PATH, DESIGNS_CONTAINER), {
     recursive: true,

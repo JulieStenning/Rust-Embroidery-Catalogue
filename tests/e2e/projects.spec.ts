@@ -46,7 +46,6 @@ const SPARSE_DESIGN = "ZZ-broken.pes";
 const NEW_NAME_PLACEHOLDER = "e.g. Christmas Stockings 2024";
 const NEW_DESCRIPTION_PLACEHOLDER = "Optional notes, goals, or deadline";
 
-
 // ---------------------------------------------------------------------------
 // Locators and helpers
 // ---------------------------------------------------------------------------
@@ -69,9 +68,9 @@ function toast(page: Page, message: string): Locator {
 
 /** The Design Detail "Projects" card. */
 function designProjectsCard(page: Page): Locator {
-  return page
-    .locator(".route-card")
-    .filter({ has: page.getByRole("heading", { name: "Projects", exact: true }) });
+  return page.locator(".route-card").filter({
+    has: page.getByRole("heading", { name: "Projects", exact: true }),
+  });
 }
 
 /** The project-detail design card for `filename`. */
@@ -170,9 +169,10 @@ async function addDesignToProject(
   const addBtn = card.getByRole("button", { name: "Add", exact: true });
   await expect(addBtn).toBeEnabled({ timeout: 10_000 });
   await addBtn.click();
-  await expect(toast(page, "Design added to project.")).toBeVisible({ timeout: 15_000 });
+  await expect(toast(page, "Design added to project.")).toBeVisible({
+    timeout: 15_000,
+  });
 }
-
 
 // ---------------------------------------------------------------------------
 // Populated-catalogue workflows. Serial: the tests build project state up in
@@ -268,7 +268,6 @@ test.describe.serial("projects", () => {
     );
   });
 
-
   test("Project Detail view renders the empty project", async ({ page }) => {
     await openProjectDetail(page, emptyProjectId);
 
@@ -305,7 +304,9 @@ test.describe.serial("projects", () => {
     ).toBeVisible();
   });
 
-  test("edits the name and description with Save and Undo", async ({ page }) => {
+  test("edits the name and description with Save and Undo", async ({
+    page,
+  }) => {
     await openProjectDetail(page, emptyProjectId);
 
     const nameInput = page.locator(".projects-title-input");
@@ -390,7 +391,6 @@ test.describe.serial("projects", () => {
       )
       .toBe(1);
   });
-
 
   test("creates a project and links designs from Design Detail", async ({
     page,
@@ -487,7 +487,6 @@ test.describe.serial("projects", () => {
     await expect(sheet).not.toContainText("undefined");
   });
 
-
   test("Remove unlinks a design and updates the section count", async ({
     page,
   }) => {
@@ -520,9 +519,7 @@ test.describe.serial("projects", () => {
     await expect(modal).toBeVisible();
     await modal.getByRole("button", { name: "Cancel" }).click();
     await expect(modal).not.toBeVisible();
-    await expect(page).toHaveURL(
-      new RegExp(`#/projects/${designProjectId}$`),
-    );
+    await expect(page).toHaveURL(new RegExp(`#/projects/${designProjectId}$`));
 
     // Confirming deletes the project (the design records are untouched).
     await page.getByRole("button", { name: "Delete Project" }).click();
@@ -569,12 +566,9 @@ test.describe.serial("projects", () => {
       page.getByRole("heading", { name: emptyProjectName }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Back to Project" }).click();
-    await expect(page).toHaveURL(
-      new RegExp(`#/projects/${emptyProjectId}$`),
-    );
+    await expect(page).toHaveURL(new RegExp(`#/projects/${emptyProjectId}$`));
   });
 });
-
 
 // ---------------------------------------------------------------------------
 // Empty-catalogue state. Runs against its own throwaway data root (the pristine
@@ -593,22 +587,22 @@ isolatedTest.describe("projects empty state", () => {
     cleanupDataRoot(EMPTY_DATA_ROOT_PATH);
   });
 
-  isolatedTest("shows the empty state and the Create one shortcut", async ({
-    page,
-  }) => {
-    await gotoRoute(page, "#/projects");
-    await expect(
-      page.getByRole("heading", { name: "Projects", exact: true }),
-    ).toBeVisible();
+  isolatedTest(
+    "shows the empty state and the Create one shortcut",
+    async ({ page }) => {
+      await gotoRoute(page, "#/projects");
+      await expect(
+        page.getByRole("heading", { name: "Projects", exact: true }),
+      ).toBeVisible();
 
-    await expect(page.getByText("No projects yet.")).toBeVisible();
-    await expect(projectTiles(page)).toHaveCount(0);
+      await expect(page.getByText("No projects yet.")).toBeVisible();
+      await expect(projectTiles(page)).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Create one" }).click();
-    await expect(page).toHaveURL(/#\/projects\/new$/);
-    await expect(
-      page.getByRole("heading", { name: "New Project", exact: true }),
-    ).toBeVisible();
-  });
+      await page.getByRole("button", { name: "Create one" }).click();
+      await expect(page).toHaveURL(/#\/projects\/new$/);
+      await expect(
+        page.getByRole("heading", { name: "New Project", exact: true }),
+      ).toBeVisible();
+    },
+  );
 });
-

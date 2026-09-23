@@ -6,10 +6,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/svelte";
 import { tick } from "svelte";
 import FirstImportSuccessBanner from "../FirstImportSuccessBanner.svelte";
-import {
-  firstImportBannerVisible,
-  triggerFirstImportBanner,
-} from "../../stores/firstImportStore";
+import { firstImportBannerVisible, triggerFirstImportBanner } from "../../stores/firstImportStore";
 
 describe("FirstImportSuccessBanner.svelte", () => {
   beforeEach(() => {
@@ -55,9 +52,9 @@ describe("FirstImportSuccessBanner.svelte", () => {
     await tick();
 
     expect(screen.queryByTestId("first-import-success-banner")).not.toBeInTheDocument();
-    expect(
-      window.localStorage.getItem("embroidery_catalogue_first_import_banner_dismissed")
-    ).toBe("true");
+    expect(window.localStorage.getItem("embroidery_catalogue_first_import_banner_dismissed")).toBe(
+      "true"
+    );
 
     // Triggering again after dismissal does not reopen it
     triggerFirstImportBanner();

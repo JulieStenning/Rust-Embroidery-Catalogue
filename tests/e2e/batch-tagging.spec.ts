@@ -288,9 +288,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     ).toBeVisible();
 
     // Select "Untagged designs only" scope with "Add new tags only"
-    await page
-      .locator('input[name="tagging-scope"][value="untagged"]')
-      .check();
+    await page.locator('input[name="tagging-scope"][value="untagged"]').check();
     await page.locator('input[name="tagging-merge"][value="add"]').check();
 
     // Uncheck verified exclusion to process all untagged designs including Cake 3 - Food.jef
@@ -336,9 +334,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
       .filter({ hasText: /Backfill log/i });
     await expect(logDetails).toBeVisible();
     await logDetails.locator("summary").click();
-    await expect(
-      logDetails.locator(".font-mono").first(),
-    ).toBeVisible();
+    await expect(logDetails.locator(".font-mono").first()).toBeVisible();
 
     // Navigate to Browse view and verify that tag rules were applied to designs
     await gotoRoute(page, "#/designs");
@@ -376,7 +372,9 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
       hasText: "Cake 3 - Food.jef",
     });
     await expect(reloadedCard).toBeVisible();
-    await expect(reloadedCard.locator(".browse-card-tags")).toContainText("Food");
+    await expect(reloadedCard.locator(".browse-card-tags")).toContainText(
+      "Food",
+    );
   });
 
   test("unlocks AI Vision goals and dynamic scopes when a mock API key is configured", async ({
@@ -389,7 +387,9 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     ).toBeVisible();
 
     // Ensure settings model has finished loading asynchronously
-    await expect(page.locator("#settings-data-root")).toHaveValue(/MachineEmbroideryDesigns/);
+    await expect(page.locator("#settings-data-root")).toHaveValue(
+      /MachineEmbroideryDesigns/,
+    );
 
     const apiKeyInput = page.locator("#settings-google-api-key");
     await expect(apiKeyInput).toBeVisible();
@@ -463,13 +463,17 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(
       page.getByRole("heading", { name: "Application Settings" }),
     ).toBeVisible();
-    await expect(page.locator("#settings-data-root")).toHaveValue(/MachineEmbroideryDesigns/);
+    await expect(page.locator("#settings-data-root")).toHaveValue(
+      /MachineEmbroideryDesigns/,
+    );
 
     const cleanupApiKeyInput = page.locator("#settings-google-api-key");
     await expect(cleanupApiKeyInput).toBeVisible();
     await cleanupApiKeyInput.fill("");
     await expect(page.getByTestId("settings-dirty-hint")).toBeVisible();
-    const cleanupSaveButton = page.getByRole("button", { name: "Save settings" });
+    const cleanupSaveButton = page.getByRole("button", {
+      name: "Save settings",
+    });
     await expect(cleanupSaveButton).toBeEnabled();
     await cleanupSaveButton.click();
     await expect(page.getByTestId("settings-dirty-hint")).toBeHidden();

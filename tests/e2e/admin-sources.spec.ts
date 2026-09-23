@@ -74,7 +74,11 @@ test.describe("manage sources", () => {
 
     // Verify alphabetical ordering of rows in the sources table
     const tableRows = page.locator("table tbody tr");
-    const firstRowName = await tableRows.first().locator("td").first().textContent();
+    const firstRowName = await tableRows
+      .first()
+      .locator("td")
+      .first()
+      .textContent();
     expect(firstRowName?.trim().toLowerCase()).toBe("heirloom stash");
   });
 
@@ -88,7 +92,10 @@ test.describe("manage sources", () => {
 
     const input = page.getByPlaceholder("e.g. Purchased, Downloaded...");
     const addButton = page.getByRole("button", { name: "Add", exact: true });
-    const clearButton = page.getByRole("button", { name: "Clear", exact: true });
+    const clearButton = page.getByRole("button", {
+      name: "Clear",
+      exact: true,
+    });
 
     // Initial empty state: both disabled, input auto-focused
     await expect(input).toHaveValue("");
@@ -130,7 +137,9 @@ test.describe("manage sources", () => {
     await expect(input).toHaveValue("");
 
     // Source appears in table with 0 designs used
-    const row = page.locator("tr", { has: page.getByRole("cell", { name, exact: true }) });
+    const row = page.locator("tr", {
+      has: page.getByRole("cell", { name, exact: true }),
+    });
     await expect(row).toBeVisible();
     await expect(row.locator("td").nth(1)).toHaveText("0");
 
@@ -169,7 +178,9 @@ test.describe("manage sources", () => {
 
     // Create a dedicated source to edit
     const originalName = `Edit Source Target ${Date.now()}`;
-    await page.getByPlaceholder("e.g. Purchased, Downloaded...").fill(originalName);
+    await page
+      .getByPlaceholder("e.g. Purchased, Downloaded...")
+      .fill(originalName);
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("Source added.")).toBeVisible();
 
@@ -187,12 +198,18 @@ test.describe("manage sources", () => {
     await expect(editInput).toBeVisible();
     await expect(editInput).toHaveValue(originalName);
 
-    await editingRow.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("cell", { name: originalName, exact: true })).toBeVisible();
+    await editingRow
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(
+      page.getByRole("cell", { name: originalName, exact: true }),
+    ).toBeVisible();
 
     // 2. Validate empty edit name rejection
     await page
-      .locator("tr", { has: page.getByRole("cell", { name: originalName, exact: true }) })
+      .locator("tr", {
+        has: page.getByRole("cell", { name: originalName, exact: true }),
+      })
       .getByRole("button", { name: "Edit", exact: true })
       .click();
     await editInput.fill("   ");
@@ -212,7 +229,9 @@ test.describe("manage sources", () => {
     await editingRow.getByRole("button", { name: "Save", exact: true }).click();
 
     await expect(page.getByText("Source updated.")).toBeVisible();
-    await expect(page.getByRole("cell", { name: updatedName, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: updatedName, exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("cell", { name: originalName, exact: true }),
     ).not.toBeVisible();
@@ -222,7 +241,9 @@ test.describe("manage sources", () => {
     await expect(
       page.getByRole("heading", { name: "Manage Sources" }),
     ).toBeVisible();
-    await expect(page.getByRole("cell", { name: updatedName, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: updatedName, exact: true }),
+    ).toBeVisible();
   });
 
   test("deletes an unused source with confirmation flow and persistence", async ({
@@ -235,7 +256,9 @@ test.describe("manage sources", () => {
 
     // Create a temporary source with 0 designs
     const deleteTargetName = `Delete Source Target ${Date.now()}`;
-    await page.getByPlaceholder("e.g. Purchased, Downloaded...").fill(deleteTargetName);
+    await page
+      .getByPlaceholder("e.g. Purchased, Downloaded...")
+      .fill(deleteTargetName);
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("Source added.")).toBeVisible();
 
@@ -247,19 +270,32 @@ test.describe("manage sources", () => {
     // Click Delete -> shows prompt toast and confirmation row
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(
-      page.getByText(`Delete '${deleteTargetName}'? Click confirm delete to continue.`),
+      page.getByText(
+        `Delete '${deleteTargetName}'? Click confirm delete to continue.`,
+      ),
     ).toBeVisible();
-    await expect(page.getByText("Confirm deletion for this source.")).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this source."),
+    ).toBeVisible();
 
     // Cancel deletion
-    const cancelButton = row.getByRole("button", { name: "Cancel", exact: true });
+    const cancelButton = row.getByRole("button", {
+      name: "Cancel",
+      exact: true,
+    });
     await cancelButton.click();
-    await expect(page.getByText("Confirm deletion for this source.")).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: deleteTargetName, exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this source."),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: deleteTargetName, exact: true }),
+    ).toBeVisible();
 
     // Confirm deletion
     await row.getByRole("button", { name: "Delete", exact: true }).click();
-    await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await row
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
 
     await expect(page.getByText("Source deleted.").first()).toBeVisible();
     await expect(
@@ -290,12 +326,16 @@ test.describe("manage sources", () => {
     });
     await expect(threadwiseRow).toBeVisible();
 
-    const designCountText = (await threadwiseRow.locator("td").nth(1).textContent())?.trim();
+    const designCountText = (
+      await threadwiseRow.locator("td").nth(1).textContent()
+    )?.trim();
     const designCount = Number(designCountText);
     expect(designCount).toBeGreaterThan(0);
 
     // Click Delete on assigned source
-    await threadwiseRow.getByRole("button", { name: "Delete", exact: true }).click();
+    await threadwiseRow
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
 
     // Warning toast and warning banner are displayed
     await expect(
@@ -310,7 +350,9 @@ test.describe("manage sources", () => {
     ).toBeVisible();
 
     // Cancel to preserve seed data
-    await threadwiseRow.getByRole("button", { name: "Cancel", exact: true }).click();
+    await threadwiseRow
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
     await expect(
       page.getByRole("cell", { name: "Threadwise Guild", exact: true }),
     ).toBeVisible();

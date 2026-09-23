@@ -66,8 +66,12 @@ test.describe("manage tags", () => {
     ).toBeVisible();
     const descInput = page.locator("#admin-tag-description");
     const groupSelect = page.locator("#admin-tag-group");
-    const addButton = page.locator("form").getByRole("button", { name: "Add", exact: true });
-    const clearButton = page.locator("form").getByRole("button", { name: "Clear", exact: true });
+    const addButton = page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true });
+    const clearButton = page
+      .locator("form")
+      .getByRole("button", { name: "Clear", exact: true });
 
     await expect(descInput).toBeVisible();
     await expect(descInput).toHaveValue("");
@@ -96,8 +100,12 @@ test.describe("manage tags", () => {
     ).toBeVisible();
 
     const descInput = page.locator("#admin-tag-description");
-    const addButton = page.locator("form").getByRole("button", { name: "Add", exact: true });
-    const clearButton = page.locator("form").getByRole("button", { name: "Clear", exact: true });
+    const addButton = page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true });
+    const clearButton = page
+      .locator("form")
+      .getByRole("button", { name: "Clear", exact: true });
 
     // Initial empty state: both disabled, input auto-focused
     await expect(descInput).toBeVisible();
@@ -135,24 +143,49 @@ test.describe("manage tags", () => {
     // Verify known seeded tags exist in the catalogue contract
     // Seeded image tags include: Flowers, Food, Footwear
     // Seeded stitching tags include: Applique, Cross Stitch, Filled
-    await expect(page.getByRole("cell", { name: "Food", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Flowers", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Footwear", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Cross Stitch", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Applique", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Filled", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Food", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Flowers", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Footwear", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Cross Stitch", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Applique", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Filled", exact: true }),
+    ).toBeVisible();
 
     // Verify rows in the first table (Image tags) are sorted alphabetically
-    const imageTableRows = page.locator("details").first().locator("table tbody tr");
+    const imageTableRows = page
+      .locator("details")
+      .first()
+      .locator("table tbody tr");
     const count = await imageTableRows.count();
     expect(count).toBeGreaterThan(1);
 
-    const firstImageTag = await imageTableRows.first().locator("td").first().textContent();
-    const secondImageTag = await imageTableRows.nth(1).locator("td").first().textContent();
+    const firstImageTag = await imageTableRows
+      .first()
+      .locator("td")
+      .first()
+      .textContent();
+    const secondImageTag = await imageTableRows
+      .nth(1)
+      .locator("td")
+      .first()
+      .textContent();
     expect(
-      firstImageTag?.trim().localeCompare(secondImageTag?.trim() || "", undefined, {
-        sensitivity: "base",
-      }),
+      firstImageTag
+        ?.trim()
+        .localeCompare(secondImageTag?.trim() || "", undefined, {
+          sensitivity: "base",
+        }),
     ).toBeLessThanOrEqual(0);
   });
 
@@ -164,8 +197,12 @@ test.describe("manage tags", () => {
       page.getByRole("heading", { name: "Manage Tags" }),
     ).toBeVisible();
 
-    const imageDetails = page.locator("details").filter({ hasText: "Image Tags" });
-    const stitchingDetails = page.locator("details").filter({ hasText: "Stitching Tags" });
+    const imageDetails = page
+      .locator("details")
+      .filter({ hasText: "Image Tags" });
+    const stitchingDetails = page
+      .locator("details")
+      .filter({ hasText: "Stitching Tags" });
 
     // Both are open by default
     await expect(imageDetails).toHaveAttribute("open", "");
@@ -194,8 +231,12 @@ test.describe("manage tags", () => {
       page.getByRole("heading", { name: "Manage Tags" }),
     ).toBeVisible();
 
-    const reloadedImageDetails = page.locator("details").filter({ hasText: "Image Tags" });
-    const reloadedStitchingDetails = page.locator("details").filter({ hasText: "Stitching Tags" });
+    const reloadedImageDetails = page
+      .locator("details")
+      .filter({ hasText: "Image Tags" });
+    const reloadedStitchingDetails = page
+      .locator("details")
+      .filter({ hasText: "Stitching Tags" });
     await expect(reloadedImageDetails).not.toHaveAttribute("open", "");
     await expect(reloadedStitchingDetails).toHaveAttribute("open", "");
 
@@ -204,7 +245,9 @@ test.describe("manage tags", () => {
     await expect(reloadedImageDetails).toHaveAttribute("open", "");
   });
 
-  test("adds a new Image tag and persists it across reload", async ({ page }) => {
+  test("adds a new Image tag and persists it across reload", async ({
+    page,
+  }) => {
     await gotoRoute(page, "#/admin/data/tags");
     await expect(
       page.getByRole("heading", { name: "Manage Tags" }),
@@ -213,7 +256,9 @@ test.describe("manage tags", () => {
     const tagName = `Playwright Image Tag ${Date.now()}`;
     const descInput = page.locator("#admin-tag-description");
     const groupSelect = page.locator("#admin-tag-group");
-    const addButton = page.locator("form").getByRole("button", { name: "Add", exact: true });
+    const addButton = page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true });
 
     await descInput.fill(tagName);
     await groupSelect.selectOption("image");
@@ -224,7 +269,9 @@ test.describe("manage tags", () => {
     await expect(descInput).toHaveValue("");
 
     // Tag appears in Image Tags drawer with 0 design count
-    const imageSection = page.locator("details").filter({ hasText: "Image Tags" });
+    const imageSection = page
+      .locator("details")
+      .filter({ hasText: "Image Tags" });
     const row = imageSection.locator("tr", {
       has: page.getByRole("cell", { name: tagName, exact: true }),
     });
@@ -241,7 +288,9 @@ test.describe("manage tags", () => {
     ).toBeVisible();
   });
 
-  test("adds a new Stitching tag and persists it across reload", async ({ page }) => {
+  test("adds a new Stitching tag and persists it across reload", async ({
+    page,
+  }) => {
     await gotoRoute(page, "#/admin/data/tags");
     await expect(
       page.getByRole("heading", { name: "Manage Tags" }),
@@ -250,7 +299,9 @@ test.describe("manage tags", () => {
     const tagName = `Playwright Stitch Tag ${Date.now()}`;
     const descInput = page.locator("#admin-tag-description");
     const groupSelect = page.locator("#admin-tag-group");
-    const addButton = page.locator("form").getByRole("button", { name: "Add", exact: true });
+    const addButton = page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true });
 
     await descInput.fill(tagName);
     await groupSelect.selectOption("stitching");
@@ -261,7 +312,9 @@ test.describe("manage tags", () => {
     await expect(descInput).toHaveValue("");
 
     // Tag appears in Stitching Tags drawer
-    const stitchingSection = page.locator("details").filter({ hasText: "Stitching Tags" });
+    const stitchingSection = page
+      .locator("details")
+      .filter({ hasText: "Stitching Tags" });
     const row = stitchingSection.locator("tr", {
       has: page.getByRole("cell", { name: tagName, exact: true }),
     });
@@ -287,7 +340,10 @@ test.describe("manage tags", () => {
     // Attempting to add an existing seeded tag name (case-insensitive)
     const descInput = page.locator("#admin-tag-description");
     await descInput.fill("food");
-    await page.locator("form").getByRole("button", { name: "Add", exact: true }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
 
     // Error toast is displayed
     await expect(
@@ -306,10 +362,15 @@ test.describe("manage tags", () => {
     // Create a tag to edit
     const originalName = `Edit Tag Target ${Date.now()}`;
     await page.locator("#admin-tag-description").fill(originalName);
-    await page.locator("form").getByRole("button", { name: "Add", exact: true }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
     await expect(page.getByText("Tag added.")).toBeVisible();
 
-    const imageSection = page.locator("details").filter({ hasText: "Image Tags" });
+    const imageSection = page
+      .locator("details")
+      .filter({ hasText: "Image Tags" });
     const row = imageSection.locator("tr", {
       has: page.getByRole("cell", { name: originalName, exact: true }),
     });
@@ -324,14 +385,18 @@ test.describe("manage tags", () => {
     await expect(editInput).toBeVisible();
     await expect(editInput).toHaveValue(originalName);
 
-    await editingRow.getByRole("button", { name: "Cancel", exact: true }).click();
+    await editingRow
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
     await expect(
       imageSection.getByRole("cell", { name: originalName, exact: true }),
     ).toBeVisible();
 
     // 2. Validate empty edit name rejection
     await imageSection
-      .locator("tr", { has: page.getByRole("cell", { name: originalName, exact: true }) })
+      .locator("tr", {
+        has: page.getByRole("cell", { name: originalName, exact: true }),
+      })
       .getByRole("button", { name: "Edit", exact: true })
       .click();
     await editInput.fill("   ");
@@ -377,7 +442,9 @@ test.describe("manage tags", () => {
     ).toBeVisible();
 
     // System tags in the Stitching drawer (e.g. Cross Stitch, Applique, Filled) have is_system = true
-    const stitchingSection = page.locator("details").filter({ hasText: "Stitching Tags" });
+    const stitchingSection = page
+      .locator("details")
+      .filter({ hasText: "Stitching Tags" });
     const crossStitchRow = stitchingSection.locator("tr", {
       has: page.getByRole("cell", { name: "Cross Stitch", exact: true }),
     });
@@ -409,10 +476,15 @@ test.describe("manage tags", () => {
     // Create a temporary unused tag
     const deleteTargetName = `Delete Tag Target ${Date.now()}`;
     await page.locator("#admin-tag-description").fill(deleteTargetName);
-    await page.locator("form").getByRole("button", { name: "Add", exact: true }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
     await expect(page.getByText("Tag added.")).toBeVisible();
 
-    const imageSection = page.locator("details").filter({ hasText: "Image Tags" });
+    const imageSection = page
+      .locator("details")
+      .filter({ hasText: "Image Tags" });
     const row = imageSection.locator("tr", {
       has: page.getByRole("cell", { name: deleteTargetName, exact: true }),
     });
@@ -421,21 +493,32 @@ test.describe("manage tags", () => {
     // Click Delete -> shows prompt toast and confirmation row
     await row.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(
-      page.getByText(`Delete '${deleteTargetName}'? Click confirm delete to continue.`),
+      page.getByText(
+        `Delete '${deleteTargetName}'? Click confirm delete to continue.`,
+      ),
     ).toBeVisible();
-    await expect(page.getByText("Confirm deletion for this tag.")).toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this tag."),
+    ).toBeVisible();
 
     // Cancel deletion
-    const cancelButton = row.getByRole("button", { name: "Cancel", exact: true });
+    const cancelButton = row.getByRole("button", {
+      name: "Cancel",
+      exact: true,
+    });
     await cancelButton.click();
-    await expect(page.getByText("Confirm deletion for this tag.")).not.toBeVisible();
+    await expect(
+      page.getByText("Confirm deletion for this tag."),
+    ).not.toBeVisible();
     await expect(
       imageSection.getByRole("cell", { name: deleteTargetName, exact: true }),
     ).toBeVisible();
 
     // Click Delete and Confirm delete
     await row.getByRole("button", { name: "Delete", exact: true }).click();
-    await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await row
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
 
     await expect(page.getByText("Tag deleted.").first()).toBeVisible();
     await expect(
@@ -461,13 +544,17 @@ test.describe("manage tags", () => {
     ).toBeVisible();
 
     // "Food" is an image tag linked to Cake 3 designs in the seed database (design_count > 0)
-    const imageSection = page.locator("details").filter({ hasText: "Image Tags" });
+    const imageSection = page
+      .locator("details")
+      .filter({ hasText: "Image Tags" });
     const foodRow = imageSection.locator("tr", {
       has: page.getByRole("cell", { name: "Food", exact: true }),
     });
     await expect(foodRow).toBeVisible();
 
-    const designCountText = (await foodRow.locator("td").nth(1).textContent())?.trim();
+    const designCountText = (
+      await foodRow.locator("td").nth(1).textContent()
+    )?.trim();
     const designCount = Number(designCountText);
     expect(designCount).toBeGreaterThan(0);
 

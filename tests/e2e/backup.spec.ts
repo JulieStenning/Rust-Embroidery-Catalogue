@@ -226,9 +226,7 @@ test.describe.serial("system backup", () => {
     await saveBtn.click();
 
     // Confirmation toast
-    await expect(
-      page.getByText("Backup destinations saved."),
-    ).toBeVisible();
+    await expect(page.getByText("Backup destinations saved.")).toBeVisible();
     await expect(saveBtn).toBeDisabled();
 
     // Action buttons are now enabled
@@ -371,9 +369,7 @@ test.describe.serial("system backup", () => {
     await expect(saveBtn).toBeEnabled();
     await saveBtn.click();
 
-    await expect(
-      page.getByText("Backup destinations saved."),
-    ).toBeVisible();
+    await expect(page.getByText("Backup destinations saved.")).toBeVisible();
 
     // Action buttons are now disabled because paths are empty
     await expect(

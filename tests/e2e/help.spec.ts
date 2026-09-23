@@ -11,31 +11,46 @@ import { clickNav, gotoRoute, expectMainView, mainMenu } from "./helpers";
  * the live desktop application.
  */
 test.describe("help functionality", () => {
-  test("renders Help page via top navigation and direct deep link", async ({ page }) => {
+  test("renders Help page via top navigation and direct deep link", async ({
+    page,
+  }) => {
     await expectMainView(page);
 
     // Navigate via top menu
     await clickNav(page, "Help");
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText("Quick guidance for using the Embroidery Catalogue."),
     ).toBeVisible();
 
     // The top navbar link is highlighted
-    const helpNavLink = mainMenu(page).getByRole("link", { name: "Help", exact: true });
+    const helpNavLink = mainMenu(page).getByRole("link", {
+      name: "Help",
+      exact: true,
+    });
     await expect(helpNavLink).toHaveClass(/menu-link-active/);
 
     // Navigate via direct route
     await gotoRoute(page, "#/designs");
-    await expect(page.getByRole("heading", { name: "Browse Designs" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
 
     await gotoRoute(page, "#/help");
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
   });
 
-  test("renders all 8 table-of-contents navigation links and all 8 sections", async ({ page }) => {
+  test("renders all 8 table-of-contents navigation links and all 8 sections", async ({
+    page,
+  }) => {
     await gotoRoute(page, "#/help");
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
 
     const expectedSections = [
       { id: "search", label: "🔍 Search", heading: "🔍 Search" },
@@ -75,9 +90,13 @@ test.describe("help functionality", () => {
     }
   });
 
-  test("clicking in-page section links updates the URL hash", async ({ page }) => {
+  test("clicking in-page section links updates the URL hash", async ({
+    page,
+  }) => {
     await gotoRoute(page, "#/help");
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
 
     // Click "🤖 AI Tagging" TOC pill
     await page.getByRole("link", { name: "🤖 AI Tagging" }).click();
@@ -90,7 +109,9 @@ test.describe("help functionality", () => {
 
   test("deep-links directly to specific help sections", async ({ page }) => {
     await gotoRoute(page, "#/help?section=storage");
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
     await expect(page.locator("section#storage")).toBeVisible();
     await expect(
       page.locator("section#storage").getByRole("heading", {
@@ -104,11 +125,15 @@ test.describe("help functionality", () => {
   }) => {
     // Start at Browse
     await gotoRoute(page, "#/designs");
-    await expect(page.getByRole("heading", { name: "Browse Designs" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
 
     // Navigate to Help
     await clickNav(page, "Help");
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
 
     // Back button should be visible in the shell
     const backButton = page.getByRole("button", { name: /← Back/ });
@@ -116,14 +141,20 @@ test.describe("help functionality", () => {
 
     // Click Back to return to Browse
     await backButton.click();
-    await expect(page.getByRole("heading", { name: "Browse Designs" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
   });
 
-  test("does not display Back button on cold deep-link to Help", async ({ page }) => {
+  test("does not display Back button on cold deep-link to Help", async ({
+    page,
+  }) => {
     // Deep link directly to Help and reload to clear in-memory routing history
     await gotoRoute(page, "#/help");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
 
     // On cold deep link / fresh mount, no prior route exists, so Back button is hidden
     await expect(page.getByRole("button", { name: /← Back/ })).toBeHidden();
@@ -134,52 +165,79 @@ test.describe("help functionality", () => {
   }) => {
     // 1. Browse view -> Search help link
     await gotoRoute(page, "#/designs");
-    await expect(page.getByRole("heading", { name: "Browse Designs" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
     const searchHelpLink = page.getByRole("link", { name: "Search help" });
     await expect(searchHelpLink).toBeVisible();
     await searchHelpLink.click();
 
     await expect(page).toHaveURL(/#\/help\?section=search$/);
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
     await expect(page.locator("section#search")).toBeVisible();
 
     // 2. Import view -> Import help link
     await gotoRoute(page, "#/import");
-    await expect(page.getByRole("heading", { name: "Bulk Import" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Bulk Import" }),
+    ).toBeVisible();
     const importHelpLink = page.getByRole("link", { name: "Import help" });
     await expect(importHelpLink).toBeVisible();
     await importHelpLink.click();
 
     await expect(page).toHaveURL(/#\/help\?section=importing$/);
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
     await expect(page.locator("section#importing")).toBeVisible();
 
     // 3. Projects view -> Learn more link
     await gotoRoute(page, "#/projects");
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-    const projectsLearnMoreLink = page.getByRole("link", { name: "Learn more" });
+    const projectsLearnMoreLink = page.getByRole("link", {
+      name: "Learn more",
+    });
     await expect(projectsLearnMoreLink).toBeVisible();
     await projectsLearnMoreLink.click();
 
     await expect(page).toHaveURL(/#\/help\?section=projects$/);
-    await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Help", exact: true }),
+    ).toBeVisible();
     await expect(page.locator("section#projects")).toBeVisible();
   });
 
-  test("internal links in Help content route to target application views", async ({ page }) => {
+  test("internal links in Help content route to target application views", async ({
+    page,
+  }) => {
     // Search section -> Browse link
     await gotoRoute(page, "#/help");
-    await page.locator("section#search").getByRole("link", { name: "Browse" }).click();
-    await expect(page.getByRole("heading", { name: "Browse Designs" })).toBeVisible();
+    await page
+      .locator("section#search")
+      .getByRole("link", { name: "Browse" })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
 
     // Importing section -> Import link
     await gotoRoute(page, "#/help");
-    await page.locator("section#importing").getByRole("link", { name: "Import" }).click();
-    await expect(page.getByRole("heading", { name: "Bulk Import" })).toBeVisible();
+    await page
+      .locator("section#importing")
+      .getByRole("link", { name: "Import" })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Bulk Import" }),
+    ).toBeVisible();
 
     // Projects section -> Projects link
     await gotoRoute(page, "#/help");
-    await page.locator("section#projects").getByRole("link", { name: "Projects" }).click();
+    await page
+      .locator("section#projects")
+      .getByRole("link", { name: "Projects" })
+      .click();
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 
     // Storage section -> Data Storage & External Drives Guide
@@ -189,7 +247,9 @@ test.describe("help functionality", () => {
       .getByRole("link", { name: "Data Storage & External Drives Guide" })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Data Storage & External Drives Guide" }),
+      page.getByRole("heading", {
+        name: "Data Storage & External Drives Guide",
+      }),
     ).toBeVisible();
 
     // AI Tagging section -> AI Tagging & Batch Operations Guide
@@ -199,12 +259,17 @@ test.describe("help functionality", () => {
       .getByRole("link", { name: "AI Tagging & Batch Operations Guide" })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Batch Operations and Backfill (with AI Tagging)" }),
+      page.getByRole("heading", {
+        name: "Batch Operations and Backfill (with AI Tagging)",
+      }),
     ).toBeVisible();
 
     // Maintenance section -> Orphans link
     await gotoRoute(page, "#/help");
-    await page.locator("section#maintenance").getByRole("link", { name: "Orphans" }).click();
+    await page
+      .locator("section#maintenance")
+      .getByRole("link", { name: "Orphans" })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Orphans", exact: true }),
     ).toBeVisible();
@@ -216,10 +281,20 @@ test.describe("help functionality", () => {
     await gotoRoute(page, "#/help");
     const aiSection = page.locator("section#ai-tagging");
 
-    const studioLink = aiSection.getByRole("link", { name: "Google AI Studio" });
-    await expect(studioLink).toHaveAttribute("href", "https://aistudio.google.com/");
+    const studioLink = aiSection.getByRole("link", {
+      name: "Google AI Studio",
+    });
+    await expect(studioLink).toHaveAttribute(
+      "href",
+      "https://aistudio.google.com/",
+    );
 
-    const pricingLink = aiSection.getByRole("link", { name: "current pricing" });
-    await expect(pricingLink).toHaveAttribute("href", "https://ai.google.dev/pricing");
+    const pricingLink = aiSection.getByRole("link", {
+      name: "current pricing",
+    });
+    await expect(pricingLink).toHaveAttribute(
+      "href",
+      "https://ai.google.dev/pricing",
+    );
   });
 });

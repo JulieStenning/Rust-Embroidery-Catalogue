@@ -140,16 +140,16 @@ test.describe("bulk import", () => {
     await expect(banner).toBeVisible({ timeout: 10_000 });
     await expect(banner.getByText("First import complete!")).toBeVisible();
     await expect(
-      banner.getByText(/Your designs are tagged with fast, offline File & Folder rules/)
+      banner.getByText(
+        /Your designs are tagged with fast, offline File & Folder rules/,
+      ),
     ).toBeVisible();
-    await expect(banner.getByRole("link", { name: "Settings" })).toHaveAttribute(
-      "href",
-      "#/admin/system/settings",
-    );
-    await expect(banner.getByRole("link", { name: "Batch Operations" })).toHaveAttribute(
-      "href",
-      "#/admin/batch-operations",
-    );
+    await expect(
+      banner.getByRole("link", { name: "Settings" }),
+    ).toHaveAttribute("href", "#/admin/system/settings");
+    await expect(
+      banner.getByRole("link", { name: "Batch Operations" }),
+    ).toHaveAttribute("href", "#/admin/batch-operations");
 
     // Dismiss the banner.
     await banner
@@ -160,7 +160,9 @@ test.describe("bulk import", () => {
     const importedStem = path.parse(sourceFilesBefore[0]).name;
     await page.locator("#browse-q").fill(importedStem);
 
-    const importedTitle = page.locator("article.browse-card .browse-card-title");
+    const importedTitle = page.locator(
+      "article.browse-card .browse-card-title",
+    );
     await expect
       .poll(async () => importedTitle.count(), { timeout: 30_000 })
       .toBe(1);

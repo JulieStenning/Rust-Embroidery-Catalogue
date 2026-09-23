@@ -711,7 +711,9 @@ test.describe("card presentation", () => {
 
     await search(page, "Cake 3.jef");
     await expect(
-      browseCard(page, "Cake 3.jef").locator('[aria-label="Rating 4 out of 5"]'),
+      browseCard(page, "Cake 3.jef").locator(
+        '[aria-label="Rating 4 out of 5"]',
+      ),
     ).toContainText("4");
 
     // The unreadable fixtures have no preview, no rating and no hoop.
@@ -877,7 +879,9 @@ test.describe("selection cap and delete confirmation", () => {
       dialog.getByRole("heading", { name: /Delete selected design/ }),
     ).toBeVisible();
     await expect(dialog.getByText("1 design selected.")).toBeVisible();
-    await expect(page.locator(".browse-design-checkbox").first()).toBeDisabled();
+    await expect(
+      page.locator(".browse-design-checkbox").first(),
+    ).toBeDisabled();
 
     // Cancel leaves the catalogue and the selection untouched.
     await dialog.getByRole("button", { name: "Cancel" }).click();

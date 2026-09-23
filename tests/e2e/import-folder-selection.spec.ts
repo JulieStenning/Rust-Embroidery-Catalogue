@@ -73,7 +73,9 @@ test.describe("bulk import step 1", () => {
     await expect(page.getByText("Source Folder(s) *")).toBeVisible();
 
     const intro = page.locator(".import-step1-intro");
-    await expect(intro).toContainText("Sub-folders are included automatically.");
+    await expect(intro).toContainText(
+      "Sub-folders are included automatically.",
+    );
     await expect(intro).toContainText(
       "Your original files are never altered or moved.",
     );
@@ -150,8 +152,12 @@ test.describe("bulk import step 1", () => {
     const extraRow = folderRows(page).nth(1);
     await expect(extraRow.getByRole("textbox")).toHaveAttribute("readonly", "");
     await expect(extraRow.getByRole("textbox")).toHaveValue("");
-    await expect(extraRow.getByRole("button", { name: "Browse…" })).toBeEnabled();
-    await expect(extraRow.getByRole("button", { name: "Remove" })).toBeEnabled();
+    await expect(
+      extraRow.getByRole("button", { name: "Browse…" }),
+    ).toBeEnabled();
+    await expect(
+      extraRow.getByRole("button", { name: "Remove" }),
+    ).toBeEnabled();
 
     await extraRow.getByRole("button", { name: "Remove" }).click();
     await expect(folderRows(page)).toHaveCount(1);
@@ -240,7 +246,6 @@ test.describe("bulk import step 1", () => {
     ).toBeVisible();
   });
 
-
   test("includes nested sub-folders and ignores non-embroidery files", async ({
     page,
   }) => {
@@ -260,7 +265,9 @@ test.describe("bulk import step 1", () => {
     await expect(
       page.getByText("2 folder(s) scanned - 2 file(s) found."),
     ).toBeVisible();
-    await expect(page.getByText(path.basename(source.rootDesign))).toBeVisible();
+    await expect(
+      page.getByText(path.basename(source.rootDesign)),
+    ).toBeVisible();
     await expect(
       page.getByText(path.basename(source.nestedDesign)),
     ).toBeVisible();
@@ -299,4 +306,3 @@ test.describe("bulk import step 1", () => {
     expect(snapshotFolder(source.root)).toEqual(before);
   });
 });
-

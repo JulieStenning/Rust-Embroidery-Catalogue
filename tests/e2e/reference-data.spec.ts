@@ -94,9 +94,13 @@ test.describe("reference data", () => {
     await expect(page.getByRole("cell", { name })).toBeVisible();
 
     // Clean up created hoop to preserve seed catalogue state for other suites
-    const row = page.locator("tr", { has: page.getByRole("cell", { name, exact: true }) });
+    const row = page.locator("tr", {
+      has: page.getByRole("cell", { name, exact: true }),
+    });
     await row.getByRole("button", { name: "Delete", exact: true }).click();
-    await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await row
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
     await expect(page.getByRole("cell", { name, exact: true })).toBeHidden();
   });
 });

@@ -11,10 +11,10 @@ export function getCoverageInstance() {
     entryFilter: (entry: { url?: string }) => {
       return Boolean(
         entry.url &&
-          (entry.url.includes("assets") ||
-            entry.url.includes("tauri") ||
-            entry.url.includes("localhost") ||
-            entry.url.includes("index"))
+        (entry.url.includes("assets") ||
+          entry.url.includes("tauri") ||
+          entry.url.includes("localhost") ||
+          entry.url.includes("index")),
       );
     },
     sourceFilter: (sourcePath: string) => {

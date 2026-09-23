@@ -171,7 +171,10 @@ export function prepareMixedImportSource(): MixedImportSource {
 
   const stamp = Date.now();
   const rootDesign = path.join(root, `Playwright Mixed Root ${stamp}.jef`);
-  const nestedDesign = path.join(nestedFolder, `Playwright Mixed Nested ${stamp}.pes`);
+  const nestedDesign = path.join(
+    nestedFolder,
+    `Playwright Mixed Nested ${stamp}.pes`,
+  );
   fs.copyFileSync(rootSource, rootDesign);
   fs.copyFileSync(nestedSource, nestedDesign);
 
@@ -180,8 +183,10 @@ export function prepareMixedImportSource(): MixedImportSource {
     path.join(root, "playwright-manual.pdf"),
   ];
   fs.writeFileSync(decoys[0], "Playwright decoy: not an embroidery file.\n");
-  fs.writeFileSync(decoys[1], "%PDF-1.4\n% Playwright decoy, not a real PDF.\n");
+  fs.writeFileSync(
+    decoys[1],
+    "%PDF-1.4\n% Playwright decoy, not a real PDF.\n",
+  );
 
   return { root, rootDesign, nestedDesign, decoys };
 }
-
