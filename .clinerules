@@ -514,6 +514,27 @@ for the application itself.
   near-duplicate `src-tauri/tauri.conf.json` says `../frontend/dist` — so keep the two in sync by
   hand, treat the root one as authoritative, and never add `../`-relative resources to the
   `src-tauri/` copy.
+- **`bundle.licenseFile` is deliberately `src-tauri/disclaimer.rtf`, NOT the GPL text.** The
+  installer therefore shows the user-facing risk *disclaimer*, while `"license":
+  "GPL-3.0-or-later"` records the actual licence and the full GPL-3.0 text plus third-party
+  notices live on the in-app About / Licence pages (`LICENSE`, `NOTICE`). This reads like a
+  mismatch and is not one: the RTF's own *Licence* section already points the user to the About
+  page for the full licence text. Do not "fix" it by pointing `licenseFile` at `LICENSE`.
+  Both config copies agree - the root's `src-tauri/disclaimer.rtf` and the `src-tauri/` copy's
+  `disclaimer.rtf` resolve to the same file, because each path is relative to its own config's
+  directory. (Do not "reconcile" them by making the strings identical.)
+- **The disclaimer is maintained TWICE by hand, in two formats, with no generator between
+  them.** `DISCLAIMER.html` (root) is compiled into the app via `include_str!` in
+  `src/services/about_documents.rs` and rendered in the About view; `src-tauri/disclaimer.rtf`
+  is the installer notice. Any wording change must be applied to both, and they must stay
+  section-for-section equivalent (Purpose and Intended Use, Copyright and Intellectual Property,
+  No Warranty, Data Storage, Licence, Source Code, Acceptance).
+- **Known divergence in the dead `src-tauri/tauri.conf.json` - leave it alone.** Its
+  `bundle.resources` omits `LICENSE`/`NOTICE` and its `beforeBuildCommand` omits
+  `npm run generate:licences`. Nothing consumes that file (`tauri::generate_context!()` reads the
+  root config, per the comment in `src/main.rs`), and the only way to sync those two fields would
+  be `../LICENSE`-style paths, which the bullet above forbids. So the divergence is accepted, not
+  a bug to close.
 - **Spelling:** UI prose noun = British *licence* ("Application Licence", "View Full Licences");
   verb = US *license* ("is licensed under"); proper names and metadata = US
   (`GNU General Public License v3.0`, `MIT License`, `license = "GPL-3.0-or-later"`). Existing
