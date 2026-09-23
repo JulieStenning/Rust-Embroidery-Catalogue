@@ -21,3 +21,12 @@ src/assets/licences.html text eol=lf
 src/assets/npm-licences.json text eol=lf
 frontend/src/lib/assets/licences.html text eol=lf
 frontend/src/lib/assets/npm-licences.json text eol=lf
+
+# Frontend source is formatted by Prettier, whose configured/default output uses
+# LF. Pin only the formatter-managed text extensions rather than frontend/** so
+# binary PNG/ICO assets cannot be misclassified as text. The committed blobs are
+# already LF; these rules keep Windows worktrees aligned with Prettier and make
+# `npm --prefix frontend run format:check` independent of core.autocrlf.
+frontend/src/**/*.ts text eol=lf
+frontend/src/**/*.svelte text eol=lf
+frontend/src/**/*.js text eol=lf
