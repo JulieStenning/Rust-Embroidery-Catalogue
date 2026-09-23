@@ -97,7 +97,9 @@ When a configured resource (database, data root, seed asset) is absent or invali
   - When an asset generator writes outside the frontend root (e.g. `npm run generate:licences` → repo-root `src/assets/`), mirror the files inside `frontend/src/` via a sync script/hook (`postgenerate:licences`).
   - Reconcile any example import path against where the generator actually writes, including filename spelling (e.g. `LICENSE` vs `LICENCE`).
 - **Shared process-global state makes Rust tests order-dependent:**
-  - Any Rust test mutating shared resources (log files, process-wide atomics, data-root paths) must be marked `#[serial]`; prefer per-test temp dirs.
+  - Any Rust test mutating shared resources (log files, process-wide atomics, data-root paths, environment variables, or the current working directory) must be marked `#[serial]`; prefer per-test temp dirs.
+  - `std::env::set_current_dir` changes process-global state. Save and restore the original cwd **before** deleting a temporary directory, and resolve repository fixtures from `env!("CARGO_MANIFEST_DIR")` rather than `current_dir()`.
+  - If a test passes alone but fails in the full suite, treat it as shared-state pollution and fix the isolation, not the assertion.
 
 ---
 
@@ -199,19 +201,22 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
   - **Backend Rust tests:** Run from repo root via `cargo test` (or `cargo test <module_or_test_name>`).
   - **Full quality check:** Run from repo root via `npm run check:all`.
 - **Formatting specific Rust files:** Run `rustfmt --edition 2021 <files...>`. Never use `cargo fmt -- <files>` as it reformats the whole crate.
-- **Formatting config — `.editorconfig`, `.prettierrc` and `.gitattributes` are three separate mechanisms:**
-  - `.gitattributes` (`* text=auto`, plus `*.bat` / `*.cmd text eol=crlf`) is authoritative for git: every blob is LF, and the worktree is CRLF on Windows via `core.autocrlf=true`.
-  - `.editorconfig` only tells _editors_ what to write and is set to mirror the formatters exactly, so it never triggers a reformat. It carries no SPDX header, matching the other root dotfiles.
-  - **rustfmt does NOT read `.editorconfig`** (no `rustfmt.toml`; its defaults are 4 spaces and `max_width 100`). **Prettier DOES parse it**, but `frontend/.prettierrc` overrides it.
-  - `.prettierrc` sets `printWidth: 100` but leaves `tabWidth` (2) and `endOfLine` (`"lf"`) unset, so those two would come from `.editorconfig` if they ever disagreed. Never set `end_of_line = crlf` or `indent_size = 4` for frontend types — that rewrites ~160 files. Prettier's own docs suggest `max_line_length = 80`, which contradicts this repo's `printWidth: 100`; don't paste it blindly.
-  - `.gitattributes` has **no brace expansion** (gitignore-style wildmatch) — use separate `*.bat` and `*.cmd` lines. `.editorconfig` does support `[*.{bat,cmd}]`.
-  - **Prove a formatting-config change is a no-op:** run `npm run format:check` with _and_ without the new file and diff the warn lists. `format:check` **already fails here** (161 files) because Prettier's default `endOfLine` is `lf` while the Windows worktree is CRLF — pre-existing, passes on Linux CI, and not something to "fix" with `npm run format`.
-- **License manifest build side-effect:** `cargo tauri build` regenerates `src/assets/licences.html`. Revert unintended changes with `git checkout -- src/assets/licences.html frontend/src/lib/assets/licences.html`.
+- **Formatting config — `.editorconfig`, `.prettierrc` and `.gitattributes` are separate mechanisms:**
+  - `.gitattributes` is authoritative for checkout line endings: `*.bat` / `*.cmd` are CRLF; the four generated licence manifests and frontend TypeScript/Svelte/JavaScript under `frontend/src/` are LF. The frontend rules are extension-scoped so PNG/ICO assets remain binary.
+  - `.editorconfig` guides editors. rustfmt does **not** read it. Prettier does, but `frontend/.prettierrc` overrides it only under `frontend/`; root files use `.editorconfig`, where `max_line_length` must remain 80.
+  - Both `npm --prefix frontend run format:check` and root `npx prettier --check .` must pass on Windows and Linux. The former 161-file CRLF failure was fixed by LF attributes; widespread line-ending warnings now indicate attribute/normalization drift, not an accepted baseline.
+  - Keep root and frontend formatter dependencies aligned. Both currently use Prettier 3.9.6 and `prettier-plugin-svelte` 4.1.1; mismatched plugin versions produced mutually incompatible Svelte `<textarea>` formatting. Update both manifests/lockfiles and run both formatting gates after a formatter change.
+  - `.gitattributes` has no brace expansion (gitignore-style wildmatch); `.editorconfig` does.
+  - CI runs root Prettier and targets `[master, main]`: `master` is the current default and `main` is a future-rename safeguard. Verify workflow filters against `origin`, never an assumed branch name.
+- **Licence manifest generation is now a no-op unless dependencies changed:** `cargo tauri build` runs `npm run generate:licences`; `scripts/sync-licences.mjs` normalises generated artifacts to LF and `.gitattributes` pins all four manifests to LF. Do not automatically revert them. A real diff now represents a dependency/licence refresh and must be reviewed and committed deliberately.
 - **Project licence is GPL-3.0-or-later (never MIT, never AGPL):**
-  - Root `LICENSE` is a **byte-verbatim** copy of the GNU GPL-3.0 text — never prepend, append or edit anything in it. All attributions live in the root `NOTICE` file. Both are mirrored into `frontend/src/` by `scripts/sync-licences.mjs` (the `postgenerate:licences` hook); edit the root file, then re-run that script.
-  - `about.toml` `accepted[]` **must** keep `"GPL-3.0-or-later"`: `cargo-about` processes the workspace crate itself, so dropping it breaks `npm run generate:licences`, which is the `beforeBuildCommand` for every installer build. `deny.toml` mirrors the entry.
-  - Every `.rs`/`.svelte`/`.ts`/`.js` file carries an SPDX header (`SPDX-License-Identifier: GPL-3.0-or-later`). Re-run `pwsh ./scripts/add-spdx-headers.ps1` (idempotent, preserves CRLF/LF + BOM, keeps a `#!` shebang first) after adding new source files.
-  - Spelling: UI prose noun = British **licence**, verb = US **license**, proper names/metadata = US (`GNU General Public License`, `license = "GPL-3.0-or-later"`). Existing identifiers (`#/about/licence`, `data-testid="licence-*-tab"`, `.licence-card`) stay as they are.
-  - `bundle.resources` in the **root** `tauri.conf.json` ships `LICENSE` and `NOTICE` into the installer, so renaming either root file breaks `cargo tauri build`. The root config is the one the CLI consumes (`cargo tauri info` shows `frontendDist: frontend/dist`); keep `src-tauri/tauri.conf.json` in sync by hand but never give it `../`-relative resources.
+  - Root `LICENSE` is a **byte-verbatim** copy of the GNU GPL-3.0 text — never prepend, append or edit anything in it. All attributions live in root `NOTICE`. Both are mirrored into `frontend/src/` by `scripts/sync-licences.mjs`; edit the root file and rerun the script.
+  - `about.toml` `accepted[]` and `deny.toml` must keep `"GPL-3.0-or-later"`.
+  - Every `.rs`/`.svelte`/`.ts`/`.js` file carries the GPL-3.0-or-later SPDX header. Re-run `pwsh ./scripts/add-spdx-headers.ps1` after adding source files.
+  - `bundle.resources` in root `tauri.conf.json` ships `LICENSE` and `NOTICE`. The root config is authoritative.
+  - `bundle.licenseFile` deliberately points at `src-tauri/disclaimer.rtf`, not `LICENSE`: the installer shows the risk disclaimer, while GPL metadata and the full licence/notices live in the in-app About / Licence pages. Do not redirect it to `LICENSE`.
+  - `DISCLAIMER.html` and `src-tauri/disclaimer.rtf` are maintained twice by hand and must stay section-for-section equivalent. The differing `licenseFile` strings in the two config locations resolve to the same RTF because they are relative to different directories.
+  - The unused `src-tauri/tauri.conf.json` knowingly omits root `LICENSE`/`NOTICE` resources and licence generation. Do not “sync” it with forbidden `../LICENSE`-style paths.
+  - UI prose noun = British **licence**, verb = US **license**, proper names/metadata = US. Existing route/test/CSS identifiers remain unchanged.
 - **Never `git add -A` / `git add .` / `git commit -a` — stage by explicit path:** this workspace is often edited by more than one agent at once, so unrelated WIP can appear mid-task. Check `git diff --numstat` first (and again right before each commit), stage an explicit list, then confirm via `git diff --cached --name-only` that the index holds only your files. Leave files carrying another agent's edits unstaged; shared headers ride along with their commit.
 - **Commit message tense:** Write commit messages in the **past tense** (e.g. `refactored(frontend): ...`, not `refactor(frontend): ...`).
