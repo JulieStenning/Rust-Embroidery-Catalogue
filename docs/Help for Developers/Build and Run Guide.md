@@ -52,8 +52,11 @@ In Dev mode the app reads and writes everything under `<repo>/dev_data/` so your
 
 A release build (`build-rust-release.bat`) produces installers in `target/release/bundle/`:
 
-- **MSI installer** — double-click the `.msi` in `target/release/bundle/`. Installs the app to the usual Program Files location.
-- **NSIS installer** — double-click the `*-setup.exe` in `target/release/bundle/`.
+- **MSI installer** — double-click the `.msi` in `target/release/bundle/`. Installs machine-wide to `C:\Program Files` (requires Administrator elevation).
+- **NSIS installer** — double-click the `*-setup.exe` in `target/release/bundle/`. Installs per-user to `%LOCALAPPDATA%\Embroidery Catalogue` (`C:\Users\<User>\AppData\Local\...`).
+
+> **Why does NSIS install to `AppData\Local` instead of `Program Files`?**
+> The NSIS bundle is configured with `"installMode": "currentUser"` in `tauri.conf.json`. This is the standard Windows pattern for user-scoped applications (such as VS Code User Installer, Discord, or Chrome). It allows installation and background updates without requiring Windows UAC Administrator elevation.
 
 Both run in Installed mode. On first launch the setup wizard prompts for a data location (useful for keeping large design collections off the system drive). The choice is persisted to `%APPDATA%/EmbroideryCatalogue/config.json`, which survives reinstalls. Subsequent launches use the configured location and the wizard is not shown again unless setup is reset.
 
