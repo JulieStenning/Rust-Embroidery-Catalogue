@@ -351,6 +351,8 @@ export async function runStitchingBackfill({
  *   generate_previews?: boolean,
  *   recalc_color_counts?: boolean,
  *   recalc_hoop_dimensions?: boolean,
+ *   detect_stitching_tags?: boolean,
+ *   stitching_clear_mode?: string,
  *   commit_every?: number,
  *   batch_size?: number,
  *   workers?: number,
@@ -361,6 +363,8 @@ export async function runMaintenanceBackfill({
   generate_previews = false,
   recalc_color_counts = false,
   recalc_hoop_dimensions = false,
+  detect_stitching_tags = false,
+  stitching_clear_mode = "unverified",
   commit_every = 100,
   batch_size = 100,
   workers = 4,
@@ -369,6 +373,8 @@ export async function runMaintenanceBackfill({
   generate_previews?: boolean;
   recalc_color_counts?: boolean;
   recalc_hoop_dimensions?: boolean;
+  detect_stitching_tags?: boolean;
+  stitching_clear_mode?: string;
   commit_every?: number;
   batch_size?: number;
   workers?: number;
@@ -380,6 +386,8 @@ export async function runMaintenanceBackfill({
         generate_previews: Boolean(generate_previews),
         recalc_color_counts: Boolean(recalc_color_counts),
         recalc_hoop_dimensions: Boolean(recalc_hoop_dimensions),
+        detect_stitching_tags: Boolean(detect_stitching_tags),
+        stitching_clear_mode: String(stitching_clear_mode),
         commit_every: Number(commit_every),
         batch_size: Number(batch_size),
         workers: Number(workers),

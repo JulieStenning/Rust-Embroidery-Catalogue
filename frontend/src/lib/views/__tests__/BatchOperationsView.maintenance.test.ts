@@ -151,6 +151,8 @@ describe("BatchOperationsView maintenance run + redirect", () => {
         generate_previews: true,
         recalc_color_counts: true,
         recalc_hoop_dimensions: false,
+        detect_stitching_tags: false,
+        stitching_clear_mode: "unverified",
         commit_every: 100,
         batch_size: 100,
         workers: 4,

@@ -168,7 +168,7 @@ describe("BatchOperationsView workflow selection", () => {
   });
 });
 
-describe("BatchOperationsView advanced options", () => {
+describe("BatchOperationsView maintenance checkboxes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
@@ -183,38 +183,35 @@ describe("BatchOperationsView advanced options", () => {
     });
   });
 
-  it("toggles the stitching checkbox and its overwrite sub-option", async () => {
+  it("toggles the stitching checkbox and its overwrite sub-option on maintenance tab", async () => {
     render(BatchOperationsView);
     const user = userEvent.setup();
 
-    const stitching = screen.getByRole("checkbox", { name: /Also detect stitching tags/ });
+    await user.click(screen.getByRole("tab", { name: /Maintenance & File Processing/i }));
+
+    const stitching = screen.getByRole("checkbox", {
+      name: /Detect \/ recalculate stitching tags/,
+    });
     expect(stitching).not.toBeChecked();
     await user.click(stitching);
     expect(stitching).toBeChecked();
 
     const overwrite = screen.getByRole("checkbox", {
-      name: /Overwrite stitching tags on already-processed designs/,
+      name: /Overwrite human-verified stitching tags/,
     });
     await user.click(overwrite);
     expect(overwrite).toBeChecked();
   });
 
-  it("toggles the image generation checkbox and its redo sub-option", async () => {
+  it("toggles the image generation, colour count, and hoop dimension checkboxes on maintenance tab", async () => {
     render(BatchOperationsView);
     const user = userEvent.setup();
 
-    const images = screen.getByRole("checkbox", { name: /Also generate preview images/ });
+    await user.click(screen.getByRole("tab", { name: /Maintenance & File Processing/i }));
+
+    const images = screen.getByRole("checkbox", { name: /Generate preview images/ });
     await user.click(images);
     expect(images).toBeChecked();
-
-    const redo = screen.getByRole("checkbox", { name: /Regenerate images for all designs/ });
-    await user.click(redo);
-    expect(redo).toBeChecked();
-  });
-
-  it("toggles the colour count and hoop dimension checkboxes", async () => {
-    render(BatchOperationsView);
-    const user = userEvent.setup();
 
     const colour = screen.getByRole("checkbox", { name: /Recalculate colour/ });
     await user.click(colour);

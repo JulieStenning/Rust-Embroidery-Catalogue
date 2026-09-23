@@ -1563,6 +1563,13 @@ async fn set_design_verification_with_pool_sets_stitching_false() {
 async fn remove_design_tag_with_pool_removes_existing() {
     let pool = test_pool().await;
 
+    sqlx::query(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1",
+    )
+    .execute(&pool)
+    .await
+    .expect("mark verified");
+
     sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 1)")
         .execute(&pool)
         .await
@@ -1578,6 +1585,55 @@ async fn remove_design_tag_with_pool_removes_existing() {
     .await
     .expect("count should work");
     assert_eq!(count, 0);
+
+    let image_verified =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query");
+    assert_eq!(image_verified, 0);
+
+    let stitching_verified =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query");
+    assert_eq!(stitching_verified, 1);
+}
+
+#[tokio::test]
+async fn remove_design_tag_with_pool_resets_stitching_tags_verified() {
+    let pool = test_pool().await;
+
+    sqlx::query(
+        "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = 1",
+    )
+    .execute(&pool)
+    .await
+    .expect("mark verified");
+
+    // Tag 2 is in stitching group (from test_pool seed: id=2, name='Satin', tag_group='stitching')
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .expect("should seed stitching tag link");
+
+    let result = remove_design_tag_with_pool(&pool, 1, 2).await;
+    assert!(result.is_ok());
+
+    let stitching_verified =
+        sqlx::query_scalar::<_, i64>("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("stitching_tags_verified query");
+    assert_eq!(stitching_verified, 0);
+
+    let image_verified =
+        sqlx::query_scalar::<_, i64>("SELECT image_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("image_tags_verified query");
+    assert_eq!(image_verified, 1);
 }
 
 #[tokio::test]

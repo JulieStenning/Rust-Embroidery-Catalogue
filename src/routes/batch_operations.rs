@@ -356,6 +356,8 @@ pub struct MaintenanceBatchRequest {
     pub generate_previews: Option<bool>,
     pub recalc_color_counts: Option<bool>,
     pub recalc_hoop_dimensions: Option<bool>,
+    pub detect_stitching_tags: Option<bool>,
+    pub stitching_clear_mode: Option<String>,
     pub batch_size: Option<i64>,
     pub commit_every: Option<i64>,
     pub workers: Option<i64>,
@@ -379,7 +381,19 @@ pub async fn run_maintenance_batch(
     let backfill_request = backfill::UnifiedBackfillRequest {
         actions: Some(backfill::UnifiedBackfillActions {
             tagging: None,
-            stitching: None,
+            stitching: if request.detect_stitching_tags.unwrap_or(false) {
+                let clear_mode = request
+                    .stitching_clear_mode
+                    .as_deref()
+                    .unwrap_or("unverified")
+                    .to_string();
+                Some(backfill::StitchingActionOptions {
+                    clear_stitching_mode: Some(clear_mode),
+                    enabled: Some(true),
+                })
+            } else {
+                None
+            },
             images: if generate_previews {
                 // Scope drives the population: "Entire catalogue" regenerates every
                 // preview (`redo = true`); "missing_previews" fills gaps only.

@@ -611,6 +611,8 @@ async fn test_run_maintenance_batch_options() {
             generate_previews: Some(true),
             recalc_color_counts: Some(true),
             recalc_hoop_dimensions: Some(true),
+            detect_stitching_tags: None,
+            stitching_clear_mode: None,
             batch_size: Some(25),
             commit_every: Some(25),
             workers: Some(2),
@@ -628,6 +630,8 @@ async fn test_run_maintenance_batch_options() {
             generate_previews: Some(false),
             recalc_color_counts: Some(true),
             recalc_hoop_dimensions: Some(false),
+            detect_stitching_tags: None,
+            stitching_clear_mode: None,
             batch_size: Some(10),
             commit_every: Some(10),
             workers: Some(1),
@@ -645,6 +649,8 @@ async fn test_run_maintenance_batch_options() {
             generate_previews: Some(true),
             recalc_color_counts: Some(false),
             recalc_hoop_dimensions: Some(true),
+            detect_stitching_tags: None,
+            stitching_clear_mode: None,
             batch_size: None,
             commit_every: None,
             workers: None,
@@ -653,6 +659,25 @@ async fn test_run_maintenance_batch_options() {
     .await
     .unwrap();
     assert_eq!(summary5.processed, 0);
+
+    // 6. "all" scope with detect_stitching_tags enabled
+    let summary6 = run_maintenance_batch(
+        state.clone(),
+        Some(MaintenanceBatchRequest {
+            scope: Some("all".to_string()),
+            generate_previews: Some(false),
+            recalc_color_counts: Some(false),
+            recalc_hoop_dimensions: Some(false),
+            detect_stitching_tags: Some(true),
+            stitching_clear_mode: Some("unverified".to_string()),
+            batch_size: Some(10),
+            commit_every: Some(10),
+            workers: Some(1),
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(summary6.processed, 0);
 
     let _ = std::fs::remove_dir_all(&tmp);
 }

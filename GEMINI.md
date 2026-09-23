@@ -82,6 +82,17 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - After a data-root change is persisted, the app **must restart** for the running backend to relocate.
 - **Test / e2e data-root override (`EMBROIDERY_DATA_ROOT`) — debug builds only:** An absolute `EMBROIDERY_DATA_ROOT` redirects the Dev-mode data root for Playwright harnesses. It is honoured **only** inside `resolve_paths_from_exe_dir` and **only** under `cfg!(debug_assertions)`.
 
+### 5. Tagging & Verification Separation (Image Tags vs Stitching Tags)
+
+- **Semantic vs Technical Isolation:**
+  - **Image Tags (Tab 1 - Tagging & Categorisation):** Semantic subject-matter tags generated via offline file/folder rules (`path_rule`) or online Gemini Vision (`ai_vision`). Governed strictly by `designs.image_tags_verified`. Image tagging passes must **never** read, write, clear, or modify `stitching_tags_verified` or tags in the `stitching` group.
+  - **Stitching Tags (Tab 2 - Maintenance & File Processing):** Technical density/fill tags generated via deterministic binary stitch parsing (`stitch_identifier`). Governed strictly by `designs.stitching_tags_verified`. Stitching operations must **never** read, write, clear, or modify `image_tags_verified` or tags in the image tag pool.
+- **Verification Independence:** `image_tags_verified` and `stitching_tags_verified` are strictly separate flags in SQLite and the domain model. Verifying or resetting one category must never cross-pollute or clear the other.
+- **Verification Invariant on Tag Changes:** If any image tags are added to or removed from a design (e.g. automated tagging passes, single tag removal), `image_tags_verified` MUST be set to `0` (unverified). Similarly, if any stitching tags are added to or removed from a design (e.g. stitching detection/backfill, stitching tag clear, single tag removal), `stitching_tags_verified` MUST be set to `0` (unverified).
+- **UI Responsibility Boundary:**
+  - Tab 1 ("Tagging & Categorisation") is strictly for Image / Subject Tagging (Steps 1–3) with a callout link to Tab 2.
+  - Tab 2 ("Maintenance & File Processing") is the home for all offline technical binary calculations: Stitching tag detection, preview image generation, thread colour/stitch counts recalculation, and hoop dimension recalculation.
+
 ---
 
 ## 🧩 Test-Surface & Boundary-Drift Discipline

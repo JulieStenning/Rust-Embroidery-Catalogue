@@ -778,14 +778,14 @@ export interface UnifiedBackfillRequest {
   folder_paths?: string[];
   /** Whether `folder_path`/`folder_paths` also includes nested subfolders. Defaults to `true`. */
   include_subfolders?: boolean;
-  run_vision: boolean;
-  run_images: boolean;
-  image_redo: boolean;
-  run_color_counts: boolean;
-  run_hoop_dimensions: boolean;
-  commit_every: number;
-  batch_size: number;
-  workers: number;
+  run_vision?: boolean;
+  run_images?: boolean;
+  image_redo?: boolean;
+  run_color_counts?: boolean;
+  run_hoop_dimensions?: boolean;
+  commit_every?: number;
+  batch_size?: number;
+  workers?: number;
 }
 
 /**

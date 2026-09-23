@@ -112,6 +112,9 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
       .getByRole("tab", { name: "Maintenance & File Processing" });
     await maintenanceTab.click();
 
+    const stitchingCheckbox = page.getByRole("checkbox", {
+      name: "Detect / recalculate stitching tags",
+    });
     const generatePreviewsCheckbox = page.getByRole("checkbox", {
       name: "Generate preview images",
     });
@@ -128,10 +131,29 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     });
 
     // Initially none checked -> disabled
+    await expect(stitchingCheckbox).not.toBeChecked();
     await expect(generatePreviewsCheckbox).not.toBeChecked();
     await expect(colorCountsCheckbox).not.toBeChecked();
     await expect(hoopDimensionsCheckbox).not.toBeChecked();
     await expect(runButton).toBeDisabled();
+
+    // Check "Detect / recalculate stitching tags" -> enabled and reveals overwrite sub-option
+    await stitchingCheckbox.check();
+    await expect(stitchingCheckbox).toBeChecked();
+    await expect(runButton).toBeEnabled();
+
+    const overwriteCheckbox = page.getByRole("checkbox", {
+      name: "Overwrite human-verified stitching tags",
+    });
+    await expect(overwriteCheckbox).toBeVisible();
+    await expect(overwriteCheckbox).not.toBeChecked();
+    await overwriteCheckbox.check();
+    await expect(overwriteCheckbox).toBeChecked();
+
+    // Uncheck stitching -> disabled again
+    await stitchingCheckbox.uncheck();
+    await expect(runButton).toBeDisabled();
+    await expect(overwriteCheckbox).not.toBeVisible();
 
     // Check "Generate preview images" -> enabled
     await generatePreviewsCheckbox.check();
@@ -258,6 +280,8 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await expect(page.getByText(/Operations:\s*\d+/i)).toBeVisible();
     await expect(page.getByText(/Errors:\s*\d+/i)).toBeVisible();
     await expect(page.getByText(/Tasks run:\s*hoop_dimensions/i)).toBeVisible();
+    await expect(page.getByText(/Image tags:/i)).not.toBeVisible();
+    await expect(page.getByText(/Stitching tags:/i)).not.toBeVisible();
 
     // Backfill log contains entries
     const logDetails = page
@@ -266,6 +290,71 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
     await expect(logDetails).toBeVisible();
     await logDetails.locator("summary").click();
     await expect(logDetails.locator(".font-mono").first()).toBeVisible();
+  });
+
+  test("runs stitching tags detection from Maintenance tab and updates stitching tags summary", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await gotoRoute(page, "#/admin/batch-operations");
+    await expect(
+      page.getByRole("heading", { name: "Batch Operations", exact: true }),
+    ).toBeVisible();
+
+    const maintenanceTab = page
+      .getByTestId("batch-operations-tablist")
+      .getByRole("tab", { name: "Maintenance & File Processing" });
+    await maintenanceTab.click();
+
+    // Select "Entire catalogue"
+    await page.locator('input[name="maintenance-scope"][value="all"]').check();
+
+    // Check stitching tags only
+    await page
+      .getByRole("checkbox", { name: "Generate preview images" })
+      .uncheck();
+    await page
+      .getByRole("checkbox", { name: "Recalculate colour / stitch counts" })
+      .uncheck();
+    await page
+      .getByRole("checkbox", { name: "Recalculate hoops / dimensions" })
+      .uncheck();
+    await page
+      .getByRole("checkbox", {
+        name: /Detect technical stitching tags/i,
+      })
+      .check();
+
+    // Open confirmation modal
+    await page
+      .getByRole("button", {
+        name: "Review & Start Maintenance",
+        exact: true,
+      })
+      .click();
+
+    const modal = page.getByTestId("maintenance-confirm-modal");
+    await expect(modal).toBeVisible();
+    await expect(
+      modal.getByText("Detect technical stitching tags"),
+    ).toBeVisible();
+
+    await modal
+      .getByRole("button", { name: "Start Maintenance", exact: true })
+      .click();
+    await expect(modal).not.toBeVisible();
+
+    // Toast appears
+    await expect(
+      page.getByText(/Maintenance complete: \d+ operations/i).last(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    // Summary displays stitching tags before -> after, but NOT image tags
+    await expect(page.getByText("Last run summary")).toBeVisible();
+    await expect(
+      page.getByText(/Stitching tags:\s*\d+\s*before\s*→\s*\d+\s*after/i),
+    ).toBeVisible();
+    await expect(page.getByText(/Image tags:/i)).not.toBeVisible();
   });
 
   test("runs missing previews maintenance scope and provides Review in Browse link for failed thumbnails", async ({

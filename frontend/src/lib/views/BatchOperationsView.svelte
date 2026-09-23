@@ -169,19 +169,21 @@
   let includeSubfolders = $state(true);
   let dataStorageLocation = $state("");
 
-  // Advanced options (collapsed by default) — optional extra passes.
-  let taggingRunStitching = $state(false);
-  let taggingRunImages = $state(false);
-  let taggingRunColorCounts = $state(false);
-  let taggingRunHoopDimensions = $state(false);
-  let taggingStitchingOverwrite = $state(false);
-  let taggingImageRedo = $state(false);
+  // --- Maintenance tab tasks -----------------------------------------------
+  let maintenanceRunStitching = $state(false);
+  let maintenanceStitchingOverwrite = $state(false);
+  let maintenanceRunImages = $state(false);
+  let maintenanceRunColorCounts = $state(false);
+  let maintenanceRunHoopDimensions = $state(false);
 
   // --- Maintenance tab derived state ---------------------------------------
   // Whether at least one maintenance task is selected (drives the enabled state
   // of "Review & Start Maintenance").
   let anyMaintenanceTaskSelected = $derived(
-    taggingRunImages || taggingRunColorCounts || taggingRunHoopDimensions
+    maintenanceRunStitching ||
+      maintenanceRunImages ||
+      maintenanceRunColorCounts ||
+      maintenanceRunHoopDimensions
   );
   let maintenanceValid = $derived(anyMaintenanceTaskSelected);
   let maintenanceRunButtonLabel = $derived.by(() => {
@@ -476,23 +478,6 @@
     addToast("Running selected actions...", "info");
 
     try {
-      if (taggingRunStitching) {
-        const stitchingOptions = /** @type {any} */ {
-          commit_every: taggingCommitValue,
-          batch_size: taggingBatchValue,
-          workers: taggingWorkersValue,
-          clear_stitching_mode: taggingStitchingOverwrite ? "all" : "unverified",
-          image_redo: taggingImageRedo,
-        };
-        const result = await runStitchingBackfill(stitchingOptions);
-        if (result?.error) {
-          addToast(`Stitching backfill failed: ${result.error}`, "error");
-          taggingRunInFlight = false;
-          return;
-        }
-        addToast(`Stitching backfill complete.`, "success");
-      }
-
       const result = await runUnifiedBackfill({
         action_mode: action,
         modes,
@@ -504,10 +489,6 @@
             : undefined,
         include_subfolders: scope === "folder" ? includeSubfolders : undefined,
         run_vision: visionInvolved,
-        run_images: taggingRunImages,
-        image_redo: taggingImageRedo,
-        run_color_counts: taggingRunColorCounts,
-        run_hoop_dimensions: taggingRunHoopDimensions,
         commit_every: taggingCommitValue,
         batch_size: taggingBatchValue,
         workers: taggingWorkersValue,
@@ -551,9 +532,11 @@
     try {
       const result = await runMaintenanceBackfill({
         scope: maintenanceScope,
-        generate_previews: taggingRunImages,
-        recalc_color_counts: taggingRunColorCounts,
-        recalc_hoop_dimensions: taggingRunHoopDimensions,
+        generate_previews: maintenanceRunImages,
+        recalc_color_counts: maintenanceRunColorCounts,
+        recalc_hoop_dimensions: maintenanceRunHoopDimensions,
+        detect_stitching_tags: maintenanceRunStitching,
+        stitching_clear_mode: maintenanceStitchingOverwrite ? "all" : "unverified",
         commit_every: taggingCommitValue,
         batch_size: taggingBatchValue,
         workers: taggingWorkersValue,
@@ -895,94 +878,28 @@
         </p>
       </div>
 
-      <!-- Advanced options (always visible) -->
-      <div class="route-card p-6 space-y-4">
-        <h2 class="text-base font-semibold text-[var(--text-primary)]">Advanced options</h2>
-
-        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
-          <input
-            type="checkbox"
-            bind:checked={taggingRunStitching}
-            disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <div>
-            <span class="font-semibold">Also detect stitching tags</span>
-            <p class="text-[var(--text-muted)] text-xs mt-0.5">
-              Analyze stitch coverage to tag designs (e.g. light fill, dense embroidery).
-            </p>
-          </div>
-        </label>
-        {#if taggingRunStitching}
-          <label
-            class="ml-8 flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
+      <!-- Callout to Maintenance tab for technical/stitch operations -->
+      <div
+        class="rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] p-4 flex items-start gap-3 text-xs text-[var(--text-secondary)]"
+        data-testid="tagging-maintenance-callout"
+      >
+        <span class="text-base select-none" aria-hidden="true">💡</span>
+        <div class="space-y-1">
+          <span class="font-semibold text-[var(--text-primary)]"
+            >Looking for technical stitch tags or file properties?</span
           >
-            <input
-              type="checkbox"
-              bind:checked={taggingStitchingOverwrite}
-              disabled={busyActive}
-              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span>Overwrite stitching tags on already-processed designs</span>
-          </label>
-        {/if}
-
-        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
-          <input
-            type="checkbox"
-            bind:checked={taggingRunImages}
-            disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <div>
-            <span class="font-semibold">Also generate preview images</span>
-            <p class="text-[var(--text-muted)] text-xs mt-0.5">
-              Generate preview images for designs that lack one.
-            </p>
-          </div>
-        </label>
-        {#if taggingRunImages}
-          <label
-            class="ml-8 flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
-          >
-            <input
-              type="checkbox"
-              bind:checked={taggingImageRedo}
-              disabled={busyActive}
-              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span>Regenerate images for all designs, not just those without images</span>
-          </label>
-        {/if}
-
-        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
-          <input
-            type="checkbox"
-            bind:checked={taggingRunColorCounts}
-            disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <div>
-            <span class="font-semibold">Recalculate colour / stitch counts</span>
-            <p class="text-[var(--text-muted)] text-xs mt-0.5">
-              Refresh thread colors, stitch totals, and color changes from the design files.
-            </p>
-          </div>
-        </label>
-        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
-          <input
-            type="checkbox"
-            bind:checked={taggingRunHoopDimensions}
-            disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <div>
-            <span class="font-semibold">Recalculate hoops / dimensions</span>
-            <p class="text-[var(--text-muted)] text-xs mt-0.5">
-              Refresh design dimensions and recommended hoop from the design files.
-            </p>
-          </div>
-        </label>
+          <p>
+            Stitching tags (<em>Satin Stitch</em>, <em>Filled</em>), preview images, thread colour
+            counts, and hoop dimensions are calculated directly from stitch files under
+            <button
+              type="button"
+              class="text-indigo-600 underline font-medium hover:text-indigo-800 cursor-pointer inline"
+              onclick={switchToMaintenanceTab}
+            >
+              Maintenance &amp; File Processing
+            </button>.
+          </p>
+        </div>
       </div>
 
       <!-- Run / Stop Buttons -->
@@ -1073,7 +990,36 @@
         <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
-            bind:checked={taggingRunImages}
+            bind:checked={maintenanceRunStitching}
+            disabled={busyActive}
+            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <div>
+            <span class="font-semibold">Detect / recalculate stitching tags</span>
+            <p class="text-[var(--text-muted)] text-xs mt-0.5">
+              Analyze stitch density and fill coverage to assign stitching tags (e.g. Satin Stitch,
+              Filled).
+            </p>
+          </div>
+        </label>
+        {#if maintenanceRunStitching}
+          <label
+            class="ml-8 flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              bind:checked={maintenanceStitchingOverwrite}
+              disabled={busyActive}
+              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Overwrite human-verified stitching tags</span>
+          </label>
+        {/if}
+
+        <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={maintenanceRunImages}
             disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
@@ -1084,7 +1030,7 @@
         <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
-            bind:checked={taggingRunColorCounts}
+            bind:checked={maintenanceRunColorCounts}
             disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
@@ -1098,7 +1044,7 @@
         <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input
             type="checkbox"
-            bind:checked={taggingRunHoopDimensions}
+            bind:checked={maintenanceRunHoopDimensions}
             disabled={busyActive}
             class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
@@ -1147,13 +1093,13 @@
             the same design). Tasks run: {(taggingLastSummary.actions || []).join(", ") || "—"}.
           </p>
         {/if}
-        {#if taggingLastSummary.image_tag_count_before !== undefined}
+        {#if (!lastRunWasMaintenance || (taggingLastSummary.actions || []).includes("tagging")) && taggingLastSummary.image_tag_count_before !== undefined}
           <p>
             Image tags: <strong>{taggingLastSummary.image_tag_count_before}</strong> before &rarr;
             <strong>{taggingLastSummary.image_tag_count_after ?? 0}</strong> after
           </p>
         {/if}
-        {#if taggingLastSummary.stitching_tag_count_before !== undefined}
+        {#if (taggingLastSummary.actions || []).includes("stitching") && taggingLastSummary.stitching_tag_count_before !== undefined}
           <p>
             Stitching tags: <strong>{taggingLastSummary.stitching_tag_count_before}</strong> before
             &rarr; <strong>{taggingLastSummary.stitching_tag_count_after ?? 0}</strong> after
@@ -1306,13 +1252,23 @@
           </p>
           <p><span class="font-semibold text-[var(--text-primary)]">Maintenance Tasks:</span></p>
           <ul class="list-disc pl-5 text-xs text-[var(--text-muted)] space-y-0.5">
-            {#if taggingRunImages}
+            {#if maintenanceRunStitching}
+              <li>
+                Detect / recalculate stitching tags
+                {#if maintenanceStitchingOverwrite}
+                  (overwriting human-verified)
+                {:else}
+                  (preserving human-verified)
+                {/if}
+              </li>
+            {/if}
+            {#if maintenanceRunImages}
               <li>Generate preview images</li>
             {/if}
-            {#if taggingRunColorCounts}
+            {#if maintenanceRunColorCounts}
               <li>Recalculate colour / stitch counts</li>
             {/if}
-            {#if taggingRunHoopDimensions}
+            {#if maintenanceRunHoopDimensions}
               <li>Recalculate hoops / dimensions</li>
             {/if}
           </ul>

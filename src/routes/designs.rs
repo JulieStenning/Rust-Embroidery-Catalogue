@@ -1410,12 +1410,41 @@ async fn remove_design_tag_with_pool(
     ensure_design_exists(pool, design_id).await?;
     ensure_foreign_key_exists(pool, "tags", Some(tag_id), "Tag").await?;
 
-    sqlx::query("DELETE FROM design_tags WHERE design_id = ? AND tag_id = ?")
+    let tag_group =
+        sqlx::query_scalar::<_, Option<String>>("SELECT tag_group FROM tags WHERE id = ?")
+            .bind(tag_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?
+            .flatten()
+            .unwrap_or_default();
+
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+
+    let result = sqlx::query("DELETE FROM design_tags WHERE design_id = ? AND tag_id = ?")
         .bind(design_id)
         .bind(tag_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
+
+    if result.rows_affected() > 0 {
+        if tag_group.eq_ignore_ascii_case("stitching") {
+            sqlx::query("UPDATE designs SET stitching_tags_verified = 0 WHERE id = ?")
+                .bind(design_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        } else {
+            sqlx::query("UPDATE designs SET image_tags_verified = 0 WHERE id = ?")
+                .bind(design_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    tx.commit().await.map_err(|e| e.to_string())?;
 
     Ok(DesignCommandResult {
         design_id,

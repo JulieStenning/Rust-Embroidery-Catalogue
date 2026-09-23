@@ -15,7 +15,8 @@ const adapterMocks = vi.hoisted(() => ({
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
   getBackfillLogEntries: vi.fn(),
-  runStitchingBackfill: vi.fn(),
+  runMaintenanceBackfill: vi.fn(),
+  countMissingPreviews: vi.fn(),
   countTaggingCandidates: vi.fn(),
 }));
 
@@ -45,7 +46,7 @@ const viewModel = () => ({
   },
 });
 
-/** Helper that constructs a stitching backfill result. */
+/** Helper that constructs a backfill result. */
 const backfillResult = (overrides = {}) => ({
   source: "rust",
   processed: 0,
@@ -55,13 +56,18 @@ const backfillResult = (overrides = {}) => ({
   ...overrides,
 });
 
-async function startRun() {
+async function gotoMaintenanceTab() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Review & Start Tagging" }));
-  await user.click(screen.getByRole("button", { name: "Start Tagging" }));
+  await user.click(screen.getByRole("tab", { name: /Maintenance & File Processing/i }));
 }
 
-describe("BatchOperationsView run stitching backfill", () => {
+async function startMaintenanceRun() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Review & Start Maintenance" }));
+  await user.click(screen.getByRole("button", { name: "Start Maintenance" }));
+}
+
+describe("BatchOperationsView stitching tags on maintenance tab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     adapterMocks.getBatchOperationsViewModel.mockResolvedValue(viewModel());
@@ -74,92 +80,71 @@ describe("BatchOperationsView run stitching backfill", () => {
       action: "tag_untagged",
       counts: { total_count: 12, unverified_count: 10, verified_count: 2 },
     });
-    adapterMocks.runUnifiedBackfill.mockResolvedValue(backfillResult());
-    adapterMocks.runStitchingBackfill.mockResolvedValue(backfillResult());
+    adapterMocks.countMissingPreviews.mockResolvedValue(0);
+    adapterMocks.runMaintenanceBackfill.mockResolvedValue(backfillResult());
   });
 
-  it("calls runStitchingBackfill with the default options when enabled", async () => {
+  it("switches to Maintenance tab from the callout link on Tagging tab", async () => {
     render(BatchOperationsView);
+    const user = userEvent.setup();
+
+    const callout = screen.getByTestId("tagging-maintenance-callout");
+    expect(callout).toBeInTheDocument();
+
+    const link = screen.getByRole("button", { name: /Maintenance & File Processing/i });
+    await user.click(link);
+
+    expect(screen.getByRole("tab", { name: /Maintenance & File Processing/i })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+
+  it("calls runMaintenanceBackfill with detect_stitching_tags and unverified clear mode by default", async () => {
+    render(BatchOperationsView);
+    await gotoMaintenanceTab();
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
+    await user.click(
+      screen.getByRole("checkbox", { name: /Detect \/ recalculate stitching tags/ })
+    );
 
-    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
-
-    await startRun();
+    await startMaintenanceRun();
 
     await waitFor(() => {
-      expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith({
-        commit_every: 100,
-        batch_size: 100,
-        workers: 4,
-        clear_stitching_mode: "unverified",
-        image_redo: false,
-      });
-    });
-    await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith("Stitching backfill complete.", "success");
+      expect(adapterMocks.runMaintenanceBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detect_stitching_tags: true,
+          stitching_clear_mode: "unverified",
+          scope: "all",
+        })
+      );
     });
   });
 
-  it("passes clear_stitching_mode all when overwrite is selected", async () => {
+  it("passes stitching_clear_mode all when overwrite human-verified is checked", async () => {
     render(BatchOperationsView);
+    await gotoMaintenanceTab();
 
     const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-
-    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /Detect \/ recalculate stitching tags/ })
+    );
     await user.click(
       screen.getByRole("checkbox", {
-        name: /Overwrite stitching tags on already-processed designs/,
+        name: /Overwrite human-verified stitching tags/,
       })
     );
 
-    await startRun();
+    await startMaintenanceRun();
 
     await waitFor(() => {
-      expect(adapterMocks.runStitchingBackfill).toHaveBeenCalledWith(
-        expect.objectContaining({ clear_stitching_mode: "all" })
+      expect(adapterMocks.runMaintenanceBackfill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detect_stitching_tags: true,
+          stitching_clear_mode: "all",
+        })
       );
-    });
-  });
-
-  it("shows an error toast when the stitching backfill reports an error", async () => {
-    adapterMocks.runStitchingBackfill.mockResolvedValue(
-      backfillResult({ error: "Malformed stitch data" })
-    );
-    render(BatchOperationsView);
-
-    const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-
-    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
-
-    await startRun();
-
-    await waitFor(() => {
-      expect(toastMock.addToast).toHaveBeenCalledWith(
-        "Stitching backfill failed: Malformed stitch data",
-        "error"
-      );
-    });
-  });
-
-  it("runs both stitching and unified backfills when both are enabled", async () => {
-    render(BatchOperationsView);
-
-    const user = userEvent.setup();
-    await screen.findByRole("radio", { name: /Apply file & folder rules/i });
-
-    await user.click(screen.getByRole("checkbox", { name: /Also detect stitching tags/ }));
-
-    await startRun();
-
-    await waitFor(() => {
-      expect(adapterMocks.runStitchingBackfill).toHaveBeenCalled();
-    });
-    await waitFor(() => {
-      expect(adapterMocks.runUnifiedBackfill).toHaveBeenCalled();
     });
   });
 });

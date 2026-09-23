@@ -1277,6 +1277,13 @@ async fn clear_stitching_all_removes_tags_from_every_design() {
         .await
         .unwrap();
     assert_eq!(count, 0);
+
+    let d2_verified: i64 =
+        sqlx::query_scalar("SELECT stitching_tags_verified FROM designs WHERE id = 2")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(d2_verified, 0);
 }
 
 #[tokio::test]
@@ -1394,6 +1401,12 @@ async fn get_default_stitching_tag_prefers_line_outline() {
 async fn apply_stitching_tags_replaces_existing_stitching_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
+    // Mark design 1 as stitching verified initially
+    sqlx::query("UPDATE designs SET stitching_tags_verified = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+
     // Add tag 2 ('Line Outline') to design 1
     sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
         .execute(&pool)
@@ -1423,12 +1436,24 @@ async fn apply_stitching_tags_replaces_existing_stitching_tags() {
             .await
             .unwrap();
     assert_eq!(new, 1);
+
+    // stitching_tags_verified should be reset to 0 (unverified)
+    let verified: i64 =
+        sqlx::query_scalar("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(verified, 0);
 }
 
 #[tokio::test]
 async fn apply_stitching_tags_empty_ids_removes_all_stitching_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
+    sqlx::query("UPDATE designs SET stitching_tags_verified = 1 WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
     sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
         .execute(&pool)
         .await
@@ -1442,6 +1467,13 @@ async fn apply_stitching_tags_empty_ids_removes_all_stitching_tags() {
             .await
             .unwrap();
     assert_eq!(count, 0);
+
+    let verified: i64 =
+        sqlx::query_scalar("SELECT stitching_tags_verified FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(verified, 0);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

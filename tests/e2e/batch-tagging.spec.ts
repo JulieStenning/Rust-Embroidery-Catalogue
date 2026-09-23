@@ -132,7 +132,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(fullRescanRadio).toBeDisabled();
   });
 
-  test("renders 3-step workflow with live candidate counts and advanced options", async ({
+  test("renders 3-step workflow with live candidate counts and maintenance callout", async ({
     page,
   }) => {
     await gotoRoute(page, "#/admin/batch-operations");
@@ -193,46 +193,17 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(addMerge).toBeChecked(); // Default merge
     await expect(resetMerge).toBeVisible();
 
-    // Advanced Options section
+    // Callout linking to Maintenance tab for technical/stitch operations
+    const callout = page.getByTestId("tagging-maintenance-callout");
+    await expect(callout).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Advanced options" }),
+      callout.getByText(
+        "Looking for technical stitch tags or file properties?",
+      ),
     ).toBeVisible();
-
-    const stitchingCheckbox = page.getByRole("checkbox", {
-      name: "Also detect stitching tags",
-    });
-    const imagesCheckbox = page.getByRole("checkbox", {
-      name: "Also generate preview images",
-    });
-    const colorCountsCheckbox = page.getByRole("checkbox", {
-      name: "Recalculate colour / stitch counts",
-    });
-    const hoopDimensionsCheckbox = page.getByRole("checkbox", {
-      name: "Recalculate hoops / dimensions",
-    });
-
-    await expect(stitchingCheckbox).toBeVisible();
-    await expect(stitchingCheckbox).not.toBeChecked();
-    await expect(imagesCheckbox).toBeVisible();
-    await expect(colorCountsCheckbox).toBeVisible();
-    await expect(hoopDimensionsCheckbox).toBeVisible();
-
-    // Toggling nested advanced options
-    await stitchingCheckbox.check();
     await expect(
-      page.getByRole("checkbox", {
-        name: "Overwrite stitching tags on already-processed designs",
-      }),
+      callout.getByRole("button", { name: "Maintenance & File Processing" }),
     ).toBeVisible();
-    await stitchingCheckbox.uncheck();
-
-    await imagesCheckbox.check();
-    await expect(
-      page.getByRole("checkbox", {
-        name: "Regenerate images for all designs, not just those without images",
-      }),
-    ).toBeVisible();
-    await imagesCheckbox.uncheck();
   });
 
   test("displays pre-flight confirmation modal and cancels cleanly", async ({
@@ -327,6 +298,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(page.getByText("Last run summary")).toBeVisible();
     await expect(page.getByText(/Processed:\s*\d+/i)).toBeVisible();
     await expect(page.getByText(/Image tags:\s*\d+\s*before/i)).toBeVisible();
+    await expect(page.getByText(/Stitching tags:/i)).not.toBeVisible();
 
     // Backfill log contains recorded entries
     const logDetails = page
