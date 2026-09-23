@@ -206,11 +206,26 @@ fn load_dotenv_handles_missing_file_gracefully() {
             .as_nanos()
     ));
     let _ = fs::create_dir_all(&tmp);
+
+    // The current directory is process-wide state shared by every test in this
+    // binary, so it MUST be restored before this test returns. Leaving it aimed
+    // at this temp dir - which is then deleted - broke other tests that resolve
+    // fixtures relative to the crate root: backfill's
+    // run_unified_backfill_file_dependent_actions_write_back failed with
+    // 'fixture missing: .../tests/Test Designs/Bean.pes' in a full cargo test
+    // run while passing on its own. The sibling test below already saved and
+    // restored it; this one did not.
+    let original_cwd = std::env::current_dir().ok();
     std::env::set_current_dir(&tmp).ok();
 
     // This should not panic even though there's no .env file.
     load_dotenv();
 
+    // Restore the cwd BEFORE deleting it, so nothing is left inside a removed
+    // directory.
+    if let Some(cwd) = original_cwd {
+        let _ = std::env::set_current_dir(cwd);
+    }
     let _ = fs::remove_dir_all(&tmp);
 }
 

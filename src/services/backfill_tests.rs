@@ -2518,8 +2518,14 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
     .unwrap();
 
     // Point a design at a real embroidery fixture so file parsing succeeds.
-    let design_path = std::env::current_dir()
-        .unwrap()
+    //
+    // Resolved from the compile-time CARGO_MANIFEST_DIR rather than
+    // current_dir(): the process-wide cwd is shared with every other test in
+    // this binary and another test can move it, which made this assertion fail
+    // in a full cargo test run while the test passed on its own. This matches
+    // the fixture convention already used by jef_reader_tests.rs,
+    // bulk_import_tests.rs and restore_tests.rs.
+    let design_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("Test Designs")
         .join("Bean.pes");
