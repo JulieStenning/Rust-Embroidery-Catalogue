@@ -412,4 +412,3 @@ describe("DatabaseRecoveryView.svelte", () => {
     expect(errorBox).toHaveTextContent("Could not write config file");
   });
 });
-

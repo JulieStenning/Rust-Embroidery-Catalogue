@@ -47,7 +47,6 @@ describe("TagWordMatchesView.svelte", () => {
     },
   ];
 
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(commandAdapter.listTags).mockResolvedValue({
@@ -350,4 +349,3 @@ describe("TagWordMatchesView.svelte", () => {
     expect(screen.getByText("Floral")).toBeInTheDocument();
   });
 });
-
