@@ -44,7 +44,7 @@ async fn setup_test_db() -> SqlitePool {
 async fn test_add_and_list_synonyms() {
     let pool = setup_test_db().await;
 
-    let kw = add_tag_synonyms(&pool, 1, "frog, bear\nelephant")
+    let kw = add_tag_synonyms(&pool, 1, "Frog, BEAR\nElePhant")
         .await
         .expect("add synonyms");
     assert_eq!(kw.len(), 3);

@@ -172,13 +172,13 @@ pub async fn add_tag_synonyms(
         .collect();
 
     for token in raw_tokens {
-        let clean = token.trim();
+        let clean = token.trim().to_lowercase();
         if clean.is_empty() {
             continue;
         }
 
         sqlx::query("INSERT OR IGNORE INTO tag_synonyms (keyword, tag_id) VALUES (?, ?)")
-            .bind(clean)
+            .bind(&clean)
             .bind(tag_id)
             .execute(pool)
             .await
