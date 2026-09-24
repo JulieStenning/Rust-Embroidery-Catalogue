@@ -108,6 +108,34 @@
     groups.reduce((acc, g) => acc + (g.keywords ? g.keywords.length : 0), 0)
   );
 
+  // Quick Add tag and keyword lookup
+  const selectedQuickAddGroup = $derived(groups.find((g) => g.tag_id === quickAddTagId) ?? null);
+  const selectedQuickAddTag = $derived(
+    allTags.find((t) => t.id === quickAddTagId) ??
+      (selectedQuickAddGroup
+        ? {
+            id: selectedQuickAddGroup.tag_id,
+            description: selectedQuickAddGroup.tag_description,
+            tag_group: selectedQuickAddGroup.tag_group,
+          }
+        : null)
+  );
+  const quickAddExistingKeywords = $derived(selectedQuickAddGroup?.keywords ?? []);
+
+  // Parse entered words and detect overlaps
+  const quickAddTypedWords = $derived(
+    quickAddWords
+      .split(/[\s,]+/)
+      .map((w) => w.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const quickAddDuplicateWords = $derived.by(() => {
+    if (!quickAddExistingKeywords.length || !quickAddTypedWords.length) return [];
+    const existingSet = new Set(quickAddExistingKeywords.map((k) => k.keyword.toLowerCase()));
+    return Array.from(new Set(quickAddTypedWords.filter((w) => existingSet.has(w))));
+  });
+
   /** @param {SubmitEvent | MouseEvent} e */
   async function handleQuickAdd(e) {
     e.preventDefault();
@@ -286,6 +314,63 @@
         </button>
       </div>
     </form>
+
+    {#if quickAddTagId && selectedQuickAddTag}
+      <div
+        class="pt-3 border-t border-[var(--border-subtle)] space-y-2"
+        data-testid="quick-add-existing-matches"
+      >
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
+            <span>
+              Existing matches for <span class="text-[var(--text-primary)]"
+                >"{selectedQuickAddTag.description}"</span
+              >:
+            </span>
+            <span class="text-[var(--text-muted)] font-normal font-mono">
+              ({quickAddExistingKeywords.length}
+              {quickAddExistingKeywords.length === 1 ? "word" : "words"})
+            </span>
+          </div>
+          {#if quickAddDuplicateWords.length > 0}
+            <span
+              class="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"
+            >
+              ⚠️ Already added: {quickAddDuplicateWords.join(", ")}
+            </span>
+          {/if}
+        </div>
+
+        {#if quickAddExistingKeywords.length > 0}
+          <div class="flex flex-wrap gap-1.5 items-center">
+            {#each quickAddExistingKeywords as kw (kw.id)}
+              {@const isDupe = quickAddDuplicateWords.includes(kw.keyword.toLowerCase())}
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border shadow-2xs transition-all {isDupe
+                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50'
+                  : 'bg-[var(--surface-primary)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--brand-primary)]'}"
+              >
+                <span>{kw.keyword}</span>
+                <button
+                  type="button"
+                  onclick={() => handleDeleteKeyword(kw.id)}
+                  class="text-[var(--text-muted)] hover:text-red-500 rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
+                  aria-label={`Remove ${kw.keyword}`}
+                  title={`Remove ${kw.keyword}`}
+                >
+                  ✕
+                </button>
+              </span>
+            {/each}
+          </div>
+        {:else}
+          <p class="text-xs italic text-[var(--text-muted)]">
+            No word matches configured yet for "{selectedQuickAddTag.description}". Add some words
+            above to start matching automatically.
+          </p>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <!-- Search & Filter Controls -->

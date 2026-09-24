@@ -127,4 +127,82 @@ describe("TagWordMatchesView.svelte", () => {
 
     expect(commandAdapter.deleteTagSynonym).toHaveBeenCalledWith(101);
   });
+
+  it("displays existing matches in the Quick Add card when selecting a tag", async () => {
+    render(TagWordMatchesView);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Tag Word Matches" })).toBeInTheDocument();
+    });
+
+    // Initially no quick add existing matches section
+    expect(screen.queryByTestId("quick-add-existing-matches")).not.toBeInTheDocument();
+
+    // Select Animals tag in the quick add combobox
+    const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
+    await fireEvent.focus(comboboxInput);
+    await tick();
+
+    const animalsOption = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Animals"));
+    expect(animalsOption).toBeDefined();
+    await fireEvent.click(animalsOption!);
+    await tick();
+
+    // Now quick-add-existing-matches should be rendered
+    const section = screen.getByTestId("quick-add-existing-matches");
+    expect(section).toBeInTheDocument();
+    expect(section).toHaveTextContent('Existing matches for "Animals"');
+    expect(section).toHaveTextContent("frog");
+    expect(section).toHaveTextContent("bear");
+  });
+
+  it("shows duplicate warning when typing existing words in Quick Add input", async () => {
+    render(TagWordMatchesView);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Tag Word Matches" })).toBeInTheDocument();
+    });
+
+    // Select Animals tag
+    const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
+    await fireEvent.focus(comboboxInput);
+    await tick();
+
+    const animalsOption = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Animals"));
+    await fireEvent.click(animalsOption!);
+    await tick();
+
+    const wordsInput = screen.getByPlaceholderText("Enter words separated by commas...");
+    await fireEvent.input(wordsInput, { target: { value: "frog, puppy" } });
+    await tick();
+
+    expect(screen.getByText(/Already added: frog/i)).toBeInTheDocument();
+  });
+
+  it("displays empty state message when selecting a tag with no existing matches", async () => {
+    render(TagWordMatchesView);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Tag Word Matches" })).toBeInTheDocument();
+    });
+
+    // Select Floral tag (tag_id: 2 has no group in sampleGroups)
+    const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
+    await fireEvent.focus(comboboxInput);
+    await tick();
+
+    const floralOption = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Floral"));
+    await fireEvent.click(floralOption!);
+    await tick();
+
+    const section = screen.getByTestId("quick-add-existing-matches");
+    expect(section).toBeInTheDocument();
+    expect(section).toHaveTextContent('No word matches configured yet for "Floral"');
+  });
 });
