@@ -98,4 +98,26 @@ describe("SystemMaintenanceView", () => {
       "true"
     );
   });
+
+  it("disables tabs and guards clicks when busyState is active", async () => {
+    const { beginBusy, resetBusy } = await import("../../stores/busyStore");
+    beginBusy("Running backup");
+
+    const { unmount } = render(SystemMaintenanceView);
+
+    const settingsTab = screen.getByRole("tab", { name: "Settings" });
+    const backupTab = screen.getByRole("tab", { name: "Backup & Restore" });
+
+    expect(settingsTab).toHaveAttribute("aria-disabled", "true");
+    expect(settingsTab.className).toContain("opacity-50");
+
+    // Clicking while busy should prevent navigation
+    const clickEvent = new MouseEvent("click", { cancelable: true, bubbles: true });
+    backupTab.dispatchEvent(clickEvent);
+    expect(clickEvent.defaultPrevented).toBe(true);
+
+    resetBusy();
+    unmount();
+  });
 });
+

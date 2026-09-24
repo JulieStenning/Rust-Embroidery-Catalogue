@@ -14,7 +14,7 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for rust modules:
 4. For modules already listed, use HISTORY-PRESERVING updates:
    - Compare the new measurement against the module's existing row(s).
    - If an existing (historical) row is better than the new measurement in ANY one metric, KEEP that better row and INSERT a new row directly below it with the latest metrics (Line %, Function %, Region %), today's date (YYYY-MM-DD), and "[PENDING REVIEW]" in Status, so I can compare progress. Never delete a row that is better than the latest measurement on any metric.
-   - Only when the new measurement is equal-or-better than the existing row in ALL metrics, overwrite that row in place with the latest metrics and today's date (no extra row is needed). Set the status to [ACCEPTED] ans write a reason for the acceptance.
+   - Only when the new measurement is equal-or-better than the existing row in ALL metrics, overwrite that row in place with the latest metrics and today's date (no extra row is needed). Set the status to [ACCEPTED] and write a reason for the acceptance.
 5. Order rows by module including file path. When a module has multiple rows, keep them contiguous with the newest directly below its previous row.
 6. Do NOT attempt to write, modify, or generate unit tests for any files. Do not write or edit source code files—only update COVERAGE_EXCEPTIONS.md.
 
@@ -31,23 +31,47 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for svelte modules:
 
 ---
 
-Run `npm run e2e` (or `npm run e2e:coverage`) to generate end-to-end frontend CDP code coverage across all Playwright specs.
+Run `npm run e2e:coverage` (or `npm run e2e`) and update COVERAGE_EXCEPTIONS.md to reflect the current status of the Playwright E2E integration test suite.
 
-Instructions for checking Playwright E2E frontend coverage:
+Instructions for updating COVERAGE_EXCEPTIONS.md for Playwright E2E coverage:
 
-1. The test suite automatically collects Chrome DevTools Protocol (CDP) coverage across the running Tauri WebView2 application and writes reports to:
-   - Interactive HTML report: `coverage/e2e/html/index.html` (view with `npm run e2e:report` or by opening in browser).
-   - Machine-readable LCOV: `coverage/e2e/lcov.info`.
-   - Terminal summary table: printed automatically during `globalTeardown`.
-2. Review the interactive HTML report to identify UI user interaction flows, modal dialogues, or edge-case branches that are missed by unit tests.
-3. Use E2E coverage to substantiate acceptance reasons in COVERAGE_EXCEPTIONS.md when a component or route's logic is primarily glue/framework interaction (e.g., live IPC event streaming, native file dialogs, pool-swap gates) that is validated via full integration rather than unit tests.
+1. **Prerequisites & Build:**
+   - Ensure the Tauri debug application binary is freshly compiled before running E2E tests:
+     `npm run e2e:build` (runs `cargo tauri build --debug --no-bundle`).
+2. **Execution & Coverage Collection:**
+   - Run the full E2E test suite with coverage collection enabled:
+     `npm run e2e:coverage` (or `npx playwright test`).
+   - Playwright automatically attaches to the running desktop app over WebView2 Chrome DevTools Protocol (CDP) and records V8 byte-level JavaScript coverage via `monocart-coverage-reports`.
+3. **Extracting E2E View Coverage Metrics:**
+   - Read the per-view module percentages from the generated HTML reports:
+     - Root views (`MainView.svelte`, `InitialSetupView.svelte`, `DatabaseRecoveryView.svelte`): inspect `coverage/e2e/html/lib/index.html`.
+     - Sub-views (under `frontend/src/lib/views/`): inspect `coverage/e2e/html/lib/views/index.html`.
+   - Map columns: `Lines %` → Line Coverage %, `Functions %` → Function Coverage %, `Branches %` → Branch Coverage %, `Statements %` → Statement Coverage %.
+4. **Updating the E2E Section in `COVERAGE_EXCEPTIONS.md`:**
+   - Identify all Svelte view modules with Line, Function, or Branch coverage below 80% (along with modules retained for completeness).
+   - Locate the `## Frontend End-to-End Integration Coverage (Playwright CDP)` table.
+   - For all Svelte view modules, update or insert rows with:
+     - Svelte View Module (`src/lib/...`)
+     - Line Coverage %
+     - Function Coverage %
+     - Branch Coverage %
+     - Statement Coverage %
+     - Current Date (YYYY-MM-DD) — use the machine's actual current date.
+     - Status: `[ACCEPTED]` or `[PENDING REVIEW]`.
+     - Reason Accepted / Integration Notes (briefly describing the primary user journeys and integration surfaces exercised by the E2E specs).
+   - Apply history-preserving rules (rules 3-5 from the Rust instructions) to maintain comparison rows whenever prior measurements were higher in any metric.
+5. **Substantiating Unit Exceptions:**
+   - Cross-reference the E2E integration coverage with the unit-level `## Frontend (@Svelte Modules)` table in `COVERAGE_EXCEPTIONS.md` to substantiate acceptance reasons for views whose residual branch gaps (e.g., live IPC progress event streams, modal dialogues, routing transitions) are thoroughly validated by live end-to-end integration tests.
+6. **Formatting & Cleanup:**
+   - Run `npx prettier --write docs/policies/testing/COVERAGE_EXCEPTIONS.md` to ensure table alignment and markdown compliance.
 
 ---
 
-Prompt to update tests to increase coverage
-@ModuleName has a NumberHere% function/line/region coverage. Can it be improved? Use information in @/.clinerules for information on how to write the tests. Explain your reasons if the coverage should be under 100%. If you changed a test, update @/docs\policies\testing\COVERAGE_EXCEPTIONS.md with the new coverage at the end of the task.
+Prompt to update tests to increase coverage:
+@ModuleName has a NumberHere% function/line/region coverage. Can it be improved? Use information in @/.clinerules for information on how to write the tests. Explain your reasons if the coverage should be under 100%. If you changed a test, update @/docs/policies/testing/COVERAGE_EXCEPTIONS.md with the new coverage at the end of the task.
 
-For antigravity
-You can see the coverage details for @module name in [COVERAGE_EXCEPTIONS.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md). Can we improve the coverage.I don't want to add tests for the sake of it. If we can increase the coverage, please write a plan.The plan should include updating [COVERAGE_EXCEPTIONS.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) using the rules in [Coverage%20Report%20Update%20Prompts.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/Help%20for%20Developers/Coverage%20Report%20Update%20Prompts.md)
+For Antigravity:
+You can see the coverage details for @ModuleName in [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md). Can we improve the coverage? I don't want to add tests for the sake of it. If we can increase the coverage, please write a plan. The plan should include updating [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) using the rules in [Coverage Report Update Prompts.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/Help%20for%20Developers/Coverage%20Report%20Update%20Prompts.md).
 
-If we cannot improve the coverage, please update [COVERAGE_EXCEPTIONS.md](file;file:///d%3A/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) to say ACCEPTED and add the reason why.
+If we cannot improve the coverage, please update [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) to say [ACCEPTED] and add the reason why.
+

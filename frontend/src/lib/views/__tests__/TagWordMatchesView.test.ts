@@ -3,7 +3,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/svelte";
 import { tick } from "svelte";
 import TagWordMatchesView from "../TagWordMatchesView.svelte";
 import * as commandAdapter from "../../api/commandAdapter";
@@ -34,12 +34,19 @@ describe("TagWordMatchesView.svelte", () => {
       ],
     },
     {
+      tag_id: 2,
+      tag_description: "Floral",
+      tag_group: "image",
+      keywords: [],
+    },
+    {
       tag_id: 3,
       tag_description: "Dense Fill",
       tag_group: "stitching",
       keywords: [{ id: 103, keyword: "heavy" }],
     },
   ];
+
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -206,29 +213,141 @@ describe("TagWordMatchesView.svelte", () => {
     expect(section).toHaveTextContent('No word matches configured yet for "Floral"');
   });
 
-  it("disables words input until a tag is selected in Quick Add", async () => {
+  it("submits Quick Add form and adds word matches", async () => {
     render(TagWordMatchesView);
 
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Tag Word Matches" })).toBeInTheDocument();
-    });
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
 
-    const wordsInput = screen.getByPlaceholderText("Select a tag first...");
-    expect(wordsInput).toBeDisabled();
-
-    // Select Animals tag via combobox typing + Tab
+    // Select Animals tag
     const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
     await fireEvent.focus(comboboxInput);
-    await fireEvent.input(comboboxInput, { target: { value: "animals" } });
     await tick();
 
-    await fireEvent.keyDown(comboboxInput, { key: "Tab" });
+    const animalsOption = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Animals"));
+    await fireEvent.click(animalsOption!);
     await tick();
 
-    expect(wordsInput).not.toBeDisabled();
-    expect(wordsInput).toHaveAttribute(
-      "placeholder",
-      "Enter words separated by commas (e.g. frog, toad, newt)..."
-    );
+    const wordsInput = screen.getByPlaceholderText(/Enter words separated by commas/i);
+    await fireEvent.input(wordsInput, { target: { value: "lion, tiger" } });
+    await tick();
+
+    const submitBtn = screen.getByRole("button", { name: "Add Match" });
+    await fireEvent.click(submitBtn);
+    await tick();
+
+    expect(commandAdapter.addTagSynonyms).toHaveBeenCalledWith(1, "lion, tiger");
+  });
+
+  it("handles quick add error when API fails", async () => {
+    vi.mocked(commandAdapter.addTagSynonyms).mockResolvedValueOnce({
+      source: "rust",
+      persisted: false,
+      error: "Failed to add",
+    });
+
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
+    await fireEvent.focus(comboboxInput);
+    await tick();
+
+    const animalsOption = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Animals"));
+    await fireEvent.click(animalsOption!);
+    await tick();
+
+    const wordsInput = screen.getByPlaceholderText(/Enter words separated by commas/i);
+    await fireEvent.input(wordsInput, { target: { value: "lion" } });
+    await tick();
+
+    const submitBtn = screen.getByRole("button", { name: "Add Match" });
+    await fireEvent.click(submitBtn);
+    await tick();
+
+    expect(commandAdapter.addTagSynonyms).toHaveBeenCalledWith(1, "lion");
+  });
+
+  it("submits inline add for a specific tag card", async () => {
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const card = screen.getByTestId("tag-match-card-1");
+    const inlineInput = within(card).getByPlaceholderText(/\+ Add word/i);
+    await fireEvent.input(inlineInput, { target: { value: "leopard" } });
+    await tick();
+
+    const addBtn = within(card).getByRole("button", { name: "Add" });
+    await fireEvent.click(addBtn);
+    await tick();
+
+    expect(commandAdapter.addTagSynonyms).toHaveBeenCalledWith(1, "leopard");
+  });
+
+  it("clears all matches for a tag when clicking Clear All", async () => {
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const card = screen.getByTestId("tag-match-card-1");
+    const clearBtn = within(card).getByRole("button", { name: "Clear All" });
+    await fireEvent.click(clearBtn);
+    await tick();
+
+    expect(commandAdapter.deleteAllTagSynonymsForTag).toHaveBeenCalledWith(1);
+  });
+
+  it("opens the modal when clicking Manage or Add Matches", async () => {
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const addMatchesBtn = screen.getByRole("button", { name: /Add Matches/i });
+    await fireEvent.click(addMatchesBtn);
+    await tick();
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    const closeBtn = screen.getByRole("button", { name: "Done" });
+    await fireEvent.click(closeBtn);
+    await tick();
+
+    const card = screen.getByTestId("tag-match-card-1");
+    const manageBtn = within(card).getByRole("button", { name: "Manage" });
+    await fireEvent.click(manageBtn);
+    await tick();
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("clears search query when clicking clear search button", async () => {
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const filterInput = screen.getByPlaceholderText(/filter tags or keywords/i);
+    await fireEvent.input(filterInput, { target: { value: "heavy" } });
+    await tick();
+
+    expect(screen.getByText("Dense Fill")).toBeInTheDocument();
+
+    const clearSearchBtn = screen.getByRole("button", { name: "✕" });
+    await fireEvent.click(clearSearchBtn);
+    await tick();
+
+    expect(filterInput).toHaveValue("");
+    expect(screen.getByText("Animals")).toBeInTheDocument();
+  });
+
+  it("toggles with-matches-only filter to show tags without matches", async () => {
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const toggle = screen.getByLabelText(/With matches only/i);
+    await fireEvent.click(toggle);
+    await tick();
+
+    expect(screen.getByText("Floral")).toBeInTheDocument();
   });
 });
+

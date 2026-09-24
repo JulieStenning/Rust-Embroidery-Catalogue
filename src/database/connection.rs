@@ -244,4 +244,42 @@ mod tests {
         // No database file should have been created.
         assert!(!tmp.exists(), "tmp dir should not have been created");
     }
+
+    #[tokio::test]
+    async fn configure_pragmas_returns_error_when_pool_closed() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("create pool");
+        pool.close().await;
+
+        let res = configure_pragmas(&pool, "sqlite::memory:").await;
+        assert!(res.is_err());
+        match res {
+            Err(ConnectionError::BusyTimeout(msg)) => {
+                assert!(msg.contains("Failed to set SQLite busy timeout"));
+            }
+            other => panic!("expected BusyTimeout error, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn read_auto_vacuum_mode_returns_error_when_pool_closed() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("create pool");
+        pool.close().await;
+
+        let res = read_auto_vacuum_mode(&pool).await;
+        assert!(res.is_err());
+        match res {
+            Err(ConnectionError::BusyTimeout(msg)) => {
+                assert!(msg.contains("Failed to read auto_vacuum mode"));
+            }
+            other => panic!("expected BusyTimeout error, got {:?}", other),
+        }
+    }
 }

@@ -213,4 +213,203 @@ describe("DatabaseRecoveryView.svelte", () => {
     expect(setConfiguredDataRootMock).toHaveBeenCalledWith("D:\\FoundCatalogue");
     expect(screen.getByRole("dialog", { name: "Restart required" })).toBeInTheDocument();
   });
+
+  it("handles browse flow when a valid folder is selected", async () => {
+    browseSettingsDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      path: "D:\\FoundCatalogue",
+      error: null,
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-browse"));
+    await tick();
+
+    expect(browseSettingsDataRootMock).toHaveBeenCalledWith("F:\\OldCatalogue");
+    expect(validateDatabasePathMock).toHaveBeenCalledWith("D:\\FoundCatalogue");
+    expect(setConfiguredDataRootMock).toHaveBeenCalledWith("D:\\FoundCatalogue");
+    expect(screen.getByRole("dialog", { name: "Restart required" })).toBeInTheDocument();
+  });
+
+  it("does nothing when browse is cancelled without selecting a path", async () => {
+    browseSettingsDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      path: null,
+      error: null,
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-browse"));
+    await tick();
+
+    expect(validateDatabasePathMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Restart required" })).not.toBeInTheDocument();
+  });
+
+  it("shows an error when browse dialog fails", async () => {
+    browseSettingsDataRootMock.mockRejectedValueOnce(new Error("Native picker error"));
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-browse"));
+    await tick();
+
+    const errorBox = screen.getByTestId("recovery-error");
+    expect(errorBox).toHaveTextContent("Error: Native picker error");
+  });
+
+  it("shows validation message when selected database path is invalid", async () => {
+    validateDatabasePathMock.mockResolvedValueOnce({
+      source: "rust",
+      validation: {
+        valid: false,
+        data_root: "D:\\EmptyFolder",
+        database_path: "D:\\EmptyFolder\\Database\\EmbroideryCatalogue.db",
+        embroidery_dir: "D:\\EmptyFolder\\MachineEmbroideryDesigns",
+        embroidery_dir_exists: false,
+        error: "No catalogue database found at this location.",
+      },
+    });
+    browseSettingsDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      path: "D:\\EmptyFolder",
+      error: null,
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-browse"));
+    await tick();
+
+    const validationBox = screen.getByTestId("recovery-validation");
+    expect(validationBox).toHaveTextContent("No catalogue database found at this location.");
+    expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
+  });
+
+  it("shows warning when database exists but embroidery directory is missing", async () => {
+    validateDatabasePathMock.mockResolvedValueOnce({
+      source: "rust",
+      validation: {
+        valid: true,
+        data_root: "D:\\MissingEmbroideryDir",
+        database_path: "D:\\MissingEmbroideryDir\\Database\\EmbroideryCatalogue.db",
+        embroidery_dir: "D:\\MissingEmbroideryDir\\MachineEmbroideryDesigns",
+        embroidery_dir_exists: false,
+      },
+    });
+    browseSettingsDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      path: "D:\\MissingEmbroideryDir",
+      error: null,
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-browse"));
+    await tick();
+
+    const validationBox = screen.getByTestId("recovery-validation");
+    expect(validationBox).toHaveTextContent(
+      "Database found, but the MachineEmbroideryDesigns folder is missing"
+    );
+    expect(setConfiguredDataRootMock).toHaveBeenCalledWith("D:\\MissingEmbroideryDir");
+    expect(screen.getByRole("dialog", { name: "Restart required" })).toBeInTheDocument();
+  });
+
+  it("shows error when setConfiguredDataRoot fails during validation", async () => {
+    setConfiguredDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      persisted: false,
+      error: "Permission denied writing config.json",
+    });
+    browseSettingsDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      path: "D:\\FoundCatalogue",
+      error: null,
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-browse"));
+
+    await waitFor(() => {
+      const errorBox = screen.getByTestId("recovery-error");
+      expect(errorBox).toHaveTextContent("Permission denied writing config.json");
+    });
+  });
+
+  it("executes restartApplication when restart button is clicked", async () => {
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-create-new"));
+    await tick();
+    await fireEvent.click(screen.getByTestId("recovery-create-confirm"));
+    await tick();
+
+    expect(screen.getByRole("dialog", { name: "Restart required" })).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId("recovery-restart-now"));
+    await tick();
+
+    expect(restartApplicationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows error message when restartApplication fails", async () => {
+    restartApplicationMock.mockResolvedValueOnce({
+      source: "rust",
+      restarted: false,
+      error: "Process spawn failed.",
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-create-new"));
+    await tick();
+    await fireEvent.click(screen.getByTestId("recovery-create-confirm"));
+    await tick();
+
+    await fireEvent.click(screen.getByTestId("recovery-restart-now"));
+    await tick();
+
+    expect(screen.queryByRole("dialog", { name: "Restart required" })).not.toBeInTheDocument();
+    const errorBox = screen.getByTestId("recovery-error");
+    expect(errorBox).toHaveTextContent("Process spawn failed.");
+  });
+
+  it("shows error if create location browse throws", async () => {
+    browseSettingsDataRootMock.mockRejectedValueOnce(new Error("Picker access denied"));
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-create-new"));
+    await tick();
+
+    await fireEvent.click(screen.getByTestId("recovery-new-location-browse"));
+    await tick();
+
+    const errorBox = screen.getByTestId("recovery-create-error");
+    expect(errorBox).toHaveTextContent("Error: Picker access denied");
+  });
+
+  it("shows error if setConfiguredDataRoot fails after successful seed", async () => {
+    setConfiguredDataRootMock.mockResolvedValueOnce({
+      source: "rust",
+      persisted: false,
+      error: "Could not write config file",
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-create-new"));
+    await tick();
+
+    await fireEvent.click(screen.getByTestId("recovery-create-confirm"));
+    await tick();
+
+    const errorBox = screen.getByTestId("recovery-create-error");
+    expect(errorBox).toHaveTextContent("Could not write config file");
+  });
 });
+

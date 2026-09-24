@@ -314,3 +314,56 @@ async fn check_and_schedule_maintenance_skips_when_below_threshold() {
     let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
     assert_eq!(res, Ok(false));
 }
+
+#[tokio::test]
+async fn check_and_schedule_maintenance_returns_err_on_closed_pool() {
+    let pool = test_pool().await;
+    pool.close().await;
+    let running = Arc::new(AtomicBool::new(false));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let app = tauri::test::mock_app();
+    let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
+    assert!(res.is_err());
+}
+
+#[tokio::test]
+async fn check_and_schedule_maintenance_triggers_when_threshold_exceeded() {
+    let pool = test_pool().await;
+    let filler = "x".repeat(4096);
+    let mut tx = pool.begin().await.expect("begin tx");
+    for i in 0..5200 {
+        sqlx::query("INSERT INTO items (payload) VALUES (?)")
+            .bind(format!("item-{i}-{filler}"))
+            .execute(&mut *tx)
+            .await
+            .expect("insert item");
+    }
+    tx.commit().await.expect("commit tx");
+
+    sqlx::query("DELETE FROM items")
+        .execute(&pool)
+        .await
+        .expect("delete items");
+
+    let running = Arc::new(AtomicBool::new(false));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let app = tauri::test::mock_app();
+    let res = check_and_schedule_maintenance(
+        pool.clone(),
+        running.clone(),
+        shutdown.clone(),
+        app.handle().clone(),
+    )
+    .await;
+    assert_eq!(res, Ok(true));
+
+    let mut retries = 0;
+    while running.load(Ordering::SeqCst) && retries < 50 {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        retries += 1;
+    }
+    assert!(
+        !running.load(Ordering::SeqCst),
+        "maintenance task should have finished"
+    );
+}
