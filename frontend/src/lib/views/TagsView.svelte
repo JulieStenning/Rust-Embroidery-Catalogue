@@ -7,6 +7,7 @@
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { addToast } from "../stores/toastStore.js";
   import TagTable from "../components/TagTable.svelte";
+  import TagWordMatchModal from "../components/TagWordMatchModal.svelte";
 
   /** @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary */
   /** @typedef {{ id: number, description: string, tag_group: string, design_count: number, is_system?: boolean }} TagRow */
@@ -22,6 +23,18 @@
   let adminImageTagsOpen = $state(true);
   let adminStitchingTagsOpen = $state(true);
   let tagsLoading = $state(false);
+
+  // Modal State
+  let modalOpen = $state(false);
+  /** @type {number | null} */
+  let modalTagId = $state(null);
+  let modalTagDescription = $state("");
+  let modalTagGroup = $state("");
+
+  /** @type {{ id: number, description: string, tag_group: string } | null} */
+  let recentlyCreatedTag = $state(null);
+
+  const allTags = $derived([...imageTags, ...stitchingTags]);
 
   let canAddTag = $derived(newTagDescription.trim().length > 0);
   let canClearTagForm = $derived(newTagDescription.length > 0);
@@ -79,6 +92,14 @@
       return;
     }
 
+    if (result.item) {
+      recentlyCreatedTag = {
+        id: result.item.id,
+        description: result.item.description,
+        tag_group: result.item.tag_group || newTagGroup,
+      };
+    }
+
     newTagDescription = "";
     tagDescriptionInput?.focus();
     addToast("Tag added.", "success");
@@ -87,7 +108,16 @@
 
   function clearNewTagForm() {
     newTagDescription = "";
+    recentlyCreatedTag = null;
     tagDescriptionInput?.focus();
+  }
+
+  /** @param {TagRow} tag */
+  function handleOpenMatches(tag) {
+    modalTagId = tag.id;
+    modalTagDescription = tag.description;
+    modalTagGroup = tag.tag_group || "";
+    modalOpen = true;
   }
 
   /** @param {string} panel @param {Event} event */
@@ -126,13 +156,23 @@
 </script>
 
 <section class="admin-page space-y-4">
-  <h1 class="ui-page-title admin-title text-2xl font-bold">Manage Tags</h1>
-  <p class="text-sm text-[var(--text-muted)]">
-    Use Image tags for subject categories and Stitching tags for technique or style.
-  </p>
+  <div class="flex items-center justify-between flex-wrap gap-2">
+    <div>
+      <h1 class="ui-page-title admin-title text-2xl font-bold">Manage Tags</h1>
+      <p class="text-sm text-[var(--text-muted)]">
+        Use Image tags for subject categories and Stitching tags for technique or style.
+      </p>
+    </div>
+    <a
+      href="#/admin/data/tag-matches"
+      class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-hover)] text-[var(--text-brand)] transition-colors inline-flex items-center gap-1.5"
+    >
+      <span>🔤 Tag Word Matches Hub</span>
+    </a>
+  </div>
 
-  <div class="admin-card rounded shadow p-5 max-w-3xl border">
-    <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new tag</h2>
+  <div class="admin-card rounded shadow p-5 max-w-3xl border space-y-3">
+    <h2 class="text-sm font-semibold text-[var(--text-primary)]">Add new tag</h2>
     <form class="flex flex-wrap gap-3 items-end" onsubmit={addTag}>
       <div>
         <label
@@ -173,6 +213,28 @@
         disabled={!canClearTagForm}>Clear</button
       >
     </form>
+
+    {#if recentlyCreatedTag}
+      <div
+        class="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs text-indigo-900"
+      >
+        <span>Tag <strong>"{recentlyCreatedTag.description}"</strong> added successfully.</span>
+        <button
+          type="button"
+          class="font-semibold underline hover:text-indigo-700"
+          onclick={() => {
+            if (recentlyCreatedTag) {
+              modalTagId = recentlyCreatedTag.id;
+              modalTagDescription = recentlyCreatedTag.description;
+              modalTagGroup = recentlyCreatedTag.tag_group;
+              modalOpen = true;
+            }
+          }}
+        >
+          + Add Word Matches for this tag
+        </button>
+      </div>
+    {/if}
   </div>
 
   <details
@@ -197,7 +259,12 @@
       </svg>
       <h2 class="text-sm font-bold text-green-800 tracking-wide">Image Tags</h2>
     </summary>
-    <TagTable tags={imageTags} group="image" onRefresh={loadTags} />
+    <TagTable
+      tags={imageTags}
+      group="image"
+      onRefresh={loadTags}
+      onOpenMatches={handleOpenMatches}
+    />
   </details>
 
   <details
@@ -222,6 +289,22 @@
       </svg>
       <h2 class="text-sm font-bold text-blue-800 tracking-wide">Stitching Tags</h2>
     </summary>
-    <TagTable tags={stitchingTags} group="stitching" onRefresh={loadTags} />
+    <TagTable
+      tags={stitchingTags}
+      group="stitching"
+      onRefresh={loadTags}
+      onOpenMatches={handleOpenMatches}
+    />
   </details>
 </section>
+
+<!-- Word Matches Modal -->
+<TagWordMatchModal
+  open={modalOpen}
+  tagId={modalTagId}
+  tagDescription={modalTagDescription}
+  tagGroup={modalTagGroup}
+  {allTags}
+  onClose={() => (modalOpen = false)}
+  onMatchesChanged={loadTags}
+/>

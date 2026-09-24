@@ -11,8 +11,8 @@
    * @typedef {{ id: number, description: string, design_count: number, is_system?: boolean }} TagRow
    */
 
-  /** @type {{ tags: TagRow[], group: string, onRefresh: (force?: boolean) => Promise<void> }} */
-  let { tags = [], group = "", onRefresh = async () => {} } = $props();
+  /** @type {{ tags: TagRow[], group: string, onRefresh: (force?: boolean) => Promise<void>, onOpenMatches?: (tag: TagRow) => void }} */
+  let { tags = [], group = "", onRefresh = async () => {}, onOpenMatches = () => {} } = $props();
 
   /** @type {number | null} */
   let editingTagId = $state(null);
@@ -174,11 +174,25 @@
                   Cancel
                 </button>
               {:else if isSystemTag(tag)}
+                <button
+                  type="button"
+                  class="text-[var(--text-secondary)] hover:text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                  onclick={() => onOpenMatches(tag)}
+                >
+                  Matches
+                </button>
                 <span
                   class="text-xs text-[var(--text-dim)] select-none"
                   title="System tags cannot be edited or deleted.">Locked</span
                 >
               {:else}
+                <button
+                  type="button"
+                  class="text-[var(--text-secondary)] hover:text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                  onclick={() => onOpenMatches(tag)}
+                >
+                  Matches
+                </button>
                 <button
                   type="button"
                   class="text-[var(--text-brand)] hover:underline text-xs font-semibold"

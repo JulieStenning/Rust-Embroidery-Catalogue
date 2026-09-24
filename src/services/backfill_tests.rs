@@ -1771,7 +1771,8 @@ async fn compute_design_tagging_path_rule_match_returns_suggestion() {
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
     };
-    let result = compute_design_tagging(&pool, 1, &valid, &mode_options, None)
+    let synonyms = HashMap::new();
+    let result = compute_design_tagging(&pool, 1, &valid, &synonyms, &mode_options, None)
         .await
         .unwrap();
 
@@ -1805,6 +1806,7 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
     map.insert("Roses".to_string(), 5);
     map.insert("Don't Know".to_string(), 3);
     let valid: HashSet<String> = map.keys().cloned().collect();
+    let synonyms = HashMap::new();
 
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
@@ -1812,7 +1814,7 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
     };
-    let result = compute_design_tagging(&pool, 10, &valid, &mode_options, None)
+    let result = compute_design_tagging(&pool, 10, &valid, &synonyms, &mode_options, None)
         .await
         .unwrap();
 
@@ -1827,13 +1829,14 @@ async fn compute_design_tagging_path_rule_falls_to_visual_ai() {
 async fn compute_design_tagging_nonexistent_design_returns_none() {
     let pool = make_test_pool().await;
     let valid = HashSet::new();
+    let synonyms = HashMap::new();
     let mode_options = TaggingModeOptions {
         path_rule_enabled: true,
         visual_ai_enabled: false,
         visual_ai_delay_seconds: 0.0,
         visual_ai_network: false,
     };
-    let result = compute_design_tagging(&pool, 999, &valid, &mode_options, None).await;
+    let result = compute_design_tagging(&pool, 999, &valid, &synonyms, &mode_options, None).await;
     assert!(matches!(result, Ok(ref r) if r.descriptions.is_empty()));
 }
 

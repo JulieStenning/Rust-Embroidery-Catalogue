@@ -1167,6 +1167,9 @@ async fn persist_bulk_import_confirm_wire(
         .into_iter()
         .map(|(tag_id, description)| (description, tag_id))
         .collect();
+    let tag_synonyms_map = crate::services::tag_synonyms::get_synonym_lookup_map(pool)
+        .await
+        .unwrap_or_default();
     let stitching_tag_lookup = load_stitching_tag_lookup(pool).await?;
     let valid_stitching_descriptions: HashSet<String> =
         stitching_tag_lookup.keys().cloned().collect();
@@ -1367,6 +1370,7 @@ async fn persist_bulk_import_confirm_wire(
                 &filename,
                 &stored_filepath,
                 &valid_descriptions,
+                &tag_synonyms_map,
             );
 
             let mut stitching_tag_ids: Vec<i64> = Vec::new();

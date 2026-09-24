@@ -125,6 +125,7 @@ pub(crate) async fn compute_tags_for_input(
     filepath: &str,
     image_data: Option<&[u8]>,
     valid_descriptions: &HashSet<String>,
+    synonyms: &HashMap<String, Vec<String>>,
     mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
 ) -> Result<TagComputeResult, AppError> {
@@ -138,6 +139,7 @@ pub(crate) async fn compute_tags_for_input(
             filename,
             filepath,
             valid_descriptions,
+            synonyms,
         ));
     }
 
@@ -457,6 +459,7 @@ mod tests {
     async fn compute_tags_for_input_path_rule_only() {
         let mut valid = HashSet::new();
         valid.insert("Flowers".to_string());
+        let synonyms = HashMap::new();
         let opts = TaggingModeOptions {
             path_rule_enabled: true,
             visual_ai_enabled: false,
@@ -469,6 +472,7 @@ mod tests {
             "Flowers/rose.pes",
             None,
             &valid,
+            &synonyms,
             &opts,
             None,
         )

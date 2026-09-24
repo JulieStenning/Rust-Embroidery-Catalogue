@@ -7,6 +7,8 @@ import type {
   AdapterPersistedResponse,
   AdapterListResponse,
   AdminTagSummary,
+  AdminTagSynonymGroup,
+  AdminTagSynonymKeyword,
   BrowseTagOption,
 } from "../types/ipc";
 
@@ -251,6 +253,95 @@ export async function updateTag(
 export async function deleteTag(tagId: number | string): Promise<AdapterPersistedResponse> {
   try {
     await invokeLoose("delete_tag", { tagId: Number(tagId) });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
+ * List all tags and their configured word matches grouped by tag.
+ */
+export async function listTagSynonymsGrouped(): Promise<AdapterListResponse<AdminTagSynonymGroup>> {
+  try {
+    const groups = await invokeLoose<AdminTagSynonymGroup[]>("list_tag_synonyms_grouped");
+    if (Array.isArray(groups)) {
+      return {
+        items: groups.map((g) => ({
+          tag_id: Number(g?.tag_id),
+          tag_description: String(g?.tag_description || ""),
+          tag_group: g?.tag_group == null ? null : String(g.tag_group),
+          keywords: Array.isArray(g?.keywords)
+            ? g.keywords.map((k) => ({
+                id: Number(k?.id),
+                keyword: String(k?.keyword || ""),
+              }))
+            : [],
+        })),
+        source: "rust",
+      };
+    }
+    return { items: [], source: "rust", error: "Unexpected payload for tag synonyms." };
+  } catch (error) {
+    return { items: [], source: "mock", error: String(error) };
+  }
+}
+
+/**
+ * Add word matches for a specific tag.
+ * @param {number | string} tagId
+ * @param {string} wordsInput
+ */
+export async function addTagSynonyms(
+  tagId: number | string,
+  wordsInput: string
+): Promise<AdapterPersistedItemResponse<AdminTagSynonymKeyword[]>> {
+  try {
+    const keywords = await invokeLoose<AdminTagSynonymKeyword[]>("add_tag_synonyms", {
+      request: {
+        tag_id: Number(tagId),
+        words_input: wordsInput,
+      },
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      item: Array.isArray(keywords)
+        ? keywords.map((k) => ({
+            id: Number(k?.id),
+            keyword: String(k?.keyword || ""),
+          }))
+        : [],
+    };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
+ * Delete a single word match by synonym ID.
+ * @param {number | string} synonymId
+ */
+export async function deleteTagSynonym(
+  synonymId: number | string
+): Promise<AdapterPersistedResponse> {
+  try {
+    await invokeLoose("delete_tag_synonym", { synonymId: Number(synonymId) });
+    return { source: "rust", persisted: true };
+  } catch (error) {
+    return { source: "mock", persisted: false, error: String(error) };
+  }
+}
+
+/**
+ * Delete all word matches for a specific tag.
+ * @param {number | string} tagId
+ */
+export async function deleteAllTagSynonymsForTag(
+  tagId: number | string
+): Promise<AdapterPersistedResponse> {
+  try {
+    await invokeLoose("delete_all_tag_synonyms_for_tag", { tagId: Number(tagId) });
     return { source: "rust", persisted: true };
   } catch (error) {
     return { source: "mock", persisted: false, error: String(error) };

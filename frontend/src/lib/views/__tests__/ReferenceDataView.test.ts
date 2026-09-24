@@ -13,6 +13,10 @@ vi.mock("../TagsView.svelte", async () => {
   const { default: C } = await import("./__mocks__/hubs/ReferenceDataTags.svelte");
   return { default: C };
 });
+vi.mock("../TagWordMatchesView.svelte", async () => {
+  const { default: C } = await import("./__mocks__/hubs/ReferenceDataTagMatches.svelte");
+  return { default: C };
+});
 vi.mock("../AdminSourcesView.svelte", async () => {
   const { default: C } = await import("./__mocks__/hubs/ReferenceDataSources.svelte");
   return { default: C };
@@ -33,7 +37,7 @@ describe("ReferenceDataView", () => {
     window.location.hash = "#/admin/data/designers";
   });
 
-  it("renders the four sub-tab links with the canonical URLs", async () => {
+  it("renders the five sub-tab links with the canonical URLs", async () => {
     render(ReferenceDataView);
 
     expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
@@ -42,6 +46,10 @@ describe("ReferenceDataView", () => {
       "#/admin/data/designers"
     );
     expect(screen.getByRole("tab", { name: "Tags" })).toHaveAttribute("href", "#/admin/data/tags");
+    expect(screen.getByRole("tab", { name: "Word Matches" })).toHaveAttribute(
+      "href",
+      "#/admin/data/tag-matches"
+    );
     expect(screen.getByRole("tab", { name: "Sources" })).toHaveAttribute(
       "href",
       "#/admin/data/sources"
@@ -69,6 +77,15 @@ describe("ReferenceDataView", () => {
       expect(screen.getByTestId("rd-tags")).toBeInTheDocument();
     });
     expect(screen.getByRole("tab", { name: "Tags" })).toHaveAttribute("aria-selected", "true");
+
+    setHash("#/admin/data/tag-matches");
+    await waitFor(() => {
+      expect(screen.getByTestId("rd-tag-matches")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("tab", { name: "Word Matches" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
   });
 
   it("switches children when the hash URL changes between sub-tabs", async () => {

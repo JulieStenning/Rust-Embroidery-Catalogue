@@ -5,6 +5,7 @@
   import { onMount, onDestroy } from "svelte";
   import AdminDesignersView from "./AdminDesignersView.svelte";
   import TagsView from "./TagsView.svelte";
+  import TagWordMatchesView from "./TagWordMatchesView.svelte";
   import AdminSourcesView from "./AdminSourcesView.svelte";
   import AdminHoopsView from "./AdminHoopsView.svelte";
   import { parseReferenceDataTab } from "../utils/routing.js";
@@ -19,6 +20,7 @@
   const TABS = [
     { id: "designers", label: "Designers", route: "#/admin/data/designers" },
     { id: "tags", label: "Tags", route: "#/admin/data/tags" },
+    { id: "tag-matches", label: "Word Matches", route: "#/admin/data/tag-matches" },
     { id: "sources", label: "Sources", route: "#/admin/data/sources" },
     { id: "hoops", label: "Hoops", route: "#/admin/data/hoops" },
   ];
@@ -91,6 +93,8 @@
     <AdminDesignersView />
   {:else if activeTab === "tags"}
     <TagsView />
+  {:else if activeTab === "tag-matches"}
+    <TagWordMatchesView />
   {:else if activeTab === "sources"}
     <AdminSourcesView />
   {:else if activeTab === "hoops"}

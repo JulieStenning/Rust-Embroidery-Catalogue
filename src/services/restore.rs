@@ -533,6 +533,7 @@ enum SingleImport {
 struct ImportTaggingContext {
     valid_descriptions: HashSet<String>,
     description_to_tag_id: HashMap<String, i64>,
+    synonyms: HashMap<String, Vec<String>>,
     valid_stitching_descriptions: HashSet<String>,
     stitching_tag_lookup: HashMap<String, i64>,
     default_stitching_tag_id: Option<i64>,
@@ -550,6 +551,10 @@ impl ImportTaggingContext {
             tag_rows.iter().map(|(_, desc)| desc.clone()).collect();
         let description_to_tag_id: HashMap<String, i64> =
             tag_rows.into_iter().map(|(id, desc)| (desc, id)).collect();
+
+        let synonyms = crate::services::tag_synonyms::get_synonym_lookup_map(pool)
+            .await
+            .unwrap_or_default();
 
         let stitching_rows: Vec<(i64, String)> = sqlx::query_as(
             "SELECT id, description FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching'",
@@ -577,6 +582,7 @@ impl ImportTaggingContext {
         Self {
             valid_descriptions,
             description_to_tag_id,
+            synonyms,
             valid_stitching_descriptions,
             stitching_tag_lookup,
             default_stitching_tag_id,
@@ -670,6 +676,7 @@ async fn import_single_design(
         &filename,
         &stored_filepath,
         &tagging_ctx.valid_descriptions,
+        &tagging_ctx.synonyms,
     );
     for description in &matched_descriptions {
         if let Some(tag_id) = tagging_ctx.description_to_tag_id.get(description) {

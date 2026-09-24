@@ -62,6 +62,20 @@ async fn test_pool() -> SqlitePool {
 
     sqlx::query(
         r#"
+			CREATE TABLE tag_synonyms (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				keyword VARCHAR(100) NOT NULL COLLATE NOCASE,
+				tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+				CONSTRAINT uq_keyword_tag UNIQUE(keyword, tag_id)
+			);
+			"#,
+    )
+    .execute(&pool)
+    .await
+    .expect("failed to create tag_synonyms table");
+
+    sqlx::query(
+        r#"
 			CREATE TABLE hoops (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				name VARCHAR(100) NOT NULL UNIQUE,
@@ -2222,4 +2236,56 @@ async fn command_wrappers_hoop_lifecycle() {
         .await
         .expect("delete hoop via command");
     assert_eq!(list_hoops(app.state::<AppState>()).await.unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn command_wrappers_tag_synonyms_lifecycle() {
+    let pool = test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+
+    let tag = create_tag(
+        app.state::<AppState>(),
+        CreateTagRequest {
+            description: "Animals".into(),
+            tag_group: "image".into(),
+        },
+    )
+    .await
+    .expect("create tag");
+
+    let keywords = add_tag_synonyms(
+        app.state::<AppState>(),
+        CreateTagSynonymsRequest {
+            tag_id: tag.id,
+            words_input: "frog, toad, newt".into(),
+        },
+    )
+    .await
+    .expect("add synonyms");
+    assert_eq!(keywords.len(), 3);
+
+    let groups = list_tag_synonyms_grouped(app.state::<AppState>())
+        .await
+        .expect("list grouped");
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].keywords.len(), 3);
+
+    delete_tag_synonym(app.state::<AppState>(), keywords[0].id)
+        .await
+        .expect("delete single");
+
+    let groups_after_one = list_tag_synonyms_grouped(app.state::<AppState>())
+        .await
+        .expect("list grouped");
+    assert_eq!(groups_after_one[0].keywords.len(), 2);
+
+    delete_all_tag_synonyms_for_tag(app.state::<AppState>(), tag.id)
+        .await
+        .expect("delete all");
+
+    let groups_after_all = list_tag_synonyms_grouped(app.state::<AppState>())
+        .await
+        .expect("list grouped");
+    assert_eq!(groups_after_all[0].keywords.len(), 0);
 }

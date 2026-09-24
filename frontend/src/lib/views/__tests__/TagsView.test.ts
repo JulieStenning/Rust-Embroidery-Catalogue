@@ -3,7 +3,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/svelte";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/svelte";
 import TagsView from "../TagsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -324,7 +324,10 @@ describe("TagsView", () => {
     // No Edit or Delete button should exist within the system tag row.
     const crossStitchRow = screen.getByText("Cross Stitch").closest("tr");
     expect(crossStitchRow).not.toBeNull();
-    expect(crossStitchRow!.querySelectorAll("button").length).toBe(0);
+    expect(within(crossStitchRow!).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(
+      within(crossStitchRow!).queryByRole("button", { name: "Delete" })
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 

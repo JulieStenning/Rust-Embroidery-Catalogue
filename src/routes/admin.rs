@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::services::admin as admin_service;
+use crate::services::tag_synonyms as tag_synonyms_service;
 use crate::AppState;
 use sqlx::SqlitePool;
 use tauri::State;
@@ -10,6 +11,9 @@ pub use crate::services::admin::{
     AdminDesigner, AdminHoop, AdminSource, AdminTag, CreateDesignerRequest, CreateHoopRequest,
     CreateSourceRequest, CreateTagRequest, SetTagGroupRequest, UpdateDesignerRequest,
     UpdateHoopRequest, UpdateSourceRequest, UpdateTagRequest,
+};
+pub use crate::services::tag_synonyms::{
+    CreateTagSynonymsRequest, TagSynonymGroup, TagSynonymItem, TagSynonymKeyword,
 };
 
 #[cfg(test)]
@@ -338,6 +342,70 @@ async fn delete_hoop_with_pool(pool: &SqlitePool, hoop_id: i64) -> Result<(), St
         .await
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+pub async fn list_tag_synonyms_grouped(
+    state: State<'_, AppState>,
+) -> Result<Vec<TagSynonymGroup>, String> {
+    list_tag_synonyms_grouped_with_pool(&state.db_pool()?).await
+}
+
+pub async fn list_tag_synonyms_grouped_with_pool(
+    pool: &SqlitePool,
+) -> Result<Vec<TagSynonymGroup>, String> {
+    tag_synonyms_service::list_tag_synonyms_grouped(pool)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn add_tag_synonyms(
+    state: State<'_, AppState>,
+    request: CreateTagSynonymsRequest,
+) -> Result<Vec<TagSynonymKeyword>, String> {
+    add_tag_synonyms_with_pool(&state.db_pool()?, request).await
+}
+
+pub async fn add_tag_synonyms_with_pool(
+    pool: &SqlitePool,
+    request: CreateTagSynonymsRequest,
+) -> Result<Vec<TagSynonymKeyword>, String> {
+    tag_synonyms_service::add_tag_synonyms(pool, request.tag_id, &request.words_input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_tag_synonym(state: State<'_, AppState>, synonym_id: i64) -> Result<(), String> {
+    delete_tag_synonym_with_pool(&state.db_pool()?, synonym_id).await
+}
+
+pub async fn delete_tag_synonym_with_pool(
+    pool: &SqlitePool,
+    synonym_id: i64,
+) -> Result<(), String> {
+    tag_synonyms_service::delete_tag_synonym(pool, synonym_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_all_tag_synonyms_for_tag(
+    state: State<'_, AppState>,
+    tag_id: i64,
+) -> Result<(), String> {
+    delete_all_tag_synonyms_for_tag_with_pool(&state.db_pool()?, tag_id).await
+}
+
+pub async fn delete_all_tag_synonyms_for_tag_with_pool(
+    pool: &SqlitePool,
+    tag_id: i64,
+) -> Result<(), String> {
+    tag_synonyms_service::delete_all_tag_synonyms_for_tag(pool, tag_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 #[path = "admin_tests.rs"]
 mod tests;

@@ -79,6 +79,10 @@ vi.mock("../lib/views/TagsView.svelte", async () => {
   const { default: TagsView } = await import("./__mocks__/TagsView.svelte");
   return { default: TagsView };
 });
+vi.mock("../lib/views/TagWordMatchesView.svelte", async () => {
+  const { default: TagWordMatchesView } = await import("./__mocks__/TagWordMatchesView.svelte");
+  return { default: TagWordMatchesView };
+});
 vi.mock("../lib/views/BrowseView.svelte", async () => {
   const { default: BrowseView } = await import("./__mocks__/BrowseView.svelte");
   return { default: BrowseView };
@@ -296,6 +300,16 @@ describe("MainView.svelte", () => {
     expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId("tags-view")).toBeInTheDocument();
+    });
+  });
+
+  it("renders the tag matches sub-view for #/admin/data/tag-matches", async () => {
+    setHash("#/admin/data/tag-matches");
+    render(MainView);
+
+    expect(screen.getByTestId("reference-data-tablist")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("tag-word-matches-view")).toBeInTheDocument();
     });
   });
 

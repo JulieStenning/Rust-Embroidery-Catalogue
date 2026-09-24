@@ -17,6 +17,7 @@ export const ORDERED_ROUTE_HINTS = [
   "#/admin/data",
   "#/admin/data/designers",
   "#/admin/data/tags",
+  "#/admin/data/tag-matches",
   "#/admin/data/sources",
   "#/admin/data/hoops",
   // Batch Operations destination (single URL; internally sub-tabbed).
@@ -37,6 +38,7 @@ export const ROUTE_UI_KIND = {
   "#/admin/data": "reference-data",
   "#/admin/data/designers": "reference-data",
   "#/admin/data/tags": "reference-data",
+  "#/admin/data/tag-matches": "reference-data",
   "#/admin/data/sources": "reference-data",
   "#/admin/data/hoops": "reference-data",
   "#/admin/batch-operations": "batch-operations",
@@ -48,7 +50,7 @@ export const ROUTE_UI_KIND = {
 };
 
 /** Sub-tabs shown by the Reference Data hub, in display order. */
-export const REFERENCE_DATA_TABS = ["designers", "tags", "sources", "hoops"];
+export const REFERENCE_DATA_TABS = ["designers", "tags", "tag-matches", "sources", "hoops"];
 
 /** Sub-tabs shown by the System / Maintenance hub, in display order. */
 export const SYSTEM_TABS = ["settings", "backup", "orphans"];
@@ -62,7 +64,7 @@ export const SYSTEM_TABS = ["settings", "backup", "orphans"];
  */
 export function parseReferenceDataTab(route) {
   if (route === "#/admin/data") return "designers";
-  const match = route.match(/^#\/admin\/data\/(designers|tags|sources|hoops)$/);
+  const match = route.match(/^#\/admin\/data\/(designers|tags|tag-matches|sources|hoops)$/);
   return match ? match[1] : null;
 }
 

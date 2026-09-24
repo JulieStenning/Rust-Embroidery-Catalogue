@@ -1,47 +1,26 @@
 // SPDX-FileCopyrightText: 2026 Julie Stenning
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// File & Folder Rules — generic token-overlap matcher driven by the live tag catalogue.
+// File & Folder Rules — generic token-overlap matcher driven by the live tag catalogue
+// and user-configurable / seeded word match dictionary (tag_synonyms).
 //
 // Design
 // ------
 // 1. Tokenise the filename stem and filepath into lowercase alphanumeric words.
-// 2. For every tag description in the live `valid_descriptions` catalogue (loaded
+// 2. Check the dynamic word-match dictionary (synonyms map, loaded from tag_synonyms
+//    in the database). Inflection (singular ↔ plural) is automatically applied to both
+//    synonym keywords and path tokens.
+// 3. For every tag description in the live `valid_descriptions` catalogue (loaded
 //    from the database at import time):
 //       a. Normalise the description and split it into meaningful tokens.
-//       b. If **any single** meaningful token of the tag appears in the path tokens
+//       b. If any single meaningful token of the tag appears in the path tokens
 //          — in singular or plural form (powered by `Inflector`) — assign the tag.
-// 3. A small built-in synonym map bridges aliases inflection can never derive
-//    (kitten → Cats, puppy → Dogs, alphabet/font/monogram/upper/lower → Words and Letters,
-//    xmas → Christmas, floral → Flowers, baby → Children & Toys).  Synonym target
-//    descriptions are resolved case-insensitively against the live catalogue.
 //
 // This is fully generic: any user-created tag is automatically matched as long as
-// its words overlap with the file path, with no code or config changes required.
+// its words overlap with the file path or match a configured word-to-tag rule.
 
 use inflector::Inflector;
-use std::collections::HashSet;
-
-// ─── Synonym map — only genuinely undecidable aliases ────────────────────
-//
-// Words that inflection can *never* derive from a tag description (e.g.
-// "kitten" from "Cats", "floral" from "Flowers").  Everything else is handled
-// generically by singular ↔ plural token overlap.
-
-const SYNONYM_MAP: [(&str, &str); 12] = [
-    ("kitten", "Cats"),
-    ("puppy", "Dogs"),
-    ("alphabet", "Words and Letters"),
-    ("font", "Words and Letters"),
-    ("monogram", "Words and Letters"),
-    ("upper", "Words and Letters"),
-    ("lower", "Words and Letters"),
-    ("uppercase", "Words and Letters"),
-    ("lowercase", "Words and Letters"),
-    ("xmas", "Christmas"),
-    ("floral", "Flowers"),
-    ("baby", "Children & Toys"),
-];
+use std::collections::{HashMap, HashSet};
 
 // ─── Normalisation ───────────────────────────────────────────────────────
 
@@ -78,8 +57,6 @@ fn significant_tokens(value: &str) -> Vec<String> {
 // ─── Inflector helpers ───────────────────────────────────────────────────
 
 fn singular_form(token: &str) -> String {
-    // Inflector's to_singular() works on the entire token; for tokens that are
-    // already singular it returns the same token, so this is always safe to call.
     token.to_singular()
 }
 
@@ -111,18 +88,18 @@ fn token_matches_in_path(token: &str, path_tokens: &HashSet<String>) -> bool {
 
 // ─── Primary matching logic ──────────────────────────────────────────────
 
-/// Given a filename, full filepath, and the set of valid tag descriptions from
-/// the database, return the sorted list of descriptions that match.
+/// Given a filename, full filepath, the set of valid tag descriptions from
+/// the database, and the dynamic synonym map (keyword -> list of tag descriptions),
+/// return the sorted list of descriptions that match.
 ///
 /// Matching is **any-token OR**: if **any single** significant token of a tag
-/// description appears in the path (in singular or plural form), the tag is
-/// assigned.  This correctly handles compound tags like "Borders & Frames"
-/// (folder "Borders" or "Frame" both match) and supports any user-created tag
-/// automatically.
+/// description or configured word-match appears in the path (in singular or plural form),
+/// the tag is assigned.
 pub fn suggest_path_rule_descriptions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
+    synonyms: &HashMap<String, Vec<String>>,
 ) -> Vec<String> {
     if valid_descriptions.is_empty() {
         return Vec::new();
@@ -140,28 +117,22 @@ pub fn suggest_path_rule_descriptions(
 
     let mut matched = HashSet::new();
 
-    // ── Synonym-map pass (tiny, genuinely undecidable aliases only) ──
-    for (synonym, description) in SYNONYM_MAP {
-        // Resolve the catalogue entry case-insensitively so a tag stored with a
-        // different casing still resolves, and carry the catalogue's own casing
-        // forward (downstream tag-id lookups are exact-match).
-        let Some(canonical) = valid_descriptions
-            .iter()
-            .find(|candidate| candidate.eq_ignore_ascii_case(description))
-        else {
-            continue;
-        };
-
-        // Check the synonym itself, its singular, and its plural against the
-        // path tokens — folder names may be plural ("Kittens") while the
-        // synonym is singular ("kitten"), and vice versa.
+    // ── Dynamic synonym map pass ──
+    for (synonym, descriptions) in synonyms {
         let synonym_singular = singular_form(synonym);
         let synonym_plural = plural_form(synonym);
-        if path_tokens.contains(synonym)
+        if path_tokens.contains(synonym.as_str())
             || path_tokens.contains(&synonym_singular)
             || path_tokens.contains(&synonym_plural)
         {
-            matched.insert(canonical.clone());
+            for description in descriptions {
+                if let Some(canonical) = valid_descriptions
+                    .iter()
+                    .find(|candidate| candidate.eq_ignore_ascii_case(description))
+                {
+                    matched.insert(canonical.clone());
+                }
+            }
         }
     }
 
@@ -193,266 +164,5 @@ pub fn suggest_path_rule_descriptions(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    // ─── unit helpers ───────────────────────────────────────────────────
-
-    #[test]
-    fn normalize_text_replaces_punctuation_with_spaces() {
-        let result = normalize_text("Borders & Frames");
-        assert_eq!(result, "borders   frames");
-    }
-
-    #[test]
-    fn significant_tokens_filters_short_words() {
-        let tokens = significant_tokens("a big cat and a dog");
-        assert_eq!(tokens, vec!["big", "cat", "and", "dog"]);
-    }
-
-    // ─── inflector sanity ──────────────────────────────────────────────
-
-    #[test]
-    fn inflector_singular_handles_butterflies() {
-        assert_eq!(singular_form("butterflies"), "butterfly");
-    }
-
-    #[test]
-    fn inflector_singular_handles_babies() {
-        assert_eq!(singular_form("babies"), "baby");
-    }
-
-    #[test]
-    fn inflector_singular_handles_monograms() {
-        assert_eq!(singular_form("monograms"), "monogram");
-    }
-
-    #[test]
-    fn inflector_plural_handles_butterfly() {
-        assert_eq!(plural_form("butterfly"), "butterflies");
-    }
-
-    #[test]
-    fn inflector_plural_handles_fairy() {
-        assert_eq!(plural_form("fairy"), "fairies");
-    }
-
-    // ─── suggest_path_rule_descriptions ────────────────────────────────────
-
-    #[test]
-    fn suggest_path_rule_compound_tag_borders() {
-        let valid = HashSet::from(["Borders & Frames".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Borders/somefile.pes", &valid);
-        assert!(
-            matched.contains(&"Borders & Frames".to_string()),
-            "folder 'Borders' should match 'Borders & Frames' via token overlap: {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_compound_tag_frame() {
-        let valid = HashSet::from(["Borders & Frames".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Frame/design.pes", &valid);
-        assert!(
-            matched.contains(&"Borders & Frames".to_string()),
-            "folder 'Frame' should match 'Borders & Frames' via inflected token overlap: {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_compound_tag_angels() {
-        let valid = HashSet::from(["Angels & Fairies".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Angels/design.pes", &valid);
-        assert!(
-            matched.contains(&"Angels & Fairies".to_string()),
-            "folder 'Angels' should match 'Angels & Fairies': {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_compound_tag_fairies() {
-        let valid = HashSet::from(["Angels & Fairies".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Fairies/design.pes", &valid);
-        assert!(
-            matched.contains(&"Angels & Fairies".to_string()),
-            "folder 'Fairies' should match 'Angels & Fairies' via inflection: {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_maps_monogram_to_words_and_letters() {
-        let valid = HashSet::from(["Words and Letters".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Monogram/design.pes", &valid);
-        assert!(
-            matched.contains(&"Words and Letters".to_string()),
-            "folder 'Monogram' should match 'Words and Letters' via the 'monogram' synonym: {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_maps_font_to_words_and_letters() {
-        let valid = HashSet::from(["Words and Letters".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid);
-        assert!(
-            matched.contains(&"Words and Letters".to_string()),
-            "folder 'Font' should match 'Words and Letters' via the 'font' synonym: {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_compound_tag_butterfly_folder() {
-        let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Butterfly/design.pes", &valid);
-        assert!(
-            matched.contains(&"Butterflies & Insects".to_string()),
-            "folder 'Butterfly' should match 'Butterflies & Insects': {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_compound_tag_butterfly_filename() {
-        let valid = HashSet::from(["Butterflies & Insects".to_string()]);
-        let matched =
-            suggest_path_rule_descriptions("Pretty Butterflies.pes", "C:/imports/", &valid);
-        assert!(
-            matched.contains(&"Butterflies & Insects".to_string()),
-            "filename 'Pretty Butterflies.pes' should match 'Butterflies & Insects': {:?}",
-            matched
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_user_created_tag() {
-        // Proves the matcher is generic: a custom tag "My Rabbit Tag" should
-        // be matched when the folder contains "Rabbits" (inflected to "rabbit").
-        let valid = HashSet::from(["My Rabbit Tag".to_string(), "Borders & Frames".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Rabbits/design.pes", &valid);
-        assert!(
-            matched.contains(&"My Rabbit Tag".to_string()),
-            "custom user tag 'My Rabbit Tag' should match folder 'Rabbits' via inflection: {:?}",
-            matched
-        );
-        // Also ensure the unrelated tag is NOT matched
-        assert!(!matched.contains(&"Borders & Frames".to_string()));
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_kitten_cats() {
-        let valid = HashSet::from(["Cats".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Kittens/design.pes", &valid);
-        assert!(matched.contains(&"Cats".to_string()));
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_floral_flowers() {
-        let valid = HashSet::from(["Flowers".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Floral/design.pes", &valid);
-        // "floral" → synonym map → "Flowers"
-        assert!(matched.contains(&"Flowers".to_string()));
-    }
-
-    #[test]
-    fn suggest_path_rule_does_not_match_cat_inside_catalogue() {
-        // Regression: a folder called "Crests" must never be confused with "Cats".
-        // Token-based matching ensures this: "crests" ≠ "cat" / "cats".
-        let valid = HashSet::from(["Cats".to_string(), "Crests".to_string()]);
-        let matched = suggest_path_rule_descriptions(
-            "17147.hus",
-            "C:/imports/The Rose Studio - 1033 Crests/17147.hus",
-            &valid,
-        );
-
-        assert!(matched.contains(&"Crests".to_string()));
-        assert!(!matched.contains(&"Cats".to_string()));
-    }
-
-    #[test]
-    fn suggest_path_rule_empty_catalogue_returns_empty() {
-        let valid = HashSet::new();
-        let matched = suggest_path_rule_descriptions("flower.pes", "C:/imports/flowers/", &valid);
-        assert!(matched.is_empty());
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_upper_lower_is_case_insensitive() {
-        // Folder/design names containing "upper" or "lower" must map to
-        // "Words and Letters" regardless of case (path tokens are lowercased by
-        // `normalize_text`, so the lowercase synonym keys match).
-        let valid = HashSet::from(["Words and Letters".to_string()]);
-        for folder in ["Upper", "UPPER", "lower", "Lower Case", "Uppercase"] {
-            let matched = suggest_path_rule_descriptions(
-                "",
-                &format!("C:/imports/{folder}/design.pes"),
-                &valid,
-            );
-            assert!(
-                matched.contains(&"Words and Letters".to_string()),
-                "folder '{folder}' should be tagged 'Words and Letters': {matched:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_upper_from_filename() {
-        let valid = HashSet::from(["Words and Letters".to_string()]);
-        let matched =
-            suggest_path_rule_descriptions("Upper Case Alphabet.pes", "C:/imports/", &valid);
-        assert!(
-            matched.contains(&"Words and Letters".to_string()),
-            "filename 'Upper Case Alphabet.pes' should be tagged 'Words and Letters': {matched:?}"
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_alphabet_words_and_letters() {
-        // "Alphabet" and "Alphabets" map via synonym to the "Words and Letters"
-        // tag (singular/plural check covers both forms).
-        let valid = HashSet::from(["Words and Letters".to_string()]);
-        for folder in ["Alphabet", "alphabets", "ALPHABETS"] {
-            let matched = suggest_path_rule_descriptions(
-                "",
-                &format!("C:/imports/{folder}/design.pes"),
-                &valid,
-            );
-            assert!(
-                matched.contains(&"Words and Letters".to_string()),
-                "folder '{folder}' should be tagged 'Words and Letters': {matched:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_description_is_case_insensitive() {
-        // The synonym map literal is "Words and Letters", but the live catalogue
-        // may store it with a different casing; the catalogue's own casing must
-        // be returned so downstream tag-id lookups still resolve.
-        let valid = HashSet::from(["WORDS AND LETTERS".to_string()]);
-        let matched = suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid);
-        assert!(
-            matched.contains(&"WORDS AND LETTERS".to_string()),
-            "synonym target should resolve case-insensitively to the catalogue casing: {matched:?}"
-        );
-    }
-
-    #[test]
-    fn suggest_path_rule_matches_from_filename_stem() {
-        let valid = HashSet::from(["Flowers".to_string()]);
-        let matched = suggest_path_rule_descriptions("Flower Design.pes", "C:/imports/", &valid);
-        assert!(matched.contains(&"Flowers".to_string()));
-    }
-
-    #[test]
-    fn suggest_path_rule_synonym_baby_children() {
-        let valid = HashSet::from(["Children & Toys".to_string()]);
-        let matched =
-            suggest_path_rule_descriptions("", "C:/imports/baby/shirts/design.pes", &valid);
-        assert!(matched.contains(&"Children & Toys".to_string()));
-    }
-}
+#[path = "tagging_tests.rs"]
+mod tests;

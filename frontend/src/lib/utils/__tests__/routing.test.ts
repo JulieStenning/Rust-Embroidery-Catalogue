@@ -42,6 +42,7 @@ describe("resolveCurrentUiKind", () => {
     expect(resolveCurrentUiKind("#/admin/data")).toBe("reference-data");
     expect(resolveCurrentUiKind("#/admin/data/designers")).toBe("reference-data");
     expect(resolveCurrentUiKind("#/admin/data/tags")).toBe("reference-data");
+    expect(resolveCurrentUiKind("#/admin/data/tag-matches")).toBe("reference-data");
     expect(resolveCurrentUiKind("#/admin/data/sources")).toBe("reference-data");
     expect(resolveCurrentUiKind("#/admin/data/hoops")).toBe("reference-data");
   });
@@ -66,6 +67,7 @@ describe("parseReferenceDataTab", () => {
   it("parses each sub-tab route", () => {
     expect(parseReferenceDataTab("#/admin/data/designers")).toBe("designers");
     expect(parseReferenceDataTab("#/admin/data/tags")).toBe("tags");
+    expect(parseReferenceDataTab("#/admin/data/tag-matches")).toBe("tag-matches");
     expect(parseReferenceDataTab("#/admin/data/sources")).toBe("sources");
     expect(parseReferenceDataTab("#/admin/data/hoops")).toBe("hoops");
   });
@@ -123,6 +125,7 @@ describe("shouldShowBackButton", () => {
       "#/designs/123",
       "#/designs/123/print",
       "#/admin/data/tags",
+      "#/admin/data/tag-matches",
       "#/admin/batch-operations",
       "#/admin/system/settings",
       "#/admin/system/backup",

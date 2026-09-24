@@ -370,9 +370,13 @@ pub async fn run_unified_backfill_with_progress(
 
             let image_tag_map = get_image_tag_lookup(pool).await?;
             let valid_descriptions = image_tag_map.keys().cloned().collect::<HashSet<String>>();
+            let tag_synonyms_map = crate::services::tag_synonyms::get_synonym_lookup_map(pool)
+                .await
+                .unwrap_or_default();
             // Shared (read-only) data for the concurrent worker tasks.
             let image_map = Arc::new(image_tag_map);
             let valid = Arc::new(valid_descriptions);
+            let synonyms = Arc::new(tag_synonyms_map);
             let pool_arc = Arc::new(pool.clone());
             // Build the Gemini client only when a non-empty API key is present;
             // otherwise Gemini Vision falls back to a local heuristic and never sleeps.
@@ -455,6 +459,7 @@ pub async fn run_unified_backfill_with_progress(
                             design_id,
                             pool_arc.clone(),
                             valid.clone(),
+                            synonyms.clone(),
                             mode_options,
                             gemini.clone(),
                         );
@@ -560,6 +565,7 @@ pub async fn run_unified_backfill_with_progress(
                                             design_id,
                                             pool_arc.clone(),
                                             valid.clone(),
+                                            synonyms.clone(),
                                             mode_options,
                                             gemini.clone(),
                                         );
@@ -1299,6 +1305,7 @@ fn spawn_tagging_task(
     design_id: i64,
     pool: Arc<SqlitePool>,
     valid_descriptions: Arc<HashSet<String>>,
+    synonyms: Arc<HashMap<String, Vec<String>>>,
     mode_options: TaggingModeOptions,
     gemini: Option<Arc<GeminiClient>>,
 ) {
@@ -1307,6 +1314,7 @@ fn spawn_tagging_task(
             &pool,
             design_id,
             &valid_descriptions,
+            &synonyms,
             &mode_options,
             gemini.as_deref(),
         )
@@ -1324,6 +1332,7 @@ async fn compute_design_tagging(
     pool: &SqlitePool,
     design_id: i64,
     valid_descriptions: &HashSet<String>,
+    synonyms: &HashMap<String, Vec<String>>,
     mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
 ) -> Result<TagComputeResult, AppError> {
@@ -1362,6 +1371,7 @@ async fn compute_design_tagging(
         &filepath,
         image_data.as_deref(),
         valid_descriptions,
+        synonyms,
         mode_options,
         gemini,
     )

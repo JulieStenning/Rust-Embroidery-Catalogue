@@ -1101,6 +1101,18 @@ export interface AdminTagSummary {
   is_system: boolean;
 }
 
+export interface AdminTagSynonymKeyword {
+  id: number;
+  keyword: string;
+}
+
+export interface AdminTagSynonymGroup {
+  tag_id: number;
+  tag_description: string;
+  tag_group: string | null;
+  keywords: AdminTagSynonymKeyword[];
+}
+
 export interface AdminHoopSummary {
   id: number;
   name: string;
