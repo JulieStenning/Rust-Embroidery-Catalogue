@@ -52,6 +52,7 @@ pub mod fingerprint;
 pub mod folder_picker;
 pub mod gemini_client;
 pub mod image_generation;
+pub mod licence;
 pub mod maintenance;
 pub mod projects;
 pub mod restore;

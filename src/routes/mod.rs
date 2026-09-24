@@ -34,6 +34,7 @@ pub mod batch_operations;
 pub mod bulk_import;
 pub mod database_recovery;
 pub mod designs;
+pub mod licence;
 pub mod maintenance;
 pub mod projects;
 pub mod restore;

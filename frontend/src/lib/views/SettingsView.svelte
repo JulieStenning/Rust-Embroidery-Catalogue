@@ -16,6 +16,7 @@
     getDbStats,
     compactDatabase,
   } from "../api/commandAdapter";
+  import { getLicenceStatus, deactivateLicence } from "../api/licenceAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { themeStore, setTheme } from "../stores/themeStore";
@@ -489,9 +490,42 @@
     }
   }
 
+  let licenceStatus = $state(/** @type {import("../types/licence").LicenceStatus | null} */ (null));
+
+  async function loadLicence() {
+    if (typeof getLicenceStatus !== "function") return;
+    try {
+      licenceStatus = await getLicenceStatus();
+    } catch (error) {
+      console.info("Could not load licence status.", error);
+    }
+  }
+
+  async function handleDeactivateLicence() {
+    if (busyActive) return;
+    if (
+      !confirm(
+        "Are you sure you want to deactivate this licence key? You will need to re-enter a valid licence key to use the application."
+      )
+    ) {
+      return;
+    }
+    try {
+      const updated = await deactivateLicence();
+      licenceStatus = updated;
+      addToast("Licence deactivated. Reloading…", "info");
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    } catch (err) {
+      addToast(`Could not deactivate licence: ${err}`, "error");
+    }
+  }
+
   onMount(() => {
     loadSettingsFromBackend();
     loadDbStats();
+    loadLicence();
   });
 </script>
 
@@ -542,6 +576,58 @@
       </div>
 
       <div class="p-6 space-y-5">
+        <div class="border-b border-gray-200 pb-5" data-testid="settings-licence-section">
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <span>🔐</span>
+              <span>Licence &amp; Activation</span>
+            </h2>
+            {#if licenceStatus?.is_valid}
+              <span
+                class="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+              >
+                {licenceStatus.tier ? licenceStatus.tier.toUpperCase() : "ACTIVE"}
+              </span>
+            {/if}
+          </div>
+          <p class="text-sm text-gray-600 mb-3">
+            Manage your application licence key and registration status.
+          </p>
+          {#if licenceStatus?.is_valid}
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <span class="block text-xs text-gray-500 font-medium">Registered Email</span>
+                  <span class="font-medium text-gray-800" data-testid="settings-licence-email">
+                    {licenceStatus.email || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span class="block text-xs text-gray-500 font-medium">Validity</span>
+                  <span class="font-medium text-gray-800" data-testid="settings-licence-expiry">
+                    {licenceStatus.expires_at_formatted
+                      ? `Valid until ${licenceStatus.expires_at_formatted}`
+                      : "Lifetime (No Expiry)"}
+                  </span>
+                </div>
+              </div>
+              <div class="pt-1">
+                <button
+                  type="button"
+                  data-testid="settings-deactivate-licence-button"
+                  onclick={handleDeactivateLicence}
+                  disabled={busyActive}
+                  class="text-xs text-red-600 hover:text-red-800 font-medium underline"
+                >
+                  Deactivate / Switch Licence Key
+                </button>
+              </div>
+            </div>
+          {:else}
+            <p class="text-xs text-gray-500">No active licence detected.</p>
+          {/if}
+        </div>
+
         <div class="border-b border-gray-200 pb-5" data-testid="settings-appearance-section">
           <h2 class="text-sm font-semibold text-gray-700 mb-1">Appearance</h2>
           <p class="text-sm text-gray-600 mb-3">

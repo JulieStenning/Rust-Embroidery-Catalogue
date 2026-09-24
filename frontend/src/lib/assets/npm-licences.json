@@ -125,7 +125,7 @@
         "path": "frontend/node_modules/@jridgewell/resolve-uri",
         "licenseFile": "frontend/node_modules/@jridgewell/resolve-uri/LICENSE"
     },
-    "@jridgewell/sourcemap-codec@1.5.5": {
+    "@jridgewell/sourcemap-codec@1.6.0": {
         "licenses": "MIT",
         "repository": "https://github.com/jridgewell/sourcemaps",
         "publisher": "Justin Ridgewell",
@@ -155,14 +155,14 @@
         "path": "frontend/node_modules/@rollup/rollup-win32-x64-msvc",
         "licenseFile": "frontend/node_modules/@rollup/rollup-win32-x64-msvc/README.md"
     },
-    "@sveltejs/acorn-typescript@1.0.9": {
+    "@sveltejs/acorn-typescript@1.0.13": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/acorn-typescript",
         "publisher": "tyrealhu and the Svelte team",
         "path": "frontend/node_modules/@sveltejs/acorn-typescript",
         "licenseFile": "frontend/node_modules/@sveltejs/acorn-typescript/LICENSE.md"
     },
-    "@sveltejs/load-config@0.2.0": {
+    "@sveltejs/load-config@0.2.3": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/language-tools",
         "path": "frontend/node_modules/@sveltejs/load-config",
@@ -212,61 +212,61 @@
         "path": "frontend/node_modules/@types/trusted-types",
         "licenseFile": "frontend/node_modules/@types/trusted-types/LICENSE"
     },
-    "@typescript-eslint/eslint-plugin@8.67.0": {
+    "@typescript-eslint/eslint-plugin@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/eslint-plugin",
         "licenseFile": "frontend/node_modules/@typescript-eslint/eslint-plugin/LICENSE"
     },
-    "@typescript-eslint/parser@8.67.0": {
+    "@typescript-eslint/parser@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/parser",
         "licenseFile": "frontend/node_modules/@typescript-eslint/parser/LICENSE"
     },
-    "@typescript-eslint/project-service@8.67.0": {
+    "@typescript-eslint/project-service@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/project-service",
         "licenseFile": "frontend/node_modules/@typescript-eslint/project-service/LICENSE"
     },
-    "@typescript-eslint/scope-manager@8.67.0": {
+    "@typescript-eslint/scope-manager@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/scope-manager",
         "licenseFile": "frontend/node_modules/@typescript-eslint/scope-manager/LICENSE"
     },
-    "@typescript-eslint/tsconfig-utils@8.67.0": {
+    "@typescript-eslint/tsconfig-utils@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/tsconfig-utils",
         "licenseFile": "frontend/node_modules/@typescript-eslint/tsconfig-utils/LICENSE"
     },
-    "@typescript-eslint/type-utils@8.67.0": {
+    "@typescript-eslint/type-utils@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/type-utils",
         "licenseFile": "frontend/node_modules/@typescript-eslint/type-utils/LICENSE"
     },
-    "@typescript-eslint/types@8.67.0": {
+    "@typescript-eslint/types@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/types",
         "licenseFile": "frontend/node_modules/@typescript-eslint/types/LICENSE"
     },
-    "@typescript-eslint/typescript-estree@8.67.0": {
+    "@typescript-eslint/typescript-estree@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/typescript-estree",
         "licenseFile": "frontend/node_modules/@typescript-eslint/typescript-estree/LICENSE"
     },
-    "@typescript-eslint/utils@8.67.0": {
+    "@typescript-eslint/utils@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/utils",
         "licenseFile": "frontend/node_modules/@typescript-eslint/utils/LICENSE"
     },
-    "@typescript-eslint/visitor-keys@8.67.0": {
+    "@typescript-eslint/visitor-keys@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/@typescript-eslint/visitor-keys",
@@ -278,7 +278,7 @@
         "path": "frontend/node_modules/acorn-jsx",
         "licenseFile": "frontend/node_modules/acorn-jsx/LICENSE"
     },
-    "acorn@8.16.0": {
+    "acorn@8.18.0": {
         "licenses": "MIT",
         "repository": "https://github.com/acornjs/acorn",
         "path": "frontend/node_modules/acorn",
@@ -343,7 +343,7 @@
         "path": "frontend/node_modules/brace-expansion",
         "licenseFile": "frontend/node_modules/brace-expansion/LICENSE"
     },
-    "brace-expansion@5.0.9": {
+    "brace-expansion@5.0.12": {
         "licenses": "MIT",
         "repository": "https://github.com/juliangruber/brace-expansion",
         "path": "frontend/node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
@@ -438,7 +438,7 @@
         "path": "frontend/node_modules/deepmerge",
         "licenseFile": "frontend/node_modules/deepmerge/license.txt"
     },
-    "devalue@5.8.0": {
+    "devalue@5.9.4": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/devalue",
         "path": "frontend/node_modules/devalue",
@@ -557,7 +557,7 @@
         "path": "frontend/node_modules/esquery",
         "licenseFile": "frontend/node_modules/esquery/license.txt"
     },
-    "esrap@2.2.6": {
+    "esrap@2.3.11": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/esrap",
         "path": "frontend/node_modules/esrap",
@@ -657,7 +657,7 @@
         "path": "frontend/node_modules/@eslint/eslintrc/node_modules/globals",
         "licenseFile": "frontend/node_modules/@eslint/eslintrc/node_modules/globals/license"
     },
-    "globals@15.15.0": {
+    "globals@17.12.0": {
         "licenses": "MIT",
         "repository": "https://github.com/sindresorhus/globals",
         "publisher": "Sindre Sorhus",
@@ -680,7 +680,7 @@
         "path": "frontend/node_modules/ignore",
         "licenseFile": "frontend/node_modules/ignore/LICENSE-MIT"
     },
-    "ignore@7.0.6": {
+    "ignore@7.0.10": {
         "licenses": "MIT",
         "repository": "https://github.com/kaelzhang/node-ignore",
         "publisher": "kael",
@@ -1092,7 +1092,7 @@
         "path": "frontend/node_modules/supports-color",
         "licenseFile": "frontend/node_modules/supports-color/license"
     },
-    "svelte-check@4.7.3": {
+    "svelte-check@4.7.6": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/language-tools",
         "publisher": "The Svelte Community",
@@ -1106,7 +1106,7 @@
         "path": "frontend/node_modules/svelte-eslint-parser",
         "licenseFile": "frontend/node_modules/svelte-eslint-parser/LICENSE"
     },
-    "svelte@5.55.5": {
+    "svelte@5.57.1": {
         "licenses": "MIT",
         "repository": "https://github.com/sveltejs/svelte",
         "path": "frontend/node_modules/svelte",
@@ -1135,7 +1135,7 @@
         "path": "frontend/node_modules/type-check",
         "licenseFile": "frontend/node_modules/type-check/LICENSE"
     },
-    "typescript-eslint@8.67.0": {
+    "typescript-eslint@8.70.1": {
         "licenses": "MIT",
         "repository": "https://github.com/typescript-eslint/typescript-eslint",
         "path": "frontend/node_modules/typescript-eslint",

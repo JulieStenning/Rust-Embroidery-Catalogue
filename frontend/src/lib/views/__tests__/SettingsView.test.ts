@@ -25,6 +25,8 @@ const getDbStatsMock = vi.hoisted(() => vi.fn());
 const compactDatabaseMock = vi.hoisted(() => vi.fn());
 const listGeminiModelsMock = vi.hoisted(() => vi.fn());
 const testGeminiModelMock = vi.hoisted(() => vi.fn());
+const getLicenceStatusMock = vi.hoisted(() => vi.fn());
+const deactivateLicenceMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../api/commandAdapter", () => ({
@@ -40,6 +42,8 @@ vi.mock("../../api/commandAdapter", () => ({
   compactDatabase: compactDatabaseMock,
   listGeminiModels: listGeminiModelsMock,
   testGeminiModel: testGeminiModelMock,
+  getLicenceStatus: getLicenceStatusMock,
+  deactivateLicence: deactivateLicenceMock,
 }));
 
 vi.mock("../../stores/toastStore.js", () => ({

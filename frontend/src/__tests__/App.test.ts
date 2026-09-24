@@ -12,9 +12,14 @@ import App from "../App.svelte";
 // ---------------------------------------------------------------------------
 const checkInitialSetupMock = vi.hoisted(() => vi.fn());
 const getDatabaseStatusMock = vi.hoisted(() => vi.fn());
+const getLicenceStatusMock = vi.hoisted(() => vi.fn());
 vi.mock("../lib/api/commandAdapter", () => ({
   checkInitialSetup: checkInitialSetupMock,
   getDatabaseStatus: getDatabaseStatusMock,
+  getLicenceStatus: getLicenceStatusMock,
+}));
+vi.mock("../lib/api/licenceAdapter", () => ({
+  getLicenceStatus: getLicenceStatusMock,
 }));
 
 // Mock the Tauri invoke bridge and event API so hasTauriInvoke()/listeners work.
@@ -27,6 +32,12 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 // Mock child views so App's gating logic can be tested in isolation.
+vi.mock("../lib/LicenceActivationView.svelte", async () => {
+  const { default: LicenceActivationView } =
+    await import("./__mocks__/LicenceActivationView.svelte");
+  return { default: LicenceActivationView };
+});
+
 vi.mock("../lib/InitialSetupView.svelte", async () => {
   const { default: InitialSetupView } = await import("./__mocks__/InitialSetupView.svelte");
   return { default: InitialSetupView };
@@ -82,6 +93,13 @@ describe("App.svelte", () => {
     vi.clearAllMocks();
     removeTauriBridge();
     checkInitialSetupMock.mockReset();
+    getLicenceStatusMock.mockReset();
+    getLicenceStatusMock.mockResolvedValue({
+      is_valid: true,
+      is_active: true,
+      email: "tester@example.com",
+      tier: "beta",
+    });
     // Default: the configured database is healthy/connected so the setup gate
     // proceeds to checkInitialSetup.
     getDatabaseStatusMock.mockReset();
@@ -206,5 +224,45 @@ describe("App.svelte", () => {
     });
     expect(screen.getByTestId("toast-container")).toBeInTheDocument();
     expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
+  });
+
+  it("renders the licence activation view when licence is invalid or missing", async () => {
+    installTauriBridge();
+    getLicenceStatusMock.mockResolvedValue({
+      is_valid: false,
+      is_active: false,
+      email: null,
+      tier: null,
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("licence-activation-view")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
+  });
+
+  it("transitions from licence activation to setup wizard upon activating", async () => {
+    installTauriBridge();
+    getLicenceStatusMock.mockResolvedValue({
+      is_valid: false,
+      is_active: false,
+    });
+    checkInitialSetupMock.mockResolvedValue(false);
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("licence-activation-view")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByTestId("mock-activate-licence-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("initial-setup-view")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("licence-activation-view")).not.toBeInTheDocument();
   });
 });

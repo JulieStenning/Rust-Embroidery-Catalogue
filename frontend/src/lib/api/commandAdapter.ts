@@ -12,3 +12,4 @@ export * from "./backupAdapter";
 export * from "./orphansAdapter";
 export * from "./adminAdapter";
 export * from "./settingsAdapter";
+export * from "./licenceAdapter";

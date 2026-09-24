@@ -5,10 +5,12 @@
   import { onDestroy, onMount } from "svelte";
   import DatabaseRecoveryView from "./lib/DatabaseRecoveryView.svelte";
   import InitialSetupView from "./lib/InitialSetupView.svelte";
+  import LicenceActivationView from "./lib/LicenceActivationView.svelte";
   import MainView from "./lib/MainView.svelte";
   import ToastContainer from "./lib/components/ToastContainer.svelte";
   import { initDbMaintenanceEvents } from "./lib/services/dbMaintenanceEvents";
   import { checkInitialSetup, getDatabaseStatus } from "./lib/api/commandAdapter";
+  import { getLicenceStatus } from "./lib/api/licenceAdapter";
   import { initTheme } from "./lib/stores/themeStore";
 
   /** Cleanup function returned by initDbMaintenanceEvents(), if subscribed. */
@@ -18,6 +20,8 @@
 
   /** Whether the startup check has completed */
   let loading = $state(true);
+  /** Whether a valid licence is active */
+  let licenceValid = $state(false);
   /** Whether the initial setup wizard has been completed or skipped */
   let initialSetupCompleted = $state(false);
   /** True when the configured database is missing and the recovery view must block the app. */
@@ -37,6 +41,7 @@
     // In plain browser dev mode there is no Tauri bridge. Skip the setup gate
     // so route-level frontend smoke tests can run.
     if (!hasTauriInvoke()) {
+      licenceValid = true;
       initialSetupCompleted = true;
       loading = false;
       return;
@@ -52,10 +57,34 @@
         loading = false;
         return;
       }
+
+      let licence = null;
+      if (typeof getLicenceStatus === "function") {
+        licence = await getLicenceStatus();
+      }
+      licenceValid = licence ? Boolean(licence.is_valid) : true;
+      if (!licenceValid) {
+        loading = false;
+        return;
+      }
+
       initialSetupCompleted = await checkInitialSetup();
     } catch (e) {
       checkError = `Could not verify setup status: ${e}`;
       console.error("check_initial_setup failed:", e);
+    } finally {
+      loading = false;
+    }
+  }
+
+  /** Called by LicenceActivationView once a valid licence key is activated */
+  async function onLicenceActivated() {
+    licenceValid = true;
+    loading = true;
+    try {
+      initialSetupCompleted = await checkInitialSetup();
+    } catch (e) {
+      console.error("check_initial_setup failed after activation:", e);
     } finally {
       loading = false;
     }
@@ -115,6 +144,9 @@
        letter changed). This blocks the main UI until the user re-points the
        location or explicitly creates a new catalogue. -->
   <DatabaseRecoveryView />
+{:else if !licenceValid}
+  <!-- Licence activation view: requires valid email + key before proceeding -->
+  <LicenceActivationView {onLicenceActivated} />
 {:else if !initialSetupCompleted}
   <!-- Initial setup wizard (data location, designers & sources) -->
   <InitialSetupView {onInitialSetupCompleted} />

@@ -167,9 +167,7 @@ pub async fn add_tag_synonyms(
     }
 
     // Split words by commas, semicolons, or newlines
-    let raw_tokens: Vec<&str> = words_input
-        .split(|c| c == ',' || c == ';' || c == '\n' || c == '\r')
-        .collect();
+    let raw_tokens: Vec<&str> = words_input.split([',', ';', '\n', '\r']).collect();
 
     for token in raw_tokens {
         let clean = token.trim().to_lowercase();

@@ -88,6 +88,8 @@ const adapterMock = vi.hoisted(() => ({
   saveSettings: vi.fn(),
   saveImportLastBrowseFolder: vi.fn(),
   browseSettingsDataRoot: vi.fn(),
+  getLicenceStatus: vi.fn(),
+  deactivateLicence: vi.fn(),
   getBatchOperationsViewModel: vi.fn(),
   runUnifiedBackfill: vi.fn(),
   stopUnifiedBackfill: vi.fn(),
@@ -356,6 +358,24 @@ beforeEach(() => {
   adapterMock.getSettingsViewModel.mockResolvedValue({
     source: "rust",
     model: settingsModel,
+  });
+  adapterMock.getLicenceStatus.mockResolvedValue({
+    is_valid: true,
+    is_active: true,
+    email: "tester@example.com",
+    tier: "beta",
+    expires_at: null,
+    expires_at_formatted: null,
+    error_message: null,
+  });
+  adapterMock.deactivateLicence.mockResolvedValue({
+    is_valid: false,
+    is_active: false,
+    email: null,
+    tier: null,
+    expires_at: null,
+    expires_at_formatted: null,
+    error_message: null,
   });
 
   // Persisted mutation responses
