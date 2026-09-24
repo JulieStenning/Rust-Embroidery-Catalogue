@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { EMPTY_DB_PATH, REPO_ROOT, TEST_DESIGNS_PATH } from "./paths";
+import { seedLicence } from "./licence-helper";
 
 /**
  * Helpers for specs that need their own catalogue state rather than the shared,
@@ -57,6 +58,7 @@ export function prepareEmptyDataRoot(
   }
   const databasePath = path.join(root, "Database", "EmbroideryCatalogue.db");
   fs.copyFileSync(EMPTY_DB_PATH, databasePath);
+  seedLicence(databasePath);
 
   const db = new DatabaseSync(databasePath);
   try {

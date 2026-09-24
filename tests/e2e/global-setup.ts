@@ -41,6 +41,7 @@ function markInitialSetupComplete(databasePath: string): void {
 }
 
 import { getCoverageInstance } from "./coverage-helper";
+import { seedLicence } from "./licence-helper";
 
 export default async function globalSetup(): Promise<void> {
   const mcr = getCoverageInstance();
@@ -63,6 +64,7 @@ export default async function globalSetup(): Promise<void> {
   const databasePath = path.join(DATA_ROOT_PATH, "Database", DATABASE_FILENAME);
   fs.copyFileSync(TEST_DB_PATH, databasePath);
   markInitialSetupComplete(databasePath);
+  seedLicence(databasePath);
 
   if (!fs.existsSync(TEST_DESIGNS_PATH)) {
     throw new Error(
