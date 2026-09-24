@@ -75,4 +75,67 @@ describe("TagCombobox.svelte", () => {
     expect(screen.queryByText("Animals")).not.toBeInTheDocument();
     expect(screen.queryByText("Floral")).not.toBeInTheDocument();
   });
+
+  it("auto-selects matching tag on Tab keypress without preventing navigation", async () => {
+    const onSelect = vi.fn();
+    render(TagCombobox, {
+      props: {
+        tags: sampleTags,
+        selectedTagId: null,
+        onSelect,
+      },
+    });
+
+    const input = screen.getByRole("combobox");
+    await fireEvent.focus(input);
+    await fireEvent.input(input, { target: { value: "animals" } });
+    await tick();
+
+    await fireEvent.keyDown(input, { key: "Tab" });
+    await tick();
+
+    expect(onSelect).toHaveBeenCalledWith(sampleTags[0]);
+  });
+
+  it("auto-selects matching tag on Enter keypress", async () => {
+    const onSelect = vi.fn();
+    render(TagCombobox, {
+      props: {
+        tags: sampleTags,
+        selectedTagId: null,
+        onSelect,
+      },
+    });
+
+    const input = screen.getByRole("combobox");
+    await fireEvent.focus(input);
+    await fireEvent.input(input, { target: { value: "flora" } });
+    await tick();
+
+    await fireEvent.keyDown(input, { key: "Enter" });
+    await tick();
+
+    expect(onSelect).toHaveBeenCalledWith(sampleTags[1]);
+  });
+
+  it("auto-selects matching tag on blur if text uniquely matches", async () => {
+    const onSelect = vi.fn();
+    render(TagCombobox, {
+      props: {
+        tags: sampleTags,
+        selectedTagId: null,
+        onSelect,
+      },
+    });
+
+    const input = screen.getByRole("combobox");
+    await fireEvent.focus(input);
+    await fireEvent.input(input, { target: { value: "dense" } });
+    await tick();
+
+    await fireEvent.blur(input);
+    await tick();
+
+    expect(onSelect).toHaveBeenCalledWith(sampleTags[2]);
+  });
 });

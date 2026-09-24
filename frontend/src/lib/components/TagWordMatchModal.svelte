@@ -210,6 +210,9 @@
                 activeTagId = tag ? tag.id : null;
                 if (activeTagId) {
                   loadTagKeywords(activeTagId);
+                  setTimeout(() => {
+                    document.getElementById("modal-words-input")?.focus();
+                  }, 50);
                 } else {
                   currentKeywords = [];
                 }

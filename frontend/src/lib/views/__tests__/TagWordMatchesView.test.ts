@@ -176,7 +176,7 @@ describe("TagWordMatchesView.svelte", () => {
     await fireEvent.click(animalsOption!);
     await tick();
 
-    const wordsInput = screen.getByPlaceholderText("Enter words separated by commas...");
+    const wordsInput = screen.getByPlaceholderText(/Enter words separated by commas/i);
     await fireEvent.input(wordsInput, { target: { value: "frog, puppy" } });
     await tick();
 
@@ -204,5 +204,31 @@ describe("TagWordMatchesView.svelte", () => {
     const section = screen.getByTestId("quick-add-existing-matches");
     expect(section).toBeInTheDocument();
     expect(section).toHaveTextContent('No word matches configured yet for "Floral"');
+  });
+
+  it("disables words input until a tag is selected in Quick Add", async () => {
+    render(TagWordMatchesView);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Tag Word Matches" })).toBeInTheDocument();
+    });
+
+    const wordsInput = screen.getByPlaceholderText("Select a tag first...");
+    expect(wordsInput).toBeDisabled();
+
+    // Select Animals tag via combobox typing + Tab
+    const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
+    await fireEvent.focus(comboboxInput);
+    await fireEvent.input(comboboxInput, { target: { value: "animals" } });
+    await tick();
+
+    await fireEvent.keyDown(comboboxInput, { key: "Tab" });
+    await tick();
+
+    expect(wordsInput).not.toBeDisabled();
+    expect(wordsInput).toHaveAttribute(
+      "placeholder",
+      "Enter words separated by commas (e.g. frog, toad, newt)..."
+    );
   });
 });

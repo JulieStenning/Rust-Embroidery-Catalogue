@@ -286,6 +286,13 @@
           tags={allTags}
           bind:selectedTagId={quickAddTagId}
           placeholder="Search for a tag..."
+          onSelect={(tag) => {
+            if (tag) {
+              setTimeout(() => {
+                document.getElementById("quick-add-words-input")?.focus();
+              }, 50);
+            }
+          }}
         />
       </div>
       <div class="md:col-span-5 space-y-1">
@@ -299,9 +306,11 @@
           id="quick-add-words-input"
           type="text"
           bind:value={quickAddWords}
-          placeholder="Enter words separated by commas..."
-          disabled={quickAddSaving}
-          class="admin-input border rounded-lg px-3 py-1.5 text-sm w-full bg-[var(--surface-primary)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--brand-primary)] focus:outline-none"
+          placeholder={quickAddTagId
+            ? "Enter words separated by commas (e.g. frog, toad, newt)..."
+            : "Select a tag first..."}
+          disabled={!quickAddTagId || quickAddSaving}
+          class="admin-input border rounded-lg px-3 py-1.5 text-sm w-full bg-[var(--surface-primary)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--brand-primary)] focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
         />
       </div>
       <div class="md:col-span-2">

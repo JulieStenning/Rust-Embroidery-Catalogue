@@ -63,6 +63,19 @@
     onSelect(tag);
   }
 
+  function findBestMatch() {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return null;
+    // 1. Exact match
+    const exact = filteredTags.find((t) => t.description.toLowerCase() === term);
+    if (exact) return exact;
+    // 2. Single filtered item
+    if (filteredTags.length === 1) return filteredTags[0];
+    // 3. Highlighted item if open
+    if (isOpen && filteredTags[highlightedIndex]) return filteredTags[highlightedIndex];
+    return null;
+  }
+
   function handleInput() {
     isOpen = true;
     highlightedIndex = 0;
@@ -77,6 +90,14 @@
 
   /** @param {KeyboardEvent} e */
   function handleKeyDown(e) {
+    if (e.key === "Tab") {
+      const match = findBestMatch();
+      if (match) {
+        chooseTag(match);
+      }
+      return;
+    }
+
     if (!isOpen) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         isOpen = true;
@@ -94,8 +115,9 @@
         (highlightedIndex - 1 + filteredTags.length) % Math.max(1, filteredTags.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (filteredTags[highlightedIndex]) {
-        chooseTag(filteredTags[highlightedIndex]);
+      const match = findBestMatch();
+      if (match) {
+        chooseTag(match);
       }
     } else if (e.key === "Escape") {
       isOpen = false;
@@ -104,6 +126,10 @@
 
   /** @param {FocusEvent} e */
   function handleBlur(e) {
+    const match = findBestMatch();
+    if (match && (!selectedTag || selectedTag.id !== match.id)) {
+      chooseTag(match);
+    }
     // Delay closing so mousedown on dropdown item can register
     setTimeout(() => {
       isOpen = false;
