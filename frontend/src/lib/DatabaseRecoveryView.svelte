@@ -17,10 +17,12 @@
   /** @typedef {import("./types/ipc").DatabaseValidation} DatabaseValidation */
 
   let configuredRoot = $state("");
+  let newCataloguePath = $state("");
   let relocatedRoot = $state("");
   let scanning = $state(true);
   let busy = $state(false);
   let error = $state("");
+  let createError = $state("");
   let validationMessage = $state("");
   let validationIsError = $state(false);
   let showSeedConfirm = $state(false);
@@ -31,6 +33,7 @@
     const dbStatus = await getDatabaseStatus();
     if (dbStatus.status) {
       configuredRoot = String(dbStatus.status.configured_data_root || "");
+      newCataloguePath = configuredRoot;
     }
 
     // Try the drive-letter relocation quick fix (e.g. D: -> E:).
@@ -108,21 +111,52 @@
     showRestartConfirm = true;
   }
 
-  /** Create a fresh empty catalogue at the configured root (guarded). */
-  async function handleCreateNew() {
-    if (busy || !configuredRoot) return;
-    busy = true;
-    error = "";
+  /** Open the modal for creating a new empty catalogue. */
+  function openCreateModal() {
+    createError = "";
+    if (!newCataloguePath && configuredRoot) {
+      newCataloguePath = configuredRoot;
+    }
+    showSeedConfirm = true;
+  }
+
+  /** Open a native folder picker for the new catalogue location. */
+  async function handleBrowseNewLocation() {
+    if (busy) return;
+    createError = "";
     try {
-      const seeded = await seedDatabaseToDataRoot(configuredRoot, false);
+      const picked = await browseSettingsDataRoot(newCataloguePath || configuredRoot);
+      if (picked && picked.path) {
+        newCataloguePath = picked.path;
+      }
+    } catch (err) {
+      createError = String(err);
+    }
+  }
+
+  /** Create a fresh empty catalogue at the chosen target root (guarded). */
+  async function handleCreateNew() {
+    const target = newCataloguePath.trim();
+    if (busy || !target) {
+      createError = "Please specify a location for the new catalogue.";
+      return;
+    }
+    busy = true;
+    createError = "";
+    try {
+      const seeded = await seedDatabaseToDataRoot(target, false);
       if (!seeded || !seeded.persisted) {
         throw new Error(seeded?.error || "Could not create a new catalogue.");
       }
+      const saved = await setConfiguredDataRoot(target);
+      if (!saved || !saved.persisted) {
+        throw new Error(saved?.error || "Could not save the new catalogue location.");
+      }
+      configuredRoot = target;
       showSeedConfirm = false;
       showRestartConfirm = true;
     } catch (err) {
-      error = String(err);
-      showSeedConfirm = false;
+      createError = String(err);
     } finally {
       busy = false;
     }
@@ -219,7 +253,7 @@
 
           <button
             type="button"
-            onclick={() => (showSeedConfirm = true)}
+            onclick={openCreateModal}
             disabled={busy}
             class="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
             data-testid="recovery-create-new"
@@ -239,25 +273,66 @@
 
 {#if showSeedConfirm}
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
     role="dialog"
     aria-modal="true"
     aria-label="Create new catalogue confirmation"
   >
-    <div class="bg-white rounded-xl shadow p-6 max-w-sm w-full space-y-4">
-      <h2 class="font-semibold text-gray-800">Create a new empty catalogue?</h2>
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4">
+      <h2 class="text-lg font-semibold text-gray-800">Create a new empty catalogue</h2>
       <p class="text-sm text-gray-600">
-        This will create a fresh catalogue at
-        <code class="font-mono text-xs bg-gray-100 px-1 rounded"
-          >{configuredRoot || "the configured location"}</code
-        >. It will not touch any existing database files unless you confirm overwrite. Only use this
-        if you are certain you do not have an existing catalogue to recover.
+        This will create a fresh catalogue database and folder structure at your chosen location.
+        Only use this if you do not have an existing catalogue to recover.
       </p>
-      <div class="flex justify-end gap-2">
+
+      <div class="space-y-2">
+        <label for="recovery-location-input" class="block text-xs font-medium text-gray-700">
+          Catalogue Location
+        </label>
+        <div class="flex gap-2">
+          <input
+            id="recovery-location-input"
+            type="text"
+            bind:value={newCataloguePath}
+            disabled={busy}
+            placeholder="e.g. C:\EmbroideryCatalogue"
+            class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+            data-testid="recovery-new-location-input"
+          />
+          <button
+            type="button"
+            onclick={handleBrowseNewLocation}
+            disabled={busy}
+            class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
+            data-testid="recovery-new-location-browse"
+          >
+            Browse…
+          </button>
+        </div>
+        <p class="text-xs text-gray-500">
+          The previous location is shown by default. Choose a new folder if you want your catalogue
+          created elsewhere.
+        </p>
+      </div>
+
+      {#if createError}
+        <div
+          class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
+          data-testid="recovery-create-error"
+        >
+          {createError}
+        </div>
+      {/if}
+
+      <div class="flex justify-end gap-2 pt-2">
         <button
           type="button"
-          onclick={() => (showSeedConfirm = false)}
-          class="px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100"
+          onclick={() => {
+            showSeedConfirm = false;
+            createError = "";
+          }}
+          disabled={busy}
+          class="px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
           data-testid="recovery-create-cancel"
         >
           Cancel
@@ -265,7 +340,7 @@
         <button
           type="button"
           onclick={handleCreateNew}
-          disabled={busy}
+          disabled={busy || !newCataloguePath.trim()}
           class="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
           data-testid="recovery-create-confirm"
         >
