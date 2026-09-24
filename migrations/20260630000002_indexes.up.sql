@@ -20,3 +20,5 @@ CREATE INDEX ix_project_designs_design_id ON project_designs (design_id);
 
 CREATE INDEX ix_project_designs_project_id ON project_designs (project_id);
 
+CREATE INDEX ix_designs_hoop_id ON designs (hoop_id);
+

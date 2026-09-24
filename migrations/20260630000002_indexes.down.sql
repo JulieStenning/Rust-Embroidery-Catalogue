@@ -19,3 +19,5 @@ DROP INDEX IF EXISTS ix_designs_source_id;
 DROP INDEX IF EXISTS ix_project_designs_design_id;
 
 DROP INDEX IF EXISTS ix_project_designs_project_id;
+
+DROP INDEX IF EXISTS ix_designs_hoop_id;
