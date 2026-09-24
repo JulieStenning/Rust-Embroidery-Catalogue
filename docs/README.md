@@ -19,6 +19,7 @@ Welcome to the documentation portal for the **Rust Embroidery Catalogue**. This 
 ### System Architecture & Specifications
 
 - [**Desktop Architecture Guardrails**](Specs/desktop-only-architecture-guardrails.md): Core platform scope, local-first principles, and Rust IPC boundaries.
+- [**AI Model Evaluation & Selection**](Specs/ai-model-evaluation.md): Comparative evaluation (September 2026) of Gemini Vision, Claude Sonnet, and Hugging Face.
 - [**Stitch Identifier Architecture**](<Help for Developers/stitch-identifier-architecture.md>): Format detection, magic byte analysis, and reader routing.
 - [**State Synchronization Architecture**](<Specs/State Synchronization Architecture.md>): Reactive frontend stores, cross-view synchronisation, and mutation patching.
 - [**Import & Folder Assignment Spec**](Specs/import-folder-assignment-backend-spec.md): Import scanner, multi-folder library assignment, and duplicate resolution.

@@ -82,6 +82,14 @@ Scopes for a Gemini Vision / Full Re-Scan run let you target designs by their an
 - **Re-analyze (already analyzed)** — designs already analyzed, run again.
 - **Untagged designs only**, **Specific Folder(s)**, and **Entire collection** are also available.
 
+### Model selection & evaluation (September 2026)
+
+In comparative benchmarks conducted in September 2026, alternative models—including Hugging Face vision models and Anthropic Claude Sonnet—were evaluated alongside Google Gemini AI Vision for embroidery preview image analysis and subject classification.
+
+- **Outcome:** Gemini AI Vision selected as the primary backend provider due to superior tagging accuracy (even though, like all AI vision models, results are not perfect).
+
+
+
 
 ### Get a Google API key
 
