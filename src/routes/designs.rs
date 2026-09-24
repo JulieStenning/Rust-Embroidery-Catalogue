@@ -173,15 +173,40 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
         let designer_filters = filters.designer_filters.as_deref().unwrap_or(&[]);
         if !designer_filters.is_empty() {
             push_where_clause(query_builder, &mut has_where);
-            query_builder.push("(");
-            for (index, value) in designer_filters.iter().enumerate() {
-                if index > 0 {
-                    query_builder.push(" OR ");
+            let has_unknown = designer_filters
+                .iter()
+                .any(|v| v.trim().eq_ignore_ascii_case("unknown"));
+            let named_designers: Vec<&str> = designer_filters
+                .iter()
+                .map(|v| v.trim())
+                .filter(|v| !v.eq_ignore_ascii_case("unknown") && !v.is_empty())
+                .collect();
+
+            if has_unknown && named_designers.is_empty() {
+                query_builder.push("(d.designer_id IS NULL OR d.designer_id IN (SELECT id FROM designers WHERE LOWER(name) = 'unknown'))");
+            } else if has_unknown {
+                query_builder.push(
+                    "(d.designer_id IS NULL OR d.designer_id IN (SELECT id FROM designers WHERE ",
+                );
+                for (index, value) in named_designers.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(name) = ");
+                    query_builder.push_bind(value.to_lowercase());
                 }
-                query_builder.push("LOWER(COALESCE(designers.name, 'Unknown')) = ");
-                query_builder.push_bind(value.trim().to_lowercase());
+                query_builder.push(" OR LOWER(name) = 'unknown'))");
+            } else {
+                query_builder.push("d.designer_id IN (SELECT id FROM designers WHERE ");
+                for (index, value) in named_designers.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(name) = ");
+                    query_builder.push_bind(value.to_lowercase());
+                }
+                query_builder.push(")");
             }
-            query_builder.push(")");
         }
 
         let image_tag_filters = filters.image_tag_filters.as_deref().unwrap_or(&[]);
@@ -225,15 +250,39 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
         let source_filters = filters.source_filters.as_deref().unwrap_or(&[]);
         if !source_filters.is_empty() {
             push_where_clause(query_builder, &mut has_where);
-            query_builder.push("(");
-            for (index, value) in source_filters.iter().enumerate() {
-                if index > 0 {
-                    query_builder.push(" OR ");
+            let has_unknown = source_filters
+                .iter()
+                .any(|v| v.trim().eq_ignore_ascii_case("unknown"));
+            let named_sources: Vec<&str> = source_filters
+                .iter()
+                .map(|v| v.trim())
+                .filter(|v| !v.eq_ignore_ascii_case("unknown") && !v.is_empty())
+                .collect();
+
+            if has_unknown && named_sources.is_empty() {
+                query_builder.push("(d.source_id IS NULL OR d.source_id IN (SELECT id FROM sources WHERE LOWER(name) = 'unknown'))");
+            } else if has_unknown {
+                query_builder
+                    .push("(d.source_id IS NULL OR d.source_id IN (SELECT id FROM sources WHERE ");
+                for (index, value) in named_sources.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(name) = ");
+                    query_builder.push_bind(value.to_lowercase());
                 }
-                query_builder.push("LOWER(COALESCE(sources.name, 'Unknown')) = ");
-                query_builder.push_bind(value.trim().to_lowercase());
+                query_builder.push(" OR LOWER(name) = 'unknown'))");
+            } else {
+                query_builder.push("d.source_id IN (SELECT id FROM sources WHERE ");
+                for (index, value) in named_sources.iter().enumerate() {
+                    if index > 0 {
+                        query_builder.push(" OR ");
+                    }
+                    query_builder.push("LOWER(name) = ");
+                    query_builder.push_bind(value.to_lowercase());
+                }
+                query_builder.push(")");
             }
-            query_builder.push(")");
         }
 
         if let Some(ref hoop_size) = filters.hoop_size {
@@ -243,8 +292,9 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
                 query_builder.push("d.hoop_id IS NULL");
             } else if !hoop_size_trimmed.is_empty() {
                 push_where_clause(query_builder, &mut has_where);
-                query_builder.push("LOWER(COALESCE(hoops.name, '')) = ");
+                query_builder.push("d.hoop_id IN (SELECT id FROM hoops WHERE LOWER(name) = ");
                 query_builder.push_bind(hoop_size_trimmed.to_lowercase());
+                query_builder.push(")");
             }
         }
 
@@ -1910,12 +1960,7 @@ async fn get_design_ids_with_pool(
     let payload = payload.unwrap_or_default();
     let sort_clause = browse_sort_clause(payload.sort_by.as_deref(), payload.sort_dir.as_deref());
 
-    let mut ids_builder = QueryBuilder::<Sqlite>::new(
-        "SELECT d.id FROM designs d \
-         LEFT JOIN designers ON designers.id = d.designer_id \
-         LEFT JOIN sources ON sources.id = d.source_id \
-         LEFT JOIN hoops ON hoops.id = d.hoop_id",
-    );
+    let mut ids_builder = QueryBuilder::<Sqlite>::new("SELECT d.id FROM designs d");
     push_browse_filters(&mut ids_builder, &payload);
     ids_builder.push(" ORDER BY ");
     ids_builder.push(sort_clause.as_str());
@@ -1939,12 +1984,7 @@ async fn get_designs_page_with_pool(
     let sort_clause = browse_sort_clause(payload.sort_by.as_deref(), payload.sort_dir.as_deref());
 
     // 1. Total count for the pagination controls.
-    let mut count_builder = QueryBuilder::<Sqlite>::new(
-        "SELECT COUNT(*) FROM designs d \
-         LEFT JOIN designers ON designers.id = d.designer_id \
-         LEFT JOIN sources ON sources.id = d.source_id \
-         LEFT JOIN hoops ON hoops.id = d.hoop_id",
-    );
+    let mut count_builder = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM designs d");
     push_browse_filters(&mut count_builder, &payload);
     let total: i64 = count_builder
         .build_query_scalar()
@@ -1961,12 +2001,7 @@ async fn get_designs_page_with_pool(
     let offset = (normalized_page - 1) * page_size;
 
     // 2. Page ids (cheap: no tag aggregation).
-    let mut ids_builder = QueryBuilder::<Sqlite>::new(
-        "SELECT d.id FROM designs d \
-         LEFT JOIN designers ON designers.id = d.designer_id \
-         LEFT JOIN sources ON sources.id = d.source_id \
-         LEFT JOIN hoops ON hoops.id = d.hoop_id",
-    );
+    let mut ids_builder = QueryBuilder::<Sqlite>::new("SELECT d.id FROM designs d");
     push_browse_filters(&mut ids_builder, &payload);
     ids_builder.push(" ORDER BY ");
     ids_builder.push(sort_clause.as_str());
