@@ -126,7 +126,7 @@
         <strong>Manage matches:</strong> open
         <a href="#/admin/data/tag-matches" class="text-indigo-600 hover:underline"
           >Admin → Manage Data → Word Matches</a
-        > to view cards, filter by tag group, and quickly add single or comma-separated keywords.
+        > to view cards, filter by tag group, and quickly add keywords.
       </p>
       <p>
         <strong>Contextual access:</strong> click the <strong>Matches</strong> button next to any
