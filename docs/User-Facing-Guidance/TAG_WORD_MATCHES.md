@@ -20,7 +20,7 @@ For example:
 Tag Word Matching is **100% local and offline** — no internet connection or Google API key is required.
 
 ### 1. File & Folder Rules (Import & Batch Operations)
-When designs are imported (see [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)) or when you run **Step 1 (File & Folder Rules)** in **Admin → Batch Operations** (see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)):
+When designs are imported (see [Import workflow and local rules](IMPORT_WORKFLOW.md)) or when you run **Step 1 (File & Folder Rules)** in **Admin → Batch Operations** (see [Running local batch tagging](BATCH_OPERATIONS_BACKFILL.md)):
 - The catalogue scans every folder segment and the design filename.
 - It tests against **exact tag names** as well as all configured **Tag Word Matches**.
 
@@ -44,7 +44,7 @@ Matching is case-insensitive. Entering `Rose` or `rose` matches `ROSE.PES`, `Ros
 You can view, search, add, and remove word matches in two convenient places.
 
 ### 1. Dedicated Admin Page (`Manage Data → Word Matches`)
-Navigate to **Admin → Manage Data → Word Matches** ([#/admin/data/tag-matches](#/admin/data/tag-matches)).
+Navigate to **Admin → Manage Data → [Word Matches](#/admin/data/tag-matches)**.
 
 Here you will find:
 - **Search & Group Filter:** Filter tags by name or switch between **All Tags**, **Image Tags**, and **Stitching Tags**.
@@ -57,7 +57,7 @@ Here you will find:
   - Enter single words or multiple comma-separated words at once (e.g. `kitten, puppy, bunny, hedgehog`) and click **Add Matches** (or press <kbd>Enter</kbd>).
 
 ### 2. Contextual Tag Administration (`Manage Data → Tags`)
-When maintaining your general tag list in **Admin → Manage Data → Tags** ([#/admin/data/tags](#/admin/data/tags)):
+When maintaining your general tag list in **Admin → Manage Data → [Tags](#/admin/data/tags)**:
 - Every tag row has a dedicated **Matches** button. Clicking it opens a window where you can view, add, or remove word matches for that specific tag.
 - When creating a brand-new tag, you can optionally click to assign word matches immediately upon saving the tag.
 
