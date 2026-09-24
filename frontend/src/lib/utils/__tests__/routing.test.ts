@@ -9,6 +9,7 @@ import {
   parseReferenceDataTab,
   parseSystemTab,
   shouldShowBackButton,
+  HELP_SECTION_IDS,
 } from "../routing.js";
 
 describe("normalizeHash", () => {
@@ -146,5 +147,21 @@ describe("shouldShowBackButton", () => {
 
   it("hides on an unrecognised route", () => {
     expect(shouldShowBackButton("#/unknown/route", prev)).toBe(false);
+  });
+});
+
+describe("HELP_SECTION_IDS", () => {
+  it("contains all 9 valid help section identifiers", () => {
+    expect(Array.from(HELP_SECTION_IDS)).toEqual([
+      "search",
+      "importing",
+      "word-matches",
+      "storage",
+      "ai-tagging",
+      "batch-operations",
+      "projects",
+      "maintenance",
+      "troubleshooting",
+    ]);
   });
 });
