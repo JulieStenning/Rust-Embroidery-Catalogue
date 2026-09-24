@@ -2,7 +2,6 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
   import DOMPurify from "dompurify";
   import { getAboutDocument } from "../api/commandAdapter";
   import { renderMarkdown } from "../utils/markdown.js";
@@ -148,7 +147,7 @@
     }
   }
 
-  onMount(() => {
+  $effect(() => {
     // The dedicated Licence route renders its own 3-tab static content and
     // does not need to fetch a document from the backend.
     if (slug && !isLicenceView) {

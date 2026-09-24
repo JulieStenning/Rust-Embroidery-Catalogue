@@ -547,14 +547,9 @@ describe("AboutDocumentView", () => {
         },
       });
 
-      // Wait for the first promise's resolution flow to finish
-      await waitFor(() => {
-        expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
-      });
-
-      // It should NOT render the first document's content
+      // It should NOT render the first document's content, and should render the second
       expect(screen.queryByText("Content of the first document")).not.toBeInTheDocument();
-      expect(screen.getByText("Document content is unavailable.")).toBeInTheDocument();
+      expect(screen.getByText("Content of the second document")).toBeInTheDocument();
     });
 
     it("does not trigger loader or request when slug is empty", async () => {

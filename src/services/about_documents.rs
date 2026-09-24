@@ -47,7 +47,7 @@ struct AboutDocumentSpec {
     content: &'static str,
 }
 
-const DOCUMENTS: [AboutDocumentSpec; 6] = [
+const DOCUMENTS: [AboutDocumentSpec; 21] = [
     AboutDocumentSpec {
         slug: "disclaimer",
         title: "Disclaimer",
@@ -89,6 +89,111 @@ const DOCUMENTS: [AboutDocumentSpec; 6] = [
         filename: "docs/User-Facing-Guidance/TAG_WORD_MATCHES.md",
         description: "How to configure offline keyword and synonym rules to automatically match folder and filenames to tags.",
         content: include_str!("../../docs/User-Facing-Guidance/TAG_WORD_MATCHES.md"),
+    },
+    AboutDocumentSpec {
+        slug: "import-workflow",
+        title: "Import Workflow Guide",
+        filename: "docs/User-Facing-Guidance/IMPORT_WORKFLOW.md",
+        description: "The full import workflow from selecting folders to seeing your designs in the catalogue.",
+        content: include_str!("../../docs/User-Facing-Guidance/IMPORT_WORKFLOW.md"),
+    },
+    AboutDocumentSpec {
+        slug: "first-import-actions",
+        title: "First Import Actions Guide",
+        filename: "docs/User-Facing-Guidance/FIRST_IMPORT_ACTIONS.md",
+        description: "Pre-import review actions for machine hoops, tags, designers, and sources.",
+        content: include_str!("../../docs/User-Facing-Guidance/FIRST_IMPORT_ACTIONS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "import-folder-assignment",
+        title: "Import Folder Assignment Guide",
+        filename: "docs/User-Facing-Guidance/IMPORT_FOLDER_ASSIGNMENT.md",
+        description: "Assigning Designer and Source metadata per scanned folder during import.",
+        content: include_str!("../../docs/User-Facing-Guidance/IMPORT_FOLDER_ASSIGNMENT.md"),
+    },
+    AboutDocumentSpec {
+        slug: "getting-started",
+        title: "Getting Started Guide",
+        filename: "docs/User-Facing-Guidance/GETTING_STARTED.md",
+        description: "Getting started with Embroidery Catalogue, requirements, and library setup.",
+        content: include_str!("../../docs/User-Facing-Guidance/GETTING_STARTED.md"),
+    },
+    AboutDocumentSpec {
+        slug: "backup-restore",
+        title: "Backup & Restore Guide",
+        filename: "docs/User-Facing-Guidance/BACKUP_RESTORE.md",
+        description: "Backing up and restoring your catalogue database and managed embroidery designs.",
+        content: include_str!("../../docs/User-Facing-Guidance/BACKUP_RESTORE.md"),
+    },
+    AboutDocumentSpec {
+        slug: "browse-bulk-actions",
+        title: "Browse & Bulk Actions Guide",
+        filename: "docs/User-Facing-Guidance/BROWSE_BULK_ACTIONS.md",
+        description: "Selecting, tagging, and managing multiple embroidery designs from Browse view.",
+        content: include_str!("../../docs/User-Facing-Guidance/BROWSE_BULK_ACTIONS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "colour-counts",
+        title: "Colour Counts Guide",
+        filename: "docs/User-Facing-Guidance/COLOUR_COUNTS.md",
+        description: "Understanding thread color stops and distinct color counts in embroidery files.",
+        content: include_str!("../../docs/User-Facing-Guidance/COLOUR_COUNTS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "design-detail",
+        title: "Design Detail Guide",
+        filename: "docs/User-Facing-Guidance/DESIGN_DETAIL.md",
+        description: "Exploring detailed stitch patterns, thread lists, and metadata for a design.",
+        content: include_str!("../../docs/User-Facing-Guidance/DESIGN_DETAIL.md"),
+    },
+    AboutDocumentSpec {
+        slug: "image-generation",
+        title: "Image Generation Guide",
+        filename: "docs/User-Facing-Guidance/IMAGE_GENERATION.md",
+        description: "How high-resolution thumbnail and stitch previews are rendered and cached.",
+        content: include_str!("../../docs/User-Facing-Guidance/IMAGE_GENERATION.md"),
+    },
+    AboutDocumentSpec {
+        slug: "importing-a-large-library",
+        title: "Importing a Large Library Guide",
+        filename: "docs/User-Facing-Guidance/IMPORTING_A_LARGE_LIBRARY.md",
+        description: "Best practices and performance tips when importing thousands of embroidery files.",
+        content: include_str!("../../docs/User-Facing-Guidance/IMPORTING_A_LARGE_LIBRARY.md"),
+    },
+    AboutDocumentSpec {
+        slug: "projects-guide",
+        title: "Projects Guide",
+        filename: "docs/User-Facing-Guidance/PROJECTS.md",
+        description: "Organizing designs into projects and printable project worksheets.",
+        content: include_str!("../../docs/User-Facing-Guidance/PROJECTS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "settings-guide",
+        title: "Settings Guide",
+        filename: "docs/User-Facing-Guidance/SETTINGS.md",
+        description: "Configuring system preferences, Google Gemini API keys, and data roots.",
+        content: include_str!("../../docs/User-Facing-Guidance/SETTINGS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "stitch-types",
+        title: "Stitch Types Guide",
+        filename: "docs/User-Facing-Guidance/STITCH_TYPES.md",
+        description: "Deterministic detection of stitching techniques and density categories.",
+        content: include_str!("../../docs/User-Facing-Guidance/STITCH_TYPES.md"),
+    },
+    AboutDocumentSpec {
+        slug: "supported-formats",
+        title: "Supported Formats Guide",
+        filename: "docs/User-Facing-Guidance/SUPPORTED_FORMATS.md",
+        description: "Supported machine embroidery binary file formats (PES, JEF, HUS, VP3, DST, EXP).",
+        content: include_str!("../../docs/User-Facing-Guidance/SUPPORTED_FORMATS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "app-installer",
+        title: "App Installer Guide",
+        filename: "docs/User-Facing-Guidance/App Installer.md",
+        description: "Installing, updating, and running the desktop installer or portable release.",
+        content: include_str!("../../docs/User-Facing-Guidance/App Installer.md"),
     },
 ];
 
@@ -150,13 +255,14 @@ mod tests {
         assert!(resolve_document("privacy").is_some());
         assert!(resolve_document("data-storage").is_some());
         assert!(resolve_document("tag-word-matches").is_some());
+        assert!(resolve_document("import-workflow").is_some());
         assert!(resolve_document("unknown").is_none());
     }
 
     #[test]
     fn get_about_documents_lists_all_supported_documents() {
         let docs = get_about_documents();
-        assert_eq!(docs.len(), 6);
+        assert_eq!(docs.len(), 21);
         let slugs: Vec<&str> = docs.iter().map(|d| d.slug.as_str()).collect();
         assert_eq!(
             slugs,
@@ -166,7 +272,22 @@ mod tests {
                 "security",
                 "ai-tagging",
                 "data-storage",
-                "tag-word-matches"
+                "tag-word-matches",
+                "import-workflow",
+                "first-import-actions",
+                "import-folder-assignment",
+                "getting-started",
+                "backup-restore",
+                "browse-bulk-actions",
+                "colour-counts",
+                "design-detail",
+                "image-generation",
+                "importing-a-large-library",
+                "projects-guide",
+                "settings-guide",
+                "stitch-types",
+                "supported-formats",
+                "app-installer",
             ]
         );
         for doc in &docs {
