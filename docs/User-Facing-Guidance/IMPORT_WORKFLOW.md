@@ -40,9 +40,8 @@ Before importing, the app shows a short confirmation step:
 - an explanatory note about how import and Gemini Vision tagging work,
 - **Import Designs** and **Cancel**.
 
-AI tagging:
-- Imports run File & Folder Rules only (local, no API key) and always apply the free
-  keyword and stitching tags.
+AI tagging and local rules:
+- Imports run File & Folder Rules only (local, no API key) and apply keyword tags (matching exact tag names and configured [Tag Word Matches](TAG_WORD_MATCHES.md)) alongside technical stitching tags.
 - Gemini Vision is run separately afterwards from **Admin → Batch Operations**.
 
 First import into an empty catalogue with no hoops:
@@ -73,6 +72,7 @@ You can leave the Import page at any point using the top navigation — there is
 For current list and details: [docs/SUPPORTED_FORMATS.md](../SUPPORTED_FORMATS.md)
 
 ## Related guides
+- Configuring keyword rules: [TAG_WORD_MATCHES.md](TAG_WORD_MATCHES.md)
 - First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
 - Per-folder Designer/Source assignment details: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
 - AI tagging settings and behavior: [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)

@@ -12,8 +12,8 @@ import HelpView from "../HelpView.svelte";
 //
 // Behaviour under test:
 //   - Renders the page title and subtitle.
-//   - Renders all 8 in-page navigation links with the correct hrefs.
-//   - Renders all 8 help sections with their headings and key content.
+//   - Renders all 9 in-page navigation links with the correct hrefs.
+//   - Renders all 9 help sections with their headings and key content.
 // ---------------------------------------------------------------------------
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
@@ -59,12 +59,17 @@ describe("HelpView", () => {
   });
 
   describe("navigation links", () => {
-    it("renders all 8 section navigation links with correct hrefs", () => {
+    it("renders all 9 section navigation links with correct hrefs", () => {
       render(HelpView);
 
       const expectedLinks = [
         { text: "Search", href: "#/help?section=search", emoji: "🔍" },
         { text: "Importing", href: "#/help?section=importing", emoji: "📥" },
+        {
+          text: "Tag Word Matches",
+          href: "#/help?section=word-matches",
+          emoji: "🔤",
+        },
         {
           text: "Data Storage & External Drives",
           href: "#/help?section=storage",
@@ -176,6 +181,53 @@ describe("HelpView", () => {
       const { container } = render(HelpView);
 
       const section = container.querySelector("#importing");
+      expect(section).not.toBeNull();
+      expect(section?.tagName).toBe("SECTION");
+    });
+  });
+
+  describe("word-matches section", () => {
+    it("renders the Tag Word Matches heading", () => {
+      render(HelpView);
+
+      expect(screen.getByRole("heading", { name: "🔤 Tag Word Matches" })).toBeInTheDocument();
+    });
+
+    it("renders the word-matches section content", () => {
+      const { container } = render(HelpView);
+      const section = sectionQueries(container, "word-matches");
+
+      expect(
+        section.getByText(
+          "Tag Word Matches allow words in filenames and folder paths to automatically assign tags during import and batch backfill operations."
+        )
+      ).toBeInTheDocument();
+
+      expect(section.getByText("Offline & automatic:")).toBeInTheDocument();
+      expect(section.getByText("Manage matches:")).toBeInTheDocument();
+      expect(section.getByText("Contextual access:")).toBeInTheDocument();
+      expect(section.getByText("Full guide:")).toBeInTheDocument();
+
+      const manageLink = section.getByRole("link", {
+        name: "Admin → Manage Data → Word Matches",
+      });
+      expect(manageLink).toHaveAttribute("href", "#/admin/data/tag-matches");
+
+      const tagsLink = section.getByRole("link", {
+        name: "Admin → Manage Data → Tags",
+      });
+      expect(tagsLink).toHaveAttribute("href", "#/admin/data/tags");
+
+      const guideLink = section.getByRole("link", {
+        name: "Tag Word Matches Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/tag-word-matches");
+    });
+
+    it("renders the word-matches section with a section id of 'word-matches'", () => {
+      const { container } = render(HelpView);
+
+      const section = container.querySelector("#word-matches");
       expect(section).not.toBeNull();
       expect(section?.tagName).toBe("SECTION");
     });
@@ -420,16 +472,17 @@ describe("HelpView", () => {
   });
 
   describe("structure", () => {
-    it("renders exactly 8 help sections with the expected ids", () => {
+    it("renders exactly 9 help sections with the expected ids", () => {
       const { container } = render(HelpView);
 
       const sections = Array.from(container.querySelectorAll("section"));
       const ids = sections.map((section) => section.id);
 
-      expect(sections).toHaveLength(8);
+      expect(sections).toHaveLength(9);
       expect(ids).toEqual([
         "search",
         "importing",
+        "word-matches",
         "storage",
         "ai-tagging",
         "batch-operations",
@@ -445,14 +498,14 @@ describe("HelpView", () => {
       const links = Array.from(container.querySelectorAll("a"));
       const sections = container.querySelectorAll("section");
 
-      expect(links.length).toBeGreaterThanOrEqual(8);
-      expect(sections).toHaveLength(8);
+      expect(links.length).toBeGreaterThanOrEqual(9);
+      expect(sections).toHaveLength(9);
 
-      // Exactly 8 of the links are the in-page section navigators.
+      // Exactly 9 of the links are the in-page section navigators.
       const sectionNavigators = links.filter((link) =>
         (link.getAttribute("href") || "").startsWith("#/help?section=")
       );
-      expect(sectionNavigators).toHaveLength(8);
+      expect(sectionNavigators).toHaveLength(9);
     });
   });
 });

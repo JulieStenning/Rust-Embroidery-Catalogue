@@ -17,6 +17,11 @@
       class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a
     >
     <a
+      href="#/help?section=word-matches"
+      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
+      >🔤 Tag Word Matches</a
+    >
+    <a
       href="#/help?section=storage"
       class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
       >💾 Data Storage & External Drives</a
@@ -93,12 +98,48 @@
         continue directly.
       </p>
       <p>
-        <strong>Tagging during import:</strong> imports apply File & Folder Rules only and never call
-        Gemini.
+        <strong>Tagging during import:</strong> imports apply File & Folder Rules only (matching tag
+        names and configured
+        <a href="#/about/document/tag-word-matches" class="text-indigo-600 hover:underline"
+          >Word Matches</a
+        >) and never call Gemini.
       </p>
       <p>
         <strong>Error files and large scans:</strong> unreadable files are skipped; large scans may summarise
         rows.
+      </p>
+    </div>
+  </section>
+
+  <section id="word-matches">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🔤 Tag Word Matches</h2>
+    <p class="text-sm text-gray-700 mb-3">
+      Tag Word Matches allow words in filenames and folder paths to automatically assign tags during
+      import and batch backfill operations.
+    </p>
+    <div class="route-card rounded shadow p-4 space-y-3 text-sm">
+      <p>
+        <strong>Offline &amp; automatic:</strong> runs 100% locally with no API key; matches whole words,
+        plurals, and singulars.
+      </p>
+      <p>
+        <strong>Manage matches:</strong> open
+        <a href="#/admin/data/tag-matches" class="text-indigo-600 hover:underline"
+          >Admin → Manage Data → Word Matches</a
+        > to view cards, filter by tag group, and quickly add single or comma-separated keywords.
+      </p>
+      <p>
+        <strong>Contextual access:</strong> click the <strong>Matches</strong> button next to any
+        tag in
+        <a href="#/admin/data/tags" class="text-indigo-600 hover:underline"
+          >Admin → Manage Data → Tags</a
+        > or add matches immediately after creating a new tag.
+      </p>
+      <p>
+        <strong>Full guide:</strong> open the
+        <a href="#/about/document/tag-word-matches" class="text-indigo-600 hover:underline"
+          >Tag Word Matches Guide</a
+        >.
       </p>
     </div>
   </section>

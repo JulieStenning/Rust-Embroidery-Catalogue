@@ -69,7 +69,7 @@ application works fully without it.
 Two tagging modes are available when tagging a design:
 
 - **File & Folder Rules** — instantaneous, local matching of the filename and folder path against your
-  tag catalogue. It runs only when the chosen goal includes it, is free, and never calls the network.
+  tag catalogue and user-defined [Tag Word Matches](TAG_WORD_MATCHES.md). It runs only when the chosen goal includes it, is free, and never calls the network.
   Does **not** require an API key.
 - **Gemini Vision** — sends the design's rendered preview image to the API for
   analysis. It requires an API key and consumes quota from your account. It needs a rendered preview

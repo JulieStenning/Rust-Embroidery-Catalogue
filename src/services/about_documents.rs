@@ -47,7 +47,7 @@ struct AboutDocumentSpec {
     content: &'static str,
 }
 
-const DOCUMENTS: [AboutDocumentSpec; 5] = [
+const DOCUMENTS: [AboutDocumentSpec; 6] = [
     AboutDocumentSpec {
         slug: "disclaimer",
         title: "Disclaimer",
@@ -82,6 +82,13 @@ const DOCUMENTS: [AboutDocumentSpec; 5] = [
         filename: "docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md",
         description: "How Embroidery Catalogue stores your designs and database, and how to choose external storage.",
         content: include_str!("../../docs/User-Facing-Guidance/DATA_STORAGE_GUIDE.md"),
+    },
+    AboutDocumentSpec {
+        slug: "tag-word-matches",
+        title: "Tag Word Matches Guide",
+        filename: "docs/User-Facing-Guidance/TAG_WORD_MATCHES.md",
+        description: "How to configure offline keyword and synonym rules to automatically match folder and filenames to tags.",
+        content: include_str!("../../docs/User-Facing-Guidance/TAG_WORD_MATCHES.md"),
     },
 ];
 
@@ -142,13 +149,14 @@ mod tests {
         assert_eq!(doc.filename, "DISCLAIMER.html");
         assert!(resolve_document("privacy").is_some());
         assert!(resolve_document("data-storage").is_some());
+        assert!(resolve_document("tag-word-matches").is_some());
         assert!(resolve_document("unknown").is_none());
     }
 
     #[test]
     fn get_about_documents_lists_all_supported_documents() {
         let docs = get_about_documents();
-        assert_eq!(docs.len(), 5);
+        assert_eq!(docs.len(), 6);
         let slugs: Vec<&str> = docs.iter().map(|d| d.slug.as_str()).collect();
         assert_eq!(
             slugs,
@@ -157,7 +165,8 @@ mod tests {
                 "privacy",
                 "security",
                 "ai-tagging",
-                "data-storage"
+                "data-storage",
+                "tag-word-matches"
             ]
         );
         for doc in &docs {

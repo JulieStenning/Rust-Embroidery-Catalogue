@@ -225,5 +225,6 @@ folder in the active data root.
 - [App Installer.md](App Installer.md) — run the release installer or use portable mode on a USB stick / SD card.
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) — back up and restore your catalogue database.
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) — enable optional AI-powered design tagging.
+- [TAG_WORD_MATCHES.md](TAG_WORD_MATCHES.md) — customize offline keyword and folder rules for automated tagging.
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) — first-import and later-import precheck review flow.
 - [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — fix common problems.
