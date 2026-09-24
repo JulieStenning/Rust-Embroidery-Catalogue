@@ -74,9 +74,9 @@ The catalogue comes pre-loaded with standard starter word matches for common emb
 
 ## Related Guides
 
-- Import workflow and local rules: [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
-- First import actions & review: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
-- Assigning Designer & Source per folder: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- Running local batch tagging: [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- Data storage and library paths: [DATA_STORAGE_GUIDE.md](DATA_STORAGE_GUIDE.md)
-- Getting started and initial setup: [GETTING_STARTED.md](GETTING_STARTED.md)
+- [Import workflow and local rules](IMPORT_WORKFLOW.md)
+- [First import actions & review](FIRST_IMPORT_ACTIONS.md)
+- [Assigning Designer & Source per folder](IMPORT_FOLDER_ASSIGNMENT.md)
+- [Running local batch tagging](BATCH_OPERATIONS_BACKFILL.md)
+- [Data storage and library paths](DATA_STORAGE_GUIDE.md)
+- [Getting started and initial setup](GETTING_STARTED.md)
