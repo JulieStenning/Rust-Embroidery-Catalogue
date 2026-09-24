@@ -20,6 +20,11 @@ test.describe("reference data", () => {
       page.getByRole("heading", { name: "Manage Tags" }),
     ).toBeVisible();
 
+    await page.getByTestId("reference-data-tab-tag-matches").click();
+    await expect(
+      page.getByRole("heading", { name: "Tag Word Matches" }),
+    ).toBeVisible();
+
     await page.getByTestId("reference-data-tab-hoops").click();
     await expect(
       page.getByRole("heading", { name: "Manage Hoops" }),
