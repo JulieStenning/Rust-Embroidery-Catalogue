@@ -79,3 +79,7 @@ src-tauri/resources/tags insert.sql
 tests/Test Designs/Rose.eof
 scratch/
 vscodeinsider-sandbox.wsb
+scripts/extract_file_folder_words.py
+scripts/extract-file-folder-words.ps1
+.gitignore
+file-folder-words.txt
