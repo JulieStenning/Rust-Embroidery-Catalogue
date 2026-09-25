@@ -64,11 +64,28 @@
           description: String(t.description || ""),
           tag_group: t.tag_group ? String(t.tag_group) : null,
         }));
+      } else if (synonymsRes?.items) {
+        allTags = synonymsRes.items.map((g) => ({
+          id: Number(g.tag_id),
+          description: String(g.tag_description || ""),
+          tag_group: g.tag_group ? String(g.tag_group) : null,
+        }));
       }
     } catch (e) {
       addToast(`Failed to load word matches: ${e}`, "error");
     } finally {
       loading = false;
+    }
+  }
+
+  async function reloadSynonyms() {
+    try {
+      const res = await listTagSynonymsGrouped();
+      if (res?.items) {
+        groups = res.items;
+      }
+    } catch (e) {
+      addToast(`Failed to reload word matches: ${e}`, "error");
     }
   }
 
@@ -152,7 +169,7 @@
       if (res?.persisted) {
         quickAddWords = "";
         addToast("Word matches added.", "success");
-        await loadData(true);
+        await reloadSynonyms();
       } else {
         addToast(`Could not add matches: ${res?.error || "Unknown error"}`, "error");
       }
@@ -178,7 +195,7 @@
       if (res?.persisted) {
         inlineWordsInput[tagId] = "";
         addToast("Word match added.", "success");
-        await loadData(true);
+        await reloadSynonyms();
       } else {
         addToast(`Could not add match: ${res?.error || "Unknown error"}`, "error");
       }
@@ -196,7 +213,7 @@
     try {
       const res = await deleteTagSynonym(synonymId);
       if (res?.persisted) {
-        await loadData(true);
+        await reloadSynonyms();
       } else {
         addToast(`Could not delete match: ${res?.error || "Unknown error"}`, "error");
       }
@@ -213,7 +230,7 @@
       const res = await deleteAllTagSynonymsForTag(tagId);
       if (res?.persisted) {
         addToast("Word matches cleared for tag.", "success");
-        await loadData(true);
+        await reloadSynonyms();
       } else {
         addToast(`Could not clear matches: ${res?.error || "Unknown error"}`, "error");
       }
@@ -575,5 +592,5 @@
   tagGroup={modalTagGroup}
   {allTags}
   onClose={() => (modalOpen = false)}
-  onMatchesChanged={() => loadData(true)}
+  onMatchesChanged={() => reloadSynonyms()}
 />
