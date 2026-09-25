@@ -379,11 +379,9 @@ pub async fn list_tags_with_pool(pool: &SqlitePool) -> Result<Vec<AdminTag>, App
 			t.id,
 			t.description,
 			t.tag_group,
-			COUNT(dt.design_id) AS design_count,
+			(SELECT COUNT(*) FROM design_tags dt WHERE dt.tag_id = t.id) AS design_count,
 			t.is_system AS is_system
 		FROM tags t
-		LEFT JOIN design_tags dt ON dt.tag_id = t.id
-		GROUP BY t.id, t.description, t.tag_group, t.is_system
 		ORDER BY t.description COLLATE NOCASE ASC
 		"#,
     )
