@@ -8,7 +8,6 @@
     addTagSynonyms,
     deleteTagSynonym,
     deleteAllTagSynonymsForTag,
-    listTags,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import TagCombobox from "../components/TagCombobox.svelte";
@@ -23,8 +22,13 @@
 
   /** @type {AdminTagSynonymGroup[]} */
   let groups = $state([]);
-  /** @type {TagOption[]} */
-  let allTags = $state([]);
+  const allTags = $derived(
+    groups.map((g) => ({
+      id: Number(g.tag_id),
+      description: String(g.tag_description || ""),
+      tag_group: g.tag_group ? String(g.tag_group) : null,
+    }))
+  );
   let loading = $state(false);
   let searchQuery = $state("");
   let selectedGroupFilter = $state("all"); // 'all' | 'image' | 'stitching'
@@ -53,23 +57,9 @@
     if (loading && !force) return;
     loading = true;
     try {
-      const [synonymsRes, tagsRes] = await Promise.all([listTagSynonymsGrouped(), listTags()]);
-
-      if (synonymsRes?.items) {
-        groups = synonymsRes.items;
-      }
-      if (tagsRes?.items) {
-        allTags = tagsRes.items.map((t) => ({
-          id: Number(t.id),
-          description: String(t.description || ""),
-          tag_group: t.tag_group ? String(t.tag_group) : null,
-        }));
-      } else if (synonymsRes?.items) {
-        allTags = synonymsRes.items.map((g) => ({
-          id: Number(g.tag_id),
-          description: String(g.tag_description || ""),
-          tag_group: g.tag_group ? String(g.tag_group) : null,
-        }));
+      const res = await listTagSynonymsGrouped();
+      if (res?.items) {
+        groups = res.items;
       }
     } catch (e) {
       addToast(`Failed to load word matches: ${e}`, "error");
@@ -163,13 +153,21 @@
     const trimmed = quickAddWords.trim();
     if (!trimmed) return;
 
+    const targetTagId = quickAddTagId;
     quickAddSaving = true;
     try {
-      const res = await addTagSynonyms(quickAddTagId, trimmed);
+      const res = await addTagSynonyms(targetTagId, trimmed);
       if (res?.persisted) {
+        if (res.item) {
+          const target = groups.find((g) => g.tag_id === targetTagId);
+          if (target) {
+            target.keywords = res.item;
+          }
+        } else {
+          await reloadSynonyms();
+        }
         quickAddWords = "";
         addToast("Word matches added.", "success");
-        await reloadSynonyms();
       } else {
         addToast(`Could not add matches: ${res?.error || "Unknown error"}`, "error");
       }
@@ -193,9 +191,16 @@
     try {
       const res = await addTagSynonyms(tagId, input);
       if (res?.persisted) {
+        if (res.item) {
+          const target = groups.find((g) => g.tag_id === tagId);
+          if (target) {
+            target.keywords = res.item;
+          }
+        } else {
+          await reloadSynonyms();
+        }
         inlineWordsInput[tagId] = "";
         addToast("Word match added.", "success");
-        await reloadSynonyms();
       } else {
         addToast(`Could not add match: ${res?.error || "Unknown error"}`, "error");
       }
@@ -213,7 +218,13 @@
     try {
       const res = await deleteTagSynonym(synonymId);
       if (res?.persisted) {
-        await reloadSynonyms();
+        for (const group of groups) {
+          const idx = group.keywords.findIndex((k) => k.id === synonymId);
+          if (idx !== -1) {
+            group.keywords.splice(idx, 1);
+            break;
+          }
+        }
       } else {
         addToast(`Could not delete match: ${res?.error || "Unknown error"}`, "error");
       }
@@ -229,14 +240,32 @@
     try {
       const res = await deleteAllTagSynonymsForTag(tagId);
       if (res?.persisted) {
+        const target = groups.find((g) => g.tag_id === tagId);
+        if (target) {
+          target.keywords = [];
+        }
         addToast("Word matches cleared for tag.", "success");
-        await reloadSynonyms();
       } else {
         addToast(`Could not clear matches: ${res?.error || "Unknown error"}`, "error");
       }
     } catch (err) {
       addToast(`Could not clear matches: ${err}`, "error");
     }
+  }
+
+  /**
+   * @param {number | null} [tagId]
+   * @param {AdminTagSynonymKeyword[]} [keywords]
+   */
+  function handleModalMatchesChanged(tagId, keywords) {
+    if (tagId !== undefined && tagId !== null && keywords) {
+      const target = groups.find((g) => g.tag_id === tagId);
+      if (target) {
+        target.keywords = [...keywords];
+        return;
+      }
+    }
+    reloadSynonyms();
   }
 
   /**
@@ -592,5 +621,5 @@
   tagGroup={modalTagGroup}
   {allTags}
   onClose={() => (modalOpen = false)}
-  onMatchesChanged={() => reloadSynonyms()}
+  onMatchesChanged={handleModalMatchesChanged}
 />

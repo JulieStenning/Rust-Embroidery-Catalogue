@@ -8,7 +8,7 @@
 
   /**
    * @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary
-   * @typedef {{ id: number, description: string, design_count: number, is_system?: boolean }} TagRow
+   * @typedef {{ id: number, description: string, tag_group?: string | null, design_count: number, is_system?: boolean }} TagRow
    */
 
   /** @type {{ tags: TagRow[], group: string, onRefresh: (force?: boolean) => Promise<void>, onOpenMatches?: (tag: TagRow) => void }} */

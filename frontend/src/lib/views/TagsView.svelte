@@ -112,7 +112,7 @@
     tagDescriptionInput?.focus();
   }
 
-  /** @param {TagRow} tag */
+  /** @param {{ id: number, description: string, tag_group?: string | null }} tag */
   function handleOpenMatches(tag) {
     modalTagId = tag.id;
     modalTagDescription = tag.description;
@@ -306,5 +306,5 @@
   tagGroup={modalTagGroup}
   {allTags}
   onClose={() => (modalOpen = false)}
-  onMatchesChanged={loadTags}
+  onMatchesChanged={() => loadTags()}
 />

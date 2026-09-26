@@ -25,7 +25,7 @@
    *   tagGroup?: string | null,
    *   allTags?: TagOption[],
    *   onClose?: () => void,
-   *   onMatchesChanged?: () => void
+   *   onMatchesChanged?: (tagId?: number | null, keywords?: AdminTagSynonymKeyword[]) => void
    * }}
    */
   let {
@@ -97,7 +97,7 @@
         currentKeywords = res.item;
         wordsInput = "";
         addToast("Word matches added.", "success");
-        onMatchesChanged();
+        onMatchesChanged(activeTagId, currentKeywords);
       } else {
         addToast(`Could not add matches: ${res?.error || "Unknown error"}`, "error");
       }
@@ -114,7 +114,7 @@
       const res = await deleteTagSynonym(synonymId);
       if (res?.persisted) {
         currentKeywords = currentKeywords.filter((k) => k.id !== synonymId);
-        onMatchesChanged();
+        onMatchesChanged(activeTagId, currentKeywords);
       } else {
         addToast(`Could not delete word match: ${res?.error || "Unknown error"}`, "error");
       }
@@ -130,7 +130,7 @@
       if (res?.persisted) {
         currentKeywords = [];
         addToast("All word matches cleared for this tag.", "success");
-        onMatchesChanged();
+        onMatchesChanged(activeTagId, currentKeywords);
       } else {
         addToast(`Could not clear matches: ${res?.error || "Unknown error"}`, "error");
       }
