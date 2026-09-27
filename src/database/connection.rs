@@ -104,10 +104,30 @@ async fn configure_pragmas(
             ))
         })?;
 
+    sqlx::query("PRAGMA journal_mode = WAL")
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            ConnectionError::BusyTimeout(format!(
+                "Failed to set journal_mode = WAL for '{}': {}",
+                database_url, e
+            ))
+        })?;
+
+    sqlx::query("PRAGMA synchronous = NORMAL")
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            ConnectionError::BusyTimeout(format!(
+                "Failed to set synchronous = NORMAL for '{}': {}",
+                database_url, e
+            ))
+        })?;
+
     match read_auto_vacuum_mode(pool).await {
         Ok(mode) => {
             tracing::info!(
-                "SQLite PRAGMA configuration complete — database={}, auto_vacuum={}, foreign_keys=ON, busy_timeout=30000",
+                "SQLite PRAGMA configuration complete — database={}, auto_vacuum={}, journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=30000",
                 database_url, mode
             );
         }

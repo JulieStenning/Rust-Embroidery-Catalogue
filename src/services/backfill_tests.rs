@@ -2740,3 +2740,92 @@ async fn select_hoop_dimension_candidates_overwrite_includes_designs_with_existi
         "overwrite must recompute a design that already has dimensions"
     );
 }
+
+#[tokio::test]
+#[serial]
+async fn run_unified_backfill_images_only_does_not_modify_stitch_or_color_counts() {
+    let pool = make_test_pool().await;
+    let design_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("Test Designs")
+        .join("Bean.pes");
+    assert!(
+        design_path.exists(),
+        "fixture missing: {}",
+        design_path.display()
+    );
+
+    sqlx::query(
+        "INSERT INTO designs (id, filename, filepath, image_data, image_type, stitch_count, color_count, color_change_count, image_tags_verified, stitching_tags_verified)
+         VALUES (1, 'Bean.pes', ?, NULL, NULL, 9999, 888, 777, 0, 0)",
+    )
+    .bind(design_path.to_string_lossy().to_string())
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let summary = run_unified_backfill(
+        &pool,
+        UnifiedBackfillRequest {
+            actions: Some(UnifiedBackfillActions {
+                tagging: None,
+                stitching: None,
+                images: Some(ImageActionOptions {
+                    enabled: Some(true),
+                    redo: Some(false),
+                }),
+                color_counts: None,
+                hoop_dimensions: None,
+                fingerprinting: None,
+            }),
+            batch_size: Some(100),
+            commit_every: Some(100),
+            workers: Some(1),
+            delay_seconds: Some(0.0),
+            vision_delay_seconds: Some(0.0),
+        },
+        false,
+    )
+    .await
+    .expect("images backfill succeeds");
+
+    assert_eq!(summary.actions, vec!["images"]);
+    assert_eq!(summary.processed, 1);
+
+    let row = sqlx::query(
+        "SELECT image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count FROM designs WHERE id = 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let image_data: Option<Vec<u8>> = row.try_get("image_data").unwrap();
+    let image_type: Option<String> = row.try_get("image_type").unwrap();
+    let width_mm: Option<i64> = row.try_get("width_mm").unwrap();
+    let height_mm: Option<i64> = row.try_get("height_mm").unwrap();
+    let stitch_count: Option<i64> = row.try_get("stitch_count").unwrap();
+    let color_count: Option<i64> = row.try_get("color_count").unwrap();
+    let color_change_count: Option<i64> = row.try_get("color_change_count").unwrap();
+
+    assert!(image_data.is_some(), "expected image_data to be populated");
+    assert!(image_type.is_some(), "expected image_type to be populated");
+    assert!(
+        width_mm.is_some() && height_mm.is_some(),
+        "expected dimensions to be populated"
+    );
+    assert_eq!(
+        stitch_count,
+        Some(9999),
+        "stitch_count should remain untouched"
+    );
+    assert_eq!(
+        color_count,
+        Some(888),
+        "color_count should remain untouched"
+    );
+    assert_eq!(
+        color_change_count,
+        Some(777),
+        "color_change_count should remain untouched"
+    );
+}

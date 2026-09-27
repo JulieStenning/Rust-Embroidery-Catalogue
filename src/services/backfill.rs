@@ -19,6 +19,28 @@ use tokio::task::JoinSet;
 use tokio::time::interval;
 
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
+static BACKFILL_RUNNING: AtomicBool = AtomicBool::new(false);
+
+/// RAII guard to ensure `BACKFILL_RUNNING` is reset even if backfill fails or panics.
+pub struct BackfillRunningGuard;
+
+impl BackfillRunningGuard {
+    pub fn new() -> Self {
+        BACKFILL_RUNNING.store(true, Ordering::SeqCst);
+        Self
+    }
+}
+
+impl Drop for BackfillRunningGuard {
+    fn drop(&mut self) {
+        BACKFILL_RUNNING.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Returns true if a batch/backfill operation is actively running.
+pub fn is_backfill_running() -> bool {
+    BACKFILL_RUNNING.load(Ordering::SeqCst)
+}
 
 const TAG_ACTION_UNTAGGED: &str = "tag_untagged";
 const TAG_ACTION_RETAG_ALL: &str = "retag_all";
@@ -244,6 +266,7 @@ pub async fn run_unified_backfill_with_progress(
     api_key: Option<String>,
     progress: &mut (dyn FnMut(BackfillProgress) + Send),
 ) -> Result<UnifiedBackfillSummary, AppError> {
+    let _guard = BackfillRunningGuard::new();
     clear_stop_signal();
     truncate_logs_for_new_run()?;
     let stitching_tag_count_before = count_stitching_tags(pool).await?;
@@ -701,14 +724,41 @@ pub async fn run_unified_backfill_with_progress(
         if images_action.enabled.unwrap_or(true) {
             actions_run.push("images".to_string());
             let mut image_cursor: i64 = 0;
+            let mut pending_previews: Vec<PreviewBatchItem> = Vec::new();
+            const PREVIEW_IMAGE_BATCH_SIZE: i64 = 500;
+            const PREVIEW_IMAGE_COMMIT_EVERY: usize = 500;
+            let image_batch_size = request
+                .batch_size
+                .map(|b| {
+                    if b == 100 {
+                        PREVIEW_IMAGE_BATCH_SIZE
+                    } else {
+                        b
+                    }
+                })
+                .unwrap_or(PREVIEW_IMAGE_BATCH_SIZE)
+                .max(1);
+            let image_commit_every_usize = request
+                .commit_every
+                .map(|c| {
+                    if c == 100 {
+                        PREVIEW_IMAGE_COMMIT_EVERY
+                    } else {
+                        c.max(1) as usize
+                    }
+                })
+                .unwrap_or(PREVIEW_IMAGE_COMMIT_EVERY)
+                .max(1);
+            let redo = images_action.redo.unwrap_or(false);
+
             loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
                 let image_candidates = select_image_candidates(
                     pool,
-                    images_action.redo.unwrap_or(false),
-                    batch_size,
+                    redo,
+                    image_batch_size,
                     image_cursor,
                     maintenance_scope.as_ref(),
                 )
@@ -726,23 +776,32 @@ pub async fn run_unified_backfill_with_progress(
                     touched_design_ids.insert(design_id);
                     processed += 1;
 
-                    if images_action.redo.unwrap_or(false) {
-                        let _ = clear_image_fields(pool, design_id).await;
-                    }
-
-                    if let Err(error) = generate_and_store_preview(pool, design_id).await {
-                        errors += 1;
-                        log_error(format!(
-                            "Image action failed design_id={} error={}",
-                            design_id, error
-                        ));
+                    match generate_preview_item(pool, design_id, redo).await {
+                        Ok(Some(item)) => {
+                            pending_previews.push(item);
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            errors += 1;
+                            log_error(format!(
+                                "Image action failed design_id={} error={}",
+                                design_id, error
+                            ));
+                        }
                     }
 
                     emit_progress(progress, "processing", "images", processed, errors);
-                    if processed % commit_every == 0 {
+
+                    if pending_previews.len() >= image_commit_every_usize {
+                        flush_preview_batch(pool, std::mem::take(&mut pending_previews)).await?;
                         emit_progress(progress, "batch_committed", "images", processed, errors);
                     }
                 }
+            }
+
+            if !pending_previews.is_empty() {
+                flush_preview_batch(pool, std::mem::take(&mut pending_previews)).await?;
+                emit_progress(progress, "batch_committed", "images", processed, errors);
             }
         }
     }
@@ -1621,6 +1680,22 @@ async fn apply_stitching_tags(
     Ok(())
 }
 
+pub(crate) async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
+    sqlx::query(
+        "UPDATE designs
+		 SET image_data = NULL,
+		     image_type = NULL,
+		     width_mm = NULL,
+		     height_mm = NULL
+		 WHERE id = ?",
+    )
+    .bind(design_id)
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::database(format!("failed to clear image fields: {e}")))?;
+    Ok(())
+}
+
 async fn select_image_candidates(
     pool: &SqlitePool,
     redo: bool,
@@ -1650,23 +1725,20 @@ async fn select_image_candidates(
     Ok(rows)
 }
 
-async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
-    sqlx::query(
-        "UPDATE designs
-		 SET image_data = NULL,
-		     image_type = NULL,
-		     width_mm = NULL,
-		     height_mm = NULL
-		 WHERE id = ?",
-    )
-    .bind(design_id)
-    .execute(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to clear image fields: {e}")))?;
-    Ok(())
+#[derive(Debug)]
+struct PreviewBatchItem {
+    design_id: i64,
+    image_data: Option<Vec<u8>>,
+    image_type: Option<String>,
+    width_mm: Option<i64>,
+    height_mm: Option<i64>,
 }
 
-async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
+async fn generate_preview_item(
+    pool: &SqlitePool,
+    design_id: i64,
+    _redo: bool,
+) -> Result<Option<PreviewBatchItem>, AppError> {
     let row = sqlx::query("SELECT filepath FROM designs WHERE id = ?")
         .bind(design_id)
         .fetch_optional(pool)
@@ -1674,7 +1746,7 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
         .map_err(|e| AppError::database(format!("failed to read filepath for preview: {e}")))?;
 
     let Some(row) = row else {
-        return Ok(());
+        return Ok(None);
     };
 
     let filepath: String = row
@@ -1684,28 +1756,48 @@ async fn generate_and_store_preview(pool: &SqlitePool, design_id: i64) -> Result
     let result =
         design_metadata::parse_design_file(&resolved_path).map_err(AppError::invalid_input)?;
 
-    sqlx::query(
-        "UPDATE designs
-		 SET image_data = ?,
-		     image_type = ?,
-		     width_mm = ?,
-		     height_mm = ?,
-		     stitch_count = COALESCE(?, stitch_count),
-		     color_count = COALESCE(?, color_count),
-		     color_change_count = COALESCE(?, color_change_count)
-		 WHERE id = ?",
-    )
-    .bind(result.image_data)
-    .bind(result.image_type)
-    .bind(result.width_mm)
-    .bind(result.height_mm)
-    .bind(result.stitch_count)
-    .bind(result.color_count)
-    .bind(result.color_change_count)
-    .bind(design_id)
-    .execute(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to store generated preview: {e}")))?;
+    Ok(Some(PreviewBatchItem {
+        design_id,
+        image_data: result.image_data,
+        image_type: result.image_type,
+        width_mm: result.width_mm,
+        height_mm: result.height_mm,
+    }))
+}
+
+async fn flush_preview_batch(
+    pool: &SqlitePool,
+    batch: Vec<PreviewBatchItem>,
+) -> Result<(), AppError> {
+    if batch.is_empty() {
+        return Ok(());
+    }
+    let mut tx = pool.begin().await.map_err(|e| {
+        AppError::database(format!("failed to start preview batch transaction: {e}"))
+    })?;
+
+    for item in batch {
+        sqlx::query(
+            "UPDATE designs
+			 SET image_data = ?,
+			     image_type = ?,
+			     width_mm = ?,
+			     height_mm = ?
+			 WHERE id = ?",
+        )
+        .bind(item.image_data)
+        .bind(item.image_type)
+        .bind(item.width_mm)
+        .bind(item.height_mm)
+        .bind(item.design_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| AppError::database(format!("failed to store preview in batch: {e}")))?;
+    }
+
+    tx.commit().await.map_err(|e| {
+        AppError::database(format!("failed to commit preview batch transaction: {e}"))
+    })?;
 
     Ok(())
 }

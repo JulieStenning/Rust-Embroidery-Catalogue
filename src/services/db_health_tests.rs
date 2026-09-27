@@ -296,6 +296,7 @@ fn test_db_health_derives_and_edge_cases() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn check_and_schedule_maintenance_skips_when_running() {
     let pool = test_pool().await;
     let running = Arc::new(AtomicBool::new(true));
@@ -306,6 +307,7 @@ async fn check_and_schedule_maintenance_skips_when_running() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn check_and_schedule_maintenance_skips_when_below_threshold() {
     let pool = test_pool().await;
     let running = Arc::new(AtomicBool::new(false));
@@ -316,6 +318,7 @@ async fn check_and_schedule_maintenance_skips_when_below_threshold() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn check_and_schedule_maintenance_returns_err_on_closed_pool() {
     let pool = test_pool().await;
     pool.close().await;
@@ -327,6 +330,7 @@ async fn check_and_schedule_maintenance_returns_err_on_closed_pool() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn check_and_schedule_maintenance_triggers_when_threshold_exceeded() {
     let pool = test_pool().await;
     let filler = "x".repeat(4096);
@@ -366,4 +370,16 @@ async fn check_and_schedule_maintenance_triggers_when_threshold_exceeded() {
         !running.load(Ordering::SeqCst),
         "maintenance task should have finished"
     );
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn check_and_schedule_maintenance_skips_when_backfill_running() {
+    let pool = test_pool().await;
+    let _guard = crate::services::backfill::BackfillRunningGuard::new();
+    let running = Arc::new(AtomicBool::new(false));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let app = tauri::test::mock_app();
+    let res = check_and_schedule_maintenance(pool, running, shutdown, app.handle().clone()).await;
+    assert_eq!(res, Ok(false));
 }

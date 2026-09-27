@@ -341,6 +341,18 @@ async fn run_migrations_applies_all_migrations_to_fresh_db() {
         .expect("query pragma_table_info");
     assert_eq!(cols.0, 2, "fingerprint columns should exist on designs");
 
+    // Verify tags indexes were added.
+    let tag_indexes: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('ix_tags_id', 'ix_tags_description')",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query sqlite_master for tags indexes");
+    assert_eq!(
+        tag_indexes.0, 2,
+        "ix_tags_id and ix_tags_description should exist on tags"
+    );
+
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }

@@ -36,6 +36,7 @@ pub async fn run_fingerprint_backfill(
     pool: &SqlitePool,
     commit_every: i64,
 ) -> Result<FingerprintSummary, AppError> {
+    let _guard = backfill::BackfillRunningGuard::new();
     let commit_every = commit_every.clamp(1, 100_000);
 
     let mut processed: i64 = 0;

@@ -1174,6 +1174,7 @@ async fn persist_bulk_import_confirm_wire(
     let valid_stitching_descriptions: HashSet<String> =
         stitching_tag_lookup.keys().cloned().collect();
     let default_stitching_tag_id = load_default_stitching_tag_id(pool).await?;
+    let _guard = crate::services::backfill::BackfillRunningGuard::new();
     let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     BULK_IMPORT_STOP_REQUESTED.store(false, Ordering::SeqCst);

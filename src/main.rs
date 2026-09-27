@@ -587,10 +587,6 @@ fn main() {
                     let mut interval_secs = services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS;
 
                     loop {
-                        // Re-read the persisted interval each cycle.
-                        if let Ok(secs) = read_idle_interval_from_db(&idle_pool).await {
-                            interval_secs = secs;
-                        }
                         let mut interval =
                             tokio::time::interval(std::time::Duration::from_secs(interval_secs));
                         interval.tick().await; // consume the first immediate tick
@@ -598,6 +594,21 @@ fn main() {
 
                         if idle_shutdown.load(std::sync::atomic::Ordering::SeqCst) {
                             break;
+                        }
+
+                        // Defer idle health check if a batch operation or maintenance is actively running.
+                        if services::backfill::is_backfill_running()
+                            || idle_maintenance.load(std::sync::atomic::Ordering::SeqCst)
+                        {
+                            tracing::info!(
+                                "Idle DB health check deferred — batch operation or maintenance is in progress"
+                            );
+                            continue;
+                        }
+
+                        // Re-read the persisted interval each cycle when idle.
+                        if let Ok(secs) = read_idle_interval_from_db(&idle_pool).await {
+                            interval_secs = secs;
                         }
 
                         if let Err(err) = services::db_health::check_and_schedule_maintenance(

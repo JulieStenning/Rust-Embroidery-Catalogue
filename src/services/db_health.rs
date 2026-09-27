@@ -150,10 +150,14 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
     shutdown_requested: Arc<AtomicBool>,
     app_handle: tauri::AppHandle<R>,
 ) -> Result<bool, String> {
-    // Refuse to start if a run is already in progress.
-
+    // Refuse to start if a run is already in progress or a batch operation is active.
     if maintenance_running.load(Ordering::SeqCst) {
         tracing::info!("DB health check skipped — maintenance already running");
+        return Ok(false);
+    }
+
+    if crate::services::backfill::is_backfill_running() {
+        tracing::info!("DB health check skipped — batch operation is actively running");
         return Ok(false);
     }
 
