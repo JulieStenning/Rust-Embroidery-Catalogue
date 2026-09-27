@@ -1680,22 +1680,6 @@ async fn apply_stitching_tags(
     Ok(())
 }
 
-pub(crate) async fn clear_image_fields(pool: &SqlitePool, design_id: i64) -> Result<(), AppError> {
-    sqlx::query(
-        "UPDATE designs
-		 SET image_data = NULL,
-		     image_type = NULL,
-		     width_mm = NULL,
-		     height_mm = NULL
-		 WHERE id = ?",
-    )
-    .bind(design_id)
-    .execute(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to clear image fields: {e}")))?;
-    Ok(())
-}
-
 async fn select_image_candidates(
     pool: &SqlitePool,
     redo: bool,
