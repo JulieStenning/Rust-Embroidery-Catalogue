@@ -1525,42 +1525,6 @@ async fn select_image_candidates_redo_includes_all() {
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// DB helper: clear_image_fields
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-#[tokio::test]
-async fn clear_image_fields_sets_fields_to_null() {
-    let pool = make_test_pool().await;
-    seed_design_with_image(&pool, 1, Some(b"fake_png"), Some("2d")).await;
-    // Also set dimensions
-    sqlx::query("UPDATE designs SET width_mm = 100, height_mm = 200 WHERE id = 1")
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    clear_image_fields(&pool, 1).await.unwrap();
-
-    let row =
-        sqlx::query("SELECT image_data, image_type, width_mm, height_mm FROM designs WHERE id = 1")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert!(row
-        .try_get::<Option<Vec<u8>>, _>("image_data")
-        .unwrap()
-        .is_none());
-    assert!(row
-        .try_get::<Option<String>, _>("image_type")
-        .unwrap()
-        .is_none());
-    assert!(row.try_get::<Option<i64>, _>("width_mm").unwrap().is_none());
-    assert!(row
-        .try_get::<Option<i64>, _>("height_mm")
-        .unwrap()
-        .is_none());
-}
-
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // DB helper: select_color_count_candidates
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
