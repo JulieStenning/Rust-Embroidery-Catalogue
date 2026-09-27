@@ -81,6 +81,7 @@ const defaultStats: DbStats = {
   page_size: 4096,
   free_ratio: 0.2,
   reclaimable_bytes: 1000000,
+  near_fat32_limit: false,
 };
 
 function mockSettings(model: Partial<SettingsViewModel> = defaultModel) {
@@ -908,6 +909,23 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     expect(screen.getByText("Database statistics unavailable.")).toBeInTheDocument();
+  });
+
+  it("renders the FAT32 4 GB limit warning banner when near_fat32_limit is true", async () => {
+    mockDbStats({
+      ...defaultStats,
+      file_size_bytes: 4284967296,
+      near_fat32_limit: true,
+    });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const warning = screen.getByTestId("db-fat32-warning");
+    expect(warning).toBeInTheDocument();
+    expect(warning).toHaveTextContent("Database Approaching 4 GB FAT32 Limit");
+    expect(warning).toHaveTextContent("Your catalogue data root maybe on a FAT32-formatted drive");
   });
 
   // -- Help link -----------------------------------------------------------

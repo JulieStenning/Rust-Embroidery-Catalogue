@@ -41,9 +41,9 @@ impl AppError {
     }
 
     pub fn database(message: impl Into<String>) -> Self {
-        Self::Database {
-            message: message.into(),
-        }
+        let msg = message.into();
+        let enriched = crate::database::error_diagnostics::enrich_db_error_message(&msg, None);
+        Self::Database { message: enriched }
     }
 
     pub fn io(message: impl Into<String>) -> Self {
@@ -115,6 +115,14 @@ mod tests {
     fn app_error_database_display() {
         let err = AppError::database("connection refused");
         assert_eq!(err.to_string(), "database error: connection refused");
+    }
+
+    #[test]
+    fn app_error_database_sqlite_full_enriched() {
+        let err = AppError::database("error: (code: 13) database or disk is full");
+        let display = err.to_string();
+        assert!(display.contains("database or disk is full"));
+        assert!(display.contains("Your catalogue data root maybe on a FAT32-formatted drive"));
     }
 
     #[test]

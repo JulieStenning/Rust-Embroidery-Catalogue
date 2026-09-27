@@ -21,6 +21,7 @@
 //! verification routines run through the maintenance and recovery services.
 
 pub mod connection;
+pub mod error_diagnostics;
 pub mod migrations;
 pub mod models;
 pub mod schema;

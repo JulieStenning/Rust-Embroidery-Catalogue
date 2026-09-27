@@ -30,6 +30,7 @@ export async function getDbStats(): Promise<AdapterDbStatsResponse> {
         page_size: Number(result?.page_size ?? 0),
         free_ratio: Number(result?.free_ratio ?? 0),
         reclaimable_bytes: Number(result?.reclaimable_bytes ?? 0),
+        near_fat32_limit: Boolean(result?.near_fat32_limit ?? false),
       },
     };
   } catch (error) {
@@ -43,6 +44,7 @@ export async function getDbStats(): Promise<AdapterDbStatsResponse> {
         page_size: 0,
         free_ratio: 0,
         reclaimable_bytes: 0,
+        near_fat32_limit: false,
       },
       error: String(error),
     };

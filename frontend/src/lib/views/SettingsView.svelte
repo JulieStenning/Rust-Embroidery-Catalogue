@@ -967,6 +967,26 @@
               </p>
             </div>
           </div>
+          {#if dbStats.near_fat32_limit}
+            <div
+              class="bg-amber-50 border border-amber-300 text-amber-900 rounded p-3 text-xs space-y-1"
+              data-testid="db-fat32-warning"
+            >
+              <p class="font-semibold text-amber-800">⚠️ Database Approaching 4 GB FAT32 Limit</p>
+              <p>
+                Your database is currently {formatBytes(dbStats.file_size_bytes)}. Your catalogue
+                data root maybe on a FAT32-formatted drive (common with SD cards and USB flash
+                drives). FAT32 imposes a strict 4 GB maximum single-file size limit regardless of
+                how much free space remains on the card.
+              </p>
+              <p class="text-amber-700">
+                Consider backing up your catalogue and reformatting the card to <strong
+                  >exFAT</strong
+                >
+                or <strong>NTFS</strong>.
+              </p>
+            </div>
+          {/if}
         {:else}
           <p class="text-xs text-gray-500 italic">Database statistics unavailable.</p>
         {/if}

@@ -2252,6 +2252,7 @@ describe("commandAdapter getDbStats", () => {
     page_size: 4096,
     free_ratio: 0.2,
     reclaimable_bytes: 200,
+    near_fat32_limit: false,
   };
 
   it("maps a Rust stats payload and falls back to zero stats on error", async () => {
@@ -2271,6 +2272,7 @@ describe("commandAdapter getDbStats", () => {
       page_size: 0,
       free_ratio: 0,
       reclaimable_bytes: 0,
+      near_fat32_limit: false,
     });
     expect(bad.error).toContain("stats failed");
   });

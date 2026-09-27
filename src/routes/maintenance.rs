@@ -188,6 +188,7 @@ pub struct DbStats {
     pub page_size: i64,
     pub free_ratio: f64,
     pub reclaimable_bytes: u64,
+    pub near_fat32_limit: bool,
 }
 
 /// Result of a successful manual `VACUUM` + `PRAGMA optimize` run.
@@ -231,7 +232,7 @@ fn is_backup_cancel_requested() -> bool {
 }
 
 /// Return current storage metrics for the database: file size on disk plus
-/// SQLite page/freelist counts and the recoverable freelist size.
+/// SQLite page/freelist counts, the recoverable freelist size, and FAT32 proximity.
 #[tauri::command]
 pub async fn get_db_stats(state: State<'_, AppState>) -> Result<DbStats, String> {
     let db_path = database_path_from_bootstrap();
@@ -241,6 +242,7 @@ pub async fn get_db_stats(state: State<'_, AppState>) -> Result<DbStats, String>
         .len();
 
     let snapshot = db_health::get_freelist_metrics(&state.db_pool()?).await?;
+    let near_fat32_limit = crate::database::error_diagnostics::is_near_fat32_limit(file_size_bytes);
 
     Ok(DbStats {
         file_size_bytes,
@@ -249,6 +251,7 @@ pub async fn get_db_stats(state: State<'_, AppState>) -> Result<DbStats, String>
         page_size: snapshot.page_size,
         free_ratio: snapshot.free_ratio(),
         reclaimable_bytes: snapshot.reclaimable_bytes(),
+        near_fat32_limit,
     })
 }
 
@@ -281,7 +284,7 @@ pub async fn compact_database(
         .map_err(|e| format!("Failed to query available disk space: {e}"))?;
 
     tracing::info!(
-        "Manual DB compaction â€” file_size_before={}, free_space_on_volume={}",
+        "Manual DB compaction — file_size_before={}, free_space_on_volume={}",
         file_size_before,
         available
     );
@@ -301,15 +304,30 @@ pub async fn compact_database(
     }
 
     // Run the full VACUUM (blocking rewrite) then PRAGMA optimize.
-    sqlx::query("VACUUM")
-        .execute(&state.db_pool()?)
-        .await
-        .map_err(|e| format!("VACUUM failed: {e}"))?;
+    if let Err(e) = sqlx::query("VACUUM").execute(&state.db_pool()?).await {
+        let enriched = crate::database::error_diagnostics::enrich_sqlx_error(&e, Some(&db_path));
+        let msg = format!("VACUUM failed: {enriched}");
+        tracing::error!("{}", msg);
+        let _ = app_handle.emit(
+            db_health::EVENT_MAINTENANCE_FINISHED,
+            serde_json::json!({ "error": msg }),
+        );
+        return Err(msg);
+    }
 
-    sqlx::query("PRAGMA optimize")
+    if let Err(e) = sqlx::query("PRAGMA optimize")
         .execute(&state.db_pool()?)
         .await
-        .map_err(|e| format!("PRAGMA optimize failed: {e}"))?;
+    {
+        let enriched = crate::database::error_diagnostics::enrich_sqlx_error(&e, Some(&db_path));
+        let msg = format!("PRAGMA optimize failed: {enriched}");
+        tracing::error!("{}", msg);
+        let _ = app_handle.emit(
+            db_health::EVENT_MAINTENANCE_FINISHED,
+            serde_json::json!({ "error": msg }),
+        );
+        return Err(msg);
+    }
 
     let duration_ms = started.elapsed().as_millis() as u64;
 

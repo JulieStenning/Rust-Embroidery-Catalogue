@@ -331,6 +331,7 @@ export interface DbStats {
   page_size: number;
   free_ratio: number;
   reclaimable_bytes: number;
+  near_fat32_limit?: boolean;
 }
 
 export interface CompactResult {
