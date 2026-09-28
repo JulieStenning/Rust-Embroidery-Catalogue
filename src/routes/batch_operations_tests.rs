@@ -9,6 +9,7 @@
 // items in the parent module through use super::*;.
 use super::*;
 use crate::utils::test_support::lock_env;
+use serial_test::serial;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 use std::sync::atomic::AtomicBool;
@@ -338,6 +339,7 @@ async fn batch_operations_view_model_free_tier_uses_conservative_defaults() {
 }
 
 #[tokio::test]
+#[serial]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_backfills_and_logs() {
     let _guard = lock_env();
@@ -400,6 +402,7 @@ async fn test_backfills_and_logs() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key() {
     let pool = test_pool().await;
     let tmp = std::env::temp_dir().join("tagging-actions-test-no-key");
@@ -454,6 +457,7 @@ async fn test_run_unified_backfill_errors_when_ai_tagging_requested_without_key(
 }
 
 #[tokio::test]
+#[serial]
 async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_modes() {
     let pool = test_pool().await;
     let tmp = std::env::temp_dir().join("tagging-actions-test-no-ai-tiers");
@@ -499,6 +503,7 @@ async fn test_run_unified_backfill_proceeds_without_ai_when_no_ai_modes() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_run_unified_backfill_skips_ai_check_when_tagging_disabled() {
     let pool = test_pool().await;
     let tmp = std::env::temp_dir().join("tagging-actions-test-tagging-disabled");
@@ -808,6 +813,7 @@ fn test_dto_derives_and_json_serde() {
 }
 
 #[tokio::test]
+#[serial]
 #[allow(clippy::await_holding_lock)]
 async fn test_run_unified_backfill_with_ai_enabled_and_valid_key() {
     let _guard = lock_env();

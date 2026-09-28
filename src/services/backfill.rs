@@ -436,7 +436,6 @@ pub async fn run_unified_backfill_with_progress(
             // `batch_size`, processing each batch with up to `workers` concurrent
             // tasks.
             let mut tagging_cursor: i64 = 0;
-            let mut tagging_total: i64 = 0;
             loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     log_info("Stop signal observed during tagging loop".to_string());
@@ -459,14 +458,6 @@ pub async fn run_unified_backfill_with_progress(
                 if let Some(last) = design_ids.last() {
                     tagging_cursor = *last;
                 }
-                tagging_total += design_ids.len() as i64;
-                log_info(format!(
-                    "Tagging batch action={} batch_candidates={} cumulative={} modes={:?}",
-                    mode,
-                    design_ids.len(),
-                    tagging_total,
-                    modes
-                ));
 
                 // Run this batch's designs concurrently, bounded by `workers`.
                 // Worker tasks only COMPUTE suggestions (read-only); the single
@@ -640,7 +631,6 @@ pub async fn run_unified_backfill_with_progress(
             // Page through ALL matching designs in ascending-id batches of
             // `batch_size`, mirroring the fingerprint backfill.
             let mut stitching_cursor: i64 = 0;
-            let mut stitching_total: i64 = 0;
             loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
@@ -653,13 +643,6 @@ pub async fn run_unified_backfill_with_progress(
                 if let Some(last) = stitching_candidates.last() {
                     stitching_cursor = last.id;
                 }
-                stitching_total += stitching_candidates.len() as i64;
-                log_info(format!(
-                    "{} stitching candidates selected for detection (batch={} cumulative={})",
-                    stitching_candidates.len(),
-                    stitching_candidates.len(),
-                    stitching_total
-                ));
                 for candidate in stitching_candidates {
                     if STOP_REQUESTED.load(Ordering::SeqCst) {
                         break;
@@ -697,11 +680,6 @@ pub async fn run_unified_backfill_with_progress(
                         log_error(format!(
                             "Stitching update failed design_id={} error={}",
                             candidate.id, error
-                        ));
-                    } else if !detected_descriptions.is_empty() {
-                        log_info(format!(
-                            "Stitching detected design_id={} tags={:?}",
-                            candidate.id, detected_descriptions
                         ));
                     }
 
