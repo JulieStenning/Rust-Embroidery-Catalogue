@@ -34,12 +34,34 @@
   let backupSavedDesignsDestination = $state("");
   let backupDbSourcePath = $state("(not available yet)");
   let backupDesignsSourcePath = $state("(not available yet)");
+  let backupDbFileSize = $state(0);
+  let backupDbIsOversize = $state(false);
   let backupLoaded = $state(false);
   let backupLoading = $state(false);
   let backupDatabaseRunning = $state(false);
   let backupDesignsRunning = $state(false);
 
   let settingsDataRoot = $state("");
+
+  let restoreDbFileSize = $state(/** @type {number | null} */ (null));
+  let restoreDbIsOversize = $state(false);
+
+  /**
+   * Format bytes into human-readable string.
+   * @param {number | null | undefined} bytes
+   */
+  function formatBytes(bytes) {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = n;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    return `${value.toFixed(value >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  }
 
   // Cancellation UI state. The confirmation modal never pauses background
   // execution — the running backup command continues until the user confirms.
@@ -125,6 +147,9 @@
             ? `${fallbackDataRoot}\\MachineEmbroideryDesigns`
             : "(not available yet)")
       );
+
+      backupDbFileSize = Number(model?.db_file_size_bytes ?? 0);
+      backupDbIsOversize = Boolean(model?.is_db_oversize ?? false);
 
       backupLoaded = true;
     } catch (error) {
@@ -394,6 +419,11 @@
     const result = await browseRestoreFile(startDir);
     if (result.path) {
       restoreDbFile = result.path;
+      restoreDbFileSize =
+        result.file_size_bytes !== undefined && result.file_size_bytes !== null
+          ? Number(result.file_size_bytes)
+          : null;
+      restoreDbIsOversize = Boolean(result.is_oversize);
       return;
     }
     if (result.error) {
@@ -600,6 +630,27 @@
         <p class="text-sm text-gray-600">
           Set separate destination folders for the database and designs backups.
         </p>
+
+        {#if backupDbIsOversize}
+          <div
+            class="bg-amber-50 border border-amber-300 text-amber-900 rounded p-4 text-xs space-y-1.5"
+            data-testid="backup-fat32-warning"
+          >
+            <p class="font-semibold text-amber-800 text-sm">
+              ⚠️ Large Database Advisory (FAT32 Limit)
+            </p>
+            <p>
+              Your catalogue database is currently <strong>{formatBytes(backupDbFileSize)}</strong>
+              (larger than 4 GB). If your backup destination is an SD card or USB flash drive, please
+              ensure the drive is formatted as <strong>exFAT</strong> or
+              <strong>NTFS</strong>.
+            </p>
+            <p class="text-amber-700">
+              Drives formatted as FAT32 cannot store individual files of 4 GB or larger, which will
+              cause the database backup to fail.
+            </p>
+          </div>
+        {/if}
 
         <div>
           <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1"
@@ -841,6 +892,28 @@
           Replace the live catalogue database with a backup snapshot. A safety copy of the current
           database is kept before overwriting.
         </p>
+
+        {#if restoreDbIsOversize}
+          <div
+            class="bg-amber-50 border border-amber-300 text-amber-900 rounded p-3 text-xs space-y-1"
+            data-testid="restore-fat32-warning"
+          >
+            <p class="font-semibold text-amber-800">
+              ⚠️ Large Backup Database Advisory (FAT32 Limit)
+            </p>
+            <p>
+              The selected database backup is <strong>{formatBytes(restoreDbFileSize)}</strong>
+              (larger than 4 GB). Please ensure your catalogue receiving storage location{#if settingsDataRoot}
+                (<code>{settingsDataRoot}</code>){/if} is on a drive formatted as
+              <strong>exFAT</strong>
+              or <strong>NTFS</strong>.
+            </p>
+            <p class="text-amber-700">
+              Restoring to a FAT32-formatted drive will fail because FAT32 cannot store individual
+              files of 4 GB or larger.
+            </p>
+          </div>
+        {/if}
         <div class="flex gap-2 items-center">
           <input
             id="restore-db-file"

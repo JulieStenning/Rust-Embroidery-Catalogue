@@ -50,6 +50,8 @@ pub struct BackupViewModel {
     pub db_last_backup_at: String,
     /// Epoch-seconds string of the last successful designs backup (if any).
     pub designs_last_backup_at: String,
+    pub db_file_size_bytes: u64,
+    pub is_db_oversize: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -442,6 +444,9 @@ pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupV
 
     let db_source = derive_database_source_path();
     let designs_source = derive_designs_source_path();
+    let db_file_size_bytes = fs::metadata(&db_source).map(|m| m.len()).unwrap_or(0);
+    let is_db_oversize =
+        crate::database::error_diagnostics::is_file_oversize_for_fat32(db_file_size_bytes);
 
     Ok(BackupViewModel {
         db_destination,
@@ -450,6 +455,8 @@ pub async fn get_backup_view_model(state: State<'_, AppState>) -> Result<BackupV
         designs_source_path: normalize_path_display(&designs_source),
         db_last_backup_at,
         designs_last_backup_at,
+        db_file_size_bytes,
+        is_db_oversize,
     })
 }
 

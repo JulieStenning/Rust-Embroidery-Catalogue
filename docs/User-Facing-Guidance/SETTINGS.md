@@ -178,6 +178,14 @@ Related:
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
 - [GETTING_STARTED.md](GETTING_STARTED.md)
 
+### Database maintenance & compaction
+
+The **Database Maintenance** section on the Settings page provides tools to monitor and optimize your SQLite database file:
+- **Database size & unused space:** displays the total on-disk size and estimated reclaimable space.
+- **Compaction (VACUUM):** reclaims unused disk space from deleted designs, tags, or thumbnails and defragments database pages.
+- **Approaching 4 GB FAT32 Warning:** if the database file size is between **3.5 GB and 4.0 GB**, a warning banner appears advising that FAT32-formatted drives enforce a strict 4 GB single-file limit. If your storage is formatted as FAT32, back up your catalogue and reformat the drive to **exFAT** or **NTFS** before reaching the 4 GB ceiling.
+- **Oversized databases (4 GB and above):** once the database reaches 4 GB or more, the warning banner is not shown in Settings (because the live database is already operating safely on an exFAT or NTFS filesystem). Instead, advisory warnings appear on the Backup and Restore tabs when backing up or restoring.
+
 ### Storage locations panel (read-only)
 
 This panel displays:

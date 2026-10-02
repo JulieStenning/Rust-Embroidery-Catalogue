@@ -749,6 +749,7 @@ fn main() {
             routes::maintenance::delete_all_orphans,
             routes::maintenance::browse_orphan_path,
             routes::restore::browse_restore_file,
+            routes::restore::inspect_restore_db_file,
             routes::restore::restore_database,
             routes::restore::restore_designs_incremental,
             routes::restore::restore_both,

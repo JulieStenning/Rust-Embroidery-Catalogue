@@ -54,10 +54,12 @@ If your computer has a built-in SD card slot (or a quality USB 3.0 card reader),
 
 Ensure your external drive or SD card is formatted with a modern filesystem supported by your operating system:
 
-* **Windows:** NTFS or exFAT
-* **macOS:** APFS or exFAT
+* **Windows:** NTFS or exFAT (Recommended)
+* **macOS:** APFS or exFAT (Recommended)
 
-*(Note: exFAT is ideal if you plan to move your SD card between Windows and Mac computers).*
+*(Note: **exFAT** is ideal if you plan to move your SD card between Windows and Mac computers).*
+
+> **⚠️ Avoid FAT32 Formatting:** Many new SD cards and USB flash drives come pre-formatted as **FAT32**. FAT32 imposes a **strict 4 GB maximum single-file size limit** regardless of how much free space remains on the card. Because the catalogue database (`catalogue.db`) or backup database snapshot is stored as a single file, a FAT32 drive will trigger disk full (`SQLITE_FULL`) errors once the database reaches 4 GB. Always reformat your card or drive as **exFAT** or **NTFS** before storing a large catalogue or backups.
 
 ### Managing the Drive Letter or Volume Name
 

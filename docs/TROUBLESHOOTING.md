@@ -9,6 +9,7 @@ Solutions to the most common problems when running or deploying the Embroidery C
 - [The app won't start](#the-app-wont-start)
 - [Vite dev server port conflict (developer mode)](#vite-dev-server-port-conflict-developer-mode)
 - [Database errors on startup](#database-errors-on-startup)
+- [Database or disk is full (FAT32 4 GB limit)](#database-or-disk-is-full-fat32-4-gb-limit)
 - [Designs show no preview image](#designs-show-no-preview-image)
 - [Desktop window is blank or crashes](#desktop-window-is-blank-or-crashes)
 - [Portable mode not detected (data went to %APPDATA%)](#portable-mode-not-detected-data-went-to-appdata)
@@ -150,6 +151,21 @@ closes immediately, or a Command Prompt window stays open with an error message.
    SQLx migration files in `migrations/` are the source of truth, and the seed
    database in `src-tauri/resources/EmbroideryCatalogue.db` must be re-created with the
    new schema before release.  See `src/database/migrations.rs`.
+
+---
+
+## Database or disk is full (FAT32 4 GB limit)
+
+**Symptom:** You receive an error saying `database or disk is full` (`SQLITE_FULL`, error code 13) when importing designs, running batch operations, performing a backup, or compacting the database, even though Windows shows gigabytes of free disk space remaining on your drive.
+
+**Cause:** Your catalogue data location or backup folder is on a storage device (such as an SD card or USB flash drive) formatted as **FAT32**. FAT32 has an absolute single-file size ceiling of **4 GB** ($4{,}294{,}967{,}295$ bytes). When the SQLite database (`catalogue.db`), the backup snapshot, or the temporary compaction workspace reaches 4 GB, FAT32 refuses further file growth.
+
+**Fix:**
+
+1. **Back up your catalogue:** Copy your designs folder and database to an internal drive or a secondary backup location.
+2. **Reformat the removable storage:** Reformat your SD card or USB drive as **exFAT** or **NTFS** (both support very large single files without arbitrary size restrictions).
+3. **Restore your catalogue data:** Copy your designs folder and catalogue database back onto the newly formatted drive.
+4. **Restart the app:** Re-launch Embroidery Catalogue and confirm normal operation.
 
 ---
 

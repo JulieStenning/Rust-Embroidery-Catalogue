@@ -31,6 +31,12 @@ impl BackfillRunningGuard {
     }
 }
 
+impl Default for BackfillRunningGuard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for BackfillRunningGuard {
     fn drop(&mut self) {
         BACKFILL_RUNNING.store(false, Ordering::SeqCst);

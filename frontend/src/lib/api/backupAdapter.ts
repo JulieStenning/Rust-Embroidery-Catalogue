@@ -5,6 +5,7 @@ import { invokeLoose, type LooseRecord } from "./ipcClient";
 import type {
   AdapterBackupViewModelResponse,
   AdapterBrowseBackupFolderResponse,
+  AdapterInspectRestoreDbFileResponse,
   AdapterRunBothBackupsResponse,
   AdapterSaveBackupSettingsResponse,
   BackupViewModel,
@@ -13,6 +14,7 @@ import type {
   DatabaseBackupResult,
   DetectUnmatchedFilesResult,
   DesignsBackupResult,
+  InspectRestoreDbFileResult,
   SaveBackupSettingsRequest,
   ImportUnmatchedFilesResult,
   RestoreBothResult,
@@ -33,6 +35,8 @@ export async function getBackupViewModel(): Promise<AdapterBackupViewModelRespon
         designs_source_path: String(model?.designs_source_path || ""),
         db_last_backup_at: String(model?.db_last_backup_at || ""),
         designs_last_backup_at: String(model?.designs_last_backup_at || ""),
+        db_file_size_bytes: Number(model?.db_file_size_bytes ?? 0),
+        is_db_oversize: Boolean(model?.is_db_oversize ?? false),
       },
     };
   } catch (error) {
@@ -46,6 +50,8 @@ export async function getBackupViewModel(): Promise<AdapterBackupViewModelRespon
         designs_source_path: "",
         db_last_backup_at: "",
         designs_last_backup_at: "",
+        db_file_size_bytes: 0,
+        is_db_oversize: false,
       },
       error: String(error),
     };
@@ -236,22 +242,69 @@ export async function runBothBackups(): Promise<AdapterRunBothBackupsResponse> {
  */
 export async function browseRestoreFile(startDir = ""): Promise<BrowseRestoreFileResponse> {
   try {
-    const result = await invokeLoose<{ path?: string | null; error?: string | null }>(
-      "browse_restore_file",
-      {
-        startDir: String(startDir || "") || null,
-      }
-    );
+    const result = await invokeLoose<{
+      path?: string | null;
+      file_size_bytes?: number | null;
+      is_oversize?: boolean | null;
+      error?: string | null;
+    }>("browse_restore_file", {
+      startDir: String(startDir || "") || null,
+    });
     return {
       source: "rust",
       path: result?.path ? String(result.path) : null,
+      file_size_bytes:
+        result?.file_size_bytes !== undefined && result?.file_size_bytes !== null
+          ? Number(result.file_size_bytes)
+          : null,
+      is_oversize:
+        result?.is_oversize !== undefined && result?.is_oversize !== null
+          ? Boolean(result.is_oversize)
+          : null,
       error: result?.error ? String(result.error) : null,
     };
   } catch (error) {
     return {
       source: "mock",
       path: null,
+      file_size_bytes: null,
+      is_oversize: null,
       error: `File picker unavailable: ${error}`,
+    };
+  }
+}
+
+/**
+ * Inspect an arbitrary database file on disk to determine whether it is oversize for FAT32.
+ * @param {string} filePath
+ */
+export async function inspectRestoreDbFile(
+  filePath: string
+): Promise<AdapterInspectRestoreDbFileResponse> {
+  try {
+    const result = await invokeLoose<InspectRestoreDbFileResult>("inspect_restore_db_file", {
+      filePath: String(filePath || ""),
+    });
+    return {
+      source: "rust",
+      result: {
+        exists: Boolean(result?.exists),
+        file_size_bytes:
+          result?.file_size_bytes !== undefined && result?.file_size_bytes !== null
+            ? Number(result.file_size_bytes)
+            : null,
+        is_oversize: Boolean(result?.is_oversize),
+      },
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      result: {
+        exists: false,
+        file_size_bytes: null,
+        is_oversize: false,
+      },
+      error: String(error),
     };
   }
 }

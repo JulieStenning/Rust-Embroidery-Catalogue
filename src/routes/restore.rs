@@ -38,7 +38,16 @@ pub struct RestoreBothRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct BrowseRestoreFileResponse {
     pub path: Option<String>,
+    pub file_size_bytes: Option<u64>,
+    pub is_oversize: Option<bool>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct InspectRestoreDbFileResult {
+    pub exists: bool,
+    pub file_size_bytes: Option<u64>,
+    pub is_oversize: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -90,14 +99,52 @@ async fn read_backup_setting(state: &State<'_, AppState>, key: &str) -> Result<S
 #[tauri::command]
 pub fn browse_restore_file(start_dir: Option<String>) -> BrowseRestoreFileResponse {
     match folder_picker::pick_db_backup_file(start_dir.as_deref()) {
-        Ok(result) => BrowseRestoreFileResponse {
-            path: result.path,
-            error: None,
-        },
+        Ok(result) => {
+            let (file_size_bytes, is_oversize) = match &result.path {
+                Some(p) => {
+                    let size = std::fs::metadata(p).map(|m| m.len()).ok();
+                    let oversize =
+                        size.map(crate::database::error_diagnostics::is_file_oversize_for_fat32);
+                    (size, oversize)
+                }
+                None => (None, None),
+            };
+            BrowseRestoreFileResponse {
+                path: result.path,
+                file_size_bytes,
+                is_oversize,
+                error: None,
+            }
+        }
         Err(error) => BrowseRestoreFileResponse {
             path: None,
+            file_size_bytes: None,
+            is_oversize: None,
             error: Some(error.to_string()),
         },
+    }
+}
+
+/// Inspect an arbitrary database file on disk to determine whether it is oversize for FAT32.
+#[tauri::command]
+pub fn inspect_restore_db_file(file_path: String) -> InspectRestoreDbFileResult {
+    let path = std::path::Path::new(file_path.trim());
+    if path.is_file() {
+        let size = std::fs::metadata(path).map(|m| m.len()).ok();
+        let is_oversize = size
+            .map(crate::database::error_diagnostics::is_file_oversize_for_fat32)
+            .unwrap_or(false);
+        InspectRestoreDbFileResult {
+            exists: true,
+            file_size_bytes: size,
+            is_oversize,
+        }
+    } else {
+        InspectRestoreDbFileResult {
+            exists: false,
+            file_size_bytes: None,
+            is_oversize: false,
+        }
     }
 }
 

@@ -2928,7 +2928,13 @@ describe("restore adapters", () => {
     expect(invokeMock).toHaveBeenCalledWith("browse_restore_file", {
       startDir: "C:/start",
     });
-    expect(ok).toEqual({ source: "rust", path: "C:/backups/cat.db", error: null });
+    expect(ok).toEqual({
+      source: "rust",
+      path: "C:/backups/cat.db",
+      file_size_bytes: null,
+      is_oversize: null,
+      error: null,
+    });
 
     mockReject(new Error("picker failed"));
     const bad = await browseRestoreFile("C:/start");

@@ -105,6 +105,9 @@ test.describe.serial("application settings", () => {
     await expect(saveButton).toBeDisabled();
     await expect(page.getByTestId("settings-dirty-hint")).toBeHidden();
 
+    // Database FAT32 limit approaching warning is hidden for normal sized database
+    await expect(page.getByTestId("db-fat32-warning")).toBeHidden();
+
     // AI Model controls are disabled when no API key is present
     await expect(page.locator("#settings-ai-model")).toBeDisabled();
     await expect(

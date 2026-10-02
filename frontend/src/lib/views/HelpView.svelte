@@ -161,6 +161,11 @@
         A2 V30/U3) for responsive thumbnail browsing and scanning of the design files.
       </p>
       <p>
+        <strong>Filesystem formatting:</strong> format external cards and drives with
+        <strong>exFAT</strong> or <strong>NTFS</strong>. Avoid FAT32 formatting because FAT32
+        enforces a strict 4 GB maximum single-file size limit.
+      </p>
+      <p>
         <strong>Keep drives connected:</strong> connect external drives before launching and safely eject
         them before unplugging.
       </p>
@@ -270,6 +275,11 @@
       </p>
       <p>
         <strong>Managed storage location:</strong> imported files live under data/MachineEmbroideryDesigns.
+      </p>
+      <p>
+        <strong>Database full / 4 GB limit:</strong> if you see "database or disk is full", your catalogue
+        data root or backup destination may be on a FAT32 drive reaching the 4 GB file limit. Reformat
+        the drive to exFAT or NTFS.
       </p>
       <p><strong>Still stuck:</strong> check permissions and review application logs.</p>
     </div>

@@ -19,6 +19,7 @@ const adapterMocks = vi.hoisted(() => ({
   requestCancelBackup: vi.fn(),
   getSettingsViewModel: vi.fn(),
   browseRestoreFile: vi.fn(),
+  inspectRestoreDbFile: vi.fn(),
   restoreDatabase: vi.fn(),
   restoreDesignsIncremental: vi.fn(),
   restoreBoth: vi.fn(),
@@ -1465,6 +1466,88 @@ describe("BackupView", () => {
           "error"
         )
       );
+    });
+  });
+
+  describe("FAT32 oversize warnings", () => {
+    it("renders the FAT32 advisory on Backup tab when database is oversized", async () => {
+      adapterMocks.getBackupViewModel.mockResolvedValue(
+        backupResponse(
+          backupModel({
+            db_file_size_bytes: 7600000000,
+            is_db_oversize: true,
+          })
+        )
+      );
+
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      const warning = screen.getByTestId("backup-fat32-warning");
+      expect(warning).toBeInTheDocument();
+      expect(warning).toHaveTextContent("Large Database Advisory (FAT32 Limit)");
+      expect(warning).toHaveTextContent("7.1 GB");
+      expect(warning).toHaveTextContent("exFAT or NTFS");
+    });
+
+    it("does not render the FAT32 advisory on Backup tab when database is not oversized", async () => {
+      adapterMocks.getBackupViewModel.mockResolvedValue(
+        backupResponse(
+          backupModel({
+            db_file_size_bytes: 3500000000,
+            is_db_oversize: false,
+          })
+        )
+      );
+
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+
+      expect(screen.queryByTestId("backup-fat32-warning")).not.toBeInTheDocument();
+    });
+
+    it("renders the FAT32 advisory on Restore tab when selected backup file is oversized", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await fireEvent.click(screen.getByRole("tab", { name: "Restore" }));
+      await tick();
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "D:\\Backups\\large_backup.db",
+        file_size_bytes: 7600000000,
+        is_oversize: true,
+        error: null,
+      });
+
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await tick();
+
+      const warning = await screen.findByTestId("restore-fat32-warning");
+      expect(warning).toBeInTheDocument();
+      expect(warning).toHaveTextContent("Large Backup Database Advisory (FAT32 Limit)");
+      expect(warning).toHaveTextContent("7.1 GB");
+      expect(warning).toHaveTextContent("exFAT or NTFS");
+    });
+
+    it("does not render the FAT32 advisory on Restore tab when selected backup file is not oversized", async () => {
+      render(BackupView);
+      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
+      await fireEvent.click(screen.getByRole("tab", { name: "Restore" }));
+      await tick();
+
+      adapterMocks.browseRestoreFile.mockResolvedValue({
+        source: "rust",
+        path: "D:\\Backups\\normal_backup.db",
+        file_size_bytes: 1000000000,
+        is_oversize: false,
+        error: null,
+      });
+
+      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+      await tick();
+
+      expect(screen.queryByTestId("restore-fat32-warning")).not.toBeInTheDocument();
     });
   });
 });

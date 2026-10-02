@@ -9,13 +9,23 @@ use std::path::Path;
 
 /// Threshold in bytes above which a database is considered approaching the
 /// FAT32 4 GiB (4,294,967,295 bytes) single-file size limit.
-/// 3.8 GiB = 3.8 * 1024 * 1024 * 1024 = 4,080,218,931 bytes.
-pub const FAT32_LIMIT_WARN_THRESHOLD_BYTES: u64 = 3_800_000_000;
+/// 3.5 GB = 3,500,000,000 bytes.
+pub const FAT32_LIMIT_APPROACHING_THRESHOLD_BYTES: u64 = 3_500_000_000;
 
-/// Check if a given file size in bytes is close to the 4 GB FAT32 single-file limit.
+/// Maximum allowable single-file size in bytes on FAT32 (4 GiB - 1 byte).
+pub const FAT32_MAX_FILE_SIZE_BYTES: u64 = 4_294_967_295;
+
+/// Check if a given file size in bytes is approaching the 4 GB FAT32 single-file limit
+/// (3.5 GB <= size < 4.0 GB). Once >= 4.0 GB, it has already surpassed the limit (running on exFAT/NTFS).
 #[inline]
 pub fn is_near_fat32_limit(size_bytes: u64) -> bool {
-    size_bytes >= FAT32_LIMIT_WARN_THRESHOLD_BYTES
+    (FAT32_LIMIT_APPROACHING_THRESHOLD_BYTES..FAT32_MAX_FILE_SIZE_BYTES).contains(&size_bytes)
+}
+
+/// Check if a given file size in bytes is oversize for FAT32 (>= 4 GiB - 1 byte).
+#[inline]
+pub fn is_file_oversize_for_fat32(size_bytes: u64) -> bool {
+    size_bytes >= FAT32_MAX_FILE_SIZE_BYTES
 }
 
 /// Format bytes into a human-readable string (e.g., "3.99 GB", "512.4 MB").
@@ -99,8 +109,20 @@ mod tests {
     #[test]
     fn test_is_near_fat32_limit() {
         assert!(!is_near_fat32_limit(1_000_000_000));
-        assert!(is_near_fat32_limit(3_800_000_000));
+        assert!(!is_near_fat32_limit(3_499_999_999));
+        assert!(is_near_fat32_limit(3_500_000_000));
         assert!(is_near_fat32_limit(4_284_967_296));
+        // Exceeds or reaches 4 GiB - 1 byte -> false (it is oversized, not approaching)
+        assert!(!is_near_fat32_limit(4_294_967_295));
+        assert!(!is_near_fat32_limit(7_600_000_000));
+    }
+
+    #[test]
+    fn test_is_file_oversize_for_fat32() {
+        assert!(!is_file_oversize_for_fat32(3_500_000_000));
+        assert!(!is_file_oversize_for_fat32(4_294_967_294));
+        assert!(is_file_oversize_for_fat32(4_294_967_295));
+        assert!(is_file_oversize_for_fat32(7_600_000_000));
     }
 
     #[test]

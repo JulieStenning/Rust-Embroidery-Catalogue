@@ -33,6 +33,7 @@ The easiest way to back up is to use the **Backup** page inside the app:
 - The in-app backup uses **SQLite’s backup API**, so the backup can be created safely while
   the app is running.
 - A new timestamped file is created on every run, so you build up a history of snapshots.
+- **Large database advisory (FAT32 limit):** If your database exceeds **4 GB**, the Backup tab displays an advisory warning reminding you that destination storage (e.g. an external SD card or USB stick) must be formatted as **exFAT** or **NTFS**. A FAT32-formatted destination drive will fail when writing a backup snapshot that reaches 4 GB.
 
 ### Designs backup
 
@@ -57,6 +58,7 @@ The **Backup** page also includes a **Restore** section:
    closes the live database connection, keeps a **safety copy** of your current database
    (`<database>.pre-restore-<timestamp>.db`), swaps in the selected backup, and re-opens + verifies
    it. If verification fails, it **automatically rolls back** to the safety copy.
+   - **Large backup advisory (FAT32 limit):** If the selected `.db` backup file is **4 GB or larger**, the Restore tab displays an advisory banner reminding you that the receiving catalogue data storage location must be formatted with **exFAT** or **NTFS** (not FAT32).
 2. **Sync Designs from Backup** — incrementally copies design files back from the configured
    Designs backup folder into `MachineEmbroideryDesigns`. Files already present with an identical
    size + modification time are skipped.

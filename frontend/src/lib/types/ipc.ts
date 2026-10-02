@@ -886,6 +886,8 @@ export interface BackupViewModel {
   db_last_backup_at: string;
   /** Epoch-seconds string of the last successful designs backup (if any). */
   designs_last_backup_at: string;
+  db_file_size_bytes?: number;
+  is_db_oversize?: boolean;
 }
 
 export interface AdapterBackupViewModelResponse {
@@ -963,7 +965,21 @@ export interface AdapterScanOrphansResponse {
 export interface BrowseRestoreFileResponse {
   source: string;
   path: string | null;
+  file_size_bytes?: number | null;
+  is_oversize?: boolean | null;
   error: string | null;
+}
+
+export interface InspectRestoreDbFileResult {
+  exists: boolean;
+  file_size_bytes: number | null;
+  is_oversize: boolean;
+}
+
+export interface AdapterInspectRestoreDbFileResponse {
+  source: string;
+  result: InspectRestoreDbFileResult;
+  error?: string;
 }
 
 export interface RestoreDatabaseResult {

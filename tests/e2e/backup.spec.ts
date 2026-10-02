@@ -99,6 +99,9 @@ test.describe.serial("system backup", () => {
       ),
     ).toBeVisible();
 
+    // FAT32 warning banner is hidden when DB is not oversized
+    await expect(page.getByTestId("backup-fat32-warning")).toBeHidden();
+
     // Destination inputs and Browse buttons
     const dbInput = page.locator("#backup-db-destination");
     const designsInput = page.locator("#backup-designs-destination");

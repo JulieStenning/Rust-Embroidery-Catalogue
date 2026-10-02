@@ -3,6 +3,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test, expect } from "./fixtures";
 import { clickNav, gotoRoute, mainMenu } from "./helpers";
 import {
@@ -169,6 +170,9 @@ test.describe.serial("system restore", () => {
         "Restoring overwrites live data — a safety copy of your current database is kept before any overwrite",
       ),
     ).toBeVisible();
+
+    // FAT32 advisory is hidden when no oversized backup file is selected
+    await expect(page.getByTestId("restore-fat32-warning")).toBeHidden();
 
     // 4. Restore Database card layout
     await expect(

@@ -914,7 +914,7 @@ describe("SettingsView.svelte", () => {
   it("renders the FAT32 4 GB limit warning banner when near_fat32_limit is true", async () => {
     mockDbStats({
       ...defaultStats,
-      file_size_bytes: 4284967296,
+      file_size_bytes: 3800000000,
       near_fat32_limit: true,
     });
 
@@ -926,6 +926,20 @@ describe("SettingsView.svelte", () => {
     expect(warning).toBeInTheDocument();
     expect(warning).toHaveTextContent("Database Approaching 4 GB FAT32 Limit");
     expect(warning).toHaveTextContent("Your catalogue data root maybe on a FAT32-formatted drive");
+  });
+
+  it("does not render the FAT32 warning banner when near_fat32_limit is false (e.g. oversized database)", async () => {
+    mockDbStats({
+      ...defaultStats,
+      file_size_bytes: 7600000000,
+      near_fat32_limit: false,
+    });
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    expect(screen.queryByTestId("db-fat32-warning")).not.toBeInTheDocument();
   });
 
   // -- Help link -----------------------------------------------------------

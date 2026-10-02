@@ -257,6 +257,7 @@ describe("HelpView", () => {
       expect(section.getByText("Internal drives:")).toBeInTheDocument();
       expect(section.getByText("External storage:")).toBeInTheDocument();
       expect(section.getByText("SD card recommendation:")).toBeInTheDocument();
+      expect(section.getByText("Filesystem formatting:")).toBeInTheDocument();
       expect(section.getByText("Keep drives connected:")).toBeInTheDocument();
       expect(section.getByText("Full guide:")).toBeInTheDocument();
 
@@ -459,6 +460,7 @@ describe("HelpView", () => {
       expect(section.getByText("Import scan finds nothing:")).toBeInTheDocument();
       expect(section.getByText("Files missing after import:")).toBeInTheDocument();
       expect(section.getByText("Managed storage location:")).toBeInTheDocument();
+      expect(section.getByText("Database full / 4 GB limit:")).toBeInTheDocument();
       expect(section.getByText("Still stuck:")).toBeInTheDocument();
     });
 

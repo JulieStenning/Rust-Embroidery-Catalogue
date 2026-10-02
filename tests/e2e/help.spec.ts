@@ -44,7 +44,7 @@ test.describe("help functionality", () => {
     ).toBeVisible();
   });
 
-  test("renders all 8 table-of-contents navigation links and all 8 sections", async ({
+  test("renders all 9 table-of-contents navigation links and all 9 sections", async ({
     page,
   }) => {
     await gotoRoute(page, "#/help");
@@ -55,6 +55,11 @@ test.describe("help functionality", () => {
     const expectedSections = [
       { id: "search", label: "🔍 Search", heading: "🔍 Search" },
       { id: "importing", label: "📥 Importing", heading: "📥 Importing" },
+      {
+        id: "word-matches",
+        label: "🔤 Tag Word Matches",
+        heading: "🔤 Tag Word Matches",
+      },
       {
         id: "storage",
         label: "💾 Data Storage & External Drives",
