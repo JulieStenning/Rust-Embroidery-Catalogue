@@ -457,6 +457,7 @@ describe("HelpView", () => {
       const section = sectionQueries(container, "troubleshooting");
 
       expect(section.getByText("Missing folder / changed drive letter:")).toBeInTheDocument();
+      expect(section.getByText("Database missing or unreadable on startup:")).toBeInTheDocument();
       expect(section.getByText("Import scan finds nothing:")).toBeInTheDocument();
       expect(section.getByText("Files missing after import:")).toBeInTheDocument();
       expect(section.getByText("Managed storage location:")).toBeInTheDocument();

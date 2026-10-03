@@ -67,11 +67,13 @@ When using external storage, your operating system assigns it a location (e.g., 
 
 * **Keep the Drive Plugged In:** Ensure your SD card or external drive is connected **before** opening **Embroidery Catalogue**.
 * **Maintain Drive Letters (Windows):** If Windows assigns a new drive letter to your SD card after unplugging it, **Embroidery Catalogue** may not locate your library files. You can assign a permanent drive letter to your SD card using Windows Disk Management.
+* **Automatic Recovery Screen:** If a drive letter changes or a drive is disconnected, **Embroidery Catalogue** will display a **Startup Recovery** screen that automatically detects your catalogue on other drives with a one-click **"Re-connect to this location"** button.
 
 ---
 
 ## 3. Best Practices for Data Safety
 
 1. **Unplug Safely:** Always use your operating system's "Eject" or "Safely Remove Hardware" option before unplugging your SD card or external drive to prevent database corruption.
-2. **Regular Backups:** External cards and drives can be lost or damaged. Use the built-in backup tools in **Embroidery Catalogue** ([Backup](#/admin/system/backup)) or copy your database and designs to a second drive periodically.
-3. **Keep Original Files Untouched:** **Embroidery Catalogue** is an offline-first tool that **never moves, modifies, or alters** your original embroidery files. However, keeping an independent backup of your source embroidery purchases is always recommended.
+2. **Automatic Corrupt Database Archiving:** If a database file ever becomes damaged or unreadable, the application will detect it on startup, preserve it as `.corrupt-<timestamp>.db`, and help you restore from a backup.
+3. **Regular Backups:** External cards and drives can be lost or damaged. Use the built-in backup tools in **Embroidery Catalogue** ([Backup](#/admin/system/backup)) or copy your database and designs to a second drive periodically.
+4. **Keep Original Files Untouched:** **Embroidery Catalogue** is an offline-first tool that **never moves, modifies, or alters** your original embroidery files. However, keeping an independent backup of your source embroidery purchases is always recommended.

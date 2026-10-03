@@ -90,6 +90,25 @@ the deletion was accidental.
 
 ---
 
+## Startup recovery & unreadable database repair
+
+If the application launches and cannot find or open your catalogue database, it automatically opens in **Recovery Mode** rather than crashing:
+
+### 1. Database missing or drive letter changed
+- **Symptom:** The screen displays **"Your catalogue database could not be found"**.
+- **Cause:** Usually caused by a removable drive changing its Windows drive letter (e.g. from `D:` to `E:`) or moving the catalogue folder.
+- **Quick Reconnect:** If the catalogue folder is detected on another connected drive, a one-click **"Re-connect to this location"** button appears.
+- **Choose folder:** Click **"Choose another catalogue folder…"** to point the app to your existing data root.
+
+### 2. Database corrupted or damaged
+- **Symptom:** The screen displays **"Your catalogue database is unreadable"** with the underlying error details.
+- **Safe data guarantee:** Your original embroidery files in `MachineEmbroideryDesigns/` are never touched or modified.
+- **Restore from backup:** Click **"Restore from a database backup…"** to choose a known-good `.db` backup file. The app validates the backup, safely archives the unreadable database aside, and installs the backup file.
+- **Safe archival (`.corrupt-<timestamp>.db`):** Whether you restore from a backup or choose to **"Start fresh with a clean catalogue"**, the damaged database is **never deleted or overwritten**. It is safely renamed to `EmbroideryCatalogue.corrupt-<timestamp>.db` (along with any `.db-wal` and `.db-shm` journal files) so your original data remains preserved on disk.
+- **Instant validation:** Verification checks run instantly (< 1 ms), ensuring fast recovery even for very large (7+ GB) catalogue databases.
+
+---
+
 ## Where is the database?
 
 The database lives inside the app's `data/` directory alongside the managed design files:

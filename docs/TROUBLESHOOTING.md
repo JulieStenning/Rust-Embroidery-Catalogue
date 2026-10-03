@@ -113,44 +113,26 @@ closes immediately, or a Command Prompt window stays open with an error message.
 
 ## Database errors on startup
 
-**Symptom:** The app fails to start, or the log shows an error such as
-`database migration failed`, `no such table`, or a failure to open
-`Database\EmbroideryCatalogue.db`.
+**Symptom:** The app opens with the **Startup Recovery** screen showing **"Your catalogue database could not be found"** or **"Your catalogue database is unreadable"**, or an error such as `no such table: settings` or a failure to open `Database\EmbroideryCatalogue.db`.
 
-**Background:** The application ships a pre-migrated SQLite seed database
-(`src-tauri/resources/EmbroideryCatalogue.db`).  SQLx migration files live in the
-`migrations/` directory (timestamped `.up.sql` / `.down.sql` files tracked via the
-`_sqlx_migrations` table).  The migration runner is currently **disabled at startup**
-(`src/main.rs`) because the seed and developer databases are already pre-migrated.
+**Automatic Startup Recovery:** When the application detects a missing, relocated, or damaged database file, it starts in a protected **Recovery Mode** to safeguard your files:
 
-**Fixes:**
+1. **Database file is missing or drive letter changed:**
+   - If you moved your catalogue to an external drive (or Windows changed your drive letter from `D:` to `E:`), the app scans connected drives and offers a **"Re-connect to this location"** button.
+   - You can also click **"Choose another catalogue folder…"** to point to your data folder.
+   - If setting up a new catalogue, click **"Start fresh with a clean catalogue"** to initialize a clean database.
 
-1. **Database file is missing (release/portable).**  In release builds the app
-   automatically copies the embedded seed database to
-   `<data_root>\Database\EmbroideryCatalogue.db` on first run.  If that copy failed
-   (e.g. read-only media), create the folder manually and copy the seed:
+2. **Corrupted or damaged database:**
+   - When a database file exists but cannot be parsed by SQLite, the app displays **"Your catalogue database is unreadable"** with the diagnostic error message.
+   - **Safe archival guarantee:** The app will **never delete** your existing database. When you restore a backup or create a fresh catalogue, the current database is safely renamed to `EmbroideryCatalogue.corrupt-<timestamp>.db` (along with any `.db-wal` / `.db-shm` journal files).
+   - **Restore directly from the screen:** Click **"Restore from a database backup…"** and select a `.db` backup snapshot file. The app validates the backup, moves the corrupt database aside, and prompts you to restart.
+   - See [BACKUP_RESTORE.md](User-Facing-Guidance/BACKUP_RESTORE.md) for full backup and restore details.
 
-   ```bat
-   mkdir "Data\Database"
-   copy /Y "src-tauri\resources\EmbroideryCatalogue.db" "Data\Database\EmbroideryCatalogue.db"
-   ```
+3. **Database is from a newer version of the app:**
+   - If you copied a database from a newer version back to an older codebase, the schema may not match. Pull the latest app release or restore a matching backup database.
 
-   for portable mode, or restore the installed-mode file under
-   `%APPDATA%\EmbroideryCatalogue\Database\`.
-
-2. **Database is from a newer version of the app.**  If you copied a database from a
-   newer version back to an older codebase, the schema may not match.  Pull the latest
-   code and re-run the launch script, or restore the matching seed database.
-
-3. **Corrupted database.**  Restore from a backup (see
-   [BACKUP_RESTORE.md](User-Facing-Guidance/BACKUP_RESTORE.md)).  If no backup
-   exists, you can start fresh by replacing the database with the seed file (see fix 1)
-   — note this loses all catalogue data.
-
-4. **Schema changes planned by a developer.**  When the schema needs to evolve, the
-   SQLx migration files in `migrations/` are the source of truth, and the seed
-   database in `src-tauri/resources/EmbroideryCatalogue.db` must be re-created with the
-   new schema before release.  See `src/database/migrations.rs`.
+4. **Schema changes planned by a developer:**
+   - When the schema needs to evolve, the SQLx migration files in `migrations/` are the source of truth, and the seed database in `src-tauri/resources/EmbroideryCatalogue.db` must be updated with the new schema before release. See `src/database/migrations.rs`.
 
 ---
 

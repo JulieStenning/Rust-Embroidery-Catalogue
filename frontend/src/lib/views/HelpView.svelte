@@ -269,6 +269,12 @@
         <strong>Missing folder / changed drive letter:</strong> ensure the full data folder moved with
         the app.
       </p>
+      <p>
+        <strong>Database missing or unreadable on startup:</strong> Embroidery Catalogue
+        automatically opens in Recovery Mode to help you reconnect a relocated drive, restore from a
+        backup, or create a clean catalogue (damaged databases are safely archived as
+        <code class="bg-gray-100 px-1 rounded">.corrupt-&lt;timestamp&gt;</code>).
+      </p>
       <p><strong>Import scan finds nothing:</strong> confirm folder path and supported formats.</p>
       <p>
         <strong>Files missing after import:</strong> run orphan cleanup, then re-import from new location.
