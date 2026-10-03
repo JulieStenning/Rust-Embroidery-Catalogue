@@ -64,6 +64,7 @@ const defaultModel: SettingsViewModel = {
   ai_workers: "",
   ai_free_tier: false,
   import_last_browse_folder: "",
+  enabled_master_formats: "eof,ecf",
   can_configure_data_root: true,
   data_root: "D:\\EmbroideryData",
   library_root: "D:\\EmbroideryData\\MachineEmbroideryDesigns",
@@ -284,6 +285,7 @@ describe("SettingsView.svelte", () => {
         ai_commit_every: "",
         ai_workers: "",
         ai_free_tier: false,
+        enabled_master_formats: "ecf,eof",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -324,6 +326,7 @@ describe("SettingsView.svelte", () => {
         ai_commit_every: "",
         ai_workers: "",
         ai_free_tier: false,
+        enabled_master_formats: "ecf,eof",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -1023,5 +1026,41 @@ describe("SettingsView.svelte", () => {
 
     expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled();
     expect(screen.queryByTestId("settings-dirty-hint")).not.toBeInTheDocument();
+  });
+
+  it("renders master formats presets and toggles them correctly", async () => {
+    renderView();
+    await waitForSettingsLoaded();
+
+    expect(screen.getByTestId("settings-master-formats-section")).toBeInTheDocument();
+    
+    // Default model has "eof,ecf" enabled -> Embird preset is checked
+    const embirdPreset = screen.getByTestId("master-format-preset-embird");
+    const embirdCheckbox = embirdPreset.querySelector("input[type='checkbox']");
+    expect(embirdCheckbox).toBeChecked();
+
+    const berninaPreset = screen.getByTestId("master-format-preset-bernina");
+    const berninaCheckbox = berninaPreset.querySelector("input[type='checkbox']");
+    expect(berninaCheckbox).not.toBeChecked();
+
+    // Toggle Bernina on
+    if (berninaCheckbox) {
+      await fireEvent.click(berninaCheckbox);
+      await tick();
+    }
+
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
+    expect(screen.getByTestId("settings-dirty-hint")).toBeInTheDocument();
+  });
+
+  it("handles custom master format extensions", async () => {
+    renderView();
+    await waitForSettingsLoaded();
+
+    const customInput = screen.getByTestId("settings-custom-master-formats");
+    await fireEvent.input(customInput, { target: { value: "pxf, pat" } });
+    await tick();
+
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
   });
 });

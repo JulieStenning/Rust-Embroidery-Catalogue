@@ -30,8 +30,70 @@
    * Subset of SaveSettingsRequest that is both editable in the form and
    * actually persisted by `saveSettings` (deliberately excludes `data_root`,
    * which is only ever changed via the catalogue migration -> restart flow).
-   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; db_idle_check_interval_secs: string; }} EditableSettingsValues
+   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; enabled_master_formats: string; db_idle_check_interval_secs: string; }} EditableSettingsValues
    */
+
+  const MASTER_FORMAT_PRESETS = [
+    {
+      id: "embird",
+      name: "Embird Studio & Cross Stitch",
+      exts: ["eof", "ecf"],
+      desc: ".eof, .ecf",
+    },
+    {
+      id: "wilcom_hatch",
+      name: "Wilcom / Hatch",
+      exts: ["emb"],
+      desc: ".emb",
+    },
+    {
+      id: "bernina",
+      name: "Bernina",
+      exts: ["art", "art60", "art70", "art80"],
+      desc: ".art, .art60, .art70, .art80",
+    },
+    {
+      id: "embrilliance",
+      name: "Embrilliance",
+      exts: ["be"],
+      desc: ".be",
+    },
+    {
+      id: "janome",
+      name: "Janome Digitizer",
+      exts: ["jan"],
+      desc: ".jan",
+    },
+    {
+      id: "mysewnet",
+      name: "mySewnet / Premier+",
+      exts: ["edo", "vp4"],
+      desc: ".edo, .vp4",
+    },
+  ];
+
+  /**
+   * Parse a comma-separated format list into a Set of clean extensions.
+   * @param {string} raw
+   * @returns {Set<string>}
+   */
+  function parseMasterFormatsSet(raw) {
+    const list = String(raw || "")
+      .split(/[,;\s]+/)
+      .map((s) => s.trim().replace(/^\./, "").toLowerCase())
+      .filter((s) => s.length > 0 && /^[a-z0-9]+$/.test(s));
+    return new Set(list);
+  }
+
+  /**
+   * Normalise a master format string to sorted comma-separated string.
+   * @param {string} raw
+   * @returns {string}
+   */
+  function normalizeMasterFormats(raw) {
+    const set = parseMasterFormatsSet(raw);
+    return Array.from(set).sort().join(",");
+  }
 
   let settingsLoading = $state(false);
   let settingsLoaded = $state(false);
@@ -45,6 +107,8 @@
   let settingsAiCommitEvery = $state("");
   let settingsAiWorkers = $state("");
   let settingsAiFreeTier = $state(false);
+  let settingsEnabledMasterFormats = $state("eof,ecf");
+  let settingsCustomMasterFormats = $state("");
   /** @type {string[]} */
   let settingsGeminiModels = $state([]);
   let settingsModelsLoading = $state(false);
@@ -90,6 +154,55 @@
   let settingsDefaultDelay = $derived(settingsAiFreeTier ? "10" : "0");
 
   /**
+   * Check if all extensions for a given preset are currently enabled.
+   * @param {{ exts: string[] }} preset
+   * @returns {boolean}
+   */
+  function isPresetEnabled(preset) {
+    const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
+    return preset.exts.every((ext) => currentSet.has(ext));
+  }
+
+  /**
+   * Toggle a preset on or off.
+   * @param {{ exts: string[] }} preset
+   */
+  function togglePreset(preset) {
+    const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
+    const enabled = preset.exts.every((ext) => currentSet.has(ext));
+    if (enabled) {
+      for (const ext of preset.exts) {
+        currentSet.delete(ext);
+      }
+    } else {
+      for (const ext of preset.exts) {
+        currentSet.add(ext);
+      }
+    }
+    settingsEnabledMasterFormats = Array.from(currentSet).sort().join(",");
+  }
+
+  /**
+   * Update custom master format extensions.
+   * @param {string} rawCustom
+   */
+  function handleCustomFormatsChange(rawCustom) {
+    settingsCustomMasterFormats = rawCustom;
+    const knownExts = new Set(MASTER_FORMAT_PRESETS.flatMap((p) => p.exts));
+    const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
+    
+    // Retain only known preset exts from currentSet
+    const updatedSet = new Set([...currentSet].filter((ext) => knownExts.has(ext)));
+    
+    // Add custom exts
+    const customSet = parseMasterFormatsSet(rawCustom);
+    for (const ext of customSet) {
+      updatedSet.add(ext);
+    }
+    settingsEnabledMasterFormats = Array.from(updatedSet).sort().join(",");
+  }
+
+  /**
    * Normalised current values of the editable, Save-persisted fields. Shared by
    * the dirty check and the save-request builder so they always agree.
    * @returns {EditableSettingsValues}
@@ -103,6 +216,7 @@
       ai_commit_every: settingsNumericToString(settingsAiCommitEvery),
       ai_workers: settingsNumericToString(settingsAiWorkers),
       ai_free_tier: settingsAiFreeTier,
+      enabled_master_formats: normalizeMasterFormats(settingsEnabledMasterFormats),
       db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
     };
   }
@@ -129,6 +243,7 @@
       cur.ai_commit_every !== base.ai_commit_every ||
       cur.ai_workers !== base.ai_workers ||
       cur.ai_free_tier !== base.ai_free_tier ||
+      cur.enabled_master_formats !== base.enabled_master_formats ||
       cur.db_idle_check_interval_secs !== base.db_idle_check_interval_secs
     );
   }
@@ -148,6 +263,13 @@
     settingsAiCommitEvery = String(model?.ai_commit_every || "");
     settingsAiWorkers = String(model?.ai_workers || "");
     settingsAiFreeTier = Boolean(model?.ai_free_tier);
+    settingsEnabledMasterFormats = normalizeMasterFormats(
+      String(model?.enabled_master_formats ?? "eof,ecf")
+    );
+    const knownExts = new Set(MASTER_FORMAT_PRESETS.flatMap((p) => p.exts));
+    const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
+    const customExts = [...currentSet].filter((ext) => !knownExts.has(ext));
+    settingsCustomMasterFormats = customExts.join(", ");
     settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
@@ -671,6 +793,58 @@
               />
               <span>🌙 Dark</span>
             </label>
+          </div>
+        </div>
+
+        <div class="border-b border-gray-200 pb-5" data-testid="settings-master-formats-section">
+          <h2 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+            <span>🧵</span>
+            <span>Digitising &amp; Master File Formats</span>
+          </h2>
+          <p class="text-sm text-gray-600 mb-3">
+            Select the digitising software and master working formats you use. When scanning and importing,
+            these editable source files will be paired alongside machine stitch files. Unchecked formats are ignored.
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            {#each MASTER_FORMAT_PRESETS as preset}
+              <label
+                class="flex items-start gap-2.5 p-2.5 rounded border border-gray-200 bg-gray-50/50 hover:bg-gray-50 cursor-pointer text-sm text-gray-700"
+                data-testid={`master-format-preset-${preset.id}`}
+              >
+                <input
+                  type="checkbox"
+                  class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  checked={isPresetEnabled(preset)}
+                  onchange={() => togglePreset(preset)}
+                  disabled={busyActive}
+                />
+                <div>
+                  <span class="font-medium text-gray-800 block">{preset.name}</span>
+                  <span class="text-xs text-gray-500 font-mono">{preset.desc}</span>
+                </div>
+              </label>
+            {/each}
+          </div>
+          <div>
+            <label
+              for="settings-custom-master-formats"
+              class="block text-xs font-semibold text-gray-700 mb-1"
+            >
+              Additional / Custom extensions <span class="font-normal text-gray-500">(comma-separated)</span>
+            </label>
+            <input
+              id="settings-custom-master-formats"
+              type="text"
+              value={settingsCustomMasterFormats}
+              oninput={(e) => handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
+              placeholder="e.g. pxf, pat"
+              disabled={busyActive}
+              class="settings-input border rounded px-3 py-1.5 text-sm font-mono w-full sm:w-80"
+              data-testid="settings-custom-master-formats"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Active formats: <span class="font-mono text-indigo-700">{settingsEnabledMasterFormats || "none"}</span>
+            </p>
           </div>
         </div>
 

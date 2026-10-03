@@ -22,6 +22,10 @@ fn default_for_key_known_keys() {
     assert_eq!(default_for_key(KEY_AI_DELAY), "");
     assert_eq!(default_for_key(KEY_AI_FREE_TIER), "false");
     assert_eq!(default_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER), "");
+    assert_eq!(
+        default_for_key(KEY_IMPORT_ENABLED_MASTER_FORMATS),
+        DEFAULT_ENABLED_MASTER_FORMATS
+    );
     assert_eq!(default_for_key(KEY_PREVIEW_3D_PROFILE), "balanced");
     assert_eq!(default_for_key(KEY_DB_IDLE_CHECK_INTERVAL_SECS), "1800");
 }
@@ -43,6 +47,7 @@ fn description_for_key_known_keys() {
     assert!(
         description_for_key(KEY_IMPORT_LAST_BROWSE_FOLDER).contains("Most recently used folder")
     );
+    assert!(description_for_key(KEY_IMPORT_ENABLED_MASTER_FORMATS).contains("master file"));
     assert!(description_for_key(KEY_PREVIEW_3D_PROFILE).contains("3D preview style"));
     assert!(description_for_key(KEY_DB_IDLE_CHECK_INTERVAL_SECS).contains("Interval in seconds"));
 }
@@ -375,10 +380,29 @@ fn test_settings_struct_derives() {
         ai_commit_every: "5".to_string(),
         ai_workers: "2".to_string(),
         ai_free_tier: false,
+        enabled_master_formats: "eof,ecf".to_string(),
         data_root: "/root".to_string(),
         db_idle_check_interval_secs: "60".to_string(),
     };
     let debug_req = format!("{:?}", req);
     assert!(debug_req.contains("soft"));
     let _clone_req = req.clone();
+}
+
+#[test]
+fn test_normalize_master_formats() {
+    assert_eq!(
+        normalize_master_formats(" .EOF, ecf, .EMB , eof "),
+        "ecf,emb,eof"
+    );
+    assert_eq!(normalize_master_formats(""), "");
+    assert_eq!(normalize_master_formats("  ..art80; .jan "), "art80,jan");
+}
+
+#[test]
+fn test_parse_enabled_master_formats() {
+    let list = parse_enabled_master_formats(" .EOF, ecf, .EMB , eof ");
+    assert_eq!(list, vec!["ecf", "emb", "eof"]);
+    let empty = parse_enabled_master_formats("");
+    assert!(empty.is_empty());
 }

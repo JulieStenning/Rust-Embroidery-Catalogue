@@ -17,6 +17,7 @@ pub const KEY_AI_COMMIT_EVERY: &str = "ai.commit_every";
 pub const KEY_AI_WORKERS: &str = "ai.workers";
 pub const KEY_AI_FREE_TIER: &str = "ai.free_tier";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
+pub const KEY_IMPORT_ENABLED_MASTER_FORMATS: &str = "import.enabled_master_formats";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
 pub const KEY_DB_IDLE_CHECK_INTERVAL_SECS: &str = "db.idle_check_interval_secs";
 
@@ -32,6 +33,7 @@ pub struct SettingsViewModel {
     pub ai_workers: String,
     pub ai_free_tier: bool,
     pub import_last_browse_folder: String,
+    pub enabled_master_formats: String,
     pub can_configure_data_root: bool,
     pub data_root: String,
     pub library_root: String,
@@ -57,6 +59,8 @@ pub struct SaveSettingsRequest {
     pub ai_workers: String,
     #[serde(default)]
     pub ai_free_tier: bool,
+    #[serde(default)]
+    pub enabled_master_formats: String,
     pub data_root: String,
     #[serde(default)]
     pub db_idle_check_interval_secs: String,
@@ -98,6 +102,8 @@ pub(crate) async fn get_settings_view_model_inner(
     let ai_free_tier = is_truthy(&get_setting_with_default(&mut conn, KEY_AI_FREE_TIER).await?);
     let import_last_browse_folder =
         get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER).await?;
+    let enabled_master_formats =
+        get_setting_with_default(&mut conn, KEY_IMPORT_ENABLED_MASTER_FORMATS).await?;
     let db_idle_check_interval_secs =
         get_setting_with_default(&mut conn, KEY_DB_IDLE_CHECK_INTERVAL_SECS).await?;
     let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY).await?;
@@ -131,6 +137,7 @@ pub(crate) async fn get_settings_view_model_inner(
         ai_workers,
         ai_free_tier,
         import_last_browse_folder,
+        enabled_master_formats,
         can_configure_data_root,
         data_root,
         library_root,
@@ -168,6 +175,7 @@ pub(crate) async fn save_settings_view_model_inner(
     let preview_3d_profile = normalize_preview_3d_profile(&request.preview_3d_profile);
     let ai_batch_size = normalize_optional_batch_size(&request.ai_batch_size);
     let ai_delay = normalize_optional_delay(&request.ai_delay);
+    let enabled_master_formats = normalize_master_formats(&request.enabled_master_formats);
 
     let pool = app_state.db_pool().map_err(AppError::database)?;
     let mut conn = pool
@@ -197,6 +205,12 @@ pub(crate) async fn save_settings_view_model_inner(
     )
     .await?;
     upsert_setting(&mut conn, KEY_PREVIEW_3D_PROFILE, &preview_3d_profile).await?;
+    upsert_setting(
+        &mut conn,
+        KEY_IMPORT_ENABLED_MASTER_FORMATS,
+        &enabled_master_formats,
+    )
+    .await?;
     upsert_setting(
         &mut conn,
         KEY_DB_IDLE_CHECK_INTERVAL_SECS,
@@ -352,6 +366,8 @@ pub(crate) async fn upsert_setting(
     Ok(())
 }
 
+pub const DEFAULT_ENABLED_MASTER_FORMATS: &str = "eof,ecf";
+
 pub(crate) fn default_for_key(key: &str) -> &'static str {
     match key {
         KEY_AI_GOOGLE_API_KEY => "",
@@ -361,6 +377,7 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_COMMIT_EVERY => "",
         KEY_AI_WORKERS => "",
         KEY_AI_FREE_TIER => "false",
+        KEY_IMPORT_ENABLED_MASTER_FORMATS => DEFAULT_ENABLED_MASTER_FORMATS,
         KEY_PREVIEW_3D_PROFILE => "balanced",
         // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "1800",
@@ -378,10 +395,33 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_WORKERS => "Concurrent designs tagged in parallel by Batch Operations. Lower this to avoid Gemini rate-limit (429) errors. Leave blank for the default (4).",
         KEY_AI_FREE_TIER => "Whether your Gemini API key is on the free tier. Free-tier keys have strict per-minute and per-day limits; the app stops hard on 429 and tells you how long to wait.",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
+        KEY_IMPORT_ENABLED_MASTER_FORMATS => "Comma-separated list of enabled digitising/master file extensions to scan and pair.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "Interval in seconds between automatic database fragmentation checks (default 1800).",
         _ => "",
     }
+}
+
+pub(crate) fn normalize_master_formats(raw: &str) -> String {
+    let mut exts: Vec<String> = raw
+        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
+        .map(|s| s.trim().trim_start_matches('.').to_ascii_lowercase())
+        .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric()))
+        .collect();
+    exts.sort();
+    exts.dedup();
+    exts.join(",")
+}
+
+pub(crate) fn parse_enabled_master_formats(raw: &str) -> Vec<String> {
+    let mut exts: Vec<String> = raw
+        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
+        .map(|s| s.trim().trim_start_matches('.').to_ascii_lowercase())
+        .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric()))
+        .collect();
+    exts.sort();
+    exts.dedup();
+    exts
 }
 
 pub(crate) fn normalize_idle_check_interval(raw: &str) -> String {
