@@ -37,7 +37,7 @@ fn validate_database_path_accepts_root_with_database() {
     std::fs::create_dir_all(tmp.join("Database")).unwrap();
     std::fs::write(
         tmp.join("Database").join(crate::paths::DATABASE_FILENAME),
-        b"sqlite-bytes",
+        crate::paths::SEED_DB_BYTES,
     )
     .unwrap();
 

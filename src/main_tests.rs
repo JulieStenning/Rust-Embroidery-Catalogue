@@ -587,7 +587,8 @@ fn with_sandboxed_app_data<F: FnOnce()>(f: F) {
 fn get_configured_data_root_returns_none_on_first_run() {
     let _guard = lock_env();
     with_sandboxed_app_data(|| {
-        let result = get_configured_data_root().expect("read should succeed");
+        let result = get_configured_data_root_inner(paths::ExecutionMode::Installed)
+            .expect("read should succeed");
         assert_eq!(result, None);
     });
 }
@@ -597,9 +598,10 @@ fn set_then_get_configured_data_root_roundtrips() {
     let _guard = lock_env();
     with_sandboxed_app_data(|| {
         let chosen = "D:/EmbroideryCatalogue/Data".to_string();
-        set_configured_data_root(chosen.clone()).expect("write should succeed");
+        set_configured_data_root_inner(chosen.clone(), paths::ExecutionMode::Installed)
+            .expect("write should succeed");
 
-        let read_back = get_configured_data_root()
+        let read_back = get_configured_data_root_inner(paths::ExecutionMode::Installed)
             .expect("read should succeed")
             .expect("config should exist");
         assert_eq!(read_back, chosen);
@@ -610,7 +612,8 @@ fn set_then_get_configured_data_root_roundtrips() {
 fn set_configured_data_root_rejects_empty_string() {
     let _guard = lock_env();
     with_sandboxed_app_data(|| {
-        let err = set_configured_data_root("   ".to_string()).expect_err("empty root should fail");
+        let err = set_configured_data_root_inner("   ".to_string(), paths::ExecutionMode::Installed)
+            .expect_err("empty root should fail");
         assert!(err.contains("cannot be empty"));
     });
 }
@@ -619,9 +622,27 @@ fn set_configured_data_root_rejects_empty_string() {
 fn set_configured_data_root_rejects_relative_path() {
     let _guard = lock_env();
     with_sandboxed_app_data(|| {
-        let err = set_configured_data_root("relative/path".to_string())
-            .expect_err("relative root should fail");
+        let err = set_configured_data_root_inner(
+            "relative/path".to_string(),
+            paths::ExecutionMode::Installed,
+        )
+        .expect_err("relative root should fail");
         assert!(err.contains("absolute"));
+    });
+}
+
+#[test]
+fn set_configured_data_root_in_dev_mode_is_noop() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        let dev_path = "D:/EmbroideryCatalogue/DevData".to_string();
+        set_configured_data_root_inner(dev_path, paths::ExecutionMode::Dev)
+            .expect("dev mode write should be Ok");
+
+        // Installed config must still be None
+        let read_back = get_configured_data_root_inner(paths::ExecutionMode::Installed)
+            .expect("read should succeed");
+        assert_eq!(read_back, None);
     });
 }
 
@@ -663,7 +684,8 @@ fn database_status_missing_when_configured_root_absent_on_disk() {
         let root = std::env::temp_dir().join("embroidery_db_status_missing_root");
         let _ = std::fs::remove_dir_all(&root);
         let root_str = root.to_string_lossy().to_string();
-        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+        set_configured_data_root_inner(root_str.clone(), paths::ExecutionMode::Installed)
+            .expect("write bootstrap config");
 
         let paths = paths::AppPaths {
             mode: paths::ExecutionMode::Installed,
@@ -700,7 +722,8 @@ fn database_status_missing_when_database_file_absent() {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("create root dir");
         let root_str = root.to_string_lossy().to_string();
-        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+        set_configured_data_root_inner(root_str.clone(), paths::ExecutionMode::Installed)
+            .expect("write bootstrap config");
 
         let db_path = root.join("Database").join("EmbroideryCatalogue.db");
         let paths = paths::AppPaths {
@@ -737,7 +760,8 @@ fn database_status_connected_when_database_present() {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("Database")).expect("create Database dir");
         let root_str = root.to_string_lossy().to_string();
-        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+        set_configured_data_root_inner(root_str.clone(), paths::ExecutionMode::Installed)
+            .expect("write bootstrap config");
 
         let db_path = root.join("Database").join("EmbroideryCatalogue.db");
         std::fs::write(&db_path, []).expect("create DB file");
@@ -765,6 +789,42 @@ fn database_status_connected_when_database_present() {
     });
 }
 
+#[test]
+fn database_status_dev_mode_uses_app_paths_data_root() {
+    let _guard = lock_env();
+    with_sandboxed_app_data(|| {
+        // Set an installed config pointing somewhere completely different (e.g. F:\)
+        let installed_root = std::env::temp_dir().join("embroidery_installed_diff");
+        set_configured_data_root_inner(
+            installed_root.to_string_lossy().to_string(),
+            paths::ExecutionMode::Installed,
+        )
+        .expect("write installed config");
+
+        let dev_root = std::env::temp_dir().join("embroidery_dev_mode_root");
+        let _ = std::fs::remove_dir_all(&dev_root);
+        std::fs::create_dir_all(dev_root.join("Database")).expect("create dev db dir");
+        let dev_db = dev_root.join("Database").join("EmbroideryCatalogue.db");
+        std::fs::write(&dev_db, []).expect("create dev db");
+
+        let paths = paths::AppPaths {
+            mode: paths::ExecutionMode::Dev,
+            data_root: dev_root.clone(),
+            embroidery_designs_dir: dev_root.join("MachineEmbroideryDesigns"),
+            database_dir: dev_root.join("Database"),
+            database_path: dev_db,
+            log_dir: dev_root.join("logs"),
+        };
+
+        let status = database_status_from_paths(&paths);
+        assert_eq!(
+            status.configured_data_root.as_deref(),
+            Some(dev_root.to_string_lossy().to_string().as_str())
+        );
+        assert!(matches!(status.status, DatabaseStatusKind::Connected));
+    });
+}
+
 // ---------------------------------------------------------------------------
 // AppState::db_pool — error branches
 // ---------------------------------------------------------------------------
@@ -779,6 +839,7 @@ fn test_app_state(pool: PoolHolder, restore_in_progress: bool) -> AppState {
             database_path: None,
             embroidery_dir: None,
             data_root_missing: false,
+            error_message: None,
         },
         paths: paths::AppPaths {
             mode: paths::ExecutionMode::Dev,
@@ -911,7 +972,8 @@ fn app_status_marks_data_root_missing_when_configured_root_absent() {
         let root = std::env::temp_dir().join("embroidery_app_status_missing_root");
         let _ = std::fs::remove_dir_all(&root);
         let root_str = root.to_string_lossy().to_string();
-        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+        set_configured_data_root_inner(root_str.clone(), paths::ExecutionMode::Installed)
+            .expect("write bootstrap config");
 
         let paths = paths::AppPaths {
             mode: paths::ExecutionMode::Installed,
@@ -945,7 +1007,8 @@ fn app_status_marks_database_missing_when_only_db_file_absent() {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("create root dir");
         let root_str = root.to_string_lossy().to_string();
-        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+        set_configured_data_root_inner(root_str.clone(), paths::ExecutionMode::Installed)
+            .expect("write bootstrap config");
 
         let db_path = root.join("Database").join("EmbroideryCatalogue.db");
         let paths = paths::AppPaths {
@@ -978,7 +1041,8 @@ fn app_status_clears_recovery_flags_when_root_and_db_present() {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("Database")).expect("create Database dir");
         let root_str = root.to_string_lossy().to_string();
-        set_configured_data_root(root_str.clone()).expect("write bootstrap config");
+        set_configured_data_root_inner(root_str.clone(), paths::ExecutionMode::Installed)
+            .expect("write bootstrap config");
 
         let db_path = root.join("Database").join("EmbroideryCatalogue.db");
         std::fs::write(&db_path, []).expect("create DB file");

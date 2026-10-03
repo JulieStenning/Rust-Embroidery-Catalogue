@@ -136,16 +136,34 @@ pub fn validate_database_path(data_root: &Path) -> DatabaseValidation {
         };
     }
 
-    // Probe readability by attempting to open the file for read.
+    // Probe readability and SQLite header by attempting to open and check initial bytes.
     match std::fs::File::open(&database_path) {
-        Ok(_) => DatabaseValidation {
-            valid: true,
-            data_root: data_root_str,
-            database_path: database_path_str,
-            embroidery_dir: embroidery_dir_str,
-            embroidery_dir_exists,
-            error: None,
-        },
+        Ok(mut f) => {
+            use std::io::Read;
+            let mut header = [0u8; 16];
+            if f.read_exact(&mut header).is_err() || &header != b"SQLite format 3\0" {
+                DatabaseValidation {
+                    valid: false,
+                    data_root: data_root_str,
+                    database_path: database_path_str,
+                    embroidery_dir: embroidery_dir_str,
+                    embroidery_dir_exists,
+                    error: Some(format!(
+                        "The database at {} is not a valid SQLite database or is corrupted.",
+                        database_path.display()
+                    )),
+                }
+            } else {
+                DatabaseValidation {
+                    valid: true,
+                    data_root: data_root_str,
+                    database_path: database_path_str,
+                    embroidery_dir: embroidery_dir_str,
+                    embroidery_dir_exists,
+                    error: None,
+                }
+            }
+        }
         Err(err) => DatabaseValidation {
             valid: false,
             data_root: data_root_str,
@@ -158,6 +176,80 @@ pub fn validate_database_path(data_root: &Path) -> DatabaseValidation {
             )),
         },
     }
+}
+
+/// Recover a catalogue by copying a user-selected backup database file into
+/// `<data_root>/Database/EmbroideryCatalogue.db`.
+///
+/// If a database already exists at `<data_root>/Database/EmbroideryCatalogue.db`
+/// (e.g. damaged or corrupt), it is moved aside to `EmbroideryCatalogue.corrupt-<timestamp>.db`
+/// before copying. The backup file is verified before and after copying.
+pub async fn recover_database_from_backup_file(
+    data_root: &Path,
+    backup_file: &Path,
+) -> Result<(), AppError> {
+    if !backup_file.is_file() {
+        return Err(AppError::invalid_input(format!(
+            "backup file does not exist at '{}'",
+            backup_file.display()
+        )));
+    }
+
+    // Verify candidate backup file is a valid SQLite DB
+    let backup_valid = crate::services::storage_migration::verify_database_at(backup_file).await?;
+    if !backup_valid {
+        return Err(AppError::invalid_input(format!(
+            "selected backup file '{}' is not a valid or readable catalogue database",
+            backup_file.display()
+        )));
+    }
+
+    crate::paths::create_catalogue_layout(data_root)?;
+
+    let database_path = data_root.join(database_relative_path());
+
+    // Rename aside existing database if present
+    if database_path.exists() {
+        let ts = time::OffsetDateTime::now_utc();
+        let suffix = format!(
+            "{:04}{:02}{:02}-{:02}{:02}{:02}",
+            ts.year(),
+            ts.month() as u8,
+            ts.day(),
+            ts.hour(),
+            ts.minute(),
+            ts.second()
+        );
+        let aside_path =
+            database_path.with_file_name(format!("EmbroideryCatalogue.corrupt-{suffix}.db"));
+        let _ = std::fs::rename(&database_path, &aside_path);
+        for ext in ["-wal", "-shm"] {
+            let side_src =
+                database_path.with_file_name(format!("{}{ext}", crate::paths::DATABASE_FILENAME));
+            let side_dst = database_path
+                .with_file_name(format!("EmbroideryCatalogue.corrupt-{suffix}.db{ext}"));
+            let _ = std::fs::rename(side_src, side_dst);
+        }
+    }
+
+    // Copy backup to destination
+    std::fs::copy(backup_file, &database_path).map_err(|err| {
+        AppError::io(format!(
+            "failed to copy backup to '{}': {err}",
+            database_path.display()
+        ))
+    })?;
+
+    // Verify restored file at destination
+    let dest_valid = crate::services::storage_migration::verify_database_at(&database_path).await?;
+    if !dest_valid {
+        return Err(AppError::database(format!(
+            "recovered database at '{}' failed verification",
+            database_path.display()
+        )));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

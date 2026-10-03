@@ -2721,6 +2721,7 @@ fn command_app_state(pool: SqlitePool) -> AppState {
                     .to_string(),
             ),
             data_root_missing: false,
+            error_message: None,
         },
         paths: crate::paths::AppPaths {
             mode: crate::paths::ExecutionMode::Installed,

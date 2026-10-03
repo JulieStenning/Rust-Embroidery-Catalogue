@@ -85,6 +85,28 @@ pub fn seed_database_to_data_root(
         .map_err(|err| err.to_string())
 }
 
+/// Recover the database at `data_root` using a selected backup database file.
+///
+/// Refuses invalid or unreadable backup files, and safely moves any pre-existing
+/// corrupt database aside before replacing it.
+#[tauri::command]
+pub async fn recover_database_from_backup(
+    data_root: String,
+    backup_file: String,
+) -> Result<(), String> {
+    let root = std::path::PathBuf::from(data_root.trim());
+    if root.as_os_str().is_empty() {
+        return Err("Data root cannot be empty.".to_string());
+    }
+    let backup = std::path::PathBuf::from(backup_file.trim());
+    if backup.as_os_str().is_empty() {
+        return Err("Backup file cannot be empty.".to_string());
+    }
+    database_recovery::recover_database_from_backup_file(&root, &backup)
+        .await
+        .map_err(|err| err.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // Inner fns (testable without Tauri state)
 // ---------------------------------------------------------------------------

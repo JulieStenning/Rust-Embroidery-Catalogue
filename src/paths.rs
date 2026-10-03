@@ -180,7 +180,8 @@ fn dev_data_root() -> PathBuf {
 
 /// Embedded pre-migrated seed database bytes (compacted to ~180 KB).
 /// Path is relative to this source file (`src/paths.rs`).
-const SEED_DB_BYTES: &[u8] = include_bytes!("../src-tauri/resources/EmbroideryCatalogue.db");
+pub(crate) const SEED_DB_BYTES: &[u8] =
+    include_bytes!("../src-tauri/resources/EmbroideryCatalogue.db");
 
 /// Check if a database file exists within the data root, checking both:
 /// 1. `<data_root>/Database/EmbroideryCatalogue.db` (standard layout)
@@ -337,6 +338,28 @@ pub fn seed_database_if_allowed(data_root: &Path, overwrite: bool) -> Result<(),
             "a database already exists at {}; refusing to overwrite without explicit confirmation",
             database_path.display()
         )));
+    }
+
+    if overwrite && database_path.exists() {
+        let ts = time::OffsetDateTime::now_utc();
+        let suffix = format!(
+            "{:04}{:02}{:02}-{:02}{:02}{:02}",
+            ts.year(),
+            ts.month() as u8,
+            ts.day(),
+            ts.hour(),
+            ts.minute(),
+            ts.second()
+        );
+        let aside_path =
+            database_path.with_file_name(format!("EmbroideryCatalogue.corrupt-{suffix}.db"));
+        let _ = std::fs::rename(&database_path, &aside_path);
+        for ext in ["-wal", "-shm"] {
+            let side_src = database_path.with_file_name(format!("{DATABASE_FILENAME}{ext}"));
+            let side_dst = database_path
+                .with_file_name(format!("EmbroideryCatalogue.corrupt-{suffix}.db{ext}"));
+            let _ = std::fs::rename(side_src, side_dst);
+        }
     }
 
     create_catalogue_layout(data_root)?;

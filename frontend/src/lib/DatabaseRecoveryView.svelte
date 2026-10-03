@@ -4,9 +4,11 @@
 <script>
   import { onMount } from "svelte";
   import {
+    browseRestoreFile,
     browseSettingsDataRoot,
     detectRelocatedDataRoot,
     getDatabaseStatus,
+    recoverDatabaseFromBackup,
     restartApplication,
     seedDatabaseToDataRoot,
     setConfiguredDataRoot,
@@ -19,13 +21,18 @@
   let configuredRoot = $state("");
   let newCataloguePath = $state("");
   let relocatedRoot = $state("");
+  let isCorrupted = $state(false);
+  let dbErrorMessage = $state("");
+  let selectedBackupPath = $state("");
   let scanning = $state(true);
   let busy = $state(false);
   let error = $state("");
   let createError = $state("");
+  let restoreError = $state("");
   let validationMessage = $state("");
   let validationIsError = $state(false);
   let showSeedConfirm = $state(false);
+  let showRestoreConfirm = $state(false);
   let showRestartConfirm = $state(false);
   let restarting = $state(false);
 
@@ -34,10 +41,12 @@
     if (dbStatus.status) {
       configuredRoot = String(dbStatus.status.configured_data_root || "");
       newCataloguePath = configuredRoot;
+      isCorrupted = dbStatus.status.status === "corrupted";
+      dbErrorMessage = String(dbStatus.status.error_message || "");
     }
 
-    // Try the drive-letter relocation quick fix (e.g. D: -> E:).
-    if (configuredRoot) {
+    // Try the drive-letter relocation quick fix (e.g. D: -> E:) if not found.
+    if (configuredRoot && !isCorrupted) {
       const detected = await detectRelocatedDataRoot(configuredRoot);
       if (detected && !detected.error && detected.detected) {
         relocatedRoot = String(detected.detected.data_root || "");
@@ -111,6 +120,49 @@
     showRestartConfirm = true;
   }
 
+  /** Open a native file picker to select a .db backup file. */
+  async function handleBrowseBackup() {
+    if (busy) return;
+    error = "";
+    restoreError = "";
+    try {
+      const picked = await browseRestoreFile(configuredRoot);
+      if (picked && picked.path) {
+        selectedBackupPath = picked.path;
+        showRestoreConfirm = true;
+      }
+    } catch (err) {
+      error = String(err);
+    }
+  }
+
+  /** Recover from the chosen database backup file. */
+  async function handleConfirmRestore() {
+    if (busy || !selectedBackupPath) return;
+    busy = true;
+    restoreError = "";
+    try {
+      const targetRoot = configuredRoot || newCataloguePath;
+      if (!targetRoot) {
+        throw new Error("Catalogue data location is not set.");
+      }
+      const outcome = await recoverDatabaseFromBackup(targetRoot, selectedBackupPath);
+      if (!outcome || !outcome.restored) {
+        throw new Error(outcome?.error || "Failed to recover from the selected backup file.");
+      }
+      const saved = await setConfiguredDataRoot(targetRoot);
+      if (!saved || !saved.persisted) {
+        throw new Error(saved?.error || "Could not save the catalogue location.");
+      }
+      showRestoreConfirm = false;
+      showRestartConfirm = true;
+    } catch (err) {
+      restoreError = String(err);
+    } finally {
+      busy = false;
+    }
+  }
+
   /** Open the modal for creating a new empty catalogue. */
   function openCreateModal() {
     createError = "";
@@ -144,7 +196,7 @@
     busy = true;
     createError = "";
     try {
-      const seeded = await seedDatabaseToDataRoot(target, false);
+      const seeded = await seedDatabaseToDataRoot(target, true);
       if (!seeded || !seeded.persisted) {
         throw new Error(seeded?.error || "Could not create a new catalogue.");
       }
@@ -178,26 +230,50 @@
 </script>
 
 <div
-  class="flex items-center justify-center min-h-screen bg-gray-50"
+  class="flex items-center justify-center min-h-screen bg-gray-50 p-4"
   data-testid="database-recovery-view"
 >
-  <div class="max-w-lg w-full p-6 space-y-4">
+  <div class="max-w-lg w-full space-y-4">
     <div class="route-card bg-white rounded-xl shadow p-6 space-y-4">
-      <h1 class="text-xl font-bold text-gray-800">Your catalogue database could not be found</h1>
-
-      {#if scanning}
-        <p class="text-sm text-gray-500">Checking for your catalogue…</p>
+      {#if isCorrupted}
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">⚠️</span>
+            <h1 class="text-xl font-bold text-gray-800">Your catalogue database is unreadable</h1>
+          </div>
+          <p class="text-sm text-gray-600">
+            Embroidery Catalogue found a database file
+            {#if configuredRoot}
+              at <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot}</code>
+            {/if}, but could not open it (it may be damaged or malformed). Your original embroidery
+            design files in
+            <code class="font-mono text-xs">MachineEmbroideryDesigns</code> are safe.
+          </p>
+          {#if dbErrorMessage}
+            <p class="text-xs text-red-600 font-mono bg-red-50 p-2 rounded">
+              {dbErrorMessage}
+            </p>
+          {/if}
+        </div>
       {:else}
-        <p class="text-sm text-gray-600">
-          Embroidery Catalogue could not find its database
-          {#if configuredRoot}
-            at <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot}</code>
-          {/if}. This usually happens when a portable drive changes letter (for example from
-          <code class="font-mono text-xs">D:</code>
-          to <code class="font-mono text-xs">E:</code>) or the data folder was moved. Your original
-          files are safe — choose how to continue.
-        </p>
+        <h1 class="text-xl font-bold text-gray-800">Your catalogue database could not be found</h1>
 
+        {#if scanning}
+          <p class="text-sm text-gray-500">Checking for your catalogue…</p>
+        {:else}
+          <p class="text-sm text-gray-600">
+            Embroidery Catalogue could not find its database
+            {#if configuredRoot}
+              at <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot}</code>
+            {/if}. This usually happens when a portable drive changes letter (for example from
+            <code class="font-mono text-xs">D:</code>
+            to <code class="font-mono text-xs">E:</code>) or the data folder was moved. Your
+            original files are safe — choose how to continue.
+          </p>
+        {/if}
+      {/if}
+
+      {#if !scanning}
         {#if error}
           <div
             class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
@@ -240,36 +316,109 @@
           </div>
         {/if}
 
-        <div class="space-y-2">
+        <div class="space-y-3 pt-2">
+          <!-- Option 1: Restore from Backup -->
+          <button
+            type="button"
+            onclick={handleBrowseBackup}
+            disabled={busy}
+            class="w-full bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            data-testid="recovery-restore-backup"
+          >
+            <span>📥</span>
+            <span>Restore from a database backup…</span>
+          </button>
+
+          <!-- Option 2: Choose existing folder -->
           <button
             type="button"
             onclick={handleBrowse}
             disabled={busy}
-            class="w-full bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            class="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2"
             data-testid="recovery-browse"
           >
-            Choose my catalogue folder…
+            <span>📁</span>
+            <span>Choose another catalogue folder…</span>
           </button>
 
+          <!-- Option 3: Fresh catalogue -->
           <button
             type="button"
             onclick={openCreateModal}
             disabled={busy}
-            class="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+            class="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2"
             data-testid="recovery-create-new"
           >
-            Create a new empty catalogue
+            <span>✨</span>
+            <span>Start fresh with a clean catalogue</span>
           </button>
         </div>
 
-        <p class="text-xs text-gray-500">
-          Choose <span class="font-semibold">"Create a new empty catalogue"</span> only if you are sure
-          you do not have an existing catalogue to recover — it starts fresh.
+        <p class="text-xs text-gray-500 pt-1">
+          If you start fresh or restore from backup, your current database file will be safely
+          preserved with a
+          <code class="font-mono text-xs">.corrupt-&lt;timestamp&gt;</code> extension so nothing is lost.
         </p>
       {/if}
     </div>
   </div>
 </div>
+
+{#if showRestoreConfirm}
+  <div
+    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Restore database from backup"
+  >
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4">
+      <h2 class="text-lg font-semibold text-gray-800">Restore catalogue from backup</h2>
+      <p class="text-sm text-gray-600">You are about to restore the database from:</p>
+      <div
+        class="bg-gray-50 border border-gray-200 p-3 rounded text-xs font-mono text-gray-800 break-all"
+      >
+        {selectedBackupPath}
+      </div>
+      <p class="text-xs text-gray-500">
+        Your current database will be automatically moved aside to a safe backup file before the
+        restore is applied.
+      </p>
+
+      {#if restoreError}
+        <div
+          class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
+          data-testid="recovery-restore-error"
+        >
+          {restoreError}
+        </div>
+      {/if}
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick={() => {
+            showRestoreConfirm = false;
+            restoreError = "";
+          }}
+          disabled={busy}
+          class="px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+          data-testid="recovery-restore-cancel"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={handleConfirmRestore}
+          disabled={busy}
+          class="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+          data-testid="recovery-restore-confirm"
+        >
+          {#if busy}Restoring…{:else}Restore database{/if}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if showSeedConfirm}
   <div
@@ -279,10 +428,12 @@
     aria-label="Create new catalogue confirmation"
   >
     <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4">
-      <h2 class="text-lg font-semibold text-gray-800">Create a new empty catalogue</h2>
+      <h2 class="text-lg font-semibold text-gray-800">Start fresh with a clean catalogue</h2>
       <p class="text-sm text-gray-600">
-        This will create a fresh catalogue database and folder structure at your chosen location.
-        Only use this if you do not have an existing catalogue to recover.
+        This will install a clean catalogue database at your chosen location. Any existing database
+        file will be safely preserved with a <code class="font-mono text-xs"
+          >.corrupt-&lt;timestamp&gt;</code
+        > extension.
       </p>
 
       <div class="space-y-2">
@@ -309,10 +460,6 @@
             Browse…
           </button>
         </div>
-        <p class="text-xs text-gray-500">
-          The previous location is shown by default. Choose a new folder if you want your catalogue
-          created elsewhere.
-        </p>
       </div>
 
       {#if createError}
@@ -344,7 +491,7 @@
           class="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
           data-testid="recovery-create-confirm"
         >
-          Create new catalogue
+          Create clean catalogue
         </button>
       </div>
     </div>
@@ -353,16 +500,17 @@
 
 {#if showRestartConfirm}
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
     role="dialog"
     aria-modal="true"
     aria-label="Restart required"
   >
-    <div class="bg-white rounded-xl shadow p-6 max-w-sm w-full space-y-4">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full space-y-4">
       <h2 class="font-semibold text-gray-800">Restart required</h2>
       <p class="text-sm text-gray-600">
-        Your new catalogue location has been saved. Embroidery Catalogue needs to restart so it can
-        begin using <span class="font-medium">{configuredRoot}</span>.
+        Your catalogue has been updated. Embroidery Catalogue needs to restart so it can begin using <span
+          class="font-medium">{configuredRoot}</span
+        >.
       </p>
       <div class="flex justify-end gap-2">
         <button

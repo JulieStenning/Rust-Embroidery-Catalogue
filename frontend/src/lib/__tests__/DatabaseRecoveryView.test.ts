@@ -14,6 +14,8 @@ const getDatabaseStatusMock = vi.hoisted(() => vi.fn());
 const detectRelocatedDataRootMock = vi.hoisted(() => vi.fn());
 const validateDatabasePathMock = vi.hoisted(() => vi.fn());
 const browseSettingsDataRootMock = vi.hoisted(() => vi.fn());
+const browseRestoreFileMock = vi.hoisted(() => vi.fn());
+const recoverDatabaseFromBackupMock = vi.hoisted(() => vi.fn());
 const seedDatabaseToDataRootMock = vi.hoisted(() => vi.fn());
 const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const restartApplicationMock = vi.hoisted(() => vi.fn());
@@ -23,6 +25,8 @@ vi.mock("../api/commandAdapter", () => ({
   detectRelocatedDataRoot: detectRelocatedDataRootMock,
   validateDatabasePath: validateDatabasePathMock,
   browseSettingsDataRoot: browseSettingsDataRootMock,
+  browseRestoreFile: browseRestoreFileMock,
+  recoverDatabaseFromBackup: recoverDatabaseFromBackupMock,
   seedDatabaseToDataRoot: seedDatabaseToDataRootMock,
   setConfiguredDataRoot: setConfiguredDataRootMock,
   restartApplication: restartApplicationMock,
@@ -140,7 +144,7 @@ describe("DatabaseRecoveryView.svelte", () => {
     await fireEvent.click(screen.getByTestId("recovery-create-confirm"));
     await tick();
 
-    expect(seedDatabaseToDataRootMock).toHaveBeenCalledWith("E:\\CustomCatalogueLocation", false);
+    expect(seedDatabaseToDataRootMock).toHaveBeenCalledWith("E:\\CustomCatalogueLocation", true);
     expect(setConfiguredDataRootMock).toHaveBeenCalledWith("E:\\CustomCatalogueLocation");
 
     expect(screen.getByRole("dialog", { name: "Restart required" })).toBeInTheDocument();
@@ -162,7 +166,7 @@ describe("DatabaseRecoveryView.svelte", () => {
     await fireEvent.click(screen.getByTestId("recovery-create-confirm"));
     await tick();
 
-    expect(seedDatabaseToDataRootMock).toHaveBeenCalledWith("F:\\OldCatalogue", false);
+    expect(seedDatabaseToDataRootMock).toHaveBeenCalledWith("F:\\OldCatalogue", true);
     expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
 
     const errorBox = screen.getByTestId("recovery-create-error");
@@ -410,5 +414,89 @@ describe("DatabaseRecoveryView.svelte", () => {
 
     const errorBox = screen.getByTestId("recovery-create-error");
     expect(errorBox).toHaveTextContent("Could not write config file");
+  });
+
+  it("renders corrupted database recovery message when database is corrupted", async () => {
+    getDatabaseStatusMock.mockResolvedValueOnce({
+      source: "rust",
+      status: {
+        status: "corrupted",
+        configured_data_root: "D:\\MyDesigns",
+        database_path: "D:\\MyDesigns\\Database\\EmbroideryCatalogue.db",
+        embroidery_dir: "D:\\MyDesigns\\MachineEmbroideryDesigns",
+        data_root_missing: false,
+        error_message: "Database integrity check failed: malformed image",
+      },
+    });
+
+    await renderAndMount();
+
+    expect(
+      screen.getByRole("heading", { name: "Your catalogue database is unreadable" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Database integrity check failed: malformed image")
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("recovery-restore-backup")).toBeInTheDocument();
+  });
+
+  it("allows restoring from a backup file and prompts for restart", async () => {
+    browseRestoreFileMock.mockResolvedValueOnce({
+      source: "rust",
+      path: "D:\\Backups\\catalogue-20261001.db",
+      error: null,
+    });
+    recoverDatabaseFromBackupMock.mockResolvedValueOnce({
+      source: "rust",
+      restored: true,
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-restore-backup"));
+    await tick();
+
+    expect(browseRestoreFileMock).toHaveBeenCalledWith("F:\\OldCatalogue");
+    expect(
+      screen.getByRole("dialog", { name: "Restore database from backup" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("D:\\Backups\\catalogue-20261001.db")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId("recovery-restore-confirm"));
+    await tick();
+
+    expect(recoverDatabaseFromBackupMock).toHaveBeenCalledWith(
+      "F:\\OldCatalogue",
+      "D:\\Backups\\catalogue-20261001.db"
+    );
+    expect(setConfiguredDataRootMock).toHaveBeenCalledWith("F:\\OldCatalogue");
+    expect(screen.getByRole("dialog", { name: "Restart required" })).toBeInTheDocument();
+  });
+
+  it("shows error when recoverDatabaseFromBackup fails", async () => {
+    browseRestoreFileMock.mockResolvedValueOnce({
+      source: "rust",
+      path: "D:\\Backups\\corrupt-backup.db",
+      error: null,
+    });
+    recoverDatabaseFromBackupMock.mockResolvedValueOnce({
+      source: "rust",
+      restored: false,
+      error: "Selected backup file is invalid or malformed",
+    });
+
+    await renderAndMount();
+
+    await fireEvent.click(screen.getByTestId("recovery-restore-backup"));
+    await tick();
+
+    await fireEvent.click(screen.getByTestId("recovery-restore-confirm"));
+    await tick();
+
+    expect(recoverDatabaseFromBackupMock).toHaveBeenCalled();
+    expect(setConfiguredDataRootMock).not.toHaveBeenCalled();
+
+    const errorBox = screen.getByTestId("recovery-restore-error");
+    expect(errorBox).toHaveTextContent("Selected backup file is invalid or malformed");
   });
 });

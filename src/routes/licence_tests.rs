@@ -32,6 +32,7 @@ fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
             database_path: Some(paths.database_path.to_string_lossy().to_string()),
             embroidery_dir: Some(paths.embroidery_designs_dir.to_string_lossy().to_string()),
             data_root_missing: false,
+            error_message: None,
         },
         paths,
         log_guard: crate::logging::LogGuard::dummy_for_test(),

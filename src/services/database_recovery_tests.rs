@@ -92,7 +92,7 @@ fn validate_database_path_accepts_existing_database() {
     std::fs::create_dir_all(&db_dir).unwrap();
     std::fs::write(
         db_dir.join(crate::paths::DATABASE_FILENAME),
-        b"sqlite-bytes",
+        crate::paths::SEED_DB_BYTES,
     )
     .unwrap();
 
@@ -111,7 +111,7 @@ fn validate_database_path_reports_designs_dir_when_present() {
     std::fs::create_dir_all(tmp.join(designs_relative_dir())).unwrap();
     std::fs::write(
         tmp.join("Database").join(crate::paths::DATABASE_FILENAME),
-        b"sqlite-bytes",
+        crate::paths::SEED_DB_BYTES,
     )
     .unwrap();
 
@@ -120,6 +120,51 @@ fn validate_database_path_reports_designs_dir_when_present() {
     assert!(result.valid);
     assert!(result.embroidery_dir_exists);
     let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn recover_database_from_backup_file_restores_and_preserves_corrupt_file() {
+    let tmp_root = unique_tmp_dir("recover-root");
+    let tmp_backup_dir = unique_tmp_dir("recover-backup");
+    std::fs::create_dir_all(tmp_root.join("Database")).unwrap();
+    std::fs::create_dir_all(&tmp_backup_dir).unwrap();
+
+    let live_db = tmp_root
+        .join("Database")
+        .join(crate::paths::DATABASE_FILENAME);
+    std::fs::write(&live_db, b"corrupted-preexisting-content").unwrap();
+
+    let backup_file = tmp_backup_dir.join("Backup.db");
+    std::fs::write(&backup_file, crate::paths::SEED_DB_BYTES).unwrap();
+
+    let outcome = recover_database_from_backup_file(&tmp_root, &backup_file).await;
+    assert!(
+        outcome.is_ok(),
+        "recovery should succeed: {:?}",
+        outcome.err()
+    );
+
+    // Verified live DB now matches valid seed DB
+    let validation = validate_database_path(&tmp_root);
+    assert!(validation.valid);
+
+    // Corrupt copy was preserved aside
+    let entries: Vec<_> = std::fs::read_dir(tmp_root.join("Database"))
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .collect();
+    let has_corrupt_copy = entries.iter().any(|e| {
+        e.file_name()
+            .to_string_lossy()
+            .starts_with("EmbroideryCatalogue.corrupt-")
+    });
+    assert!(
+        has_corrupt_copy,
+        "should have preserved corrupt DB copy aside"
+    );
+
+    let _ = std::fs::remove_dir_all(&tmp_root);
+    let _ = std::fs::remove_dir_all(&tmp_backup_dir);
 }
 
 #[test]

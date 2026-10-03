@@ -364,8 +364,8 @@ export interface AppStatus {
   database_missing: boolean;
 }
 
-/** Tri-state status of the configured database reported at startup. */
-export type DatabaseStatusKind = "uninitialized" | "connected" | "missing";
+/** Status of the configured database reported at startup. */
+export type DatabaseStatusKind = "uninitialized" | "connected" | "missing" | "corrupted";
 
 /** Detailed database status used by the recovery flow. */
 export interface DatabaseStatus {
@@ -374,6 +374,7 @@ export interface DatabaseStatus {
   database_path: string | null;
   embroidery_dir: string | null;
   data_root_missing: boolean;
+  error_message?: string | null;
 }
 
 /** Result of a drive-letter relocation scan. */

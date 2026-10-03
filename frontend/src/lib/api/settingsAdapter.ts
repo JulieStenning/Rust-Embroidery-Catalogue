@@ -382,6 +382,30 @@ export async function seedDatabaseToDataRoot(
 }
 
 /**
+ * Recover a catalogue by copying a user-selected backup database file into
+ * `<dataRoot>/Database/EmbroideryCatalogue.db`.
+ */
+export async function recoverDatabaseFromBackup(
+  dataRoot: string,
+  backupFile: string
+): Promise<{
+  source: string;
+  restored: boolean;
+  error?: string;
+}> {
+  try {
+    await invokeLoose("recover_database_from_backup", {
+      dataRoot: String(dataRoot || ""),
+      backupFile: String(backupFile || ""),
+    });
+    return { source: "rust", restored: true };
+  } catch (error) {
+    console.info("recover_database_from_backup failed.", error);
+    return { source: "mock", restored: false, error: String(error) };
+  }
+}
+
+/**
  * Fetch the currently configured Google API key (optional, for AI tagging).
  *
  * @returns {Promise<AdapterGoogleApiKeyResponse>}

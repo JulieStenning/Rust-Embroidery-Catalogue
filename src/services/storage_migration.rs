@@ -15,7 +15,7 @@
 use crate::error::AppError;
 use crate::paths::{self, AppPaths};
 use serde::Serialize;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection, SqlitePool};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -400,25 +400,25 @@ pub(crate) async fn verify_database_at(db_path: &Path) -> Result<bool, AppError>
     let options = SqliteConnectOptions::new()
         .filename(db_path)
         .read_only(true)
-        .journal_mode(SqliteJournalMode::Off);
+        .busy_timeout(std::time::Duration::from_secs(5));
 
     let mut conn = sqlx::sqlite::SqliteConnection::connect_with(&options)
         .await
-        .map_err(|e| AppError::database(format!("cannot open migrated database: {e}")))?;
+        .map_err(|e| AppError::database(format!("cannot open database: {e}")))?;
 
-    let row: (String,) = sqlx::query_as("PRAGMA integrity_check")
+    // Fast schema and readability check on page 1
+    let _: (i64,) = sqlx::query_as("PRAGMA schema_version")
         .fetch_one(&mut conn)
         .await
-        .map_err(|e| AppError::database(format!("integrity check failed: {e}")))?;
+        .map_err(|e| AppError::database(format!("schema check failed: {e}")))?;
 
-    if row.0 != "ok" {
-        return Ok(false);
+    // Fast table presence and readable schema check (avoids full table/B-tree scans on multi-GB databases)
+    if let Err(e) = sqlx::query("SELECT 1 FROM designs LIMIT 1")
+        .execute(&mut conn)
+        .await
+    {
+        return Err(AppError::database(format!("designs table check failed: {e}")));
     }
-
-    let _: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM designs")
-        .fetch_one(&mut conn)
-        .await
-        .map_err(|e| AppError::database(format!("designs query on migrated DB failed: {e}")))?;
 
     Ok(true)
 }

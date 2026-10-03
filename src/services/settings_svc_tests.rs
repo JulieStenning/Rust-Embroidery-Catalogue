@@ -302,6 +302,7 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
                     .to_string(),
             ),
             data_root_missing: false,
+            error_message: None,
         },
         paths: crate::paths::AppPaths {
             mode: crate::paths::ExecutionMode::Dev,

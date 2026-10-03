@@ -49,10 +49,13 @@
 
     try {
       // Check the database recovery status first. If the configured database
-      // is missing (e.g. a drive letter changed), block the main UI until the
-      // user re-points the location or explicitly creates a new catalogue.
+      // is missing or corrupt, block the main UI until the user recovers via
+      // backup, re-points the location, or explicitly creates a new catalogue.
       const dbStatus = await getDatabaseStatus();
-      if (dbStatus.status && dbStatus.status.status === "missing") {
+      if (
+        dbStatus.status &&
+        (dbStatus.status.status === "missing" || dbStatus.status.status === "corrupted")
+      ) {
         databaseMissing = true;
         loading = false;
         return;
@@ -70,7 +73,16 @@
 
       initialSetupCompleted = await checkInitialSetup();
     } catch (e) {
-      checkError = `Could not verify setup status: ${e}`;
+      const errorStr = String(e);
+      if (
+        errorStr.includes("no such table") ||
+        errorStr.includes("database") ||
+        errorStr.includes("corrupt")
+      ) {
+        databaseMissing = true;
+      } else {
+        checkError = `Could not verify setup status: ${e}`;
+      }
       console.error("check_initial_setup failed:", e);
     } finally {
       loading = false;

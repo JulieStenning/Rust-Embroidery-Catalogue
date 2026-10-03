@@ -73,6 +73,7 @@ import {
   restoreBoth,
   restoreDatabase,
   restoreDesignsIncremental,
+  recoverDatabaseFromBackup,
   browseRestoreFile,
   detectDesignFilesAbsentFromDatabase,
   importUnmatchedDesignFiles,
@@ -2917,6 +2918,33 @@ describe("commandAdapter initial setup & app status", () => {
       source: "mock",
       persisted: false,
       error: expect.stringContaining("config write failed"),
+    });
+  });
+
+  it("recoverDatabaseFromBackup passes camelCase dataRoot and backupFile", async () => {
+    invokeMock.mockResolvedValue(undefined);
+
+    const result = await recoverDatabaseFromBackup("D:/Data", "D:/Backup.db");
+
+    expect(invokeMock).toHaveBeenCalledWith("recover_database_from_backup", {
+      dataRoot: "D:/Data",
+      backupFile: "D:/Backup.db",
+    });
+    expect(result).toEqual({
+      source: "rust",
+      restored: true,
+    });
+  });
+
+  it("recoverDatabaseFromBackup falls back to mock on error", async () => {
+    mockReject(new Error("corrupt backup"));
+
+    const result = await recoverDatabaseFromBackup("D:/Data", "D:/Backup.db");
+
+    expect(result).toEqual({
+      source: "mock",
+      restored: false,
+      error: expect.stringContaining("corrupt backup"),
     });
   });
 });

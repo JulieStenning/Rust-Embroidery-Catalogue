@@ -54,8 +54,8 @@ use tauri::{Manager, State};
 // Database status (exposed to frontend for the recovery flow)
 // ---------------------------------------------------------------------------
 
-/// Tri-state status of the configured database at startup.
-#[derive(Debug, Clone, Serialize)]
+/// Status of the configured database at startup.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DatabaseStatusKind {
     /// No configured data root yet - first-run setup wizard handles it.
@@ -65,6 +65,8 @@ pub enum DatabaseStatusKind {
     /// A configured data root exists but the database file is missing
     /// (e.g. a portable drive letter changed). The recovery view handles it.
     Missing,
+    /// The database file exists but cannot be opened or is corrupted.
+    Corrupted,
 }
 
 /// Detailed database status report sent to the frontend.
@@ -75,37 +77,48 @@ pub struct DatabaseStatus {
     pub database_path: Option<String>,
     pub embroidery_dir: Option<String>,
     pub data_root_missing: bool,
+    pub error_message: Option<String>,
 }
 
 /// Compute the database status for the current paths/configuration.
 fn database_status_from_paths(paths: &paths::AppPaths) -> DatabaseStatus {
-    let configured_root = paths::read_bootstrap_data_root().ok().flatten();
-
-    let configured_str = configured_root
-        .as_ref()
-        .map(|p| p.to_string_lossy().to_string());
-    let database_str = Some(paths.database_path.to_string_lossy().to_string());
-    let embroidery_str = Some(paths.embroidery_designs_dir.to_string_lossy().to_string());
-
-    let data_root_missing = matches!(paths.mode, paths::ExecutionMode::Installed)
-        && configured_root
-            .as_ref()
-            .map(|root| !root.exists())
-            .unwrap_or(false);
-
-    let status = match configured_root {
-        None => DatabaseStatusKind::Uninitialized,
-        Some(_) if data_root_missing => DatabaseStatusKind::Missing,
-        Some(_) if !paths.database_path.exists() => DatabaseStatusKind::Missing,
-        Some(_) => DatabaseStatusKind::Connected,
+    let (configured_str, data_root_missing, status) = match paths.mode {
+        paths::ExecutionMode::Dev => {
+            let configured = Some(paths.data_root.to_string_lossy().to_string());
+            let missing = !paths.data_root.exists();
+            let st = if missing || !paths.database_path.exists() {
+                DatabaseStatusKind::Missing
+            } else {
+                DatabaseStatusKind::Connected
+            };
+            (configured, missing, st)
+        }
+        paths::ExecutionMode::Installed => {
+            let configured_root = paths::read_bootstrap_data_root().ok().flatten();
+            let configured = configured_root
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
+            let missing = configured_root
+                .as_ref()
+                .map(|root| !root.exists())
+                .unwrap_or(false);
+            let st = match configured_root {
+                None => DatabaseStatusKind::Uninitialized,
+                Some(_) if missing => DatabaseStatusKind::Missing,
+                Some(_) if !paths.database_path.exists() => DatabaseStatusKind::Missing,
+                Some(_) => DatabaseStatusKind::Connected,
+            };
+            (configured, missing, st)
+        }
     };
 
     DatabaseStatus {
         status,
         configured_data_root: configured_str,
-        database_path: database_str,
-        embroidery_dir: embroidery_str,
+        database_path: Some(paths.database_path.to_string_lossy().to_string()),
+        embroidery_dir: Some(paths.embroidery_designs_dir.to_string_lossy().to_string()),
         data_root_missing,
+        error_message: None,
     }
 }
 
@@ -266,11 +279,18 @@ fn get_database_status(state: State<'_, AppState>) -> DatabaseStatus {
 /// Installed mode. The frontend uses this to decide whether the setup wizard
 /// must prompt for a data location.
 #[tauri::command]
-fn get_configured_data_root() -> Result<Option<String>, String> {
-    match paths::read_bootstrap_data_root() {
-        Ok(Some(root)) => Ok(Some(root.to_string_lossy().to_string())),
-        Ok(None) => Ok(None),
-        Err(err) => Err(err.to_string()),
+fn get_configured_data_root(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    get_configured_data_root_inner(state.paths.mode)
+}
+
+fn get_configured_data_root_inner(mode: paths::ExecutionMode) -> Result<Option<String>, String> {
+    match mode {
+        paths::ExecutionMode::Dev => Ok(None),
+        paths::ExecutionMode::Installed => match paths::read_bootstrap_data_root() {
+            Ok(Some(root)) => Ok(Some(root.to_string_lossy().to_string())),
+            Ok(None) => Ok(None),
+            Err(err) => Err(err.to_string()),
+        },
     }
 }
 
@@ -279,12 +299,27 @@ fn get_configured_data_root() -> Result<Option<String>, String> {
 /// The path must be absolute. This writes the tiny `config.json` under the
 /// platform app-data dir so the choice survives reinstalls.
 #[tauri::command]
-fn set_configured_data_root(data_root: String) -> Result<(), String> {
+fn set_configured_data_root(data_root: String, state: State<'_, AppState>) -> Result<(), String> {
+    set_configured_data_root_inner(data_root, state.paths.mode)
+}
+
+fn set_configured_data_root_inner(
+    data_root: String,
+    mode: paths::ExecutionMode,
+) -> Result<(), String> {
     let trimmed = data_root.trim();
     if trimmed.is_empty() {
         return Err("Data root cannot be empty.".to_string());
     }
     let path = std::path::PathBuf::from(trimmed);
+    if !path.is_absolute() {
+        return Err("data root must be an absolute path".to_string());
+    }
+    if matches!(mode, paths::ExecutionMode::Dev) {
+        // In Dev mode, data root is bound to the project dev_data folder.
+        // We do not overwrite the platform %APPDATA%/config.json used by Installed mode.
+        return Ok(());
+    }
     paths::write_bootstrap_data_root(&path).map_err(|err| err.to_string())
 }
 
@@ -452,7 +487,7 @@ fn main() {
 
     // Run async setup using Tauri's built-in Tokio runtime
     // This avoids creating a conflicting second runtime alongside Tauri's own
-    let pool = if recovery_mode {
+    let (pool, database_status) = if recovery_mode {
         tracing::warn!(
             "Database recovery mode: configured database missing at {} - awaiting user re-pointing.",
             app_paths.database_path.display()
@@ -460,7 +495,7 @@ fn main() {
         // Throwaway in-memory pool: keeps AppState constructible and commands
         // registered without touching the missing real DB file. The blocking
         // recovery view guarantees no data-touching command runs against it.
-        tauri::async_runtime::block_on(async {
+        let in_mem = tauri::async_runtime::block_on(async {
             SqlitePoolOptions::new()
                 .max_connections(1)
                 .connect("sqlite::memory:")
@@ -469,39 +504,83 @@ fn main() {
                     eprintln!("Failed to establish in-memory recovery pool: {e}");
                     std::process::exit(1);
                 })
-        })
+        });
+        (in_mem, database_status)
     } else {
-        // Ensure the database directory exists before trying to connect
-        if let Err(err) = config::ensure_database_dir(&bootstrap_config.database_url) {
-            eprintln!("Failed to create database directory: {err}");
-            std::process::exit(1);
-        }
-
         tauri::async_runtime::block_on(async {
+            // Ensure the database directory exists before trying to connect
+            if let Err(err) = config::ensure_database_dir(&bootstrap_config.database_url) {
+                tracing::error!("Failed to create database directory: {err}");
+                let in_mem = SqlitePoolOptions::new()
+                    .max_connections(1)
+                    .connect("sqlite::memory:")
+                    .await
+                    .expect("in-memory recovery pool");
+                let mut status = database_status;
+                status.status = DatabaseStatusKind::Corrupted;
+                status.error_message = Some(format!("Could not create database directory: {err}"));
+                return (in_mem, status);
+            }
+
             // Establish the SQLite connection pool using resolved paths
-            let pool = match database::connection::establish_connection(&app_paths).await {
-                Ok(pool) => pool,
-                Err(err) => {
-                    eprintln!("Failed to establish database connection: {err}");
-                    std::process::exit(1);
+            match database::connection::establish_connection(&app_paths).await {
+                Ok(pool) => {
+                    // Fast schema sanity check: verify essential catalogue tables (settings and designs) exist.
+                    // Avoid full B-tree integrity scans (PRAGMA quick_check) on the synchronous startup path
+                    // as they scan the entire file on disk (taking minutes on multi-gigabyte databases).
+                    let schema_check = match sqlx::query("SELECT 1 FROM settings LIMIT 1")
+                        .execute(&pool)
+                        .await
+                    {
+                        Ok(_) => match sqlx::query("SELECT 1 FROM designs LIMIT 1")
+                            .execute(&pool)
+                            .await
+                        {
+                            Ok(_) => Ok(()),
+                            Err(err) => {
+                                Err(format!("Missing or corrupt 'designs' table: {err}"))
+                            }
+                        },
+                        Err(err) => {
+                            Err(format!("Missing or corrupt 'settings' table: {err}"))
+                        }
+                    };
+
+                    match schema_check {
+                        Ok(()) => (pool, database_status),
+                        Err(err_msg) => {
+                            tracing::error!(
+                                "Database sanity check failed at {}: {err_msg}",
+                                app_paths.database_path.display()
+                            );
+                            let in_mem = SqlitePoolOptions::new()
+                                .max_connections(1)
+                                .connect("sqlite::memory:")
+                                .await
+                                .expect("in-memory recovery pool");
+                            let mut status = database_status;
+                            status.status = DatabaseStatusKind::Corrupted;
+                            status.error_message = Some(err_msg);
+                            (in_mem, status)
+                        }
+                    }
                 }
-            };
-
-            // NOTE: Migration runner is intentionally disabled.
-            // Both the seed DB (src-tauri/resources/) and the development DB are
-            // pre-migrated. Running sqlx::migrate!() would re-insert all seed data
-            // (118 tags, settings, etc.) from the initial migration, overwriting
-            // the curated seed DB content.
-            //
-            // If schema changes are needed in the future, run migrations manually:
-            //   - Update the dev DB with new schema
-            //   - Compact it and copy to src-tauri/resources/EmbroideryCatalogue.db
-            //   - Add the .sql migration file to migrations/ for documentation
-            //
-            // database::migrations::run_migrations(&pool).await
-            //     .expect("Failed to run database migrations");
-
-            pool
+                Err(err) => {
+                    tracing::error!(
+                        "Failed to establish database connection at {}: {err}",
+                        app_paths.database_path.display()
+                    );
+                    let in_mem = SqlitePoolOptions::new()
+                        .max_connections(1)
+                        .connect("sqlite::memory:")
+                        .await
+                        .expect("in-memory recovery pool");
+                    let mut status = database_status;
+                    status.status = DatabaseStatusKind::Corrupted;
+                    status.error_message = Some(format!("Database connection failed: {err}"));
+                    (in_mem, status)
+                }
+            }
         })
     };
 
@@ -641,6 +720,7 @@ fn main() {
             routes::database_recovery::detect_relocated_data_root,
             routes::database_recovery::validate_database_path,
             routes::database_recovery::seed_database_to_data_root,
+            routes::database_recovery::recover_database_from_backup,
             routes::about::get_about_documents,
             routes::about::get_about_document,
             routes::designs::get_designs,
