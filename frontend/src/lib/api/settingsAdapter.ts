@@ -151,7 +151,7 @@ export async function getSettingsViewModel(): Promise<AdapterSettingsViewModelRe
       ai_workers: "",
       ai_free_tier: false,
       import_last_browse_folder: "",
-      enabled_master_formats: "eof,ecf",
+      enabled_master_formats: "",
       can_configure_data_root: false,
       data_root: "",
       library_root: "",

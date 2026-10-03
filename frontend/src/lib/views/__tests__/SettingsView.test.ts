@@ -64,7 +64,7 @@ const defaultModel: SettingsViewModel = {
   ai_workers: "",
   ai_free_tier: false,
   import_last_browse_folder: "",
-  enabled_master_formats: "eof,ecf",
+  enabled_master_formats: "",
   can_configure_data_root: true,
   data_root: "D:\\EmbroideryData",
   library_root: "D:\\EmbroideryData\\MachineEmbroideryDesigns",
@@ -285,7 +285,7 @@ describe("SettingsView.svelte", () => {
         ai_commit_every: "",
         ai_workers: "",
         ai_free_tier: false,
-        enabled_master_formats: "ecf,eof",
+        enabled_master_formats: "",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -326,7 +326,7 @@ describe("SettingsView.svelte", () => {
         ai_commit_every: "",
         ai_workers: "",
         ai_free_tier: false,
-        enabled_master_formats: "ecf,eof",
+        enabled_master_formats: "",
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -1034,21 +1034,22 @@ describe("SettingsView.svelte", () => {
 
     expect(screen.getByTestId("settings-master-formats-section")).toBeInTheDocument();
     
-    // Default model has "eof,ecf" enabled -> Embird preset is checked
+    // Default model has "" enabled -> Embird preset is not checked by default
     const embirdPreset = screen.getByTestId("master-format-preset-embird");
     const embirdCheckbox = embirdPreset.querySelector("input[type='checkbox']");
-    expect(embirdCheckbox).toBeChecked();
+    expect(embirdCheckbox).not.toBeChecked();
 
     const berninaPreset = screen.getByTestId("master-format-preset-bernina");
     const berninaCheckbox = berninaPreset.querySelector("input[type='checkbox']");
     expect(berninaCheckbox).not.toBeChecked();
 
-    // Toggle Bernina on
-    if (berninaCheckbox) {
-      await fireEvent.click(berninaCheckbox);
+    // Toggle Embird on
+    if (embirdCheckbox) {
+      await fireEvent.click(embirdCheckbox);
       await tick();
     }
 
+    expect(embirdCheckbox).toBeChecked();
     expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
     expect(screen.getByTestId("settings-dirty-hint")).toBeInTheDocument();
   });

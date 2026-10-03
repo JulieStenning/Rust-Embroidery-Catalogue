@@ -366,7 +366,7 @@ pub(crate) async fn upsert_setting(
     Ok(())
 }
 
-pub const DEFAULT_ENABLED_MASTER_FORMATS: &str = "eof,ecf";
+pub const DEFAULT_ENABLED_MASTER_FORMATS: &str = "";
 
 pub(crate) fn default_for_key(key: &str) -> &'static str {
     match key {

@@ -107,7 +107,7 @@
   let settingsAiCommitEvery = $state("");
   let settingsAiWorkers = $state("");
   let settingsAiFreeTier = $state(false);
-  let settingsEnabledMasterFormats = $state("eof,ecf");
+  let settingsEnabledMasterFormats = $state("");
   let settingsCustomMasterFormats = $state("");
   /** @type {string[]} */
   let settingsGeminiModels = $state([]);
@@ -264,7 +264,7 @@
     settingsAiWorkers = String(model?.ai_workers || "");
     settingsAiFreeTier = Boolean(model?.ai_free_tier);
     settingsEnabledMasterFormats = normalizeMasterFormats(
-      String(model?.enabled_master_formats ?? "eof,ecf")
+      String(model?.enabled_master_formats ?? "")
     );
     const knownExts = new Set(MASTER_FORMAT_PRESETS.flatMap((p) => p.exts));
     const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
