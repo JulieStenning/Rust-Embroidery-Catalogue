@@ -190,10 +190,10 @@
     settingsCustomMasterFormats = rawCustom;
     const knownExts = new Set(MASTER_FORMAT_PRESETS.flatMap((p) => p.exts));
     const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
-    
+
     // Retain only known preset exts from currentSet
     const updatedSet = new Set([...currentSet].filter((ext) => knownExts.has(ext)));
-    
+
     // Add custom exts
     const customSet = parseMasterFormatsSet(rawCustom);
     for (const ext of customSet) {
@@ -802,8 +802,9 @@
             <span>Digitising &amp; Master File Formats</span>
           </h2>
           <p class="text-sm text-gray-600 mb-3">
-            Select the digitising software and master working formats you use. When scanning and importing,
-            these editable source files will be paired alongside machine stitch files. Unchecked formats are ignored.
+            Select the digitising software and master working formats you use. When scanning and
+            importing, these editable source files will be paired alongside machine stitch files.
+            Unchecked formats are ignored.
           </p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             {#each MASTER_FORMAT_PRESETS as preset}
@@ -830,20 +831,25 @@
               for="settings-custom-master-formats"
               class="block text-xs font-semibold text-gray-700 mb-1"
             >
-              Additional / Custom extensions <span class="font-normal text-gray-500">(comma-separated)</span>
+              Additional / Custom extensions <span class="font-normal text-gray-500"
+                >(comma-separated)</span
+              >
             </label>
             <input
               id="settings-custom-master-formats"
               type="text"
               value={settingsCustomMasterFormats}
-              oninput={(e) => handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
+              oninput={(e) =>
+                handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
               placeholder="e.g. pxf, pat"
               disabled={busyActive}
               class="settings-input border rounded px-3 py-1.5 text-sm font-mono w-full sm:w-80"
               data-testid="settings-custom-master-formats"
             />
             <p class="mt-1 text-xs text-gray-500">
-              Active formats: <span class="font-mono text-indigo-700">{settingsEnabledMasterFormats || "none"}</span>
+              Active formats: <span class="font-mono text-indigo-700"
+                >{settingsEnabledMasterFormats || "none"}</span
+              >
             </p>
           </div>
         </div>

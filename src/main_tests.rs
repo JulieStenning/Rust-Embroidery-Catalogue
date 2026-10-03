@@ -612,8 +612,9 @@ fn set_then_get_configured_data_root_roundtrips() {
 fn set_configured_data_root_rejects_empty_string() {
     let _guard = lock_env();
     with_sandboxed_app_data(|| {
-        let err = set_configured_data_root_inner("   ".to_string(), paths::ExecutionMode::Installed)
-            .expect_err("empty root should fail");
+        let err =
+            set_configured_data_root_inner("   ".to_string(), paths::ExecutionMode::Installed)
+                .expect_err("empty root should fail");
         assert!(err.contains("cannot be empty"));
     });
 }

@@ -92,6 +92,8 @@ function normalizeBrowseItem(
     id,
     filename,
     filepath: String(raw?.filepath || ""),
+    master_filepath: raw?.master_filepath == null ? null : String(raw.master_filepath),
+    is_master_only: Boolean(raw?.is_master_only),
     designer: String(raw?.designer || "Unknown"),
     source: String(raw?.source || "Unknown"),
     projects: Array.isArray(raw?.projects)
@@ -636,6 +638,33 @@ export async function openDesignInEditor(designId: number | string) {
       persisted: false,
       result: null,
       message: `Could not open in editor: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * @param {number | string} designId
+ */
+export async function openDesignMasterInEditor(designId: number | string) {
+  const normalizedId = Number(designId);
+
+  try {
+    const result = await invokeLoose("open_design_master_in_editor", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result,
+      message: String(result?.message || "Open master in editor action completed."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not open master in editor: ${error}`,
       error: String(error),
     };
   }

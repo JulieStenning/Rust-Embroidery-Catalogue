@@ -15,6 +15,7 @@ Use this runbook when you need to:
 
 Open **Admin -> Settings** to manage:
 - default image preview mode for imports (2D vs 3D),
+- enabled digitising & master outline formats (e.g. Embird, Hatch, Bernina, Embrilliance, Janome, mySewnet),
 - Google Gemini API key (used by Gemini Vision in Batch Operations),
 - AI and throughput tuning values for Batch Operations runs,
 - desktop catalogue data location,
@@ -66,6 +67,30 @@ Notes:
 
 Related:
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
+
+### Digitising & Master File Formats (optional)
+
+Purpose:
+- Allows the import scanner to detect and index software-native master outline design files (e.g. `.eof`, `.ecf`, `.emb`, `.art`, `.be`, `.jan`, `.edo`, `.vp4`) alongside standard machine stitch formats.
+
+Software Presets:
+- **Embird**: `.eof`, `.ecf`
+- **Hatch / Wilcom**: `.emb`
+- **Bernina**: `.art`
+- **Embrilliance**: `.be`
+- **Janome Digitizer**: `.jan`
+- **mySewnet / Premier+**: `.edo`, `.vp4`
+
+Custom Extensions:
+- Type any custom extension (e.g. `.can`) and press Enter or Add.
+
+Behavior:
+- **Paired with stitch file**: If a master file is in the same folder as a matching stitch file (e.g. `logo.eof` and `logo.pes`), they are paired together into one card with a `[🎨 Master]` badge.
+- **Master-only**: If only a master file exists without a corresponding machine stitch file, it is catalogued with a placeholder and marked for export (*"Export to a machine stitch format to generate preview and stitch data."*).
+- By default, no master formats are enabled. Enable only the software you use.
+
+Related:
+- [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
 
 ### Google Gemini API key
 

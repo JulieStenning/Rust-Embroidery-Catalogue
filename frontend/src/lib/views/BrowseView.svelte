@@ -347,6 +347,8 @@
       isStitched: Boolean(item.is_stitched),
       imageTagsVerified: Boolean(item.image_tags_verified),
       stitchingTagsVerified: Boolean(item.stitching_tags_verified),
+      masterFilepath: item.master_filepath ?? null,
+      isMasterOnly: Boolean(item.is_master_only),
       projects,
       imageTags,
       stitchingTags,
@@ -1653,7 +1655,7 @@
             <span>Needs attention</span>
           </label>
           <p class="text-[11px] text-gray-400 leading-snug">
-            Designs with no preview image — the file may be corrupt or unreadable.
+            Designs with no preview image or awaiting stitch file export.
           </p>
         </div>
       </div>
@@ -1757,7 +1759,18 @@
                 class="browse-card-link w-full text-left flex flex-col flex-1"
                 onclick={(event) => handleBrowseCardOpenDetail(event, item)}
               >
-                {#if browsePreviewById[item.id]}
+                {#if item.isMasterOnly}
+                  <div
+                    class="browse-card-image-frame p-3 flex flex-col items-center justify-center h-48 border-b bg-amber-50/50 text-center"
+                    data-testid="design-card-master-only"
+                  >
+                    <span class="text-2xl mb-1" aria-hidden="true">🎨</span>
+                    <p class="text-xs font-semibold text-amber-900 mb-1">Outline Master File</p>
+                    <p class="text-[11px] text-amber-800 leading-snug px-2">
+                      Export to a machine stitch format to generate preview and stitch data.
+                    </p>
+                  </div>
+                {:else if browsePreviewById[item.id]}
                   <div
                     class="browse-card-image-frame p-2 flex items-center justify-center h-48 border-b"
                   >
@@ -1825,6 +1838,14 @@
                         </span>
                       {/if}
                     </div>
+                    {#if item.masterFilepath && !item.isMasterOnly}
+                      <span
+                        class="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 mt-1"
+                        title={`Master file: ${item.masterFilepath}`}
+                      >
+                        🎨 Master: .{item.masterFilepath.split(".").pop()?.toLowerCase()}
+                      </span>
+                    {/if}
                     <p class="browse-card-hoop text-xs font-semibold mt-1">
                       {item.hoop || "Hoop unknown"}
                     </p>

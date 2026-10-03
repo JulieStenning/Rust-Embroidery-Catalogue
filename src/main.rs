@@ -537,13 +537,9 @@ fn main() {
                             .await
                         {
                             Ok(_) => Ok(()),
-                            Err(err) => {
-                                Err(format!("Missing or corrupt 'designs' table: {err}"))
-                            }
+                            Err(err) => Err(format!("Missing or corrupt 'designs' table: {err}")),
                         },
-                        Err(err) => {
-                            Err(format!("Missing or corrupt 'settings' table: {err}"))
-                        }
+                        Err(err) => Err(format!("Missing or corrupt 'settings' table: {err}")),
                     };
 
                     match schema_check {
@@ -744,6 +740,7 @@ fn main() {
             routes::designs::delete_design,
             routes::designs::bulk_delete_designs,
             routes::designs::open_design_in_editor,
+            routes::designs::open_design_master_in_editor,
             routes::designs::open_design_in_explorer,
             routes::designs::render_design_3d_preview,
             routes::designs::reparse_design_file,

@@ -1033,7 +1033,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     expect(screen.getByTestId("settings-master-formats-section")).toBeInTheDocument();
-    
+
     // Default model has "" enabled -> Embird preset is not checked by default
     const embirdPreset = screen.getByTestId("master-format-preset-embird");
     const embirdCheckbox = embirdPreset.querySelector("input[type='checkbox']");

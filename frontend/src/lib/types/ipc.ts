@@ -97,6 +97,8 @@ export interface BrowseDesignSummaryWire {
   id: number;
   filename: string;
   filepath: string;
+  master_filepath?: string | null;
+  is_master_only?: boolean;
   designer: string;
   source: string;
   hoop: string | null;
@@ -115,6 +117,8 @@ export interface BrowseDesignCard {
   id: number;
   filename: string;
   filepath: string;
+  masterFilepath?: string | null;
+  isMasterOnly?: boolean;
   designer: string;
   source: string;
   hoop: string;
@@ -171,6 +175,8 @@ export interface DesignDetailWire {
   id: number;
   filename: string;
   filepath: string;
+  master_filepath?: string | null;
+  is_master_only?: boolean;
   image_type: string | null;
   image_data_url: string | null;
   width_mm: number | null;
@@ -203,6 +209,8 @@ export interface DesignDetail {
   id: number;
   filename: string;
   filepath: string;
+  masterFilepath?: string | null;
+  isMasterOnly?: boolean;
   imageType: string | null;
   imageDataUrl: string | null;
   widthMm: number | null;
@@ -1190,6 +1198,8 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     id: Number(wire.id),
     filename: String(wire.filename || ""),
     filepath: String(wire.filepath || ""),
+    masterFilepath: wire.master_filepath ?? null,
+    isMasterOnly: Boolean(wire.is_master_only),
     imageType: wire.image_type ?? null,
     imageDataUrl: wire.image_data_url ?? null,
     widthMm: wire.width_mm ?? null,

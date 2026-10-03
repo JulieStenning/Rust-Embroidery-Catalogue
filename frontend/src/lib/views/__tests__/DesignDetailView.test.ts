@@ -23,6 +23,7 @@ const adapterMocks = vi.hoisted(() => ({
   removeDesignFromProject: vi.fn(),
   bulkDeleteDesigns: vi.fn(),
   openDesignInEditor: vi.fn(),
+  openDesignMasterInEditor: vi.fn(),
   openDesignInExplorer: vi.fn(),
   renderDesign3dPreview: vi.fn(),
   reparseDesignFile: vi.fn(),
@@ -1594,6 +1595,76 @@ describe("DesignDetailView", () => {
       await waitFor(() => expect(screen.getByAltText("Design preview")).toBeInTheDocument());
       // Filename and filepath both fall back to "Unknown".
       expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("master files and paired designs", () => {
+    it("renders master-only banner and Open in Digitiser button for standalone master design", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          filename: "solo.eof",
+          filepath: "solo.eof",
+          isMasterOnly: true,
+          imageDataUrl: null,
+        })
+      );
+      renderDetail();
+
+      await waitFor(() => expect(screen.getAllByText("solo.eof").length).toBeGreaterThanOrEqual(1));
+      expect(screen.getByTestId("design-master-only-banner")).toBeInTheDocument();
+      expect(
+        screen.getByText("Export to a machine stitch format to generate preview and stitch data.")
+      ).toBeInTheDocument();
+      expect(screen.getByText("Open in Digitiser")).toBeInTheDocument();
+    });
+
+    it("renders paired master outline path and Open Master File action button", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          filename: "flower.pes",
+          filepath: "flower.pes",
+          masterFilepath: "flower.eof",
+          isMasterOnly: false,
+          imageDataUrl: "data:image/png;base64,AAAA",
+        })
+      );
+      renderDetail();
+
+      await waitFor(() =>
+        expect(screen.getAllByText("flower.pes").length).toBeGreaterThanOrEqual(1)
+      );
+      expect(screen.getByText("Master File Path")).toBeInTheDocument();
+      expect(screen.getByText("flower.eof")).toBeInTheDocument();
+      expect(screen.getByText("Open Master File")).toBeInTheDocument();
+    });
+
+    it("calls openDesignMasterInEditor when clicking Open Master File", async () => {
+      adapterMocks.openDesignMasterInEditor.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        result: { success: true },
+        message: "Opened master file in editor.",
+      });
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          id: 42,
+          filename: "flower.pes",
+          filepath: "flower.pes",
+          masterFilepath: "flower.eof",
+          isMasterOnly: false,
+        })
+      );
+      renderDetail();
+
+      await waitFor(() => expect(screen.getByText("Open Master File")).toBeInTheDocument());
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Open Master File" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.openDesignMasterInEditor).toHaveBeenCalledWith(42);
+        expect(toastMock.addToast).toHaveBeenCalledWith("Opened master file in editor.", "success");
+      });
     });
   });
 });

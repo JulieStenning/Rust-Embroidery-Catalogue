@@ -84,7 +84,9 @@ async fn import_test_pool() -> SqlitePool {
                 vision_ai_analyzed INTEGER NOT NULL DEFAULT 0,
                 vision_ai_matched INTEGER NOT NULL DEFAULT 0,
                 file_size_bytes INTEGER,
-                file_hash_blake3 TEXT
+                file_hash_blake3 TEXT,
+                master_filepath TEXT,
+                is_master_only INTEGER NOT NULL DEFAULT 0
             );
             "#,
     )
@@ -1315,6 +1317,7 @@ async fn preview_dedup_excludes_by_prospective_stored_path() {
         extension: "pes".to_string(),
         file_size_bytes: file_size,
         dedup_group_key: "test".to_string(),
+        is_master: false,
     }];
 
     let filtered = filter_existing_scanned_files(&pool, scanned, &root_paths)
@@ -1768,6 +1771,7 @@ async fn filter_existing_scanned_files_different_hash_passes() {
         extension: "pes".to_string(),
         file_size_bytes: Some(same_size),
         dedup_group_key: "test".to_string(),
+        is_master: false,
     }];
 
     let filtered = filter_existing_scanned_files(&pool, scanned, &root_paths)
@@ -1824,6 +1828,7 @@ async fn filter_existing_scanned_files_triple_match_excludes() {
         extension: "pes".to_string(),
         file_size_bytes: Some(file_size),
         dedup_group_key: "test".to_string(),
+        is_master: false,
     }];
 
     let filtered = filter_existing_scanned_files(&pool, scanned, &["dummy".to_string()])
@@ -2089,6 +2094,7 @@ fn build_preview_folder_assignments_merges_explicit_and_scanned() {
             extension: "pes".to_string(),
             file_size_bytes: Some(100),
             dedup_group_key: "test".to_string(),
+            is_master: false,
         },
         scanning::ScannedFile {
             full_path: "C:/imports/explicit-folder/design.pes".to_string(),
@@ -2096,6 +2102,7 @@ fn build_preview_folder_assignments_merges_explicit_and_scanned() {
             extension: "pes".to_string(),
             file_size_bytes: Some(200),
             dedup_group_key: "test".to_string(),
+            is_master: false,
         },
     ];
 
@@ -2144,6 +2151,7 @@ fn build_preview_folder_assignments_dedupes_by_normalized_path() {
             extension: "pes".to_string(),
             file_size_bytes: Some(100),
             dedup_group_key: "test".to_string(),
+            is_master: false,
         },
         scanning::ScannedFile {
             full_path: "C:/imports/subfolder/file2.pes".to_string(),
@@ -2151,6 +2159,7 @@ fn build_preview_folder_assignments_dedupes_by_normalized_path() {
             extension: "pes".to_string(),
             file_size_bytes: Some(200),
             dedup_group_key: "test".to_string(),
+            is_master: false,
         },
     ];
 
@@ -2587,6 +2596,7 @@ fn bi_scanned_file(full_path: &str) -> scanning::ScannedFile {
         extension: "pes".to_string(),
         file_size_bytes: Some(1),
         dedup_group_key: String::new(),
+        is_master: false,
     }
 }
 
@@ -2748,4 +2758,173 @@ fn precheck_from_scan_reconstructs_wire_and_unknown_token_errors() {
         create_on_import: true,
     });
     assert!(bad.is_err());
+}
+
+#[tokio::test]
+#[serial]
+async fn persist_bulk_import_pairs_stitch_and_master_file_in_same_folder() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-pair-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof') ON CONFLICT(key) DO UPDATE SET value = 'eof'",
+    )
+    .execute(&pool)
+    .await
+    .expect("setting should insert");
+
+    let source_dir = tmp.join("source");
+    fs::create_dir_all(&source_dir).expect("temp dir should be created");
+    let pes_path = source_dir.join("flower.pes");
+    let eof_path = source_dir.join("flower.eof");
+    // Copy a real fixture for .pes so image generation succeeds
+    let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
+    if fixture.exists() {
+        fs::copy(&fixture, &pes_path).expect("fixture should be copied");
+    } else {
+        fs::write(&pes_path, b"dummy-pes").expect("pes should be written");
+    }
+    fs::write(&eof_path, b"test-eof-master-content").expect("eof should be written");
+
+    let wire = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![
+                pes_path.to_string_lossy().to_string(),
+                eof_path.to_string_lossy().to_string(),
+            ],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+
+    let result = persist_bulk_import_confirm_wire(&pool, &wire, None).await;
+    assert!(result.is_ok(), "persist should succeed: {:?}", result);
+
+    let rows = sqlx::query_as::<_, (String, Option<String>, bool)>(
+        "SELECT filepath, master_filepath, is_master_only FROM designs WHERE filepath LIKE '%flower.pes'",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("query designs");
+
+    assert_eq!(rows.len(), 1, "paired files should create 1 design entry");
+    assert!(rows[0].0.ends_with("flower.pes"));
+    assert_eq!(
+        rows[0].1.as_deref().map(|s| s.ends_with("flower.eof")),
+        Some(true)
+    );
+    assert!(
+        !rows[0].2,
+        "is_master_only should be false for paired design"
+    );
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[serial]
+async fn persist_bulk_import_imports_standalone_master_as_master_only() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-master-only-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof') ON CONFLICT(key) DO UPDATE SET value = 'eof'",
+    )
+    .execute(&pool)
+    .await
+    .expect("setting should insert");
+
+    let source_dir = tmp.join("source");
+    fs::create_dir_all(&source_dir).expect("temp dir should be created");
+    let eof_path = source_dir.join("solo_pattern.eof");
+    fs::write(&eof_path, b"test-eof-solo-content").expect("eof should be written");
+
+    let wire = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![eof_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+
+    let result = persist_bulk_import_confirm_wire(&pool, &wire, None).await;
+    assert!(result.is_ok(), "persist should succeed: {:?}", result);
+
+    let rows = sqlx::query_as::<_, (String, Option<String>, bool, Option<Vec<u8>>)>(
+        "SELECT filepath, master_filepath, is_master_only, image_data FROM designs WHERE filepath LIKE '%solo_pattern.eof'",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("query designs");
+
+    assert_eq!(
+        rows.len(),
+        1,
+        "standalone master file should create 1 design entry"
+    );
+    assert!(rows[0].0.ends_with("solo_pattern.eof"));
+    assert_eq!(
+        rows[0]
+            .1
+            .as_deref()
+            .map(|s| s.ends_with("solo_pattern.eof")),
+        Some(true)
+    );
+    assert!(rows[0].2, "is_master_only should be true");
+    assert!(
+        rows[0].3.is_none(),
+        "image_data should be None for master-only design"
+    );
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
 }

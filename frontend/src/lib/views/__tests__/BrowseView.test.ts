@@ -2793,6 +2793,46 @@ describe("BrowseView", () => {
         );
       });
     });
+    it("renders master-only card with export prompt and master badge", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          {
+            id: 101,
+            filename: "solo.eof",
+            filepath: "solo.eof",
+            is_master_only: true,
+            master_filepath: "solo.eof",
+          },
+        ])
+      );
+
+      renderBrowse();
+
+      expect(await screen.findByText("solo.eof")).toBeInTheDocument();
+      expect(screen.getByTestId("design-card-master-only")).toBeInTheDocument();
+      expect(
+        screen.getByText("Export to a machine stitch format to generate preview and stitch data.")
+      ).toBeInTheDocument();
+    });
+
+    it("renders paired design badge when master_filepath is present", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          {
+            id: 102,
+            filename: "flower.pes",
+            filepath: "flower.pes",
+            is_master_only: false,
+            master_filepath: "flower.eof",
+          },
+        ])
+      );
+
+      renderBrowse();
+
+      expect(await screen.findByText("flower.pes")).toBeInTheDocument();
+      expect(screen.getByText("🎨 Master: .eof")).toBeInTheDocument();
+    });
   });
 });
 

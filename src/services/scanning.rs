@@ -17,6 +17,27 @@ const EXCLUDED_DIRECTORY_NAMES: &[&str] = &["system volume information"];
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScanInput {
     pub root_path: String,
+    #[serde(default)]
+    pub master_extensions: Vec<String>,
+}
+
+impl ScanInput {
+    pub fn new(root_path: impl Into<String>) -> Self {
+        Self {
+            root_path: root_path.into(),
+            master_extensions: Vec::new(),
+        }
+    }
+
+    pub fn with_master_extensions(
+        root_path: impl Into<String>,
+        master_extensions: Vec<String>,
+    ) -> Self {
+        Self {
+            root_path: root_path.into(),
+            master_extensions,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +47,8 @@ pub struct ScannedFile {
     pub extension: String,
     pub file_size_bytes: Option<i64>,
     pub dedup_group_key: String,
+    #[serde(default)]
+    pub is_master: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,7 +87,7 @@ fn should_skip_directory(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
+fn visit_dir(dir: &Path, master_extensions: &[String], dedup: &mut HashMap<String, ScannedFile>) {
     if should_skip_directory(dir) {
         return;
     }
@@ -78,7 +101,7 @@ fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
         let path = entry.path();
 
         if path.is_dir() {
-            visit_dir(&path, dedup);
+            visit_dir(&path, master_extensions, dedup);
             continue;
         }
 
@@ -87,7 +110,10 @@ fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
             None => continue,
         };
 
-        if !is_supported_extension(&extension) {
+        let is_stitch = is_supported_extension(&extension);
+        let is_master = is_master_extension(&extension, master_extensions);
+
+        if !is_stitch && !is_master {
             continue;
         }
 
@@ -115,6 +141,7 @@ fn visit_dir(dir: &Path, dedup: &mut HashMap<String, ScannedFile>) {
             extension: extension.clone(),
             file_size_bytes,
             dedup_group_key: dedup_group_key.clone(),
+            is_master,
         };
 
         dedup.insert(dedup_group_key, candidate);
@@ -126,6 +153,13 @@ pub fn is_supported_extension(extension: &str) -> bool {
     SUPPORTED_EXTENSIONS
         .iter()
         .any(|candidate| *candidate == normalized)
+}
+
+pub fn is_master_extension(extension: &str, master_extensions: &[String]) -> bool {
+    let normalized = normalize_extension(extension);
+    master_extensions
+        .iter()
+        .any(|candidate| normalize_extension(candidate) == normalized)
 }
 
 pub fn scan(input: &ScanInput) -> ScanResult {
@@ -152,8 +186,14 @@ pub fn scan_with_error(input: &ScanInput) -> Result<ScanResult, AppError> {
         });
     }
 
+    let normalized_masters: Vec<String> = input
+        .master_extensions
+        .iter()
+        .map(|ext| normalize_extension(ext))
+        .collect();
+
     let mut dedup: HashMap<String, ScannedFile> = HashMap::new();
-    visit_dir(&root_path, &mut dedup);
+    visit_dir(&root_path, &normalized_masters, &mut dedup);
 
     let mut files: Vec<ScannedFile> = dedup.into_values().collect();
     files.sort_by(|left, right| {
@@ -207,9 +247,7 @@ mod tests {
 
     #[test]
     fn scan_with_error_reports_empty_root_path_as_invalid_input() {
-        let result = scan_with_error(&ScanInput {
-            root_path: String::new(),
-        });
+        let result = scan_with_error(&ScanInput::new(""));
 
         assert!(matches!(result, Err(AppError::InvalidInput { .. })));
     }
@@ -223,9 +261,7 @@ mod tests {
         create_file(&root.join("nested").join("design2.dst"));
         create_file(&root.join("nested").join("notes.txt"));
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert_eq!(result.files.len(), 2);
         assert!(result.files.iter().any(|file| file.extension == "pes"));
@@ -243,9 +279,7 @@ mod tests {
         create_file(&root.join("design.jef"));
         create_file(&root.join("design.vp3"));
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert_eq!(result.files.len(), 3, "all three formats should be kept");
         let extensions: Vec<&str> = result.files.iter().map(|f| f.extension.as_str()).collect();
@@ -264,9 +298,7 @@ mod tests {
         create_file(&root.join("same-name.pmv"));
         create_file(&root.join("same-name.pes"));
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert_eq!(result.files.len(), 1);
         assert_eq!(result.files[0].extension, "pes");
@@ -277,9 +309,7 @@ mod tests {
     #[test]
     fn scan_returns_empty_for_missing_root() {
         let root = unique_temp_dir("scan-missing");
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert!(result.files.is_empty());
         assert!(result.missing_root, "missing root should be flagged");
@@ -294,9 +324,7 @@ mod tests {
         let root = unique_temp_dir("scan-no-files");
         fs::create_dir_all(&root).expect("root should be created");
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert!(result.files.is_empty());
         assert!(
@@ -318,9 +346,7 @@ mod tests {
         create_file(&root.join("notes.txt"));
         create_file(&root.join("image.png"));
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert!(result.files.is_empty());
         assert!(!result.missing_root);
@@ -338,9 +364,7 @@ mod tests {
         fs::create_dir_all(&root).expect("root should be created");
         create_file(&root.join("design.pes"));
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert_eq!(result.files.len(), 1);
         assert!(!result.missing_root);
@@ -361,12 +385,47 @@ mod tests {
                 .join("hidden-design.pes"),
         );
 
-        let result = scan(&ScanInput {
-            root_path: root.to_string_lossy().to_string(),
-        });
+        let result = scan(&ScanInput::new(root.to_string_lossy().to_string()));
 
         assert_eq!(result.files.len(), 1);
         assert!(result.files[0].full_path.ends_with("visible-design.pes"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn scan_discovers_configured_master_extensions() {
+        let root = unique_temp_dir("scan-masters");
+        fs::create_dir_all(&root).expect("root should be created");
+
+        create_file(&root.join("flower.pes"));
+        create_file(&root.join("flower.eof"));
+        create_file(&root.join("flower.art"));
+        create_file(&root.join("other.txt"));
+
+        // Without master_extensions: only flower.pes found
+        let res_no_master = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+            master_extensions: vec![],
+        });
+        assert_eq!(res_no_master.files.len(), 1);
+        assert_eq!(res_no_master.files[0].filename, "flower.pes");
+        assert!(!res_no_master.files[0].is_master);
+
+        // With eof enabled: flower.pes and flower.eof found
+        let res_eof = scan(&ScanInput {
+            root_path: root.to_string_lossy().to_string(),
+            master_extensions: vec!["eof".to_string()],
+        });
+        assert_eq!(res_eof.files.len(), 2);
+        assert!(res_eof
+            .files
+            .iter()
+            .any(|f| f.filename == "flower.eof" && f.is_master));
+        assert!(res_eof
+            .files
+            .iter()
+            .any(|f| f.filename == "flower.pes" && !f.is_master));
 
         let _ = fs::remove_dir_all(&root);
     }

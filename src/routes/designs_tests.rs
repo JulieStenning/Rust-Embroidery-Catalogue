@@ -481,7 +481,9 @@ async fn test_pool() -> SqlitePool {
 				date_added DATE,
 				designer_id INTEGER REFERENCES designers(id) ON DELETE SET NULL,
 				source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
-				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL
+				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL,
+				master_filepath VARCHAR(1000),
+				is_master_only BOOLEAN NOT NULL DEFAULT 0
 			);
 			"#,
     )
@@ -1971,6 +1973,42 @@ async fn open_design_in_editor_returns_file_not_found_error() {
     assert!(!launch.suppressed);
     assert!(!launch.success);
     assert!(launch.message.contains("not found on disk"));
+
+    if let Some(val) = prior {
+        std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
+    }
+}
+
+#[tokio::test]
+async fn open_design_master_in_editor_returns_error_when_no_master_paired() {
+    let pool = test_pool().await;
+    let result = open_design_master_in_editor_with_pool(&pool, 1).await;
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .contains("does not have a paired master file"));
+}
+
+#[tokio::test]
+#[serial]
+async fn open_design_master_in_editor_returns_file_not_found_when_master_missing() {
+    let pool = test_pool().await;
+    sqlx::query("UPDATE designs SET master_filepath = 'missing/flower.eof' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .expect("update master_filepath");
+
+    let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+    std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
+
+    let result = open_design_master_in_editor_with_pool(&pool, 1).await;
+    assert!(result.is_ok());
+    let launch = result.unwrap();
+    assert!(!launch.suppressed);
+    assert!(!launch.success);
+    assert!(launch
+        .message
+        .contains("Master design file was not found on disk"));
 
     if let Some(val) = prior {
         std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);

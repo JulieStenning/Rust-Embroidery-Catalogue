@@ -417,7 +417,9 @@ pub(crate) async fn verify_database_at(db_path: &Path) -> Result<bool, AppError>
         .execute(&mut conn)
         .await
     {
-        return Err(AppError::database(format!("designs table check failed: {e}")));
+        return Err(AppError::database(format!(
+            "designs table check failed: {e}"
+        )));
     }
 
     Ok(true)

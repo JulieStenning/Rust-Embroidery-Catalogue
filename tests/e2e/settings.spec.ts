@@ -274,6 +274,60 @@ test.describe.serial("application settings", () => {
     await expect(page.locator("#settings-ai-model")).toBeEnabled();
   });
 
+  test("configures enabled digitising and master outline formats", async ({
+    page,
+  }) => {
+    await gotoRoute(page, "#/admin/system/settings");
+
+    // Master formats section heading
+    await expect(
+      page.getByRole("heading", {
+        name: "Digitising & Master File Formats (Optional)",
+      }),
+    ).toBeVisible();
+
+    const embirdPreset = page.getByTestId("master-format-preset-embird");
+    const hatchPreset = page.getByTestId("master-format-preset-hatch");
+    const customInput = page.getByTestId("custom-master-format-input");
+    const customAddBtn = page.getByTestId("custom-master-format-add");
+    const saveButton = page.getByRole("button", { name: "Save settings" });
+    const dirtyHint = page.getByTestId("settings-dirty-hint");
+
+    // Toggle Embird and Hatch presets
+    await embirdPreset.click();
+    await hatchPreset.click();
+
+    // Add a custom format (.can)
+    await customInput.fill(".can");
+    await customAddBtn.click();
+
+    await expect(dirtyHint).toBeVisible();
+    await saveButton.click();
+
+    await expect(dirtyHint).toBeHidden();
+    await expect(page.getByText("Settings saved successfully.")).toBeVisible();
+
+    // Reload page to verify persistence
+    await page.reload();
+    await expect(
+      page.getByTestId("master-format-preset-embird"),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByTestId("master-format-preset-hatch"),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText(".can")).toBeVisible();
+
+    // Reset master formats back to clean empty state
+    await page.getByTestId("master-format-preset-embird").click();
+    await page.getByTestId("master-format-preset-hatch").click();
+    const removeCanTag = page.getByTestId("remove-master-format-can");
+    if (await removeCanTag.isVisible()) {
+      await removeCanTag.click();
+    }
+    await saveButton.click();
+    await expect(page.getByText("Settings saved successfully.")).toBeVisible();
+  });
+
   test("runs manual database compaction and refreshes statistics", async ({
     page,
   }) => {

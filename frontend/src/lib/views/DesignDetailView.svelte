@@ -14,6 +14,7 @@
     addDesignToProject,
     removeDesignFromProject,
     openDesignInEditor,
+    openDesignMasterInEditor,
     openDesignInExplorer,
     renderDesign3dPreview,
     reparseDesignFile,
@@ -365,6 +366,15 @@
     addToast(result.message, !result.persisted || !result?.result?.success ? "error" : "success");
   }
 
+  async function launchDetailMasterInEditor() {
+    if (!detailItem?.id || detailSaving) return;
+
+    detailSaving = true;
+    const result = await openDesignMasterInEditor(detailItem.id);
+    detailSaving = false;
+    addToast(result.message, !result.persisted || !result?.result?.success ? "error" : "success");
+  }
+
   async function launchDetailInExplorer() {
     if (!detailItem?.id || detailSaving) return;
 
@@ -609,7 +619,7 @@
         <div class="route-card space-y-2">
           <div>
             <span class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
-              >Filename</span
+              >{detailItem.isMasterOnly ? "Master Filename" : "Filename"}</span
             >
             <p class="font-medium text-[var(--text-primary)] text-sm mt-0.5">
               {detailItem.filename || "Unknown"}
@@ -617,7 +627,7 @@
           </div>
           <div>
             <span class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
-              >File Path</span
+              >{detailItem.isMasterOnly ? "Master File Path" : "File Path"}</span
             >
             <p
               class="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)] px-2.5 py-1.5"
@@ -625,10 +635,38 @@
               {detailItem.filepath || "Unknown"}
             </p>
           </div>
+          {#if detailItem.masterFilepath && !detailItem.isMasterOnly}
+            <div>
+              <span class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
+                >Master File Path</span
+              >
+              <p
+                class="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)] px-2.5 py-1.5"
+              >
+                {detailItem.masterFilepath}
+              </p>
+            </div>
+          {/if}
         </div>
 
         <!-- Preview image -->
-        {#if detailItem.imageDataUrl}
+        {#if detailItem.isMasterOnly}
+          <div
+            class="route-card border border-amber-300 bg-amber-50 p-4 text-center space-y-2"
+            data-testid="design-master-only-banner"
+          >
+            <span class="text-3xl" aria-hidden="true">🎨</span>
+            <p class="text-sm font-semibold text-amber-900">Outline Master File</p>
+            <p class="text-xs text-amber-800 leading-snug font-medium">
+              Export to a machine stitch format to generate preview and stitch data.
+            </p>
+            <p class="text-[11px] text-amber-700 leading-snug">
+              This design was catalogued from a digitising master outline file. Open the file in
+              your embroidery design software and export a stitch file (e.g. .pes, .jef) to the same
+              folder to enable automatic previews, stitch counts, and hoop calculations.
+            </p>
+          </div>
+        {:else if detailItem.imageDataUrl}
           <img
             src={detailItem.imageDataUrl}
             alt={detailItem.filename || "Design preview"}
@@ -651,19 +689,31 @@
 
         <!-- Action buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
-          <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}
-            ><span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor</button
-          >
+          <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}>
+            <span aria-hidden="true" class="text-[10px]">&#9998;</span>
+            {detailItem.isMasterOnly ? "Open in Digitiser" : "Open in Editor"}
+          </button>
+          {#if detailItem.masterFilepath && !detailItem.isMasterOnly}
+            <button
+              class="menu-button-ghost"
+              onclick={launchDetailMasterInEditor}
+              disabled={detailSaving}
+            >
+              <span aria-hidden="true" class="text-[10px]">🎨</span> Open Master File
+            </button>
+          {/if}
           <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}
             ><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button
           >
-          <button
-            class="menu-button-primary text-xs px-2.5 py-1.5"
-            onclick={renderDetailPreview}
-            disabled={detailSaving}
-          >
-            {detailItem.imageType === "3d" ? "Generate 2D Preview" : "Generate 3D Preview"}
-          </button>
+          {#if !detailItem.isMasterOnly}
+            <button
+              class="menu-button-primary text-xs px-2.5 py-1.5"
+              onclick={renderDetailPreview}
+              disabled={detailSaving}
+            >
+              {detailItem.imageType === "3d" ? "Generate 2D Preview" : "Generate 3D Preview"}
+            </button>
+          {/if}
         </div>
       </div>
 
@@ -721,8 +771,10 @@
             <button
               class="menu-button-primary text-xs px-2.5 py-1"
               onclick={recalculateFromFile}
-              disabled={detailSaving || detailReparsing}
-              title="Re-read the file on disk and recalculate technical metadata"
+              disabled={detailSaving || detailReparsing || detailItem.isMasterOnly}
+              title={detailItem.isMasterOnly
+                ? "Recalculation requires an exported machine stitch file"
+                : "Re-read the file on disk and recalculate technical metadata"}
             >
               {#if detailReparsing}
                 <span class="inline-block animate-spin mr-1" aria-hidden="true">&#9696;</span>

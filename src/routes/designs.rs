@@ -21,6 +21,8 @@ pub struct BrowseDesignSummary {
     pub id: i64,
     pub filename: String,
     pub filepath: String,
+    pub master_filepath: Option<String>,
+    pub is_master_only: bool,
     pub designer: String,
     pub source: String,
     pub hoop: Option<String>,
@@ -40,6 +42,8 @@ struct BrowseDesignSummaryRow {
     pub id: i64,
     pub filename: String,
     pub filepath: String,
+    pub master_filepath: Option<String>,
+    pub is_master_only: bool,
     pub designer: String,
     pub source: String,
     pub hoop: Option<String>,
@@ -424,6 +428,8 @@ pub struct DesignDetail {
     pub id: i64,
     pub filename: String,
     pub filepath: String,
+    pub master_filepath: Option<String>,
+    pub is_master_only: bool,
     pub image_type: Option<String>,
     pub image_data_url: Option<String>,
     pub width_mm: Option<i64>,
@@ -457,6 +463,8 @@ struct DesignDetailRow {
     id: i64,
     filename: String,
     filepath: String,
+    master_filepath: Option<String>,
+    is_master_only: bool,
     image_data: Option<Vec<u8>>,
     image_type: Option<String>,
     width_mm: Option<f64>,
@@ -816,6 +824,34 @@ async fn get_design_filepath(pool: &SqlitePool, design_id: i64) -> Result<String
     }
 }
 
+async fn get_design_master_filepath(pool: &SqlitePool, design_id: i64) -> Result<String, String> {
+    let row = sqlx::query_as::<_, (String, Option<String>, bool)>(
+        "SELECT filepath, master_filepath, is_master_only FROM designs WHERE id = ? LIMIT 1",
+    )
+    .bind(design_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    match row {
+        Some((filepath, master_filepath, is_master_only)) => {
+            if let Some(mf) = master_filepath {
+                if !mf.trim().is_empty() {
+                    return Ok(mf);
+                }
+            }
+            if is_master_only && !filepath.trim().is_empty() {
+                return Ok(filepath);
+            }
+            Err(format!(
+                "Design with id={} does not have a paired master file.",
+                design_id
+            ))
+        }
+        None => Err(format!("Design with id={} not found.", design_id)),
+    }
+}
+
 async fn open_design_in_editor_with_pool(
     pool: &SqlitePool,
     design_id: i64,
@@ -862,6 +898,56 @@ async fn open_design_in_editor_with_pool(
             suppressed: false,
             success: false,
             message: error,
+        }),
+    }
+}
+
+async fn open_design_master_in_editor_with_pool(
+    pool: &SqlitePool,
+    design_id: i64,
+) -> Result<LaunchDesignResult, String> {
+    let filepath = get_design_master_filepath(pool, design_id).await?;
+    let full_path = resolve_design_full_path(&filepath);
+    let attempted = full_path.to_string_lossy().to_string();
+
+    if external_launches_disabled() {
+        return Ok(LaunchDesignResult {
+            design_id,
+            attempted_path: attempted,
+            opened_path: None,
+            suppressed: true,
+            success: false,
+            message: "External launches are disabled in this runtime context.".to_string(),
+        });
+    }
+
+    if !full_path.is_file() {
+        return Ok(LaunchDesignResult {
+            design_id,
+            attempted_path: attempted,
+            opened_path: None,
+            suppressed: false,
+            success: false,
+            message: "Master design file was not found on disk.".to_string(),
+        });
+    }
+
+    match open_with_default_app(&full_path) {
+        Ok(()) => Ok(LaunchDesignResult {
+            design_id,
+            attempted_path: attempted,
+            opened_path: Some(full_path.to_string_lossy().to_string()),
+            suppressed: false,
+            success: true,
+            message: "Opened master design in the system default app.".to_string(),
+        }),
+        Err(error) => Ok(LaunchDesignResult {
+            design_id,
+            attempted_path: attempted,
+            opened_path: None,
+            suppressed: false,
+            success: false,
+            message: format!("Failed to launch master design file: {}", error),
         }),
     }
 }
@@ -1078,6 +1164,8 @@ async fn get_design_detail_with_pool(
 			d.id AS id,
 			d.filename AS filename,
 			d.filepath AS filepath,
+			d.master_filepath AS master_filepath,
+			COALESCE(d.is_master_only, 0) AS is_master_only,
 			d.image_data AS image_data,
 			d.image_type AS image_type,
 			CAST(d.width_mm AS REAL) AS width_mm,
@@ -1214,6 +1302,10 @@ async fn get_design_detail_with_pool(
         id: row.id,
         filename: row.filename,
         filepath: crate::paths::canonical_design_rel(&row.filepath),
+        master_filepath: row
+            .master_filepath
+            .map(|p| crate::paths::canonical_design_rel(&p)),
+        is_master_only: row.is_master_only,
         image_type: row.image_type.clone(),
         image_data_url: build_data_url(row.image_data, row.image_type.as_deref()),
         width_mm: ceil_mm_to_i64(row.width_mm),
@@ -2082,6 +2174,8 @@ async fn get_designs_page_with_pool(
             d.id AS id,
             d.filename AS filename,
             d.filepath AS filepath,
+            d.master_filepath AS master_filepath,
+            COALESCE(d.is_master_only, 0) AS is_master_only,
             COALESCE(designers.name, 'Unknown') AS designer,
             COALESCE(sources.name, 'Unknown') AS source,
             hoops.name AS hoop,
@@ -2129,6 +2223,10 @@ async fn get_designs_page_with_pool(
             id: row.id,
             filename: row.filename,
             filepath: row.filepath,
+            master_filepath: row
+                .master_filepath
+                .map(|p| crate::paths::canonical_design_rel(&p)),
+            is_master_only: row.is_master_only,
             designer: row.designer,
             source: row.source,
             hoop: row.hoop,
@@ -2710,6 +2808,14 @@ pub async fn open_design_in_editor(
     design_id: i64,
 ) -> Result<LaunchDesignResult, String> {
     open_design_in_editor_with_pool(&state.db_pool()?, design_id).await
+}
+
+#[tauri::command]
+pub async fn open_design_master_in_editor(
+    state: State<'_, AppState>,
+    design_id: i64,
+) -> Result<LaunchDesignResult, String> {
+    open_design_master_in_editor_with_pool(&state.db_pool()?, design_id).await
 }
 
 #[tauri::command]

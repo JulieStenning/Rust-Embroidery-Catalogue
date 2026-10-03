@@ -1174,6 +1174,16 @@ async fn persist_bulk_import_confirm_wire(
     let valid_stitching_descriptions: HashSet<String> =
         stitching_tag_lookup.keys().cloned().collect();
     let default_stitching_tag_id = load_default_stitching_tag_id(pool).await?;
+    let master_formats_setting =
+        sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+            .bind(crate::services::settings::KEY_IMPORT_ENABLED_MASTER_FORMATS)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_default();
+    let enabled_master_formats =
+        crate::services::settings::parse_enabled_master_formats(&master_formats_setting);
+
     let _guard = crate::services::backfill::BackfillRunningGuard::new();
     let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
@@ -1228,6 +1238,27 @@ async fn persist_bulk_import_confirm_wire(
         None,
     );
 
+    let mut selected_master_map: HashMap<(String, String), String> = HashMap::new();
+    for file_path in &confirm_wire.wire.selected_files {
+        let path = Path::new(file_path);
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let norm_ext = ext.trim_start_matches('.').to_ascii_lowercase();
+            if enabled_master_formats.contains(&norm_ext) {
+                let parent_key = path
+                    .parent()
+                    .map(|p| p.to_string_lossy().replace('\\', "/").to_ascii_lowercase())
+                    .unwrap_or_default();
+                let stem_key = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                selected_master_map.insert((parent_key, stem_key), file_path.clone());
+            }
+        }
+    }
+    let mut consumed_master_files: HashSet<String> = HashSet::new();
+
     // Process files in chunks aligned to commit_batch_size.
     // For each chunk: generate previews, insert into DB, then commit.
     // Cancellation takes effect between chunks.
@@ -1249,197 +1280,316 @@ async fn persist_bulk_import_confirm_wire(
                 break;
             }
 
-            let stored_filepath =
-                ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
+            if consumed_master_files.contains(file_path) {
+                processed_count += 1;
+                continue;
+            }
 
-            emit_progress(
-                "processing_file",
-                processed_count,
-                persisted_design_count,
-                committed_design_count,
-                failed_decode_count,
-                Some(file_path),
-            );
+            let path_obj = Path::new(file_path);
+            let ext_str = path_obj.extension().and_then(|e| e.to_str()).unwrap_or("");
+            let norm_ext = ext_str.trim_start_matches('.').to_ascii_lowercase();
+            let is_master_file = enabled_master_formats.contains(&norm_ext);
 
-            let (designer_id, source_id) =
-                resolve_assignment_for_file(file_path, confirm_wire, &resolved_assignments);
+            let parent_key = path_obj
+                .parent()
+                .map(|p| p.to_string_lossy().replace('\\', "/").to_ascii_lowercase())
+                .unwrap_or_default();
+            let stem_str = path_obj.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let stem_key = stem_str.to_ascii_lowercase();
 
-            let filename = Path::new(file_path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or(file_path)
-                .to_string();
+            if !is_master_file {
+                let stored_filepath =
+                    ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
 
-            let t_image = Instant::now();
-            let image_result =
-                image_generation::generate_preview(&image_generation::ImageGenerationRequest {
-                    file_path: file_path.clone(),
-                    preview_3d,
-                    preview_3d_profile: Some(preview_3d_profile.clone()),
-                });
-            let image_gen_ms = t_image.elapsed().as_millis();
-            total_image_gen_ms += image_gen_ms;
-            tracing::debug!(
-                "[TIMING] file={} backend={} image_gen={}ms{}",
-                filename,
-                image_result.backend,
-                image_gen_ms,
-                image_result
-                    .error
-                    .as_deref()
-                    .map(|e| format!(" error={e}"))
-                    .unwrap_or_default(),
-            );
-            if let Some(error) = image_result.error.as_ref() {
-                failed_decode_count += 1;
-                tracing::error!(
-                    "Image generation adapter error for '{}': {}",
-                    file_path,
-                    error
+                let paired_master_src = selected_master_map.get(&(parent_key, stem_key)).cloned();
+                let stored_master_filepath: Option<String> = if let Some(master_src) =
+                    paired_master_src
+                {
+                    let stored =
+                        ensure_file_in_designs_base(&master_src, &confirm_wire.wire.root_paths)?;
+                    consumed_master_files.insert(master_src);
+                    Some(stored)
+                } else {
+                    None
+                };
+
+                emit_progress(
+                    "processing_file",
+                    processed_count,
+                    persisted_design_count,
+                    committed_design_count,
+                    failed_decode_count,
+                    Some(file_path),
                 );
-            }
 
-            let hoop_id = match (image_result.width_mm, image_result.height_mm) {
-                (Some(width_mm), Some(height_mm)) => sqlx::query_scalar::<_, i64>(
-                    r#"
-                        SELECT h.id
-                        FROM hoops h
-                        WHERE
-                            (
-                                CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
-                                AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
-                            )
-                            OR (
-                                CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
-                                AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
-                            )
-                        ORDER BY
-                            (CAST(h.max_width_mm AS REAL) * CAST(h.max_height_mm AS REAL)) ASC,
-                            CAST(h.max_width_mm AS REAL) ASC,
-                            CAST(h.max_height_mm AS REAL) ASC,
-                            h.name COLLATE NOCASE ASC
-                        LIMIT 1
-                        "#,
-                )
-                .bind(width_mm)
-                .bind(height_mm)
-                .bind(height_mm)
-                .bind(width_mm)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?,
-                _ => None,
-            };
+                let (designer_id, source_id) =
+                    resolve_assignment_for_file(file_path, confirm_wire, &resolved_assignments);
 
-            // Compute content fingerprint from the actual stored file for confirm-time persistence
-            let designs_base_path = get_designs_base_path();
-            let stored_path = designs_base_path.join(
-                stored_filepath
-                    .strip_prefix("/MachineEmbroideryDesigns/")
-                    .unwrap_or(&stored_filepath),
-            );
-            let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
-            let file_hash_blake3: Option<String> = compute_file_hash_blake3(&stored_path).ok();
+                let filename = Path::new(file_path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or(file_path)
+                    .to_string();
 
-            let t_insert = Instant::now();
-            let insert_result = sqlx::query(
-                "INSERT INTO designs (filename, filepath, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
-            )
-            .bind(&filename)
-            .bind(&stored_filepath)
-            .bind(designer_id)
-            .bind(source_id)
-            .bind(hoop_id)
-            .bind(image_result.image_data)
-            .bind(image_result.image_type)
-            .bind(image_result.width_mm)
-            .bind(image_result.height_mm)
-            .bind(image_result.stitch_count)
-            .bind(image_result.color_count)
-            .bind(image_result.color_change_count)
-            .bind(file_size_bytes)
-            .bind(file_hash_blake3.as_ref())
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| e.to_string())?;
-            total_db_insert_ms += t_insert.elapsed().as_millis();
-
-            let design_id = insert_result.last_insert_rowid();
-            imported_design_ids.push(design_id);
-            let t_tag = Instant::now();
-            let matched_descriptions = tagging::suggest_path_rule_descriptions(
-                &filename,
-                &stored_filepath,
-                &valid_descriptions,
-                &tag_synonyms_map,
-            );
-
-            let mut stitching_tag_ids: Vec<i64> = Vec::new();
-            if Path::new(file_path).exists() {
-                let detected_stitching_descriptions =
-                    stitch_identifier::suggest_stitching_from_pattern_file(
+                let t_image = Instant::now();
+                let image_result =
+                    image_generation::generate_preview(&image_generation::ImageGenerationRequest {
+                        file_path: file_path.clone(),
+                        preview_3d,
+                        preview_3d_profile: Some(preview_3d_profile.clone()),
+                    });
+                let image_gen_ms = t_image.elapsed().as_millis();
+                total_image_gen_ms += image_gen_ms;
+                tracing::debug!(
+                    "[TIMING] file={} backend={} image_gen={}ms{}",
+                    filename,
+                    image_result.backend,
+                    image_gen_ms,
+                    image_result
+                        .error
+                        .as_deref()
+                        .map(|e| format!(" error={e}"))
+                        .unwrap_or_default(),
+                );
+                if let Some(error) = image_result.error.as_ref() {
+                    failed_decode_count += 1;
+                    tracing::error!(
+                        "Image generation adapter error for '{}': {}",
                         file_path,
-                        &filename,
-                        &stored_filepath,
-                        &valid_stitching_descriptions,
-                        Some(0.70),
+                        error
                     );
+                }
 
-                stitching_tag_ids = detected_stitching_descriptions
-                    .iter()
-                    .filter_map(|description| stitching_tag_lookup.get(description).copied())
-                    .collect();
+                let hoop_id = match (image_result.width_mm, image_result.height_mm) {
+                    (Some(width_mm), Some(height_mm)) => sqlx::query_scalar::<_, i64>(
+                        r#"
+                            SELECT h.id
+                            FROM hoops h
+                            WHERE
+                                (
+                                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                                )
+                                OR (
+                                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                                )
+                            ORDER BY
+                                (CAST(h.max_width_mm AS REAL) * CAST(h.max_height_mm AS REAL)) ASC,
+                                CAST(h.max_width_mm AS REAL) ASC,
+                                CAST(h.max_height_mm AS REAL) ASC,
+                                h.name COLLATE NOCASE ASC
+                            LIMIT 1
+                            "#,
+                    )
+                    .bind(width_mm)
+                    .bind(height_mm)
+                    .bind(height_mm)
+                    .bind(width_mm)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?,
+                    _ => None,
+                };
 
-                if stitching_tag_ids.is_empty() {
-                    if let Some(default_tag_id) = default_stitching_tag_id {
-                        stitching_tag_ids.push(default_tag_id);
+                // Compute content fingerprint from the actual stored file for confirm-time persistence
+                let designs_base_path = get_designs_base_path();
+                let stored_path = designs_base_path.join(
+                    stored_filepath
+                        .strip_prefix("/MachineEmbroideryDesigns/")
+                        .unwrap_or(&stored_filepath),
+                );
+                let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
+                let file_hash_blake3: Option<String> = compute_file_hash_blake3(&stored_path).ok();
+
+                let t_insert = Instant::now();
+                let insert_result = sqlx::query(
+                    "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+                )
+                .bind(&filename)
+                .bind(&stored_filepath)
+                .bind(stored_master_filepath.as_ref())
+                .bind(designer_id)
+                .bind(source_id)
+                .bind(hoop_id)
+                .bind(image_result.image_data)
+                .bind(image_result.image_type)
+                .bind(image_result.width_mm)
+                .bind(image_result.height_mm)
+                .bind(image_result.stitch_count)
+                .bind(image_result.color_count)
+                .bind(image_result.color_change_count)
+                .bind(file_size_bytes)
+                .bind(file_hash_blake3.as_ref())
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+                total_db_insert_ms += t_insert.elapsed().as_millis();
+
+                let design_id = insert_result.last_insert_rowid();
+                imported_design_ids.push(design_id);
+                let t_tag = Instant::now();
+                let matched_descriptions = tagging::suggest_path_rule_descriptions(
+                    &filename,
+                    &stored_filepath,
+                    &valid_descriptions,
+                    &tag_synonyms_map,
+                );
+
+                let mut stitching_tag_ids: Vec<i64> = Vec::new();
+                if Path::new(file_path).exists() {
+                    let detected_stitching_descriptions =
+                        stitch_identifier::suggest_stitching_from_pattern_file(
+                            file_path,
+                            &filename,
+                            &stored_filepath,
+                            &valid_stitching_descriptions,
+                            Some(0.70),
+                        );
+
+                    stitching_tag_ids = detected_stitching_descriptions
+                        .iter()
+                        .filter_map(|description| stitching_tag_lookup.get(description).copied())
+                        .collect();
+
+                    if stitching_tag_ids.is_empty() {
+                        if let Some(default_tag_id) = default_stitching_tag_id {
+                            stitching_tag_ids.push(default_tag_id);
+                        }
                     }
                 }
-            }
 
-            stitching_tag_ids.sort_unstable();
-            stitching_tag_ids.dedup();
+                stitching_tag_ids.sort_unstable();
+                stitching_tag_ids.dedup();
 
-            if !matched_descriptions.is_empty() {
-                for description in &matched_descriptions {
-                    if let Some(tag_id) = description_to_tag_id.get(description) {
-                        sqlx::query(
-                            "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
-                        )
-                        .bind(design_id)
-                        .bind(*tag_id)
-                        .execute(&mut *tx)
-                        .await
-                        .map_err(|e| e.to_string())?;
+                if !matched_descriptions.is_empty() {
+                    for description in &matched_descriptions {
+                        if let Some(tag_id) = description_to_tag_id.get(description) {
+                            sqlx::query(
+                                "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
+                            )
+                            .bind(design_id)
+                            .bind(*tag_id)
+                            .execute(&mut *tx)
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        }
                     }
                 }
-            }
 
-            for tag_id in &stitching_tag_ids {
-                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                for tag_id in &stitching_tag_ids {
+                    sqlx::query(
+                        "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
+                    )
                     .bind(design_id)
                     .bind(*tag_id)
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| e.to_string())?;
+                }
+
+                total_tagging_ms += t_tag.elapsed().as_millis();
+
+                persisted_design_count += 1;
+                persisted_since_last_commit += 1;
+                processed_count += 1;
+
+                emit_progress(
+                    "processed",
+                    processed_count,
+                    persisted_design_count,
+                    committed_design_count,
+                    failed_decode_count,
+                    Some(file_path),
+                );
+            } else {
+                // --- Master-Only File Import (e.g. .eof, .art standalone) ---
+                let stored_filepath =
+                    ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
+
+                emit_progress(
+                    "processing_file",
+                    processed_count,
+                    persisted_design_count,
+                    committed_design_count,
+                    failed_decode_count,
+                    Some(file_path),
+                );
+
+                let (designer_id, source_id) =
+                    resolve_assignment_for_file(file_path, confirm_wire, &resolved_assignments);
+
+                let filename = Path::new(file_path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or(file_path)
+                    .to_string();
+
+                let designs_base_path = get_designs_base_path();
+                let stored_path = designs_base_path.join(
+                    stored_filepath
+                        .strip_prefix("/MachineEmbroideryDesigns/")
+                        .unwrap_or(&stored_filepath),
+                );
+                let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
+                let file_hash_blake3: Option<String> = compute_file_hash_blake3(&stored_path).ok();
+
+                let t_insert = Instant::now();
+                let insert_result = sqlx::query(
+                    "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 1, DATE('now'), ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, ?, ?)",
+                )
+                .bind(&filename)
+                .bind(&stored_filepath)
+                .bind(&stored_filepath)
+                .bind(designer_id)
+                .bind(source_id)
+                .bind(file_size_bytes)
+                .bind(file_hash_blake3.as_ref())
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+                total_db_insert_ms += t_insert.elapsed().as_millis();
+
+                let design_id = insert_result.last_insert_rowid();
+                imported_design_ids.push(design_id);
+                let t_tag = Instant::now();
+                let matched_descriptions = tagging::suggest_path_rule_descriptions(
+                    &filename,
+                    &stored_filepath,
+                    &valid_descriptions,
+                    &tag_synonyms_map,
+                );
+
+                if !matched_descriptions.is_empty() {
+                    for description in &matched_descriptions {
+                        if let Some(tag_id) = description_to_tag_id.get(description) {
+                            sqlx::query(
+                                "INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)",
+                            )
+                            .bind(design_id)
+                            .bind(*tag_id)
+                            .execute(&mut *tx)
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        }
+                    }
+                }
+
+                total_tagging_ms += t_tag.elapsed().as_millis();
+
+                persisted_design_count += 1;
+                persisted_since_last_commit += 1;
+                processed_count += 1;
+
+                emit_progress(
+                    "processed",
+                    processed_count,
+                    persisted_design_count,
+                    committed_design_count,
+                    failed_decode_count,
+                    Some(file_path),
+                );
             }
-
-            // Import-time path-rule keyword tags are offline local matching, not AI
-            // analysis, so no per-mode AI flags (`vision_ai_*`) are set.
-            total_tagging_ms += t_tag.elapsed().as_millis();
-
-            persisted_design_count += 1;
-            persisted_since_last_commit += 1;
-            processed_count += 1;
-
-            emit_progress(
-                "processed",
-                processed_count,
-                persisted_design_count,
-                committed_design_count,
-                failed_decode_count,
-                Some(file_path),
-            );
         }
 
         // Commit after each chunk (covers both normal progress and mid-chunk stop).
@@ -2143,16 +2293,27 @@ async fn filter_existing_scanned_files(
         return Ok(scanned_files);
     }
 
-    // Stage 0: Load existing stored filepath set for path-based exclusion
+    // Stage 0: Load existing stored filepath and master_filepath sets for path-based exclusion
     let existing_paths = sqlx::query_scalar::<_, String>("SELECT filepath FROM designs")
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
-    let existing_path_set: HashSet<String> = existing_paths
+    let existing_master_paths = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT master_filepath FROM designs WHERE master_filepath IS NOT NULL",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut existing_path_set: HashSet<String> = existing_paths
         .into_iter()
         .map(|path| normalize_path_for_match(&path))
         .collect();
+
+    for master_path in existing_master_paths.into_iter().flatten() {
+        existing_path_set.insert(normalize_path_for_match(&master_path));
+    }
 
     // Stage 1: Load (filename, file_size_bytes, file_hash_blake3) triples
     // for filename-aware duplicate detection.
@@ -2276,13 +2437,29 @@ fn preview_bulk_import_wire_with_pool(
         validation::validate_path(root_path).map_err(|e| format!("{:?}", e))?;
     }
 
+    let master_extensions: Vec<String> = if let Some(active_pool) = pool {
+        let setting_val = tauri::async_runtime::block_on(
+            sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+                .bind(crate::services::settings::KEY_IMPORT_ENABLED_MASTER_FORMATS)
+                .fetch_optional(active_pool),
+        )
+        .unwrap_or(None)
+        .unwrap_or_default();
+        crate::services::settings::parse_enabled_master_formats(&setting_val)
+            .into_iter()
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     let mut scanned_files = Vec::new();
     let mut missing_root = false;
     let mut root_had_any_existing_dir = false;
     for root_path in &wire.root_paths {
-        let scan_input = scanning::ScanInput {
-            root_path: root_path.clone(),
-        };
+        let scan_input = scanning::ScanInput::with_master_extensions(
+            root_path.clone(),
+            master_extensions.clone(),
+        );
         let scan_result = scanning::scan_with_error(&scan_input).map_err(|err| err.to_string())?;
         missing_root = missing_root || scan_result.missing_root;
         root_had_any_existing_dir = root_had_any_existing_dir || !scan_result.missing_root;

@@ -69,6 +69,8 @@ pub struct Design {
     pub hoop_id: Option<i64>,
     pub file_size_bytes: Option<i64>,
     pub file_hash_blake3: Option<String>,
+    pub master_filepath: Option<String>,
+    pub is_master_only: bool,
 }
 
 /// A project record.

@@ -41,7 +41,7 @@ Click **Additional Filters** to expand advanced criteria:
 ### 3. Ratings & Sewing Status
 - **Minimum rating:** Filter by star rating (1★ to 5★).
 - **Stitched status:** Filter by **Stitched** or **Not Stitched**.
-- **Needs attention:** Restrict to designs missing preview images (e.g. unreadable or corrupted files).
+- **Needs attention:** Restrict to designs missing preview images (e.g. unreadable or corrupted files) or master-only outline files awaiting machine stitch file export.
 
 ---
 
