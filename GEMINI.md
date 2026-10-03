@@ -75,11 +75,16 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - Svelte components must **not** call `invoke()` directly.
 - Abstract all Tauri IPC calls into dedicated TypeScript service modules under `src/lib/services/` (e.g., `src/lib/services/db.ts`, `src/lib/services/parser.ts`).
 
-### 4. Catalogue Data Root Persistence
+### 4. Catalogue Data Root Persistence & Environment Isolation
 
 - **The catalogue data root is persisted ONLY to the bootstrap `config.json`** via `paths::write_bootstrap_data_root` / the `set_configured_data_root` Tauri command — **never** to the SQLite settings table.
 - `save_settings_view_model_inner` deliberately ignores `request.data_root` (the `let _ = request.data_root;` line). The SQLite database file lives _under_ the data root, so the DB cannot store its own location.
 - After a data-root change is persisted, the app **must restart** for the running backend to relocate.
+- **Dev vs Installed Mode Config Isolation (CRITICAL):**
+  - In `ExecutionMode::Dev`, the active data root is strictly local to the repository/debug harness (`paths.data_root`, e.g. `dev_data/`).
+  - Development mode must **NEVER** read or write the global `%APPDATA%\EmbroideryCatalogue\config.json` used by the installed release on the same machine.
+  - Doing so creates cross-environment pollution: testing recovery or restore in Dev mode would resolve or overwrite the live installed catalogue path (e.g. `F:\Database`).
+  - All status and persistence commands (`database_status_from_paths`, `set_configured_data_root`) must branch on `paths.mode`: `ExecutionMode::Dev` reports and isolates to `paths.data_root`, keeping developer environments completely segregated from live user installations.
 - **Test / e2e data-root override (`EMBROIDERY_DATA_ROOT`) — debug builds only:** An absolute `EMBROIDERY_DATA_ROOT` redirects the Dev-mode data root for Playwright harnesses. It is honoured **only** inside `resolve_paths_from_exe_dir` and **only** under `cfg!(debug_assertions)`.
 
 ### 5. Tagging & Verification Separation (Image Tags vs Stitching Tags)
@@ -132,6 +137,11 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - **Performance-Focused I/O:** Use buffered readers (`BufReader`) and streaming/lazy parsing logic where possible.
 - **Automated Verification:** Run `cargo check` or `cargo test` after editing Rust code to ensure the borrow checker is satisfied and tests pass.
 - **Native folder pickers (`rfd`):** `FileDialog::set_directory` silently falls back to system defaults on unreadable/missing paths. Validate the start directory first and pass an explicit fallback (e.g. `app_handle.path().document_dir()`).
+- **Instant Database Verification (< 1 ms vs minutes on large DBs):**
+  - Never execute full integrity checks (e.g. `PRAGMA quick_check(1)` or full table scans) in synchronous startup or migration verification paths. On large catalogues (e.g. 7.6 GB+), `quick_check(1)` scans every single B-tree page until an error is found, hanging startup and restore operations for minutes on slow removable media.
+  - Use fast, constant-time schema verification (`PRAGMA schema_version` + `SELECT 1 FROM settings LIMIT 1` + `SELECT 1 FROM designs LIMIT 1`), which completes in < 1 ms regardless of database size.
+- **Read-Only SQLite Connections & Write Pragmas:**
+  - When opening a temporary read-only verification pool with `read_only(true)`, do **not** set write pragmas like `SqliteJournalMode::Off`. SQLite forbids modifying journal mode on read-only handles, triggering `(code: 3850) disk I/O error`.
 
 ### 💾 Canonical `designs.filepath` format (single source of truth)
 
