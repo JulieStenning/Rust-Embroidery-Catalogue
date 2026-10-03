@@ -61,6 +61,10 @@ pub struct BrowseAdditionalFiltersPayload {
     pub stitching_tag_filters: Option<Vec<String>>,
     pub source_filters: Option<Vec<String>>,
     pub hoop_size: Option<String>,
+    pub min_width: Option<f64>,
+    pub max_width: Option<f64>,
+    pub min_height: Option<f64>,
+    pub max_height: Option<f64>,
     pub min_rating: Option<i64>,
     pub stitched_status: Option<String>,
     /// When true, restrict to designs with no stored preview (`image_data IS NULL`) — the flagged
@@ -296,6 +300,51 @@ fn push_browse_filters(query_builder: &mut QueryBuilder<Sqlite>, payload: &GetDe
                 query_builder.push_bind(hoop_size_trimmed.to_lowercase());
                 query_builder.push(")");
             }
+        }
+
+        match (filters.min_width, filters.max_width) {
+            (Some(min), Some(max)) => {
+                let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.width_mm IS NOT NULL AND d.width_mm >= ");
+                query_builder.push_bind(lo.max(0.0));
+                query_builder.push(" AND d.width_mm <= ");
+                query_builder.push_bind(hi.max(0.0));
+            }
+            (Some(min), None) => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.width_mm IS NOT NULL AND d.width_mm >= ");
+                query_builder.push_bind(min.max(0.0));
+            }
+            (None, Some(max)) => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.width_mm IS NOT NULL AND d.width_mm >= 0 AND d.width_mm <= ");
+                query_builder.push_bind(max.max(0.0));
+            }
+            (None, None) => {}
+        }
+
+        match (filters.min_height, filters.max_height) {
+            (Some(min), Some(max)) => {
+                let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.height_mm IS NOT NULL AND d.height_mm >= ");
+                query_builder.push_bind(lo.max(0.0));
+                query_builder.push(" AND d.height_mm <= ");
+                query_builder.push_bind(hi.max(0.0));
+            }
+            (Some(min), None) => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("d.height_mm IS NOT NULL AND d.height_mm >= ");
+                query_builder.push_bind(min.max(0.0));
+            }
+            (None, Some(max)) => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder
+                    .push("d.height_mm IS NOT NULL AND d.height_mm >= 0 AND d.height_mm <= ");
+                query_builder.push_bind(max.max(0.0));
+            }
+            (None, None) => {}
         }
 
         if let Some(min_rating) = filters.min_rating {

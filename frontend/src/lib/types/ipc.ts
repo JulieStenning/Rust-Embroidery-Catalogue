@@ -7,6 +7,10 @@ export interface BrowseAdditionalFilters {
   stitching_tag_filters?: string[];
   source_filters?: string[];
   hoop_size?: string | null;
+  min_width?: number | null;
+  max_width?: number | null;
+  min_height?: number | null;
+  max_height?: number | null;
   min_rating?: number | null;
   stitched_status?: "all" | "yes" | "no" | null;
   /** When true, restrict to designs with no stored preview (the flagged "needs attention" set). */
@@ -42,6 +46,10 @@ export interface BrowseFilterState {
   imageTagFilters: string[];
   stitchingTagFilters: string[];
   hoop: string;
+  minWidth: string;
+  maxWidth: string;
+  minHeight: string;
+  maxHeight: string;
   sourceFilters: string[];
   rating: string;
   stitched: string;

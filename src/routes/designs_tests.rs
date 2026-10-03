@@ -2617,6 +2617,7 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
                 min_rating: Some(4),
                 stitched_status: Some("yes".to_string()),
                 needs_attention: Some(false),
+                ..Default::default()
             }),
             page: Some(1),
             page_size: Some(50),
@@ -2813,4 +2814,78 @@ async fn command_bulk_verify_designs_marks_designs_verified() {
     .await
     .expect("read verification flags");
     assert_eq!(verified, 2);
+}
+
+#[tokio::test]
+async fn browse_dimension_filters_apply_correctly() {
+    let pool = test_pool().await;
+
+    // Seed 3 designs with specific dimensions and one with NULL dimensions.
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, width_mm, height_mm) \
+         VALUES ('small.pes', 'Folder/small.pes', 45.0, 40.0), \
+                ('medium.pes', 'Folder/medium.pes', 100.0, 80.0), \
+                ('large.pes', 'Folder/large.pes', 200.0, 150.0), \
+                ('unknown_dim.pes', 'Folder/unknown_dim.pes', NULL, NULL)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed dimension designs");
+
+    // 1. Filter with min_width only: width >= 100
+    let res = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                min_width: Some(100.0),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query min_width");
+    let filenames: Vec<_> = res.items.iter().map(|i| i.filename.as_str()).collect();
+    assert!(filenames.contains(&"medium.pes"));
+    assert!(filenames.contains(&"large.pes"));
+    assert!(!filenames.contains(&"small.pes"));
+    assert!(!filenames.contains(&"unknown_dim.pes"));
+
+    // 2. Filter with max_height only: height <= 80 (0 to 80mm)
+    let res = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                max_height: Some(80.0),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query max_height");
+    let filenames: Vec<_> = res.items.iter().map(|i| i.filename.as_str()).collect();
+    assert!(filenames.contains(&"small.pes"));
+    assert!(filenames.contains(&"medium.pes"));
+    assert!(!filenames.contains(&"large.pes"));
+    assert!(!filenames.contains(&"unknown_dim.pes"));
+
+    // 3. Filter with both width and height bounds
+    let res = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                min_width: Some(50.0),
+                max_width: Some(150.0),
+                min_height: Some(50.0),
+                max_height: Some(100.0),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query bounding box");
+    assert_eq!(res.items.len(), 1);
+    assert_eq!(res.items[0].filename, "medium.pes");
 }

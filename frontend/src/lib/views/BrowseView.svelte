@@ -153,6 +153,10 @@
     imageTagFilters: /** @type {string[]} */ ([]),
     stitchingTagFilters: /** @type {string[]} */ ([]),
     hoop: "",
+    minWidth: "",
+    maxWidth: "",
+    minHeight: "",
+    maxHeight: "",
     sourceFilters: /** @type {string[]} */ ([]),
     rating: "",
     stitched: "",
@@ -178,6 +182,10 @@
       browseFilters.imageTagFilters.length === 0 &&
       browseFilters.stitchingTagFilters.length === 0 &&
       browseFilters.hoop === "" &&
+      browseFilters.minWidth === "" &&
+      browseFilters.maxWidth === "" &&
+      browseFilters.minHeight === "" &&
+      browseFilters.maxHeight === "" &&
       browseFilters.sourceFilters.length === 0 &&
       browseFilters.rating === "" &&
       browseFilters.stitched === "" &&
@@ -440,6 +448,22 @@
             ? browseFilters.sourceFilters
             : [],
           hoop_size: browseFilters.hoop || null,
+          min_width:
+            browseFilters.minWidth.trim() !== "" && !Number.isNaN(Number(browseFilters.minWidth))
+              ? Number(browseFilters.minWidth)
+              : null,
+          max_width:
+            browseFilters.maxWidth.trim() !== "" && !Number.isNaN(Number(browseFilters.maxWidth))
+              ? Number(browseFilters.maxWidth)
+              : null,
+          min_height:
+            browseFilters.minHeight.trim() !== "" && !Number.isNaN(Number(browseFilters.minHeight))
+              ? Number(browseFilters.minHeight)
+              : null,
+          max_height:
+            browseFilters.maxHeight.trim() !== "" && !Number.isNaN(Number(browseFilters.maxHeight))
+              ? Number(browseFilters.maxHeight)
+              : null,
           min_rating: browseFilters.rating ? Number(browseFilters.rating) : null,
           stitched_status: stitchedStatus,
           needs_attention: browseFilters.needsAttention,
@@ -1512,22 +1536,83 @@
           </div>
         </div>
 
-        <!-- Other Properties -->
-        <div class="space-y-2.5 text-xs">
-          <label class="block">
-            <span class="block font-semibold text-gray-700 mb-1">Hoop size</span>
-            <select
-              class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
-              value={browseFilters.hoop}
-              onchange={(e) => updateBrowseFilter("hoop", e.currentTarget.value)}
-            >
-              <option value="">Any hoop</option>
-              {#each browseHoopFilterOptions as opt}
-                <option value={opt}>{opt}</option>
-              {/each}
-              <option value={HOOP_UNKNOWN_FILTER}>Hoop unknown</option>
-            </select>
-          </label>
+        <!-- Other Properties & Dimensions -->
+        <div class="space-y-2.5 text-xs sm:col-span-2 md:col-span-2">
+          <!-- Hoop & Dimensions Side-by-Side (Option B) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="block font-semibold text-gray-700 mb-1">Hoop size</span>
+              <select
+                class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+                value={browseFilters.hoop}
+                onchange={(e) => updateBrowseFilter("hoop", e.currentTarget.value)}
+              >
+                <option value="">Any hoop</option>
+                {#each browseHoopFilterOptions as opt}
+                  <option value={opt}>{opt}</option>
+                {/each}
+                <option value={HOOP_UNKNOWN_FILTER}>Hoop unknown</option>
+              </select>
+            </label>
+
+            <div class="space-y-1">
+              <span class="block font-semibold text-gray-700 mb-1">Dimensions (mm)</span>
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] font-medium text-gray-600 w-3">W</span>
+                  <input
+                    id="filter-min-width"
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="Min"
+                    aria-label="Minimum width (mm)"
+                    class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                    value={browseFilters.minWidth}
+                    oninput={(e) => updateBrowseFilter("minWidth", e.currentTarget.value)}
+                  />
+                  <span class="text-gray-400 text-xs">–</span>
+                  <input
+                    id="filter-max-width"
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="Max"
+                    aria-label="Maximum width (mm)"
+                    class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                    value={browseFilters.maxWidth}
+                    oninput={(e) => updateBrowseFilter("maxWidth", e.currentTarget.value)}
+                  />
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] font-medium text-gray-600 w-3">H</span>
+                  <input
+                    id="filter-min-height"
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="Min"
+                    aria-label="Minimum height (mm)"
+                    class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                    value={browseFilters.minHeight}
+                    oninput={(e) => updateBrowseFilter("minHeight", e.currentTarget.value)}
+                  />
+                  <span class="text-gray-400 text-xs">–</span>
+                  <input
+                    id="filter-max-height"
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="Max"
+                    aria-label="Maximum height (mm)"
+                    class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                    value={browseFilters.maxHeight}
+                    oninput={(e) => updateBrowseFilter("maxHeight", e.currentTarget.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div class="grid grid-cols-2 gap-2">
             <label class="block">

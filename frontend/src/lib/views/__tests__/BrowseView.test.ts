@@ -262,6 +262,32 @@ function applyBackendFilter(
     );
   }
 
+  const minW =
+    typeof af.min_width === "number" && Number.isFinite(af.min_width) ? af.min_width : null;
+  const maxW =
+    typeof af.max_width === "number" && Number.isFinite(af.max_width) ? af.max_width : null;
+  const minH =
+    typeof af.min_height === "number" && Number.isFinite(af.min_height) ? af.min_height : null;
+  const maxH =
+    typeof af.max_height === "number" && Number.isFinite(af.max_height) ? af.max_height : null;
+
+  if (minW !== null) {
+    result = result.filter((item) => typeof item.width_mm === "number" && item.width_mm >= minW);
+  }
+  if (maxW !== null) {
+    result = result.filter(
+      (item) => typeof item.width_mm === "number" && item.width_mm >= 0 && item.width_mm <= maxW
+    );
+  }
+  if (minH !== null) {
+    result = result.filter((item) => typeof item.height_mm === "number" && item.height_mm >= minH);
+  }
+  if (maxH !== null) {
+    result = result.filter(
+      (item) => typeof item.height_mm === "number" && item.height_mm >= 0 && item.height_mm <= maxH
+    );
+  }
+
   const minRating = Number(af.min_rating ?? 0);
   if (minRating >= 1) {
     result = result.filter((item) => Number(item.rating ?? 0) >= minRating);
@@ -2733,6 +2759,39 @@ describe("BrowseView", () => {
       // The comma-separated projects string is split, normalized, and re-joined.
       expect(await screen.findByText("rose.pes")).toBeInTheDocument();
       expect(screen.getByText("Wedding Collection, Autumn 2026")).toBeInTheDocument();
+    });
+
+    it("applies dimension min/max filters in the browse search payload", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(listResponse([]));
+      renderBrowse();
+
+      // Open Additional Filters
+      const detailsToggle = screen.getByText(/Additional Filters/i);
+      await fireEvent.click(detailsToggle);
+
+      const minWidthInput = screen.getByLabelText("Minimum width (mm)");
+      const maxHeightInput = screen.getByLabelText("Maximum height (mm)");
+
+      await fireEvent.input(minWidthInput, { target: { value: "50" } });
+      await fireEvent.input(maxHeightInput, { target: { value: "120" } });
+
+      const form = minWidthInput.closest("form");
+      if (form) {
+        await fireEvent.submit(form);
+      }
+
+      await waitFor(() => {
+        expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledWith(
+          expect.objectContaining({
+            additional_filters: expect.objectContaining({
+              min_width: 50,
+              max_height: 120,
+              max_width: null,
+              min_height: null,
+            }),
+          })
+        );
+      });
     });
   });
 });

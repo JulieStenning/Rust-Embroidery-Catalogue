@@ -75,8 +75,13 @@
       </p>
       <p><strong>Unverified only:</strong> show designs with tags that still need verifying.</p>
       <p>
-        <strong>Quick search vs. filters:</strong> use Additional filters for exact phrase, any words,
-        designer, hoop, and more.
+        <strong>Quick search vs. filters:</strong> use Additional filters for designer, image and stitching
+        tags, sources, hoop size, dimensions (width and height mm ranges), rating, and stitched status.
+      </p>
+      <p>
+        <strong>Dimension ranges:</strong> specify minimum and/or maximum width or height in mm. Setting
+        only a maximum (e.g. Max H: 80) matches designs from 0mm up to 80mm; setting only a minimum (e.g.
+        Min W: 100) matches all designs 100mm and wider.
       </p>
     </div>
   </section>

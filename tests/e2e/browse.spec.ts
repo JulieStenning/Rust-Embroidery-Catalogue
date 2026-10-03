@@ -73,6 +73,14 @@ const ratingSelect = (page: Page): Locator =>
   drawer(page).locator('select:has(option[value="5"])');
 const stitchedSelect = (page: Page): Locator =>
   drawer(page).locator('select:has(option[value="yes"])');
+const minWidthInput = (page: Page): Locator =>
+  drawer(page).locator("#filter-min-width");
+const maxWidthInput = (page: Page): Locator =>
+  drawer(page).locator("#filter-max-width");
+const minHeightInput = (page: Page): Locator =>
+  drawer(page).locator("#filter-min-height");
+const maxHeightInput = (page: Page): Locator =>
+  drawer(page).locator("#filter-max-height");
 const resetButton = (page: Page): Locator =>
   page.getByRole("button", { name: "Reset filters" });
 const needsAttention = (page: Page): Locator =>
@@ -492,6 +500,33 @@ test.describe("reference filters", () => {
     await stitchedSelect(page).selectOption("no");
     await expect(browseCard(page, "Cake Applique 2.jef")).toBeVisible();
     await expect(browseCard(page, "Cake Applique.jef")).toHaveCount(0);
+  });
+
+  test("filters by minimum and maximum dimensions (width and height mm)", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await openFilters(page);
+
+    // Filter by max height only: height <= 50mm
+    await maxHeightInput(page).fill("50");
+    await page.locator("form.browse-search-shell").dispatchEvent("submit");
+    await expectTitlesContain(page, ["Cake Applique 2.jef"]);
+    await expect(browseCard(page, "ZZ-broken.pes")).toHaveCount(0);
+
+    // Filter by min width only: width >= 100mm
+    await maxHeightInput(page).fill("");
+    await minWidthInput(page).fill("100");
+    await page.locator("form.browse-search-shell").dispatchEvent("submit");
+    await expectTitlesContain(page, ["Cake 3.jef"]);
+    await expect(browseCard(page, "Cake Applique 2.jef")).toHaveCount(0);
+
+    // Reset filters restores all cards and clears inputs
+    await resetButton(page).click();
+    await expect(minWidthInput(page)).toHaveValue("");
+    await expect(maxWidthInput(page)).toHaveValue("");
+    await expect(minHeightInput(page)).toHaveValue("");
+    await expect(maxHeightInput(page)).toHaveValue("");
   });
 });
 
