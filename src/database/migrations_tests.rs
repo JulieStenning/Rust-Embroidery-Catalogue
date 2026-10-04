@@ -629,3 +629,33 @@ async fn run_migrations_returns_error_after_retries_exhausted() {
     pool_b.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_creates_design_dimension_indexes() {
+    let tmp = unique_tmp_dir("dimension-indexes");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("dimension_indexes.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let width_idx: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_width_mm'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query width_mm index");
+    assert_eq!(width_idx.0, 1, "ix_designs_width_mm index should exist");
+
+    let height_idx: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_height_mm'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query height_mm index");
+    assert_eq!(height_idx.0, 1, "ix_designs_height_mm index should exist");
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
