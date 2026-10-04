@@ -402,6 +402,29 @@ test.describe("search syntax", () => {
     await expect(browseCard(page, "Bean X.jef")).toBeVisible();
     await expect(browseCard(page, "ZZ-broken.pes")).toHaveCount(0);
   });
+
+  test("clears search query via the inline clear button (✕) and Escape key", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+
+    const searchInput = page.locator("#browse-q");
+    await search(page, "Cake");
+    await expect(searchInput).toHaveValue("Cake");
+
+    // Clear via the inline '✕' clear button.
+    const clearButton = page.getByRole("button", { name: "Clear search" });
+    await expect(clearButton).toBeVisible();
+    await clearButton.click();
+    await expect(searchInput).toHaveValue("");
+    await expect(clearButton).toBeHidden();
+
+    // Type again and clear via Escape key.
+    await searchInput.fill("Bean");
+    await expect(searchInput).toHaveValue("Bean");
+    await searchInput.press("Escape");
+    await expect(searchInput).toHaveValue("");
+  });
 });
 
 test.describe("search-in scoping", () => {

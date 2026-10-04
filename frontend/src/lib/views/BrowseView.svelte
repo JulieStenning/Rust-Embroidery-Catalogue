@@ -414,10 +414,39 @@
     return Array.isArray(items) ? items : [];
   }
 
+  let browseSearchRequestId = 0;
+
+  function cancelSearch() {
+    if (browseQTimer) {
+      clearTimeout(browseQTimer);
+      browseQTimer = null;
+    }
+    browseSearchRequestId++;
+    browseLoading = false;
+  }
+
+  function clearSearchInput() {
+    updateBrowseFilter("q", "");
+  }
+
+  /** @param {KeyboardEvent} event */
+  function handleSearchKeyDown(event) {
+    if (event.key === "Escape") {
+      if (browseLoading) {
+        event.preventDefault();
+        cancelSearch();
+      } else if (browseFilters.q) {
+        event.preventDefault();
+        clearSearchInput();
+      }
+    }
+  }
+
   async function loadBrowseItems(force = false) {
     if (browseLoading && !force) return;
 
     browseLoading = true;
+    const currentRequestId = ++browseSearchRequestId;
     try {
       const stitchedStatus = /** @type {"all" | "yes" | "no"} */ (
         browseFilters.stitched === "yes" || browseFilters.stitched === "no"
@@ -475,6 +504,9 @@
         getBrowseDesigns(payload),
         Promise.resolve(getDesignIds(payload)).catch(() => []),
       ]);
+      if (currentRequestId !== browseSearchRequestId) {
+        return;
+      }
       const rawItems = getResponseItems(result);
       const normalizedItems = rawItems.map(normalizeCardItem).filter((item) => item !== null);
       browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
@@ -491,12 +523,17 @@
           : normalizedItems.map((item) => item.id).filter((id) => Number.isFinite(id));
       restoreBrowseScrollOnce();
     } catch {
+      if (currentRequestId !== browseSearchRequestId) {
+        return;
+      }
       browseHasLoaded = true;
       browseItems = [];
       browseTotal = 0;
       browseTotalPages = 1;
     } finally {
-      browseLoading = false;
+      if (currentRequestId === browseSearchRequestId) {
+        browseLoading = false;
+      }
     }
   }
 
@@ -1366,6 +1403,7 @@
       clearTimeout(browseQTimer);
       browseQTimer = null;
     }
+    browseSearchRequestId++;
   });
 </script>
 
@@ -1389,13 +1427,60 @@
       >
       <p></p>
       <div class="browse-general-search-row flex items-center gap-2">
-        <input
-          id="browse-q"
-          class="ui-text-input ui-control-text-inset browse-general-input text-sm flex-1 min-w-[20rem] font-mono border rounded px-3 py-2"
-          placeholder="e.g. rose &quot;cross stitch&quot; -applique or *.hus"
-          value={browseFilters.q}
-          oninput={(event) => updateBrowseFilter("q", event.currentTarget.value)}
-        />
+        <div class="relative flex-1 min-w-[20rem] flex items-center">
+          <input
+            id="browse-q"
+            class="ui-text-input ui-control-text-inset browse-general-input text-sm w-full font-mono border rounded px-3 py-2 pr-24"
+            placeholder="e.g. rose &quot;cross stitch&quot; -applique or *.hus"
+            value={browseFilters.q}
+            oninput={(event) => updateBrowseFilter("q", event.currentTarget.value)}
+            onkeydown={(event) => handleSearchKeyDown(event)}
+          />
+          {#if browseLoading}
+            <div class="absolute right-2 flex items-center gap-1.5 select-none">
+              <svg
+                class="animate-spin h-4 w-4 text-indigo-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                ></circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <button
+                type="button"
+                class="text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-1.5 py-0.5 rounded border border-red-200 transition-colors"
+                title="Cancel search (Esc)"
+                aria-label="Cancel search"
+                onclick={cancelSearch}
+              >
+                Cancel
+              </button>
+            </div>
+          {:else if browseFilters.q}
+            <button
+              type="button"
+              class="absolute right-2 text-sm text-gray-400 hover:text-gray-600 px-1.5 py-0.5"
+              title="Clear search"
+              aria-label="Clear search"
+              onclick={clearSearchInput}
+            >
+              ✕
+            </button>
+          {/if}
+        </div>
         <label
           class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700 whitespace-nowrap"
         >
@@ -1708,12 +1793,43 @@
     {isAllSelectedOnPage}
     onToggleSelectAllPage={toggleSelectAllBrowseOnPage}
     busyActive={busyActive || browseLoading}
+    isSearching={browseLoading}
   />
 
   <!-- Browse Results Grid -->
-  <div bind:this={browseGridContainer} class="browse-grid-rows flex flex-col gap-5">
+  <div
+    bind:this={browseGridContainer}
+    class="browse-grid-rows flex flex-col gap-5 {browseLoading && browseItems.length > 0
+      ? 'opacity-50 pointer-events-none transition-opacity duration-200'
+      : ''}"
+  >
     {#if browseLoading && browseItems.length === 0}
-      <p class="text-center py-12 text-gray-500 font-medium">Loading designs...</p>
+      <div class="py-16 text-center flex flex-col items-center justify-center">
+        <svg
+          class="animate-spin h-8 w-8 text-indigo-600 mb-3"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <p class="text-sm font-semibold text-gray-700">Loading designs...</p>
+        <p class="text-xs text-gray-500 mt-1 mb-4">Querying catalogue records...</p>
+        <button
+          type="button"
+          class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          onclick={cancelSearch}
+        >
+          Cancel search
+        </button>
+      </div>
     {:else if browseItems.length === 0}
       <p class="text-center py-12 text-gray-500 font-medium">No designs match your filters.</p>
     {:else}

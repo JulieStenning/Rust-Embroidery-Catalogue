@@ -9,6 +9,7 @@
     isAllSelectedOnPage: boolean;
     onToggleSelectAllPage: (checked: boolean) => void;
     busyActive?: boolean;
+    isSearching?: boolean;
   }
 
   let {
@@ -18,6 +19,7 @@
     isAllSelectedOnPage = false,
     onToggleSelectAllPage,
     busyActive = false,
+    isSearching = false,
   }: Props = $props();
 </script>
 
@@ -25,9 +27,30 @@
   class="selection-header flex flex-wrap items-center gap-4 py-3 px-4 bg-gray-50 border-b border-gray-200"
 >
   <div class="flex flex-wrap items-center gap-3">
-    <span class="text-sm font-medium text-gray-600">
-      {totalFilteredCount === 1 ? "1 design found" : `${totalFilteredCount} designs found`}
-    </span>
+    {#if isSearching}
+      <span class="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700">
+        <svg
+          class="animate-spin h-3.5 w-3.5 text-indigo-600"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        Searching designs...
+      </span>
+    {:else}
+      <span class="text-sm font-medium text-gray-600">
+        {totalFilteredCount === 1 ? "1 design found" : `${totalFilteredCount} designs found`}
+      </span>
+    {/if}
     <span class="text-gray-300 select-none" aria-hidden="true">•</span>
     <span class="text-sm font-medium text-gray-600">
       {selectedCountOnPage} of {totalCountOnPage} selected
@@ -41,7 +64,7 @@
         checked={isAllSelectedOnPage}
         onchange={(e: Event) =>
           onToggleSelectAllPage((e.currentTarget as HTMLInputElement).checked)}
-        disabled={totalCountOnPage === 0 || busyActive}
+        disabled={totalCountOnPage === 0 || busyActive || isSearching}
       />
       Select all on page
     </label>

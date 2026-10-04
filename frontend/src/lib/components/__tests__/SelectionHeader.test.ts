@@ -116,4 +116,22 @@ describe("SelectionHeader.svelte", () => {
 
     expect(onToggle).toHaveBeenCalledWith(false);
   });
+
+  it("renders 'Searching designs...' and disables checkbox when isSearching is true", () => {
+    render(SelectionHeader, {
+      props: {
+        totalFilteredCount: 5,
+        totalCountOnPage: 10,
+        isSearching: true,
+        onToggleSelectAllPage: vi.fn(),
+        selectedCountOnPage: 0,
+        isAllSelectedOnPage: false,
+      },
+    });
+
+    expect(screen.getByText("Searching designs...")).toBeInTheDocument();
+    expect(screen.queryByText("5 designs found")).not.toBeInTheDocument();
+    const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox).toBeDisabled();
+  });
 });

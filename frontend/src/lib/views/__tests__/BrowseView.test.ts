@@ -805,6 +805,86 @@ describe("BrowseView", () => {
       expect(screen.getByText("rose2.pes")).toBeInTheDocument();
       expect(screen.queryByText("leaf.pes")).not.toBeInTheDocument();
     });
+
+    it("displays an inline Cancel button while search is pending and clicking it cancels the search", async () => {
+      let resolveSearch: (res: any) => void = () => {};
+      const pendingPromise = new Promise((resolve) => {
+        resolveSearch = resolve;
+      });
+
+      renderBrowse();
+      await settle();
+
+      adapterMocks.getBrowseDesigns.mockImplementation(() => pendingPromise);
+
+      const q = screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus');
+      await fireEvent.input(q, { target: { value: "search-query" } });
+      await fireEvent.submit(q.closest("form") as HTMLFormElement);
+
+      const cancelBtn = screen.getByRole("button", { name: "Cancel search" });
+      expect(cancelBtn).toBeInTheDocument();
+
+      await fireEvent.click(cancelBtn);
+      expect(screen.queryByRole("button", { name: "Cancel search" })).not.toBeInTheDocument();
+
+      // Resolving the cancelled search afterwards should not update items or crash
+      resolveSearch(listResponse([design({ id: 99, filename: "late-arriving.pes" })]));
+      await tick();
+      expect(screen.queryByText("late-arriving.pes")).not.toBeInTheDocument();
+    });
+
+    it("clears search query when clicking inline clear button (✕)", async () => {
+      mockBackendDesigns([
+        design({ id: 1, filename: "rose.pes" }),
+        design({ id: 2, filename: "leaf.pes" }),
+      ]);
+
+      renderBrowse();
+      await settle();
+
+      const q = screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus');
+      await fireEvent.input(q, { target: { value: "rose" } });
+      await fireEvent.submit(q.closest("form") as HTMLFormElement);
+      await settle();
+
+      const clearBtn = screen.getByRole("button", { name: "Clear search" });
+      expect(clearBtn).toBeInTheDocument();
+
+      await fireEvent.click(clearBtn);
+      await settle();
+
+      expect(
+        (
+          screen.getByPlaceholderText(
+            'e.g. rose "cross stitch" -applique or *.hus'
+          ) as HTMLInputElement
+        ).value
+      ).toBe("");
+    });
+
+    it("cancels active search or clears input when pressing Escape", async () => {
+      let resolveSearch: (res: any) => void = () => {};
+      const pendingPromise = new Promise((resolve) => {
+        resolveSearch = resolve;
+      });
+
+      renderBrowse();
+      await settle();
+
+      adapterMocks.getBrowseDesigns.mockImplementation(() => pendingPromise);
+
+      const q = screen.getByPlaceholderText('e.g. rose "cross stitch" -applique or *.hus');
+      await fireEvent.input(q, { target: { value: "escape-search" } });
+      await fireEvent.submit(q.closest("form") as HTMLFormElement);
+
+      expect(screen.getByRole("button", { name: "Cancel search" })).toBeInTheDocument();
+
+      await fireEvent.keyDown(q, { key: "Escape" });
+      expect(screen.queryByRole("button", { name: "Cancel search" })).not.toBeInTheDocument();
+
+      resolveSearch(listResponse([]));
+      await tick();
+    });
   });
 
   // -------------------------------------------------------------------------

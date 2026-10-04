@@ -16,6 +16,11 @@ The main search box supports Google-style search operators to match keywords acr
 - **Search scopes:** Tick or untick **File name**, **Folder name**, and **Tags** to restrict where the query looks.
 - **Unverified only:** Check **Unverified only** to focus on designs with tags requiring manual review.
 
+### ⏳ Live Search, Busy Indicator & Cancellation
+- **Live Search & Busy Indicator:** As you type into the general search box or adjust filters, an animated spinner appears inside the search input and the selection bar displays **"Searching designs..."**.
+- **Cancelling a Search:** When searching large catalogues, an inline red **Cancel** button appears in the search box while a query is running. Clicking **Cancel** (or pressing the **`Escape`** key) immediately aborts the active search and restores your previous results.
+- **Clearing Search Input:** When idle, clicking the **`✕`** button on the right of the search input or pressing the **`Escape`** key clears the text query.
+
 ---
 
 ## 🎛️ Additional Filters

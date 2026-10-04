@@ -8,6 +8,8 @@
     totalCountOnPage = 0,
     isAllSelectedOnPage = false,
     onToggleSelectAllPage = () => {},
+    busyActive = false,
+    isSearching = false,
   } = $props();
 </script>
 
@@ -17,8 +19,13 @@
   data-selected-count={String(selectedCountOnPage)}
   data-total-count={String(totalCountOnPage)}
   data-all-selected={String(isAllSelectedOnPage)}
+  data-is-searching={String(isSearching)}
 >
-  <span data-testid="selection-total-count">{totalFilteredCount} designs found</span>
+  {#if isSearching}
+    <span data-testid="selection-searching">Searching designs...</span>
+  {:else}
+    <span data-testid="selection-total-count">{totalFilteredCount} designs found</span>
+  {/if}
   <label>
     <input
       type="checkbox"
