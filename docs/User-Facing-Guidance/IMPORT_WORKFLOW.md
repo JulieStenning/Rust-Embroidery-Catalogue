@@ -15,7 +15,7 @@ This guide explains the full import workflow from selecting folders to seeing yo
 
 What happens:
 - Subfolders are scanned automatically.
-- Only supported embroidery formats are picked up (JEF, PES, HUS, DST, EXP, VP3).
+- Supported machine stitch formats (JEF, PES, HUS, DST, EXP, VP3) and any enabled digitising master formats (e.g. .eof, .ecf, .emb, .art, .be, .jan, .edo, .vp4 configured in Setup or Settings) are picked up.
 - Files already in the catalogue, and non-embroidery files, are ignored.
 - Each selected source folder name is preserved inside managed storage.
 
@@ -66,10 +66,8 @@ You can leave the Import page at any point using the top navigation — there is
 (~15 minutes); if it expires, the app re-checks your selections and retries.
 
 ## Notes about supported formats
-- The app supports many machine embroidery formats.
-- Wilcom .art files are limited support and may use fallback preview/metadata paths.
-
-For current list and details: [docs/SUPPORTED_FORMATS.md](../SUPPORTED_FORMATS.md)
+- The app supports all major machine embroidery formats as well as software-native digitising master formats.
+- For complete details on machine formats, digitising formats, and file pairing: [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
 
 ## Related guides
 - Configuring keyword rules: [TAG_WORD_MATCHES.md](TAG_WORD_MATCHES.md)

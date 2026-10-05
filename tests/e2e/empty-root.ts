@@ -31,6 +31,8 @@ export interface SeedHoop {
 export interface EmptyRootOptions {
   /** Hoops to pre-configure in the empty catalogue. */
   hoops?: SeedHoop[];
+  /** Whether initial setup is marked complete (defaults to true). */
+  initialSetupCompleted?: boolean;
 }
 
 /**
@@ -38,7 +40,7 @@ export interface EmptyRootOptions {
  *
  * The layout matches what the app expects (`Database/`, `logs/`,
  * `MachineEmbroideryDesigns/`) and `initial_setup_completed` is set to the exact
- * value the backend checks so the app boots straight into the main window.
+ * value the backend checks so the app boots straight into the main window (or into setup wizard if false).
  */
 export function prepareEmptyDataRoot(
   root: string,
@@ -63,9 +65,12 @@ export function prepareEmptyDataRoot(
   const db = new DatabaseSync(databasePath);
   try {
     db.exec("DELETE FROM settings WHERE key = 'initial_setup_completed'");
-    db.exec(
-      "INSERT INTO settings (key, value) VALUES ('initial_setup_completed', 'TRUE')",
-    );
+    const isComplete = options.initialSetupCompleted ?? true;
+    if (isComplete) {
+      db.exec(
+        "INSERT INTO settings (key, value) VALUES ('initial_setup_completed', 'TRUE')",
+      );
+    }
     for (const hoop of options.hoops ?? []) {
       db.prepare(
         "INSERT INTO hoops (name, max_width_mm, max_height_mm) VALUES (?, ?, ?)",

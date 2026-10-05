@@ -48,6 +48,14 @@ export const HOOPS_DATA_ROOT_PATH = path.join(
   ".hoops-data-root",
 );
 
+/** Throwaway data root for testing the first-run initial setup onboarding wizard. */
+export const SETUP_DATA_ROOT_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "e2e",
+  ".setup-data-root",
+);
+
 /**
  * Pristine, empty catalogue database shipped as the install template. It has the
  * full schema and system tags but 0 designs, 0 hoops, 0 designers/sources/projects.
