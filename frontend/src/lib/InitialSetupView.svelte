@@ -333,8 +333,8 @@
         First, choose where your data lives. Then you can configure your frequent Designers,
         Sources, Hoops and Design Software.
       {:else}
-        Setting up your frequent Designers, Sources, Hoops and Design Software now makes the Bulk
-        Import tool faster and easier to use.
+        Setting up your frequent Designers, Sources, Hoops, and Design Software now saves you time
+        later — allowing you to update and categorise your designs in bulk rather than one by one.
       {/if}
     </p>
 
