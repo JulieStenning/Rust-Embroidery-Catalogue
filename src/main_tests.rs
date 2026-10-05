@@ -12,6 +12,7 @@ use super::*;
 use crate::utils::test_support::lock_env;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 
 ////////////////////////////////////////////////////////////////////////////////
 // load_dotenv_from_str â€” pure parsing logic                                  //

@@ -6,6 +6,12 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 default-run = "embroidery-catalogue"
 
+[lib]
+name = "embroidery_catalogue"
+path = "src/lib.rs"
+test = false
+doctest = false
+
 [[bin]]
 name = "embroidery-catalogue"
 path = "src/main.rs"
@@ -13,6 +19,10 @@ path = "src/main.rs"
 [[bin]]
 name = "keygen"
 path = "src/bin/keygen.rs"
+
+[[bench]]
+name = "rendering_and_parsing"
+harness = false
 
 [dependencies]
 ed25519-dalek = { version = "2.1", default-features = false, features = ["std"] }
@@ -53,3 +63,4 @@ tauri-build = { version = "2", features = [] }
 serial_test = "4.0"
 tauri = { version = "2", features = ["test"] }
 mockito = "1"
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
