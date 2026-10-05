@@ -6,8 +6,6 @@ use crate::error::AppError;
 use crate::models::{EmbPattern, StitchType};
 use image::ImageEncoder;
 use image::{Rgba, RgbaImage};
-use imageproc::drawing::draw_antialiased_line_segment_mut;
-use imageproc::pixelops::interpolate;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PreviewMode {
@@ -133,6 +131,81 @@ fn lighten_color(color: Rgba<u8>, amount: u8) -> Rgba<u8> {
     ])
 }
 
+#[inline]
+fn blend_pixel(dst: &mut Rgba<u8>, src: Rgba<u8>, alpha: f32) {
+    if alpha <= 0.0 {
+        return;
+    }
+    let a = (alpha * (src[3] as f32 / 255.0)).clamp(0.0, 1.0);
+    let inv_a = 1.0 - a;
+    dst[0] = (src[0] as f32 * a + dst[0] as f32 * inv_a).round() as u8;
+    dst[1] = (src[1] as f32 * a + dst[1] as f32 * inv_a).round() as u8;
+    dst[2] = (src[2] as f32 * a + dst[2] as f32 * inv_a).round() as u8;
+    dst[3] = ((src[3] as f32 * a + dst[3] as f32 * inv_a).round() as u8).max(dst[3]);
+}
+
+/// Fast, single-pass antialiased capsule (thick line with rounded caps) rasterizer.
+fn draw_capsule_antialiased(
+    img: &mut RgbaImage,
+    from: (i32, i32),
+    to: (i32, i32),
+    color: Rgba<u8>,
+    radius: f32,
+) {
+    if radius <= 0.0 {
+        return;
+    }
+    let width = img.width() as i32;
+    let height = img.height() as i32;
+
+    let x1 = from.0 as f32;
+    let y1 = from.1 as f32;
+    let x2 = to.0 as f32;
+    let y2 = to.1 as f32;
+
+    let min_x = ((x1.min(x2) - radius - 1.0).floor() as i32).clamp(0, width - 1);
+    let max_x = ((x1.max(x2) + radius + 1.0).ceil() as i32).clamp(0, width - 1);
+    let min_y = ((y1.min(y2) - radius - 1.0).floor() as i32).clamp(0, height - 1);
+    let max_y = ((y1.max(y2) + radius + 1.0).ceil() as i32).clamp(0, height - 1);
+
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let len_sq = dx * dx + dy * dy;
+
+    let r_inner = (radius - 0.5).max(0.0);
+    let r_outer = radius + 0.5;
+
+    for py in min_y..=max_y {
+        let p_y = py as f32 + 0.5;
+        for px in min_x..=max_x {
+            let p_x = px as f32 + 0.5;
+
+            let dist = if len_sq < 1e-5 {
+                let d_x = p_x - x1;
+                let d_y = p_y - y1;
+                (d_x * d_x + d_y * d_y).sqrt()
+            } else {
+                let t = (((p_x - x1) * dx + (p_y - y1) * dy) / len_sq).clamp(0.0, 1.0);
+                let proj_x = x1 + t * dx;
+                let proj_y = y1 + t * dy;
+                let d_x = p_x - proj_x;
+                let d_y = p_y - proj_y;
+                (d_x * d_x + d_y * d_y).sqrt()
+            };
+
+            if dist < r_outer {
+                let alpha = if dist <= r_inner {
+                    1.0
+                } else {
+                    (r_outer - dist).clamp(0.0, 1.0)
+                };
+                let pixel = img.get_pixel_mut(px as u32, py as u32);
+                blend_pixel(pixel, color, alpha);
+            }
+        }
+    }
+}
+
 fn draw_segment_2d(
     img: &mut RgbaImage,
     from: (i32, i32),
@@ -140,21 +213,7 @@ fn draw_segment_2d(
     color: Rgba<u8>,
     thread_radius: i32,
 ) {
-    for ox in -thread_radius..=thread_radius {
-        for oy in -thread_radius..=thread_radius {
-            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
-                continue;
-            }
-
-            draw_antialiased_line_segment_mut(
-                img,
-                (from.0 + ox, from.1 + oy),
-                (to.0 + ox, to.1 + oy),
-                color,
-                interpolate,
-            );
-        }
-    }
+    draw_capsule_antialiased(img, from, to, color, thread_radius as f32);
 }
 
 fn draw_segment_3d(
@@ -173,56 +232,28 @@ fn draw_segment_3d(
     let highlight_offset =
         ((style.highlight_offset as f32 * thread_radius as f32 / 2.0).round() as i32).max(1);
 
-    // Shadow layer (offset down-right)
-    for ox in -thread_radius..=thread_radius {
-        for oy in -thread_radius..=thread_radius {
-            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
-                continue;
-            }
-            draw_antialiased_line_segment_mut(
-                img,
-                (from.0 + ox + shadow_offset, from.1 + oy + shadow_offset),
-                (to.0 + ox + shadow_offset, to.1 + oy + shadow_offset),
-                shadow,
-                interpolate,
-            );
-        }
-    }
+    let r = thread_radius as f32;
 
-    // Core layer (centred)
-    for ox in -thread_radius..=thread_radius {
-        for oy in -thread_radius..=thread_radius {
-            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
-                continue;
-            }
-            draw_antialiased_line_segment_mut(
-                img,
-                (from.0 + ox, from.1 + oy),
-                (to.0 + ox, to.1 + oy),
-                color,
-                interpolate,
-            );
-        }
-    }
+    // 1. Shadow layer (offset down-right)
+    draw_capsule_antialiased(
+        img,
+        (from.0 + shadow_offset, from.1 + shadow_offset),
+        (to.0 + shadow_offset, to.1 + shadow_offset),
+        shadow,
+        r,
+    );
 
-    // Highlight layer (offset up-left)
-    for ox in -thread_radius..=thread_radius {
-        for oy in -thread_radius..=thread_radius {
-            if (ox * ox) + (oy * oy) > thread_radius * thread_radius {
-                continue;
-            }
-            draw_antialiased_line_segment_mut(
-                img,
-                (
-                    from.0 + ox - highlight_offset,
-                    from.1 + oy - highlight_offset,
-                ),
-                (to.0 + ox - highlight_offset, to.1 + oy - highlight_offset),
-                highlight,
-                interpolate,
-            );
-        }
-    }
+    // 2. Core layer (centered)
+    draw_capsule_antialiased(img, from, to, color, r);
+
+    // 3. Highlight layer (offset up-left, slightly thinner sheen)
+    draw_capsule_antialiased(
+        img,
+        (from.0 - highlight_offset, from.1 - highlight_offset),
+        (to.0 - highlight_offset, to.1 - highlight_offset),
+        highlight,
+        (r * 0.75).max(0.8),
+    );
 }
 
 /// Render an embroidery pattern to PNG bytes.
