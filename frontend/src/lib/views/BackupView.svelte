@@ -941,24 +941,19 @@
             >
           </p>
         </div>
-        {#if restoreAnyRunning}
-          <button
-            type="button"
-            class="settings-primary-button menu-button-primary"
-            disabled
-            title="A restore is already running">Restore database idle</button
-          >
-        {:else}
-          <button
-            type="button"
-            class="settings-primary-button menu-button-primary"
-            disabled={!restoreDbFile.trim()}
-            title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
-            onclick={() => requestRestore("database")}
-          >
-            Restore Database Now
-          </button>
-        {/if}
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={restoreAnyRunning || !restoreDbFile.trim()}
+          title={restoreAnyRunning
+            ? "A restore is already running"
+            : !restoreDbFile.trim()
+              ? "Choose a database backup file first"
+              : undefined}
+          onclick={() => requestRestore("database")}
+        >
+          Restore Database Now
+        </button>
       </div>
 
       <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
@@ -977,26 +972,20 @@
             >
           </p>
         </div>
-        {#if restoreAnyRunning}
-          <button
-            type="button"
-            class="settings-primary-button menu-button-primary"
-            disabled
-            title="A restore is already running">Sync designs idle</button
-          >
-        {:else}
-          <button
-            type="button"
-            class="settings-primary-button menu-button-primary"
-            disabled={!restoreDesignsSource.trim() && !backupHasDesignsDestination}
-            title={!restoreDesignsSource.trim() && !backupHasDesignsDestination
+        <button
+          type="button"
+          class="settings-primary-button menu-button-primary"
+          disabled={restoreAnyRunning ||
+            (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
+          title={restoreAnyRunning
+            ? "A restore is already running"
+            : !restoreDesignsSource.trim() && !backupHasDesignsDestination
               ? "Set a designs backup folder first"
               : undefined}
-            onclick={() => requestRestore("designs")}
-          >
-            Sync designs from backup
-          </button>
-        {/if}
+          onclick={() => requestRestore("designs")}
+        >
+          Sync designs from backup
+        </button>
       </div>
     </div>
 
@@ -1006,25 +995,21 @@
         Restore the database, then sync design files, and finally check for design files on disk
         that have no database record (you can import those afterwards).
       </p>
-      {#if restoreAnyRunning}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled
-          title="A restore is already running">Restore both idle</button
-        >
-      {:else}
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          disabled={!restoreDbFile.trim() ||
-            (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
-          title={!restoreDbFile.trim() ? "Choose a database backup file first" : undefined}
-          onclick={() => requestRestore("both")}
-        >
-          Restore Both
-        </button>
-      {/if}
+      <button
+        type="button"
+        class="settings-primary-button menu-button-primary"
+        disabled={restoreAnyRunning ||
+          !restoreDbFile.trim() ||
+          (!restoreDesignsSource.trim() && !backupHasDesignsDestination)}
+        title={restoreAnyRunning
+          ? "A restore is already running"
+          : !restoreDbFile.trim()
+            ? "Choose a database backup file first"
+            : undefined}
+        onclick={() => requestRestore("both")}
+      >
+        Restore Both
+      </button>
     </div>
 
     <UnmatchedFilesReconciler />

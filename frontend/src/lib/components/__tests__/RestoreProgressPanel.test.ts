@@ -153,4 +153,41 @@ describe("RestoreProgressPanel", () => {
     render(RestoreProgressPanel);
     expect(screen.getByText("Design sync cancelled")).toBeInTheDocument();
   });
+
+  it("omits running scope summary when database restore is complete", () => {
+    restoreProgressStore.set(
+      progressState({
+        scope: "database",
+        phase: "completed",
+        status: "done",
+        terminal: true,
+      })
+    );
+    render(RestoreProgressPanel);
+    const panel = screen.getByTestId("restore-progress-panel");
+    expect(within(panel).getByText("Database restore complete")).toBeInTheDocument();
+    expect(within(panel).queryByText(/Restoring database/)).not.toBeInTheDocument();
+    expect(within(panel).queryByText("Working…")).not.toBeInTheDocument();
+    expect(within(panel).getByTestId("restore-progress-close")).toBeInTheDocument();
+  });
+
+  it("omits running scope summary when combined restore is complete", () => {
+    restoreProgressStore.set(
+      progressState({
+        scope: "both",
+        phase: "completed",
+        status: "done",
+        terminal: true,
+        copied: 12,
+        skipped: 4,
+        percent: 1,
+      })
+    );
+    render(RestoreProgressPanel);
+    const panel = screen.getByTestId("restore-progress-panel");
+    expect(within(panel).getByText("Restore complete")).toBeInTheDocument();
+    expect(within(panel).queryByText(/Restoring database/)).not.toBeInTheDocument();
+    expect(within(panel).queryByText("Working…")).not.toBeInTheDocument();
+    expect(within(panel).getByTestId("restore-progress-close")).toBeInTheDocument();
+  });
 });

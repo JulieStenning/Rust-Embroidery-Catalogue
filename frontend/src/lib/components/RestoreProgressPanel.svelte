@@ -95,9 +95,11 @@
     <h2 class="text-base font-semibold text-gray-800">
       {terminal ? terminalTitle(progress) : "Restore in progress"}
     </h2>
-    <p class="text-sm text-gray-600">
-      {scopeSummary(progress.scope)}{#if !terminal}…{/if}
-    </p>
+    {#if !terminal}
+      <p class="text-sm text-gray-600">
+        {scopeSummary(progress.scope)}…
+      </p>
+    {/if}
 
     {#if progress.scope === "both" && !terminal}
       <ol class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600" data-testid="restore-steps">
