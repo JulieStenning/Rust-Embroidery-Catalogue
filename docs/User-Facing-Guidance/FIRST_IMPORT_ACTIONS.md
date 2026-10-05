@@ -73,13 +73,15 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 
 ## Recommended First-Run Workflow
 
-1. Add your real machine hoops in **Admin → Hoops**.
-2. Check Tags, Sources and Designers in the Admin pages if your defaults are incomplete.
-3. Import your designs.
+1. Configure your Data Location (if prompted on first launch), Designers, Sources, and Hoops in the initial setup wizard.
+2. Select your Digitising Software & Master Formats (e.g. Embird, Hatch, Bernina, Embrilliance, Janome, mySewnet) if you use them.
+3. Import your designs via **Import Designs**.
 4. Verify the imported designs in Browse and the design detail pages.
 5. Optionally run **Batch Operations** to add Gemini Vision tags.
 
 ## Related Guides
 - [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
+- [SETTINGS.md](SETTINGS.md)
+- [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
 - [GETTING_STARTED.md](GETTING_STARTED.md)

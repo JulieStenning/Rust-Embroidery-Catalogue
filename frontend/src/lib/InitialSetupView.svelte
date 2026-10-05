@@ -6,12 +6,15 @@
   import AdminDesignersView from "./views/AdminDesignersView.svelte";
   import AdminSourcesView from "./views/AdminSourcesView.svelte";
   import AdminHoopsView from "./views/AdminHoopsView.svelte";
+  import MasterFormatsSelector from "./components/MasterFormatsSelector.svelte";
   import {
     browseDataRootFolder,
     completeInitialSetup,
     configureFreshDataRoot,
     getAppStatus,
     getConfiguredDataRoot,
+    getSettingsViewModel,
+    saveSettings,
     restartApplication,
   } from "./api/commandAdapter";
 
@@ -45,6 +48,10 @@
    */
   let dataStepFirst = $state(false);
 
+  /** Enabled master formats string configured in the setup wizard */
+  let enabledMasterFormats = $state("");
+  let formatsLoaded = $state(false);
+
   /** Whether the visible flow includes a leading Data Location step. */
   const hasDataFirstFlow = $derived(needsDataStep && dataStepFirst);
   /** Index of the Data Location step in the visible flow (`-1` when hidden). */
@@ -55,13 +62,15 @@
   const sourceStepIndex = $derived(hasDataFirstFlow ? 2 : 1);
   /** Index of the Hoops step in the visible flow. */
   const hoopStepIndex = $derived(hasDataFirstFlow ? 3 : 2);
+  /** Index of the Design Software / Master Formats step in the visible flow. */
+  const formatStepIndex = $derived(hasDataFirstFlow ? 4 : 3);
   /** Total number of visible steps. */
-  const totalSteps = $derived(hasDataFirstFlow ? 4 : 3);
+  const totalSteps = $derived(hasDataFirstFlow ? 5 : 4);
 
   /** Is the current step the Data Location step? */
   const isDataStep = $derived(needsDataStep && step === dataStepIndex);
   /** Is the current step the last visible step? */
-  const isLastStep = $derived(step === hoopStepIndex);
+  const isLastStep = $derived(step === formatStepIndex);
   /** Show the Back button on any step after the first visible step. */
   const showBack = $derived(step > 0);
 
@@ -98,6 +107,17 @@
       "Not at all! You can skip this step and configure your embroidery hoops later under Manage Data.",
   };
 
+  const formatsCopy = {
+    question: "What are Design Software & Master Formats?",
+    answer:
+      "These are working and outline design files created by digitising software (such as Embird .eof/.ecf, Hatch .emb, Bernina .art, Embrilliance .be, Janome .jan, or mySewnet .edo/.vp4). When enabled, the catalogue indexes them alongside machine stitch files (.pes, .jef, etc.).",
+    whyNowTitle: "Why choose now?",
+    whyNow:
+      "Selecting the software you use now ensures the import scanner automatically detects and pairs your master files with stitch files during your very first import.",
+    mandatory:
+      "Not at all! By default, the catalogue only imports machine stitch files. If you only have machine files, leave this blank and finish setup. You can also change this later in Admin → Settings.",
+  };
+
   const dataCopy = {
     question: "Where should your catalogue data live?",
     answer:
@@ -127,9 +147,15 @@
         stepLabel: `Step ${sourceStepIndex + 1} of ${totalSteps} — Sources`,
       };
     }
+    if (step === hoopStepIndex) {
+      return {
+        ...hoopsCopy,
+        stepLabel: `Step ${hoopStepIndex + 1} of ${totalSteps} — Hoops`,
+      };
+    }
     return {
-      ...hoopsCopy,
-      stepLabel: `Step ${hoopStepIndex + 1} of ${totalSteps} — Hoops`,
+      ...formatsCopy,
+      stepLabel: `Step ${formatStepIndex + 1} of ${totalSteps} — Design Software`,
     };
   });
 
@@ -143,8 +169,17 @@
    *    go straight to Designers → Sources.
    *  - Dev/Portable mode: never show the Data step. */
   onMount(async () => {
-    const statusRes = await getAppStatus();
-    if (statusRes.status) {
+    const [settingsRes, statusRes] = await Promise.all([
+      getSettingsViewModel().catch(() => ({ model: null })),
+      getAppStatus().catch(() => ({ status: null })),
+    ]);
+
+    if (settingsRes?.model) {
+      enabledMasterFormats = settingsRes.model.enabled_master_formats || "";
+    }
+    formatsLoaded = true;
+
+    if (statusRes?.status) {
       mode = statusRes.status.execution_mode;
       dataRootMissing = Boolean(statusRes.status.data_root_missing);
     }
@@ -159,9 +194,6 @@
       const needsDataFirst = !configuredPath || dataRootMissing;
       dataStepFirst = needsDataFirst;
       step = needsDataFirst ? dataStepIndex : designerStepIndex;
-    } else {
-      dataStepFirst = false;
-      step = designerStepIndex;
     }
   });
 
@@ -246,12 +278,35 @@
     step = step + 1;
   }
 
+  /** @typedef {import("./types/ipc").SettingsViewModel} SettingsViewModel */
+
   /** Mark the wizard complete (only reached after the data step, if any). */
   async function finishSetup() {
     if (finishing) return;
     finishing = true;
     error = "";
     try {
+      if (formatsLoaded) {
+        try {
+          const settingsRes = await getSettingsViewModel();
+          /** @type {Partial<SettingsViewModel>} */
+          const base = settingsRes.model || {};
+          await saveSettings({
+            google_api_key: base.google_api_key || "",
+            ai_batch_size: base.ai_batch_size || "",
+            ai_delay: base.ai_delay || "",
+            ai_gemini_model: base.ai_gemini_model || "",
+            ai_commit_every: base.ai_commit_every || "",
+            ai_workers: base.ai_workers || "",
+            ai_free_tier: Boolean(base.ai_free_tier),
+            enabled_master_formats: enabledMasterFormats,
+            data_root: base.data_root || "",
+            db_idle_check_interval_secs: base.db_idle_check_interval_secs || "1800",
+          });
+        } catch (settingsErr) {
+          console.warn("Could not save initial master formats:", settingsErr);
+        }
+      }
       await completeInitialSetup();
       onInitialSetupCompleted();
     } catch (e) {
@@ -267,7 +322,7 @@
   <!-- Welcome banner -->
   <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm">
     <span class="font-semibold">Welcome to Embroidery Catalogue!</span>
-    Before you import files, you can optionally add a few of your main Designers, Sources and Hoops.
+    Before you import files, you can optionally add your main Designers, Sources, Hoops and Design Software.
   </div>
 
   <!-- Main card -->
@@ -275,11 +330,11 @@
     <h1 class="ui-page-title text-2xl font-bold text-gray-800">Let's set up your catalogue</h1>
     <p class="text-sm text-gray-600">
       {#if hasDataFirstFlow}
-        First, choose where your data lives. Then you can add your frequent Designers, Sources and
-        Hoops.
+        First, choose where your data lives. Then you can configure your frequent Designers,
+        Sources, Hoops and Design Software.
       {:else}
-        Adding your frequent Designers, Sources and Hoops now makes the Bulk Import tool faster and
-        easier to use.
+        Setting up your frequent Designers, Sources, Hoops and Design Software now makes the Bulk
+        Import tool faster and easier to use.
       {/if}
     </p>
 
@@ -359,6 +414,10 @@
       <AdminSourcesView embedded={true} />
     {:else if step === hoopStepIndex}
       <AdminHoopsView embedded={true} />
+    {:else if step === formatStepIndex}
+      <div class="space-y-3" data-testid="initial-setup-formats-view">
+        <MasterFormatsSelector bind:value={enabledMasterFormats} />
+      </div>
     {/if}
 
     <!-- Bottom buttons -->

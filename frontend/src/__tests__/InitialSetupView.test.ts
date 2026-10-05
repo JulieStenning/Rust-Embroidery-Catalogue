@@ -17,6 +17,8 @@ const setConfiguredDataRootMock = vi.hoisted(() => vi.fn());
 const configureFreshDataRootMock = vi.hoisted(() => vi.fn());
 const browseDataRootFolderMock = vi.hoisted(() => vi.fn());
 const restartApplicationMock = vi.hoisted(() => vi.fn());
+const getSettingsViewModelMock = vi.hoisted(() => vi.fn());
+const saveSettingsMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/api/commandAdapter", () => ({
@@ -27,6 +29,8 @@ vi.mock("../lib/api/commandAdapter", () => ({
   configureFreshDataRoot: configureFreshDataRootMock,
   browseDataRootFolder: browseDataRootFolderMock,
   restartApplication: restartApplicationMock,
+  getSettingsViewModel: getSettingsViewModelMock,
+  saveSettings: saveSettingsMock,
 }));
 
 vi.mock("../lib/stores/toastStore.js", () => ({
@@ -112,7 +116,7 @@ function mockInstalledDataRootMissing() {
 }
 
 /** Installed mode where a valid configured data root already exists
- *  (data step is skipped entirely — Designers → Sources → Hoops → API Key). */
+ *  (data step is skipped entirely — Designers → Sources → Hoops → Design Software). */
 function mockInstalledWithConfig() {
   getAppStatusMock.mockResolvedValue({
     source: "rust",
@@ -141,11 +145,18 @@ describe("InitialSetupView.svelte", () => {
     vi.clearAllMocks();
     completeInitialSetupMock.mockResolvedValue(undefined);
     restartApplicationMock.mockResolvedValue({ source: "rust", restarted: true });
+    getSettingsViewModelMock.mockResolvedValue({
+      source: "rust",
+      model: {
+        enabled_master_formats: "",
+      },
+    });
+    saveSettingsMock.mockResolvedValue({ source: "rust", saved: true, persisted: true });
     mockDevMode();
   });
 
   // -----------------------------------------------------------------------
-  // Dev mode — no data step, Designers → Sources → Hoops
+  // Dev mode — no data step, Designers → Sources → Hoops → Design Software
   // -----------------------------------------------------------------------
 
   it("renders the Designers step by default", async () => {
@@ -156,7 +167,7 @@ describe("InitialSetupView.svelte", () => {
 
     expect(screen.getByText("Welcome to Embroidery Catalogue!")).toBeInTheDocument();
     expect(screen.getByText("Let's set up your catalogue")).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     expect(screen.getByText("What are Designers?")).toBeInTheDocument();
     expect(screen.getByText(/Designers are the digitizers or creators/)).toBeInTheDocument();
     expect(screen.getByText(/Why do this now\?/)).toBeInTheDocument();
@@ -186,7 +197,7 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
 
-    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
     expect(screen.getByText("What are Sources?")).toBeInTheDocument();
     expect(
       screen.getByText(/Sources describe where your embroidery designs came from/)
@@ -202,7 +213,7 @@ describe("InitialSetupView.svelte", () => {
     expect(completeInitialSetupMock).not.toHaveBeenCalled();
   });
 
-  it("advances to the Hoops step from Sources and shows Finish button", async () => {
+  it("advances to the Hoops step from Sources", async () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
     });
@@ -213,28 +224,55 @@ describe("InitialSetupView.svelte", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
 
-    expect(screen.getByText("Step 3 of 3 — Hoops")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
     expect(screen.getByText("What are Hoops?")).toBeInTheDocument();
     expect(
       screen.getByText(/Hoops are the frames your embroidery machine uses/)
     ).toBeInTheDocument();
     expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-sources-view")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue →" })).toBeEnabled();
   });
 
-  it("completes setup and invokes the callback on the final Hoops step", async () => {
-    const onInitialSetupCompleted = vi.fn();
-    render(InitialSetupView, { props: { onInitialSetupCompleted } });
+  it("advances to the Design Software step from Hoops and shows Finish button", async () => {
+    render(InitialSetupView, {
+      props: { onInitialSetupCompleted: vi.fn() },
+    });
     await tick();
 
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
 
+    expect(screen.getByText("Step 4 of 4 — Design Software")).toBeInTheDocument();
+    expect(screen.getByText("What are Design Software & Master Formats?")).toBeInTheDocument();
+    expect(screen.getByTestId("initial-setup-formats-view")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
+  });
+
+  it("completes setup, saves selected master formats, and invokes the callback on Finish", async () => {
+    const onInitialSetupCompleted = vi.fn();
+    render(InitialSetupView, { props: { onInitialSetupCompleted } });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    // Toggle Embird preset
+    const embirdPreset = screen.getByTestId("master-format-preset-embird");
+    await fireEvent.click(embirdPreset);
+    await tick();
+
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
+    expect(saveSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled_master_formats: "ecf,eof",
+      })
+    );
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(onInitialSetupCompleted).toHaveBeenCalledTimes(1);
@@ -247,20 +285,25 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
-    expect(screen.getByText("Step 3 of 3 — Hoops")).toBeInTheDocument();
+    expect(screen.getByText("Step 4 of 4 — Design Software")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     await tick();
-    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    await tick();
+    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     await tick();
-    expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "← Back" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("initial-setup-back")).not.toBeInTheDocument();
@@ -281,7 +324,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -309,7 +352,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -332,7 +375,7 @@ describe("InitialSetupView.svelte", () => {
     });
     await tick();
 
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
@@ -363,7 +406,7 @@ describe("InitialSetupView.svelte", () => {
   // Installed mode, first run — data root first, then restart
   // -----------------------------------------------------------------------
 
-  it("shows a four-step wizard with Data Location first on first run", async () => {
+  it("shows a five-step wizard with Data Location first on first run", async () => {
     mockInstalledNoConfig();
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },
@@ -371,7 +414,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-input")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-browse")).toBeInTheDocument();
@@ -387,7 +430,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -423,7 +466,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -451,7 +494,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -485,7 +528,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const input = screen.getByTestId("data-root-input");
@@ -516,7 +559,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
 
     const finishButton = screen.getByRole("button", { name: "Continue →" });
@@ -538,7 +581,7 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 4 — Data Location")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 5 — Data Location")).toBeInTheDocument();
     });
     expect(screen.getByTestId("data-root-missing-notice")).toBeInTheDocument();
     expect(screen.getByTestId("data-root-input")).toHaveValue("G:/OldPortableData");
@@ -556,20 +599,25 @@ describe("InitialSetupView.svelte", () => {
     await tick();
 
     await waitFor(() => {
-      expect(screen.getByText("Step 1 of 3 — Designers")).toBeInTheDocument();
+      expect(screen.getByText("Step 1 of 4 — Designers")).toBeInTheDocument();
     });
     expect(screen.getByTestId("admin-designers-view")).toBeInTheDocument();
     expect(screen.queryByTestId("data-root-input")).not.toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
-    expect(screen.getByText("Step 2 of 3 — Sources")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 4 — Sources")).toBeInTheDocument();
     expect(screen.getByTestId("admin-sources-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
-    expect(screen.getByText("Step 3 of 3 — Hoops")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 4 — Hoops")).toBeInTheDocument();
     expect(screen.getByTestId("admin-hoops-view")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+    await tick();
+    expect(screen.getByText("Step 4 of 4 — Design Software")).toBeInTheDocument();
+    expect(screen.getByTestId("initial-setup-formats-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(configureFreshDataRootMock).not.toHaveBeenCalled();
