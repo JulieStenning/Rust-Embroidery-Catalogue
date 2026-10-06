@@ -372,8 +372,8 @@ describe("MainView.svelte", () => {
     });
   });
 
-  it("renders the orphans sub-view for #/admin/system/orphans", async () => {
-    setHash("#/admin/system/orphans");
+  it("renders the discrepancies sub-view for #/admin/system/discrepancies", async () => {
+    setHash("#/admin/system/discrepancies");
     render(MainView);
 
     expect(screen.getByTestId("system-maintenance-tablist")).toBeInTheDocument();
@@ -562,7 +562,7 @@ describe("MainView.svelte", () => {
       expect(screen.getByTestId("tags-view")).toBeInTheDocument();
     });
 
-    setHash("#/admin/system/orphans");
+    setHash("#/admin/system/discrepancies");
     await waitFor(() => {
       expect(screen.getByTestId("orphans-view")).toBeInTheDocument();
     });

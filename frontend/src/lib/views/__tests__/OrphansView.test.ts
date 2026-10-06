@@ -118,17 +118,20 @@ afterEach(() => {
 // Page chrome
 // ---------------------------------------------------------------------------
 describe("OrphansView page chrome", () => {
-  it("renders the page heading 'Orphans'", async () => {
+  it("renders the page heading 'Library Discrepancies'", async () => {
     render(OrphansView);
     await waitForLoaded();
-    expect(screen.getByRole("heading", { name: "Orphans" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Library Discrepancies" })).toBeInTheDocument();
+    expect(screen.getByTestId("scan-unmatched-button")).toBeInTheDocument();
   });
 
   it("renders the description paragraph", async () => {
     render(OrphansView);
     await waitForLoaded();
     expect(
-      screen.getByText("Find and remove database records whose files no longer exist on disk.")
+      screen.getByText(
+        "Reconcile differences between your database catalogue and the files on disk."
+      )
     ).toBeInTheDocument();
   });
 

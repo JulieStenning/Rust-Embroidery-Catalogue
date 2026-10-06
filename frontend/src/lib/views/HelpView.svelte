@@ -254,8 +254,9 @@
   <section id="maintenance">
     <h2 class="text-xl font-semibold mb-3 border-b pb-1">🛠 Maintenance</h2>
     <p class="text-sm text-gray-700 mb-3">
-      Use <a href="#/admin/system/orphans" class="text-indigo-600 hover:underline">Orphans</a> to find
-      records whose files are missing.
+      Use <a href="#/admin/system/discrepancies" class="text-indigo-600 hover:underline"
+        >Library Discrepancies</a
+      > to find records whose files are missing or uncatalogued disk files.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>

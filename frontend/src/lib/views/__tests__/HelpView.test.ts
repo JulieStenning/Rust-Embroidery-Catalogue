@@ -423,13 +423,19 @@ describe("HelpView", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "maintenance");
 
-      // Intro paragraph — text is split by the inline Orphans link.
+      // Intro paragraph — text is split by the inline Library Discrepancies link.
       expect(
-        section.getByText(normalizedText("Use Orphans to find records whose files are missing."))
+        section.getByText(
+          normalizedText(
+            "Use Library Discrepancies to find records whose files are missing or uncatalogued disk files."
+          )
+        )
       ).toBeInTheDocument();
 
-      const orphansLink = section.getByRole("link", { name: "Orphans" });
-      expect(orphansLink).toHaveAttribute("href", "#/admin/system/orphans");
+      const discrepanciesLink = section.getByRole("link", {
+        name: "Library Discrepancies",
+      });
+      expect(discrepanciesLink).toHaveAttribute("href", "#/admin/system/discrepancies");
 
       expect(section.getByText("What orphaned records are:")).toBeInTheDocument();
       expect(section.getByText("Deleting orphans:")).toBeInTheDocument();

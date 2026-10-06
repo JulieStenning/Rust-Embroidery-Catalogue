@@ -26,7 +26,7 @@ export const ORDERED_ROUTE_HINTS = [
   "#/admin/system",
   "#/admin/system/settings",
   "#/admin/system/backup",
-  "#/admin/system/orphans",
+  "#/admin/system/discrepancies",
   "#/about",
 ];
 
@@ -45,7 +45,7 @@ export const ROUTE_UI_KIND = {
   "#/admin/system": "system",
   "#/admin/system/settings": "system",
   "#/admin/system/backup": "system",
-  "#/admin/system/orphans": "system",
+  "#/admin/system/discrepancies": "system",
   "#/about": "about",
 };
 
@@ -53,7 +53,7 @@ export const ROUTE_UI_KIND = {
 export const REFERENCE_DATA_TABS = ["designers", "tags", "tag-matches", "sources", "hoops"];
 
 /** Sub-tabs shown by the System / Maintenance hub, in display order. */
-export const SYSTEM_TABS = ["settings", "backup", "orphans"];
+export const SYSTEM_TABS = ["settings", "backup", "discrepancies"];
 
 /**
  * Which Reference Data sub-view a route targets.
@@ -77,7 +77,7 @@ export function parseReferenceDataTab(route) {
  */
 export function parseSystemTab(route) {
   if (route === "#/admin/system") return "settings";
-  const match = route.match(/^#\/admin\/system\/(settings|backup|orphans)$/);
+  const match = route.match(/^#\/admin\/system\/(settings|backup|discrepancies)$/);
   return match ? match[1] : null;
 }
 

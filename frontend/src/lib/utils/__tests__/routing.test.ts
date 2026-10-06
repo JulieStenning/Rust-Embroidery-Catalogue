@@ -52,7 +52,7 @@ describe("resolveCurrentUiKind", () => {
     expect(resolveCurrentUiKind("#/admin/system")).toBe("system");
     expect(resolveCurrentUiKind("#/admin/system/settings")).toBe("system");
     expect(resolveCurrentUiKind("#/admin/system/backup")).toBe("system");
-    expect(resolveCurrentUiKind("#/admin/system/orphans")).toBe("system");
+    expect(resolveCurrentUiKind("#/admin/system/discrepancies")).toBe("system");
   });
 
   it("maps an unrecognised route to null", () => {
@@ -88,7 +88,7 @@ describe("parseSystemTab", () => {
   it("parses each sub-tab route", () => {
     expect(parseSystemTab("#/admin/system/settings")).toBe("settings");
     expect(parseSystemTab("#/admin/system/backup")).toBe("backup");
-    expect(parseSystemTab("#/admin/system/orphans")).toBe("orphans");
+    expect(parseSystemTab("#/admin/system/discrepancies")).toBe("discrepancies");
   });
 
   it("returns null outside the System hub", () => {
@@ -130,7 +130,7 @@ describe("shouldShowBackButton", () => {
       "#/admin/batch-operations",
       "#/admin/system/settings",
       "#/admin/system/backup",
-      "#/admin/system/orphans",
+      "#/admin/system/discrepancies",
     ];
     for (const route of routes) {
       expect(shouldShowBackButton(route, prev)).toBe(false);

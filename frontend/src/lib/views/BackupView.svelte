@@ -20,13 +20,11 @@
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
-  import { resetUnmatchedFiles, setUnmatchedFilesDetected } from "../stores/unmatchedFilesStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import { initDatabaseBackupCompletedEvent } from "../services/backupEvents.js";
   import CancelBackupModal from "../components/CancelBackupModal.svelte";
   import ConfirmRestoreModal from "../components/ConfirmRestoreModal.svelte";
   import RestoreProgressPanel from "../components/RestoreProgressPanel.svelte";
-  import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
 
   let backupDbDestination = $state("");
   let backupDesignsDestination = $state("");
@@ -477,7 +475,6 @@
     restoreRolledBack = false;
     restoreSchemaVersion = null;
     restorePreviousSchemaVersion = null;
-    resetUnmatchedFiles();
     resetRestoreProgress();
     beginBusy("Restoring catalogue");
 
@@ -526,10 +523,10 @@
         }
         const unmatched = result?.unmatched;
         if (unmatched && Number(unmatched.unmatched) > 0) {
-          setUnmatchedFilesDetected(
-            Number(unmatched.unmatched) || 0,
-            Number(unmatched.checked) || 0,
-            Array.isArray(unmatched.sample) ? unmatched.sample : []
+          addToast(
+            `Restore completed. ${unmatched.unmatched} uncatalogued file(s) detected on disk. You can import them under Import or System → Library Discrepancies.`,
+            "info",
+            true
           );
         }
         return;
@@ -1011,8 +1008,6 @@
         Restore Both
       </button>
     </div>
-
-    <UnmatchedFilesReconciler />
   {/if}
 </section>
 

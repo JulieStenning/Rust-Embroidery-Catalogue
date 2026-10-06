@@ -18,7 +18,7 @@
   const TABS = [
     { id: "settings", label: "Settings", route: "#/admin/system/settings" },
     { id: "backup", label: "Backup & Restore", route: "#/admin/system/backup" },
-    { id: "orphans", label: "Orphaned Files", route: "#/admin/system/orphans" },
+    { id: "discrepancies", label: "Library Discrepancies", route: "#/admin/system/discrepancies" },
   ];
 
   let busyActive = $derived($busyState.active);
@@ -89,7 +89,7 @@
     <SettingsView />
   {:else if activeTab === "backup"}
     <BackupView />
-  {:else if activeTab === "orphans"}
+  {:else if activeTab === "discrepancies"}
     <OrphansView />
   {/if}
 </div>

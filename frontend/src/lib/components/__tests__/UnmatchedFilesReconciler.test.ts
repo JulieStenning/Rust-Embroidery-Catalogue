@@ -12,6 +12,7 @@ import {
   setUnmatchedFilesDetected,
 } from "../../stores/unmatchedFilesStore";
 import { restoreProgressStore, resetRestoreProgress } from "../../stores/restoreProgressStore";
+import { resetBusy } from "../../stores/busyStore.js";
 
 const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("../../stores/toastStore.js", () => toastMock);
 describe("UnmatchedFilesReconciler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetBusy();
     resetUnmatchedFiles();
     resetRestoreProgress();
     adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({

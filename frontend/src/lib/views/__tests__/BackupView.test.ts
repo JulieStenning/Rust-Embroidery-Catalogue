@@ -7,7 +7,6 @@ import { render, screen, waitFor, fireEvent, within } from "@testing-library/sve
 import { tick } from "svelte";
 import BackupView from "../BackupView.svelte";
 import { restoreProgressStore, resetRestoreProgress } from "../../stores/restoreProgressStore";
-import { resetUnmatchedFiles } from "../../stores/unmatchedFilesStore";
 
 const adapterMocks = vi.hoisted(() => ({
   getBackupViewModel: vi.fn(),
@@ -222,7 +221,6 @@ describe("BackupView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetRestoreProgress();
-    resetUnmatchedFiles();
     mockDefaults();
   });
 
@@ -1123,68 +1121,6 @@ describe("BackupView", () => {
       expect(screen.queryByTestId("restore-progress-panel")).not.toBeInTheDocument();
     });
 
-    it("scans for unmatched files and shows the import prompt when any are found", async () => {
-      adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
-        source: "rust",
-        checked: 12,
-        unmatched: 3,
-        sample: ["MachineEmbroideryDesigns/a.pes"],
-      });
-      render(BackupView);
-      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
-      await switchToRestoreTab();
-
-      await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
-      await waitFor(() =>
-        expect(adapterMocks.detectDesignFilesAbsentFromDatabase).toHaveBeenCalled()
-      );
-      await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
-      expect(screen.getByRole("button", { name: /Import 3 file/ })).toBeInTheDocument();
-    });
-
-    it("reports when a scan finds no unmatched files", async () => {
-      adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
-        source: "rust",
-        checked: 8,
-        unmatched: 0,
-        sample: [],
-      });
-      render(BackupView);
-      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
-      await switchToRestoreTab();
-
-      await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
-      await waitFor(() =>
-        expect(toastMocks.addToast).toHaveBeenCalledWith(
-          expect.stringContaining("No unmatched design files found"),
-          "success"
-        )
-      );
-      expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
-    });
-
-    it("shows an error toast when the unmatched scan fails", async () => {
-      adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
-        source: "mock",
-        error: "boom",
-        checked: 0,
-        unmatched: 0,
-        sample: [],
-      });
-      render(BackupView);
-      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
-      await switchToRestoreTab();
-
-      await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
-      await waitFor(() =>
-        expect(toastMocks.addToast).toHaveBeenCalledWith(
-          expect.stringContaining("Scan failed"),
-          "error"
-        )
-      );
-      expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
-    });
-
     it("file picker defaults to the configured database backup folder", async () => {
       render(BackupView);
       await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
@@ -1251,7 +1187,7 @@ describe("BackupView", () => {
       );
     });
 
-    it("shows the unmatched-files prompt after restoring both and imports on request", async () => {
+    it("shows an info toast after restoring both when uncatalogued files are detected", async () => {
       adapterMocks.restoreBoth.mockResolvedValue({
         source: "rust",
         database: {
@@ -1293,55 +1229,13 @@ describe("BackupView", () => {
 
       await fireEvent.click(screen.getByRole("button", { name: "Restore Both" }));
       await confirmRestoreModal("Restore both");
-      await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
-
-      await fireEvent.click(screen.getByRole("button", { name: /Import 2 file/ }));
-      await waitFor(() => expect(adapterMocks.importUnmatchedDesignFiles).toHaveBeenCalled());
-    });
-
-    it("dismisses the unmatched-files prompt", async () => {
-      adapterMocks.restoreBoth.mockResolvedValue({
-        source: "rust",
-        database: {
-          success: true,
-          restored_path: "C:\\x.db",
-          rollback_copy_path: null,
-          design_count: 5,
-          schema_version_hint: null,
-          previous_schema_version_hint: null,
-          rolled_back: false,
-          error: null,
-        },
-        designs: {
-          success: true,
-          scanned: 5,
-          copied: 2,
-          updated: 0,
-          skipped: 3,
-          total_bytes_copied: 0,
-          error: null,
-        },
-        unmatched: { checked: 5, unmatched: 2, sample: [] },
-      });
-      render(BackupView);
-      await waitFor(() => expect(adapterMocks.getBackupViewModel).toHaveBeenCalled());
-      await switchToRestoreTab();
-
-      adapterMocks.browseRestoreFile.mockResolvedValue({
-        source: "rust",
-        path: "C:\\backups\\catalogue_2026-08-01.db",
-        error: null,
-      });
-      await fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
-      await waitFor(() => expect(adapterMocks.browseRestoreFile).toHaveBeenCalled());
-
-      await fireEvent.click(screen.getByRole("button", { name: "Restore Both" }));
-      await confirmRestoreModal("Restore both");
-      await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
-
-      await fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-      await tick();
-      expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(toastMocks.addToast).toHaveBeenCalledWith(
+          expect.stringContaining("2 uncatalogued file(s) detected"),
+          "info",
+          true
+        )
+      );
     });
 
     it("shows no error and keeps restore disabled when the file picker is cancelled", async () => {

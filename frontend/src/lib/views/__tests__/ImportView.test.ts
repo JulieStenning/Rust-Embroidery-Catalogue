@@ -26,6 +26,9 @@ const adapterMocks = vi.hoisted(() => ({
   browseImportFolder: vi.fn(),
   saveImportLastBrowseFolder: vi.fn(),
   getSettingsViewModel: vi.fn(),
+  detectDesignFilesAbsentFromDatabase: vi.fn(),
+  importUnmatchedDesignFiles: vi.fn(),
+  requestCancelRestore: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -221,6 +224,22 @@ beforeEach(() => {
   adapterMocks.browseImportFolder.mockResolvedValue(browseResponse());
   adapterMocks.saveImportLastBrowseFolder.mockResolvedValue({ source: "rust", persisted: true });
   eventMocks.listen.mockResolvedValue(() => {});
+  adapterMocks.detectDesignFilesAbsentFromDatabase.mockResolvedValue({
+    source: "rust",
+    checked: 0,
+    unmatched: 0,
+    sample: [],
+  });
+});
+
+describe("ImportView unmatched files reconciliation", () => {
+  it("renders the unmatched files reconciler card on Step 1", async () => {
+    renderHarness("#/import");
+    expect(
+      screen.getByRole("heading", { name: "Find unmatched design files" })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("scan-unmatched-button")).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1478,10 +1497,10 @@ describe("ImportView bulk import progress events", () => {
     const { container } = renderHarness("#/import");
     await gotoStep3(container);
 
-    expect(eventMocks.listen).not.toHaveBeenCalled();
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalledTimes(1));
-    expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function));
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
     resolveAction(actionResponse());
   });
@@ -1493,7 +1512,10 @@ describe("ImportView bulk import progress events", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(adapterMocks.runPrecheckAction).toHaveBeenCalled());
 
-    expect(eventMocks.listen).not.toHaveBeenCalled();
+    expect(eventMocks.listen).not.toHaveBeenCalledWith(
+      "bulk-import-progress",
+      expect.any(Function)
+    );
   });
 
   it("renders the started stage status on the import button", async () => {
@@ -1507,11 +1529,13 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
     handler({ payload: { stage: "started", total_count: 3 } });
 
     await waitFor(() =>
@@ -1533,11 +1557,13 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
     handler({
       payload: {
         stage: "processing_file",
@@ -1566,11 +1592,13 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
 
     handler({
       payload: {
@@ -1612,11 +1640,13 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
 
     handler({
       payload: { stage: "completed", processed_count: 3, total_count: 3, committed_count: 3 },
@@ -1653,11 +1683,13 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
     handler({
       payload: { stage: "weird_stage", processed_count: 1, total_count: 4, committed_count: 1 },
     });
@@ -1681,11 +1713,13 @@ describe("ImportView bulk import progress events", () => {
     await gotoStep3(container);
 
     await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
-    await waitFor(() => expect(eventMocks.listen).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
 
-    const handler = eventMocks.listen.mock.calls[0][1] as (event: {
-      payload: Record<string, unknown>;
-    }) => void;
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
     handler({ payload: { stage: "started", total_count: 3, context_token: "tok-123" } });
     await waitFor(() =>
       expect(

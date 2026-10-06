@@ -624,11 +624,11 @@ describe("routing and navigation", () => {
     });
   });
 
-  it("renders the Orphans view for #/admin/system/orphans", async () => {
-    renderAtHash("#/admin/system/orphans");
+  it("renders the Discrepancies view for #/admin/system/discrepancies", async () => {
+    renderAtHash("#/admin/system/discrepancies");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Orphans" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Library Discrepancies" })).toBeInTheDocument();
     });
   });
 

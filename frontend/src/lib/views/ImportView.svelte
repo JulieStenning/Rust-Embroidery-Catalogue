@@ -32,6 +32,7 @@
     selDeselectAllFolders,
   } from "../utils/importSelection.js";
   import Pagination from "../components/Pagination.svelte";
+  import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
 
   // Step-2 file list rendering: folders larger than this start collapsed; smaller
   // folders keep today's always-visible rows. Files within a folder page at this
@@ -1236,6 +1237,8 @@
         </div>
       </form>
     </div>
+
+    <UnmatchedFilesReconciler />
   {/if}
 
   {#if importRouteStep === 2}

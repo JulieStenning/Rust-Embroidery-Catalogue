@@ -19,7 +19,6 @@
   import { initBackfillProgressEvents } from "../services/backfillEvents";
   import { backfillProgressStore, resetBackfillProgress } from "../stores/backfillProgressStore";
   import { browseSessionStore } from "../stores/browseSessionStore.js";
-  import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
 
   let backfillProgressUnlisten: (() => void) | null = null;
 
@@ -1075,8 +1074,6 @@
           Stop
         </button>
       </div>
-
-      <UnmatchedFilesReconciler />
     {/if}
 
     <!-- Last summary -->

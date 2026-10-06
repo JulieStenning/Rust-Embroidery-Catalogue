@@ -119,6 +119,10 @@
     } catch (error) {
       addToast(`Import failed: ${error}`, "error");
     } finally {
+      if (unlistenRestore) {
+        unlistenRestore();
+        unlistenRestore = null;
+      }
       importing = false;
       cancelling = false;
       totalToImport = 0;

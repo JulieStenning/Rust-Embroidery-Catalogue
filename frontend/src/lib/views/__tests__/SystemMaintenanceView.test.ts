@@ -41,9 +41,9 @@ describe("SystemMaintenanceView", () => {
       "href",
       "#/admin/system/backup"
     );
-    expect(screen.getByRole("tab", { name: "Orphaned Files" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Library Discrepancies" })).toHaveAttribute(
       "href",
-      "#/admin/system/orphans"
+      "#/admin/system/discrepancies"
     );
   });
 
@@ -75,25 +75,25 @@ describe("SystemMaintenanceView", () => {
       expect(screen.getByTestId("sys-settings")).toBeInTheDocument();
     });
 
-    setHash("#/admin/system/orphans");
+    setHash("#/admin/system/discrepancies");
     await waitFor(() => {
       expect(screen.getByTestId("sys-orphans")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("sys-settings")).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Orphaned Files" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Library Discrepancies" })).toHaveAttribute(
       "aria-selected",
       "true"
     );
     expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "false");
   });
 
-  it("mounts the orphans child for the orphans URL", async () => {
-    setHash("#/admin/system/orphans");
+  it("mounts the discrepancies child for the discrepancies URL", async () => {
+    setHash("#/admin/system/discrepancies");
     render(SystemMaintenanceView);
     await waitFor(() => {
       expect(screen.getByTestId("sys-orphans")).toBeInTheDocument();
     });
-    expect(screen.getByRole("tab", { name: "Orphaned Files" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Library Discrepancies" })).toHaveAttribute(
       "aria-selected",
       "true"
     );

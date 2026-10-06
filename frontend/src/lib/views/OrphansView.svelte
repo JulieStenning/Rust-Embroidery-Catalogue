@@ -12,6 +12,7 @@
     scanOrphans,
   } from "../api/commandAdapter";
   import Pagination from "../components/Pagination.svelte";
+  import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
 
@@ -192,140 +193,151 @@
   });
 </script>
 
-<div class="space-y-4">
+<div class="space-y-6">
   <div class="space-y-1 font-sans">
-    <h1 class="ui-page-title text-2xl font-bold text-gray-800">Orphans</h1>
+    <h1 class="ui-page-title text-2xl font-bold text-gray-800">Library Discrepancies</h1>
     <p class="text-gray-600 text-sm">
-      Find and remove database records whose files no longer exist on disk.
+      Reconcile differences between your database catalogue and the files on disk.
     </p>
   </div>
 
-  {#if orphansError}
-    <div class="bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
-      {orphansError}
-    </div>
-  {/if}
+  <UnmatchedFilesReconciler />
 
-  <div class="flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
-    <span>
-      {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
-    </span>
-    <div class="flex gap-2">
-      <button
-        type="button"
-        class="menu-button-primary"
-        onclick={triggerDiskScan}
-        disabled={orphansLoading || busyActive}
-      >
-        {orphansLoading ? "Scanning..." : "Scan Disk"}
-      </button>
-      <button
-        type="button"
-        class="menu-button-secondary"
-        onclick={() => loadOrphansPage(orphanPage, true)}
-        disabled={orphansLoading || busyActive}
-      >
-        Refresh
-      </button>
-      <button
-        type="button"
-        class="menu-button-secondary"
-        onclick={selectAllOrphansOnPage}
-        disabled={orphansLoading || busyActive || orphanItems.length === 0}
-      >
-        Select all
-      </button>
-      <button
-        type="button"
-        class="menu-button-secondary"
-        onclick={deselectAllOrphansOnPage}
-        disabled={orphansLoading || busyActive || orphanSelectedIds.length === 0}
-      >
-        Deselect all
-      </button>
-      <button
-        type="button"
-        class="menu-button-secondary"
-        onclick={deleteSelectedOrphans}
-        disabled={orphansLoading || busyActive || orphanSelectedIds.length === 0}
-      >
-        Delete selected ({orphanSelectedIds.length})
-      </button>
-      <button
-        type="button"
-        class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
-        onclick={deleteEveryOrphan}
-        disabled={orphansLoading || busyActive || orphanTotal === 0}
-      >
-        Delete all ({orphanTotal})
-      </button>
+  <div class="space-y-4">
+    <div class="space-y-1 font-sans">
+      <h2 class="text-lg font-semibold text-gray-800">Missing Design Files (Orphans)</h2>
+      <p class="text-gray-600 text-sm">
+        Find and remove database records whose files no longer exist on disk.
+      </p>
     </div>
-  </div>
 
-  <div class="admin-table-shell overflow-auto max-h-[60vh] border rounded shadow bg-white">
-    <table class="admin-table w-full text-left border-collapse text-sm">
-      <thead>
-        <tr class="bg-gray-50 border-b text-gray-700 font-semibold">
-          <th class="px-4 py-2 w-10">Select</th>
-          <th class="px-4 py-2 w-16 text-right">ID</th>
-          <th class="px-4 py-2">Filename</th>
-          <th class="px-4 py-2">Path</th>
-          <th class="px-4 py-2 w-24 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {#if orphanItems.length === 0}
-          <tr>
-            <td colspan="5" class="px-4 py-3 text-gray-400"
-              >No orphaned records found. Refresh or scan to check.</td
-            >
+    {#if orphansError}
+      <div class="bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+        {orphansError}
+      </div>
+    {/if}
+
+    <div class="flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
+      <span>
+        {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
+      </span>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="menu-button-primary"
+          onclick={triggerDiskScan}
+          disabled={orphansLoading || busyActive}
+        >
+          {orphansLoading ? "Scanning..." : "Scan Disk"}
+        </button>
+        <button
+          type="button"
+          class="menu-button-secondary"
+          onclick={() => loadOrphansPage(orphanPage, true)}
+          disabled={orphansLoading || busyActive}
+        >
+          Refresh
+        </button>
+        <button
+          type="button"
+          class="menu-button-secondary"
+          onclick={selectAllOrphansOnPage}
+          disabled={orphansLoading || busyActive || orphanItems.length === 0}
+        >
+          Select all
+        </button>
+        <button
+          type="button"
+          class="menu-button-secondary"
+          onclick={deselectAllOrphansOnPage}
+          disabled={orphansLoading || busyActive || orphanSelectedIds.length === 0}
+        >
+          Deselect all
+        </button>
+        <button
+          type="button"
+          class="menu-button-secondary"
+          onclick={deleteSelectedOrphans}
+          disabled={orphansLoading || busyActive || orphanSelectedIds.length === 0}
+        >
+          Delete selected ({orphanSelectedIds.length})
+        </button>
+        <button
+          type="button"
+          class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+          onclick={deleteEveryOrphan}
+          disabled={orphansLoading || busyActive || orphanTotal === 0}
+        >
+          Delete all ({orphanTotal})
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-table-shell overflow-auto max-h-[60vh] border rounded shadow bg-white">
+      <table class="admin-table w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="bg-gray-50 border-b text-gray-700 font-semibold">
+            <th class="px-4 py-2 w-10">Select</th>
+            <th class="px-4 py-2 w-16 text-right">ID</th>
+            <th class="px-4 py-2">Filename</th>
+            <th class="px-4 py-2">Path</th>
+            <th class="px-4 py-2 w-24 text-right">Actions</th>
           </tr>
-        {:else}
-          {#each orphanItems as item}
-            <tr class="hover:bg-gray-50">
-              <td class="px-4 py-2">
-                <input
-                  type="checkbox"
-                  class="rounded accent-indigo-500 cursor-pointer"
-                  checked={orphanIsSelected(item.id)}
-                  onchange={(e) => toggleOrphanSelection(item.id, e.currentTarget.checked)}
-                />
-              </td>
-              <td class="px-4 py-2 text-right text-gray-500 font-mono">{item.id}</td>
-              <td class="px-4 py-2 font-medium">
-                <button
-                  type="button"
-                  class="text-indigo-600 hover:underline text-left font-medium"
-                  onclick={() => openOrphanDesign(item.id)}
-                  title="Click to view/edit in system editor (if file exists)"
-                >
-                  {item.filename || "Unknown"}
-                </button>
-              </td>
-              <td class="px-4 py-2 text-xs text-gray-600 font-mono break-all">{item.filepath}</td>
-              <td class="px-4 py-2 text-right">
-                <button
-                  type="button"
-                  class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold"
-                  onclick={() => openOrphanPath(item.filepath)}
-                >
-                  Locate Folder
-                </button>
-              </td>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {#if orphanItems.length === 0}
+            <tr>
+              <td colspan="5" class="px-4 py-3 text-gray-400"
+                >No orphaned records found. Refresh or scan to check.</td
+              >
             </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
-  </div>
+          {:else}
+            {#each orphanItems as item}
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2">
+                  <input
+                    type="checkbox"
+                    class="rounded accent-indigo-500 cursor-pointer"
+                    checked={orphanIsSelected(item.id)}
+                    onchange={(e) => toggleOrphanSelection(item.id, e.currentTarget.checked)}
+                  />
+                </td>
+                <td class="px-4 py-2 text-right text-gray-500 font-mono">{item.id}</td>
+                <td class="px-4 py-2 font-medium">
+                  <button
+                    type="button"
+                    class="text-indigo-600 hover:underline text-left font-medium"
+                    onclick={() => openOrphanDesign(item.id)}
+                    title="Click to view/edit in system editor (if file exists)"
+                  >
+                    {item.filename || "Unknown"}
+                  </button>
+                </td>
+                <td class="px-4 py-2 text-xs text-gray-600 font-mono break-all">{item.filepath}</td>
+                <td class="px-4 py-2 text-right">
+                  <button
+                    type="button"
+                    class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold"
+                    onclick={() => openOrphanPath(item.filepath)}
+                  >
+                    Locate Folder
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
+    </div>
 
-  <Pagination
-    currentPage={orphanPage}
-    totalPages={orphanTotalPages}
-    onPageChange={goToOrphanPage}
-    disabled={orphansLoading}
-    showFirstLast={true}
-    windowSize={3}
-    ariaLabel="Orphans pagination"
-  />
+    <Pagination
+      currentPage={orphanPage}
+      totalPages={orphanTotalPages}
+      onPageChange={goToOrphanPage}
+      disabled={orphansLoading}
+      showFirstLast={true}
+      windowSize={3}
+      ariaLabel="Orphans pagination"
+    />
+  </div>
 </div>
