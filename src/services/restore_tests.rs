@@ -33,10 +33,14 @@ async fn make_db(path: &Path, filepaths: &[&str]) {
         )
         .await
         .expect("create db");
-    sqlx::query("CREATE TABLE designs (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, filepath TEXT NOT NULL, date_added TEXT)")
+    sqlx::query("CREATE TABLE designs (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, filepath TEXT NOT NULL, master_filepath TEXT, is_master_only INTEGER NOT NULL DEFAULT 0, date_added TEXT)")
         .execute(&pool)
         .await
         .expect("create table");
+    sqlx::query("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+        .execute(&pool)
+        .await
+        .expect("create settings table");
     for fp in filepaths {
         sqlx::query(
             "INSERT INTO designs (filename, filepath, date_added) VALUES (?, ?, DATE('now'))",
@@ -129,6 +133,8 @@ async fn make_designs_db(path: &Path) {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             filename TEXT NOT NULL,
             filepath TEXT NOT NULL,
+            master_filepath TEXT,
+            is_master_only INTEGER NOT NULL DEFAULT 0,
             date_added TEXT,
             designer_id INTEGER,
             source_id INTEGER,
@@ -147,6 +153,10 @@ async fn make_designs_db(path: &Path) {
             vision_ai_matched INTEGER NOT NULL DEFAULT 0,
             file_size_bytes INTEGER,
             file_hash_blake3 TEXT
+        );
+        CREATE TABLE settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
         );
         CREATE TABLE tags (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -822,4 +832,278 @@ fn test_restore_struct_derives() {
     assert!(format!("{:?}", imp_res).contains("imported: 2"));
     let _imp_clone = imp_res.clone();
     let _imp_json = serde_json::to_value(&imp_res).unwrap();
+}
+
+#[tokio::test]
+async fn detect_unmatched_files_includes_configured_master_formats() {
+    let tmp = unique_temp_dir("detect-master");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("stitch.pes"), b"stitch").unwrap();
+    fs::write(root.join("master.eof"), b"master").unwrap();
+    fs::write(root.join("unsupported.xyz"), b"other").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_db(&db_path, &["stitch.pes"]).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    // Configure eof as an enabled master format in settings
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let result = detect_design_files_absent_from_database(&pool, &root)
+        .await
+        .unwrap();
+
+    assert_eq!(result.checked, 3);
+    assert_eq!(result.unmatched, 1);
+    assert_eq!(result.sample, vec!["master.eof"]);
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn detect_unmatched_files_ignores_unconfigured_master_formats() {
+    let tmp = unique_temp_dir("detect-unconfigured-master");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("stitch.pes"), b"stitch").unwrap();
+    fs::write(root.join("master.eof"), b"master").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_db(&db_path, &["stitch.pes"]).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    // Setting is empty
+    let result = detect_design_files_absent_from_database(&pool, &root)
+        .await
+        .unwrap();
+
+    assert_eq!(result.checked, 2);
+    assert_eq!(result.unmatched, 0);
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn detect_unmatched_files_treats_master_filepath_as_referenced() {
+    let tmp = unique_temp_dir("detect-master-ref");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("flower.pes"), b"stitch").unwrap();
+    fs::write(root.join("flower.eof"), b"master").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_db(&db_path, &[]).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    // Insert flower.pes with flower.eof as paired master_filepath
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added) VALUES ('flower.pes', 'flower.pes', 'flower.eof', 0, DATE('now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let result = detect_design_files_absent_from_database(&pool, &root)
+        .await
+        .unwrap();
+
+    assert_eq!(result.checked, 2);
+    assert_eq!(
+        result.unmatched, 0,
+        "both stitch and master files are already referenced in database"
+    );
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn import_unmatched_files_imports_standalone_master_design() {
+    let tmp = unique_temp_dir("import-solo-master");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("solo_pattern.eof"), b"solo master content").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_designs_db(&db_path).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+
+    assert_eq!(result.detected, 1);
+    assert_eq!(result.imported, 1);
+    assert_eq!(result.failed, 0);
+
+    let rows = sqlx::query_as::<_, (String, Option<String>, bool)>(
+        "SELECT filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].0, "solo_pattern.eof");
+    assert_eq!(rows[0].1.as_deref(), Some("solo_pattern.eof"));
+    assert!(rows[0].2, "is_master_only should be true");
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn import_unmatched_files_pairs_stitch_and_master_design() {
+    let tmp = unique_temp_dir("import-paired-master");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    // Use minimal valid dummy or binary content for stitch file
+    fs::write(root.join("rose.dst"), b"LA:rose\r\x1a").unwrap();
+    fs::write(root.join("rose.eof"), b"rose master content").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_designs_db(&db_path).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+
+    assert_eq!(result.detected, 2);
+    assert_eq!(result.imported, 1, "paired files produce 1 design record");
+    assert_eq!(result.failed, 0);
+
+    let rows = sqlx::query_as::<_, (String, Option<String>, bool)>(
+        "SELECT filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].0, "rose.dst");
+    assert_eq!(rows[0].1.as_deref(), Some("rose.eof"));
+    assert!(
+        !rows[0].2,
+        "is_master_only should be false for paired design"
+    );
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn import_unmatched_files_pairs_master_with_existing_stitch_record() {
+    let tmp = unique_temp_dir("import-pair-existing");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("tulip.pes"), b"stitch").unwrap();
+    fs::write(root.join("tulip.eof"), b"tulip master").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_designs_db(&db_path).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    // Insert tulip.pes as an existing stitch design without a master file
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added) VALUES ('tulip.pes', 'tulip.pes', NULL, 0, DATE('now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+
+    assert_eq!(result.detected, 1, "only tulip.eof was unmatched");
+    assert_eq!(result.imported, 1);
+    assert_eq!(result.failed, 0);
+
+    let rows = sqlx::query_as::<_, (String, Option<String>, bool)>(
+        "SELECT filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].0, "tulip.pes");
+    assert_eq!(rows[0].1.as_deref(), Some("tulip.eof"));
+    assert!(!rows[0].2);
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
 }

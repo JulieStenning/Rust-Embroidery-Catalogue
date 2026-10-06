@@ -460,44 +460,69 @@ pub async fn perform_designs_restore(
     })
 }
 
-/// Build the set of relative design paths referenced by the database, resolved
-/// against `designs_root` so it can be compared with on-disk snapshots.
+/// Build the set of relative design paths referenced by the database (both
+/// `filepath` and paired `master_filepath`), resolved against `designs_root`
+/// so it can be compared with on-disk snapshots.
 async fn referenced_design_paths(
     pool: &SqlitePool,
     designs_root: &Path,
 ) -> Result<HashSet<PathBuf>, String> {
-    let rows: Vec<(String,)> = sqlx::query_as("SELECT filepath FROM designs")
-        .fetch_all(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+    let rows: Vec<(String, Option<String>)> =
+        sqlx::query_as("SELECT filepath, master_filepath FROM designs")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let mut referenced = HashSet::new();
-    for (filepath,) in rows {
-        if filepath.trim().is_empty() {
-            continue;
+    for (filepath, master_filepath) in rows {
+        if !filepath.trim().is_empty() {
+            let full = mnt::resolve_design_full_path(designs_root, &filepath);
+            if let Ok(relative) = full.strip_prefix(designs_root) {
+                referenced.insert(relative.to_path_buf());
+            }
         }
-        let full = mnt::resolve_design_full_path(designs_root, &filepath);
-        if let Ok(relative) = full.strip_prefix(designs_root) {
-            referenced.insert(relative.to_path_buf());
+        if let Some(mf) = master_filepath {
+            if !mf.trim().is_empty() {
+                let full = mnt::resolve_design_full_path(designs_root, &mf);
+                if let Ok(relative) = full.strip_prefix(designs_root) {
+                    referenced.insert(relative.to_path_buf());
+                }
+            }
         }
     }
     Ok(referenced)
 }
 
+/// Load enabled master file extensions from the settings table.
+async fn load_enabled_master_formats(pool: &SqlitePool) -> Vec<String> {
+    let setting_val =
+        sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+            .bind(crate::services::settings::KEY_IMPORT_ENABLED_MASTER_FORMATS)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_default();
+
+    crate::services::settings::parse_enabled_master_formats(&setting_val)
+}
+
 /// Return design files present on disk (under `designs_root`) that are absent
 /// from the database — the inverse of the existing "orphan" scan.
+/// Includes stitch files and master files whose format is enabled in settings.
 pub async fn detect_design_files_absent_from_database(
     pool: &SqlitePool,
     designs_root: &Path,
 ) -> Result<DetectUnmatchedFilesResult, String> {
     let disk = mnt::collect_file_snapshots(designs_root, true)?;
     let referenced = referenced_design_paths(pool, designs_root).await?;
+    let master_formats = load_enabled_master_formats(pool).await;
 
     let mut unmatched: Vec<String> = disk
         .keys()
         .filter(|relative| {
             let ext = relative.extension().and_then(|e| e.to_str()).unwrap_or("");
-            crate::services::scanning::is_supported_extension(ext)
+            (crate::services::scanning::is_supported_extension(ext)
+                || crate::services::scanning::is_master_extension(ext, &master_formats))
                 && !referenced.contains(*relative)
         })
         .map(|relative| relative.to_string_lossy().to_string())
@@ -590,20 +615,21 @@ impl ImportTaggingContext {
     }
 }
 
-/// Insert a single unmatched design file as a new catalogue record.
+/// Insert a single unmatched stitch design file as a new catalogue record.
 ///
 /// The file is read once through the shared [`design_metadata`] pipeline, which
 /// both renders a 2D preview and derives the technical metadata — matching the
-/// main bulk import.  A decode/read failure does **not** skip the file: the row
+/// main bulk import. A decode/read failure does **not** skip the file: the row
 /// is still inserted with a NULL preview (flagged import) so the user can
 /// regenerate it later.
 ///
 /// After insertion, automatic file/folder path rules and stitching tags are applied
 /// matching the bulk import behaviour.
-async fn import_single_design(
+async fn import_single_stitch_design(
     pool: &SqlitePool,
     relative: &Path,
     full_path: &Path,
+    master_relative: Option<&Path>,
     tagging_ctx: &ImportTaggingContext,
 ) -> Result<SingleImport, String> {
     let extension = full_path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -646,15 +672,18 @@ async fn import_single_design(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| relative.to_string_lossy().to_string());
     let stored_filepath = crate::paths::canonical_design_rel(&relative.to_string_lossy());
+    let stored_master_filepath =
+        master_relative.map(|mr| crate::paths::canonical_design_rel(&mr.to_string_lossy()));
 
     let insert_result = sqlx::query(
-        "INSERT INTO designs (filename, filepath, date_added, hoop_id, image_data, image_type, \
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, hoop_id, image_data, image_type, \
          width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, \
          image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
-         VALUES (?, ?, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+         VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
     )
     .bind(&filename)
     .bind(&stored_filepath)
+    .bind(stored_master_filepath.as_deref())
     .bind(hoop_id)
     .bind(parsed.image_data)
     .bind(parsed.image_type)
@@ -731,6 +760,102 @@ async fn import_single_design(
     })
 }
 
+/// Insert or pair a single unmatched master file.
+///
+/// If an existing un-paired stitch design is found in the catalogue with matching
+/// relative stem and parent directory, its `master_filepath` is updated.
+/// Otherwise, the master file is imported as a standalone master-only design record.
+async fn import_single_master_design(
+    pool: &SqlitePool,
+    relative: &Path,
+    full_path: &Path,
+    master_formats: &[String],
+    tagging_ctx: &ImportTaggingContext,
+) -> Result<SingleImport, String> {
+    let extension = full_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if !crate::services::scanning::is_master_extension(extension, master_formats) {
+        return Ok(SingleImport::Skipped);
+    }
+
+    let filename = relative
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| relative.to_string_lossy().to_string());
+    let stored_filepath = crate::paths::canonical_design_rel(&relative.to_string_lossy());
+
+    let file_size_bytes = crate::routes::bulk_import::compute_file_size(full_path).ok();
+    let file_hash_blake3 = crate::routes::bulk_import::compute_file_hash_blake3(full_path).ok();
+
+    let stem = relative.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let parent = relative
+        .parent()
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+
+    let existing_id: Option<i64> = if !stem.is_empty() {
+        let pattern_suffix = if parent.is_empty() {
+            format!("{stem}.%")
+        } else {
+            format!("{parent}/{stem}.%")
+        };
+        sqlx::query_scalar(
+            "SELECT id FROM designs WHERE filepath LIKE ? AND is_master_only = 0 AND (master_filepath IS NULL OR master_filepath = '') LIMIT 1",
+        )
+        .bind(&pattern_suffix)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None)
+    } else {
+        None
+    };
+
+    if let Some(id) = existing_id {
+        sqlx::query("UPDATE designs SET master_filepath = ? WHERE id = ?")
+            .bind(&stored_filepath)
+            .bind(id)
+            .execute(pool)
+            .await
+            .map_err(|e| format!("Could not update master filepath for design {id}: {e}"))?;
+        return Ok(SingleImport::Imported);
+    }
+
+    let insert_result = sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, \
+         is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
+         VALUES (?, ?, ?, 1, DATE('now'), 0, 0, 0, ?, ?)",
+    )
+    .bind(&filename)
+    .bind(&stored_filepath)
+    .bind(&stored_filepath)
+    .bind(file_size_bytes)
+    .bind(file_hash_blake3)
+    .execute(pool)
+    .await
+    .map_err(|e| format!("Could not insert master design '{}': {e}", full_path.display()))?;
+
+    let design_id = insert_result.last_insert_rowid();
+
+    // File and folder path-rule tagging matching bulk import.
+    let matched_descriptions = crate::services::tagging::suggest_path_rule_descriptions(
+        &filename,
+        &stored_filepath,
+        &tagging_ctx.valid_descriptions,
+        &tagging_ctx.synonyms,
+    );
+    for description in &matched_descriptions {
+        if let Some(tag_id) = tagging_ctx.description_to_tag_id.get(description) {
+            let _ =
+                sqlx::query("INSERT OR IGNORE INTO design_tags (design_id, tag_id) VALUES (?, ?)")
+                    .bind(design_id)
+                    .bind(*tag_id)
+                    .execute(pool)
+                    .await;
+        }
+    }
+
+    Ok(SingleImport::Imported)
+}
+
 /// Batch import of unmatched design files as new catalogue records.
 ///
 /// `progress` receives one event per processed file (and is also used by the
@@ -745,12 +870,14 @@ pub async fn import_unmatched_design_files(
 ) -> Result<ImportUnmatchedFilesResult, String> {
     let disk = mnt::collect_file_snapshots(designs_root, true)?;
     let referenced = referenced_design_paths(pool, designs_root).await?;
+    let master_formats = load_enabled_master_formats(pool).await;
 
     let mut unmatched: Vec<PathBuf> = disk
         .keys()
         .filter(|relative| {
             let ext = relative.extension().and_then(|e| e.to_str()).unwrap_or("");
-            crate::services::scanning::is_supported_extension(ext)
+            (crate::services::scanning::is_supported_extension(ext)
+                || crate::services::scanning::is_master_extension(ext, &master_formats))
                 && !referenced.contains(*relative)
         })
         .cloned()
@@ -765,14 +892,63 @@ pub async fn import_unmatched_design_files(
     let mut cancelled = false;
     let tagging_ctx = ImportTaggingContext::load(pool).await;
 
-    for (index, relative) in unmatched.iter().enumerate() {
+    let mut unmatched_master_map: HashMap<(String, String), PathBuf> = HashMap::new();
+    for relative in &unmatched {
+        let ext = relative.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if crate::services::scanning::is_master_extension(ext, &master_formats) {
+            let parent_key = relative
+                .parent()
+                .map(|p| p.to_string_lossy().replace('\\', "/").to_ascii_lowercase())
+                .unwrap_or_default();
+            let stem_key = relative
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            unmatched_master_map.insert((parent_key, stem_key), relative.clone());
+        }
+    }
+    let mut consumed_masters: HashSet<PathBuf> = HashSet::new();
+
+    let (stitch_files, master_files): (Vec<PathBuf>, Vec<PathBuf>) =
+        unmatched.into_iter().partition(|relative| {
+            let ext = relative.extension().and_then(|e| e.to_str()).unwrap_or("");
+            crate::services::scanning::is_supported_extension(ext)
+        });
+
+    let mut processed_idx = 0usize;
+
+    for relative in stitch_files {
         if cancel.load(Ordering::SeqCst) {
             cancelled = true;
             break;
         }
 
-        let full_path = designs_root.join(relative);
-        match import_single_design(pool, relative, &full_path, &tagging_ctx).await {
+        let full_path = designs_root.join(&relative);
+        let parent_key = relative
+            .parent()
+            .map(|p| p.to_string_lossy().replace('\\', "/").to_ascii_lowercase())
+            .unwrap_or_default();
+        let stem_key = relative
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+
+        let paired_master = unmatched_master_map.get(&(parent_key, stem_key)).cloned();
+        if let Some(ref master_rel) = paired_master {
+            consumed_masters.insert(master_rel.clone());
+        }
+
+        match import_single_stitch_design(
+            pool,
+            &relative,
+            &full_path,
+            paired_master.as_deref(),
+            &tagging_ctx,
+        )
+        .await
+        {
             Ok(SingleImport::Imported) => imported += 1,
             Ok(SingleImport::ImportedFlagged) => {
                 imported += 1;
@@ -787,18 +963,83 @@ pub async fn import_unmatched_design_files(
             }
         }
 
+        processed_idx += 1;
         progress(RestoreProgress {
             scope: "import-unmatched".to_string(),
             phase: "import".to_string(),
             status: "running".to_string(),
-            scanned: (index + 1) as u64,
+            scanned: processed_idx as u64,
             total: detected as u64,
             copied: imported as u64,
             skipped: 0,
             total_bytes: 0,
-            percent: ((index + 1) as f64 / detected.max(1) as f64).min(1.0),
+            percent: (processed_idx as f64 / detected.max(1) as f64).min(1.0),
             error: None,
         });
+    }
+
+    if !cancelled {
+        for relative in master_files {
+            if cancel.load(Ordering::SeqCst) {
+                cancelled = true;
+                break;
+            }
+
+            if consumed_masters.contains(&relative) {
+                processed_idx += 1;
+                progress(RestoreProgress {
+                    scope: "import-unmatched".to_string(),
+                    phase: "import".to_string(),
+                    status: "running".to_string(),
+                    scanned: processed_idx as u64,
+                    total: detected as u64,
+                    copied: imported as u64,
+                    skipped: 0,
+                    total_bytes: 0,
+                    percent: (processed_idx as f64 / detected.max(1) as f64).min(1.0),
+                    error: None,
+                });
+                continue;
+            }
+
+            let full_path = designs_root.join(&relative);
+            match import_single_master_design(
+                pool,
+                &relative,
+                &full_path,
+                &master_formats,
+                &tagging_ctx,
+            )
+            .await
+            {
+                Ok(SingleImport::Imported) => imported += 1,
+                Ok(SingleImport::ImportedFlagged) => {
+                    imported += 1;
+                    flagged += 1;
+                }
+                Ok(SingleImport::Skipped) => {}
+                Err(error) => {
+                    failed += 1;
+                    if failed_samples.len() < SAMPLE_LIMIT {
+                        failed_samples.push(error);
+                    }
+                }
+            }
+
+            processed_idx += 1;
+            progress(RestoreProgress {
+                scope: "import-unmatched".to_string(),
+                phase: "import".to_string(),
+                status: "running".to_string(),
+                scanned: processed_idx as u64,
+                total: detected as u64,
+                copied: imported as u64,
+                skipped: 0,
+                total_bytes: 0,
+                percent: (processed_idx as f64 / detected.max(1) as f64).min(1.0),
+                error: None,
+            });
+        }
     }
 
     if failed > 0 {
