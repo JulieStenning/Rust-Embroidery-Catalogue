@@ -25,9 +25,11 @@ impl std::fmt::Display for ConnectionError {
 
 impl std::error::Error for ConnectionError {}
 
-/// Create a SQLite connection pool (max 1 connection — appropriate for a local
-/// single-user desktop app). The pool is `Send + Sync`, which allows it to be
-/// used safely in Tauri's async command handlers.
+/// Create a SQLite connection pool with `max_connections(5)` in WAL mode.
+///
+/// In SQLite WAL mode (`PRAGMA journal_mode = WAL`), multiple concurrent read
+/// connections can execute queries simultaneously without blocking or being
+/// blocked by an active background writer transaction.
 ///
 /// Accepts `&AppPaths` to derive the database URL from the resolved paths.
 /// Returns `Result` rather than panicking so callers can surface errors gracefully.
@@ -36,7 +38,7 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
     let database_url = bootstrap.database_url;
 
     let pool = SqlitePoolOptions::new()
-        .max_connections(1)
+        .max_connections(5)
         .connect(&database_url)
         .await
         .map_err(|e| {
@@ -225,8 +227,26 @@ mod tests {
             .fetch_one(&pool)
             .await
             .expect("query should succeed");
-
         assert_eq!(row.0, 1);
+
+        // Verify concurrent queries on the multi-connection pool.
+        let mut handles = Vec::new();
+        for i in 0..5 {
+            let pool_clone = pool.clone();
+            handles.push(tokio::spawn(async move {
+                let row: (i64,) = sqlx::query_as("SELECT ?")
+                    .bind(i)
+                    .fetch_one(&pool_clone)
+                    .await
+                    .expect("concurrent query should succeed");
+                row.0
+            }));
+        }
+
+        for (i, handle) in handles.into_iter().enumerate() {
+            let res = handle.await.expect("task join should succeed");
+            assert_eq!(res, i as i64);
+        }
 
         pool.close().await;
 
