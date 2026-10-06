@@ -8,8 +8,8 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 
 /**
- * End-to-end tests for the "Orphaned Files" tab on the System Maintenance page
- * (accessed via top navigation "System" -> "Orphaned Files" tab or `#/admin/system/orphans`).
+ * End-to-end tests for the "Library Discrepancies" tab on the System Maintenance page
+ * (accessed via top navigation "System" -> "Library Discrepancies" tab or `#/admin/system/discrepancies`).
  *
  * Exercises the real Tauri WebView2 application, IPC layer, and SQLite database.
  */
@@ -100,7 +100,7 @@ test.describe.serial("orphaned files management", () => {
     }
   });
 
-  test("navigates to Orphaned Files from top menu link and verifies tab switching and active states", async ({
+  test("navigates to Library Discrepancies from top menu link and verifies tab switching and active states", async ({
     page,
   }) => {
     // 1. Navigate via top menu link
@@ -116,24 +116,24 @@ test.describe.serial("orphaned files management", () => {
 
     const settingsTab = page.getByTestId("system-tab-settings");
     const backupTab = page.getByTestId("system-tab-backup");
-    const orphansTab = page.getByTestId("system-tab-orphans");
+    const discrepanciesTab = page.getByTestId("system-tab-discrepancies");
 
     await expect(settingsTab).toHaveAttribute("aria-selected", "true");
-    await expect(orphansTab).toHaveAttribute("aria-selected", "false");
+    await expect(discrepanciesTab).toHaveAttribute("aria-selected", "false");
 
-    // Switch to Orphaned Files tab
-    await orphansTab.click();
-    await expect(orphansTab).toHaveAttribute("aria-selected", "true");
+    // Switch to Library Discrepancies tab
+    await discrepanciesTab.click();
+    await expect(discrepanciesTab).toHaveAttribute("aria-selected", "true");
     await expect(settingsTab).toHaveAttribute("aria-selected", "false");
     await expect(backupTab).toHaveAttribute("aria-selected", "false");
 
     // Heading and description are rendered
     await expect(
-      page.getByRole("heading", { name: "Orphans", exact: true }),
+      page.getByRole("heading", { name: "Library Discrepancies", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText(
-        "Find and remove database records whose files no longer exist on disk.",
+        "Reconcile differences between your database catalogue and the files on disk.",
       ),
     ).toBeVisible();
 
@@ -145,9 +145,9 @@ test.describe.serial("orphaned files management", () => {
   test("renders initial clean state when no orphans exist on disk", async ({
     page,
   }) => {
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await expect(
-      page.getByRole("heading", { name: "Orphans", exact: true }),
+      page.getByRole("heading", { name: "Library Discrepancies", exact: true }),
     ).toBeVisible();
 
     // Summary counter shows 0 records
@@ -201,9 +201,9 @@ test.describe.serial("orphaned files management", () => {
   test("scans disk for orphans when all files exist and verifies scan toast and counts", async ({
     page,
   }) => {
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await expect(
-      page.getByRole("heading", { name: "Orphans", exact: true }),
+      page.getByRole("heading", { name: "Library Discrepancies", exact: true }),
     ).toBeVisible();
 
     const scanButton = page.getByRole("button", {
@@ -244,9 +244,9 @@ test.describe.serial("orphaned files management", () => {
       },
     ]);
 
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await expect(
-      page.getByRole("heading", { name: "Orphans", exact: true }),
+      page.getByRole("heading", { name: "Library Discrepancies", exact: true }),
     ).toBeVisible();
 
     // Click Scan Disk to discover newly injected orphans
@@ -328,7 +328,7 @@ test.describe.serial("orphaned files management", () => {
       },
     ]);
 
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await page.reload();
 
     await expect(page.getByText(/3 orphaned record\(s\) total/i)).toBeVisible();
@@ -388,7 +388,7 @@ test.describe.serial("orphaned files management", () => {
       },
     ]);
 
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await page.reload();
 
     await expect(
@@ -424,7 +424,7 @@ test.describe.serial("orphaned files management", () => {
     const targetDeleteId = createdOrphanIds[1];
     const targetKeepId = createdOrphanIds[0];
 
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await page.reload();
 
     await expect(page.getByText(/2 orphaned record\(s\) total/i)).toBeVisible();
@@ -504,7 +504,7 @@ test.describe.serial("orphaned files management", () => {
 
     const [id1, id2] = createdOrphanIds;
 
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await page.reload();
 
     await expect(page.getByText(/2 orphaned record\(s\) total/i)).toBeVisible();
@@ -579,7 +579,7 @@ test.describe.serial("orphaned files management", () => {
     }
     createdOrphanIds = insertSyntheticOrphans(records);
 
-    await gotoRoute(page, "#/admin/system/orphans");
+    await gotoRoute(page, "#/admin/system/discrepancies");
     await page.reload();
 
     // Summary indicates multi-page setup

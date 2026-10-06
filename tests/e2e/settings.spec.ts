@@ -29,14 +29,14 @@ test.describe.serial("application settings", () => {
 
     const settingsTab = page.getByTestId("system-tab-settings");
     const backupTab = page.getByTestId("system-tab-backup");
-    const orphansTab = page.getByTestId("system-tab-orphans");
+    const discrepanciesTab = page.getByTestId("system-tab-discrepancies");
 
     await expect(settingsTab).toBeVisible();
     await expect(settingsTab).toHaveAttribute("aria-selected", "true");
     await expect(backupTab).toBeVisible();
     await expect(backupTab).toHaveAttribute("aria-selected", "false");
-    await expect(orphansTab).toBeVisible();
-    await expect(orphansTab).toHaveAttribute("aria-selected", "false");
+    await expect(discrepanciesTab).toBeVisible();
+    await expect(discrepanciesTab).toHaveAttribute("aria-selected", "false");
 
     // System admin link in navbar is active
     const systemNavlink = mainMenu(page).getByRole("link", { name: "System" });
@@ -55,7 +55,7 @@ test.describe.serial("application settings", () => {
     const tablist = page.getByTestId("system-maintenance-tablist");
     const settingsTab = page.getByTestId("system-tab-settings");
     const backupTab = page.getByTestId("system-tab-backup");
-    const orphansTab = page.getByTestId("system-tab-orphans");
+    const discrepanciesTab = page.getByTestId("system-tab-discrepancies");
 
     // Switch to Backup & Restore tab
     await backupTab.click();
@@ -65,16 +65,18 @@ test.describe.serial("application settings", () => {
       page.getByRole("heading", { name: "Backup & Restore" }),
     ).toBeVisible();
 
-    // Switch to Orphaned Files tab
-    await orphansTab.click();
-    await expect(orphansTab).toHaveAttribute("aria-selected", "true");
+    // Switch to Library Discrepancies tab
+    await discrepanciesTab.click();
+    await expect(discrepanciesTab).toHaveAttribute("aria-selected", "true");
     await expect(backupTab).toHaveAttribute("aria-selected", "false");
-    await expect(page.getByRole("heading", { name: "Orphans" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Library Discrepancies" }),
+    ).toBeVisible();
 
     // Switch back to Settings tab
     await settingsTab.click();
     await expect(settingsTab).toHaveAttribute("aria-selected", "true");
-    await expect(orphansTab).toHaveAttribute("aria-selected", "false");
+    await expect(discrepanciesTab).toHaveAttribute("aria-selected", "false");
     await expect(
       page.getByRole("heading", { name: "Application Settings", exact: true }),
     ).toBeVisible();
