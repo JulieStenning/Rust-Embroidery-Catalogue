@@ -659,3 +659,33 @@ async fn run_migrations_creates_design_dimension_indexes() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_creates_search_optimization_indexes() {
+    let tmp = unique_tmp_dir("search-indexes");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("search_indexes.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let fn_idx: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_filename_lower'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query filename_lower index");
+    assert_eq!(fn_idx.0, 1, "ix_designs_filename_lower index should exist");
+
+    let fp_idx: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_filepath_lower'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query filepath_lower index");
+    assert_eq!(fp_idx.0, 1, "ix_designs_filepath_lower index should exist");
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
