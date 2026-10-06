@@ -9,9 +9,14 @@
 // private items in the parent module through use super::*;.
 
 use super::*;
+use crate::services::image_generation;
+use crate::services::scanning;
 use serial_test::serial;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::fs;
+use std::path::Path;
+use std::sync::atomic::Ordering;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const FIXTURES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/Test Designs");
 
