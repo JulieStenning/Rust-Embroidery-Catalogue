@@ -1977,6 +1977,7 @@ fn bulk_import_request_from_conversion_edge_cases() {
     let request = BulkImportRequest {
         root_path: Some("  C:/imports  ".to_string()),
         root_paths: vec![],
+        include_library: false,
         fallback_designer_id: Some(7),
         fallback_source_id: Some(8),
     };
@@ -1989,6 +1990,7 @@ fn bulk_import_request_from_conversion_edge_cases() {
     let request2 = BulkImportRequest {
         root_path: Some("  C:/ignored  ".to_string()),
         root_paths: vec!["  C:/actual  ".to_string()],
+        include_library: false,
         fallback_designer_id: None,
         fallback_source_id: None,
     };
@@ -1999,21 +2001,35 @@ fn bulk_import_request_from_conversion_edge_cases() {
     let request3 = BulkImportRequest {
         root_path: None,
         root_paths: vec!["".to_string(), "  ".to_string(), "C:/valid".to_string()],
+        include_library: false,
         fallback_designer_id: None,
         fallback_source_id: None,
     };
     let wire3: BulkImportWire = request3.into();
     assert_eq!(wire3.root_paths, vec!["C:/valid"]);
 
-    // Both empty should yield empty root_paths
+    // Both empty should yield empty root_paths when include_library is false
     let request4 = BulkImportRequest {
         root_path: None,
         root_paths: vec![],
+        include_library: false,
         fallback_designer_id: None,
         fallback_source_id: None,
     };
     let wire4: BulkImportWire = request4.into();
     assert!(wire4.root_paths.is_empty());
+
+    // include_library true appends library path
+    let request5 = BulkImportRequest {
+        root_path: None,
+        root_paths: vec![],
+        include_library: true,
+        fallback_designer_id: None,
+        fallback_source_id: None,
+    };
+    let wire5: BulkImportWire = request5.into();
+    assert_eq!(wire5.root_paths.len(), 1);
+    assert!(wire5.root_paths[0].contains("MachineEmbroideryDesigns"));
 }
 
 #[test]
@@ -3157,4 +3173,122 @@ async fn persist_bulk_import_links_existing_stitch_when_master_file_imported_lat
         None => std::env::remove_var("DATABASE_URL"),
     }
     let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn bulk_import_request_from_includes_library_when_flag_true() {
+    let request = BulkImportRequest {
+        root_path: None,
+        root_paths: vec!["D:/SomeOtherFolder".to_string()],
+        include_library: true,
+        fallback_designer_id: None,
+        fallback_source_id: None,
+    };
+    let wire: BulkImportWire = request.into();
+    let designs_base = super::paths::get_designs_base_path();
+    let designs_base_str = designs_base.to_string_lossy().replace('\\', "/");
+    assert!(wire
+        .root_paths
+        .iter()
+        .any(|r| r.eq_ignore_ascii_case(&designs_base_str)));
+    assert!(wire.root_paths.contains(&"D:/SomeOtherFolder".to_string()));
+}
+
+#[tokio::test]
+#[serial]
+async fn preview_bulk_import_wire_filters_existing_library_designs_and_keeps_uncatalogued() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-uncatalogued-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    let designs_dir = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(&designs_dir).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    // Create 1 catalogued design file in library
+    let catalogued_file = designs_dir.join("catalogued.pes");
+    fs::write(&catalogued_file, b"catalogued-content").expect("write catalogued");
+    sqlx::query(
+        "INSERT INTO designs (filepath, filename, format, stitch_count, color_count, width_mm, height_mm) VALUES ('catalogued.pes', 'catalogued.pes', 'PES', 100, 1, 10.0, 10.0)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert design");
+
+    // Create 1 uncatalogued design file in library
+    let uncatalogued_file = designs_dir.join("uncatalogued.pes");
+    fs::write(&uncatalogued_file, b"uncatalogued-content").expect("write uncatalogued");
+
+    let wire = BulkImportWire {
+        root_paths: vec![designs_dir.to_string_lossy().replace('\\', "/")],
+        global_designer_id: None,
+        global_source_id: None,
+        per_folder_assignments: vec![],
+        selected_files: vec![],
+        create_on_import: true,
+    };
+
+    let preview = super::precheck::preview_bulk_import_wire_with_pool(wire, Some(&pool))
+        .expect("preview should succeed");
+
+    assert_eq!(
+        preview.discovered_count, 1,
+        "only the uncatalogued design should be returned, catalogued one filtered out"
+    );
+    assert_eq!(preview.scanned_files.len(), 1);
+    assert!(preview.scanned_files[0]
+        .full_path
+        .ends_with("uncatalogued.pes"));
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn bulk_import_request_deserializes_from_camel_case_json() {
+    let json = r#"{
+        "rootPath": null,
+        "rootPaths": ["F:/Designs/FolderA"],
+        "includeLibrary": true,
+        "fallbackDesignerId": 42,
+        "fallbackSourceId": 99
+    }"#;
+    let request: BulkImportRequest =
+        serde_json::from_str(json).expect("deserialize camelCase JSON");
+    assert_eq!(request.root_path, None);
+    assert_eq!(request.root_paths, vec!["F:/Designs/FolderA"]);
+    assert!(request.include_library);
+    assert_eq!(request.fallback_designer_id, Some(42));
+    assert_eq!(request.fallback_source_id, Some(99));
+}
+
+#[test]
+fn bulk_import_request_deserializes_from_snake_case_json() {
+    let json = r#"{
+        "root_path": "F:/Designs/FolderB",
+        "root_paths": ["F:/Designs/FolderB"],
+        "include_library": true,
+        "fallback_designer_id": null,
+        "fallback_source_id": null
+    }"#;
+    let request: BulkImportRequest =
+        serde_json::from_str(json).expect("deserialize snake_case JSON");
+    assert_eq!(request.root_path, Some("F:/Designs/FolderB".to_string()));
+    assert_eq!(request.root_paths, vec!["F:/Designs/FolderB"]);
+    assert!(request.include_library);
 }

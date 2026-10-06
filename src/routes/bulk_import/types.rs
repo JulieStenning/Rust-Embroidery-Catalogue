@@ -5,21 +5,32 @@ use crate::services::scanning;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportRequest {
-    #[serde(default)]
+    #[serde(default, alias = "root_path")]
     pub root_path: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "root_paths")]
     pub root_paths: Vec<String>,
+    #[serde(default, alias = "include_library")]
+    pub include_library: bool,
+    #[serde(default, alias = "fallback_designer_id")]
     pub fallback_designer_id: Option<i64>,
+    #[serde(default, alias = "fallback_source_id")]
     pub fallback_source_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FolderAssignmentWire {
+    #[serde(alias = "folder_path")]
     pub folder_path: String,
+    #[serde(default, alias = "designer_id")]
     pub designer_id: Option<i64>,
+    #[serde(default, alias = "source_id")]
     pub source_id: Option<i64>,
+    #[serde(default, alias = "inferred_designer_id")]
     pub inferred_designer_id: Option<i64>,
+    #[serde(default, alias = "inferred_source_id")]
     pub inferred_source_id: Option<i64>,
 }
 
@@ -32,34 +43,51 @@ pub enum AssignmentFieldSourceWire {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResolvedAssignmentFieldWire {
     pub value: Option<i64>,
     pub source: AssignmentFieldSourceWire,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResolvedFolderAssignmentWire {
+    #[serde(alias = "folder_path")]
     pub folder_path: String,
+    #[serde(alias = "designer_id")]
     pub designer_id: ResolvedAssignmentFieldWire,
+    #[serde(alias = "source_id")]
     pub source_id: ResolvedAssignmentFieldWire,
+    #[serde(default, alias = "inferred_designer_id")]
     pub inferred_designer_id: Option<i64>,
+    #[serde(default, alias = "inferred_source_id")]
     pub inferred_source_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportWire {
+    #[serde(alias = "root_paths")]
     pub root_paths: Vec<String>,
+    #[serde(default, alias = "global_designer_id")]
     pub global_designer_id: Option<i64>,
+    #[serde(default, alias = "global_source_id")]
     pub global_source_id: Option<i64>,
+    #[serde(default, alias = "per_folder_assignments")]
     pub per_folder_assignments: Vec<FolderAssignmentWire>,
+    #[serde(default, alias = "selected_files")]
     pub selected_files: Vec<String>,
+    #[serde(default = "default_true", alias = "create_on_import")]
     pub create_on_import: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportConfirmWire {
     pub wire: BulkImportWire,
+    #[serde(default, alias = "context_token")]
     pub context_token: Option<String>,
+    #[serde(default, alias = "canonical_confirm")]
     pub canonical_confirm: bool,
 }
 
@@ -86,38 +114,48 @@ pub(crate) fn default_true() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FolderFilesWire {
+    #[serde(alias = "folder_path")]
     pub folder_path: String,
+    #[serde(default, alias = "files")]
     pub files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportSelectionWire {
     /// Folders whose base is "all selected" except for the listed files.
-    #[serde(default)]
+    #[serde(default, alias = "deselected")]
     pub deselected: Vec<FolderFilesWire>,
     /// Folders whose base is "none selected" except for the listed files.
     /// An empty `files` list means the whole folder is deselected.
-    #[serde(default)]
+    #[serde(default, alias = "selected_only")]
     pub selected_only: Vec<FolderFilesWire>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportPrecheckFromScanRequest {
+    #[serde(alias = "scan_token")]
     pub scan_token: String,
+    #[serde(default, alias = "global_designer_id")]
     pub global_designer_id: Option<i64>,
+    #[serde(default, alias = "global_source_id")]
     pub global_source_id: Option<i64>,
-    #[serde(default)]
+    #[serde(default, alias = "per_folder_assignments")]
     pub per_folder_assignments: Vec<FolderAssignmentWire>,
     pub selection: BulkImportSelectionWire,
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", alias = "create_on_import")]
     pub create_on_import: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportBrowseFolderRequest {
+    #[serde(default, alias = "start_dir")]
     pub start_dir: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "allow_multi")]
     pub allow_multi: bool,
 }
 
@@ -187,10 +225,12 @@ pub enum BulkImportPrecheckActionWire {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkImportPrecheckActionRequest {
+    #[serde(alias = "context_token")]
     pub context_token: String,
     pub action: BulkImportPrecheckActionWire,
-    #[serde(default)]
+    #[serde(default, alias = "confirm_skip_hoops")]
     pub confirm_skip_hoops: bool,
 }
 
@@ -250,6 +290,17 @@ impl From<BulkImportRequest> for BulkImportWire {
                 .filter(|value| !value.is_empty())
             {
                 root_paths.push(value);
+            }
+        }
+
+        if request.include_library {
+            let designs_base = super::paths::get_designs_base_path();
+            let designs_base_str = designs_base.to_string_lossy().replace('\\', "/");
+            if !root_paths
+                .iter()
+                .any(|r| r.replace('\\', "/").eq_ignore_ascii_case(&designs_base_str))
+            {
+                root_paths.push(designs_base_str);
             }
         }
 

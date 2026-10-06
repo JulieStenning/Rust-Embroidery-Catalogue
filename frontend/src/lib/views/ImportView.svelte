@@ -49,6 +49,7 @@
   let importRootPath = $state("");
   /** @type {string[]} */
   let importRootPaths = $state([]);
+  let importIncludeLibrary = $state(false);
   let importPreview = $state(/** @type {Record<string, any> | null} */ (null));
   let importPreviewSource = $state("mock");
   let importPreviewMessage = $state("");
@@ -138,6 +139,7 @@
     return {
       rootPath: importRootPath,
       rootPaths: importRootPaths,
+      includeLibrary: importIncludeLibrary,
       preview: importPreview,
       previewSource: importPreviewSource,
       previewMessage: importPreviewMessage,
@@ -160,6 +162,7 @@
     if (!snapshot || typeof snapshot !== "object") return;
     importRootPath = String(snapshot.rootPath || "");
     importRootPaths = Array.isArray(snapshot.rootPaths) ? snapshot.rootPaths.slice() : [];
+    importIncludeLibrary = Boolean(snapshot.includeLibrary);
     importPreview = snapshot.preview || null;
     importPreviewSource = String(snapshot.previewSource || "mock");
     importPreviewMessage = String(snapshot.previewMessage || "");
@@ -773,7 +776,7 @@
     beginBusy("Scanning import folders");
 
     try {
-      const result = await previewImportFromRoots(getActiveImportRoots());
+      const result = await previewImportFromRoots(getActiveImportRoots(), importIncludeLibrary);
       importPreview = result.preview || null;
       importPreviewSource = result.source || "mock";
       importPreviewMessage = deriveImportPreviewMessage(result?.preview);
@@ -931,7 +934,7 @@
     return uniqueRoots;
   }
 
-  let importHasActiveRoots = $derived(getActiveImportRoots().length > 0);
+  let importHasActiveRoots = $derived(getActiveImportRoots().length > 0 || importIncludeLibrary);
 
   /** @param {string} [path] */
   function addImportRootPath(path = importRootPath) {
@@ -973,6 +976,7 @@
     importBrowseLoading = false;
     importRootPath = "";
     importRootPaths = [];
+    importIncludeLibrary = false;
     importPreview = null;
     importPreviewSource = "mock";
     importPreviewMessage = "";
@@ -1130,88 +1134,104 @@
           runImportPreview();
         }}
       >
-        <div>
-          <label for="import-root-path" class="ui-field-label text-sm font-semibold">
-            <span class="block mb-1">Source Folder(s) *</span>
+        <div class="space-y-3">
+          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              id="import-include-library"
+              bind:checked={importIncludeLibrary}
+              disabled={importLoading || importBrowseLoading || importActionLoading || busyActive}
+              class="rounded text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Include uncatalogued files already in the Library</span>
           </label>
-          <div class="space-y-2.5">
-            <div class="folder-row import-folder-row flex items-center gap-2">
-              <input
-                id="import-root-path"
-                class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono border rounded px-3 py-2 text-sm"
-                bind:value={importRootPath}
-                placeholder="Enter path to your embroidery designs folder…"
-                disabled={importLoading || importActionLoading || importBrowseLoading}
-                aria-label="Source folder path 1"
-              />
-              <button
-                type="button"
-                class="ui-action-button menu-button-secondary py-2"
-                onclick={() => browseImportRootPath(-1)}
-                disabled={importLoading || importActionLoading || importBrowseLoading || busyActive}
-              >
-                {importBrowseLoading ? "Browsing…" : "Browse…"}
-              </button>
-              <button
-                type="button"
-                class="ui-action-button menu-button-secondary py-2"
-                onclick={removePrimaryImportRootPath}
-                disabled={importLoading ||
-                  importActionLoading ||
-                  importBrowseLoading ||
-                  busyActive ||
-                  !String(importRootPath || "").trim()}
-                title="Remove this folder"
-              >
-                Remove
-              </button>
-            </div>
 
-            {#each importRootPaths as rootPath, rowIndex}
-              <div
-                class="folder-row import-folder-row flex items-center gap-2"
-                data-index={rowIndex + 1}
-              >
+          <div>
+            <label for="import-root-path" class="ui-field-label text-sm font-semibold">
+              <span class="block mb-1">Source Folder(s)</span>
+            </label>
+            <div class="space-y-2.5">
+              <div class="folder-row import-folder-row flex items-center gap-2">
                 <input
-                  type="text"
+                  id="import-root-path"
                   class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono border rounded px-3 py-2 text-sm"
-                  value={rootPath}
-                  readonly
-                  aria-label={`Source folder path ${rowIndex + 2}`}
+                  bind:value={importRootPath}
+                  placeholder="Enter path to your embroidery designs folder…"
+                  disabled={importLoading || importActionLoading || importBrowseLoading}
+                  aria-label="Source folder path 1"
                 />
                 <button
                   type="button"
                   class="ui-action-button menu-button-secondary py-2"
-                  onclick={() => browseImportRootPath(rowIndex)}
-                  disabled={importLoading || importActionLoading || importBrowseLoading}
+                  onclick={() => browseImportRootPath(-1)}
+                  disabled={importLoading ||
+                    importActionLoading ||
+                    importBrowseLoading ||
+                    busyActive}
                 >
-                  Browse…
+                  {importBrowseLoading ? "Browsing…" : "Browse…"}
                 </button>
                 <button
                   type="button"
-                  class="ui-action-button menu-button-secondary py-2 text-red-500 border-red-200"
-                  onclick={() => removeImportRootPath(rootPath)}
-                  disabled={importLoading || importActionLoading || importBrowseLoading}
+                  class="ui-action-button menu-button-secondary py-2"
+                  onclick={removePrimaryImportRootPath}
+                  disabled={importLoading ||
+                    importActionLoading ||
+                    importBrowseLoading ||
+                    busyActive ||
+                    !String(importRootPath || "").trim()}
                   title="Remove this folder"
                 >
                   Remove
                 </button>
               </div>
-            {/each}
-          </div>
 
-          <div class="import-step1-add-folder-shell pt-3">
-            <button
-              type="button"
-              class="menu-button-primary ui-action-button ui-action-button-primary import-add-folder-link text-xs"
-              onclick={addCurrentImportRootPath}
-              disabled={importLoading ||
-                importActionLoading ||
-                importBrowseLoading ||
-                !String(importRootPath || "").trim()}
-            >
-              Add another folder
-            </button>
+              {#each importRootPaths as rootPath, rowIndex}
+                <div
+                  class="folder-row import-folder-row flex items-center gap-2"
+                  data-index={rowIndex + 1}
+                >
+                  <input
+                    type="text"
+                    class="ui-text-input ui-control-text-inset import-folder-input flex-1 font-mono border rounded px-3 py-2 text-sm"
+                    value={rootPath}
+                    readonly
+                    aria-label={`Source folder path ${rowIndex + 2}`}
+                  />
+                  <button
+                    type="button"
+                    class="ui-action-button menu-button-secondary py-2"
+                    onclick={() => browseImportRootPath(rowIndex)}
+                    disabled={importLoading || importActionLoading || importBrowseLoading}
+                  >
+                    Browse…
+                  </button>
+                  <button
+                    type="button"
+                    class="ui-action-button menu-button-secondary py-2 text-red-500 border-red-200"
+                    onclick={() => removeImportRootPath(rootPath)}
+                    disabled={importLoading || importActionLoading || importBrowseLoading}
+                    title="Remove this folder"
+                  >
+                    Remove
+                  </button>
+                </div>
+              {/each}
+            </div>
+
+            <div class="import-step1-add-folder-shell pt-3">
+              <button
+                type="button"
+                class="menu-button-primary ui-action-button ui-action-button-primary import-add-folder-link text-xs"
+                onclick={addCurrentImportRootPath}
+                disabled={importLoading ||
+                  importActionLoading ||
+                  importBrowseLoading ||
+                  !String(importRootPath || "").trim()}
+              >
+                Add another folder
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1237,8 +1257,6 @@
         </div>
       </form>
     </div>
-
-    <UnmatchedFilesReconciler />
   {/if}
 
   {#if importRouteStep === 2}

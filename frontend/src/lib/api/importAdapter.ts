@@ -17,16 +17,21 @@ import type {
 /**
  * Try import preview using existing Rust bulk import command.
  * Falls back to a mock preview shape if command wiring is incomplete.
+/**
+ * Request a scan preview from one or more root folders.
+ *
  * @param {string | string[]} rootPaths
+ * @param {boolean} [includeLibrary=false]
  */
 export async function previewImportFromRoots(
-  rootPaths: string | string[]
+  rootPaths: string | string[],
+  includeLibrary = false
 ): Promise<AdapterImportPreviewResponse> {
   const normalizedRoots = Array.isArray(rootPaths)
     ? rootPaths.map((rootPath) => String(rootPath || "").trim()).filter(Boolean)
     : [];
 
-  if (normalizedRoots.length === 0) {
+  if (normalizedRoots.length === 0 && !includeLibrary) {
     return {
       source: "mock",
       preview: {
@@ -47,10 +52,11 @@ export async function previewImportFromRoots(
   try {
     const preview = await invokeLoose<Partial<BulkImportPreview>>("preview_bulk_import", {
       request: {
-        root_path: normalizedRoots[0],
-        root_paths: normalizedRoots,
-        fallback_designer_id: null,
-        fallback_source_id: null,
+        rootPath: normalizedRoots[0] || null,
+        rootPaths: normalizedRoots,
+        includeLibrary: Boolean(includeLibrary),
+        fallbackDesignerId: null,
+        fallbackSourceId: null,
       },
     });
 

@@ -233,12 +233,12 @@ beforeEach(() => {
 });
 
 describe("ImportView unmatched files reconciliation", () => {
-  it("renders the unmatched files reconciler card on Step 1", async () => {
+  it("does not render the unmatched files reconciler card on Step 1", async () => {
     renderHarness("#/import");
     expect(
-      screen.getByRole("heading", { name: "Find unmatched design files" })
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("scan-unmatched-button")).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Find unmatched design files" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("scan-unmatched-button")).not.toBeInTheDocument();
   });
 });
 
@@ -550,7 +550,7 @@ describe("ImportView step 1 folder path management", () => {
 
     await scanFolder(container, "C:\\Designs\\");
     await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalled());
-    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs"]);
+    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs"], false);
     expect(navigateTo).toHaveBeenCalledWith("#/import/step2");
   });
 
@@ -559,18 +559,19 @@ describe("ImportView step 1 folder path management", () => {
 
     await scanFolder(container, "C:/Designs//sub");
     await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalled());
-    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs/sub"]);
+    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs/sub"], false);
 
     await scanFolder(container, "\\\\server\\share\\designs\\");
     await waitFor(() =>
-      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith([
-        "//server/share/designs",
-      ])
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(
+        ["//server/share/designs"],
+        false
+      )
     );
 
     await scanFolder(container, "C:");
     await waitFor(() =>
-      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/"])
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/"], false)
     );
   });
 
@@ -593,7 +594,7 @@ describe("ImportView step 1 folder path management", () => {
     await fireEvent.submit(form);
     await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalled());
     // The case-insensitive duplicate is folded into a single root.
-    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs"]);
+    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(["C:/Designs"], false);
   });
 });
 
@@ -709,12 +710,10 @@ describe("ImportView browse flows", () => {
     const form = element(container.querySelector<HTMLFormElement>("#importScanForm"));
     await fireEvent.submit(form);
     await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalled());
-    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith([
-      "D:/Folder1",
-      "D:/Folder2",
-      "D:/Folder3",
-      "D:/Folder4",
-    ]);
+    expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(
+      ["D:/Folder1", "D:/Folder2", "D:/Folder3", "D:/Folder4"],
+      false
+    );
     expect(navigateTo).toHaveBeenCalledWith("#/import/step2");
   });
 
@@ -731,10 +730,10 @@ describe("ImportView browse flows", () => {
     const form = element(container.querySelector<HTMLFormElement>("#importScanForm"));
     await fireEvent.submit(form);
     await waitFor(() =>
-      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith([
-        "C:/Designs",
-        "D:/Extra",
-      ])
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenLastCalledWith(
+        ["C:/Designs", "D:/Extra"],
+        false
+      )
     );
   });
 
@@ -802,12 +801,54 @@ describe("ImportView browse flows", () => {
 // Step 1: preview submission
 // ---------------------------------------------------------------------------
 describe("ImportView step 1 preview submission", () => {
+  it("renders Include uncatalogued files already in the Library checkbox unchecked by default", () => {
+    const { container } = renderHarness("#/import");
+    const checkbox = container.querySelector<HTMLInputElement>("#import-include-library");
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox?.checked).toBe(false);
+  });
+
+  it("enables scan button and submits preview when only includeLibrary is checked", async () => {
+    const { container } = renderHarness("#/import");
+    const checkbox = element(container.querySelector<HTMLInputElement>("#import-include-library"));
+    const scanButton = screen.getByRole("button", { name: "Scan folder(s)" });
+
+    expect(scanButton).toBeDisabled();
+    await fireEvent.click(checkbox);
+    await tick();
+    expect(checkbox.checked).toBe(true);
+    expect(scanButton).toBeEnabled();
+
+    const form = element(container.querySelector<HTMLFormElement>("#importScanForm"));
+    await fireEvent.submit(form);
+
+    await waitFor(() => expect(adapterMocks.previewImportFromRoots).toHaveBeenCalledWith([], true));
+    await waitFor(() => expect(screen.getByText("Review scanned files")).toBeInTheDocument());
+  });
+
   it("submits the normalised roots to previewImportFromRoots", async () => {
     const { container } = renderHarness("#/import");
     await scanFolder(container, "C:/Designs");
 
     await waitFor(() =>
-      expect(adapterMocks.previewImportFromRoots).toHaveBeenCalledWith(["C:/Designs"])
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenCalledWith(["C:/Designs"], false)
+    );
+    await waitFor(() => expect(screen.getByText("Review scanned files")).toBeInTheDocument());
+  });
+
+  it("submits roots with includeLibrary when both are specified", async () => {
+    const { container } = renderHarness("#/import");
+    const input = element(container.querySelector<HTMLInputElement>("#import-root-path"));
+    await fireEvent.input(input, { target: { value: "C:/Designs" } });
+
+    const checkbox = element(container.querySelector<HTMLInputElement>("#import-include-library"));
+    await fireEvent.click(checkbox);
+
+    const form = element(container.querySelector<HTMLFormElement>("#importScanForm"));
+    await fireEvent.submit(form);
+
+    await waitFor(() =>
+      expect(adapterMocks.previewImportFromRoots).toHaveBeenCalledWith(["C:/Designs"], true)
     );
     await waitFor(() => expect(screen.getByText("Review scanned files")).toBeInTheDocument());
   });

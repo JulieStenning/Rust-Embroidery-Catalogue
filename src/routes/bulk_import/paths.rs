@@ -52,6 +52,12 @@ pub(crate) fn derive_data_root_from_database_url() -> PathBuf {
 }
 
 pub(crate) fn get_designs_base_path() -> PathBuf {
+    if let Some(app) = super::session::get_bulk_import_app_handle() {
+        use tauri::Manager;
+        if let Some(state) = app.try_state::<crate::state::AppState>() {
+            return state.paths.embroidery_designs_dir.clone();
+        }
+    }
     derive_data_root_from_database_url().join("MachineEmbroideryDesigns")
 }
 

@@ -750,15 +750,42 @@ describe("commandAdapter previewImportFromRoots", () => {
 
     expect(invokeMock).toHaveBeenCalledWith("preview_bulk_import", {
       request: {
-        root_path: "C:/a",
-        root_paths: ["C:/a", "C:/b"],
-        fallback_designer_id: null,
-        fallback_source_id: null,
+        rootPath: "C:/a",
+        rootPaths: ["C:/a", "C:/b"],
+        includeLibrary: false,
+        fallbackDesignerId: null,
+        fallbackSourceId: null,
       },
     });
     expect(result.source).toBe("rust");
     expect(result.preview.discovered_count).toBe(10);
     expect(result.preview.folder_count).toBe(2);
+  });
+
+  it("supports includeLibrary when roots are empty", async () => {
+    invokeMock.mockResolvedValue({
+      discovered_count: 5,
+      selected_count: 5,
+      scanned_files: ["lib.pes"],
+      resolved_assignments: [],
+      missing_root: false,
+      no_supported_files: false,
+      invalid_root: false,
+    });
+
+    const result = await previewImportFromRoots([], true);
+
+    expect(invokeMock).toHaveBeenCalledWith("preview_bulk_import", {
+      request: {
+        rootPath: null,
+        rootPaths: [],
+        includeLibrary: true,
+        fallbackDesignerId: null,
+        fallbackSourceId: null,
+      },
+    });
+    expect(result.source).toBe("rust");
+    expect(result.preview.discovered_count).toBe(5);
   });
 
   it("falls back to a mock preview on error", async () => {
@@ -786,10 +813,11 @@ describe("commandAdapter previewImportFromRoots", () => {
 
     expect(invokeMock).toHaveBeenCalledWith("preview_bulk_import", {
       request: {
-        root_path: "C:/single",
-        root_paths: ["C:/single"],
-        fallback_designer_id: null,
-        fallback_source_id: null,
+        rootPath: "C:/single",
+        rootPaths: ["C:/single"],
+        includeLibrary: false,
+        fallbackDesignerId: null,
+        fallbackSourceId: null,
       },
     });
     expect(result.source).toBe("rust");

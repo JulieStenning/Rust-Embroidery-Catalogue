@@ -54,6 +54,9 @@ export interface ImportSessionState {
   /** Per-folder designer/source overrides keyed by normalized folder path. */
   perFolderAssignmentByPath: Record<string, { designerId: string; sourceId: string }>;
 
+  /** Whether to scan uncatalogued files in the library directory. */
+  includeLibrary: boolean;
+
   /** Last precheck action message surfaced on the step 3 panel. */
   actionMessage: string;
   actionSource: string;
@@ -64,6 +67,7 @@ function createInitialSessionState(): ImportSessionState {
   return {
     rootPath: "",
     rootPaths: [],
+    includeLibrary: false,
     preview: null,
     previewSource: "mock",
     previewMessage: "",

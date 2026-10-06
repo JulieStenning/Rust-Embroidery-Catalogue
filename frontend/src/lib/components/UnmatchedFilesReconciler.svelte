@@ -169,7 +169,9 @@
     <p class="text-sm text-gray-600">
       {$unmatchedFilesStore.count} design file(s) on disk have no record in the catalogue
       {$unmatchedFilesStore.checked > 0 ? `(scanned ${$unmatchedFilesStore.checked})` : ""}. You can
-      import them as new catalogue records.
+      import them as new catalogue records. If you want to see a list of the files discovered,
+      import them from the
+      <a href="#/import" class="text-indigo-600 hover:underline">Bulk Import</a> page.
     </p>
     <div class="flex gap-2 pt-1">
       <button
