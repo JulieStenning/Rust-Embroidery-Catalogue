@@ -672,33 +672,129 @@ async fn import_single_stitch_design(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| relative.to_string_lossy().to_string());
     let stored_filepath = crate::paths::canonical_design_rel(&relative.to_string_lossy());
-    let stored_master_filepath =
+    let mut stored_master_filepath =
         master_relative.map(|mr| crate::paths::canonical_design_rel(&mr.to_string_lossy()));
 
-    let insert_result = sqlx::query(
-        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, hoop_id, image_data, image_type, \
-         width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, \
-         image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
-         VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
-    )
-    .bind(&filename)
-    .bind(&stored_filepath)
-    .bind(stored_master_filepath.as_deref())
-    .bind(hoop_id)
-    .bind(parsed.image_data)
-    .bind(parsed.image_type)
-    .bind(parsed.width_mm)
-    .bind(parsed.height_mm)
-    .bind(parsed.stitch_count)
-    .bind(parsed.color_count)
-    .bind(parsed.color_change_count)
-    .bind(file_size_bytes)
-    .bind(file_hash_blake3)
-    .execute(pool)
-    .await
-    .map_err(|e| format!("Could not insert '{}': {e}", full_path.display()))?;
+    let stem = relative.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let parent = relative
+        .parent()
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+    let pattern_suffix = if parent.is_empty() {
+        format!("{stem}.%")
+    } else {
+        format!("{parent}/{stem}.%")
+    };
 
-    let design_id = insert_result.last_insert_rowid();
+    let existing_master_row: Option<(i64, Option<String>)> = if !stem.is_empty() {
+        sqlx::query_as(
+            "SELECT id, master_filepath FROM designs WHERE (filepath LIKE ? OR master_filepath LIKE ?) AND is_master_only = 1 LIMIT 1",
+        )
+        .bind(&pattern_suffix)
+        .bind(&pattern_suffix)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None)
+    } else {
+        None
+    };
+
+    let design_id = if let Some((id, existing_mf)) = existing_master_row {
+        if stored_master_filepath.is_none() {
+            stored_master_filepath = existing_mf;
+        }
+        sqlx::query(
+            "UPDATE designs SET filename = ?, filepath = ?, master_filepath = ?, is_master_only = 0, \
+             hoop_id = ?, image_data = ?, image_type = ?, width_mm = ?, height_mm = ?, \
+             stitch_count = ?, color_count = ?, color_change_count = ?, is_stitched = 0, \
+             stitching_tags_verified = 0, file_size_bytes = ?, file_hash_blake3 = ? \
+             WHERE id = ?",
+        )
+        .bind(&filename)
+        .bind(&stored_filepath)
+        .bind(stored_master_filepath.as_deref())
+        .bind(hoop_id)
+        .bind(parsed.image_data)
+        .bind(parsed.image_type)
+        .bind(parsed.width_mm)
+        .bind(parsed.height_mm)
+        .bind(parsed.stitch_count)
+        .bind(parsed.color_count)
+        .bind(parsed.color_change_count)
+        .bind(file_size_bytes)
+        .bind(file_hash_blake3)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Could not update master design '{id}': {e}"))?;
+
+        // Clean up any stale unlinked duplicate row if one existed
+        let duplicate_ids: Vec<i64> =
+            sqlx::query_scalar("SELECT id FROM designs WHERE filepath = ? AND id != ?")
+                .bind(&stored_filepath)
+                .bind(id)
+                .fetch_all(pool)
+                .await
+                .unwrap_or_default();
+
+        for dup_id in duplicate_ids {
+            let _ = sqlx::query("DELETE FROM design_tags WHERE design_id = ?")
+                .bind(dup_id)
+                .execute(pool)
+                .await;
+            let _ = sqlx::query("DELETE FROM designs WHERE id = ?")
+                .bind(dup_id)
+                .execute(pool)
+                .await;
+        }
+
+        id
+    } else {
+        // Fallback: Check if matching master file exists on disk
+        if stored_master_filepath.is_none() && !stem.is_empty() {
+            let master_formats = load_enabled_master_formats(pool).await;
+            if let Some(designs_root) = full_path.parent().and_then(|p| p.parent()) {
+                for master_ext in &master_formats {
+                    let candidate_rel = if parent.is_empty() {
+                        format!("{stem}.{master_ext}")
+                    } else {
+                        format!("{parent}/{stem}.{master_ext}")
+                    };
+                    let candidate_full = designs_root.join(&candidate_rel);
+                    if candidate_full.exists() {
+                        stored_master_filepath =
+                            Some(crate::paths::canonical_design_rel(&candidate_rel));
+                        break;
+                    }
+                }
+            }
+        }
+
+        let insert_result = sqlx::query(
+            "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, hoop_id, image_data, image_type, \
+             width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, \
+             image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
+             VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+        )
+        .bind(&filename)
+        .bind(&stored_filepath)
+        .bind(stored_master_filepath.as_deref())
+        .bind(hoop_id)
+        .bind(parsed.image_data)
+        .bind(parsed.image_type)
+        .bind(parsed.width_mm)
+        .bind(parsed.height_mm)
+        .bind(parsed.stitch_count)
+        .bind(parsed.color_count)
+        .bind(parsed.color_change_count)
+        .bind(file_size_bytes)
+        .bind(file_hash_blake3)
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Could not insert '{}': {e}", full_path.display()))?;
+
+        insert_result.last_insert_rowid()
+    };
 
     // 1. File and folder path-rule tagging matching bulk import.
     let matched_descriptions = crate::services::tagging::suggest_path_rule_descriptions(

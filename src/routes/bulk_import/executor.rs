@@ -37,6 +37,7 @@ async fn persist_stitch_design(
     file_path: &str,
     stored_filepath: &str,
     stored_master_filepath: Option<&str>,
+    existing_design_id: Option<i64>,
     ctx: &ImportExecutionCtx<'_>,
     total_image_gen_ms: &mut u128,
     total_db_insert_ms: &mut u128,
@@ -112,31 +113,90 @@ async fn persist_stitch_design(
     let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
     let file_hash_blake3: Option<String> = compute_file_hash_blake3(&stored_path).ok();
 
-    let t_insert = Instant::now();
-    let insert_result = sqlx::query(
-        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
-    )
-    .bind(&filename)
-    .bind(stored_filepath)
-    .bind(stored_master_filepath)
-    .bind(designer_id)
-    .bind(source_id)
-    .bind(hoop_id)
-    .bind(image_result.image_data)
-    .bind(image_result.image_type)
-    .bind(image_result.width_mm)
-    .bind(image_result.height_mm)
-    .bind(image_result.stitch_count)
-    .bind(image_result.color_count)
-    .bind(image_result.color_change_count)
-    .bind(file_size_bytes)
-    .bind(file_hash_blake3.as_ref())
-    .execute(&mut **tx)
-    .await
-    .map_err(|e| e.to_string())?;
-    *total_db_insert_ms += t_insert.elapsed().as_millis();
+    let (design_id, db_insert_elapsed_ms) = if let Some(id) = existing_design_id {
+        let t_insert = Instant::now();
+        sqlx::query(
+            "UPDATE designs SET filename = ?, filepath = ?, master_filepath = ?, is_master_only = 0, \
+             date_added = COALESCE(date_added, DATE('now')), \
+             designer_id = COALESCE(?, designer_id), \
+             source_id = COALESCE(?, source_id), \
+             hoop_id = ?, image_data = ?, image_type = ?, width_mm = ?, height_mm = ?, \
+             stitch_count = ?, color_count = ?, color_change_count = ?, \
+             is_stitched = 0, stitching_tags_verified = 0, \
+             file_size_bytes = ?, file_hash_blake3 = ? \
+             WHERE id = ?",
+        )
+        .bind(&filename)
+        .bind(stored_filepath)
+        .bind(stored_master_filepath)
+        .bind(designer_id)
+        .bind(source_id)
+        .bind(hoop_id)
+        .bind(image_result.image_data)
+        .bind(image_result.image_type)
+        .bind(image_result.width_mm)
+        .bind(image_result.height_mm)
+        .bind(image_result.stitch_count)
+        .bind(image_result.color_count)
+        .bind(image_result.color_change_count)
+        .bind(file_size_bytes)
+        .bind(file_hash_blake3.as_ref())
+        .bind(id)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let design_id = insert_result.last_insert_rowid();
+        // Clean up any stale unlinked duplicate row if this was an upgrade of a master record
+        let duplicate_ids: Vec<i64> =
+            sqlx::query_scalar("SELECT id FROM designs WHERE filepath = ? AND id != ?")
+                .bind(stored_filepath)
+                .bind(id)
+                .fetch_all(&mut **tx)
+                .await
+                .unwrap_or_default();
+
+        for dup_id in duplicate_ids {
+            let _ = sqlx::query("DELETE FROM design_tags WHERE design_id = ?")
+                .bind(dup_id)
+                .execute(&mut **tx)
+                .await;
+            let _ = sqlx::query("DELETE FROM designs WHERE id = ?")
+                .bind(dup_id)
+                .execute(&mut **tx)
+                .await;
+        }
+
+        (id, t_insert.elapsed().as_millis())
+    } else {
+        let t_insert = Instant::now();
+        let insert_result = sqlx::query(
+            "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+        )
+        .bind(&filename)
+        .bind(stored_filepath)
+        .bind(stored_master_filepath)
+        .bind(designer_id)
+        .bind(source_id)
+        .bind(hoop_id)
+        .bind(image_result.image_data)
+        .bind(image_result.image_type)
+        .bind(image_result.width_mm)
+        .bind(image_result.height_mm)
+        .bind(image_result.stitch_count)
+        .bind(image_result.color_count)
+        .bind(image_result.color_change_count)
+        .bind(file_size_bytes)
+        .bind(file_hash_blake3.as_ref())
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        (
+            insert_result.last_insert_rowid(),
+            t_insert.elapsed().as_millis(),
+        )
+    };
+    *total_db_insert_ms += db_insert_elapsed_ms;
 
     let t_tag = Instant::now();
     let matched_descriptions = tagging::suggest_path_rule_descriptions(
@@ -434,8 +494,22 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                 let stored_filepath =
                     ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
 
+                let parent = Path::new(&stored_filepath)
+                    .parent()
+                    .map(|p| p.to_string_lossy().replace('\\', "/"))
+                    .unwrap_or_default();
+                let stem = Path::new(&stored_filepath)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("");
+                let pattern_suffix = if parent.is_empty() {
+                    format!("{stem}.%")
+                } else {
+                    format!("{parent}/{stem}.%")
+                };
+
                 let paired_master_src = selected_master_map.get(&(parent_key, stem_key)).cloned();
-                let stored_master_filepath: Option<String> = if let Some(master_src) =
+                let mut stored_master_filepath: Option<String> = if let Some(master_src) =
                     paired_master_src
                 {
                     let stored =
@@ -446,11 +520,68 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     None
                 };
 
+                // Check if an existing master-only design exists in SQLite for this stem
+                let existing_master_row: Option<(i64, Option<String>)> = if !stem.is_empty() {
+                    sqlx::query_as(
+                        "SELECT id, master_filepath FROM designs WHERE (filepath LIKE ? OR master_filepath LIKE ?) AND is_master_only = 1 LIMIT 1",
+                    )
+                    .bind(&pattern_suffix)
+                    .bind(&pattern_suffix)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .unwrap_or(None)
+                } else {
+                    None
+                };
+
+                let existing_design_id = if let Some((id, existing_mf)) = existing_master_row {
+                    if stored_master_filepath.is_none() {
+                        stored_master_filepath = existing_mf;
+                    }
+                    Some(id)
+                } else {
+                    None
+                };
+
+                // Fallback: Check if matching master file exists on disk
+                if stored_master_filepath.is_none() && !stem.is_empty() {
+                    for master_ext in &enabled_master_formats {
+                        let candidate_src = path_obj.with_extension(master_ext);
+                        if candidate_src.exists() {
+                            if let Ok(stored) = ensure_file_in_designs_base(
+                                &candidate_src.to_string_lossy(),
+                                &confirm_wire.wire.root_paths,
+                            ) {
+                                stored_master_filepath = Some(stored);
+                                break;
+                            }
+                        }
+                        let designs_base = get_designs_base_path();
+                        let candidate_dest = if parent.is_empty() {
+                            designs_base.join(format!("{stem}.{master_ext}"))
+                        } else {
+                            designs_base
+                                .join(&parent)
+                                .join(format!("{stem}.{master_ext}"))
+                        };
+                        if candidate_dest.exists() {
+                            let rel = if parent.is_empty() {
+                                format!("{stem}.{master_ext}")
+                            } else {
+                                format!("{parent}/{stem}.{master_ext}")
+                            };
+                            stored_master_filepath = Some(crate::paths::canonical_design_rel(&rel));
+                            break;
+                        }
+                    }
+                }
+
                 let _ = persist_stitch_design(
                     &mut tx,
                     file_path,
                     &stored_filepath,
                     stored_master_filepath.as_deref(),
+                    existing_design_id,
                     &ctx,
                     &mut total_image_gen_ms,
                     &mut total_db_insert_ms,
@@ -462,15 +593,53 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                 let stored_filepath =
                     ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
 
-                let _ = persist_master_design(
-                    &mut tx,
-                    file_path,
-                    &stored_filepath,
-                    &ctx,
-                    &mut total_db_insert_ms,
-                    &mut total_tagging_ms,
-                )
-                .await?;
+                let parent = Path::new(&stored_filepath)
+                    .parent()
+                    .map(|p| p.to_string_lossy().replace('\\', "/"))
+                    .unwrap_or_default();
+                let stem = Path::new(&stored_filepath)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("");
+                let pattern_suffix = if parent.is_empty() {
+                    format!("{stem}.%")
+                } else {
+                    format!("{parent}/{stem}.%")
+                };
+
+                let existing_stitch_id: Option<i64> = if !stem.is_empty() {
+                    sqlx::query_scalar(
+                        "SELECT id FROM designs WHERE (filepath LIKE ? OR filepath LIKE ?) AND is_master_only = 0 AND (master_filepath IS NULL OR master_filepath = '') LIMIT 1",
+                    )
+                    .bind(&pattern_suffix)
+                    .bind(format!("/MachineEmbroideryDesigns/{}", pattern_suffix))
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .unwrap_or(None)
+                } else {
+                    None
+                };
+
+                if let Some(stitch_id) = existing_stitch_id {
+                    let t_upd = Instant::now();
+                    sqlx::query("UPDATE designs SET master_filepath = ? WHERE id = ?")
+                        .bind(&stored_filepath)
+                        .bind(stitch_id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    total_db_insert_ms += t_upd.elapsed().as_millis();
+                } else {
+                    let _ = persist_master_design(
+                        &mut tx,
+                        file_path,
+                        &stored_filepath,
+                        &ctx,
+                        &mut total_db_insert_ms,
+                        &mut total_tagging_ms,
+                    )
+                    .await?;
+                }
             }
 
             persisted_design_count += 1;

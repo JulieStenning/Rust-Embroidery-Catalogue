@@ -1107,3 +1107,73 @@ async fn import_unmatched_files_pairs_master_with_existing_stitch_record() {
     pool.close().await;
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn import_unmatched_files_promotes_existing_master_only_when_stitch_file_added() {
+    let tmp = unique_temp_dir("unmatched-promote-master");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+
+    let pes_path = root.join("tulip.pes");
+    let eof_path = root.join("tulip.eof");
+    let fixture = Path::new("tests/Test Assets/Bean.pes");
+    if fixture.exists() {
+        fs::copy(&fixture, &pes_path).unwrap();
+    } else {
+        fs::write(&pes_path, b"test-pes-content").unwrap();
+    }
+    fs::write(&eof_path, b"test-eof-content").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_designs_db(&db_path).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof') ON CONFLICT(key) DO UPDATE SET value = 'eof'",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Existing master-only row in DB (tulip.eof previously imported)
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added) VALUES ('tulip.eof', 'tulip.eof', 'tulip.eof', 1, DATE('now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_p: RestoreProgress| {};
+    let result = import_unmatched_design_files(&pool, &root, &cancel, &mut progress)
+        .await
+        .unwrap();
+
+    assert_eq!(result.detected, 1, "only tulip.pes was unmatched");
+    assert_eq!(result.imported, 1);
+    assert_eq!(result.failed, 0);
+
+    let rows = sqlx::query_as::<_, (String, Option<String>, bool)>(
+        "SELECT filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+        rows.len(),
+        1,
+        "importing stitch file must upgrade existing master row, not duplicate"
+    );
+    assert_eq!(rows[0].0, "tulip.pes");
+    assert_eq!(rows[0].1.as_deref(), Some("tulip.eof"));
+    assert!(!rows[0].2, "is_master_only must become false");
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}

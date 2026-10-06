@@ -669,9 +669,7 @@
         class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-gray-200 bg-[var(--surface-card)] px-6 py-4 backdrop-blur"
         data-testid="settings-header"
       >
-        <h1 class="ui-page-title text-lg font-bold text-gray-800">
-          Application Settings
-        </h1>
+        <h1 class="ui-page-title text-lg font-bold text-gray-800">Application Settings</h1>
         <div class="flex shrink-0 items-center gap-3">
           {#if settingsIsDirty}
             <span

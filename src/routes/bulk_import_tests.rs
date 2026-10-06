@@ -2933,3 +2933,228 @@ async fn persist_bulk_import_imports_standalone_master_as_master_only() {
     }
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+#[serial]
+async fn persist_bulk_import_promotes_existing_master_only_when_stitch_file_imported_later() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-promote-master-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof') ON CONFLICT(key) DO UPDATE SET value = 'eof'",
+    )
+    .execute(&pool)
+    .await
+    .expect("setting should insert");
+
+    let source_dir = tmp.join("source");
+    fs::create_dir_all(&source_dir).expect("temp dir should be created");
+    let eof_path = source_dir.join("quilt_pattern.eof");
+    fs::write(&eof_path, b"test-eof-content").expect("eof should be written");
+
+    // 1. First import: standalone .eof
+    let wire1 = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![eof_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+    let result1 = persist_bulk_import_confirm_wire(&pool, &wire1, None).await;
+    assert!(result1.is_ok(), "first import should succeed");
+
+    let rows1 = sqlx::query_as::<_, (i64, String, Option<String>, bool)>(
+        "SELECT id, filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("query designs");
+    assert_eq!(rows1.len(), 1, "should have 1 master-only design");
+    assert!(rows1[0].3, "is_master_only should be true");
+    let master_id = rows1[0].0;
+
+    // 2. Second import: now export/import matching .pes
+    let pes_path = source_dir.join("quilt_pattern.pes");
+    let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
+    if fixture.exists() {
+        fs::copy(&fixture, &pes_path).expect("fixture should be copied");
+    } else {
+        fs::write(&pes_path, b"dummy-pes").expect("pes should be written");
+    }
+
+    let wire2 = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![pes_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+    let result2 = persist_bulk_import_confirm_wire(&pool, &wire2, None).await;
+    assert!(result2.is_ok(), "second import should succeed");
+
+    let rows2 = sqlx::query_as::<_, (i64, String, Option<String>, bool)>(
+        "SELECT id, filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("query designs");
+
+    assert_eq!(
+        rows2.len(),
+        1,
+        "importing stitch file must upgrade existing design, NOT create duplicate"
+    );
+    assert_eq!(rows2[0].0, master_id, "same design ID should be reused");
+    assert!(rows2[0].1.ends_with("quilt_pattern.pes"));
+    assert_eq!(
+        rows2[0]
+            .2
+            .as_deref()
+            .map(|s| s.ends_with("quilt_pattern.eof")),
+        Some(true),
+        "master_filepath must point to the .eof file"
+    );
+    assert!(!rows2[0].3, "is_master_only must become false");
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[serial]
+async fn persist_bulk_import_links_existing_stitch_when_master_file_imported_later() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-link-master-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.enabled_master_formats', 'eof') ON CONFLICT(key) DO UPDATE SET value = 'eof'",
+    )
+    .execute(&pool)
+    .await
+    .expect("setting should insert");
+
+    let source_dir = tmp.join("source");
+    fs::create_dir_all(&source_dir).expect("temp dir should be created");
+    let pes_path = source_dir.join("motif.pes");
+    let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
+    if fixture.exists() {
+        fs::copy(&fixture, &pes_path).expect("fixture should be copied");
+    } else {
+        fs::write(&pes_path, b"dummy-pes").expect("pes should be written");
+    }
+
+    // 1. First import: standalone .pes
+    let wire1 = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![pes_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+    let result1 = persist_bulk_import_confirm_wire(&pool, &wire1, None).await;
+    assert!(result1.is_ok(), "first import should succeed");
+
+    let rows1 = sqlx::query_as::<_, (i64, String, Option<String>, bool)>(
+        "SELECT id, filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("query designs");
+    assert_eq!(rows1.len(), 1);
+    assert_eq!(rows1[0].2, None);
+
+    // 2. Second import: now import matching .eof
+    let eof_path = source_dir.join("motif.eof");
+    fs::write(&eof_path, b"test-motif-eof").expect("eof should be written");
+
+    let wire2 = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![eof_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+    let result2 = persist_bulk_import_confirm_wire(&pool, &wire2, None).await;
+    assert!(result2.is_ok(), "second import should succeed");
+
+    let rows2 = sqlx::query_as::<_, (i64, String, Option<String>, bool)>(
+        "SELECT id, filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("query designs");
+
+    assert_eq!(
+        rows2.len(),
+        1,
+        "importing master file must update existing stitch design, NOT create duplicate"
+    );
+    assert!(rows2[0].1.ends_with("motif.pes"));
+    assert_eq!(
+        rows2[0].2.as_deref().map(|s| s.ends_with("motif.eof")),
+        Some(true),
+        "master_filepath must point to the .eof file"
+    );
+    assert!(!rows2[0].3, "is_master_only must remain false");
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}
