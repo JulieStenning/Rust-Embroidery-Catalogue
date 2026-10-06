@@ -1,0 +1,9 @@
+DROP INDEX IF EXISTS ix_designs_date_added_asc;
+DROP INDEX IF EXISTS ix_designs_date_added_desc;
+DROP INDEX IF EXISTS ix_designs_filepath_nocase_asc;
+DROP INDEX IF EXISTS ix_designs_filepath_nocase_desc;
+DROP INDEX IF EXISTS ix_designs_rating_asc;
+DROP INDEX IF EXISTS ix_designs_rating_desc;
+DROP INDEX IF EXISTS ix_designs_stitched_asc;
+DROP INDEX IF EXISTS ix_designs_stitched_desc;
+DROP INDEX IF EXISTS ix_tags_description_lower;

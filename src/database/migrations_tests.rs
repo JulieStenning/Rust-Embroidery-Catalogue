@@ -34,7 +34,12 @@ async fn in_memory_pool() -> SqlitePool {
 
 /// Convert a filesystem path to forward slashes for use in a `sqlite:///` URL.
 fn path_to_sqlite_abs_url(path: &std::path::Path) -> String {
-    format!("sqlite:///{}", path.to_string_lossy().replace('\\', "/"))
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir().unwrap().join(path)
+    };
+    format!("sqlite:///{}", abs.to_string_lossy().replace('\\', "/"))
 }
 
 async fn on_disk_pool(path: &std::path::Path) -> SqlitePool {
@@ -684,6 +689,44 @@ async fn run_migrations_creates_search_optimization_indexes() {
     .await
     .expect("query filepath_lower index");
     assert_eq!(fp_idx.0, 1, "ix_designs_filepath_lower index should exist");
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn run_migrations_creates_browse_sort_indexes() {
+    let tmp = unique_tmp_dir("browse-sort-indexes");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("browse_sort_indexes.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let expected_indexes = [
+        "ix_designs_date_added_asc",
+        "ix_designs_date_added_desc",
+        "ix_designs_filepath_nocase_asc",
+        "ix_designs_filepath_nocase_desc",
+        "ix_designs_rating_asc",
+        "ix_designs_rating_desc",
+        "ix_designs_stitched_asc",
+        "ix_designs_stitched_desc",
+        "ix_tags_description_lower",
+    ];
+
+    for idx_name in expected_indexes {
+        let query = format!(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='{}'",
+            idx_name
+        );
+        let count: (i64,) = sqlx::query_as(sqlx::AssertSqlSafe(query))
+            .fetch_one(&pool)
+            .await
+            .unwrap_or_else(|e| panic!("query {} index failed: {}", idx_name, e));
+        assert_eq!(count.0, 1, "{} index should exist", idx_name);
+    }
 
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
