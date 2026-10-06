@@ -303,7 +303,6 @@ async fn run_migrations_applies_all_migrations_to_fresh_db() {
     let tmp = unique_tmp_dir("fresh-migrate");
     std::fs::create_dir_all(&tmp).expect("create temp dir");
     let db_path = tmp.join("fresh.db");
-    // Touch the file so SQLite can open it.
     std::fs::write(&db_path, []).expect("create empty db file");
 
     let pool = on_disk_pool(&db_path).await;

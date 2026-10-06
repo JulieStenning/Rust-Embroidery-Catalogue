@@ -83,3 +83,5 @@ scripts/extract_file_folder_words.py
 scripts/extract-file-folder-words.ps1
 .gitignore
 file-folder-words.txt
+src-tauri/resources/EmbroideryCatalogue.db.bak_before_migration_fix
+tests/Test Assets/EmbroideryCatalogue.db.bak_before_migration_fix

@@ -29,7 +29,7 @@ async fn restore_test_pool() -> SqlitePool {
     .await
     .expect("failed to create settings table");
     sqlx::query(
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, filepath TEXT NOT NULL)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, filepath TEXT NOT NULL, master_filepath TEXT, is_master_only INTEGER NOT NULL DEFAULT 0)",
     )
     .execute(&pool)
     .await
