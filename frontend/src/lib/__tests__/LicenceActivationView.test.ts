@@ -116,4 +116,77 @@ describe("LicenceActivationView.svelte", () => {
     );
     expect(onLicenceActivated).not.toHaveBeenCalled();
   });
+
+  it("handles enter key to trigger activation", async () => {
+    const mockStatus = {
+      is_active: true,
+      is_valid: true,
+      email: "tester@example.com",
+      tier: "beta",
+      expires_at: null,
+      expires_at_formatted: null,
+      error_message: null,
+    };
+    activateLicenceMock.mockResolvedValueOnce(mockStatus);
+
+    const onLicenceActivated = vi.fn();
+    render(LicenceActivationView, { props: { onLicenceActivated } });
+
+    const emailInput = screen.getByTestId("licence-email-input");
+    const keyInput = screen.getByTestId("licence-key-input");
+
+    await fireEvent.input(emailInput, { target: { value: "tester@example.com" } });
+    await fireEvent.input(keyInput, { target: { value: "EMB1.abc.def" } });
+    await fireEvent.keyDown(keyInput, { key: "Enter" });
+    await tick();
+
+    expect(activateLicenceMock).toHaveBeenCalledWith("tester@example.com", "EMB1.abc.def");
+    expect(onLicenceActivated).toHaveBeenCalledWith(mockStatus);
+  });
+
+  it("shows fallback error message when backend returns is_valid false without error message", async () => {
+    activateLicenceMock.mockResolvedValueOnce({
+      is_active: false,
+      is_valid: false,
+      email: null,
+      tier: null,
+      expires_at: null,
+      expires_at_formatted: null,
+      error_message: null,
+    });
+
+    const onLicenceActivated = vi.fn();
+    render(LicenceActivationView, { props: { onLicenceActivated } });
+
+    const emailInput = screen.getByTestId("licence-email-input");
+    const keyInput = screen.getByTestId("licence-key-input");
+    const btn = screen.getByTestId("activate-licence-button");
+
+    await fireEvent.input(emailInput, { target: { value: "tester@example.com" } });
+    await fireEvent.input(keyInput, { target: { value: "EMB1.abc.def" } });
+    await fireEvent.click(btn);
+    await tick();
+
+    expect(screen.getByTestId("licence-error-alert")).toHaveTextContent(
+      "Licence verification failed. Please check your details."
+    );
+  });
+
+  it("handles exception thrown during licence activation", async () => {
+    activateLicenceMock.mockRejectedValueOnce(new Error("Network IPC failure"));
+
+    const onLicenceActivated = vi.fn();
+    render(LicenceActivationView, { props: { onLicenceActivated } });
+
+    const emailInput = screen.getByTestId("licence-email-input");
+    const keyInput = screen.getByTestId("licence-key-input");
+    const btn = screen.getByTestId("activate-licence-button");
+
+    await fireEvent.input(emailInput, { target: { value: "tester@example.com" } });
+    await fireEvent.input(keyInput, { target: { value: "EMB1.abc.def" } });
+    await fireEvent.click(btn);
+    await tick();
+
+    expect(screen.getByTestId("licence-error-alert")).toHaveTextContent("Network IPC failure");
+  });
 });

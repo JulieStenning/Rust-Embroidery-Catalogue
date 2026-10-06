@@ -204,3 +204,84 @@ fn detect_relocated_data_root_ok_for_drive_root_form() {
     let result = detect_relocated_data_root(&root);
     assert!(result.is_ok());
 }
+
+#[test]
+fn validate_database_path_reports_corrupted_header() {
+    let tmp = unique_tmp_dir("corrupt-header");
+    let db_dir = tmp.join("Database");
+    std::fs::create_dir_all(&db_dir).unwrap();
+    std::fs::write(
+        db_dir.join(crate::paths::DATABASE_FILENAME),
+        b"not-a-sqlite-db-header-at-all",
+    )
+    .unwrap();
+
+    let result = validate_database_path(&tmp);
+    assert!(!result.valid);
+    assert!(result.error.is_some());
+    assert!(result.error.unwrap().contains("not a valid SQLite database or is corrupted"));
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn recover_database_from_backup_file_rejects_nonexistent_backup() {
+    let tmp_root = unique_tmp_dir("recover-nonexistent-root");
+    let nonexistent_backup = tmp_root.join("does_not_exist.db");
+
+    let res = recover_database_from_backup_file(&tmp_root, &nonexistent_backup).await;
+    assert!(res.is_err());
+    let err_str = res.unwrap_err().to_string();
+    assert!(err_str.contains("does not exist"));
+    let _ = std::fs::remove_dir_all(&tmp_root);
+}
+
+#[tokio::test]
+async fn recover_database_from_backup_file_rejects_invalid_sqlite_backup() {
+    let tmp_root = unique_tmp_dir("recover-invalid-root");
+    let tmp_backup_dir = unique_tmp_dir("recover-invalid-backup");
+    std::fs::create_dir_all(&tmp_backup_dir).unwrap();
+
+    let invalid_backup = tmp_backup_dir.join("CorruptBackup.db");
+    std::fs::write(&invalid_backup, b"not-a-sqlite-db").unwrap();
+
+    let res = recover_database_from_backup_file(&tmp_root, &invalid_backup).await;
+    assert!(res.is_err());
+
+    let _ = std::fs::remove_dir_all(&tmp_root);
+    let _ = std::fs::remove_dir_all(&tmp_backup_dir);
+}
+
+#[tokio::test]
+async fn recover_database_from_backup_file_moves_wal_and_shm_aside() {
+    let tmp_root = unique_tmp_dir("recover-wal-root");
+    let tmp_backup_dir = unique_tmp_dir("recover-wal-backup");
+    let db_dir = tmp_root.join("Database");
+    std::fs::create_dir_all(&db_dir).unwrap();
+    std::fs::create_dir_all(&tmp_backup_dir).unwrap();
+
+    let live_db = db_dir.join(crate::paths::DATABASE_FILENAME);
+    let live_wal = db_dir.join(format!("{}-wal", crate::paths::DATABASE_FILENAME));
+    let live_shm = db_dir.join(format!("{}-shm", crate::paths::DATABASE_FILENAME));
+    std::fs::write(&live_db, b"corrupted-preexisting-content").unwrap();
+    std::fs::write(&live_wal, b"dummy-wal").unwrap();
+    std::fs::write(&live_shm, b"dummy-shm").unwrap();
+
+    let backup_file = tmp_backup_dir.join("Backup.db");
+    std::fs::write(&backup_file, crate::paths::SEED_DB_BYTES).unwrap();
+
+    let outcome = recover_database_from_backup_file(&tmp_root, &backup_file).await;
+    assert!(outcome.is_ok());
+
+    let entries: Vec<_> = std::fs::read_dir(&db_dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+
+    assert!(entries.iter().any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db")));
+    assert!(entries.iter().any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db-wal")));
+    assert!(entries.iter().any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db-shm")));
+
+    let _ = std::fs::remove_dir_all(&tmp_root);
+    let _ = std::fs::remove_dir_all(&tmp_backup_dir);
+}

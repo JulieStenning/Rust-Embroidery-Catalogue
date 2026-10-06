@@ -171,6 +171,57 @@ async fn test_db_licence_persistence() {
     let status = check_stored_licence_status(&mut conn).await.unwrap();
     assert!(!status.is_active);
     assert!(!status.is_valid);
+
+    // 5. Corrupted stored licence returns is_valid: false with error_message
+    sqlx::query("INSERT OR REPLACE INTO settings (key, value) VALUES ('licence_email', 'corrupt@test.com'), ('licence_key', 'EMB1.invalid-payload.invalid-sig')")
+        .execute(conn.as_mut())
+        .await
+        .unwrap();
+    let status = check_stored_licence_status(&mut conn).await.unwrap();
+    assert!(status.is_active);
+    assert!(!status.is_valid);
+    assert!(status.error_message.is_some());
+}
+
+#[test]
+fn test_hex_to_32_bytes_errors() {
+    assert!(hex_to_32_bytes("1234").is_err());
+    let bad_chars = "zz".repeat(32);
+    assert!(hex_to_32_bytes(&bad_chars).is_err());
+}
+
+#[test]
+fn test_verify_licence_formatting_and_decoding_errors() {
+    // Empty email
+    assert!(matches!(
+        verify_licence_key("", "EMB1.abc.def", None, None),
+        Err(LicenceError::EmailMismatch)
+    ));
+
+    // Invalid format: wrong prefix or wrong parts
+    assert!(matches!(
+        verify_licence_key("a@b.com", "NOTEMB1.abc.def", None, None),
+        Err(LicenceError::InvalidFormat)
+    ));
+    assert!(matches!(
+        verify_licence_key("a@b.com", "EMB1.only-two-parts", None, None),
+        Err(LicenceError::InvalidFormat)
+    ));
+
+    // Invalid base64 in payload
+    assert!(matches!(
+        verify_licence_key("a@b.com", "EMB1.!!!notb64!!!.validb64", None, None),
+        Err(LicenceError::PayloadDecodeError(_))
+    ));
+
+    // Invalid signature length (valid b64 but not 64 bytes)
+    let short_sig = URL_SAFE_NO_PAD.encode(b"too_short");
+    let payload_b64 = URL_SAFE_NO_PAD.encode(b"{\"email\":\"a@b.com\",\"tier\":\"beta\",\"issued_at\":0}");
+    let key = format!("EMB1.{}.{}", payload_b64, short_sig);
+    assert!(matches!(
+        verify_licence_key("a@b.com", &key, None, None),
+        Err(LicenceError::InvalidSignature)
+    ));
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
