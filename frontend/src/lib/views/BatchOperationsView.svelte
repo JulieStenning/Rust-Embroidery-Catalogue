@@ -606,8 +606,8 @@
 </script>
 
 <section class="batch-operations-page space-y-6 font-sans">
-  <h1 class="ui-page-title batch-operations-title mb-2">Batch Operations</h1>
-  <p class="text-sm text-gray-500 mb-4">
+  <h1 class="ui-page-title text-2xl font-bold text-gray-800 mb-2">Batch Operations</h1>
+  <p class="text-sm text-gray-600 mb-4">
     Automated AI categorisation, rule-based tagging, and library file maintenance.
   </p>
 

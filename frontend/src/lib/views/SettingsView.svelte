@@ -669,7 +669,7 @@
         class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-gray-200 bg-[var(--surface-card)] px-6 py-4 backdrop-blur"
         data-testid="settings-header"
       >
-        <h1 class="ui-page-title settings-title text-lg font-bold text-gray-800">
+        <h1 class="ui-page-title text-lg font-bold text-gray-800">
           Application Settings
         </h1>
         <div class="flex shrink-0 items-center gap-3">
@@ -809,7 +809,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             {#each MASTER_FORMAT_PRESETS as preset}
               <label
-                class="flex items-start gap-2.5 p-2.5 rounded border border-gray-200 bg-gray-50/50 hover:bg-gray-50 cursor-pointer text-sm text-gray-700"
+                class="flex items-start gap-2.5 p-2.5 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
                 data-testid={`master-format-preset-${preset.id}`}
               >
                 <input
@@ -820,8 +820,8 @@
                   disabled={busyActive}
                 />
                 <div>
-                  <span class="font-medium text-gray-800 block">{preset.name}</span>
-                  <span class="text-xs text-gray-500 font-mono">{preset.desc}</span>
+                  <span class="font-medium text-[var(--text-primary)] block">{preset.name}</span>
+                  <span class="text-xs text-[var(--text-muted)] font-mono">{preset.desc}</span>
                 </div>
               </label>
             {/each}

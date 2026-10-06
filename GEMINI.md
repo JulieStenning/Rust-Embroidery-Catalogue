@@ -208,8 +208,11 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
 
 - A `.d.ts` file with top-level `import`/`export` becomes a module augmentation and stops applying globally. Keep wildcard files pure scripts and use `/// <reference types="..." />`.
 
-### 7. Visual Consistency
+### 7. Visual Consistency & Canonical UI Theme Spec
 
+- All UI components, surfaces, typography, forms, tables, and modal dialogs must strictly comply with the canonical [Look and Feel & UI Theme Implementation Specification](docs/Specs/look-and-feel-implementation-spec.md).
+- **Theme Parity & Token Rules:** Always use CSS custom property tokens (`--surface-*`, `--text-*`, `--border-*`). Never use un-gated `@media (prefers-color-scheme: dark)` overrides without `:root:not([data-theme="light"])`, and avoid hardcoded raw opacity classes (like `bg-gray-50/50`) on cards.
+- **Reference Gold Standards:** Model new pages and components on **Browse Designs**, **Choose Tags**, and **Design Details**.
 - Primary action buttons use the app's purple/indigo + white look (`settings-primary-button menu-button-primary` classes). Do not override with ad-hoc colors.
 
 ---

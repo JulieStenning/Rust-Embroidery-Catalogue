@@ -571,8 +571,8 @@
 </script>
 
 <section class="backup-page space-y-4">
-  <h1 class="ui-page-title backup-title mb-2">Backup &amp; Restore</h1>
-  <p class="text-sm text-gray-500 mb-4">
+  <h1 class="ui-page-title text-2xl font-bold text-gray-800 mb-2">Backup &amp; Restore</h1>
+  <p class="text-sm text-gray-600 mb-4">
     Back up your catalogue database and embroidery design files to folders of your choice, or
     restore them from an earlier snapshot. The database backup saves your catalogue data, settings,
     tags, and projects; the designs backup saves the actual embroidery files.
