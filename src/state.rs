@@ -130,6 +130,16 @@ impl PoolHolder {
     }
 }
 
+/// Coordinates long-running background tasks, cancellation tokens, and task state.
+#[derive(Default)]
+pub struct TaskCoordinator {
+    pub backfill_running: AtomicBool,
+    pub backfill_stop_requested: AtomicBool,
+    pub bulk_import_stop_requested: AtomicBool,
+    pub backup_cancel_requested: AtomicBool,
+    pub restore_cancel_requested: AtomicBool,
+}
+
 /// Shared application state managed by Tauri.
 /// The pool is held in a `PoolHolder` so a restore can close and replace it;
 /// commands obtain a cheap clone via `AppState::db_pool`.
@@ -153,6 +163,8 @@ pub struct AppState {
     /// True while a database restore is closing/swapping the live pool, so other
     /// commands fail fast instead of acquiring a closed pool.
     pub restore_in_progress: AtomicBool,
+    /// Coordinator for background tasks and cooperative cancellation flags.
+    pub tasks: TaskCoordinator,
 }
 
 impl AppState {

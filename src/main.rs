@@ -378,6 +378,7 @@ fn main() {
         migration_running: AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
         restore_in_progress: AtomicBool::new(false),
+        tasks: TaskCoordinator::default(),
     };
 
     // Launch a lightweight background backfill for orphan fingerprint data

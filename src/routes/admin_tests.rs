@@ -2054,6 +2054,7 @@ fn command_app_state(pool: SqlitePool) -> AppState {
         migration_running: AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
         restore_in_progress: AtomicBool::new(false),
+        tasks: crate::TaskCoordinator::default(),
     }
 }
 

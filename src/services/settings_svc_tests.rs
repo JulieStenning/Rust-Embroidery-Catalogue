@@ -323,6 +323,7 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
         migration_running: std::sync::atomic::AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         restore_in_progress: std::sync::atomic::AtomicBool::new(false),
+        tasks: crate::TaskCoordinator::default(),
     };
 
     // Dev mode should be reflected in the view model, exercising the

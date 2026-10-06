@@ -857,6 +857,7 @@ fn test_app_state(pool: PoolHolder, restore_in_progress: bool) -> AppState {
         migration_running: AtomicBool::new(false),
         migration_cancel_requested: std::sync::Arc::new(AtomicBool::new(false)),
         restore_in_progress: AtomicBool::new(restore_in_progress),
+        tasks: TaskCoordinator::default(),
     }
 }
 
