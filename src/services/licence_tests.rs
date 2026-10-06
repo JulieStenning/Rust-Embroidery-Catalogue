@@ -216,7 +216,8 @@ fn test_verify_licence_formatting_and_decoding_errors() {
 
     // Invalid signature length (valid b64 but not 64 bytes)
     let short_sig = URL_SAFE_NO_PAD.encode(b"too_short");
-    let payload_b64 = URL_SAFE_NO_PAD.encode(b"{\"email\":\"a@b.com\",\"tier\":\"beta\",\"issued_at\":0}");
+    let payload_b64 =
+        URL_SAFE_NO_PAD.encode(b"{\"email\":\"a@b.com\",\"tier\":\"beta\",\"issued_at\":0}");
     let key = format!("EMB1.{}.{}", payload_b64, short_sig);
     assert!(matches!(
         verify_licence_key("a@b.com", &key, None, None),

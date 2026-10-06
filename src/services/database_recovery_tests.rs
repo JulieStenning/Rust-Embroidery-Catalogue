@@ -219,7 +219,10 @@ fn validate_database_path_reports_corrupted_header() {
     let result = validate_database_path(&tmp);
     assert!(!result.valid);
     assert!(result.error.is_some());
-    assert!(result.error.unwrap().contains("not a valid SQLite database or is corrupted"));
+    assert!(result
+        .error
+        .unwrap()
+        .contains("not a valid SQLite database or is corrupted"));
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
@@ -278,9 +281,15 @@ async fn recover_database_from_backup_file_moves_wal_and_shm_aside() {
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
 
-    assert!(entries.iter().any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db")));
-    assert!(entries.iter().any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db-wal")));
-    assert!(entries.iter().any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db-shm")));
+    assert!(entries
+        .iter()
+        .any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db")));
+    assert!(entries
+        .iter()
+        .any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db-wal")));
+    assert!(entries
+        .iter()
+        .any(|name| name.starts_with("EmbroideryCatalogue.corrupt-") && name.ends_with(".db-shm")));
 
     let _ = std::fs::remove_dir_all(&tmp_root);
     let _ = std::fs::remove_dir_all(&tmp_backup_dir);
