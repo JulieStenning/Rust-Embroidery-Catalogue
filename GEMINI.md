@@ -265,3 +265,36 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
   - UI prose noun = British **licence**, verb = US **license**, proper names/metadata = US. Existing route/test/CSS identifiers remain unchanged.
 - **Never `git add -A` / `git add .` / `git commit -a` — stage by explicit path:** this workspace is often edited by more than one agent at once, so unrelated WIP can appear mid-task. Check `git diff --numstat` first (and again right before each commit), stage an explicit list, then confirm via `git diff --cached --name-only` that the index holds only your files. Leave files carrying another agent's edits unstaged; shared headers ride along with their commit.
 - **Commit message tense:** Write commit messages in the **past tense** (e.g. `refactored(frontend): ...`, not `refactor(frontend): ...`).
+
+---
+
+## ⏱️ Check & Test Execution Benchmarks (Execution Times & Cadence)
+
+To avoid premature or redundant polling during task execution, use the measured benchmark timings below (measured on Windows with SSD; allow ~20s variance for cold cache / background load):
+
+| Tier / Check | Command | Measured Duration | Purpose & Cadence |
+|---|---|---|---|
+| **Rust Fast Format** | `cargo fmt --check` | ~3 s | Instant formatting check. |
+| **Rust Fast Compile** | `cargo check` | ~3 s | Instant borrow / type validation during edits. |
+| **Frontend Lint** | `npm run lint:frontend` | ~13 s | ESLint syntax & rule validation. |
+| **Repo Format Check** | `npm run format:check` | ~16 s | Prettier check across frontend & root docs. |
+| **Frontend Type-check** | `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"` | ~17 s | Native Svelte 5 / TypeScript type-check. |
+| **Rust Tests** | `cargo test` | ~17 s | Comprehensive backend unit & integration tests. |
+| **Rust Docs** | `cargo doc --no-deps` | ~18 s | Verifies rustdoc links & documentation. |
+| **Rust Clippy** | `cargo clippy --all-targets -- -D warnings` | ~26–35 s | Strict linter verification. |
+| **Rust Aggregate** | `npm run check:rust` | ~48 s | Full Rust suite (fmt, clippy, doc, test). |
+| **Vitest Test Suite** | `npm test` (`npx vitest run`) | ~55 s | Full frontend unit & integration test suite. |
+| **Frontend Aggregate** | `npm run check:frontend` | ~98 s (~1.5 min) | Runs vitest + format:check + lint:frontend. |
+| **Full Quality Check** | `npm run check:all` | ~118 s (~2 min) | Full repo verification (frontend + rust). |
+| **E2E Debug Build** | `npm run e2e:build` (`cargo tauri build --debug --no-bundle`) | ~265 s (~4.5 min) | Frontend build + debug Tauri executable compile. |
+| **Playwright E2E Tests** | `npm run e2e` (`npx playwright test`) | ~658 s (~11 min) | Complete desktop WebView2 UI & workflow tests. |
+
+### 🧭 Cadence & Check Frequency Guidelines
+
+1. **Do not poll running checks:** Background tasks are reactive and automatically notify when complete. Never poll `manage_task(action="status")` in a loop.
+2. **Right-size verification during development:**
+   - For rapid Rust edits, use `cargo check` (~3 s) instead of running full test or clippy suites on every minor change.
+   - For rapid frontend edits, use `svelte-check` (~17 s) to catch TypeScript / rune issues.
+   - Run full suites (`npm run check:all` ~2 min, `npm run e2e` ~11 min) only at major milestones or before final delivery, rather than after every individual file edit.
+3. **Set appropriate async timeouts:** When executing longer commands, set `WaitMsBeforeAsync` or background expectations aligned with the table above rather than timing out prematurely.
+

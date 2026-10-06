@@ -1118,7 +1118,7 @@ async fn import_unmatched_files_promotes_existing_master_only_when_stitch_file_a
     let eof_path = root.join("tulip.eof");
     let fixture = Path::new("tests/Test Assets/Bean.pes");
     if fixture.exists() {
-        fs::copy(&fixture, &pes_path).unwrap();
+        fs::copy(fixture, &pes_path).unwrap();
     } else {
         fs::write(&pes_path, b"test-pes-content").unwrap();
     }
