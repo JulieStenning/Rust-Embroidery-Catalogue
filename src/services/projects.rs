@@ -141,7 +141,12 @@ pub fn build_data_url(image_data: Option<Vec<u8>>, image_type: Option<&str>) -> 
         _ => "image/png",
     };
 
-    Some(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))
+    let mut url = String::with_capacity(bytes.len() * 4 / 3 + 32);
+    url.push_str("data:");
+    url.push_str(mime);
+    url.push_str(";base64,");
+    STANDARD.encode_string(&bytes, &mut url);
+    Some(url)
 }
 
 pub fn round_mm_to_i64(value: Option<f64>) -> Option<i64> {

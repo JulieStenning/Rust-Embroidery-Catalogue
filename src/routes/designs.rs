@@ -691,7 +691,14 @@ fn image_mime_from_type(image_type: Option<&str>) -> &'static str {
 
 fn build_data_url(image_data: Option<Vec<u8>>, image_type: Option<&str>) -> Option<String> {
     let mime = image_mime_from_type(image_type);
-    image_data.map(|bytes| format!("data:{};base64,{}", mime, STANDARD.encode(bytes)))
+    image_data.map(|bytes| {
+        let mut url = String::with_capacity(bytes.len() * 4 / 3 + 32);
+        url.push_str("data:");
+        url.push_str(mime);
+        url.push_str(";base64,");
+        STANDARD.encode_string(&bytes, &mut url);
+        url
+    })
 }
 
 fn is_truthy(raw: &str) -> bool {
@@ -2549,27 +2556,23 @@ pub async fn get_design_previews_for_browse(
         .await
         .map_err(|e| e.to_string())?;
 
-    let previews = rows
-        .into_iter()
-        .map(|row| {
-            let mime = match row.image_type.as_deref() {
-                Some("jpg") | Some("jpeg") => "image/jpeg",
-                Some("webp") => "image/webp",
-                Some("gif") => "image/gif",
-                Some("bmp") => "image/bmp",
-                _ => "image/png",
-            };
+    let mut previews = Vec::with_capacity(rows.len());
+    for row in rows {
+        let mime = image_mime_from_type(row.image_type.as_deref());
+        let data_url = row.image_data.map(|bytes| {
+            let mut url = String::with_capacity(bytes.len() * 4 / 3 + 32);
+            url.push_str("data:");
+            url.push_str(mime);
+            url.push_str(";base64,");
+            STANDARD.encode_string(&bytes, &mut url);
+            url
+        });
 
-            let data_url = row
-                .image_data
-                .map(|bytes| format!("data:{};base64,{}", mime, STANDARD.encode(bytes)));
-
-            BrowseDesignPreview {
-                id: row.id,
-                data_url,
-            }
-        })
-        .collect();
+        previews.push(BrowseDesignPreview {
+            id: row.id,
+            data_url,
+        });
+    }
 
     Ok(previews)
 }
