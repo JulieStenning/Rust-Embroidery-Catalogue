@@ -182,6 +182,7 @@ pub(crate) fn take_bulk_import_scan(token: &str) -> Option<StoredBulkImportScan>
     .flatten()
 }
 
+#[allow(dead_code)]
 pub(crate) fn insert_bulk_import_context_for_test(
     token: String,
     confirm_wire: BulkImportConfirmWire,
@@ -237,13 +238,12 @@ pub(crate) fn get_bulk_import_app_handle() -> Option<&'static tauri::AppHandle> 
 pub(crate) fn clear_bulk_import_context_store_internal(
     reason: &str,
 ) -> BulkImportContextStoreResetResult {
-    let (cleared_context_count, active_context_count) =
-        with_bulk_import_context_store(|store| {
-            let cleared = store.len();
-            store.clear();
-            (cleared, store.len())
-        })
-        .unwrap_or((0, 0));
+    let (cleared_context_count, active_context_count) = with_bulk_import_context_store(|store| {
+        let cleared = store.len();
+        store.clear();
+        (cleared, store.len())
+    })
+    .unwrap_or((0, 0));
 
     let reset_count = BULK_IMPORT_CONTEXT_RESET_COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
     let reset_at_millis = current_timestamp_millis() as u64;

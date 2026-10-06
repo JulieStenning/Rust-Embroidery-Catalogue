@@ -6,6 +6,7 @@ use super::inference::resolve_bulk_import_assignments;
 use super::session::{get_bulk_import_db_pool, take_bulk_import_context};
 use super::types::{BulkImportConfirmExecutionResult, BulkImportConfirmWire};
 
+#[allow(dead_code)]
 pub(crate) fn canonicalize_bulk_import_confirm_wire(
     mut confirm_wire: BulkImportConfirmWire,
 ) -> BulkImportConfirmWire {

@@ -98,6 +98,17 @@ When a configured resource (database, data root, seed asset) is absent or invali
   - Tab 1 ("Tagging & Categorisation") is strictly for Image / Subject Tagging (Steps 1–3) with a callout link to Tab 2.
   - Tab 2 ("Maintenance & File Processing") is the home for all offline technical binary calculations: Stitching tag detection, preview image generation, thread colour/stitch counts recalculation, and hoop dimension recalculation.
 
+### 6. Zero Static Process Globals & Managed State
+
+- Absolute ban on standalone `static Mutex<...>`, `static OnceLock<...>`, and `static AtomicBool` in routes and services.
+- All background task managers, cancellation tokens, coordinators (`TaskCoordinator`), and session context caches must be encapsulated within `AppState` and injected via Tauri's managed state (`tauri::State<AppState>`).
+- This guarantees clean lifecycle management, allows parallel test execution without cross-test state leakage, and prevents dangling background tasks during app shutdown or database hot-swapping.
+
+### 7. Structured IPC Error Enum (`IpcError`)
+
+- All backend functions exposed across the Tauri IPC bridge must return `Result<T, IpcError>` using the centralized `IpcError` enum in `src/error.rs` (which derives `thiserror::Error` and `serde::Serialize`), rather than converting errors to raw strings via `.map_err(|e| e.to_string())`.
+- `IpcError` in `src/error.rs` must be mirrored in TypeScript under `frontend/src/lib/types/errors.ts`.
+
 ---
 
 ## 🧩 Test-Surface & Boundary-Drift Discipline
@@ -140,8 +151,12 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - **Instant Database Verification (< 1 ms vs minutes on large DBs):**
   - Never execute full integrity checks (e.g. `PRAGMA quick_check(1)` or full table scans) in synchronous startup or migration verification paths. On large catalogues (e.g. 7.6 GB+), `quick_check(1)` scans every single B-tree page until an error is found, hanging startup and restore operations for minutes on slow removable media.
   - Use fast, constant-time schema verification (`PRAGMA schema_version` + `SELECT 1 FROM settings LIMIT 1` + `SELECT 1 FROM designs LIMIT 1`), which completes in < 1 ms regardless of database size.
-- **Read-Only SQLite Connections & Write Pragmas:**
-  - When opening a temporary read-only verification pool with `read_only(true)`, do **not** set write pragmas like `SqliteJournalMode::Off`. SQLite forbids modifying journal mode on read-only handles, triggering `(code: 3850) disk I/O error`.
+- **Rendering & Parsing Performance Discipline:**
+  - Avoid nested $O(r^2 \cdot N)$ coordinate loops when rendering stitch files. Use vectorised, single-pass polygon/capsule rasterizers.
+  - Performance-critical parsing and rendering pipelines must be benchmarked using Criterion harnesses in `benches/` to detect regressions.
+- **Production Module Size Limit (< 500 lines):**
+  - Every production Rust module must remain strictly under **500 lines**.
+  - Complex modules must be decomposed into focused domain submodules (e.g. `src/routes/designs/` with `browse.rs`, `details.rs`, `metadata.rs`, `tags.rs`, `deletion.rs`, `launch.rs`, `preview.rs`, `types.rs`, `mod.rs`).
 
 ### 💾 Canonical `designs.filepath` format (single source of truth)
 
@@ -158,11 +173,17 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
 
 ## 🎨 Frontend & TypeScript Coding Standards
 
-### 1. Type Parity
+### 1. Native Svelte 5 TypeScript & Type Parity
 
-- Maintain strict type parity across the IPC bridge. If a Rust `struct` is returned by a Tauri command, create a matching TypeScript `interface` in `src/lib/types/`.
+- All new and refactored Svelte components must use `<script lang="ts">` with typed runes (`$state`, `$derived`, `$props<{ ... }>()`).
+- Maintain strict type parity across the IPC bridge. If a Rust `struct` is returned by a Tauri command, create a matching TypeScript `interface` in `src/lib/types/` (and mirror `IpcError` in `src/lib/types/errors.ts`).
 
-### 2. Strict Typing & No Implicit Any
+### 2. Component Size Limit (< 500 lines)
+
+- Svelte components and views must remain under **500 lines**.
+- Decompose complex views into cohesive subcomponents (e.g., `BrowseFilterPanel.svelte`, `BrowseSelectionBar.svelte`, `BrowseCardGrid.svelte` under `frontend/src/lib/components/browse/`).
+
+### 3. Strict Typing & No Implicit Any
 
 - Every single function/method/arrow parameter must be explicitly typed:
   - **No Implicit Any (TS7006):** Never leave arrow functions or inner closure parameters untyped (e.g. `const rank = (/** @type {string} */ name) => { ... }`).
@@ -173,21 +194,21 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
   // ✅ uiKind !== null && UTILITY_KINDS.has(uiKind)
   ```
 
-### 3. Lint & Type Verification
+### 4. Lint & Type Verification
 
 - Execute `cmd /c "cd frontend && npx svelte-check --tsconfig jsconfig.json"` after modifying frontend files to ensure zero type errors.
 - Do **not** run `npm run check` from the repo root (the script lives in `frontend/package.json`).
 
-### 4. Route-Level State Persistence
+### 5. Route-Level State Persistence
 
 - `MainView.svelte` conditionally mounts one view per `currentUiKind`. Unmounting destroys local `$state`. Lift multi-step wizard state into module stores (e.g. `src/lib/stores/importSessionStore.ts`).
 - Use context-aware back navigation via `previousRoute` in `MainView.svelte`.
 
-### 5. Ambient module declarations (.d.ts)
+### 6. Ambient module declarations (.d.ts)
 
 - A `.d.ts` file with top-level `import`/`export` becomes a module augmentation and stops applying globally. Keep wildcard files pure scripts and use `/// <reference types="..." />`.
 
-### 6. Visual Consistency
+### 7. Visual Consistency
 
 - Primary action buttons use the app's purple/indigo + white look (`settings-primary-button menu-button-primary` classes). Do not override with ad-hoc colors.
 

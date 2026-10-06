@@ -93,29 +93,21 @@ fn bench_rendering(c: &mut Criterion) {
 
         // 2D Rendering Benchmark
         let settings_2d = RenderSettings::default().with_preview_3d(false);
-        group.bench_with_input(
-            BenchmarkId::new("render_2d", count),
-            &pattern,
-            |b, pat| {
-                b.iter(|| {
-                    let res = render_pattern_to_png(black_box(pat), black_box(&settings_2d));
-                    black_box(res).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("render_2d", count), &pattern, |b, pat| {
+            b.iter(|| {
+                let res = render_pattern_to_png(black_box(pat), black_box(&settings_2d));
+                black_box(res).unwrap();
+            });
+        });
 
         // 3D Rendering Benchmark
         let settings_3d = RenderSettings::default().with_preview_3d(true);
-        group.bench_with_input(
-            BenchmarkId::new("render_3d", count),
-            &pattern,
-            |b, pat| {
-                b.iter(|| {
-                    let res = render_pattern_to_png(black_box(pat), black_box(&settings_3d));
-                    black_box(res).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("render_3d", count), &pattern, |b, pat| {
+            b.iter(|| {
+                let res = render_pattern_to_png(black_box(pat), black_box(&settings_3d));
+                black_box(res).unwrap();
+            });
+        });
     }
 
     group.finish();

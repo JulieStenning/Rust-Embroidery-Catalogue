@@ -431,6 +431,7 @@ async fn test_clamp_commit_every() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_stop_mid_batch() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
@@ -475,6 +476,7 @@ async fn test_stop_mid_batch() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_backfill_handles_processing_error() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
@@ -501,6 +503,7 @@ async fn test_backfill_handles_processing_error() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_backfill_select_candidates_error() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
@@ -514,6 +517,7 @@ async fn test_backfill_select_candidates_error() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 #[allow(clippy::await_holding_lock)] // current-thread runtime; guard never crosses threads
 async fn test_process_one_design_fully_hashed_short_circuits() {
     let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());

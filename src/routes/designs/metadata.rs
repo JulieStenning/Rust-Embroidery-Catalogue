@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Julie Stenning
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use super::types::{BulkAddToProjectResult, DesignCommandResult, ProjectListItem, SetDesignProjectRequest};
+use super::types::{
+    BulkAddToProjectResult, DesignCommandResult, ProjectListItem, SetDesignProjectRequest,
+};
 use crate::AppState;
 use serde::Deserialize;
 use serde_json::json;
@@ -54,7 +56,10 @@ pub(crate) fn normalize_optional_text(value: &Option<String>) -> Option<String> 
     }
 }
 
-pub(crate) fn normalize_optional_fk(value: Option<i64>, label: &str) -> Result<Option<i64>, String> {
+pub(crate) fn normalize_optional_fk(
+    value: Option<i64>,
+    label: &str,
+) -> Result<Option<i64>, String> {
     match value {
         Some(id) if id <= 0 => Err(format!("{} must be a positive id.", label)),
         _ => Ok(value),

@@ -4,8 +4,7 @@
 use super::catalog::{load_default_stitching_tag_id, load_stitching_tag_lookup, load_tag_catalog};
 use super::inference::{resolve_assignment_for_file, resolve_bulk_import_assignments};
 use super::paths::{
-    compute_file_hash_blake3, compute_file_size, ensure_file_in_designs_base,
-    get_designs_base_path,
+    compute_file_hash_blake3, compute_file_size, ensure_file_in_designs_base, get_designs_base_path,
 };
 use super::session::{
     get_bulk_import_app_handle, BulkImportProgressEvent, BULK_IMPORT_PROGRESS_EVENT,
@@ -32,6 +31,7 @@ struct ImportExecutionCtx<'a> {
     preview_3d_profile: &'a str,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn persist_stitch_design(
     tx: &mut Transaction<'_, Sqlite>,
     file_path: &str,

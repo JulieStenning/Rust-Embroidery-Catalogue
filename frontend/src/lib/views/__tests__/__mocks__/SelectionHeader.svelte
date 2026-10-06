@@ -20,6 +20,7 @@
   data-total-count={String(totalCountOnPage)}
   data-all-selected={String(isAllSelectedOnPage)}
   data-is-searching={String(isSearching)}
+  data-busy={String(busyActive)}
 >
   {#if isSearching}
     <span data-testid="selection-searching">Searching designs...</span>

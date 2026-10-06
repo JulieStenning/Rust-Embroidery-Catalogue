@@ -221,10 +221,7 @@ pub fn app_status_from_paths(paths: &paths::AppPaths) -> AppStatus {
     // A database is "missing" when a data root is configured but the derived
     // DB file does not exist. This is the recovery-flow condition.
     let has_configured_root = matches!(paths.mode, paths::ExecutionMode::Installed)
-        && paths::read_bootstrap_data_root()
-            .ok()
-            .flatten()
-            .is_some();
+        && paths::read_bootstrap_data_root().ok().flatten().is_some();
     let database_missing = has_configured_root && !paths.database_path.exists();
 
     AppStatus {

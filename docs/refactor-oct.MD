@@ -185,27 +185,42 @@ This document outlines the architectural review and improvement plan for **Embro
 
 ---
 
-## 3. Implementation Roadmap
+## 3. Implementation Roadmap & Execution Status
+
+| Phase | Milestone | Description | Status |
+| :--- | :--- | :--- | :--- |
+| **Phase 1** | **1.1** | Micro-Benchmarking Baseline Harness (`benches/`) | ✅ **Completed** |
+| | **1.2** | Vectorised / Single-Pass Preview Rendering Engine (`src/png_writer.rs`) | ✅ **Completed** |
+| | **1.3** | SQLite Concurrency via Multi-Connection Pool in WAL Mode (`src/database/connection.rs`) | ✅ **Completed** |
+| | **1.4** | SQLite Expression Indexes & Optimized Search Queries (`migrations/`, `src/routes/designs/`) | ✅ **Completed** |
+| | **1.5** | High-Efficiency Direct Base64 / Stream Transport for Previews (`src/routes/designs/`) | ✅ **Completed** |
+| **Phase 2** | **2.1** | Eliminate Static Process Globals (`TaskCoordinator` in `AppState`) | ✅ **Completed** |
+| | **2.2** | Centralized Structured `IpcError` Enum Across Backend & Frontend | ✅ **Completed** |
+| | **2.3** | Decompose God Modules (`designs/`, `bulk_import/`, `BrowseView` sub-components) | ✅ **Completed** |
+| **Phase 3** | **3.1** | Formal Architecture Decision Records (`docs/architecture_decisions/`) | ✅ **Completed** |
+| | **3.2** | Update `GEMINI.md` Architectural Guardrails | ✅ **Completed** |
+| | **3.3** | Full Quality Verification & Frontend TypeScript Parity | ✅ **Completed** |
 
 ```mermaid
 flowchart TD
-    subgraph Phase1["Phase 1: Performance Optimizations & Baselines"]
+    subgraph Phase1["Phase 1: Performance Optimizations & Baselines (Done)"]
         A0["1.1 Criterion Benchmark Baseline"] --> A1["1.2 Vectorised PNG Renderer"]
         A1 --> A2["1.3 Multi-Connection Pool (WAL)"]
-        A2 --> A3["1.4 SQLite FTS5 Search"]
-        A3 --> A4["1.5 Custom Asset Protocol for Previews"]
+        A2 --> A3["1.4 SQLite Expression Search Indexes"]
+        A3 --> A4["1.5 High-Efficiency Previews"]
     end
 
-    subgraph Phase2["Phase 2: Architectural Modularity & Clean State"]
+    subgraph Phase2["Phase 2: Architectural Modularity & Clean State (Done)"]
         B1["2.1 State Encapsulation (AppState Coordinators)"] --> B2["2.2 Centralized IpcError enum"]
         B2 --> B3["2.3 Decompose God Modules (Native TS Subcomponents)"]
     end
 
-    subgraph Phase3["Phase 3: Architectural Standards & Polish"]
+    subgraph Phase3["Phase 3: Architectural Standards & Polish (Done)"]
         C1["3.1 Architecture Decision Records"] --> C2["3.2 Update GEMINI.md Guardrails"]
-        C2 --> C3["3.3 Remaining Frontend TS Migration"]
+        C2 --> C3["3.3 Full Quality Verification Gate"]
     end
 
     Phase1 --> Phase2
     Phase2 --> Phase3
 ```
+

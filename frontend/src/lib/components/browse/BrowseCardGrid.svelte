@@ -2,8 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { SvelteSet } from "svelte/reactivity";
-
+  /** @typedef {import("svelte/reactivity").SvelteSet<number>} NumberSet */
   /** @typedef {import("../../types/ipc").BrowseDesignCard} BrowseDesignCard */
   /** @typedef {import("../../types/ipc").ProjectListItem} ProjectListItem */
 
@@ -13,7 +12,7 @@
    *   browseLoading: boolean,
    *   browsePageRows: BrowseDesignCard[][],
    *   browseGridColumns: number,
-   *   browseSelectedIds: SvelteSet<number>,
+   *   browseSelectedIds: NumberSet,
    *   browseSelectionLocked: boolean,
    *   browseBulkDeleteMax: number,
    *   browsePreviewById: Record<number, string | null>,

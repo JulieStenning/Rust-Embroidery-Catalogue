@@ -34,7 +34,6 @@
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { portalToBody } from "../utils/portal.js";
-  import { HOOP_UNKNOWN_FILTER } from "../utils/hoopConstants.js";
 
   /** @typedef {import("../types/ipc").BrowseDesignCard} BrowseDesignCard */
   /** @typedef {import("../types/ipc").BrowseDesignSummaryWire} BrowseDesignSummaryWire */

@@ -229,10 +229,7 @@ mod tests {
 
         let app_not_found = AppError::not_found("design", Some("10".to_string()));
         let ipc_not_found: IpcError = app_not_found.into();
-        assert_eq!(
-            ipc_not_found,
-            IpcError::NotFound("design: 10".to_string())
-        );
+        assert_eq!(ipc_not_found, IpcError::NotFound("design: 10".to_string()));
     }
 
     #[test]

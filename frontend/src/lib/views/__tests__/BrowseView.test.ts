@@ -807,7 +807,7 @@ describe("BrowseView", () => {
     });
 
     it("displays an inline Cancel button while search is pending and clicking it cancels the search", async () => {
-      let resolveSearch: (res: any) => void = () => {};
+      let resolveSearch: (res: unknown) => void = () => {};
       const pendingPromise = new Promise((resolve) => {
         resolveSearch = resolve;
       });
@@ -863,7 +863,7 @@ describe("BrowseView", () => {
     });
 
     it("cancels active search or clears input when pressing Escape", async () => {
-      let resolveSearch: (res: any) => void = () => {};
+      let resolveSearch: (res: unknown) => void = () => {};
       const pendingPromise = new Promise((resolve) => {
         resolveSearch = resolve;
       });

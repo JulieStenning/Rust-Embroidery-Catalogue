@@ -124,8 +124,8 @@
     }
   }
 
-  /** @param {FocusEvent} e */
-  function handleBlur(e) {
+  /** @param {FocusEvent} _e */
+  function handleBlur(_e) {
     const match = findBestMatch();
     if (match && (!selectedTag || selectedTag.id !== match.id)) {
       chooseTag(match);

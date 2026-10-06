@@ -27,6 +27,7 @@ pub use commands::*;
 pub use inference::*;
 pub use paths::{compute_file_hash_blake3, compute_file_size};
 pub use precheck::*;
+pub use precheck_helpers::*;
 pub use session::*;
 pub use types::*;
 // Internal re-exports for test module
@@ -36,8 +37,6 @@ pub(crate) use catalog::*;
 pub(crate) use executor::*;
 #[cfg(test)]
 pub(crate) use paths::*;
-#[cfg(test)]
-pub(crate) use precheck_helpers::*;
 #[cfg(test)]
 pub(crate) use sqlx::SqlitePool;
 

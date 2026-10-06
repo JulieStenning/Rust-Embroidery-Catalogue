@@ -9,7 +9,6 @@
     runUnifiedBackfill,
     stopUnifiedBackfill,
     getBackfillLogEntries,
-    runStitchingBackfill,
     runMaintenanceBackfill,
     countMissingPreviews,
     countTaggingCandidates,

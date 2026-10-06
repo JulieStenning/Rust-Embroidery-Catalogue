@@ -132,8 +132,7 @@
     <div
       class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-gray-700 my-1.5 py-1.5 px-3 bg-gray-50 rounded border border-gray-200"
     >
-      <span class="font-semibold text-gray-600 uppercase text-[11px] tracking-wide"
-        >Search in:</span
+      <span class="font-semibold text-gray-600 uppercase text-[11px] tracking-wide">Search in:</span
       >
       <label class="ui-field-label flex items-center gap-1.5 cursor-pointer select-none">
         <input
@@ -369,8 +368,7 @@
             type="checkbox"
             class="accent-indigo-600 rounded"
             checked={browseFilters.needsAttention}
-            onchange={(event) =>
-              onUpdateFilter("needsAttention", event.currentTarget.checked)}
+            onchange={(event) => onUpdateFilter("needsAttention", event.currentTarget.checked)}
           />
           <span>Needs attention</span>
         </label>
