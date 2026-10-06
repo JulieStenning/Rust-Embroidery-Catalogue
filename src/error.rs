@@ -89,9 +89,80 @@ impl From<std::io::Error> for AppError {
     }
 }
 
+/// Structured, serializable error enum exchanged over the Tauri IPC boundary.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, thiserror::Error)]
+#[serde(tag = "code", content = "message", rename_all = "snake_case")]
+pub enum IpcError {
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("Database error: {0}")]
+    Database(String),
+
+    #[error("I/O error: {0}")]
+    Io(String),
+
+    #[error("Parse error: {0}")]
+    Parse(String),
+
+    #[error("Unsupported: {0}")]
+    Unsupported(String),
+
+    #[error("Operation cancelled: {0}")]
+    Cancelled(String),
+
+    #[error("Internal error: {0}")]
+    Internal(String),
+}
+
+impl From<AppError> for IpcError {
+    fn from(err: AppError) -> Self {
+        match err {
+            AppError::InvalidInput { message } => IpcError::InvalidInput(message),
+            AppError::NotFound { resource, id } => match id {
+                Some(id) => IpcError::NotFound(format!("{resource}: {id}")),
+                None => IpcError::NotFound(resource.to_string()),
+            },
+            AppError::Database { message } => IpcError::Database(message),
+            AppError::Io { message } => IpcError::Io(message),
+            AppError::Parse { message } => IpcError::Parse(message),
+            AppError::Unsupported { message } => IpcError::Unsupported(message),
+        }
+    }
+}
+
+impl From<sqlx::Error> for IpcError {
+    fn from(err: sqlx::Error) -> Self {
+        let msg = err.to_string();
+        let enriched = crate::database::error_diagnostics::enrich_db_error_message(&msg, None);
+        IpcError::Database(enriched)
+    }
+}
+
+impl From<std::io::Error> for IpcError {
+    fn from(err: std::io::Error) -> Self {
+        IpcError::Io(err.to_string())
+    }
+}
+
+impl From<String> for IpcError {
+    fn from(msg: String) -> Self {
+        IpcError::Internal(msg)
+    }
+}
+
+impl From<&str> for IpcError {
+    fn from(msg: &str) -> Self {
+        IpcError::Internal(msg.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::AppError;
+    use super::{AppError, IpcError};
 
     #[test]
     fn app_error_display_is_readable() {
@@ -148,5 +219,26 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
         let err: AppError = io_err.into();
         assert_eq!(err, AppError::io("access denied"));
+    }
+
+    #[test]
+    fn ipc_error_from_app_error_converts_variants() {
+        let app_err = AppError::invalid_input("invalid field");
+        let ipc_err: IpcError = app_err.into();
+        assert_eq!(ipc_err, IpcError::InvalidInput("invalid field".to_string()));
+
+        let app_not_found = AppError::not_found("design", Some("10".to_string()));
+        let ipc_not_found: IpcError = app_not_found.into();
+        assert_eq!(
+            ipc_not_found,
+            IpcError::NotFound("design: 10".to_string())
+        );
+    }
+
+    #[test]
+    fn ipc_error_serializes_with_code_and_message() {
+        let err = IpcError::Database("disk full".to_string());
+        let json = serde_json::to_string(&err).unwrap();
+        assert_eq!(json, r#"{"code":"database","message":"disk full"}"#);
     }
 }

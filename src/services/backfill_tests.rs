@@ -57,6 +57,7 @@ async fn seed_basic(pool: &SqlitePool) {
 #[tokio::test]
 #[serial]
 async fn run_unified_backfill_tag_untagged_skips_tagged_designs() {
+    clear_stop_signal();
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
@@ -1869,6 +1870,7 @@ async fn flush_tagging_batch_commits_multiple_designs_in_one_transaction() {
 #[tokio::test]
 #[serial]
 async fn run_unified_backfill_retag_all_tags_everything() {
+    clear_stop_signal();
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
 
@@ -1910,6 +1912,7 @@ async fn run_unified_backfill_retag_all_tags_everything() {
 #[tokio::test]
 #[serial]
 async fn run_unified_backfill_retag_all_unverified_skips_verified() {
+    clear_stop_signal();
     let pool = make_test_pool().await;
     seed_basic(&pool).await; // design 2 is tags_checked=1 and has an image tag
 
