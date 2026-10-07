@@ -8,6 +8,7 @@ import { tick } from "svelte";
 import { resetBusy } from "../../stores/busyStore.js";
 import SettingsView from "../SettingsView.svelte";
 import type { SettingsViewModel, DbStats } from "../../types/ipc";
+import type { LicenceStatus } from "../../types/licence";
 
 // ---------------------------------------------------------------------------
 // Mock the command adapter and toast store so all logic branches can be driven
@@ -42,6 +43,9 @@ vi.mock("../../api/commandAdapter", () => ({
   compactDatabase: compactDatabaseMock,
   listGeminiModels: listGeminiModelsMock,
   testGeminiModel: testGeminiModelMock,
+}));
+
+vi.mock("../../api/licenceAdapter", () => ({
   getLicenceStatus: getLicenceStatusMock,
   deactivateLicence: deactivateLicenceMock,
 }));
@@ -93,6 +97,20 @@ function mockDbStats(stats: DbStats | null = defaultStats) {
   getDbStatsMock.mockResolvedValue({ stats, source: "rust" });
 }
 
+function mockLicence(
+  status: Partial<LicenceStatus> = {
+    is_active: true,
+    is_valid: true,
+    email: "test@example.com",
+    tier: "lifetime",
+    expires_at: null,
+    expires_at_formatted: null,
+    error_message: null,
+  }
+) {
+  getLicenceStatusMock.mockResolvedValue(status);
+}
+
 function renderView() {
   return render(SettingsView);
 }
@@ -117,6 +135,7 @@ describe("SettingsView.svelte", () => {
     addToastMock.mockClear();
     mockSettings();
     mockDbStats();
+    mockLicence();
   });
 
   afterEach(() => {
@@ -1063,5 +1082,65 @@ describe("SettingsView.svelte", () => {
     await tick();
 
     expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
+  });
+
+  describe("Licence deactivation modal", () => {
+    it("opens the deactivation modal when the deactivate button is clicked and closes on cancel", async () => {
+      mockLicence({
+        is_active: true,
+        is_valid: true,
+        email: "test@example.com",
+      });
+
+      renderView();
+      await waitForSettingsLoaded();
+
+      const deactivateBtn = await screen.findByTestId("settings-deactivate-licence-button");
+      expect(deactivateBtn).toBeInTheDocument();
+
+      await fireEvent.click(deactivateBtn);
+      await tick();
+
+      expect(screen.getByTestId("confirm-deactivate-licence-modal")).toBeInTheDocument();
+      expect(screen.getByText("Deactivate licence?")).toBeInTheDocument();
+
+      const cancelBtn = screen.getByTestId("cancel-deactivate-licence-button");
+      await fireEvent.click(cancelBtn);
+      await tick();
+
+      expect(screen.queryByTestId("confirm-deactivate-licence-modal")).not.toBeInTheDocument();
+      expect(deactivateLicenceMock).not.toHaveBeenCalled();
+    });
+
+    it("triggers licence deactivation when confirmed in modal", async () => {
+      mockLicence({
+        is_active: true,
+        is_valid: true,
+        email: "test@example.com",
+      });
+      deactivateLicenceMock.mockResolvedValue({
+        is_active: false,
+        is_valid: false,
+        email: null,
+        tier: null,
+        expires_at: null,
+        expires_at_formatted: null,
+        error_message: null,
+      });
+
+      renderView();
+      await waitForSettingsLoaded();
+
+      const deactivateBtn = await screen.findByTestId("settings-deactivate-licence-button");
+      await fireEvent.click(deactivateBtn);
+      await tick();
+
+      const confirmBtn = screen.getByTestId("confirm-deactivate-licence-button");
+      await fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(deactivateLicenceMock).toHaveBeenCalledTimes(1);
+      });
+    });
   });
 });

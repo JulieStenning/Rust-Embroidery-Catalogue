@@ -441,13 +441,13 @@ test.describe.serial("orphaned files management", () => {
     });
     await expect(deleteSelectedBtn).toBeVisible();
 
-    // 1. Test Cancellation: dismiss confirmation dialog
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Delete 1 selected record(s)?");
-      await dialog.dismiss();
-    });
-
+    // 1. Test Cancellation: dismiss confirmation modal
     await deleteSelectedBtn.click();
+    const modal = page.getByTestId("confirm-delete-orphans-modal");
+    await expect(modal).toBeVisible();
+    await expect(page.getByText(/Are you sure you want to delete 1 selected record/i)).toBeVisible();
+    await page.getByTestId("cancel-delete-orphans-button").click();
+    await expect(modal).not.toBeVisible();
 
     // Both records still exist
     await expect(
@@ -459,13 +459,10 @@ test.describe.serial("orphaned files management", () => {
     expect(getDesignCount(targetDeleteId)).toBe(1);
     expect(getDesignCount(targetKeepId)).toBe(1);
 
-    // 2. Test Confirmation: accept dialog
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Delete 1 selected record(s)?");
-      await dialog.accept();
-    });
-
+    // 2. Test Confirmation: accept via modal
     await deleteSelectedBtn.click();
+    await expect(modal).toBeVisible();
+    await page.getByTestId("confirm-delete-orphans-button").click();
 
     // Toast confirms deletion
     await expect(page.getByText("1 record(s) deleted.")).toBeVisible({
@@ -515,14 +512,12 @@ test.describe.serial("orphaned files management", () => {
     });
 
     // 1. Test Cancellation
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain(
-        "Delete ALL {orphanTotal} orphaned records?",
-      );
-      await dialog.dismiss();
-    });
-
     await deleteAllBtn.click();
+    const modal = page.getByTestId("confirm-delete-orphans-modal");
+    await expect(modal).toBeVisible();
+    await expect(page.getByText(/Are you sure you want to delete all 2 orphaned records/i)).toBeVisible();
+    await page.getByTestId("cancel-delete-orphans-button").click();
+    await expect(modal).not.toBeVisible();
 
     // Records still exist
     await expect(
@@ -535,14 +530,9 @@ test.describe.serial("orphaned files management", () => {
     expect(getDesignCount(id2)).toBe(1);
 
     // 2. Test Confirmation
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain(
-        "Delete ALL {orphanTotal} orphaned records?",
-      );
-      await dialog.accept();
-    });
-
     await deleteAllBtn.click();
+    await expect(modal).toBeVisible();
+    await page.getByTestId("confirm-delete-orphans-button").click();
 
     // Toast confirms all deleted
     await expect(page.getByText("2 record(s) deleted.")).toBeVisible({
@@ -607,12 +597,14 @@ test.describe.serial("orphaned files management", () => {
     ).toBeVisible();
 
     // Clean up via Delete all (105)
-    page.once("dialog", (dialog) => dialog.accept());
     const deleteAllBtn = page.getByRole("button", {
       name: "Delete all (105)",
       exact: true,
     });
     await deleteAllBtn.click();
+    const modal = page.getByTestId("confirm-delete-orphans-modal");
+    await expect(modal).toBeVisible();
+    await page.getByTestId("confirm-delete-orphans-button").click();
 
     await expect(page.getByText("105 record(s) deleted.")).toBeVisible({
       timeout: 15_000,

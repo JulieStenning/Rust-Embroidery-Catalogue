@@ -17,6 +17,7 @@
     compactDatabase,
   } from "../api/commandAdapter";
   import { getLicenceStatus, deactivateLicence } from "../api/licenceAdapter";
+  import ConfirmDeactivateLicenceModal from "../components/ConfirmDeactivateLicenceModal.svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { themeStore, setTheme } from "../stores/themeStore";
@@ -613,6 +614,8 @@
   }
 
   let licenceStatus = $state(/** @type {import("../types/licence").LicenceStatus | null} */ (null));
+  let showDeactivateModal = $state(false);
+  let isDeactivatingLicence = $state(false);
 
   async function loadLicence() {
     if (typeof getLicenceStatus !== "function") return;
@@ -623,24 +626,26 @@
     }
   }
 
-  async function handleDeactivateLicence() {
-    if (busyActive) return;
-    if (
-      !confirm(
-        "Are you sure you want to deactivate this licence key? You will need to re-enter a valid licence key to use the application."
-      )
-    ) {
-      return;
-    }
+  function handleDeactivateLicence() {
+    if (busyActive || isDeactivatingLicence) return;
+    showDeactivateModal = true;
+  }
+
+  async function handleConfirmDeactivateLicence() {
+    if (busyActive || isDeactivatingLicence) return;
+    isDeactivatingLicence = true;
     try {
       const updated = await deactivateLicence();
       licenceStatus = updated;
+      showDeactivateModal = false;
       addToast("Licence deactivated. Reloading…", "info");
       if (typeof window !== "undefined") {
         window.location.reload();
       }
     } catch (err) {
       addToast(`Could not deactivate licence: ${err}`, "error");
+    } finally {
+      isDeactivatingLicence = false;
     }
   }
 
@@ -1324,3 +1329,11 @@
     </div>
   </div>
 {/if}
+
+<ConfirmDeactivateLicenceModal
+  open={showDeactivateModal}
+  isDeactivating={isDeactivatingLicence}
+  onClose={() => (showDeactivateModal = false)}
+  onConfirm={handleConfirmDeactivateLicence}
+/>
+

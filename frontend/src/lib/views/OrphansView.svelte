@@ -13,6 +13,7 @@
   } from "../api/commandAdapter";
   import Pagination from "../components/Pagination.svelte";
   import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
+  import ConfirmDeleteOrphansModal from "../components/ConfirmDeleteOrphansModal.svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
 
@@ -31,6 +32,10 @@
   let orphanTotalPages = $state(1);
   /** @type {number[]} */
   let orphanSelectedIds = $state([]);
+  let showDeleteModal = $state(false);
+  /** @type {"selected" | "all"} */
+  let deleteModalMode = $state("selected");
+  let isDeletingOrphans = $state(false);
 
   /** @param {number} page */
   async function loadOrphansPage(page, force = false) {
@@ -93,58 +98,63 @@
     addToast(`Could not open folder: ${result?.error || "Unknown error"}`, "error");
   }
 
-  async function deleteSelectedOrphans() {
+  function deleteSelectedOrphans() {
     if (orphanSelectedIds.length === 0) {
       addToast("Select at least one orphan record first.", "error");
       return;
     }
-
-    const confirmed = window.confirm(
-      `Delete ${orphanSelectedIds.length} selected record(s)? This cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    beginBusy("Deleting orphan records");
-    try {
-      const result = await removeOrphans(orphanSelectedIds);
-      if (!result?.persisted) {
-        addToast(`Could not delete selected orphans: ${result?.error || "Unknown error"}`, "error");
-        return;
-      }
-
-      addToast(`${result.deleted} record(s) deleted.`, "success");
-      await loadOrphansPage(orphanPage, true);
-      if (orphanPage > orphanTotalPages) {
-        await loadOrphansPage(orphanTotalPages, true);
-      }
-    } finally {
-      endBusy();
-    }
+    deleteModalMode = "selected";
+    showDeleteModal = true;
   }
 
-  async function deleteEveryOrphan() {
+  function deleteEveryOrphan() {
     if (orphanTotal <= 0) {
       addToast("There are no orphan records to delete.", "info");
       return;
     }
+    deleteModalMode = "all";
+    showDeleteModal = true;
+  }
 
-    const confirmed = window.confirm(
-      `Delete ALL {orphanTotal} orphaned records? This cannot be undone.`
-    );
-    if (!confirmed) return;
+  async function handleConfirmDeleteOrphans() {
+    if (busyActive || isDeletingOrphans) return;
+    isDeletingOrphans = true;
 
-    beginBusy("Deleting all orphan records");
-    try {
-      const result = await removeAllOrphans();
-      if (!result?.persisted) {
-        addToast(`Could not delete all orphans: ${result?.error || "Unknown error"}`, "error");
-        return;
+    if (deleteModalMode === "all") {
+      beginBusy("Deleting all orphan records");
+      try {
+        const result = await removeAllOrphans();
+        if (!result?.persisted) {
+          addToast(`Could not delete all orphans: ${result?.error || "Unknown error"}`, "error");
+          return;
+        }
+
+        showDeleteModal = false;
+        addToast(`${result.deleted} record(s) deleted.`, "success");
+        await loadOrphansPage(1, true);
+      } finally {
+        endBusy();
+        isDeletingOrphans = false;
       }
+    } else {
+      beginBusy("Deleting orphan records");
+      try {
+        const result = await removeOrphans(orphanSelectedIds);
+        if (!result?.persisted) {
+          addToast(`Could not delete selected orphans: ${result?.error || "Unknown error"}`, "error");
+          return;
+        }
 
-      addToast(`${result.deleted} record(s) deleted.`, "success");
-      await loadOrphansPage(1, true);
-    } finally {
-      endBusy();
+        showDeleteModal = false;
+        addToast(`${result.deleted} record(s) deleted.`, "success");
+        await loadOrphansPage(orphanPage, true);
+        if (orphanPage > orphanTotalPages) {
+          await loadOrphansPage(orphanTotalPages, true);
+        }
+      } finally {
+        endBusy();
+        isDeletingOrphans = false;
+      }
     }
   }
 
@@ -341,3 +351,13 @@
     />
   </div>
 </div>
+
+<ConfirmDeleteOrphansModal
+  open={showDeleteModal}
+  mode={deleteModalMode}
+  count={deleteModalMode === "all" ? orphanTotal : orphanSelectedIds.length}
+  isDeleting={isDeletingOrphans}
+  onClose={() => (showDeleteModal = false)}
+  onConfirm={handleConfirmDeleteOrphans}
+/>
+

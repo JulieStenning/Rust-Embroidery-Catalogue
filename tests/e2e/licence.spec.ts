@@ -187,11 +187,11 @@ test.describe.serial("Licence Activation and Verification Flow", () => {
     );
     await expect(deactivateBtn).toBeVisible();
 
-    // 3. Accept confirmation dialog on deactivate
-    page.once("dialog", async (dialog) => {
-      await dialog.accept();
-    });
+    // 3. Confirm deactivation via in-app modal
     await deactivateBtn.click();
+    const modal = page.getByTestId("confirm-deactivate-licence-modal");
+    await expect(modal).toBeVisible();
+    await page.getByTestId("confirm-deactivate-licence-button").click();
 
     // 4. Should return to LicenceActivationView
     await expect(

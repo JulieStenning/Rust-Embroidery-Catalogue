@@ -102,16 +102,9 @@ async function waitForLoaded() {
   );
 }
 
-let confirmSpy: ReturnType<typeof vi.spyOn>;
-
 beforeEach(() => {
   vi.clearAllMocks();
   mockDefaults();
-  confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-});
-
-afterEach(() => {
-  confirmSpy.mockRestore();
 });
 
 // ---------------------------------------------------------------------------
@@ -334,7 +327,10 @@ describe("OrphansView delete selected orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
-    expect(confirmSpy).toHaveBeenCalledWith("Delete 2 selected record(s)? This cannot be undone.");
+    expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete/)).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() => expect(adapterMocks.deleteOrphans).toHaveBeenCalledWith([1, 2]));
     expect(toastMocks.addToast).toHaveBeenCalledWith("2 record(s) deleted.", "success");
   });
@@ -345,6 +341,7 @@ describe("OrphansView delete selected orphans", () => {
 
     await fireEvent.click(screen.getAllByRole("checkbox")[0]);
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (1)" }));
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() => expect(adapterMocks.deleteOrphans).toHaveBeenCalledWith([2]));
   });
 
@@ -352,10 +349,13 @@ describe("OrphansView delete selected orphans", () => {
     render(OrphansView);
     await waitForLoaded();
 
-    confirmSpy.mockReturnValue(false);
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
+    expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId("cancel-delete-orphans-button"));
     expect(adapterMocks.deleteOrphans).not.toHaveBeenCalled();
     expect(toastMocks.addToast).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("confirm-delete-orphans-modal")).not.toBeInTheDocument();
   });
 
   it("shows an error toast when the deletion is not persisted", async () => {
@@ -369,6 +369,7 @@ describe("OrphansView delete selected orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() =>
       expect(toastMocks.addToast).toHaveBeenCalledWith(
         "Could not delete selected orphans: disk failure",
@@ -384,6 +385,7 @@ describe("OrphansView delete selected orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
     expect(adapterMocks.getOrphansPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 });
   });
@@ -398,9 +400,10 @@ describe("OrphansView delete all orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Delete ALL {orphanTotal} orphaned records? This cannot be undone."
-    );
+    expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete all/)).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() => expect(adapterMocks.deleteAllOrphans).toHaveBeenCalledTimes(1));
     expect(toastMocks.addToast).toHaveBeenCalledWith("2 record(s) deleted.", "success");
   });
@@ -410,6 +413,7 @@ describe("OrphansView delete all orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() =>
       expect(adapterMocks.getOrphansPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 })
     );
@@ -419,10 +423,13 @@ describe("OrphansView delete all orphans", () => {
     render(OrphansView);
     await waitForLoaded();
 
-    confirmSpy.mockReturnValue(false);
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
+    expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId("cancel-delete-orphans-button"));
     expect(adapterMocks.deleteAllOrphans).not.toHaveBeenCalled();
     expect(toastMocks.addToast).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("confirm-delete-orphans-modal")).not.toBeInTheDocument();
   });
 
   it("shows an error toast when delete-all is not persisted", async () => {
@@ -436,6 +443,7 @@ describe("OrphansView delete all orphans", () => {
     await waitForLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
     await waitFor(() =>
       expect(toastMocks.addToast).toHaveBeenCalledWith(
         "Could not delete all orphans: db locked",
