@@ -29,6 +29,8 @@ const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
   importUnmatchedDesignFiles: vi.fn(),
   requestCancelRestore: vi.fn(),
+  createDesigner: vi.fn(),
+  createSource: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -1983,5 +1985,98 @@ describe("ImportView step 2 very large folders", () => {
     expect(selection.deselected).toEqual([
       { folder_path: bigFolderPath, files: [`${bigFolderPath}/design-000.pes`] },
     ]);
+  });
+
+  it("allows quick-adding a new designer at the global override level and auto-selects it", async () => {
+    adapterMocks.listDesigners.mockResolvedValue(listResponse(defaultDesigners()));
+    adapterMocks.createDesigner.mockImplementationOnce(async (name: string) => {
+      adapterMocks.listDesigners.mockResolvedValue(
+        listResponse([...defaultDesigners(), { id: 99, name, design_count: 0 }])
+      );
+      return {
+        source: "rust",
+        persisted: true,
+        item: { id: 99, name, design_count: 0 },
+      };
+    });
+
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    // Click the "+" button next to global Designer dropdown
+    const addGlobalDesignerBtn = screen.getByRole("button", { name: "Add new designer" });
+    await fireEvent.click(addGlobalDesignerBtn);
+    await tick();
+
+    // Modal should appear
+    expect(screen.getByRole("heading", { name: "Add New Designer" })).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText("e.g. Urban Threads");
+    await fireEvent.input(input, { target: { value: "Brand New Designer" } });
+    await tick();
+
+    const form = input.closest("form")!;
+    await fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(adapterMocks.createDesigner).toHaveBeenCalledWith("Brand New Designer");
+      expect(screen.queryByTestId("quick-add-entity-modal")).not.toBeInTheDocument();
+    });
+    await tick();
+
+    // The global designer select should now have value "99"
+    const globalDesignerSelect = container.querySelector(
+      ".import-step2-global-shell select"
+    ) as HTMLSelectElement;
+    expect(globalDesignerSelect.value).toBe("99");
+  });
+
+  it("allows quick-adding a new source on a specific folder card and sets folder assignment", async () => {
+    adapterMocks.listSources.mockResolvedValue(listResponse(defaultSources()));
+    adapterMocks.createSource.mockImplementationOnce(async (name: string) => {
+      adapterMocks.listSources.mockResolvedValue(
+        listResponse([...defaultSources(), { id: 77, name, design_count: 0 }])
+      );
+      return {
+        source: "rust",
+        persisted: true,
+        item: { id: 77, name, design_count: 0 },
+      };
+    });
+
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    // Click the "+" button next to folder Source dropdown for "Rose Studio"
+    const addFolderSourceBtn = screen.getByRole("button", {
+      name: "Add new source for Rose Studio",
+    });
+    await fireEvent.click(addFolderSourceBtn);
+    await tick();
+
+    // Modal should appear
+    expect(screen.getByRole("heading", { name: "Add New Source" })).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText("e.g. Purchased");
+    await fireEvent.input(input, { target: { value: "Etsy Purchase" } });
+    await tick();
+
+    const form = input.closest("form")!;
+    await fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(adapterMocks.createSource).toHaveBeenCalledWith("Etsy Purchase");
+      expect(screen.queryByTestId("quick-add-entity-modal")).not.toBeInTheDocument();
+    });
+    await tick();
+
+    // Verify when precheck runs that the folder has source_id 77
+    await fireEvent.click(screen.getByRole("button", { name: /^Continue with \d+ designs?$/ }));
+    await waitFor(() => expect(adapterMocks.precheckImportWire).toHaveBeenCalled());
+
+    const request = asRecord(adapterMocks.precheckImportWire.mock.calls.at(-1)?.[0]);
+    const assignments = request.per_folder_assignments as Array<Record<string, unknown>>;
+    const roseAssignment = assignments.find((a) => String(a.folder_path).includes("Rose Studio"));
+    expect(roseAssignment?.source_id).toBe(77);
   });
 });

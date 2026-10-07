@@ -168,4 +168,63 @@ test.describe("bulk import", () => {
       .toBe(1);
     await expect(importedTitle.first()).toContainText(importedStem);
   });
+
+  test("allows quick-adding a new designer and source on step 2 review", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+
+    const sourceFolder = prepareSingleDesignImportSource();
+
+    // Step 1: scan folder
+    await gotoRoute(page, "#/import");
+    await page
+      .getByPlaceholder("Enter path to your embroidery designs folder…")
+      .fill(sourceFolder);
+    await page.getByRole("button", { name: "Scan folder(s)" }).click();
+
+    // Step 2: review the scan
+    await expect(page.getByText("Review scanned files")).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const uniqueSuffix = Date.now().toString().slice(-4);
+    const newDesignerName = `Quick Designer ${uniqueSuffix}`;
+    const newSourceName = `Quick Source ${uniqueSuffix}`;
+
+    // Click "+" next to Global Designer
+    await page.getByRole("button", { name: "Add new designer" }).click();
+    const modal = page.getByTestId("quick-add-entity-modal");
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole("heading", { name: "Add New Designer" })).toBeVisible();
+
+    // Type name and submit
+    await modal.getByPlaceholder("e.g. Urban Threads").fill(newDesignerName);
+    await modal.getByRole("button", { name: "Add Designer" }).click();
+    await expect(modal).toBeHidden();
+
+    // Global designer select should now have the newly added designer selected
+    await expect(
+      page.locator(".import-step2-global-shell select option:checked").first(),
+    ).toHaveText(newDesignerName);
+
+    // Click "+" next to Folder Source
+    const folderShell = page.getByTestId("import-folder-shell").first();
+    await folderShell.getByRole("button", { name: /Add new source for/i }).click();
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole("heading", { name: "Add New Source" })).toBeVisible();
+
+    // Type source name and submit
+    await modal.getByPlaceholder("e.g. Purchased").fill(newSourceName);
+    await modal.getByRole("button", { name: "Add Source" }).click();
+    await expect(modal).toBeHidden();
+
+    // Verify folder source select now has the newly added source selected
+    const folderSourceSelect = folderShell.locator("select").nth(1);
+    await expect(folderSourceSelect.locator("option:checked")).toHaveText(newSourceName);
+
+    // Cancel out or navigate back cleanly
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByText("Select one or more folders")).toBeVisible();
+  });
 });

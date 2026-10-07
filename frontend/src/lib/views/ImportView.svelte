@@ -32,7 +32,7 @@
     selDeselectAllFolders,
   } from "../utils/importSelection.js";
   import Pagination from "../components/Pagination.svelte";
-  import UnmatchedFilesReconciler from "../components/UnmatchedFilesReconciler.svelte";
+  import QuickAddEntityModal from "../components/QuickAddEntityModal.svelte";
 
   // Step-2 file list rendering: folders larger than this start collapsed; smaller
   // folders keep today's always-visible rows. Files within a folder page at this
@@ -105,6 +105,51 @@
   let importReferenceLoading = $state(false);
   let importLoading = $state(false);
   let importBrowseLoading = $state(false);
+
+  let quickAddOpen = $state(false);
+  /** @type {"designer" | "source"} */
+  let quickAddType = $state("designer");
+  /** @type {{ target: "global" | "folder", folderPath?: string } | null} */
+  let quickAddContext = $state(null);
+
+  /**
+   * @param {"designer" | "source"} type
+   * @param {"global" | "folder"} target
+   * @param {string} [folderPath]
+   */
+  function openQuickAdd(type, target, folderPath) {
+    quickAddType = type;
+    quickAddContext = { target, folderPath };
+    quickAddOpen = true;
+  }
+
+  /** @param {{ id: number, name: string }} item */
+  async function handleEntityCreated(item) {
+    const ctx = quickAddContext;
+    const type = quickAddType;
+    await loadImportReferenceData(true);
+    if (!ctx) return;
+
+    if (ctx.target === "global") {
+      if (type === "designer") {
+        importGlobalDesignerId = String(item.id);
+      } else {
+        importGlobalSourceId = String(item.id);
+      }
+    } else if (ctx.target === "folder" && ctx.folderPath) {
+      if (type === "designer") {
+        setImportFolderDesigner(ctx.folderPath, String(item.id));
+      } else {
+        setImportFolderSource(ctx.folderPath, String(item.id));
+      }
+    }
+  }
+
+  let quickAddExistingNames = $derived(
+    quickAddType === "designer"
+      ? importDesigners.map((d) => String(d.name || ""))
+      : importSources.map((s) => String(s.name || ""))
+  );
 
   let importNowInProgress = $derived(
     importActionLoading && importActionInProgress === "import_now"
@@ -1281,29 +1326,53 @@
           <div class="grid grid-cols-2 gap-3 text-sm import-step2-global-grid">
             <label class="ui-field-label text-sm block">
               <span class="block font-medium mb-1">Designer</span>
-              <select
-                class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
-                bind:value={importGlobalDesignerId}
-                disabled={importReferenceLoading || importLoading || importActionLoading}
-              >
-                <option value="">Keep inferred (per folder)</option>
-                {#each importDesigners as designer}
-                  <option value={String(designer.id)}>{designer.name}</option>
-                {/each}
-              </select>
+              <div class="flex items-center gap-2">
+                <select
+                  class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
+                  bind:value={importGlobalDesignerId}
+                  disabled={importReferenceLoading || importLoading || importActionLoading}
+                >
+                  <option value="">Keep inferred (per folder)</option>
+                  {#each importDesigners as designer}
+                    <option value={String(designer.id)}>{designer.name}</option>
+                  {/each}
+                </select>
+                <button
+                  type="button"
+                  class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
+                  onclick={() => openQuickAdd("designer", "global")}
+                  disabled={importReferenceLoading || importLoading || importActionLoading}
+                  title="Add new designer"
+                  aria-label="Add new designer"
+                >
+                  +
+                </button>
+              </div>
             </label>
             <label class="ui-field-label text-sm block">
               <span class="block font-medium mb-1">Source</span>
-              <select
-                class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
-                bind:value={importGlobalSourceId}
-                disabled={importReferenceLoading || importLoading || importActionLoading}
-              >
-                <option value="">Keep inferred (per folder)</option>
-                {#each importSources as source}
-                  <option value={String(source.id)}>{source.name}</option>
-                {/each}
-              </select>
+              <div class="flex items-center gap-2">
+                <select
+                  class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
+                  bind:value={importGlobalSourceId}
+                  disabled={importReferenceLoading || importLoading || importActionLoading}
+                >
+                  <option value="">Keep inferred (per folder)</option>
+                  {#each importSources as source}
+                    <option value={String(source.id)}>{source.name}</option>
+                  {/each}
+                </select>
+                <button
+                  type="button"
+                  class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
+                  onclick={() => openQuickAdd("source", "global")}
+                  disabled={importReferenceLoading || importLoading || importActionLoading}
+                  title="Add new source"
+                  aria-label="Add new source"
+                >
+                  +
+                </button>
+              </div>
             </label>
           </div>
         </div>
@@ -1423,37 +1492,61 @@
                   <div class="grid grid-cols-2 gap-3 text-sm">
                     <label class="ui-field-label text-sm block">
                       <span class="block font-medium mb-1">Designer for this folder</span>
-                      <select
-                        class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
-                        value={getImportFolderDesigner(folder.folderPath)}
-                        onchange={(event) =>
-                          setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
-                        disabled={importReferenceLoading || importLoading || importActionLoading}
-                      >
-                        <option value=""
-                          >{getImportFolderDesignerInferredLabel(folder.folderPath)}</option
+                      <div class="flex items-center gap-2">
+                        <select
+                          class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
+                          value={getImportFolderDesigner(folder.folderPath)}
+                          onchange={(event) =>
+                            setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
+                          disabled={importReferenceLoading || importLoading || importActionLoading}
                         >
-                        {#each importDesigners as designer}
-                          <option value={String(designer.id)}>{designer.name}</option>
-                        {/each}
-                      </select>
+                          <option value=""
+                            >{getImportFolderDesignerInferredLabel(folder.folderPath)}</option
+                          >
+                          {#each importDesigners as designer}
+                            <option value={String(designer.id)}>{designer.name}</option>
+                          {/each}
+                        </select>
+                        <button
+                          type="button"
+                          class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
+                          onclick={() => openQuickAdd("designer", "folder", folder.folderPath)}
+                          disabled={importReferenceLoading || importLoading || importActionLoading}
+                          title={`Add new designer for ${folder.label}`}
+                          aria-label={`Add new designer for ${folder.label}`}
+                        >
+                          +
+                        </button>
+                      </div>
                     </label>
                     <label class="ui-field-label text-sm block">
                       <span class="block font-medium mb-1">Source for this folder</span>
-                      <select
-                        class="ui-select-input ui-control-text-inset w-full border rounded px-3 py-1.5"
-                        value={getImportFolderSource(folder.folderPath)}
-                        onchange={(event) =>
-                          setImportFolderSource(folder.folderPath, event.currentTarget.value)}
-                        disabled={importReferenceLoading || importLoading || importActionLoading}
-                      >
-                        <option value=""
-                          >{getImportFolderSourceInferredLabel(folder.folderPath)}</option
+                      <div class="flex items-center gap-2">
+                        <select
+                          class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
+                          value={getImportFolderSource(folder.folderPath)}
+                          onchange={(event) =>
+                            setImportFolderSource(folder.folderPath, event.currentTarget.value)}
+                          disabled={importReferenceLoading || importLoading || importActionLoading}
                         >
-                        {#each importSources as source}
-                          <option value={String(source.id)}>{source.name}</option>
-                        {/each}
-                      </select>
+                          <option value=""
+                            >{getImportFolderSourceInferredLabel(folder.folderPath)}</option
+                          >
+                          {#each importSources as source}
+                            <option value={String(source.id)}>{source.name}</option>
+                          {/each}
+                        </select>
+                        <button
+                          type="button"
+                          class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
+                          onclick={() => openQuickAdd("source", "folder", folder.folderPath)}
+                          disabled={importReferenceLoading || importLoading || importActionLoading}
+                          title={`Add new source for ${folder.label}`}
+                          aria-label={`Add new source for ${folder.label}`}
+                        >
+                          +
+                        </button>
+                      </div>
                     </label>
                   </div>
                 </div>
@@ -1656,4 +1749,15 @@
       </div>
     {/if}
   {/if}
+
+  <QuickAddEntityModal
+    open={quickAddOpen}
+    entityType={quickAddType}
+    existingNames={quickAddExistingNames}
+    onClose={() => {
+      quickAddOpen = false;
+      quickAddContext = null;
+    }}
+    onCreated={handleEntityCreated}
+  />
 </section>
