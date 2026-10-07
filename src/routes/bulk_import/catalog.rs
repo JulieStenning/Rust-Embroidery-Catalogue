@@ -6,7 +6,7 @@ use super::paths::{
 };
 use super::session::get_bulk_import_db_pool;
 use crate::services::scanning;
-use sqlx::SqlitePool;
+use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -111,27 +111,8 @@ pub(crate) async fn filter_existing_scanned_files(
         existing_path_set.insert(normalize_path_for_match(&master_path));
     }
 
-    let fingerprint_rows: Vec<(String, i64, String)> = sqlx::query_as(
-        "SELECT filename, file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IS NOT NULL AND file_hash_blake3 IS NOT NULL",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let fingerprint_set: HashSet<(String, i64, String)> = fingerprint_rows
-        .into_iter()
-        .map(|(filename, size, hash)| {
-            (
-                filename.to_ascii_lowercase(),
-                size,
-                hash.to_ascii_lowercase(),
-            )
-        })
-        .collect();
-
-    let mut result: Vec<scanning::ScannedFile> = Vec::with_capacity(scanned_files.len());
+    let mut path_survivors: Vec<scanning::ScannedFile> = Vec::with_capacity(scanned_files.len());
     let mut excluded_by_path: usize = 0;
-    let mut excluded_by_triple: usize = 0;
 
     for file in scanned_files {
         let prospective_path = compute_prospective_stored_filepath(&file.full_path, root_paths)
@@ -141,9 +122,80 @@ pub(crate) async fn filter_existing_scanned_files(
 
         if existing_path_set.contains(&normalized_prospective) {
             excluded_by_path += 1;
-            continue;
+        } else {
+            path_survivors.push(file);
         }
+    }
 
+    if path_survivors.is_empty() {
+        if excluded_by_path > 0 {
+            tracing::info!(
+                "Preview dedup: excluded_by_path={} excluded_by_triple=0 imported=0",
+                excluded_by_path
+            );
+        }
+        return Ok(Vec::new());
+    }
+
+    let candidate_sizes: HashSet<i64> = path_survivors
+        .iter()
+        .filter_map(|f| f.file_size_bytes)
+        .collect();
+
+    let fingerprint_set: HashSet<(String, i64, String)> = if candidate_sizes.is_empty() {
+        HashSet::new()
+    } else if candidate_sizes.len() <= 500 {
+        let sizes_vec: Vec<i64> = candidate_sizes.into_iter().collect();
+        let mut set = HashSet::new();
+        for chunk in sizes_vec.chunks(200) {
+            let mut builder = QueryBuilder::<Sqlite>::new(
+                "SELECT filename, file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IN (",
+            );
+            let mut separated = builder.separated(", ");
+            for size in chunk {
+                separated.push_bind(*size);
+            }
+            separated.push_unseparated(") AND file_hash_blake3 IS NOT NULL");
+
+            let rows: Vec<(String, i64, String)> = builder
+                .build_query_as()
+                .fetch_all(pool)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            for (filename, size, hash) in rows {
+                set.insert((
+                    filename.to_ascii_lowercase(),
+                    size,
+                    hash.to_ascii_lowercase(),
+                ));
+            }
+        }
+        set
+    } else {
+        let fingerprint_rows: Vec<(String, i64, String)> = sqlx::query_as(
+            "SELECT filename, file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IS NOT NULL AND file_hash_blake3 IS NOT NULL",
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        fingerprint_rows
+            .into_iter()
+            .map(|(filename, size, hash)| {
+                (
+                    filename.to_ascii_lowercase(),
+                    size,
+                    hash.to_ascii_lowercase(),
+                )
+            })
+            .collect()
+    };
+
+    let mut result: Vec<scanning::ScannedFile> = Vec::with_capacity(path_survivors.len());
+    let mut excluded_by_triple: usize = 0;
+
+    for file in path_survivors {
         let filename_lower = file.filename.to_ascii_lowercase();
         let file_size = match file.file_size_bytes {
             Some(size) => size,

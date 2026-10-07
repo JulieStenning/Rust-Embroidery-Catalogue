@@ -731,3 +731,28 @@ async fn run_migrations_creates_browse_sort_indexes() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_creates_fingerprint_covering_index() {
+    let tmp = unique_tmp_dir("fingerprint-covering-index");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("fingerprint_covering_index.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_fingerprint_lookup'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query ix_designs_fingerprint_lookup index");
+    assert_eq!(
+        count.0, 1,
+        "ix_designs_fingerprint_lookup index should exist"
+    );
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
