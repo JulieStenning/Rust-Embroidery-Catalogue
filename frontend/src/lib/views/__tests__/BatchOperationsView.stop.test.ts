@@ -91,19 +91,24 @@ describe("BatchOperationsView stop behaviour", () => {
     expect(screen.getByRole("button", { name: "Stop" })).not.toBeDisabled();
   });
 
-  it("requests a stop via stopUnifiedBackfill", async () => {
+  it("requests a stop via stopUnifiedBackfill, changes label to Stopping..., and disables button", async () => {
     await startInFlightRun();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Stop" }));
+    const stopButton = screen.getByRole("button", { name: "Stop" });
+    await user.click(stopButton);
 
     await waitFor(() => {
       expect(adapterMocks.stopUnifiedBackfill).toHaveBeenCalledTimes(1);
     });
     expect(toastMock.addToast).toHaveBeenCalledWith("Stop requested.", "info");
+
+    const stoppingButton = screen.getByRole("button", { name: "Stopping..." });
+    expect(stoppingButton).toBeInTheDocument();
+    expect(stoppingButton).toBeDisabled();
   });
 
-  it("shows an error toast when the stop request fails", async () => {
+  it("shows an error toast when the stop request fails and re-enables the Stop button", async () => {
     adapterMocks.stopUnifiedBackfill.mockRejectedValue(new Error("stop failed"));
     await startInFlightRun();
 
@@ -116,5 +121,9 @@ describe("BatchOperationsView stop behaviour", () => {
         "error"
       );
     });
+
+    const stopButton = screen.getByRole("button", { name: "Stop" });
+    expect(stopButton).toBeInTheDocument();
+    expect(stopButton).not.toBeDisabled();
   });
 });

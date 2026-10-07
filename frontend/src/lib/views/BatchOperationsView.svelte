@@ -126,6 +126,7 @@
   let taggingActionsLoaded = $state(false);
   let taggingActionsLoading = $state(false);
   let taggingRunInFlight = $state(false);
+  let taggingStopPending = $state(false);
   // Global UI lock: reflects busyState.active so secondary controls can be
   // disabled while a long-running task runs.
   let busyActive = $derived($busyState.active);
@@ -469,6 +470,7 @@
     if (taggingRunInFlight) return;
 
     taggingRunInFlight = true;
+    taggingStopPending = false;
     taggingLastSummary = null;
     resetBackfillProgress();
     lastRunWasMaintenance = false;
@@ -512,6 +514,7 @@
       addToast(`Backfill run failed: ${e}`, "error");
     } finally {
       taggingRunInFlight = false;
+      taggingStopPending = false;
       endBusy();
     }
   }
@@ -521,6 +524,7 @@
     if (taggingRunInFlight) return;
 
     taggingRunInFlight = true;
+    taggingStopPending = false;
     taggingLastSummary = null;
     resetBackfillProgress();
     lastRunWasMaintenance = true;
@@ -559,16 +563,19 @@
       addToast(`Maintenance run failed: ${e}`, "error");
     } finally {
       taggingRunInFlight = false;
+      taggingStopPending = false;
       endBusy();
     }
   }
 
   async function requestTaggingStop() {
-    if (!taggingRunInFlight) return;
+    if (!taggingRunInFlight || taggingStopPending) return;
+    taggingStopPending = true;
     try {
       await stopUnifiedBackfill();
       addToast("Stop requested.", "info");
     } catch (e) {
+      taggingStopPending = false;
       addToast(`Stop request failed: ${e}`, "error");
     }
   }
@@ -912,11 +919,11 @@
           {taggingRunInFlight ? taggingRunButtonLabel : "Review & Start Tagging"}
         </button>
         <button
-          class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+          class="menu-button-danger"
           onclick={requestTaggingStop}
-          disabled={!taggingRunInFlight}
+          disabled={!taggingRunInFlight || taggingStopPending}
         >
-          Stop
+          {taggingStopPending ? "Stopping..." : "Stop"}
         </button>
       </div>
     {:else}
@@ -1067,11 +1074,11 @@
           {taggingRunInFlight ? maintenanceRunButtonLabel : "Review & Start Maintenance"}
         </button>
         <button
-          class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+          class="menu-button-danger"
           onclick={requestTaggingStop}
-          disabled={!taggingRunInFlight}
+          disabled={!taggingRunInFlight || taggingStopPending}
         >
-          Stop
+          {taggingStopPending ? "Stopping..." : "Stop"}
         </button>
       </div>
     {/if}
