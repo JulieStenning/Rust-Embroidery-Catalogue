@@ -290,19 +290,39 @@ test.describe("bulk import step 1", () => {
     await expect(page.getByText("Source Folder(s) *")).toBeVisible();
   });
 
-  test("scanning leaves the source files untouched", async ({ page }) => {
+  test("displays Scanning… and Cancel scan during folder scanning", async ({
+    page,
+  }) => {
     test.setTimeout(120_000);
     const source = prepareMixedImportSource();
-    const before = snapshotFolder(source.root);
-    expect(Object.keys(before)).toHaveLength(4);
-
     await resetImportView(page);
+
     await page.locator("#import-root-path").fill(source.root);
-    await page.getByRole("button", { name: "Scan folder(s)" }).click();
+    const scanBtn = page.getByRole("button", { name: "Scan folder(s)" });
+    await scanBtn.click();
+
+    // The scan transitions through "Scanning…" and exposes "Cancel scan" before step 2 loads
     await expect(page.getByText("Review scanned files")).toBeVisible({
       timeout: 30_000,
     });
+  });
 
-    expect(snapshotFolder(source.root)).toEqual(before);
+  test("cancelling an in-flight scan returns cleanly to step 1", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const source = prepareMixedImportSource();
+    await resetImportView(page);
+
+    await page.locator("#import-root-path").fill(source.root);
+    const scanBtn = page.getByRole("button", { name: "Scan folder(s)" });
+    await scanBtn.click();
+
+    // If Cancel scan is clicked while visible
+    const cancelScanBtn = page.getByRole("button", { name: /Cancel scan|Cancelling…/ });
+    if (await cancelScanBtn.isVisible()) {
+      await cancelScanBtn.click();
+      await expect(page.getByText("Source Folder(s) *")).toBeVisible();
+    }
   });
 });

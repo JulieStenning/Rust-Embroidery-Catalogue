@@ -48,15 +48,23 @@ pub(crate) fn preview_bulk_import_wire_with_pool(
         Vec::new()
     };
 
+    let is_cancelled = || {
+        super::session::BULK_IMPORT_SCAN_CANCEL_REQUESTED.load(std::sync::atomic::Ordering::Relaxed)
+    };
+
     let mut scanned_files = Vec::new();
     let mut missing_root = false;
     let mut root_had_any_existing_dir = false;
     for root_path in &wire.root_paths {
+        if is_cancelled() {
+            return Err("Scan cancelled".to_string());
+        }
         let scan_input = scanning::ScanInput::with_master_extensions(
             root_path.clone(),
             master_extensions.clone(),
         );
-        let scan_result = scanning::scan_with_error(&scan_input).map_err(|err| err.to_string())?;
+        let scan_result = scanning::scan_with_error_and_cancel(&scan_input, Some(&is_cancelled))
+            .map_err(|err| err.to_string())?;
         missing_root = missing_root || scan_result.missing_root;
         root_had_any_existing_dir = root_had_any_existing_dir || !scan_result.missing_root;
         scanned_files.extend(scan_result.files);
@@ -138,6 +146,8 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
 
 #[tauri::command]
 pub fn preview_bulk_import(request: BulkImportRequest) -> Result<BulkImportPreview, String> {
+    super::session::BULK_IMPORT_SCAN_CANCEL_REQUESTED
+        .store(false, std::sync::atomic::Ordering::SeqCst);
     let wire: BulkImportWire = request.into();
     let mut preview = preview_bulk_import_wire(wire.clone())?;
     preview.scan_token =

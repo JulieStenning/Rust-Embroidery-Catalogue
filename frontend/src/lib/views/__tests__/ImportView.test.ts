@@ -23,6 +23,7 @@ const adapterMocks = vi.hoisted(() => ({
   precheckImportWire: vi.fn(),
   runPrecheckAction: vi.fn(),
   requestStopBulkImport: vi.fn(),
+  requestCancelBulkImportScan: vi.fn(),
   browseImportFolder: vi.fn(),
   saveImportLastBrowseFolder: vi.fn(),
   getSettingsViewModel: vi.fn(),
@@ -270,6 +271,81 @@ describe("ImportView busy lock during scans", () => {
       expect(screen.getByText("Review scanned files")).toBeInTheDocument();
     });
     expect(get(busyState).active).toBe(false);
+
+    view.unmount();
+  });
+
+  it("updates the scan button to 'Scanning…' and displays 'Cancel scan' while scanning", async () => {
+    let resolveScan: (value: unknown) => void = () => {};
+    adapterMocks.previewImportFromRoots.mockImplementation(
+      () =>
+        new Promise((res) => {
+          resolveScan = res;
+        })
+    );
+
+    const { container, view } = renderHarness("#/import");
+    await scanFolder(container, "C:\\Designs");
+    await tick();
+
+    // Verify button label is "Scanning…" and disabled
+    const scanningBtn = screen.getByRole("button", { name: "Scanning…" });
+    expect(scanningBtn).toBeInTheDocument();
+    expect(scanningBtn).toBeDisabled();
+
+    // Verify "Cancel scan" button is present and enabled
+    const cancelScanBtn = screen.getByRole("button", { name: "Cancel scan" });
+    expect(cancelScanBtn).toBeInTheDocument();
+    expect(cancelScanBtn).toBeEnabled();
+
+    // Complete scan
+    resolveScan(previewResponse());
+    await waitFor(() => {
+      expect(screen.getByText("Review scanned files")).toBeInTheDocument();
+    });
+
+    view.unmount();
+  });
+
+  it("invokes requestCancelBulkImportScan, shows 'Cancelling…', and resets cleanly on scan cancel", async () => {
+    adapterMocks.requestCancelBulkImportScan.mockResolvedValue({
+      source: "rust",
+      cancelRequested: true,
+      message: "Cancel requested.",
+    });
+
+    let rejectScan: (reason?: any) => void = () => {};
+    adapterMocks.previewImportFromRoots.mockImplementation(
+      () =>
+        new Promise((_, rej) => {
+          rejectScan = rej;
+        })
+    );
+
+    const { container, view } = renderHarness("#/import");
+    await scanFolder(container, "C:\\Designs");
+    await tick();
+
+    const cancelScanBtn = screen.getByRole("button", { name: "Cancel scan" });
+    expect(cancelScanBtn).toBeInTheDocument();
+
+    await fireEvent.click(cancelScanBtn);
+    await tick();
+
+    expect(adapterMocks.requestCancelBulkImportScan).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
+
+    // Reject scan due to cancellation
+    rejectScan(new Error("Scan cancelled"));
+    await waitFor(() => {
+      expect(toastMocks.addToast).toHaveBeenCalledWith("Scan cancelled.", "info");
+    });
+
+    // Should return cleanly to step 1 and button should revert to "Scan folder(s)"
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Scan folder(s)" })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Cancel scan" })).not.toBeInTheDocument();
 
     view.unmount();
   });
@@ -870,7 +946,7 @@ describe("ImportView step 1 preview submission", () => {
     await fireEvent.submit(element(container.querySelector<HTMLFormElement>("#importScanForm")));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Running…" })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Scanning…" })).toBeInTheDocument()
     );
     expect(screen.getByRole("button", { name: "Reset" })).toBeDisabled();
 

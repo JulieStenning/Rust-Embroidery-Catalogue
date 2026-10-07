@@ -268,6 +268,11 @@ pub struct BulkImportStopResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct BulkImportScanCancelResult {
+    pub cancel_requested: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct BulkImportBrowseFolderResult {
     pub path: Option<String>,
     pub paths: Vec<String>,

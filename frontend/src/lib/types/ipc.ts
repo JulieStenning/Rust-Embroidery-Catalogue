@@ -710,6 +710,12 @@ export interface AdapterStopBulkImportResponse {
   message: string;
 }
 
+export interface AdapterCancelBulkImportScanResponse {
+  source: string;
+  cancelRequested: boolean;
+  message: string;
+}
+
 export interface BatchOperationsViewModel {
   has_google_api_key: boolean;
   ai_vision_auto: boolean;

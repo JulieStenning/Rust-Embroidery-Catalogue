@@ -1879,6 +1879,16 @@ fn request_stop_bulk_import_sets_flag() {
 }
 
 #[test]
+#[serial]
+fn request_cancel_bulk_import_scan_sets_flag() {
+    let result = request_cancel_bulk_import_scan().expect("cancel request should succeed");
+    assert!(result.cancel_requested);
+
+    let result2 = request_cancel_bulk_import_scan().expect("second cancel request should succeed");
+    assert!(result2.cancel_requested);
+}
+
+#[test]
 fn debug_bulk_import_wire_summary() {
     let wire = BulkImportWire {
         root_paths: vec!["C:/imports".to_string(), "D:/other".to_string()],

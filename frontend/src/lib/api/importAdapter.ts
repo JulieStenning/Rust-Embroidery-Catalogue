@@ -4,6 +4,7 @@
 import { invokeLoose } from "./ipcClient";
 import type {
   AdapterBrowseImportFolderResponse,
+  AdapterCancelBulkImportScanResponse,
   AdapterImportPrecheckActionResponse,
   AdapterImportPrecheckResponse,
   AdapterImportPreviewResponse,
@@ -275,6 +276,32 @@ export async function requestStopBulkImport(): Promise<AdapterStopBulkImportResp
       source: "mock",
       stopRequested: true,
       message: "Stop requested (mock).",
+    };
+  }
+}
+
+/**
+ * Request cancellation for an in-flight folder scan.
+ */
+export async function requestCancelBulkImportScan(): Promise<AdapterCancelBulkImportScanResponse> {
+  try {
+    const result = await invokeLoose<{ cancel_requested?: boolean }>(
+      "request_cancel_bulk_import_scan"
+    );
+    return {
+      source: "rust",
+      cancelRequested: Boolean(result?.cancel_requested),
+      message: "Cancel requested for the folder scan.",
+    };
+  } catch (error) {
+    console.info(
+      "request_cancel_bulk_import_scan unavailable or failed, using mock cancel result.",
+      error
+    );
+    return {
+      source: "mock",
+      cancelRequested: true,
+      message: "Cancel requested (mock).",
     };
   }
 }

@@ -12,6 +12,7 @@
     precheckImportWire,
     runPrecheckAction,
     requestStopBulkImport,
+    requestCancelBulkImportScan,
     browseImportFolder,
     saveImportLastBrowseFolder,
     getSettingsViewModel,
@@ -104,6 +105,7 @@
   let importSources = $state([]);
   let importReferenceLoading = $state(false);
   let importLoading = $state(false);
+  let importScanCancelPending = $state(false);
   let importBrowseLoading = $state(false);
 
   let quickAddOpen = $state(false);
@@ -814,14 +816,34 @@
     };
   }
 
+  async function requestScanCancel() {
+    if (!importLoading || importScanCancelPending) return;
+    importScanCancelPending = true;
+    try {
+      await requestCancelBulkImportScan();
+    } catch (error) {
+      console.info("Cancel scan request failed", error);
+    }
+  }
+
   async function runImportPreview() {
     importLoading = true;
+    importScanCancelPending = false;
     importActionMessage = "";
     importActionNeedsSkipHoopsConfirm = false;
     beginBusy("Scanning import folders");
 
     try {
       const result = await previewImportFromRoots(getActiveImportRoots(), importIncludeLibrary);
+      if (importScanCancelPending || /cancelled/i.test(result?.message || "")) {
+        addToast("Scan cancelled.", "info");
+        importPreview = null;
+        importPreviewSource = "mock";
+        importPreviewMessage = "";
+        navigateTo("#/import/step1");
+        return;
+      }
+
       importPreview = result.preview || null;
       importPreviewSource = result.source || "mock";
       importPreviewMessage = deriveImportPreviewMessage(result?.preview);
@@ -836,10 +858,14 @@
       importContextToken = "";
       navigateTo("#/import/step2");
     } catch (error) {
-      addToast(`Import preview failed: ${error}`, "error");
+      if (importScanCancelPending || /cancelled/i.test(String(error))) {
+        addToast("Scan cancelled.", "info");
+      } else {
+        addToast(`Import preview failed: ${error}`, "error");
+      }
       importPreview = null;
       importPreviewSource = "mock";
-      importPreviewMessage = `Import preview failed: ${error}`;
+      importPreviewMessage = importScanCancelPending ? "" : `Import preview failed: ${error}`;
       importSelection = selCreate();
       importExpandedByPath = {};
       importFolderSearchByPath = {};
@@ -850,6 +876,7 @@
       navigateTo("#/import/step1");
     } finally {
       importLoading = false;
+      importScanCancelPending = false;
       endBusy();
     }
   }
@@ -1280,14 +1307,24 @@
           </div>
         </div>
 
-        <div class="ui-action-button-group import-step1-primary-actions pt-2 flex gap-2">
+        <div class="ui-action-button-group import-step1-primary-actions pt-2">
           <button
             class="menu-button-primary ui-action-button ui-action-button-primary"
             type="submit"
             disabled={importLoading || importBrowseLoading || !importHasActiveRoots}
           >
-            {importLoading ? "Running…" : "Scan folder(s)"}
+            {importLoading ? "Scanning…" : "Scan folder(s)"}
           </button>
+          {#if importLoading}
+            <button
+              type="button"
+              class="menu-button-secondary ui-action-button"
+              onclick={requestScanCancel}
+              disabled={importScanCancelPending}
+            >
+              {importScanCancelPending ? "Cancelling…" : "Cancel scan"}
+            </button>
+          {/if}
           <button
             type="button"
             class="menu-button-secondary ui-action-button"

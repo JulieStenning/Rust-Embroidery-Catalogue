@@ -73,6 +73,7 @@ const adapterMock = vi.hoisted(() => ({
   precheckImportWire: vi.fn(),
   runPrecheckAction: vi.fn(),
   requestStopBulkImport: vi.fn(),
+  requestCancelBulkImportScan: vi.fn(),
   // Projects
   getProjectsList: vi.fn(),
   createProject: vi.fn(),
@@ -472,6 +473,7 @@ beforeEach(() => {
     "precheckImportWire",
     "runPrecheckAction",
     "requestStopBulkImport",
+    "requestCancelBulkImportScan",
     "createProject",
     "getProjectDetail",
     "updateProject",

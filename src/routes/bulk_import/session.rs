@@ -3,7 +3,7 @@
 
 use super::types::{
     BulkImportConfirmWire, BulkImportContextStoreResetResult, BulkImportContextStoreSummary,
-    BulkImportStopResult,
+    BulkImportScanCancelResult, BulkImportStopResult,
 };
 use crate::services::scanning;
 use serde::Serialize;
@@ -25,6 +25,7 @@ pub(crate) static BULK_IMPORT_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock:
 pub(crate) static BULK_IMPORT_CONTEXT_RESET_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub(crate) static BULK_IMPORT_CONTEXT_LAST_RESET_AT_MILLIS: AtomicU64 = AtomicU64::new(0);
 pub(crate) static BULK_IMPORT_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
+pub(crate) static BULK_IMPORT_SCAN_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub(crate) const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 100;
 pub(crate) const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
@@ -335,5 +336,13 @@ pub fn request_stop_bulk_import() -> Result<BulkImportStopResult, String> {
     BULK_IMPORT_STOP_REQUESTED.store(true, Ordering::SeqCst);
     Ok(BulkImportStopResult {
         stop_requested: true,
+    })
+}
+
+#[tauri::command]
+pub fn request_cancel_bulk_import_scan() -> Result<BulkImportScanCancelResult, String> {
+    BULK_IMPORT_SCAN_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+    Ok(BulkImportScanCancelResult {
+        cancel_requested: true,
     })
 }

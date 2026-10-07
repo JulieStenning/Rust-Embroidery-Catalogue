@@ -136,6 +136,7 @@ pub struct TaskCoordinator {
     pub backfill_running: AtomicBool,
     pub backfill_stop_requested: AtomicBool,
     pub bulk_import_stop_requested: AtomicBool,
+    pub bulk_import_scan_cancel_requested: AtomicBool,
     pub backup_cancel_requested: AtomicBool,
     pub restore_cancel_requested: AtomicBool,
 }

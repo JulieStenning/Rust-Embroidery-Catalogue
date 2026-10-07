@@ -87,21 +87,34 @@ fn should_skip_directory(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn visit_dir(dir: &Path, master_extensions: &[String], dedup: &mut HashMap<String, ScannedFile>) {
+fn visit_dir(
+    dir: &Path,
+    master_extensions: &[String],
+    dedup: &mut HashMap<String, ScannedFile>,
+    is_cancelled: Option<&dyn Fn() -> bool>,
+) -> Result<(), AppError> {
+    if is_cancelled.map(|f| f()).unwrap_or(false) {
+        return Err(AppError::invalid_input("Scan cancelled"));
+    }
+
     if should_skip_directory(dir) {
-        return;
+        return Ok(());
     }
 
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(_) => return Ok(()),
     };
 
     for entry in entries.flatten() {
+        if is_cancelled.map(|f| f()).unwrap_or(false) {
+            return Err(AppError::invalid_input("Scan cancelled"));
+        }
+
         let path = entry.path();
 
         if path.is_dir() {
-            visit_dir(&path, master_extensions, dedup);
+            visit_dir(&path, master_extensions, dedup, is_cancelled)?;
             continue;
         }
 
@@ -146,6 +159,7 @@ fn visit_dir(dir: &Path, master_extensions: &[String], dedup: &mut HashMap<Strin
 
         dedup.insert(dedup_group_key, candidate);
     }
+    Ok(())
 }
 
 pub fn is_supported_extension(extension: &str) -> bool {
@@ -171,11 +185,22 @@ pub fn scan(input: &ScanInput) -> ScanResult {
 }
 
 pub fn scan_with_error(input: &ScanInput) -> Result<ScanResult, AppError> {
+    scan_with_error_and_cancel(input, None)
+}
+
+pub fn scan_with_error_and_cancel(
+    input: &ScanInput,
+    is_cancelled: Option<&dyn Fn() -> bool>,
+) -> Result<ScanResult, AppError> {
     let root_path = PathBuf::from(&input.root_path);
 
     let trimmed = input.root_path.trim();
     if trimmed.is_empty() {
         return Err(AppError::invalid_input("root path must not be empty"));
+    }
+
+    if is_cancelled.map(|f| f()).unwrap_or(false) {
+        return Err(AppError::invalid_input("Scan cancelled"));
     }
 
     if !root_path.exists() || !root_path.is_dir() {
@@ -193,7 +218,7 @@ pub fn scan_with_error(input: &ScanInput) -> Result<ScanResult, AppError> {
         .collect();
 
     let mut dedup: HashMap<String, ScannedFile> = HashMap::new();
-    visit_dir(&root_path, &normalized_masters, &mut dedup);
+    visit_dir(&root_path, &normalized_masters, &mut dedup, is_cancelled)?;
 
     let mut files: Vec<ScannedFile> = dedup.into_values().collect();
     files.sort_by(|left, right| {
