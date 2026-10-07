@@ -11,8 +11,10 @@ const eventMocks = vi.hoisted(() => ({
   listen: vi.fn(),
   unlistenStarted: vi.fn(),
   unlistenFinished: vi.fn(),
+  unlistenCriticalWarning: vi.fn(),
   startedCallback: vi.fn(),
   finishedCallback: vi.fn(),
+  criticalWarningCallback: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -49,19 +51,22 @@ describe("dbMaintenanceEvents", () => {
     // not leave a detached spy for the next test.
     consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
-    // Default: listen() resolves with the two unlisten functions, and
+    // Default: listen() resolves with the unlisten functions, and
     // registers each callback so tests can fire the events manually.
     eventMocks.listen.mockImplementation((eventName: string, callback: unknown) => {
       if (eventName === DB_MAINTENANCE_STARTED) {
         eventMocks.startedCallback.mockImplementation(callback as (...args: unknown[]) => void);
-      } else {
+        return Promise.resolve(eventMocks.unlistenStarted);
+      } else if (eventName === DB_MAINTENANCE_FINISHED) {
         eventMocks.finishedCallback.mockImplementation(callback as (...args: unknown[]) => void);
+        return Promise.resolve(eventMocks.unlistenFinished);
+      } else if (eventName === "app:critical-operation-warning") {
+        eventMocks.criticalWarningCallback.mockImplementation(
+          callback as (...args: unknown[]) => void
+        );
+        return Promise.resolve(eventMocks.unlistenCriticalWarning);
       }
-      return Promise.resolve(
-        eventName === DB_MAINTENANCE_STARTED
-          ? eventMocks.unlistenStarted
-          : eventMocks.unlistenFinished
-      );
+      return Promise.resolve(vi.fn());
     });
   });
 
@@ -69,12 +74,16 @@ describe("dbMaintenanceEvents", () => {
     consoleInfoSpy.mockRestore();
   });
 
-  it("registers a listener for both maintenance events", async () => {
+  it("registers listeners for maintenance events and critical operation warnings", async () => {
     await initDbMaintenanceEvents();
 
-    expect(eventMocks.listen).toHaveBeenCalledTimes(2);
+    expect(eventMocks.listen).toHaveBeenCalledTimes(3);
     expect(eventMocks.listen).toHaveBeenCalledWith(DB_MAINTENANCE_STARTED, expect.any(Function));
     expect(eventMocks.listen).toHaveBeenCalledWith(DB_MAINTENANCE_FINISHED, expect.any(Function));
+    expect(eventMocks.listen).toHaveBeenCalledWith(
+      "app:critical-operation-warning",
+      expect.any(Function)
+    );
   });
 
   it("logs the started event payload via console.info", async () => {
@@ -118,15 +127,33 @@ describe("dbMaintenanceEvents", () => {
     );
   });
 
-  it("returns a cleanup function that unlistens from both events", async () => {
+  it("shows an error toast when a critical-operation-warning event fires", async () => {
+    const event = {
+      payload:
+        "Cannot close application while database compaction, storage migration, or restore is in progress.",
+    };
+
+    await initDbMaintenanceEvents();
+
+    eventMocks.criticalWarningCallback(event);
+
+    expect(toastMocks.addToast).toHaveBeenCalledWith(
+      "Cannot close application while database compaction, storage migration, or restore is in progress.",
+      "error"
+    );
+  });
+
+  it("returns a cleanup function that unlistens from all events", async () => {
     const cleanup = await initDbMaintenanceEvents();
 
     expect(eventMocks.unlistenStarted).not.toHaveBeenCalled();
     expect(eventMocks.unlistenFinished).not.toHaveBeenCalled();
+    expect(eventMocks.unlistenCriticalWarning).not.toHaveBeenCalled();
 
     cleanup();
 
     expect(eventMocks.unlistenStarted).toHaveBeenCalledTimes(1);
     expect(eventMocks.unlistenFinished).toHaveBeenCalledTimes(1);
+    expect(eventMocks.unlistenCriticalWarning).toHaveBeenCalledTimes(1);
   });
 });

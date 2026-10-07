@@ -1195,8 +1195,15 @@
   padding-right: 0.75rem;
 }
 
-.settings-secondary-button:hover {
+.settings-secondary-button:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.settings-secondary-button:disabled,
+.settings-secondary-button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .settings-primary-button {
@@ -2280,7 +2287,7 @@ body:has(.browse-design-checkbox:checked) .browse-bulk-bar {
   color: #d1d5db;
 }
 
-:root[data-theme="dark"] .settings-secondary-button:hover {
+:root[data-theme="dark"] .settings-secondary-button:hover:not(:disabled) {
   background: #334155;
 }
 
@@ -2462,7 +2469,7 @@ body:has(.browse-design-checkbox:checked) .browse-bulk-bar {
     color: #d1d5db;
   }
 
-  :root:not([data-theme="light"]) .settings-secondary-button:hover {
+  :root:not([data-theme="light"]) .settings-secondary-button:hover:not(:disabled) {
     background: #334155;
   }
 

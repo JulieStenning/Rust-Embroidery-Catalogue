@@ -118,6 +118,14 @@ test.describe.serial("application settings", () => {
     await expect(
       page.getByRole("button", { name: "Test model", exact: true }),
     ).toBeDisabled();
+
+    // Catalogue storage controls are visible and enabled
+    const dataRootInput = page.locator("#settings-data-root");
+    const browseButton = page.getByRole("button", { name: "Browse…", exact: true });
+    await expect(dataRootInput).toBeVisible();
+    await expect(dataRootInput).toBeEnabled();
+    await expect(browseButton).toBeVisible();
+    await expect(browseButton).toBeEnabled();
   });
 
   test("toggles API key password visibility", async ({ page }) => {

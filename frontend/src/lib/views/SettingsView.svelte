@@ -154,6 +154,19 @@
   let settingsDefaultWorkers = $derived(settingsAiFreeTier ? 2 : 4);
   let settingsDefaultDelay = $derived(settingsAiFreeTier ? "10" : "0");
 
+  let databaseLocationDrive = $derived.by(() => {
+    const target = settingsDatabasePath || settingsDataRoot || "";
+    const winDriveMatch = target.match(/^([a-zA-Z]:)/);
+    if (winDriveMatch) {
+      return winDriveMatch[1].toUpperCase() + "\\";
+    }
+    const uncMatch = target.match(/^(\\\\[^\\]+\\[^\\]+)/);
+    if (uncMatch) {
+      return uncMatch[1];
+    }
+    return target || "the catalogue drive";
+  });
+
   /**
    * Check if all extensions for a given preset are currently enabled.
    * @param {{ exts: string[] }} preset
@@ -517,6 +530,7 @@
   }
 
   async function browseDataRootFromBackend() {
+    if (busyActive || isCompacting) return;
     const result = await browseSettingsDataRoot(settingsLibraryRoot || settingsDataRoot);
     if (!result.path) {
       if (result.error) {
@@ -885,10 +899,11 @@
             />
             <button
               type="button"
-              class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
+              class="settings-secondary-button border rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Show or hide API key"
               aria-pressed={settingsApiKeyRevealed}
               title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
+              disabled={busyActive || isCompacting}
               onclick={toggleSettingsApiKeyVisibility}
             >
               <span aria-hidden="true" class="settings-eye-icon"
@@ -1099,13 +1114,14 @@
                   bind:value={settingsLibraryRoot}
                   placeholder="D:\\EmbroideryCatalogueData\\MachineEmbroideryDesigns"
                   spellcheck="false"
+                  disabled={busyActive || isCompacting}
                   class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
                 />
                 <button
                   type="button"
-                  class="settings-secondary-button border rounded px-3 py-2 text-sm hover:bg-gray-50"
+                  class="settings-secondary-button border rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   onclick={browseDataRootFromBackend}
-                  disabled={busyActive}
+                  disabled={busyActive || isCompacting}
                 >
                   Browse…
                 </button>
@@ -1183,8 +1199,12 @@
           {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
         </button>
         <p class="text-xs text-gray-500">
-          Runs a full database optimisation (VACUUM + PRAGMA optimize). This may take a moment for
-          large databases and requires sufficient free disk space.
+          Runs a full database optimisation (VACUUM + PRAGMA optimize).
+          {#if dbStats && dbStats.file_size_bytes > 0}
+            Requires at least {formatBytes(dbStats.file_size_bytes)} of free space on {databaseLocationDrive}.
+          {:else}
+            Requires free space on {databaseLocationDrive} equal to at least the current database size.
+          {/if}
         </p>
       </div>
 

@@ -5,7 +5,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
 import { tick } from "svelte";
-import { resetBusy } from "../../stores/busyStore.js";
+import { resetBusy, beginBusy, endBusy } from "../../stores/busyStore.js";
 import SettingsView from "../SettingsView.svelte";
 import type { SettingsViewModel, DbStats } from "../../types/ipc";
 import type { LicenceStatus } from "../../types/licence";
@@ -590,6 +590,25 @@ describe("SettingsView.svelte", () => {
     );
   });
 
+  it("disables the data location input and Browse button when busy", async () => {
+    beginBusy("Compacting database");
+    try {
+      renderView();
+      await waitForSettingsLoaded();
+
+      const input = screen.getByLabelText("Catalogue data location");
+      const browseButton = screen.getByRole("button", { name: "Browse…" });
+
+      expect(input).toBeDisabled();
+      expect(browseButton).toBeDisabled();
+
+      await fireEvent.click(browseButton);
+      expect(browseSettingsDataRootMock).not.toHaveBeenCalled();
+    } finally {
+      endBusy();
+    }
+  });
+
   it("provides a Close button that dismisses the terminal-error migration dialog", async () => {
     browseSettingsDataRootMock.mockResolvedValue({
       source: "rust",
@@ -959,9 +978,36 @@ describe("SettingsView.svelte", () => {
 
     renderView();
 
+    expect(screen.queryByTestId("db-fat32-warning")).not.toBeInTheDocument();
+  });
+
+  it("renders compaction disk space requirements with calculated size and drive letter", async () => {
+    mockSettings({ ...defaultModel, database_path: "E:\\EmbroideryCatalogue\\catalogue.db" });
+    mockDbStats({
+      ...defaultStats,
+      file_size_bytes: 104857600, // 100 MB
+    });
+
+    renderView();
+
     await waitForSettingsLoaded();
 
-    expect(screen.queryByTestId("db-fat32-warning")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Requires at least 100 MB of free space on E:\\/i)
+    ).toBeInTheDocument();
+  });
+
+  it("renders fallback compaction disk space requirements when db stats are missing", async () => {
+    mockSettings({ ...defaultModel, database_path: "D:\\EmbroideryData\\catalogue.db" });
+    mockDbStats(null);
+
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    expect(
+      screen.getByText(/Requires free space on D:\\ equal to at least the current database size/i)
+    ).toBeInTheDocument();
   });
 
   // -- Help link -----------------------------------------------------------

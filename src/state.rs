@@ -183,6 +183,18 @@ impl AppState {
             .pool()
             .ok_or_else(|| "The database pool is unavailable.".to_string())
     }
+
+    /// Returns true if a critical, non-interruptible database or file operation is currently running.
+    pub fn is_critical_operation_active(&self) -> bool {
+        self.maintenance_running
+            .load(std::sync::atomic::Ordering::SeqCst)
+            || self
+                .migration_running
+                .load(std::sync::atomic::Ordering::SeqCst)
+            || self
+                .restore_in_progress
+                .load(std::sync::atomic::Ordering::SeqCst)
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -66,8 +66,16 @@ export async function initDbMaintenanceEvents(): Promise<UnlistenFn> {
     }
   );
 
+  const unlistenCriticalWarning = await listen<string>(
+    "app:critical-operation-warning",
+    (event) => {
+      addToast(event.payload, "error");
+    }
+  );
+
   return () => {
     unlistenStarted();
     unlistenFinished();
+    unlistenCriticalWarning();
   };
 }

@@ -47,7 +47,7 @@ use serde::Serialize;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 use std::sync::atomic::AtomicBool;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 /// Return the current execution mode and path metadata to the frontend.
 #[tauri::command]
@@ -642,6 +642,22 @@ fn main() {
             routes::restore::request_cancel_restore,
             routes::restore::request_stop_restore,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if let Some(state) = window.try_state::<AppState>() {
+                    if state.is_critical_operation_active() {
+                        api.prevent_close();
+                        tracing::warn!(
+                            "Window close prevented: critical database compaction, storage migration, or restore in progress"
+                        );
+                        let _ = window.emit(
+                            "app:critical-operation-warning",
+                            "Cannot close application while database compaction, storage migration, or restore is in progress.",
+                        );
+                    }
+                }
+            }
+        })
         // tauri::generate_context!() reads tauri.conf.json from the project root
         .build(tauri::generate_context!())
         .expect("Error while building the Embroidery Catalogue application");

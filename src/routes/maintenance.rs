@@ -264,6 +264,27 @@ pub async fn compact_database(
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<CompactResult, String> {
+    if state
+        .maintenance_running
+        .compare_exchange(
+            false,
+            true,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .is_err()
+    {
+        return Err("Database maintenance or compaction is already in progress.".to_string());
+    }
+
+    struct MaintenanceGuard<'a>(&'a std::sync::atomic::AtomicBool);
+    impl<'a> Drop for MaintenanceGuard<'a> {
+        fn drop(&mut self) {
+            self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    let _guard = MaintenanceGuard(&state.maintenance_running);
+
     let started = Instant::now();
     let db_path = database_path_from_bootstrap();
 
