@@ -3,28 +3,28 @@
 
 <script>
   import { restoreProgressStore } from "../stores/restoreProgressStore.js";
-  import { requestCancelRestore } from "../api/commandAdapter";
+  import { requestStopRestore } from "../api/commandAdapter";
 
   /** @type {{ onclose?: () => void }} */
   let { onclose = () => {} } = $props();
 
-  let cancelling = $state(false);
+  let stopping = $state(false);
 
-  // Reset the cancel-in-flight flag whenever the run finishes.
+  // Reset the stop-in-flight flag whenever the run finishes.
   $effect(() => {
     if ($restoreProgressStore.terminal || !$restoreProgressStore.active) {
-      cancelling = false;
+      stopping = false;
     }
   });
 
   /** Ask the backend to stop the running phase after the current step. */
-  async function handleCancel() {
-    if (cancelling) return;
-    cancelling = true;
+  async function handleStop() {
+    if (stopping) return;
+    stopping = true;
     try {
-      await requestCancelRestore();
+      await requestStopRestore();
     } catch {
-      cancelling = false;
+      stopping = false;
     }
   }
 
@@ -49,9 +49,9 @@
     if (progress.status === "rolled-back") return "Database restore rolled back";
     if (progress.error || progress.status === "failed") return "Restore failed";
     if (progress.status === "cancelled") {
-      if (progress.scope === "designs") return "Design sync cancelled";
-      if (progress.scope === "import-unmatched") return "Import cancelled";
-      return "Restore cancelled";
+      if (progress.scope === "designs") return "Design sync stopped";
+      if (progress.scope === "import-unmatched") return "Import stopped";
+      return "Restore stopped";
     }
     if (progress.scope === "designs") return "Design sync complete";
     if (progress.scope === "import-unmatched") return "Import complete";
@@ -138,12 +138,12 @@
         <button
           type="button"
           class="menu-button-danger"
-          onclick={handleCancel}
-          disabled={cancelling || progress.phase !== "designs"}
+          onclick={handleStop}
+          disabled={stopping || progress.phase !== "designs"}
           title={progress.phase !== "designs" ? "This step can't be interrupted" : undefined}
-          data-testid="cancel-restore-button"
+          data-testid="stop-restore-button"
         >
-          {cancelling ? "Cancelling…" : "Cancel"}
+          {stopping ? "Stopping…" : "Stop"}
         </button>
       </div>
     {/if}

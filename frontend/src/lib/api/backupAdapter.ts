@@ -11,6 +11,7 @@ import type {
   BackupViewModel,
   CancelBackupResult,
   CancelRestoreResult,
+  StopRestoreResult,
   DatabaseBackupResult,
   DetectUnmatchedFilesResult,
   DesignsBackupResult,
@@ -514,5 +515,20 @@ export async function requestCancelRestore(): Promise<{ source: string } & Cance
     };
   } catch {
     return { source: "mock", cancel_requested: false };
+  }
+}
+
+/**
+ * Raise the cooperative restore stop flag (stopping in-flight design sync/import while retaining progress).
+ */
+export async function requestStopRestore(): Promise<{ source: string } & StopRestoreResult> {
+  try {
+    const result = await invokeLoose<LooseRecord>("request_stop_restore");
+    return {
+      source: "rust",
+      stop_requested: Boolean(result?.stop_requested),
+    };
+  } catch {
+    return { source: "mock", stop_requested: false };
   }
 }

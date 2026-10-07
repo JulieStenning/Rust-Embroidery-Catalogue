@@ -208,6 +208,17 @@ When a configured resource (database, data root, seed asset) is absent or invali
   - **DB $\rightarrow$ Disk (Orphaned Records):** SQLite records pointing to missing disk files are reconciled via `@OrphansView.svelte` for safe metadata removal.
 - **Disaster Recovery Isolation:** Drift reconciliation must **never** be mixed into Database Recovery or Backup Restore workflows.
 
+### 10. Cancellation vs. Stopping Semantics (ADR 011)
+
+- **Cancel (Atomic Rollback):**
+  - Reserved strictly for operations where in-flight or uncommitted work is **completely rolled back or discarded**, leaving zero partial state in SQLite or on disk.
+  - Examples: Modal dismissal without saving (@DeleteDesignsModal.svelte, @QuickAddEntityModal.svelte), setup wizard abort, storage migration cancellation (`cancel_catalogue_storage_migration`), database backup cancellation (`request_cancel_backup` cleans up partial archive).
+- **Stop (Progressive Halt):**
+  - Reserved strictly for **halting iterative or batch background processes mid-flight** where work completed so far is **strictly committed and retained**.
+  - Examples: Bulk importing designs (@ImportView.svelte), unified backfill / stitch detection (@BatchOperationsView.svelte), unmatched files reconciliation (@UnmatchedFilesReconciler.svelte), design file syncing / restore (@RestoreProgressPanel.svelte).
+  - Progressive button states must display `"Stop"` -> `"Stopping..."` while disabling the button until the background worker yields.
+  - Backend flags and commands must follow `*_stop_requested` and `request_stop_*`.
+
 ---
 
 ## 🧩 Test-Surface & Boundary-Drift Discipline

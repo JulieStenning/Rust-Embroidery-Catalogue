@@ -62,6 +62,11 @@ pub struct CancelRestoreResult {
     pub cancel_requested: bool,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct StopRestoreResult {
+    pub stop_requested: bool,
+}
+
 /// Resets `restore_in_progress` when dropped, even on error.
 struct RestoreGuard<'a>(&'a AtomicBool);
 
@@ -148,12 +153,21 @@ pub fn inspect_restore_db_file(file_path: String) -> InspectRestoreDbFileResult 
     }
 }
 
-/// Raise the cooperative restore cancellation flag.
+/// Raise the cooperative restore stop/cancellation flag.
 #[tauri::command]
 pub fn request_cancel_restore() -> CancelRestoreResult {
     RESTORE_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
     CancelRestoreResult {
         cancel_requested: true,
+    }
+}
+
+/// Raise the cooperative restore stop flag (stopping in-flight design restore/import while retaining progress).
+#[tauri::command]
+pub fn request_stop_restore() -> StopRestoreResult {
+    RESTORE_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+    StopRestoreResult {
+        stop_requested: true,
     }
 }
 

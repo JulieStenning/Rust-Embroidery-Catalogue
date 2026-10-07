@@ -88,6 +88,13 @@ fn request_cancel_restore_sets_flag() {
 }
 
 #[test]
+#[serial]
+fn request_stop_restore_sets_flag() {
+    let result = request_stop_restore();
+    assert!(result.stop_requested);
+}
+
+#[test]
 fn restore_guard_resets_flag_on_drop() {
     let flag = AtomicBool::new(true);
     {

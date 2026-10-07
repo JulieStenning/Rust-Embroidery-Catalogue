@@ -12,7 +12,7 @@ import {
   type RestoreProgressState,
 } from "../../stores/restoreProgressStore";
 
-const adapterMocks = vi.hoisted(() => ({ requestCancelRestore: vi.fn() }));
+const adapterMocks = vi.hoisted(() => ({ requestStopRestore: vi.fn() }));
 vi.mock("../../api/commandAdapter", () => adapterMocks);
 
 /** Build a store state with sensible defaults for the fields under test. */
@@ -110,38 +110,39 @@ describe("RestoreProgressPanel", () => {
     expect(onclose).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a working Cancel button during a live designs sync", async () => {
-    adapterMocks.requestCancelRestore.mockResolvedValue({
+  it("shows a working Stop button during a live designs sync", async () => {
+    adapterMocks.requestStopRestore.mockResolvedValue({
       source: "rust",
-      cancel_requested: true,
+      stop_requested: true,
     });
     restoreProgressStore.set(
       progressState({ scope: "designs", phase: "designs", status: "running" })
     );
     render(RestoreProgressPanel);
 
-    const cancel = await screen.findByTestId("cancel-restore-button");
-    await fireEvent.click(cancel);
-    await waitFor(() => expect(adapterMocks.requestCancelRestore).toHaveBeenCalledTimes(1));
+    const stop = await screen.findByTestId("stop-restore-button");
+    expect(stop).toHaveTextContent("Stop");
+    await fireEvent.click(stop);
+    await waitFor(() => expect(adapterMocks.requestStopRestore).toHaveBeenCalledTimes(1));
   });
 
-  it("disables Cancel during the database phase of a combined restore", () => {
+  it("disables Stop during the database phase of a combined restore", () => {
     restoreProgressStore.set(
       progressState({ scope: "both", phase: "database", status: "running" })
     );
     render(RestoreProgressPanel);
-    expect(screen.getByTestId("cancel-restore-button")).toBeDisabled();
+    expect(screen.getByTestId("stop-restore-button")).toBeDisabled();
   });
 
-  it("hides Cancel for an unmatched-import run (the reconciler owns it)", () => {
+  it("hides Stop for an unmatched-import run (the reconciler owns it)", () => {
     restoreProgressStore.set(
       progressState({ scope: "import-unmatched", phase: "import", status: "running" })
     );
     render(RestoreProgressPanel);
-    expect(screen.queryByTestId("cancel-restore-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("stop-restore-button")).not.toBeInTheDocument();
   });
 
-  it("shows a scope-aware cancelled terminal title", () => {
+  it("shows a scope-aware stopped terminal title", () => {
     restoreProgressStore.set(
       progressState({
         scope: "designs",
@@ -151,7 +152,7 @@ describe("RestoreProgressPanel", () => {
       })
     );
     render(RestoreProgressPanel);
-    expect(screen.getByText("Design sync cancelled")).toBeInTheDocument();
+    expect(screen.getByText("Design sync stopped")).toBeInTheDocument();
   });
 
   it("omits running scope summary when database restore is complete", () => {

@@ -622,6 +622,7 @@ fn main() {
             routes::restore::detect_design_files_absent_from_database,
             routes::restore::import_unmatched_design_files,
             routes::restore::request_cancel_restore,
+            routes::restore::request_stop_restore,
         ])
         // tauri::generate_context!() reads tauri.conf.json from the project root
         .build(tauri::generate_context!())

@@ -29,6 +29,7 @@ const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
   importUnmatchedDesignFiles: vi.fn(),
   requestCancelRestore: vi.fn(),
+  requestStopRestore: vi.fn(),
   createDesigner: vi.fn(),
   createSource: vi.fn(),
 }));

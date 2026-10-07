@@ -18,6 +18,7 @@ This directory documents key architectural decisions, invariants, and trade-offs
 | [008](008-zero-static-process-globals.md) | **Zero Static Process Globals and Managed State Lifecycle** | Accepted | 2026-10-07 |
 | [009](009-typed-ipc-boundary-and-wire-protocol.md) | **Typed IPC Boundary, CamelCase Wire Protocol, and Structured Error Model** | Accepted | 2026-10-07 |
 | [010](010-in-app-modal-dialog-system.md) | **In-App Svelte Modal System for User Confirmations and Alerts** | Accepted | 2026-10-07 |
+| [011](011-cancellation-vs-stopping-semantics.md) | **Cancellation vs. Stopping Semantics and Transactional Boundaries** | Accepted | 2026-10-07 |
 
 ---
 

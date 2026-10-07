@@ -25,6 +25,7 @@ const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
   importUnmatchedDesignFiles: vi.fn(),
   requestCancelRestore: vi.fn(),
+  requestStopRestore: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -1022,7 +1023,7 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Run incremental backup" }));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
-          "Designs backup cancelled. Already copied files were kept.",
+          "Designs backup stopped. Already copied files were kept.",
           "info"
         )
       );
@@ -1076,7 +1077,7 @@ describe("BackupView", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Backup Everything Now" }));
       await waitFor(() =>
         expect(toastMocks.addToast).toHaveBeenCalledWith(
-          "Designs backup cancelled. Already copied design files were kept.",
+          "Designs backup stopped. Already copied design files were kept.",
           "warning"
         )
       );

@@ -89,6 +89,12 @@ Page specs can define element-specific behavior on these breakpoints but should 
 - Browse search action buttons use dedicated semantic classes (.browse-search-submit-button and .browse-search-reset-button).
 - In Browse, Search is the authoritative refresh action; do not add a separate Refresh button beside Search/Reset.
 
+### Action Semantics: Cancel vs Stop
+- **Cancel:** Strictly reserved for actions that **discard uncommitted user input** or **roll back in-flight changes** (e.g., dismissing modals/forms without saving, cancelling a storage migration by deleting partial targets, or aborting a setup wizard). When "Cancel" is clicked, zero changes from that operation persist.
+- **Stop:** Strictly reserved for **halting iterative or batch background processes mid-flight** without rollback (e.g., bulk importing designs, unified backfill/tagging, unmatched files reconciliation, design sync). When "Stop" is clicked, the system halts processing after the current item, and all records/files processed and committed up to that moment **are retained**.
+- **Progressive Feedback:** In-flight stopping actions must display active progress feedback: `"Stop"` transitions to `"Stopping..."` and becomes disabled while waiting for the background thread to safely finish its current unit of work.
+
+
 ## Card Contract
 Applies to dense browse/project card grids unless overridden by page spec.
 

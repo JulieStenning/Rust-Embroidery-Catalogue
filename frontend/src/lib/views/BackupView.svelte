@@ -312,7 +312,7 @@
       if (action === "designs") {
         const result = await runDesignsBackup();
         if (result.cancelled) {
-          addToast("Designs backup cancelled. Already copied files were kept.", "info");
+          addToast("Designs backup stopped. Already copied files were kept.", "info");
           return;
         }
         if (!result.success) {
@@ -350,7 +350,7 @@
       }
 
       if (designsCancelled) {
-        addToast("Designs backup cancelled. Already copied design files were kept.", "warning");
+        addToast("Designs backup stopped. Already copied design files were kept.", "warning");
         return;
       }
 

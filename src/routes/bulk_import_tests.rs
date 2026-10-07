@@ -3221,7 +3221,7 @@ async fn preview_bulk_import_wire_filters_existing_library_designs_and_keeps_unc
     let catalogued_file = designs_dir.join("catalogued.pes");
     fs::write(&catalogued_file, b"catalogued-content").expect("write catalogued");
     sqlx::query(
-        "INSERT INTO designs (filepath, filename, format, stitch_count, color_count, width_mm, height_mm) VALUES ('catalogued.pes', 'catalogued.pes', 'PES', 100, 1, 10.0, 10.0)",
+        "INSERT INTO designs (filepath, filename, stitch_count, color_count, width_mm, height_mm) VALUES ('catalogued.pes', 'catalogued.pes', 100, 1, 10.0, 10.0)",
     )
     .execute(&pool)
     .await
@@ -3240,8 +3240,13 @@ async fn preview_bulk_import_wire_filters_existing_library_designs_and_keeps_unc
         create_on_import: true,
     };
 
-    let preview = super::precheck::preview_bulk_import_wire_with_pool(wire, Some(&pool))
-        .expect("preview should succeed");
+    let pool_clone = pool.clone();
+    let preview = tokio::task::spawn_blocking(move || {
+        super::precheck::preview_bulk_import_wire_with_pool(wire, Some(&pool_clone))
+    })
+    .await
+    .expect("spawn_blocking")
+    .expect("preview should succeed");
 
     assert_eq!(
         preview.discovered_count, 1,

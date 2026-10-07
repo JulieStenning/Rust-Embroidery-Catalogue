@@ -8,7 +8,7 @@
   import {
     detectDesignFilesAbsentFromDatabase,
     importUnmatchedDesignFiles,
-    requestCancelRestore,
+    requestStopRestore,
   } from "../api/commandAdapter";
   import {
     unmatchedFilesStore,
@@ -21,7 +21,7 @@
   let busyActive = $derived($busyState.active);
   let scanning = $state(false);
   let importing = $state(false);
-  let cancelling = $state(false);
+  let stopping = $state(false);
   let totalToImport = $state(0);
   /** @type {(() => void) | null} */
   let unlistenRestore = null;
@@ -93,13 +93,13 @@
     if (importing || busyActive) return;
     resetRestoreProgress();
     importing = true;
-    cancelling = false;
+    stopping = false;
     totalToImport = $unmatchedFilesStore.count;
     beginBusy("Importing unmatched design files");
     try {
       const result = await importUnmatchedDesignFiles();
       if (result.cancelled) {
-        addToast(`Import cancelled — ${result.imported} file(s) imported.`, "warning");
+        addToast(`Import stopped — ${result.imported} file(s) imported.`, "warning");
         dismissUnmatchedFiles();
         return;
       }
@@ -124,7 +124,7 @@
         unlistenRestore = null;
       }
       importing = false;
-      cancelling = false;
+      stopping = false;
       totalToImport = 0;
       resetRestoreProgress();
       endBusy();
@@ -132,13 +132,13 @@
   }
 
   /** Ask the backend to stop the running import after the current file. */
-  async function handleCancelImport() {
-    if (!importing || cancelling) return;
-    cancelling = true;
+  async function handleStopImport() {
+    if (!importing || stopping) return;
+    stopping = true;
     try {
-      await requestCancelRestore();
+      await requestStopRestore();
     } catch {
-      cancelling = false;
+      stopping = false;
     }
   }
 </script>
@@ -186,11 +186,11 @@
         <button
           type="button"
           class="menu-button-danger"
-          onclick={handleCancelImport}
-          disabled={cancelling}
-          data-testid="cancel-unmatched-import"
+          onclick={handleStopImport}
+          disabled={stopping}
+          data-testid="stop-unmatched-import"
         >
-          {cancelling ? "Cancelling…" : "Cancel"}
+          {stopping ? "Stopping…" : "Stop"}
         </button>
       {/if}
       <button

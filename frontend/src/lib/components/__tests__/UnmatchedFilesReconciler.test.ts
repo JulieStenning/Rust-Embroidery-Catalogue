@@ -17,7 +17,7 @@ import { resetBusy } from "../../stores/busyStore.js";
 const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
   importUnmatchedDesignFiles: vi.fn(),
-  requestCancelRestore: vi.fn(),
+  requestStopRestore: vi.fn(),
 }));
 vi.mock("../../api/commandAdapter", () => adapterMocks);
 
@@ -231,7 +231,7 @@ describe("UnmatchedFilesReconciler", () => {
     });
   });
 
-  it("cancels a running import and reports the partial result", async () => {
+  it("stops a running import and reports the partial result", async () => {
     setUnmatchedFilesDetected(2, 4, ["a.pes", "b.pes"]);
     let resolveImport!: (value: unknown) => void;
     adapterMocks.importUnmatchedDesignFiles.mockImplementation(
@@ -240,19 +240,20 @@ describe("UnmatchedFilesReconciler", () => {
           resolveImport = resolve;
         })
     );
-    adapterMocks.requestCancelRestore.mockResolvedValue({
+    adapterMocks.requestStopRestore.mockResolvedValue({
       source: "rust",
-      cancel_requested: true,
+      stop_requested: true,
     });
     render(UnmatchedFilesReconciler);
 
     await waitFor(() => expect(screen.getByTestId("unmatched-files-prompt")).toBeInTheDocument());
     await fireEvent.click(screen.getByRole("button", { name: /Import 2 file/ }));
 
-    const cancelButton = await screen.findByTestId("cancel-unmatched-import");
-    await fireEvent.click(cancelButton);
-    await waitFor(() => expect(adapterMocks.requestCancelRestore).toHaveBeenCalledTimes(1));
-    expect(cancelButton).toBeDisabled();
+    const stopButton = await screen.findByTestId("stop-unmatched-import");
+    expect(stopButton).toHaveTextContent("Stop");
+    await fireEvent.click(stopButton);
+    await waitFor(() => expect(adapterMocks.requestStopRestore).toHaveBeenCalledTimes(1));
+    expect(stopButton).toBeDisabled();
 
     resolveImport({
       source: "rust",
@@ -265,7 +266,7 @@ describe("UnmatchedFilesReconciler", () => {
     });
     await waitFor(() =>
       expect(toastMock.addToast).toHaveBeenCalledWith(
-        expect.stringContaining("Import cancelled"),
+        expect.stringContaining("Import stopped"),
         "warning"
       )
     );
