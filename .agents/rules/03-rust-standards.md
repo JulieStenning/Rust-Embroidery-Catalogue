@@ -9,6 +9,10 @@
 - **Instant Database Verification (< 1 ms vs minutes on large DBs):**
   - Never execute full integrity checks (e.g. `PRAGMA quick_check(1)` or full table scans) in synchronous startup or migration verification paths. On large catalogues (e.g. 7.6 GB+), `quick_check(1)` scans every single B-tree page until an error is found, hanging startup and restore operations for minutes on slow removable media.
   - Use fast, constant-time schema verification (`PRAGMA schema_version` + `SELECT 1 FROM settings LIMIT 1` + `SELECT 1 FROM designs LIMIT 1`), which completes in < 1 ms regardless of database size.
+- **Automatic Startup Database Migrations:**
+  - `database::migrations::run_migrations(&pool).await` must ALWAYS be executed during bootstrap in `src/main.rs` immediately after `establish_connection` and prior to schema sanity checks.
+  - Migrations (`migrations/*.sql`) are embedded at compile time via `sqlx::migrate!`. Never rely on manual migration execution on developer (`dev_data`) or user databases.
+  - All migrations must be idempotent, accompanied by reversible `.down.sql` scripts, and verified with dedicated test cases in `src/database/migrations_tests.rs`.
 - **Rendering & Parsing Performance Discipline:**
   - Avoid nested $O(r^2 \cdot N)$ coordinate loops when rendering stitch files. Use vectorised, single-pass polygon/capsule rasterizers.
   - Performance-critical parsing and rendering pipelines must be benchmarked using Criterion harnesses in `benches/` to detect regressions.

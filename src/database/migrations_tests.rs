@@ -756,3 +756,34 @@ async fn run_migrations_creates_fingerprint_covering_index() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_creates_batch_operations_indexes() {
+    let tmp = unique_tmp_dir("batch-operations-indexes");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("batch_operations_indexes.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    for index_name in &[
+        "ix_designs_image_data_null",
+        "ix_designs_image_tags_verified",
+        "ix_designs_stitching_tags_verified",
+        "ix_designs_vision_ai_unverified",
+        "ix_design_tags_design_id_tag_id",
+        "ix_tags_tag_group_lower",
+    ] {
+        let count: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=?")
+                .bind(index_name)
+                .fetch_one(&pool)
+                .await
+                .unwrap_or_else(|e| panic!("query {index_name} index: {e}"));
+        assert_eq!(count.0, 1, "{index_name} index should exist");
+    }
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}

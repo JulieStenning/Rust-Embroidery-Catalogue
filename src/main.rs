@@ -313,6 +313,23 @@ fn main() {
             // Establish the SQLite connection pool using resolved paths
             match database::connection::establish_connection(&app_paths).await {
                 Ok(pool) => {
+                    // Apply any pending database schema migrations automatically.
+                    if let Err(err) = database::migrations::run_migrations(&pool).await {
+                        tracing::error!(
+                            "Database migration failed at {}: {err}",
+                            app_paths.database_path.display()
+                        );
+                        let in_mem = SqlitePoolOptions::new()
+                            .max_connections(1)
+                            .connect("sqlite::memory:")
+                            .await
+                            .expect("in-memory recovery pool");
+                        let mut status = database_status;
+                        status.status = DatabaseStatusKind::Corrupted;
+                        status.error_message = Some(format!("Database migration failed: {err}"));
+                        return (in_mem, status);
+                    }
+
                     // Fast schema sanity check: verify essential catalogue tables (settings and designs) exist.
                     // Avoid full B-tree integrity scans (PRAGMA quick_check) on the synchronous startup path
                     // as they scan the entire file on disk (taking minutes on multi-gigabyte databases).
