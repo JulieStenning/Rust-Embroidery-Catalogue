@@ -108,10 +108,13 @@ Result:
 
 ---
 
-## Open in Editor / Open Master File / Show in Explorer
+## Open in Editor / Open Master File / Open Stitch File / Show in Explorer
 
-- **Open in Editor** opens the primary stitch file with your system default app for that file format (e.g. your machine embroidery software).
-- **Open Master File** (or **Open in Digitiser**) opens the master outline design file (e.g. `.eof`, `.emb`, `.art`, etc.) in your default digitising software.
+- **Standalone designs (stitch-only or master-only)**:
+  - **Open in Editor** opens the design file with your system default application for that file format (e.g. your embroidery software or digitiser).
+- **Paired designs (both master outline and stitch file exist)**:
+  - **Open Master File** opens the master outline design file (e.g. `.eof`, `.emb`, `.art`, `.be`, etc.) in your default digitising software. This is prioritized first as the default action.
+  - **Open Stitch File** opens the machine stitch file (e.g. `.pes`, `.jef`, `.dst`, etc.) in your default embroidery editor.
 - **Show in Explorer** opens Windows Explorer and selects the file when possible.
 - If the exact file is missing, Explorer opens the nearest existing folder instead.
 

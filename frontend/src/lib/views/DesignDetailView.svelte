@@ -689,10 +689,6 @@
 
         <!-- Action buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
-          <button class="menu-button-ghost" onclick={launchDetailInEditor} disabled={detailSaving}>
-            <span aria-hidden="true" class="text-[10px]">&#9998;</span>
-            {detailItem.isMasterOnly ? "Open in Digitiser" : "Open in Editor"}
-          </button>
           {#if detailItem.masterFilepath && !detailItem.isMasterOnly}
             <button
               class="menu-button-ghost"
@@ -700,6 +696,21 @@
               disabled={detailSaving}
             >
               <span aria-hidden="true" class="text-[10px]">🎨</span> Open Master File
+            </button>
+            <button
+              class="menu-button-ghost"
+              onclick={launchDetailInEditor}
+              disabled={detailSaving}
+            >
+              <span aria-hidden="true" class="text-[10px]">&#9998;</span> Open Stitch File
+            </button>
+          {:else}
+            <button
+              class="menu-button-ghost"
+              onclick={launchDetailInEditor}
+              disabled={detailSaving}
+            >
+              <span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor
             </button>
           {/if}
           <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}
