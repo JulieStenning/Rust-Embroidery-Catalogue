@@ -774,7 +774,7 @@ async fn import_single_stitch_design(
             "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, hoop_id, image_data, image_type, \
              width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, \
              image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
-             VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+             VALUES (?, ?, ?, 0, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
         )
         .bind(&filename)
         .bind(&stored_filepath)
@@ -918,7 +918,7 @@ async fn import_single_master_design(
     let insert_result = sqlx::query(
         "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, \
          is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) \
-         VALUES (?, ?, ?, 1, DATE('now'), 0, 0, 0, ?, ?)",
+         VALUES (?, ?, ?, 1, datetime('now'), 0, 0, 0, ?, ?)",
     )
     .bind(&filename)
     .bind(&stored_filepath)

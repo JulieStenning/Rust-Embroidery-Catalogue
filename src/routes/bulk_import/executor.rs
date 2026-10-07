@@ -117,7 +117,7 @@ async fn persist_stitch_design(
         let t_insert = Instant::now();
         sqlx::query(
             "UPDATE designs SET filename = ?, filepath = ?, master_filepath = ?, is_master_only = 0, \
-             date_added = COALESCE(date_added, DATE('now')), \
+             date_added = COALESCE(date_added, datetime('now')), \
              designer_id = COALESCE(?, designer_id), \
              source_id = COALESCE(?, source_id), \
              hoop_id = ?, image_data = ?, image_type = ?, width_mm = ?, height_mm = ?, \
@@ -170,7 +170,7 @@ async fn persist_stitch_design(
     } else {
         let t_insert = Instant::now();
         let insert_result = sqlx::query(
-            "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 0, DATE('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+            "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 0, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
         )
         .bind(&filename)
         .bind(stored_filepath)
@@ -286,7 +286,7 @@ async fn persist_master_design(
 
     let t_insert = Instant::now();
     let insert_result = sqlx::query(
-        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 1, DATE('now'), ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, ?, ?)",
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 1, datetime('now'), ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, ?, ?)",
     )
     .bind(&filename)
     .bind(stored_filepath)
