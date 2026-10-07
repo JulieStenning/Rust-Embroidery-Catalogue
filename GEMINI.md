@@ -195,6 +195,19 @@ When a configured resource (database, data root, seed asset) is absent or invali
 - All backend functions exposed across the Tauri IPC bridge must return `Result<T, IpcError>` using the centralized `IpcError` enum in `src/error.rs` (which derives `thiserror::Error` and `serde::Serialize`), rather than converting errors to raw strings via `.map_err(|e| e.to_string())`.
 - `IpcError` in `src/error.rs` must be mirrored in TypeScript under `frontend/src/lib/types/errors.ts`.
 
+### 8. Master Design vs Stitch File Pairing & Lifecycle (ADR 006)
+
+- **Relational Pairing:** Stitch files (`.PES`, `.JEF`, `.VP3`, `.DST`, etc.) are the primary rendered entity in the `designs` table. Working master formats (`.ART`, `.EMB`, `.JAN`, `.BE`, etc.) are linked relationally via `master_design_file_id`.
+- **Asynchronous Stem Matching:** When importing a stitch design or master format whose counterpart already exists in the catalogue, the system automatically detects and links them by relative path stem without creating duplicate designs.
+- **Independent Launch Actions:** Backend provides dedicated IPC launch commands for opening the editable master design in desktop digitizing suites (`open_master_design_file`) versus inspecting the stitch file (`open_design_file`).
+
+### 9. Library Drift Synchronization Boundaries (ADR 007)
+
+- **Two-Way Drift Separation:**
+  - **Disk $\rightarrow$ DB (Unmatched Files):** Physical files on disk missing from SQLite are reconciled via `@UnmatchedFilesReconciler.svelte` located in **Bulk Import** (onboarding flow) and **Orphaned Files** (maintenance flow).
+  - **DB $\rightarrow$ Disk (Orphaned Records):** SQLite records pointing to missing disk files are reconciled via `@OrphansView.svelte` for safe metadata removal.
+- **Disaster Recovery Isolation:** Drift reconciliation must **never** be mixed into Database Recovery or Backup Restore workflows.
+
 ---
 
 ## 🧩 Test-Surface & Boundary-Drift Discipline
@@ -300,6 +313,12 @@ Any Rust source file whose total line count exceeds **500 lines** (production + 
 - **Theme Parity & Token Rules:** Always use CSS custom property tokens (`--surface-*`, `--text-*`, `--border-*`). Never use un-gated `@media (prefers-color-scheme: dark)` overrides without `:root:not([data-theme="light"])`, and avoid hardcoded raw opacity classes (like `bg-gray-50/50`) on cards.
 - **Reference Gold Standards:** Model new pages and components on **Browse Designs**, **Choose Tags**, and **Design Details**.
 - Primary action buttons use the app's purple/indigo + white look (`settings-primary-button menu-button-primary` classes). Do not override with ad-hoc colors.
+
+### 8. Zero Native Webview Dialogs & Svelte Modal Invariant (ADR 010)
+
+- **Absolute Ban on Native Webview Dialogs:** Never use `window.confirm()`, `window.alert()`, or `window.prompt()`. Synchronous webview popups freeze the WebView2 UI thread, break theme styling, and stall headless Playwright e2e test runs.
+- **Theme-Compliant Svelte Modals:** All user confirmations and alerts must use accessible in-app Svelte components (`@Notice.svelte`, `@ConfirmDeleteProjectModal.svelte`, `@DeleteDesignsModal.svelte`, `@ConfirmRestoreModal.svelte`, etc.) styled with CSS theme custom properties.
+- **Deterministic Test Selectors:** Every modal dialog container and confirmation/dismiss button must provide explicit `data-testid` attributes (e.g. `data-testid="confirm-delete-button"`).
 
 ---
 
