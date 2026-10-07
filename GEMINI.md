@@ -15,7 +15,7 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
     1. Affected Files & Scope Boundary
     2. Boundary & IPC Contracts (Tauri v2 ↔ Svelte, camelCase JS keys)
     3. Specification & Safety Constraints (read-only original designs, SQLite schema)
-    4. Step-by-Step Execution Sequence
+    4. Step-by-Step Execution Sequence & Test Plan (Vitest, `cargo test`, and mandatory Playwright E2E coverage for UI changes)
 
 ---
 

@@ -81,5 +81,7 @@ The plan must be structural and high-levelâ€”**no code snippets or pseudocode**â
    - Affirm that source embroidery files remain strictly read-only and unmutated.
    - SQLite queries / schema adjustments involved.
    - File cache / thumbnail storage locations.
-4. **Step-by-Step Execution Sequence:**
-   - A short, numbered list of the order of execution and targeted test commands.
+4. **Step-by-Step Execution Sequence & Test Plan:**
+   - A short, numbered list of the order of execution.
+   - Targeted unit and integration test commands (Vitest, `cargo test`).
+   - **Mandatory Playwright E2E Coverage:** For any UI changes, interactive workflows, modal behavior, button states (e.g. enabled, disabled, busy), or navigation changes, explicitly specify the Playwright E2E test file (`tests/e2e/*.spec.ts`) and test scenario to add or update.

@@ -23,6 +23,7 @@
 
 **Playwright attaches over WebView2 DevTools Protocol (CDP)** (Windows only).
 
+- **Mandatory E2E Coverage for UI Changes:** Every change affecting UI views, navigation, modals, forms, or button states (including enabled/disabled/busy states during long-running tasks) **must** include corresponding Playwright test coverage in `tests/e2e/`.
 - **Attach, don't launch:** Spawn the exe with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<port>`, poll `http://127.0.0.1:<port>/json/version`, then `chromium.connectOverCDP(...)` and take `browser.contexts()[0].pages()[0]`.
 - **Build the e2e exe with Tauri CLI, not plain `cargo build`:** Use `cargo tauri build --debug --no-bundle` (embeds `frontend/dist`).
 - **Wait out initial navigation:** WebView2 opens on `about:blank` first. The `page` fixture must wait for the app root (e.g. `page.waitForSelector("#app", { state: "attached" })`).
