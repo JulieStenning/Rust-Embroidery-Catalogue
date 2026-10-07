@@ -103,6 +103,19 @@ Applies to dense browse/project card grids unless overridden by page spec.
 - Required data states: loading, empty, error, success/notice.
 - Status cues must not rely on color alone; include iconography or text labels.
 
+## Modals and Confirmation Dialogs
+- **Strict Ban on Native Dialogs:** Never use browser-native `window.confirm()`, `window.alert()`, or `window.prompt()`. All user confirmations, alerts, and destructive action prompts must use custom in-app Svelte modal components or toast notifications.
+- **Theme & Surface Parity:** All modals must use shared modal container classes (`.modal-overlay`, `.modal-backdrop`, `.modal-dialog`, `.modal-header`, `.modal-body`, `.modal-footer`) with CSS custom properties (`--surface-card`, `--text-primary`, `--border-default`) for seamless light and dark mode support.
+- **Accessibility & Focus:**
+  - Modals must expose `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` referencing the dialog title element.
+  - Modals must support keyboard dismissal via `Escape` (`onkeydown`) and backdrop dismissal (disabled only while background operations are executing).
+  - Dialog elements must portal to `document.body` to avoid parent stacking/clipping issues.
+- **Button Standards:**
+  - Footer buttons must use sentence case (*"Cancel"*, *"Deactivate licence"*, *"Delete record"*).
+  - Destructive confirmations must style the confirmation button with `.menu-button-danger` and the cancellation action with `.menu-button-secondary`.
+- **E2E & Component Testing:**
+  - Modals and their interactive buttons must expose clear `data-testid` attributes (for example, `confirm-...-modal`, `confirm-...-button`, `cancel-...-button`).
+
 ## Accessibility
 - All form controls require associated labels.
 - Focus-visible indicators must be clear across links, controls, cards, and modal actions.
@@ -115,8 +128,10 @@ Applies to dense browse/project card grids unless overridden by page spec.
 3. Card behavior follows uniform-size + full-image-fit rules.
 4. Overflow handling is deterministic and documented.
 5. Loading/empty/error/notice states are present and readable.
-6. Keyboard and focus-visible behavior is verified.
+6. In-app Svelte modals are used for all confirmations (zero native `confirm()`/`alert()` calls).
+7. Keyboard and focus-visible behavior is verified.
 
 ## Change Management
 - Any UI change that modifies spacing, sizing, card contract, or state behavior must update the affected spec document in the same change set.
 - Screenshot comparison with Python UI is validation, not source-of-truth authoring.
+
