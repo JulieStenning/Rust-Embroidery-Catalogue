@@ -141,7 +141,7 @@
     const isActive =
       currentRoute === target || (target === "#/import" && currentUiKind === "import");
     const disabled = busyActive ? " menu-link-disabled" : "";
-    return `menu-link ${isActive ? "menu-link-active" : ""}${disabled}`;
+    return `menu-link menu-link-primary ${isActive ? "menu-link-active" : ""}${disabled}`;
   }
 
   /**

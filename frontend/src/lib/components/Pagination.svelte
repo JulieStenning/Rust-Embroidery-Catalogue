@@ -47,7 +47,7 @@
     {#if showFirstLast}
       <button
         type="button"
-        class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(1)}
         disabled={disabled || currentPage <= 1}
       >
@@ -58,7 +58,7 @@
     {#if currentPage > 1}
       <button
         type="button"
-        class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(currentPage - 1)}
         {disabled}
       >
@@ -68,16 +68,16 @@
 
     {#each pageTokens as pageToken}
       {#if pageToken === "..."}
-        <span class="px-1 text-gray-400">...</span>
+        <span class="px-1 text-gray-500 font-medium select-none">...</span>
       {:else if pageToken === currentPage}
         <span
-          class="px-3 py-1 border rounded bg-indigo-600 text-white font-medium"
+          class="px-3 py-1.5 min-h-[2rem] border border-indigo-600 rounded bg-indigo-600 text-white text-sm font-semibold inline-flex items-center justify-center"
           aria-current="page">{pageToken}</span
         >
       {:else}
         <button
           type="button"
-          class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
+          class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onclick={() => onPageChange(pageToken)}
           {disabled}
         >
@@ -89,7 +89,7 @@
     {#if currentPage < totalPages}
       <button
         type="button"
-        class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(currentPage + 1)}
         {disabled}
       >
@@ -100,7 +100,7 @@
     {#if showFirstLast}
       <button
         type="button"
-        class="px-3 py-1 rounded border text-sm hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(totalPages)}
         disabled={disabled || currentPage >= totalPages}
       >
