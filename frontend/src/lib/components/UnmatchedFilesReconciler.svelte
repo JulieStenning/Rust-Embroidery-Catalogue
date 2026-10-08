@@ -143,9 +143,11 @@
   }
 </script>
 
-<div class="route-card rounded shadow p-6 space-y-3">
-  <h2 class="text-base font-semibold text-gray-800">Find unmatched design files</h2>
-  <p class="text-sm text-gray-600">
+<div
+  class="route-card rounded shadow p-6 space-y-3 bg-[var(--surface-card)] border border-[var(--border-default)]"
+>
+  <h2 class="text-base font-semibold text-[var(--text-primary)]">Find unmatched design files</h2>
+  <p class="text-sm text-[var(--text-secondary)]">
     Scans <code>MachineEmbroideryDesigns</code> for design files that have no record in the catalogue
     — for example after syncing designs from a backup without restoring the database. You can then import
     them as new catalogue records.
@@ -164,14 +166,17 @@
 </div>
 
 {#if $unmatchedFilesStore.showPrompt}
-  <div class="route-card rounded shadow p-6 space-y-3" data-testid="unmatched-files-prompt">
-    <h2 class="text-base font-semibold text-gray-800">Unmatched files found</h2>
-    <p class="text-sm text-gray-600">
+  <div
+    class="route-card rounded shadow p-6 space-y-3 bg-[var(--surface-card)] border border-[var(--border-default)]"
+    data-testid="unmatched-files-prompt"
+  >
+    <h2 class="text-base font-semibold text-[var(--text-primary)]">Unmatched files found</h2>
+    <p class="text-sm text-[var(--text-secondary)]">
       {$unmatchedFilesStore.count} design file(s) on disk have no record in the catalogue
       {$unmatchedFilesStore.checked > 0 ? `(scanned ${$unmatchedFilesStore.checked})` : ""}. You can
       import them as new catalogue records. If you want to see a list of the files discovered,
       import them from the
-      <a href="#/import" class="text-indigo-600 hover:underline">Bulk Import</a> page.
+      <a href="#/import" class="text-[var(--text-brand)] hover:underline">Bulk Import</a> page.
     </p>
     <div class="flex gap-2 pt-1">
       <button

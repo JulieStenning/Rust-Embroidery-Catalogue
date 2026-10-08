@@ -577,7 +577,7 @@
       title="Previous design">&lsaquo; Prev</button
     >
     {#if detailBrowseIndex >= 0 && detailBrowseIds.length > 0}
-      <span class="text-sm text-gray-500 font-medium tabular-nums mx-1"
+      <span class="text-sm text-[var(--text-secondary)] font-medium tabular-nums mx-1"
         >{detailBrowseIndex + 1} / {detailBrowseIds.length}</span
       >
     {/if}
@@ -587,7 +587,7 @@
       disabled={detailBrowseIndex < 0 || detailBrowseIndex >= detailBrowseIds.length - 1}
       title="Next design">Next &rsaquo;</button
     >
-    <span class="text-gray-300 select-none mx-0.5" aria-hidden="true">|</span>
+    <span class="text-[var(--border-default)] select-none mx-0.5" aria-hidden="true">|</span>
     <button
       class="menu-button-nav"
       onclick={openDetailPrintView}
@@ -598,16 +598,16 @@
 
   <!-- Two-column body -->
   {#if detailLoading}
-    <div class="flex-1 flex items-center justify-center text-gray-500 font-medium">
+    <div class="flex-1 flex items-center justify-center text-[var(--text-secondary)] font-medium">
       <p>Loading design detail...</p>
     </div>
   {:else if detailError}
     <div class="flex-1 flex items-center justify-center">
-      <p class="text-red-600">{detailError}</p>
+      <p class="text-[var(--notice-error-text)]">{detailError}</p>
     </div>
   {:else if !detailItem}
     <div class="flex-1 flex items-center justify-center">
-      <p class="text-gray-500">No design found for id {detailDesignId}.</p>
+      <p class="text-[var(--text-secondary)]">No design found for id {detailDesignId}.</p>
     </div>
   {:else}
     <div class="flex-1 flex flex-col lg:flex-row min-h-0">
@@ -652,15 +652,15 @@
         <!-- Preview image -->
         {#if detailItem.isMasterOnly}
           <div
-            class="route-card border border-amber-300 bg-amber-50 p-4 text-center space-y-2"
+            class="route-card border border-[var(--notice-warn-border)] bg-[var(--notice-warn-bg)] p-4 text-center space-y-2"
             data-testid="design-master-only-banner"
           >
             <span class="text-3xl" aria-hidden="true">🎨</span>
-            <p class="text-sm font-semibold text-amber-900">Outline Master File</p>
-            <p class="text-xs text-amber-800 leading-snug font-medium">
+            <p class="text-sm font-semibold text-[var(--notice-warn-text)]">Outline Master File</p>
+            <p class="text-xs text-[var(--notice-warn-text)] leading-snug font-medium">
               Export to a machine stitch format to generate preview and stitch data.
             </p>
-            <p class="text-[11px] text-amber-700 leading-snug">
+            <p class="text-[11px] text-[var(--notice-warn-text)] leading-snug opacity-90">
               This design was catalogued from a digitising master outline file. Open the file in
               your embroidery design software and export a stitch file (e.g. .pes, .jef) to the same
               folder to enable automatic previews, stitch counts, and hoop calculations.
@@ -674,13 +674,13 @@
           />
         {:else}
           <div
-            class="route-card border border-amber-300 bg-amber-50 p-4 text-center"
+            class="route-card border border-[var(--notice-warn-border)] bg-[var(--notice-warn-bg)] p-4 text-center"
             data-testid="design-no-preview-banner"
           >
-            <p class="text-sm font-medium text-amber-800">
+            <p class="text-sm font-medium text-[var(--notice-warn-text)]">
               Preview could not be generated — the file may be corrupt or unreadable
             </p>
-            <p class="text-xs text-amber-700 mt-1">
+            <p class="text-xs text-[var(--notice-warn-text)] mt-1 opacity-90">
               Use “Generate Preview” below to retry after checking the file, or replace the file on
               disk and regenerate. “Show in Explorer” reveals where the file lives.
             </p>
@@ -813,8 +813,8 @@
               <button
                 class="text-lg leading-none px-0.5 transition-colors duration-100
                   {score <= effectiveRating
-                  ? 'text-indigo-600'
-                  : 'text-gray-300 hover:text-indigo-400'}"
+                  ? 'text-rating-star'
+                  : 'text-[var(--text-dim)] hover:text-rating-star'}"
                 onclick={() => handleStarClick(score)}
                 onmouseenter={() => onStarMouseEnter(score)}
                 onmouseleave={onStarMouseLeave}
@@ -830,8 +830,8 @@
           <!-- Rating badge -->
           <span
             class="text-xs font-medium whitespace-nowrap {detailItem.rating
-              ? 'text-indigo-700'
-              : 'text-gray-400'}"
+              ? 'text-[var(--text-brand)]'
+              : 'text-[var(--text-muted)]'}"
           >
             {#if detailItem.rating}
               Rating: ★ {detailItem.rating} / 5
@@ -843,19 +843,19 @@
           <!-- Clear rating (only shown when rated) -->
           {#if detailItem.rating}
             <button
-              class="text-xs text-red-400 hover:text-red-600 hover:underline font-medium"
+              class="text-xs text-[var(--notice-error-text)] hover:underline font-medium"
               onclick={() => submitDetailRating(null)}
               disabled={detailSaving}>Clear</button
             >
           {/if}
 
           <!-- Divider -->
-          <span class="text-gray-300 select-none" aria-hidden="true">|</span>
+          <span class="text-[var(--border-default)] select-none" aria-hidden="true">|</span>
 
           <!-- Stitched toggle -->
           <button
             class="menu-button-toggle {detailItem.isStitched
-              ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
+              ? 'bg-[var(--notice-success-bg)] border-[var(--notice-success-border)] text-[var(--notice-success-text)] hover:opacity-90'
               : 'bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'}"
             onclick={toggleDetailStitched}
             disabled={detailSaving}
@@ -871,8 +871,8 @@
           <!-- Image verification toggle -->
           <button
             class="menu-button-toggle {detailItem.imageTagsVerified
-              ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
-              : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
+              ? 'bg-[var(--notice-success-bg)] border-[var(--notice-success-border)] text-[var(--notice-success-text)] hover:opacity-90'
+              : 'bg-[var(--notice-warn-bg)] border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] hover:opacity-90'}"
             onclick={toggleImageTagsVerified}
             disabled={detailSaving}
             title={detailItem.imageTagsVerified
@@ -889,8 +889,8 @@
           <!-- Stitching verification toggle -->
           <button
             class="menu-button-toggle {detailItem.stitchingTagsVerified
-              ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400'
-              : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'}"
+              ? 'bg-[var(--notice-success-bg)] border-[var(--notice-success-border)] text-[var(--notice-success-text)] hover:opacity-90'
+              : 'bg-[var(--notice-warn-bg)] border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] hover:opacity-90'}"
             onclick={toggleStitchingTagsVerified}
             disabled={detailSaving}
             title={detailItem.stitchingTagsVerified
@@ -916,14 +916,14 @@
                 <span
                   class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium {tag.tag_group ===
                   'stitching'
-                    ? 'bg-blue-100 text-blue-700'
+                    ? 'bg-[var(--notice-info-bg)] text-[var(--notice-info-text)] border border-[var(--notice-info-border)]'
                     : tag.tag_group === 'image'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-700'}"
+                      ? 'bg-[var(--notice-success-bg)] text-[var(--notice-success-text)] border border-[var(--notice-success-border)]'
+                      : 'bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] border border-[var(--border-default)]'}"
                 >
                   {tag.description}
                   <button
-                    class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-red-600 rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-[var(--notice-error-text)] rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
                     onclick={(e) => handleRemoveTag(tag.id, e)}
                     disabled={detailSaving}
                     title="Remove tag">&times;</button
@@ -972,12 +972,12 @@
             <div class="flex flex-wrap gap-1.5">
               {#each detailItem.projects as project}
                 <span
-                  class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700"
+                  class="group relative inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-medium bg-[var(--notice-warn-bg)] text-[var(--notice-warn-text)] border border-[var(--notice-warn-border)]"
                 >
                   <span aria-hidden="true">&#128193;</span>
                   {project.name}
                   <button
-                    class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-red-600 rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-xs font-bold hover:text-[var(--notice-error-text)] rounded-full hover:bg-black/10 w-4 h-4 inline-flex items-center justify-center leading-none shrink-0"
                     onclick={() => removeDetailFromProject(project.id)}
                     disabled={detailSaving}
                     title="Remove from project">&times;</button
@@ -1015,7 +1015,7 @@
         <!-- Delete -->
         <div class="flex justify-end pt-0.5 pb-2">
           <button
-            class="menu-button-secondary text-red-500 border-red-200 hover:bg-red-50 text-xs px-2.5 py-1.5"
+            class="menu-button-secondary text-[var(--notice-error-text)] border-[var(--notice-error-border)] hover:bg-[var(--notice-error-bg)] text-xs px-2.5 py-1.5"
             onclick={openDeleteModal}
             disabled={detailSaving}>Delete design</button
           >

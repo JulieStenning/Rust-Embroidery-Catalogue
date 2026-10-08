@@ -136,16 +136,16 @@
   <div class="flex items-center justify-center min-h-screen">
     <div class="text-center space-y-3">
       <p class="text-2xl">🧵</p>
-      <p class="text-gray-500 text-sm">Loading Embroidery Catalogue…</p>
+      <p class="text-[var(--text-muted)] text-sm">Loading Embroidery Catalogue…</p>
     </div>
   </div>
 {:else if checkError}
   <!-- Error state -->
   <div class="flex items-center justify-center min-h-screen">
     <div class="max-w-md text-center space-y-4 px-4">
-      <p class="text-red-600 font-semibold">Startup Error</p>
-      <p class="text-sm text-gray-600">{checkError}</p>
-      <p class="text-xs text-gray-400">
+      <p class="text-[var(--notice-error-text)] font-semibold">Startup Error</p>
+      <p class="text-sm text-[var(--text-secondary)]">{checkError}</p>
+      <p class="text-xs text-[var(--text-muted)]">
         Try restarting the application. If the problem persists, check that the database directory
         is accessible.
       </p>

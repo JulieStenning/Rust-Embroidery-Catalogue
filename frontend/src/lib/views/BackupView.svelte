@@ -568,15 +568,17 @@
 </script>
 
 <section class="backup-page space-y-4">
-  <h1 class="ui-page-title text-2xl font-bold text-gray-800 mb-2">Backup &amp; Restore</h1>
-  <p class="text-sm text-gray-600 mb-4">
+  <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)] mb-2">
+    Backup &amp; Restore
+  </h1>
+  <p class="text-sm text-[var(--text-secondary)] mb-4">
     Back up your catalogue database and embroidery design files to folders of your choice, or
     restore them from an earlier snapshot. The database backup saves your catalogue data, settings,
     tags, and projects; the designs backup saves the actual embroidery files.
   </p>
 
   <div
-    class="flex gap-2 border-b border-gray-200 mb-4"
+    class="flex gap-2 border-b border-[var(--border-default)] mb-4"
     role="tablist"
     aria-label="Backup and restore"
   >
@@ -585,10 +587,10 @@
       role="tab"
       aria-selected={activeTab === "backup"}
       class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
-      class:border-indigo-600={activeTab === "backup"}
-      class:text-indigo-700={activeTab === "backup"}
+      class:border-[var(--control-accent)]={activeTab === "backup"}
+      class:text-[var(--text-brand)]={activeTab === "backup"}
       class:border-transparent={activeTab !== "backup"}
-      class:text-gray-500={activeTab !== "backup"}
+      class:text-[var(--text-muted)]={activeTab !== "backup"}
       onclick={() => selectTab("backup")}
       disabled={busyActive}
     >
@@ -599,10 +601,10 @@
       role="tab"
       aria-selected={activeTab === "restore"}
       class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
-      class:border-indigo-600={activeTab === "restore"}
-      class:text-indigo-700={activeTab === "restore"}
+      class:border-[var(--control-accent)]={activeTab === "restore"}
+      class:text-[var(--text-brand)]={activeTab === "restore"}
       class:border-transparent={activeTab !== "restore"}
-      class:text-gray-500={activeTab !== "restore"}
+      class:text-[var(--text-muted)]={activeTab !== "restore"}
       onclick={() => selectTab("restore")}
       disabled={busyActive}
     >
@@ -612,7 +614,7 @@
 
   {#if activeTab === "backup"}
     <div
-      class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
+      class="backup-important mb-2 bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded px-4 py-3 text-sm space-y-1"
     >
       <p class="font-semibold">Important</p>
       <p>Ensure backup folders reside on a separate drive from your library.</p>
@@ -620,20 +622,20 @@
 
     <div class="settings-layout max-w-3xl space-y-6">
       <form
-        class="settings-card backup-card bg-white rounded shadow p-6 space-y-5"
+        class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-5"
         onsubmit={saveBackupDestinations}
       >
-        <h2 class="text-base font-semibold text-gray-800">Backup Destinations</h2>
-        <p class="text-sm text-gray-600">
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">Backup Destinations</h2>
+        <p class="text-sm text-[var(--text-secondary)]">
           Set separate destination folders for the database and designs backups.
         </p>
 
         {#if backupDbIsOversize}
           <div
-            class="bg-amber-50 border border-amber-300 text-amber-900 rounded p-4 text-xs space-y-1.5"
+            class="bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded p-4 text-xs space-y-1.5"
             data-testid="backup-fat32-warning"
           >
-            <p class="font-semibold text-amber-800 text-sm">
+            <p class="font-semibold text-[var(--notice-warn-text)] text-sm">
               ⚠️ Large Database Advisory (FAT32 Limit)
             </p>
             <p>
@@ -642,7 +644,7 @@
               ensure the drive is formatted as <strong>exFAT</strong> or
               <strong>NTFS</strong>.
             </p>
-            <p class="text-amber-700">
+            <p class="opacity-90">
               Drives formatted as FAT32 cannot store individual files of 4 GB or larger, which will
               cause the database backup to fail.
             </p>
@@ -650,7 +652,9 @@
         {/if}
 
         <div>
-          <label for="backup-db-destination" class="block text-sm font-semibold text-gray-700 mb-1"
+          <label
+            for="backup-db-destination"
+            class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
             >Database backup folder</label
           >
           <div class="flex gap-2">
@@ -660,18 +664,18 @@
               bind:value={backupDbDestination}
               placeholder="e.g. C:\\Backups\\EmbroideryDB"
               spellcheck="false"
-              class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+              class="settings-input flex-1 border border-[var(--border-default)] bg-[var(--surface-input)] text-[var(--text-primary)] rounded px-3 py-2 text-sm font-mono"
             />
             <button
               type="button"
-              class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+              class="settings-secondary-button border border-[var(--border-default)] rounded px-3 py-2 text-sm whitespace-nowrap"
               onclick={() => browseBackupDestination("database")}
               disabled={busyActive}
             >
               Browse…
             </button>
           </div>
-          <p class="mt-1 text-xs text-gray-500">
+          <p class="mt-1 text-xs text-[var(--text-muted)]">
             This backup contains your catalogue data only - <strong>not</strong> the embroidery design
             files.
           </p>
@@ -680,7 +684,8 @@
         <div>
           <label
             for="backup-designs-destination"
-            class="block text-sm font-semibold text-gray-700 mb-1">Designs backup folder</label
+            class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
+            >Designs backup folder</label
           >
           <div class="flex gap-2">
             <input
@@ -689,18 +694,18 @@
               bind:value={backupDesignsDestination}
               placeholder="e.g. C:\\Backups\\EmbroideryDesigns"
               spellcheck="false"
-              class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+              class="settings-input flex-1 border border-[var(--border-default)] bg-[var(--surface-input)] text-[var(--text-primary)] rounded px-3 py-2 text-sm font-mono"
             />
             <button
               type="button"
-              class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+              class="settings-secondary-button border border-[var(--border-default)] rounded px-3 py-2 text-sm whitespace-nowrap"
               onclick={() => browseBackupDestination("designs")}
               disabled={busyActive}
             >
               Browse…
             </button>
           </div>
-          <p class="mt-1 text-xs text-gray-500">
+          <p class="mt-1 text-xs text-[var(--text-muted)]">
             This backup contains file copies only - <strong>not</strong> the catalogue database.
           </p>
         </div>
@@ -718,14 +723,17 @@
       </form>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-          <h2 class="text-base font-semibold text-gray-800">Database Backup</h2>
-          <p class="text-sm text-gray-600">
+        <div
+          class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-4"
+        >
+          <h2 class="text-base font-semibold text-[var(--text-primary)]">Database Backup</h2>
+          <p class="text-sm text-[var(--text-secondary)]">
             Creates a timestamped copy of your SQLite database catalogue file.
           </p>
-          <div class="text-xs text-gray-500 space-y-0.5">
+          <div class="text-xs text-[var(--text-muted)] space-y-0.5">
             <p>
-              Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+              Source: <code
+                class="settings-code inline-block border border-[var(--border-default)] bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] rounded px-2 py-1 font-mono"
                 >{backupDbSourcePath}</code
               >
             </p>
@@ -756,15 +764,18 @@
           {/if}
         </div>
 
-        <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-          <h2 class="text-base font-semibold text-gray-800">Designs Backup</h2>
-          <p class="text-sm text-gray-600">
+        <div
+          class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-4"
+        >
+          <h2 class="text-base font-semibold text-[var(--text-primary)]">Designs Backup</h2>
+          <p class="text-sm text-[var(--text-secondary)]">
             Runs an incremental mirror backup of the designs folder. Only new or changed files are
             copied; unchanged files are skipped.
           </p>
-          <div class="text-xs text-gray-500 space-y-0.5">
+          <div class="text-xs text-[var(--text-muted)] space-y-0.5">
             <p>
-              Source: <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+              Source: <code
+                class="settings-code inline-block border border-[var(--border-default)] bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] rounded px-2 py-1 font-mono"
                 >{backupDesignsSourcePath}</code
               >
             </p>
@@ -796,9 +807,11 @@
         </div>
       </div>
 
-      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Backup Everything Now</h2>
-        <p class="text-sm text-gray-600">
+      <div
+        class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-4"
+      >
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">Backup Everything Now</h2>
+        <p class="text-sm text-[var(--text-secondary)]">
           Run the database backup and the incremental designs backup in one step.
         </p>
 
@@ -846,7 +859,7 @@
 
   {#if activeTab === "restore"}
     <div
-      class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm"
+      class="backup-important mb-2 bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded px-4 py-3 text-sm"
     >
       <p class="font-semibold">Restore</p>
       <p>
@@ -860,7 +873,7 @@
 
     {#if restoreSchemaChanged}
       <div
-        class="backup-important mb-2 bg-amber-50 border border-amber-300 text-amber-900 rounded px-4 py-3 text-sm space-y-1"
+        class="backup-important mb-2 bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded px-4 py-3 text-sm space-y-1"
       >
         <p class="font-semibold">Schema version changed</p>
         <p>
@@ -873,7 +886,7 @@
 
     {#if restoreRolledBack}
       <div
-        class="backup-important mb-2 bg-red-50 border border-red-300 text-red-900 rounded px-4 py-3 text-sm"
+        class="backup-important mb-2 bg-[var(--notice-error-bg)] border border-[var(--notice-error-border)] text-[var(--notice-error-text)] rounded px-4 py-3 text-sm"
       >
         <p class="font-semibold">Restore rolled back</p>
         <p>
@@ -883,19 +896,21 @@
     {/if}
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Restore Database</h2>
-        <p class="text-sm text-gray-600">
+      <div
+        class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-4"
+      >
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">Restore Database</h2>
+        <p class="text-sm text-[var(--text-secondary)]">
           Replace the live catalogue database with a backup snapshot. A safety copy of the current
           database is kept before overwriting.
         </p>
 
         {#if restoreDbIsOversize}
           <div
-            class="bg-amber-50 border border-amber-300 text-amber-900 rounded p-3 text-xs space-y-1"
+            class="bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded p-3 text-xs space-y-1"
             data-testid="restore-fat32-warning"
           >
-            <p class="font-semibold text-amber-800">
+            <p class="font-semibold text-[var(--notice-warn-text)]">
               ⚠️ Large Backup Database Advisory (FAT32 Limit)
             </p>
             <p>
@@ -905,7 +920,7 @@
               <strong>exFAT</strong>
               or <strong>NTFS</strong>.
             </p>
-            <p class="text-amber-700">
+            <p class="opacity-90">
               Restoring to a FAT32-formatted drive will fail because FAT32 cannot store individual
               files of 4 GB or larger.
             </p>
@@ -919,21 +934,22 @@
             bind:value={restoreDbFile}
             placeholder="Choose an EmbroideryCatalogue.db backup file…"
             spellcheck="false"
-            class="settings-input flex-1 border rounded px-3 py-2 text-sm font-mono"
+            class="settings-input flex-1 border border-[var(--border-default)] bg-[var(--surface-input)] text-[var(--text-primary)] rounded px-3 py-2 text-sm font-mono"
           />
           <button
             type="button"
-            class="settings-secondary-button border rounded px-3 py-2 text-sm whitespace-nowrap"
+            class="settings-secondary-button border border-[var(--border-default)] rounded px-3 py-2 text-sm whitespace-nowrap"
             onclick={chooseRestoreDbFile}
             disabled={restoreAnyRunning || busyActive}
           >
             Choose file…
           </button>
         </div>
-        <div class="text-xs text-gray-500">
+        <div class="text-xs text-[var(--text-muted)]">
           <p>
             Defaults to:
-            <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+            <code
+              class="settings-code inline-block border border-[var(--border-default)] bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] rounded px-2 py-1 font-mono"
               >{backupSavedDbDestination || "(not set)"}</code
             >
           </p>
@@ -953,18 +969,21 @@
         </button>
       </div>
 
-      <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Sync Designs from Backup</h2>
-        <p class="text-sm text-gray-600">
+      <div
+        class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-4"
+      >
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">Sync Designs from Backup</h2>
+        <p class="text-sm text-[var(--text-secondary)]">
           Copies design <strong>files</strong> from the backup folder back into
           <code>MachineEmbroideryDesigns</code>, skipping files already present there (same size and
           timestamp). This restores <strong>files only</strong> — it does <strong>not</strong> add or
           change database records.
         </p>
-        <div class="text-xs text-gray-500 space-y-0.5">
+        <div class="text-xs text-[var(--text-muted)] space-y-0.5">
           <p>
             Backup source folder:
-            <code class="settings-code inline-block border rounded px-2 py-1 font-mono"
+            <code
+              class="settings-code inline-block border border-[var(--border-default)] bg-[var(--surface-card-subtle)] text-[var(--text-secondary)] rounded px-2 py-1 font-mono"
               >{restoreDesignsSource || backupSavedDesignsDestination || "(not set)"}</code
             >
           </p>
@@ -986,9 +1005,11 @@
       </div>
     </div>
 
-    <div class="settings-card backup-card bg-white rounded shadow p-6 space-y-4">
-      <h2 class="text-base font-semibold text-gray-800">Restore Both</h2>
-      <p class="text-sm text-gray-600">
+    <div
+      class="settings-card backup-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-4"
+    >
+      <h2 class="text-base font-semibold text-[var(--text-primary)]">Restore Both</h2>
+      <p class="text-sm text-[var(--text-secondary)]">
         Restore the database, then sync design files, and finally check for design files on disk
         that have no database record (you can import those afterwards).
       </p>

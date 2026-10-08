@@ -230,41 +230,51 @@
 </script>
 
 <div
-  class="flex items-center justify-center min-h-screen bg-gray-50 p-4"
+  class="flex items-center justify-center min-h-screen bg-[var(--surface-canvas)] p-4"
   data-testid="database-recovery-view"
 >
   <div class="max-w-lg w-full space-y-4">
-    <div class="route-card bg-white rounded-xl shadow p-6 space-y-4">
+    <div class="route-card rounded-xl shadow p-6 space-y-4">
       {#if isCorrupted}
         <div class="space-y-2">
           <div class="flex items-center gap-2">
             <span class="text-xl">⚠️</span>
-            <h1 class="text-xl font-bold text-gray-800">Your catalogue database is unreadable</h1>
+            <h1 class="text-xl font-bold text-[var(--text-primary)]">
+              Your catalogue database is unreadable
+            </h1>
           </div>
-          <p class="text-sm text-gray-600">
+          <p class="text-sm text-[var(--text-secondary)]">
             Embroidery Catalogue found a database file
             {#if configuredRoot}
-              at <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot}</code>
+              at <code
+                class="font-mono text-xs bg-[var(--surface-card-subtle)] text-[var(--text-primary)] px-1 rounded"
+                >{configuredRoot}</code
+              >
             {/if}, but could not open it (it may be damaged or malformed). Your original embroidery
             design files in
             <code class="font-mono text-xs">MachineEmbroideryDesigns</code> are safe.
           </p>
           {#if dbErrorMessage}
-            <p class="text-xs text-red-600 font-mono bg-red-50 p-2 rounded">
+            <p class="notice-error text-xs font-mono p-2 rounded">
               {dbErrorMessage}
             </p>
           {/if}
         </div>
       {:else}
-        <h1 class="text-xl font-bold text-gray-800">Your catalogue database could not be found</h1>
+        <h1 class="text-xl font-bold text-[var(--text-primary)]">
+          Your catalogue database could not be found
+        </h1>
 
         {#if scanning}
-          <p class="text-sm text-gray-500">Checking for your catalogue…</p>
+          <p class="text-sm text-[var(--text-muted)]">Checking for your catalogue…</p>
         {:else}
-          <p class="text-sm text-gray-600">
+          <p class="text-sm text-[var(--text-secondary)]">
             Embroidery Catalogue could not find its database
             {#if configuredRoot}
-              at <code class="font-mono text-xs bg-gray-100 px-1 rounded">{configuredRoot}</code>
+              at <code
+                class="font-mono text-xs bg-[var(--surface-card-subtle)] text-[var(--text-primary)] px-1 rounded"
+                >{configuredRoot}</code
+              >
             {/if}. This usually happens when a portable drive changes letter (for example from
             <code class="font-mono text-xs">D:</code>
             to <code class="font-mono text-xs">E:</code>) or the data folder was moved. Your
@@ -275,19 +285,14 @@
 
       {#if !scanning}
         {#if error}
-          <div
-            class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
-            data-testid="recovery-error"
-          >
+          <div class="notice-error rounded px-3 py-2 text-sm" data-testid="recovery-error">
             {error}
           </div>
         {/if}
 
         {#if validationMessage}
           <div
-            class="{validationIsError
-              ? 'bg-amber-50 border-amber-300 text-amber-800'
-              : 'bg-green-50 border-green-300 text-green-800'} border rounded px-3 py-2 text-sm"
+            class="{validationIsError ? 'notice-warn' : 'notice-success'} rounded px-3 py-2 text-sm"
             data-testid="recovery-validation"
           >
             {validationMessage}
@@ -295,20 +300,20 @@
         {/if}
 
         {#if relocatedRoot}
-          <div
-            class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm space-y-2"
-          >
+          <div class="notice-info rounded-lg px-4 py-3 text-sm space-y-2">
             <p class="font-semibold">We found your catalogue on another drive!</p>
             <p class="text-xs">
               A copy of your catalogue appears to be at
-              <code class="font-mono text-xs bg-indigo-100 px-1 rounded">{relocatedRoot}</code>.
-              Reconnect to it with one click.
+              <code
+                class="font-mono text-xs bg-[var(--surface-card-subtle)] text-[var(--text-primary)] px-1 rounded"
+                >{relocatedRoot}</code
+              >. Reconnect to it with one click.
             </p>
             <button
               type="button"
               onclick={handleReconnect}
               disabled={busy}
-              class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+              class="btn-primary px-4 py-2 rounded text-sm font-medium"
               data-testid="recovery-reconnect"
             >
               Re-connect to this location
@@ -322,7 +327,7 @@
             type="button"
             onclick={handleBrowseBackup}
             disabled={busy}
-            class="w-full bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            class="btn-primary w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
             data-testid="recovery-restore-backup"
           >
             <span>📥</span>
@@ -334,7 +339,7 @@
             type="button"
             onclick={handleBrowse}
             disabled={busy}
-            class="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2"
+            class="btn-secondary w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
             data-testid="recovery-browse"
           >
             <span>📁</span>
@@ -346,7 +351,7 @@
             type="button"
             onclick={openCreateModal}
             disabled={busy}
-            class="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2"
+            class="btn-secondary w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
             data-testid="recovery-create-new"
           >
             <span>✨</span>
@@ -354,7 +359,7 @@
           </button>
         </div>
 
-        <p class="text-xs text-gray-500 pt-1">
+        <p class="text-xs text-[var(--text-muted)] pt-1">
           If you start fresh or restore from backup, your current database file will be safely
           preserved with a
           <code class="font-mono text-xs">.corrupt-&lt;timestamp&gt;</code> extension so nothing is lost.
@@ -366,29 +371,32 @@
 
 {#if showRestoreConfirm}
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+    class="modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4"
     role="dialog"
     aria-modal="true"
     aria-label="Restore database from backup"
   >
-    <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4">
-      <h2 class="text-lg font-semibold text-gray-800">Restore catalogue from backup</h2>
-      <p class="text-sm text-gray-600">You are about to restore the database from:</p>
+    <div
+      class="modal-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4"
+    >
+      <h2 class="text-lg font-semibold text-[var(--text-primary)]">
+        Restore catalogue from backup
+      </h2>
+      <p class="text-sm text-[var(--text-secondary)]">
+        You are about to restore the database from:
+      </p>
       <div
-        class="bg-gray-50 border border-gray-200 p-3 rounded text-xs font-mono text-gray-800 break-all"
+        class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] p-3 rounded text-xs font-mono text-[var(--text-primary)] break-all"
       >
         {selectedBackupPath}
       </div>
-      <p class="text-xs text-gray-500">
+      <p class="text-xs text-[var(--text-muted)]">
         Your current database will be automatically moved aside to a safe backup file before the
         restore is applied.
       </p>
 
       {#if restoreError}
-        <div
-          class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
-          data-testid="recovery-restore-error"
-        >
+        <div class="notice-error rounded px-3 py-2 text-sm" data-testid="recovery-restore-error">
           {restoreError}
         </div>
       {/if}
@@ -401,7 +409,7 @@
             restoreError = "";
           }}
           disabled={busy}
-          class="px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+          class="btn-secondary px-4 py-2 rounded text-sm font-medium"
           data-testid="recovery-restore-cancel"
         >
           Cancel
@@ -410,7 +418,7 @@
           type="button"
           onclick={handleConfirmRestore}
           disabled={busy}
-          class="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+          class="btn-primary px-4 py-2 rounded text-sm font-medium"
           data-testid="recovery-restore-confirm"
         >
           {#if busy}Restoring…{:else}Restore database{/if}
@@ -422,14 +430,18 @@
 
 {#if showSeedConfirm}
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+    class="modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4"
     role="dialog"
     aria-modal="true"
     aria-label="Create new catalogue confirmation"
   >
-    <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4">
-      <h2 class="text-lg font-semibold text-gray-800">Start fresh with a clean catalogue</h2>
-      <p class="text-sm text-gray-600">
+    <div
+      class="modal-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-lg p-6 max-w-lg w-full space-y-4"
+    >
+      <h2 class="text-lg font-semibold text-[var(--text-primary)]">
+        Start fresh with a clean catalogue
+      </h2>
+      <p class="text-sm text-[var(--text-secondary)]">
         This will install a clean catalogue database at your chosen location. Any existing database
         file will be safely preserved with a <code class="font-mono text-xs"
           >.corrupt-&lt;timestamp&gt;</code
@@ -437,7 +449,10 @@
       </p>
 
       <div class="space-y-2">
-        <label for="recovery-location-input" class="block text-xs font-medium text-gray-700">
+        <label
+          for="recovery-location-input"
+          class="block text-xs font-medium text-[var(--text-secondary)]"
+        >
           Catalogue Location
         </label>
         <div class="flex gap-2">
@@ -447,14 +462,14 @@
             bind:value={newCataloguePath}
             disabled={busy}
             placeholder="e.g. C:\EmbroideryCatalogue"
-            class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+            class="input-field flex-1 px-3 py-2 rounded text-sm font-mono"
             data-testid="recovery-new-location-input"
           />
           <button
             type="button"
             onclick={handleBrowseNewLocation}
             disabled={busy}
-            class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
+            class="btn-secondary px-3 py-2 rounded text-sm font-medium"
             data-testid="recovery-new-location-browse"
           >
             Browse…
@@ -463,10 +478,7 @@
       </div>
 
       {#if createError}
-        <div
-          class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm"
-          data-testid="recovery-create-error"
-        >
+        <div class="notice-error rounded px-3 py-2 text-sm" data-testid="recovery-create-error">
           {createError}
         </div>
       {/if}
@@ -479,7 +491,7 @@
             createError = "";
           }}
           disabled={busy}
-          class="px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+          class="btn-secondary px-4 py-2 rounded text-sm font-medium"
           data-testid="recovery-create-cancel"
         >
           Cancel
@@ -488,7 +500,7 @@
           type="button"
           onclick={handleCreateNew}
           disabled={busy || !newCataloguePath.trim()}
-          class="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+          class="btn-primary px-4 py-2 rounded text-sm font-medium"
           data-testid="recovery-create-confirm"
         >
           Create clean catalogue
@@ -500,16 +512,18 @@
 
 {#if showRestartConfirm}
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+    class="modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4"
     role="dialog"
     aria-modal="true"
     aria-label="Restart required"
   >
-    <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full space-y-4">
-      <h2 class="font-semibold text-gray-800">Restart required</h2>
-      <p class="text-sm text-gray-600">
+    <div
+      class="modal-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-lg p-6 max-w-sm w-full space-y-4"
+    >
+      <h2 class="font-semibold text-[var(--text-primary)]">Restart required</h2>
+      <p class="text-sm text-[var(--text-secondary)]">
         Your catalogue has been updated. Embroidery Catalogue needs to restart so it can begin using <span
-          class="font-medium">{configuredRoot}</span
+          class="font-medium text-[var(--text-primary)]">{configuredRoot}</span
         >.
       </p>
       <div class="flex justify-end gap-2">
@@ -517,7 +531,7 @@
           type="button"
           onclick={handleRestart}
           disabled={restarting}
-          class="px-4 py-2 rounded text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+          class="btn-primary px-4 py-2 rounded text-sm font-medium"
           data-testid="recovery-restart-now"
         >
           {#if restarting}Restarting…{:else}Restart now{/if}

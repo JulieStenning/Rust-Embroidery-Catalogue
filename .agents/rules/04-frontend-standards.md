@@ -37,12 +37,16 @@
 
 - A `.d.ts` file with top-level `import`/`export` becomes a module augmentation and stops applying globally. Keep wildcard files pure scripts and use `/// <reference types="..." />`.
 
-### 7. Visual Consistency & Canonical UI Theme Spec
+### 7. Visual Consistency, Semantic CSS & Theme Tokens
 
 - All UI components, surfaces, typography, forms, tables, and modal dialogs must strictly comply with the canonical [UI Global Standards](docs/Specs/ui-global-standards.md).
-- **Theme Parity & Token Rules:** Always use CSS custom property tokens (`--surface-*`, `--text-*`, `--border-*`). Never use un-gated `@media (prefers-color-scheme: dark)` overrides without `:root:not([data-theme="light"])`, and avoid hardcoded raw opacity classes (like `bg-gray-50/50`) on cards.
+- **Absolute Prohibition on Color Literals in Component Templates:** Never hardcode Tailwind color utility classes (such as `bg-white`, `bg-gray-*`, `text-gray-*`, `text-indigo-*`, `bg-red-*`, `border-amber-*`, etc.) in Svelte component markup.
+- **Theme Parity & Semantic Classes:** Always use CSS custom property tokens (`--surface-*`, `--text-*`, `--border-*`, `--control-*`, `--notice-*`) and canonical semantic classes:
+  - Notices / Alerts: `.notice-info`, `.notice-success`, `.notice-warn`, `.notice-error`
+  - Action Controls: `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.input-field`
+  - Modals & Badges: `.modal-backdrop`, `.modal-card`, `.badge-status-verified`, `.badge-status-warn`, `.badge-status-error`, `.text-rating-star`
+- Never use un-gated `@media (prefers-color-scheme: dark)` overrides without `:root:not([data-theme="light"])`.
 - **Reference Gold Standards:** Model new pages and components on **Browse Designs**, **Choose Tags**, and **Design Details**.
-- Primary action buttons use the app's purple/indigo + white look (`settings-primary-button menu-button-primary` classes). Do not override with ad-hoc colors.
 
 ### 8. Zero Native Webview Dialogs & Svelte Modal Invariant (ADR 010)
 

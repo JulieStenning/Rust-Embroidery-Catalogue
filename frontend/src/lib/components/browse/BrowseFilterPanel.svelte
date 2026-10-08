@@ -50,7 +50,7 @@
 </script>
 
 <form
-  class="browse-search-shell space-y-3 no-print bg-white rounded shadow p-4 border"
+  class="browse-search-shell space-y-3 no-print bg-[var(--surface-card)] rounded shadow p-4 border border-[var(--border-default)]"
   onsubmit={(event) => {
     event.preventDefault();
     onApplyFilters();
@@ -58,7 +58,7 @@
 >
   <div class="ui-section-shell browse-general-search space-y-1.5">
     <label
-      class="ui-section-label browse-general-search-label block text-xs font-semibold text-gray-600 uppercase"
+      class="ui-section-label browse-general-search-label block text-xs font-semibold text-[var(--text-secondary)] uppercase"
       for="browse-q">General search</label
     >
     <p></p>
@@ -66,7 +66,7 @@
       <div class="relative flex-1 min-w-[20rem] flex items-center">
         <input
           id="browse-q"
-          class="ui-text-input ui-control-text-inset browse-general-input text-sm w-full font-mono border rounded px-3 py-2 pr-24"
+          class="ui-text-input ui-control-text-inset browse-general-input text-sm w-full font-mono border border-[var(--border-default)] rounded px-3 py-2 pr-24 bg-[var(--surface-input)] text-[var(--text-primary)]"
           placeholder="e.g. rose &quot;cross stitch&quot; -applique or *.hus"
           value={browseFilters.q}
           oninput={(event) => onUpdateFilter("q", event.currentTarget.value)}
@@ -75,7 +75,7 @@
         {#if browseLoading}
           <div class="absolute right-2 flex items-center gap-1.5 select-none">
             <svg
-              class="animate-spin h-4 w-4 text-indigo-600"
+              class="animate-spin h-4 w-4 text-[var(--control-accent)]"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -97,7 +97,7 @@
             </svg>
             <button
               type="button"
-              class="text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-1.5 py-0.5 rounded border border-red-200 transition-colors"
+              class="text-xs font-medium text-[var(--notice-error-text)] bg-[var(--notice-error-bg)] border border-[var(--notice-error-border)] hover:bg-[var(--surface-hover)] px-1.5 py-0.5 rounded transition-colors"
               title="Cancel search (Esc)"
               aria-label="Cancel search"
               onclick={onCancelSearch}
@@ -108,7 +108,7 @@
         {:else if browseFilters.q}
           <button
             type="button"
-            class="absolute right-2 text-sm text-gray-400 hover:text-gray-600 px-1.5 py-0.5"
+            class="absolute right-2 text-sm text-[var(--text-dim)] hover:text-[var(--text-primary)] px-1.5 py-0.5"
             title="Clear search"
             aria-label="Clear search"
             onclick={onClearSearchInput}
@@ -118,11 +118,11 @@
         {/if}
       </div>
       <label
-        class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700 whitespace-nowrap"
+        class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none text-sm text-[var(--text-primary)] whitespace-nowrap"
       >
         <input
           type="checkbox"
-          class="ui-checkbox browse-unverified-checkbox accent-indigo-600 rounded"
+          class="ui-checkbox browse-unverified-checkbox rounded"
           checked={browseFilters.unverifiedOnly}
           onchange={(event) => onUpdateFilter("unverifiedOnly", event.currentTarget.checked)}
         />
@@ -130,15 +130,16 @@
       </label>
     </div>
     <div
-      class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-gray-700 my-1.5 py-1.5 px-3 bg-gray-50 rounded border border-gray-200"
+      class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-[var(--text-primary)] my-1.5 py-1.5 px-3 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
     >
-      <span class="font-semibold text-gray-600 uppercase text-[11px] tracking-wide">Search in:</span
+      <span class="font-semibold text-[var(--text-secondary)] uppercase text-[11px] tracking-wide"
+        >Search in:</span
       >
       <label class="ui-field-label flex items-center gap-1.5 cursor-pointer select-none">
         <input
           id="search-filename-checkbox"
           type="checkbox"
-          class="ui-checkbox accent-indigo-600 rounded cursor-pointer"
+          class="ui-checkbox rounded cursor-pointer"
           checked={browseFilters.searchFilename}
           onchange={(event) => onUpdateFilter("searchFilename", event.currentTarget.checked)}
         />
@@ -148,7 +149,7 @@
         <input
           id="search-folder-checkbox"
           type="checkbox"
-          class="ui-checkbox accent-indigo-600 rounded cursor-pointer"
+          class="ui-checkbox rounded cursor-pointer"
           checked={browseFilters.searchFolder}
           onchange={(event) => onUpdateFilter("searchFolder", event.currentTarget.checked)}
         />
@@ -158,16 +159,18 @@
         <input
           id="search-tags-checkbox"
           type="checkbox"
-          class="ui-checkbox accent-indigo-600 rounded cursor-pointer"
+          class="ui-checkbox rounded cursor-pointer"
           checked={browseFilters.searchTags}
           onchange={(event) => onUpdateFilter("searchTags", event.currentTarget.checked)}
         />
         <span>Tags</span>
       </label>
     </div>
-    <p class="ui-help-note browse-general-help text-xs text-gray-500 mt-0.5">
+    <p class="ui-help-note browse-general-help text-xs text-[var(--text-muted)] mt-0.5">
       Supports Google-like syntax: "exact phrase" · -exclude · word1 OR word2 · *.hus ·
-      <a href="#/help?section=search" class="text-indigo-600 hover:underline">Search help</a>
+      <a href="#/help?section=search" class="text-[var(--text-brand)] hover:underline"
+        >Search help</a
+      >
     </p>
   </div>
 
@@ -176,7 +179,7 @@
     open={browseAdditionalFiltersOpen}
   >
     <summary
-      class="ui-section-label browse-additional-summary cursor-pointer text-xs font-semibold text-gray-600 uppercase select-none list-none flex items-center gap-1"
+      class="ui-section-label browse-additional-summary cursor-pointer text-xs font-semibold text-[var(--text-secondary)] uppercase select-none list-none flex items-center gap-1"
       onclick={(event) => {
         event.preventDefault();
         onToggleAdditionalFilters();
@@ -185,18 +188,24 @@
       <span>{browseAdditionalFiltersOpen ? "▼" : "▶"}</span>
       <span>Additional Filters</span>
     </summary>
-    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t mt-2 px-4">
+    <div
+      class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-[var(--border-subtle)] mt-2 px-4"
+    >
       <!-- Designers Filter -->
       <div class="space-y-1">
-        <span class="block text-xs font-semibold text-gray-700">Designer</span>
-        <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
+        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Designer</span>
+        <div
+          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
+        >
           {#each browseDesignerFilterOptions as opt}
-            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+            <label
+              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
+            >
               <input
                 type="checkbox"
                 checked={browseFilters.designerFilters.includes(opt)}
                 onchange={() => onToggleFilter("designerFilters", opt)}
-                class="accent-indigo-600 rounded"
+                class="ui-checkbox rounded"
               />
               <span>{opt}</span>
             </label>
@@ -206,15 +215,19 @@
 
       <!-- Image Tags Filter -->
       <div class="space-y-1">
-        <span class="block text-xs font-semibold text-gray-700">Image tags</span>
-        <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
+        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Image tags</span>
+        <div
+          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
+        >
           {#each browseImageTagOptions as opt}
-            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+            <label
+              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
+            >
               <input
                 type="checkbox"
                 checked={browseFilters.imageTagFilters.includes(opt.description)}
                 onchange={() => onToggleFilter("imageTagFilters", opt.description)}
-                class="accent-indigo-600 rounded"
+                class="ui-checkbox rounded"
               />
               <span>{opt.description}</span>
             </label>
@@ -224,15 +237,19 @@
 
       <!-- Stitching Tags Filter -->
       <div class="space-y-1">
-        <span class="block text-xs font-semibold text-gray-700">Stitching tags</span>
-        <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
+        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Stitching tags</span>
+        <div
+          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
+        >
           {#each browseStitchingTagOptions as opt}
-            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+            <label
+              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
+            >
               <input
                 type="checkbox"
                 checked={browseFilters.stitchingTagFilters.includes(opt.description)}
                 onchange={() => onToggleFilter("stitchingTagFilters", opt.description)}
-                class="accent-indigo-600 rounded"
+                class="ui-checkbox rounded"
               />
               <span>{opt.description}</span>
             </label>
@@ -242,15 +259,19 @@
 
       <!-- Sources Filter -->
       <div class="space-y-1">
-        <span class="block text-xs font-semibold text-gray-700">Source</span>
-        <div class="border rounded bg-white max-h-36 overflow-auto p-1.5 space-y-1">
+        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Source</span>
+        <div
+          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
+        >
           {#each browseSourceFilterOptions as opt}
-            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+            <label
+              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
+            >
               <input
                 type="checkbox"
                 checked={browseFilters.sourceFilters.includes(opt)}
                 onchange={() => onToggleFilter("sourceFilters", opt)}
-                class="accent-indigo-600 rounded"
+                class="ui-checkbox rounded"
               />
               <span>{opt}</span>
             </label>
@@ -262,9 +283,9 @@
       <div class="space-y-2.5 text-xs sm:col-span-2 md:col-span-2">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block">
-            <span class="block font-semibold text-gray-700 mb-1">Hoop size</span>
+            <span class="block font-semibold text-[var(--text-secondary)] mb-1">Hoop size</span>
             <select
-              class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+              class="ui-select-input border border-[var(--border-default)] rounded px-2.5 py-1.5 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
               value={browseFilters.hoop}
               onchange={(e) => onUpdateFilter("hoop", e.currentTarget.value)}
             >
@@ -277,10 +298,12 @@
           </label>
 
           <div class="space-y-1">
-            <span class="block font-semibold text-gray-700 mb-1">Dimensions (mm)</span>
+            <span class="block font-semibold text-[var(--text-secondary)] mb-1"
+              >Dimensions (mm)</span
+            >
             <div class="space-y-1.5">
               <div class="flex items-center gap-1.5">
-                <span class="text-[11px] font-medium text-gray-600 w-3">W</span>
+                <span class="text-[11px] font-medium text-[var(--text-secondary)] w-3">W</span>
                 <input
                   id="filter-min-width"
                   type="number"
@@ -288,11 +311,11 @@
                   step="any"
                   placeholder="Min"
                   aria-label="Minimum width (mm)"
-                  class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                  class="ui-text-input border border-[var(--border-default)] rounded px-2 py-1 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
                   value={browseFilters.minWidth}
                   oninput={(e) => onUpdateFilter("minWidth", e.currentTarget.value)}
                 />
-                <span class="text-gray-400 text-xs">–</span>
+                <span class="text-[var(--text-dim)] text-xs">–</span>
                 <input
                   id="filter-max-width"
                   type="number"
@@ -300,13 +323,13 @@
                   step="any"
                   placeholder="Max"
                   aria-label="Maximum width (mm)"
-                  class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                  class="ui-text-input border border-[var(--border-default)] rounded px-2 py-1 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
                   value={browseFilters.maxWidth}
                   oninput={(e) => onUpdateFilter("maxWidth", e.currentTarget.value)}
                 />
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-[11px] font-medium text-gray-600 w-3">H</span>
+                <span class="text-[11px] font-medium text-[var(--text-secondary)] w-3">H</span>
                 <input
                   id="filter-min-height"
                   type="number"
@@ -314,11 +337,11 @@
                   step="any"
                   placeholder="Min"
                   aria-label="Minimum height (mm)"
-                  class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                  class="ui-text-input border border-[var(--border-default)] rounded px-2 py-1 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
                   value={browseFilters.minHeight}
                   oninput={(e) => onUpdateFilter("minHeight", e.currentTarget.value)}
                 />
-                <span class="text-gray-400 text-xs">–</span>
+                <span class="text-[var(--text-dim)] text-xs">–</span>
                 <input
                   id="filter-max-height"
                   type="number"
@@ -326,7 +349,7 @@
                   step="any"
                   placeholder="Max"
                   aria-label="Maximum height (mm)"
-                  class="border rounded px-2 py-1 w-full bg-white text-xs text-gray-800"
+                  class="ui-text-input border border-[var(--border-default)] rounded px-2 py-1 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
                   value={browseFilters.maxHeight}
                   oninput={(e) => onUpdateFilter("maxHeight", e.currentTarget.value)}
                 />
@@ -337,9 +360,10 @@
 
         <div class="grid grid-cols-2 gap-2">
           <label class="block">
-            <span class="block font-semibold text-gray-700 mb-1">Minimum rating</span>
+            <span class="block font-semibold text-[var(--text-secondary)] mb-1">Minimum rating</span
+            >
             <select
-              class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+              class="ui-select-input border border-[var(--border-default)] rounded px-2.5 py-1.5 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
               value={browseFilters.rating}
               onchange={(e) => onUpdateFilter("rating", e.currentTarget.value)}
             >
@@ -350,9 +374,9 @@
             </select>
           </label>
           <label class="block">
-            <span class="block font-semibold text-gray-700 mb-1">Stitched</span>
+            <span class="block font-semibold text-[var(--text-secondary)] mb-1">Stitched</span>
             <select
-              class="border rounded px-2.5 py-1.5 w-full bg-white text-xs"
+              class="ui-select-input border border-[var(--border-default)] rounded px-2.5 py-1.5 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
               value={browseFilters.stitched}
               onchange={(e) => onUpdateFilter("stitched", e.currentTarget.value)}
             >
@@ -363,16 +387,16 @@
           </label>
         </div>
 
-        <label class="flex items-center gap-2 pt-1 cursor-pointer">
+        <label class="flex items-center gap-2 pt-1 cursor-pointer text-[var(--text-primary)]">
           <input
             type="checkbox"
-            class="accent-indigo-600 rounded"
+            class="ui-checkbox rounded"
             checked={browseFilters.needsAttention}
             onchange={(event) => onUpdateFilter("needsAttention", event.currentTarget.checked)}
           />
           <span>Needs attention</span>
         </label>
-        <p class="text-[11px] text-gray-400 leading-snug">
+        <p class="text-[11px] text-[var(--text-dim)] leading-snug">
           Designs with no preview image or awaiting stitch file export.
         </p>
       </div>
@@ -381,13 +405,13 @@
 
   <!-- Sorting and Columns -->
   <div
-    class="flex flex-wrap items-center justify-between gap-3 pt-2 pb-4 text-xs border-t text-gray-600 px-4"
+    class="flex flex-wrap items-center justify-between gap-3 pt-2 pb-4 text-xs border-t border-[var(--border-subtle)] text-[var(--text-secondary)] px-4"
   >
     <div class="flex flex-wrap items-center gap-3">
       <label class="flex items-center gap-1.5 font-medium">
         Sort by:
         <select
-          class="border rounded px-2 py-1 bg-white text-xs"
+          class="ui-select-input border border-[var(--border-default)] rounded px-2 py-1 bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
           value={browseFilters.sortBy}
           onchange={(e) => onUpdateFilter("sortBy", e.currentTarget.value)}
         >
@@ -401,7 +425,7 @@
       <label class="flex items-center gap-1.5 font-medium">
         Direction:
         <select
-          class="border rounded px-2 py-1 bg-white text-xs"
+          class="ui-select-input border border-[var(--border-default)] rounded px-2 py-1 bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
           value={browseFilters.sortDir}
           onchange={(e) => onUpdateFilter("sortDir", e.currentTarget.value)}
         >
@@ -411,7 +435,7 @@
       </label>
       <button
         type="button"
-        class="browse-search-reset-button text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+        class="browse-search-reset-button text-[var(--text-brand)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
         onclick={onClearFilters}
         disabled={browseFiltersAreDefault}>Reset filters</button
       >

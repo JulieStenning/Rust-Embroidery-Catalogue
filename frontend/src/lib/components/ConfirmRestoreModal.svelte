@@ -82,18 +82,21 @@
 
     <div class="confirm-restore-modal-dialog">
       <div class="confirm-restore-modal-header">
-        <h2 id="confirm-restore-modal-title" class="text-lg font-bold text-gray-800 m-0">
+        <h2
+          id="confirm-restore-modal-title"
+          class="text-lg font-bold text-[var(--text-primary)] m-0"
+        >
           Are you sure you want to restore?
         </h2>
       </div>
 
       <div class="confirm-restore-modal-body">
-        <p class="text-sm text-amber-800 mb-3">
+        <p class="text-sm text-[var(--notice-warn-text)] mb-3">
           Restoring overwrites current data and cannot be undone from this screen.
         </p>
 
         {#if showsDatabaseNotes}
-          <p class="text-sm text-gray-700 mb-3">
+          <p class="text-sm text-[var(--text-secondary)] mb-3">
             The current database will be replaced with the selected backup snapshot. A safety copy
             of your current database will be kept before overwriting and will be restored
             automatically if verification fails.
@@ -101,7 +104,7 @@
         {/if}
 
         {#if showsDesignsNotes}
-          <p class="text-sm text-gray-700 m-0">
+          <p class="text-sm text-[var(--text-secondary)] m-0">
             Design files from the backup folder will be copied into MachineEmbroideryDesigns. Files
             already present with identical sizes and timestamps will be skipped. This does not
             change database records.

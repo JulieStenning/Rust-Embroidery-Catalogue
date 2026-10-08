@@ -237,7 +237,7 @@
                 {:else if pendingDeleteDesignerId === designer.id}
                   <button
                     type="button"
-                    class="text-red-600 hover:underline text-xs font-bold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
                     onclick={() => deleteDesigner(designer.id)}
                   >
                     Confirm delete
@@ -259,7 +259,7 @@
                   </button>
                   <button
                     type="button"
-                    class="text-red-400 hover:text-red-600 hover:underline text-xs font-semibold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
                     onclick={() => requestDeleteDesigner(designer)}
                   >
                     Delete
@@ -269,8 +269,8 @@
             </td>
           </tr>
           {#if pendingDeleteDesignerId === designer.id}
-            <tr class="bg-amber-50">
-              <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
+            <tr class="bg-[var(--notice-warn-bg)]">
+              <td colspan="3" class="px-4 py-2 text-xs text-[var(--notice-warn-text)]">
                 {#if designer.designCount > 0}
                   This designer is currently used by {designer.designCount} design(s). If you delete it,
                   those designs will no longer have a designer assigned.

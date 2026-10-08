@@ -85,7 +85,7 @@
       <div class="modal-header">
         <h2
           id="confirm-delete-orphans-modal-title"
-          class="text-lg font-bold text-gray-800 dark:text-gray-100 m-0"
+          class="text-lg font-bold text-[var(--text-primary)] m-0"
         >
           {dialogTitle}
         </h2>
@@ -93,21 +93,21 @@
 
       <div class="modal-body">
         {#if isAll}
-          <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
+          <p class="text-sm text-[var(--text-secondary)] mb-3">
             Are you sure you want to delete all <strong
-              class="font-semibold text-gray-900 dark:text-white">{count}</strong
+              class="font-semibold text-[var(--text-primary)]">{count}</strong
             > orphaned records from the catalogue database?
           </p>
         {:else}
-          <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
-            Are you sure you want to delete <strong
-              class="font-semibold text-gray-900 dark:text-white">{count}</strong
+          <p class="text-sm text-[var(--text-secondary)] mb-3">
+            Are you sure you want to delete <strong class="font-semibold text-[var(--text-primary)]"
+              >{count}</strong
             >
             selected {count === 1 ? "record" : "records"} from the catalogue database?
           </p>
         {/if}
 
-        <p class="text-xs text-amber-800 dark:text-amber-300 m-0">
+        <p class="text-xs text-[var(--notice-warn-text)] m-0">
           This removes the catalogue database entries for missing files. This action cannot be
           undone.
         </p>

@@ -110,21 +110,21 @@ describe("BatchOperationsView backfill log", () => {
     await screen.findByText("Backfill log (3 entries)");
 
     const infoWrapper = element(
-      screen.getByText("Backfill started").closest("div.text-gray-700"),
+      screen.getByText("Backfill started").closest("div.text-\\[var\\(--text-primary\\)\\]"),
       "Expected the info entry wrapper to exist."
     );
     const warnWrapper = element(
-      screen.getByText("Slow batch detected").closest("div.text-amber-700"),
+      screen.getByText("Slow batch detected").closest("div.notice-warn"),
       "Expected the warn entry wrapper to exist."
     );
     const errorWrapper = element(
-      screen.getByText("A design failed to parse").closest("div.text-red-600"),
+      screen.getByText("A design failed to parse").closest("div.notice-error"),
       "Expected the error entry wrapper to exist."
     );
 
     expect(infoWrapper).toBeInTheDocument();
-    expect(warnWrapper).toHaveClass("bg-amber-50");
-    expect(errorWrapper).toHaveClass("bg-red-50");
+    expect(warnWrapper).toHaveClass("notice-warn");
+    expect(errorWrapper).toHaveClass("notice-error");
   });
 
   it("swallows log load failures and keeps the empty placeholder", async () => {

@@ -86,14 +86,14 @@
 
     <div class="cancel-backup-modal-dialog">
       <div class="cancel-backup-modal-header">
-        <h2 id="cancel-backup-modal-title" class="text-lg font-bold text-gray-800 m-0">
+        <h2 id="cancel-backup-modal-title" class="text-lg font-bold text-[var(--text-primary)] m-0">
           Are you sure you want to cancel the backup?
         </h2>
       </div>
 
       <div class="cancel-backup-modal-body">
         {#if hasDatabaseCopy}
-          <p class="text-sm text-gray-700 mb-3">
+          <p class="text-sm text-[var(--text-secondary)] mb-3">
             {databaseCopyDone
               ? "The database copy has completed."
               : "The database copy is currently running. If you proceed, the database backup will be aborted and the incomplete database file will be deleted."}
@@ -101,7 +101,7 @@
         {/if}
 
         {#if showsDesignsNotes}
-          <p class="text-sm text-gray-700 m-0">
+          <p class="text-sm text-[var(--text-secondary)] m-0">
             Any design files already copied up to the point of cancellation will not be undone —
             they will remain in the destination folder.
           </p>

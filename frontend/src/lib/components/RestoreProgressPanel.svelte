@@ -89,20 +89,23 @@
   {@const terminal = progress.terminal}
   {@const fileMetrics = showsFileMetrics(progress.scope, progress.phase)}
   <div
-    class="settings-card backup-card bg-white rounded shadow p-6 space-y-3"
+    class="settings-card backup-card bg-[var(--surface-card)] rounded border border-[var(--border-default)] shadow p-6 space-y-3"
     data-testid="restore-progress-panel"
   >
-    <h2 class="text-base font-semibold text-gray-800">
+    <h2 class="text-base font-semibold text-[var(--text-primary)]">
       {terminal ? terminalTitle(progress) : "Restore in progress"}
     </h2>
     {#if !terminal}
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-[var(--text-secondary)]">
         {scopeSummary(progress.scope)}…
       </p>
     {/if}
 
     {#if progress.scope === "both" && !terminal}
-      <ol class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600" data-testid="restore-steps">
+      <ol
+        class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]"
+        data-testid="restore-steps"
+      >
         {#each stepLabels as label, index}
           <li class="flex items-center gap-1">
             <span aria-hidden="true">{stepMarker(progress.phase, index)}</span>
@@ -113,24 +116,25 @@
     {/if}
 
     {#if fileMetrics}
-      <div class="w-full bg-gray-200 rounded-full h-2.5">
+      <div class="w-full bg-[var(--surface-hover)] rounded-full h-2.5">
         <div
-          class="bg-indigo-600 h-2.5 rounded-full"
+          class="bg-[var(--control-accent)] h-2.5 rounded-full"
+          data-testid="restore-progress-bar"
           style={`width: ${percentText(progress.percent)}`}
         ></div>
       </div>
-      <p class="text-xs text-gray-500">
+      <p class="text-xs text-[var(--text-muted)]">
         Copied {Number(progress.copied).toLocaleString()} · Skipped {Number(
           progress.skipped
         ).toLocaleString()} ·
         {percentText(progress.percent)}
       </p>
     {:else if !terminal}
-      <p class="text-xs text-gray-500">Working…</p>
+      <p class="text-xs text-[var(--text-muted)]">Working…</p>
     {/if}
 
     {#if progress.error}
-      <p class="text-xs text-red-600">{progress.error}</p>
+      <p class="text-xs text-[var(--notice-error-text)]">{progress.error}</p>
     {/if}
 
     {#if !terminal && (progress.scope === "designs" || progress.scope === "both")}

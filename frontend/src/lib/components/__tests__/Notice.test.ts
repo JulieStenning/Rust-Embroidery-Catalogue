@@ -50,42 +50,42 @@ describe("Notice", () => {
       render(Notice, { props: { message: "Saved", type: "success" } });
 
       const div = screen.getByText("Saved");
-      expect(div).toHaveClass("bg-green-50", "border-green-300", "text-green-800");
+      expect(div).toHaveClass("notice-success");
     });
 
     it("applies red styling for type='error'", () => {
       render(Notice, { props: { message: "Failed", type: "error" } });
 
       const div = screen.getByText("Failed");
-      expect(div).toHaveClass("bg-red-50", "border-red-300", "text-red-800");
+      expect(div).toHaveClass("notice-error");
     });
 
     it("treats type='danger' the same as 'error'", () => {
       render(Notice, { props: { message: "Careful", type: "danger" } });
 
       const div = screen.getByText("Careful");
-      expect(div).toHaveClass("bg-red-50", "border-red-300", "text-red-800");
+      expect(div).toHaveClass("notice-error");
     });
 
     it("applies blue styling for type='info'", () => {
       render(Notice, { props: { message: "Heads up", type: "info" } });
 
       const div = screen.getByText("Heads up");
-      expect(div).toHaveClass("bg-blue-50", "border-blue-200", "text-blue-800");
+      expect(div).toHaveClass("notice-info");
     });
 
     it("treats type='default' the same as 'info'", () => {
       render(Notice, { props: { message: "Heads up", type: "default" } });
 
       const div = screen.getByText("Heads up");
-      expect(div).toHaveClass("bg-blue-50", "border-blue-200", "text-blue-800");
+      expect(div).toHaveClass("notice-info");
     });
 
     it("defaults to info styling when no type prop is supplied", () => {
       render(Notice, { props: { message: "Default notice" } });
 
       const div = screen.getByText("Default notice");
-      expect(div).toHaveClass("bg-blue-50", "border-blue-200", "text-blue-800");
+      expect(div).toHaveClass("notice-info");
     });
 
     it("applies no colour styling for an unknown type value", () => {
@@ -93,17 +93,7 @@ describe("Notice", () => {
 
       const div = screen.getByText("Odd type");
       expect(div).toHaveClass("border", "rounded", "px-3", "py-2", "text-sm");
-      expect(div).not.toHaveClass(
-        "bg-green-50",
-        "border-green-300",
-        "text-green-800",
-        "bg-red-50",
-        "border-red-300",
-        "text-red-800",
-        "bg-blue-50",
-        "border-blue-200",
-        "text-blue-800"
-      );
+      expect(div).not.toHaveClass("notice-success", "notice-error", "notice-info");
     });
   });
 
@@ -112,24 +102,24 @@ describe("Notice", () => {
       render(Notice, { props: { message: "Overridden", type: "success", error: true } });
 
       const div = screen.getByText("Overridden");
-      expect(div).toHaveClass("bg-red-50", "border-red-300", "text-red-800");
-      expect(div).not.toHaveClass("bg-green-50", "border-green-300", "text-green-800");
+      expect(div).toHaveClass("notice-error");
+      expect(div).not.toHaveClass("notice-success");
     });
 
     it("forces red styling when error=true even with type='info'", () => {
       render(Notice, { props: { message: "Overridden", type: "info", error: true } });
 
       const div = screen.getByText("Overridden");
-      expect(div).toHaveClass("bg-red-50", "border-red-300", "text-red-800");
-      expect(div).not.toHaveClass("bg-blue-50", "border-blue-200", "text-blue-800");
+      expect(div).toHaveClass("notice-error");
+      expect(div).not.toHaveClass("notice-info");
     });
 
     it("does not force red styling when error is false", () => {
       render(Notice, { props: { message: "Not an error", type: "success", error: false } });
 
       const div = screen.getByText("Not an error");
-      expect(div).toHaveClass("bg-green-50", "border-green-300", "text-green-800");
-      expect(div).not.toHaveClass("bg-red-50", "border-red-300", "text-red-800");
+      expect(div).toHaveClass("notice-success");
+      expect(div).not.toHaveClass("notice-error");
     });
   });
 });

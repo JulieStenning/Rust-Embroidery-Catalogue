@@ -50,8 +50,8 @@ describe("RestoreProgressPanel", () => {
     expect(within(panel).getByText(/Syncing design files from backup/)).toBeInTheDocument();
     expect(within(panel).getByText(/Copied 3/)).toBeInTheDocument();
     expect(within(panel).getByText(/Skipped 7/)).toBeInTheDocument();
-    const bar = panel.querySelector(".bg-indigo-600") as HTMLElement | null;
-    expect(bar?.style.width).toBe("40%");
+    const bar = within(panel).getByTestId("restore-progress-bar");
+    expect(bar.style.width).toBe("40%");
   });
 
   it("hides file metrics for a database-only restore", () => {

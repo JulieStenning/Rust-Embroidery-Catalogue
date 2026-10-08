@@ -1413,7 +1413,9 @@
 
 <section class="browse-section space-y-4">
   <FirstImportSuccessBanner />
-  <h1 class="ui-page-title browse-title text-2xl font-bold text-gray-800">Browse Designs</h1>
+  <h1 class="ui-page-title browse-title text-2xl font-bold text-[var(--text-primary)]">
+    Browse Designs
+  </h1>
   <br />
   <BrowseFilterPanel
     {browseFilters}
@@ -1519,12 +1521,16 @@
     ></button>
     <div class="tag-chooser-dialog">
       <div class="tag-chooser-header">
-        <h2 id="bulk-tag-title" class="text-lg font-bold text-gray-800" style="margin:0;">
+        <h2
+          id="bulk-tag-title"
+          class="text-lg font-bold text-[var(--text-primary)]"
+          style="margin:0;"
+        >
           Choose tags for selected designs
         </h2>
       </div>
       <div class="tag-chooser-body">
-        <p class="text-xs text-gray-500 font-semibold" style="margin:0 0 0.75rem 0;">
+        <p class="text-xs text-[var(--text-muted)] font-semibold" style="margin:0 0 0.75rem 0;">
           {browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.
         </p>
 

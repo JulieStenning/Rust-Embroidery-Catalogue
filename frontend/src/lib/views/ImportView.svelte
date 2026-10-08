@@ -1185,15 +1185,18 @@
 </script>
 
 <section class="import-page space-y-4 font-sans">
-  <h1 class="ui-page-title import-title text-2xl font-bold text-gray-800">Bulk Import</h1>
+  <h1 class="ui-page-title import-title text-2xl font-bold text-[var(--text-primary)]">
+    Bulk Import
+  </h1>
 
   {#if importRouteStep === 1}
-    <p class="ui-help-note import-step1-intro text-sm text-gray-500">
+    <p class="ui-help-note import-step1-intro text-sm text-[var(--text-muted)]">
       <br />Select one or more folders containing embroidery files. Sub-folders are included
       automatically.
       <br />Your original files are never altered or moved. Files outside your main design directory
       are safely copied into the catalogue.
-      <a href="#/help?section=importing" class="text-indigo-600 hover:underline ml-1">Import help</a
+      <a href="#/help?section=importing" class="text-[var(--text-brand)] hover:underline ml-1"
+        >Import help</a
       >
     </p>
 
@@ -1207,13 +1210,15 @@
         }}
       >
         <div class="space-y-3">
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+          <label
+            class="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer select-none"
+          >
             <input
               type="checkbox"
               id="import-include-library"
               bind:checked={importIncludeLibrary}
               disabled={importLoading || importBrowseLoading || importActionLoading || busyActive}
-              class="rounded text-indigo-600 focus:ring-indigo-500"
+              class="rounded accent-[var(--text-brand)]"
             />
             <span>Include uncatalogued files already in the Library</span>
           </label>
@@ -1280,7 +1285,7 @@
                   </button>
                   <button
                     type="button"
-                    class="ui-action-button menu-button-secondary py-2 text-red-500 border-red-200"
+                    class="ui-action-button menu-button-secondary py-2 text-[var(--notice-error-text)] border-[var(--notice-error-border)] hover:bg-[var(--notice-error-bg)]"
                     onclick={() => removeImportRootPath(rootPath)}
                     disabled={importLoading || importActionLoading || importBrowseLoading}
                     title="Remove this folder"
@@ -1489,10 +1494,14 @@
                 >
                   <div class="flex-1 min-w-0">
                     <code class="text-xs font-bold import-step2-folder-label">{folder.label}</code>
-                    <span class="mx-2 text-xs text-gray-400" aria-hidden="true">-</span>
-                    <code class="text-xs text-gray-400 break-all">{folder.folderPath}</code>
+                    <span class="mx-2 text-xs text-[var(--text-muted)]" aria-hidden="true">-</span>
+                    <code class="text-xs text-[var(--text-muted)] break-all"
+                      >{folder.folderPath}</code
+                    >
                   </div>
-                  <span class="text-xs font-semibold text-indigo-500 import-step2-folder-count">
+                  <span
+                    class="text-xs font-semibold text-[var(--text-brand)] import-step2-folder-count"
+                  >
                     {selectionStatus}
                   </span>
                   {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
@@ -1624,7 +1633,7 @@
                           >
                             <input
                               type="checkbox"
-                              class="ui-checkbox mt-1 accent-indigo-600 rounded"
+                              class="ui-checkbox mt-1 accent-[var(--text-brand)] rounded"
                               checked={isChecked}
                               onchange={(event) =>
                                 toggleImportFile(
@@ -1667,14 +1676,12 @@
             {/each}
           </div>
         {:else}
-          <div
-            class="border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded text-sm space-y-2"
-          >
-            <p class="font-semibold text-amber-900">
+          <div class="notice-warn p-4 rounded text-sm space-y-2">
+            <p class="font-semibold text-[var(--notice-warn-text)]">
               No supported files discovered in this preview.
             </p>
             {#if importPreviewMessage}
-              <p class="text-amber-900">{importPreviewMessage}</p>
+              <p class="text-[var(--notice-warn-text)]">{importPreviewMessage}</p>
             {/if}
             <button
               type="button"
@@ -1705,9 +1712,9 @@
       <div class="ui-section-shell import-panel space-y-4">
         <p class="ui-field-label import-field-label font-bold text-lg">Before You Import</p>
 
-        <div class="border border-blue-300 bg-blue-50 text-blue-900 p-4 rounded space-y-2 text-sm">
-          <p class="font-semibold text-blue-900">Note on Tagging</p>
-          <p class="ui-help-note text-blue-900">
+        <div class="notice-info p-4 rounded space-y-2 text-sm">
+          <p class="font-semibold text-[var(--notice-info-text)]">Note on Tagging</p>
+          <p class="ui-help-note text-[var(--notice-info-text)]">
             The initial import uses fast, offline File &amp Folder Rules to index your designs
             instantly. Once finished, you can run automated Gemini Vision tagging anytime from Batch
             Operations to enrich your collection.
@@ -1748,10 +1755,8 @@
         </div>
 
         {#if importActionNeedsSkipHoopsConfirm}
-          <div
-            class="ui-section-shell import-folder-card border border-amber-300 bg-amber-50 text-amber-950 p-4 rounded space-y-2 text-sm mt-3"
-          >
-            <p class="ui-help-note text-amber-800 font-semibold">
+          <div class="notice-warn p-4 rounded space-y-2 text-sm mt-3">
+            <p class="ui-help-note text-[var(--notice-warn-text)] font-semibold">
               Hoops are not configured for a first import. Confirm to continue anyway.
             </p>
             <button
@@ -1765,9 +1770,7 @@
         {/if}
 
         {#if importActionMessage}
-          <p
-            class="ui-help-note text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded p-3 mt-3"
-          >
+          <p class="notice-info text-sm rounded p-3 mt-3">
             {importActionMessage}
           </p>
         {/if}

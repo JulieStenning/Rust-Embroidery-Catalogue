@@ -320,15 +320,17 @@
 
 <div class="max-w-5xl mx-auto py-6 px-4 space-y-4">
   <!-- Welcome banner -->
-  <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm">
+  <div class="notice-info rounded-lg px-4 py-3 text-sm">
     <span class="font-semibold">Welcome to Embroidery Catalogue!</span>
     Before you import files, you can optionally add your main Designers, Sources, Hoops and Design Software.
   </div>
 
   <!-- Main card -->
-  <div class="route-card bg-white rounded-xl shadow p-6 space-y-4">
-    <h1 class="ui-page-title text-2xl font-bold text-gray-800">Let's set up your catalogue</h1>
-    <p class="text-sm text-gray-600">
+  <div class="route-card rounded-xl shadow p-6 space-y-4">
+    <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)]">
+      Let's set up your catalogue
+    </h1>
+    <p class="text-sm text-[var(--text-secondary)]">
       {#if hasDataFirstFlow}
         First, choose where your data lives. Then you can configure your frequent Designers,
         Sources, Hoops and Design Software.
@@ -339,29 +341,31 @@
     </p>
 
     <!-- Step indicator -->
-    <div class="flex items-center gap-2 text-sm text-gray-600">
-      <span class="font-medium text-indigo-700">{activeCopy.stepLabel}</span>
+    <div class="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+      <span class="font-medium text-[var(--text-brand)]">{activeCopy.stepLabel}</span>
     </div>
 
     <!-- Explanation box for the active step -->
-    <div class="bg-gray-50 border rounded-lg p-4 space-y-3 text-sm text-gray-700">
+    <div
+      class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 text-sm text-[var(--text-secondary)]"
+    >
       <div>
-        <p class="font-semibold text-gray-800">{activeCopy.question}</p>
+        <p class="font-semibold text-[var(--text-primary)]">{activeCopy.question}</p>
         <p class="mt-1">{activeCopy.answer}</p>
       </div>
       <div>
-        <p class="font-semibold text-gray-800">{activeCopy.whyNowTitle}</p>
+        <p class="font-semibold text-[var(--text-primary)]">{activeCopy.whyNowTitle}</p>
         <p class="mt-1">{activeCopy.whyNow}</p>
       </div>
       <div>
-        <p class="font-semibold text-gray-800">Are they mandatory?</p>
+        <p class="font-semibold text-[var(--text-primary)]">Are they mandatory?</p>
         <p class="mt-1">{activeCopy.mandatory}</p>
       </div>
     </div>
 
     <!-- Error message -->
     {#if error}
-      <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm">
+      <div class="notice-error rounded px-3 py-2 text-sm">
         {error}
       </div>
     {/if}
@@ -370,16 +374,13 @@
     {#if isDataStep}
       <div class="space-y-3">
         {#if dataRootMissing}
-          <div
-            class="bg-amber-50 border border-amber-300 text-amber-800 rounded px-3 py-2 text-sm"
-            data-testid="data-root-missing-notice"
-          >
+          <div class="notice-warn rounded px-3 py-2 text-sm" data-testid="data-root-missing-notice">
             Your previously configured data folder is no longer reachable. This can happen if a
             portable drive letter changed or the folder was moved. Please choose where your
             catalogue data should live now.
           </div>
         {/if}
-        <label for="data-root-input" class="block text-sm font-medium text-gray-700">
+        <label for="data-root-input" class="block text-sm font-medium text-[var(--text-secondary)]">
           Data location
         </label>
         <div class="flex gap-2">
@@ -387,22 +388,21 @@
             id="data-root-input"
             type="text"
             bind:value={dataRootInput}
-            class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            class="input-field flex-1 rounded px-3 py-2 text-sm"
             placeholder="e.g. D:\EmbroideryCatalogue"
             data-testid="data-root-input"
           />
           <button
             type="button"
             onclick={handleBrowse}
-            class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded text-sm font-medium
-                   hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            class="btn-secondary px-4 py-2 rounded text-sm font-medium"
             data-testid="data-root-browse"
           >
             Browse…
           </button>
         </div>
         {#if hasConfiguredDataRoot}
-          <p class="text-xs text-gray-500">
+          <p class="text-xs text-[var(--text-muted)]">
             Your previous data location was set; you can keep it or change it. If you change it, the
             app will restart to use the new location.
           </p>
@@ -422,7 +422,7 @@
 
     <!-- Bottom buttons -->
     <div
-      class="flex items-center pt-2 border-t border-gray-200 {showBack
+      class="flex items-center pt-2 border-t border-[var(--border-default)] {showBack
         ? 'justify-between'
         : 'justify-end'}"
     >
@@ -431,9 +431,7 @@
           type="button"
           onclick={handleBack}
           disabled={finishing}
-          class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
-                 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          class="btn-secondary px-5 py-2 rounded text-sm font-medium"
           data-testid="initial-setup-back"
         >
           ← Back
@@ -443,9 +441,7 @@
         type="button"
         onclick={handleContinue}
         disabled={finishing}
-        class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
-               hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
-               disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="btn-primary px-5 py-2 rounded text-sm font-medium"
         data-testid="initial-setup-continue"
       >
         {#if finishing}
@@ -461,29 +457,31 @@
 <!-- Restart confirmation dialog -->
 {#if showRestartConfirm}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
     role="dialog"
     aria-modal="true"
     aria-label="Restart required"
     data-testid="restart-dialog"
   >
-    <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
-      <h2 class="text-lg font-bold text-gray-800">Restart required</h2>
+    <div
+      class="modal-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-lg max-w-md w-full p-6 space-y-4"
+    >
+      <h2 class="text-lg font-bold text-[var(--text-primary)]">Restart required</h2>
       {#if existingDatabaseDetected}
         <div
-          class="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded px-3 py-2 text-sm"
+          class="notice-success rounded px-3 py-2 text-sm"
           data-testid="existing-database-notice"
         >
           An existing Embroidery Catalogue database was detected at this location. Connecting to
           your existing library without overwriting data.
         </div>
       {/if}
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-[var(--text-secondary)]">
         Your new data location has been saved. Embroidery Catalogue needs to restart so it can begin
-        using <span class="font-medium text-gray-800">{dataRootInput}</span>.
+        using <span class="font-medium text-[var(--text-primary)]">{dataRootInput}</span>.
       </p>
       {#if error}
-        <div class="bg-red-50 border border-red-300 text-red-700 rounded px-3 py-2 text-sm">
+        <div class="notice-error rounded px-3 py-2 text-sm">
           {error}
         </div>
       {/if}
@@ -492,9 +490,7 @@
           type="button"
           onclick={handleRestart}
           disabled={restarting}
-          class="bg-indigo-600 text-white px-5 py-2 rounded text-sm font-medium
-                 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          class="btn-primary px-5 py-2 rounded text-sm font-medium"
           data-testid="restart-now"
         >
           {#if restarting}

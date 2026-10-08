@@ -389,7 +389,7 @@
           </div>
           {#if quickAddDuplicateWords.length > 0}
             <span
-              class="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"
+              class="text-xs text-[var(--notice-warn-text)] font-medium flex items-center gap-1"
             >
               ⚠️ Already added: {quickAddDuplicateWords.join(", ")}
             </span>
@@ -402,14 +402,14 @@
               {@const isDupe = quickAddDuplicateWords.includes(kw.keyword.toLowerCase())}
               <span
                 class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border shadow-2xs transition-all {isDupe
-                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50'
+                  ? 'bg-[var(--notice-warn-bg)] text-[var(--notice-warn-text)] border-[var(--notice-warn-border)]'
                   : 'bg-[var(--surface-primary)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--brand-primary)]'}"
               >
                 <span>{kw.keyword}</span>
                 <button
                   type="button"
                   onclick={() => handleDeleteKeyword(kw.id)}
-                  class="text-[var(--text-muted)] hover:text-red-500 rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
+                  class="text-[var(--text-muted)] hover:text-[var(--notice-error-text)] rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
                   aria-label={`Remove ${kw.keyword}`}
                   title={`Remove ${kw.keyword}`}
                 >
@@ -529,8 +529,8 @@
                 <span
                   class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border {group.tag_group.toLowerCase() ===
                   'stitching'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-indigo-50 text-indigo-700 border-indigo-200'}"
+                    ? 'bg-[var(--notice-info-bg)] text-[var(--notice-info-text)] border-[var(--notice-info-border)]'
+                    : 'bg-[var(--notice-success-bg)] text-[var(--notice-success-text)] border-[var(--notice-success-border)]'}"
                 >
                   {group.tag_group}
                 </span>
@@ -553,7 +553,7 @@
                 <button
                   type="button"
                   onclick={() => handleClearTagMatches(group.tag_id)}
-                  class="text-xs font-medium text-red-500 hover:text-red-700 hover:underline"
+                  class="text-xs font-medium text-[var(--notice-error-text)] hover:underline"
                 >
                   Clear All
                 </button>
@@ -572,7 +572,7 @@
                   <button
                     type="button"
                     onclick={() => handleDeleteKeyword(kw.id)}
-                    class="text-[var(--text-muted)] hover:text-red-500 rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
+                    class="text-[var(--text-muted)] hover:text-[var(--notice-error-text)] rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
                     aria-label={`Remove ${kw.keyword}`}
                     title={`Remove ${kw.keyword}`}
                   >

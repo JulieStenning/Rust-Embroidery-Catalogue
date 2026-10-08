@@ -70,19 +70,22 @@
 
     <div class="confirm-delete-project-modal-dialog">
       <div class="confirm-delete-project-modal-header">
-        <h2 id="confirm-delete-project-modal-title" class="text-lg font-bold text-gray-800 m-0">
+        <h2
+          id="confirm-delete-project-modal-title"
+          class="text-lg font-bold text-[var(--text-primary)] m-0"
+        >
           Delete project?
         </h2>
       </div>
 
       <div class="confirm-delete-project-modal-body">
-        <p class="text-sm text-gray-700 mb-3">
-          Are you sure you want to delete project <strong class="font-semibold text-gray-900"
-            >"{projectName || "Untitled"}"</strong
+        <p class="text-sm text-[var(--text-secondary)] mb-3">
+          Are you sure you want to delete project <strong
+            class="font-semibold text-[var(--text-primary)]">"{projectName || "Untitled"}"</strong
           >? This action cannot be undone.
         </p>
 
-        <p class="text-xs text-gray-500 m-0">
+        <p class="text-xs text-[var(--text-muted)] m-0">
           Designs belonging to this project will remain in your catalogue.
         </p>
       </div>

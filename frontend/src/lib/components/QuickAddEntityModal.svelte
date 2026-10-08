@@ -152,7 +152,7 @@
 
     <div class="modal-dialog">
       <div class="modal-header">
-        <h2 id="quick-add-modal-title" class="text-lg font-bold text-gray-800 m-0">
+        <h2 id="quick-add-modal-title" class="text-lg font-bold text-[var(--text-primary)] m-0">
           {title}
         </h2>
       </div>
@@ -173,7 +173,7 @@
           </label>
 
           {#if errorMessage}
-            <p class="text-xs text-red-600 m-0" role="alert">{errorMessage}</p>
+            <p class="text-xs text-[var(--notice-error-text)] m-0" role="alert">{errorMessage}</p>
           {/if}
         </div>
 

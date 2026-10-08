@@ -86,16 +86,20 @@
           Add to project…
         </summary>
         <div
-          class="browse-bulk-project-panel absolute bottom-full mb-2 right-0 border rounded shadow-lg p-3 max-h-48 overflow-auto min-w-[12rem] space-y-1.5 z-50"
+          class="browse-bulk-project-panel absolute bottom-full mb-2 right-0 border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] rounded shadow-lg p-3 max-h-48 overflow-auto min-w-[12rem] space-y-1.5 z-50"
         >
           {#if browseProjects.length === 0}
-            <p class="text-xs text-gray-500 italic">No projects found. Create one first.</p>
+            <p class="text-xs text-[var(--text-muted)] italic">
+              No projects found. Create one first.
+            </p>
           {:else}
             {#each browseProjects as project}
-              <label class="ui-field-label flex items-center gap-2 text-xs cursor-pointer">
+              <label
+                class="ui-field-label flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
+              >
                 <input
                   type="checkbox"
-                  class="ui-checkbox accent-indigo-650 rounded"
+                  class="ui-checkbox rounded"
                   checked={browseBulkProjectSelection.includes(Number(project.id))}
                   onchange={(event) =>
                     onToggleBulkProjectSelection(project.id, event.currentTarget.checked)}
@@ -104,7 +108,7 @@
               </label>
             {/each}
           {/if}
-          <div class="pt-2 border-t flex justify-end">
+          <div class="pt-2 border-t border-[var(--border-subtle)] flex justify-end">
             <button
               type="button"
               class="menu-button-primary text-[10px] py-1 px-2.5"
@@ -117,11 +121,7 @@
         </div>
       </details>
 
-      <button
-        type="button"
-        class="menu-button-secondary ui-action-button text-xs text-red-500 border-red-200"
-        onclick={onOpenBrowseDeleteConfirm}
-      >
+      <button type="button" class="menu-button-danger text-xs" onclick={onOpenBrowseDeleteConfirm}>
         Delete selected
       </button>
 

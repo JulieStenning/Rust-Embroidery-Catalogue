@@ -327,7 +327,7 @@ describe("AboutDocumentView", () => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
       });
 
-      const div = element(container.querySelector("div.text-sm.text-gray-700.bg-gray-50"));
+      const div = element(container.querySelector("div.shadow-inner"));
       expect(div.innerHTML).toContain("<strong>Warning:</strong> Use at your own risk.");
       expect(container.querySelector("pre")).not.toBeInTheDocument();
     });
@@ -348,7 +348,7 @@ describe("AboutDocumentView", () => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
       });
 
-      const div = element(container.querySelector("div.text-sm.text-gray-700.bg-gray-50"));
+      const div = element(container.querySelector("div.shadow-inner"));
       expect(div.innerHTML).toContain("<p>We do not track you.</p>");
       expect(container.querySelector("pre")).not.toBeInTheDocument();
     });
@@ -467,7 +467,7 @@ describe("AboutDocumentView", () => {
         expect(screen.queryByText("Loading document...")).not.toBeInTheDocument();
       });
 
-      const div = element(container.querySelector("div.text-sm.text-gray-700.bg-gray-50"));
+      const div = element(container.querySelector("div.shadow-inner"));
       expect(div.innerHTML).toContain("<p>We do not track you.</p>");
       expect(container.querySelector("pre")).not.toBeInTheDocument();
     });

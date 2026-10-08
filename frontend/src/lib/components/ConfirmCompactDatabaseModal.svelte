@@ -123,7 +123,7 @@
             </div>
           </li>
           <li class="flex items-start gap-2">
-            <span class="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">•</span>
+            <span class="text-[var(--notice-success-text)] font-bold mt-0.5">•</span>
             <div>
               <strong class="text-[var(--text-primary)]">Protection:</strong>
               Safe against power loss and sudden shutdowns — existing data is never touched until the
@@ -131,7 +131,7 @@
             </div>
           </li>
           <li class="flex items-start gap-2">
-            <span class="text-indigo-600 dark:text-indigo-400 font-bold mt-0.5">•</span>
+            <span class="text-[var(--text-brand)] font-bold mt-0.5">•</span>
             <div>
               <strong class="text-[var(--text-primary)]">Disk space:</strong>
               {#if dbSizeBytes > 0}

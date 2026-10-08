@@ -203,8 +203,8 @@
             <span
               class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border {tag.tag_group.toLowerCase() ===
               'stitching'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-indigo-50 text-indigo-700 border-indigo-200'}"
+                ? 'bg-[var(--notice-info-bg)] text-[var(--notice-info-text)] border-[var(--notice-info-border)]'
+                : 'bg-[var(--notice-success-bg)] text-[var(--notice-success-text)] border-[var(--notice-success-border)]'}"
             >
               {tag.tag_group}
             </span>

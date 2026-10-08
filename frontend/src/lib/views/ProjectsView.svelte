@@ -294,29 +294,33 @@
 {#if currentUiKind === "projects-list"}
   <section class="projects-page space-y-4">
     <div class="projects-header flex items-center justify-between gap-3 font-sans">
-      <h1 class="ui-page-title projects-title text-2xl font-bold text-gray-800">Projects</h1>
+      <h1 class="ui-page-title projects-title text-2xl font-bold text-[var(--text-primary)]">
+        Projects
+      </h1>
       <button class="menu-button-primary" onclick={() => navigateTo("#/projects/new")}
         >+ New Project</button
       >
     </div>
 
-    <p class="projects-intro text-sm text-gray-500">
+    <p class="projects-intro text-sm text-[var(--text-secondary)]">
       Group designs for a planned embroidery task - for example a seasonal set or a quilt block
       series. To add designs to a project, select them in
-      <a href="#/designs" class="text-indigo-600 hover:underline">Browse Designs</a>.
-      <a href="#/help?section=projects" class="text-indigo-600 hover:underline">Learn more</a>
+      <a href="#/designs" class="text-[var(--text-brand)] hover:underline">Browse Designs</a>.
+      <a href="#/help?section=projects" class="text-[var(--text-brand)] hover:underline"
+        >Learn more</a
+      >
     </p>
 
     <div class="projects-shell">
       {#if projectsLoading}
-        <p>Loading projects...</p>
+        <p class="text-[var(--text-secondary)]">Loading projects...</p>
       {:else if projectsError}
-        <p class="text-red-600">{projectsError}</p>
+        <p class="text-[var(--notice-error-text)]">{projectsError}</p>
       {:else if !projectsItems || projectsItems.length === 0}
-        <p class="projects-empty text-gray-500">
+        <p class="projects-empty text-[var(--text-muted)]">
           No projects yet.
           <button
-            class="text-indigo-600 hover:underline"
+            class="text-[var(--text-brand)] hover:underline"
             onclick={() => navigateTo("#/projects/new")}>Create one</button
           >.
         </p>
@@ -329,7 +333,9 @@
               aria-label={`Open project ${project.name}`}
             >
               <div class="projects-tile-top flex items-start justify-between gap-3">
-                <h2 class="projects-tile-title font-semibold text-gray-800">{project.name}</h2>
+                <h2 class="projects-tile-title font-semibold text-[var(--text-primary)]">
+                  {project.name}
+                </h2>
                 <span class="projects-count-badge"
                   >{Number(project.design_count || 0)} design{Number(project.design_count || 0) ===
                   1
@@ -338,12 +344,12 @@
                 >
               </div>
               {#if project.description}
-                <p class="projects-tile-description text-sm text-gray-500 mt-1">
+                <p class="projects-tile-description text-sm text-[var(--text-secondary)] mt-1">
                   {project.description}
                 </p>
               {/if}
               {#if project.date_created}
-                <p class="projects-tile-meta text-xs text-gray-400 mt-2">
+                <p class="projects-tile-meta text-xs text-[var(--text-muted)] mt-2">
                   Created {project.date_created}
                 </p>
               {/if}
@@ -362,14 +368,19 @@
       >
     </div>
 
-    <div class="projects-form-card space-y-3 bg-white rounded shadow p-6 max-w-xl">
-      <h2 class="projects-subtitle text-2xl font-bold text-gray-800">New Project</h2>
-      <p class="projects-intro text-sm text-gray-500 font-sans">
+    <div
+      class="projects-form-card space-y-3 bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 max-w-xl"
+    >
+      <h2 class="projects-subtitle text-2xl font-bold text-[var(--text-primary)]">New Project</h2>
+      <p class="projects-intro text-sm text-[var(--text-secondary)] font-sans">
         Projects let you group designs for a planned embroidery task. To add designs to a project,
         select them in
-        <a href="#/designs" class="text-indigo-600 hover:underline font-medium">Browse Designs</a>.
-        <a href="#/help?section=projects" class="text-indigo-600 hover:underline font-medium"
-          >Help</a
+        <a href="#/designs" class="text-[var(--text-brand)] hover:underline font-medium"
+          >Browse Designs</a
+        >.
+        <a
+          href="#/help?section=projects"
+          class="text-[var(--text-brand)] hover:underline font-medium">Help</a
         >
       </p>
 
@@ -380,21 +391,21 @@
           submitNewProject();
         }}
       >
-        <label class="projects-label block text-sm text-gray-700">
+        <label class="projects-label block text-sm text-[var(--text-primary)]">
           <span class="block font-medium mb-1">Name *</span>
           <input
             type="text"
-            class="projects-input w-full border rounded px-3 py-1.5 text-sm"
+            class="projects-input w-full border border-[var(--border-default)] rounded px-3 py-1.5 text-sm"
             bind:value={projectNewName}
             required
             placeholder="e.g. Christmas Stockings 2024"
           />
         </label>
-        <label class="projects-label block text-sm text-gray-700">
+        <label class="projects-label block text-sm text-[var(--text-primary)]">
           <span class="block font-medium mb-1">Description</span>
           <textarea
             rows="3"
-            class="projects-input projects-textarea w-full border rounded px-3 py-1.5 text-sm"
+            class="projects-input projects-textarea w-full border border-[var(--border-default)] rounded px-3 py-1.5 text-sm"
             bind:value={projectNewDescription}
             placeholder="Optional notes, goals, or deadline"></textarea>
         </label>
@@ -418,26 +429,28 @@
       <div class="flex flex-wrap gap-3">
         {#if projectDetail?.project?.id}
           <button
-            class="projects-action-link text-sm text-gray-600 hover:underline"
+            class="projects-action-link text-sm text-[var(--text-secondary)] hover:underline"
             onclick={() => navigateTo(`#/projects/${projectDetail?.project?.id}/print`)}
             >Print Sheet</button
           >
         {/if}
         <button
-          class="projects-danger-link text-sm text-red-500 hover:underline"
+          class="projects-danger-link text-sm text-[var(--notice-error-text)] hover:underline"
           onclick={openDeleteProjectModal}
           disabled={projectDetailSaving || !projectDetail?.project?.id}>Delete Project</button
         >
       </div>
     </div>
 
-    <div class="projects-form-card bg-white rounded shadow p-6">
+    <div
+      class="projects-form-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6"
+    >
       {#if projectDetailLoading}
-        <p>Loading project...</p>
+        <p class="text-[var(--text-secondary)]">Loading project...</p>
       {:else if projectDetailError}
-        <p class="text-red-600">{projectDetailError}</p>
+        <p class="text-[var(--notice-error-text)]">{projectDetailError}</p>
       {:else if !projectDetail?.project}
-        <p>Project not found.</p>
+        <p class="text-[var(--text-secondary)]">Project not found.</p>
       {:else}
         <form
           class="space-y-3"
@@ -448,13 +461,13 @@
         >
           <input
             type="text"
-            class="projects-title-input text-2xl font-bold border-b w-full focus:outline-none py-1 text-gray-800"
+            class="projects-title-input text-2xl font-bold border-b border-[var(--border-default)] bg-transparent w-full focus:outline-none py-1 text-[var(--text-primary)]"
             bind:value={projectDetailName}
             required
           />
           <textarea
             rows="2"
-            class="projects-input projects-textarea w-full border rounded px-2 py-1 text-sm focus:outline-none text-gray-700"
+            class="projects-input projects-textarea w-full border border-[var(--border-default)] bg-[var(--surface-input)] rounded px-2 py-1 text-sm focus:outline-none text-[var(--text-primary)]"
             bind:value={projectDetailDescription}
             placeholder="Description..."></textarea>
           <button
@@ -478,20 +491,20 @@
 
     {#if projectDetail?.project}
       <div class="space-y-3">
-        <h2 class="text-lg font-semibold text-gray-800">
+        <h2 class="text-lg font-semibold text-[var(--text-primary)]">
           Designs ({Array.isArray(projectDetail?.designs) ? projectDetail.designs.length : 0})
         </h2>
         {#if Array.isArray(projectDetail.designs) && projectDetail.designs.length > 0}
-          <p class="projects-designs-intro text-sm text-gray-500 font-sans">
+          <p class="projects-designs-intro text-sm text-[var(--text-secondary)] font-sans">
             To add more designs to this project, select them in
-            <a href="#/designs" class="text-indigo-600 hover:underline">Browse Designs</a>.
+            <a href="#/designs" class="text-[var(--text-brand)] hover:underline">Browse Designs</a>.
           </p>
           <div
             class="projects-design-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6"
           >
             {#each projectDetail.designs as design}
               <div
-                class="projects-design-card bg-white rounded shadow overflow-hidden flex flex-col hover:shadow-md transition"
+                class="projects-design-card bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow overflow-hidden flex flex-col hover:shadow-md transition"
               >
                 <a
                   class="projects-design-link text-left block"
@@ -502,18 +515,18 @@
                     <img
                       src={design.image_data_url}
                       alt={design.filename}
-                      class="projects-design-image w-full h-32 object-contain bg-gray-50"
+                      class="projects-design-image w-full h-32 object-contain bg-[var(--surface-card-subtle)]"
                       loading="lazy"
                     />
                   {:else if design.has_image}
                     <div
-                      class="projects-design-preview w-full h-32 bg-gray-100 flex items-center justify-center text-gray-700 text-xs"
+                      class="projects-design-preview w-full h-32 bg-[var(--surface-card-subtle)] flex items-center justify-center text-[var(--text-secondary)] text-xs"
                     >
                       Image unavailable
                     </div>
                   {:else}
                     <div
-                      class="projects-design-preview-empty w-full h-32 bg-gray-200 flex items-center justify-center text-gray-400 text-xs"
+                      class="projects-design-preview-empty w-full h-32 bg-[var(--surface-card-subtle)] flex items-center justify-center text-[var(--text-dim)] text-xs"
                     >
                       No image
                     </div>
@@ -521,16 +534,16 @@
                 </a>
                 <div class="projects-design-meta p-2 flex-1 flex flex-col">
                   <a
-                    class="projects-design-title-link text-xs font-semibold text-gray-800 truncate hover:text-indigo-600"
+                    class="projects-design-title-link text-xs font-semibold text-[var(--text-primary)] truncate hover:text-[var(--text-brand)]"
                     href={`#/designs/${design.id}`}
                   >
                     {design.filename}
                   </a>
                   {#if design.designer_name}
-                    <p class="text-[11px] text-gray-500">{design.designer_name}</p>
+                    <p class="text-[11px] text-[var(--text-secondary)]">{design.designer_name}</p>
                   {/if}
                   <button
-                    class="text-xs text-red-400 hover:text-red-600 hover:underline mt-auto pt-2 text-left font-medium"
+                    class="text-xs text-[var(--notice-error-text)] hover:underline mt-auto pt-2 text-left font-medium"
                     onclick={() => removeDesignFromProjectMembership(design.id)}
                     disabled={projectDetailSaving}>Remove</button
                   >
@@ -539,9 +552,9 @@
             {/each}
           </div>
         {:else}
-          <p class="text-gray-500 mb-6 font-sans">
+          <p class="text-[var(--text-muted)] mb-6 font-sans">
             No designs in this project yet. To add designs to a project, select them in
-            <a href="#/designs" class="text-indigo-600 hover:underline">Browse Designs</a>.
+            <a href="#/designs" class="text-[var(--text-brand)] hover:underline">Browse Designs</a>.
           </p>
         {/if}
       </div>
@@ -559,76 +572,89 @@
 
     <div class="projects-print-shell print:p-0 print:shadow-none print:border-none">
       {#if projectPrintLoading}
-        <p>Loading printable project sheet...</p>
+        <p class="text-[var(--text-secondary)]">Loading printable project sheet...</p>
       {:else if projectPrintError}
-        <p class="text-red-600">{projectPrintError}</p>
+        <p class="text-[var(--notice-error-text)]">{projectPrintError}</p>
       {:else if !projectPrint?.project}
-        <p>Project not found.</p>
+        <p class="text-[var(--text-secondary)]">Project not found.</p>
       {:else}
         <div class="space-y-4">
-          <h2 class="text-2xl font-bold text-gray-800">{projectPrint.project.name}</h2>
+          <h2 class="text-2xl font-bold text-[var(--text-primary)]">{projectPrint.project.name}</h2>
           {#if projectPrint.project.description}
-            <p class="text-sm text-gray-600">{projectPrint.project.description}</p>
+            <p class="text-sm text-[var(--text-secondary)]">{projectPrint.project.description}</p>
           {/if}
 
           <div class="space-y-3">
             {#if Array.isArray(projectPrint.designs) && projectPrint.designs.length > 0}
               {#each projectPrint.designs as design}
                 <div
-                  class="projects-print-card border border-gray-200 rounded p-3 flex gap-4 bg-white print:break-inside-avoid shadow-sm"
+                  class="projects-print-card border border-[var(--border-default)] rounded p-3 flex gap-4 bg-[var(--surface-card)] print:break-inside-avoid shadow-sm"
                 >
                   {#if design.image_data_url}
                     <img
                       src={design.image_data_url}
                       alt={design.filename}
-                      class="projects-print-image w-40 h-40 object-contain bg-gray-100 rounded"
+                      class="projects-print-image w-40 h-40 object-contain bg-[var(--surface-card-subtle)] rounded"
                     />
                   {:else}
                     <div
-                      class="projects-print-image projects-design-preview-empty w-40 h-40 bg-gray-200 flex items-center justify-center text-gray-400 text-xs rounded"
+                      class="projects-print-image projects-design-preview-empty w-40 h-40 bg-[var(--surface-card-subtle)] flex items-center justify-center text-[var(--text-dim)] text-xs rounded"
                     >
                       No image
                     </div>
                   {/if}
                   <div class="text-sm space-y-1 flex-1">
-                    <h3 class="font-bold text-lg text-gray-800">{design.filename}</h3>
+                    <h3 class="font-bold text-lg text-[var(--text-primary)]">{design.filename}</h3>
                     {#if design.width_mm != null && design.height_mm != null}
-                      <p class="text-gray-700">
+                      <p class="text-[var(--text-secondary)]">
                         <strong>Size:</strong>
                         {design.width_mm} x {design.height_mm} mm
                       </p>
                     {/if}
                     {#if design.hoop}
-                      <p class="text-gray-700"><strong>Hoop:</strong> {design.hoop}</p>
+                      <p class="text-[var(--text-secondary)]">
+                        <strong>Hoop:</strong>
+                        {design.hoop}
+                      </p>
                     {/if}
                     {#if design.stitch_count != null}
-                      <p class="text-gray-700"><strong>Stitches:</strong> {design.stitch_count}</p>
+                      <p class="text-[var(--text-secondary)]">
+                        <strong>Stitches:</strong>
+                        {design.stitch_count}
+                      </p>
                     {/if}
                     {#if design.color_count != null}
-                      <p class="text-gray-700"><strong>Colours:</strong> {design.color_count}</p>
+                      <p class="text-[var(--text-secondary)]">
+                        <strong>Colours:</strong>
+                        {design.color_count}
+                      </p>
                     {/if}
                     {#if design.color_change_count != null}
-                      <p class="text-gray-700">
+                      <p class="text-[var(--text-secondary)]">
                         <strong>Colour changes:</strong>
                         {design.color_change_count}
                       </p>
                     {/if}
                     {#if design.designer_name}
-                      <p class="text-gray-700"><strong>Designer:</strong> {design.designer_name}</p>
+                      <p class="text-[var(--text-secondary)]">
+                        <strong>Designer:</strong>
+                        {design.designer_name}
+                      </p>
                     {/if}
                     {#if design.rating}
-                      <p class="text-gray-700">
+                      <p class="text-[var(--text-secondary)]">
                         <strong>Rating:</strong>
-                        <span class="text-yellow-500 font-bold">{ratingToStars(design.rating)}</span
+                        <span class="text-rating-star font-bold"
+                          >{ratingToStars(design.rating)}</span
                         >
                       </p>
                     {/if}
                     {#if design.is_stitched}
-                      <p class="text-gray-700"><strong>Stitched:</strong> Yes</p>
+                      <p class="text-[var(--text-secondary)]"><strong>Stitched:</strong> Yes</p>
                     {/if}
                     {#if design.notes}
                       <p
-                        class="italic text-gray-600 bg-gray-50 border-l-2 border-indigo-200 pl-2 py-1"
+                        class="italic text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border-l-2 border-[var(--border-focus)] pl-2 py-1"
                       >
                         {design.notes}
                       </p>
@@ -637,7 +663,7 @@
                 </div>
               {/each}
             {:else}
-              <p class="text-gray-500">No designs in this project yet.</p>
+              <p class="text-[var(--text-muted)]">No designs in this project yet.</p>
             {/if}
           </div>
         </div>

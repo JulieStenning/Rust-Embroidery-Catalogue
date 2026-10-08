@@ -286,14 +286,14 @@
           {/if}
 
           {#if createError}
-            <p class="text-red-600 text-xs mt-1">{createError}</p>
+            <p class="text-[var(--notice-error-text)] text-xs mt-1">{createError}</p>
           {/if}
         </div>
       </div>
 
       <!-- Scrollable grid body -->
       <div class="tag-chooser-body">
-        <p class="text-sm font-medium mb-3">
+        <p class="text-sm font-medium mb-3 text-[var(--text-primary)]">
           {subtitleText}
         </p>
 
@@ -366,7 +366,9 @@
           {/if}
 
           {#if filteredGrouped.image.length === 0 && filteredGrouped.stitching.length === 0 && filteredGrouped.unclassified.length === 0 && !showCreateButton}
-            <p class="text-xs text-gray-400 italic py-4 text-center">No matching tags found.</p>
+            <p class="text-xs text-[var(--text-dim)] italic py-4 text-center">
+              No matching tags found.
+            </p>
           {/if}
         </div>
       </div>

@@ -341,7 +341,7 @@
                 {:else if pendingDeleteHoopId === hoop.id}
                   <button
                     type="button"
-                    class="text-red-600 hover:underline text-xs font-bold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
                     onclick={() => deleteHoop(hoop.id)}
                   >
                     Confirm delete
@@ -363,7 +363,7 @@
                   </button>
                   <button
                     type="button"
-                    class="text-red-400 hover:text-red-600 hover:underline text-xs font-semibold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
                     onclick={() => requestDeleteHoop(hoop)}
                   >
                     Delete
@@ -373,8 +373,8 @@
             </td>
           </tr>
           {#if pendingDeleteHoopId === hoop.id}
-            <tr class="bg-amber-50">
-              <td colspan="5" class="px-4 py-2 text-xs text-amber-800">
+            <tr class="bg-[var(--notice-warn-bg)]">
+              <td colspan="5" class="px-4 py-2 text-xs text-[var(--notice-warn-text)]">
                 {#if hoop.designCount > 0}
                   This hoop is currently used by {hoop.designCount} design(s). If you delete it, those
                   designs will no longer have a hoop assigned.

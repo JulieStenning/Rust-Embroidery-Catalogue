@@ -74,6 +74,10 @@ The store attaches `data-theme="light"` or `data-theme="dark"` to `document.docu
 | `--border-strong` | `#9ca3af` (gray-400) | `#475569` (slate-600) | Scrollbar thumb, active control borders |
 | `--border-focus` | `#6366f1` (indigo-500) | `#818cf8` (indigo-400) | Focus ring outline for keyboard navigation |
 | `--control-accent` | `#4f46e5` (indigo-600) | `#818cf8` (indigo-400) | Checkbox/radio tint, active switches |
+| `--notice-info-bg` / `-border` / `-text` | `#eff6ff` / `#93c5fd` / `#1e40af` | `#1e1b4b` / `#3730a3` / `#c7d2fe` | Informational banners & helper callouts |
+| `--notice-success-bg` / `-border` / `-text` | `#f0fdf4` / `#86efac` / `#166534` | `#052e16` / `#166534` / `#bbf7d0` | Success notices, positive status badges |
+| `--notice-warn-bg` / `-border` / `-text` | `#fffbeb` / `#fcd34d` / `#92400e` | `#422006` / `#92400e` / `#fde68a` | Warning / advisory alerts, rating stars |
+| `--notice-error-bg` / `-border` / `-text` | `#fef2f2` / `#fca5a5` / `#991b1b` | `#450a0a` / `#991b1b` / `#fca5a5` | Error alerts, destructive actions, failure indicators |
 
 ---
 
@@ -99,7 +103,11 @@ Page specs can define element-specific behavior across these breakpoints but sho
 
 ## 5. Specific Regression Guardrails & Rules
 
-### ⚠️ Rule 1: No Un-Gated Dark Mode Media Queries (Prevents "Dark Areas in Light Mode")
+### ⚠️ Rule 1: No Hardcoded Color Literals in Component Templates
+**Problem:** Hardcoded utility classes like `bg-white`, `bg-gray-50`, `text-gray-700`, `text-indigo-600`, `bg-red-50`, or `border-amber-300` break in dark mode or when theme colors change.
+**Requirement:** All component styling must use semantic tokens or standardized semantic utility classes (`.notice-*`, `.btn-*`, `.input-field`, `.modal-*`, `.badge-status-*`, `.text-rating-star`, `var(--surface-*)`, `var(--text-*)`, `var(--border-*)`, `var(--control-*)`, `var(--notice-*)`).
+
+### ⚠️ Rule 2: No Un-Gated Dark Mode Media Queries (Prevents "Dark Areas in Light Mode")
 **Problem:** If CSS rules in `app.css` are placed inside `@media (prefers-color-scheme: dark) { ... }` without checking `data-theme`, a user whose OS is in Dark Mode who selects **Appearance: Light** will still receive dark styling on tables, cards, or titles.
 **Requirement:** Any media-query dark overrides MUST be gated with `:root:not([data-theme="light"])`:
 ```css
@@ -107,8 +115,8 @@ Page specs can define element-specific behavior across these breakpoints but sho
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .admin-table-shell,
   :root[data-theme="dark"] .admin-table-shell {
-    background: #1e293b !important;
-    border-color: #334155 !important;
+    background: var(--surface-card) !important;
+    border-color: var(--border-default) !important;
   }
 }
 
@@ -120,23 +128,8 @@ Page specs can define element-specific behavior across these breakpoints but sho
 }
 ```
 
-### ⚠️ Rule 2: No Hardcoded Opacity Gray Backgrounds on Cards (Prevents "White Glare in Dark Mode")
-**Problem:** Using classes like `bg-gray-50/50` or `bg-white/80` creates bright translucent boxes on dark cards because Tailwind's escaped classes (`.bg-gray-50\/50`) bypass plain `.bg-gray-50` dark overrides.
-**Requirement:** Use semantic tokens or explicit `dark:` classes for nested container items:
-```html
-<!-- ✅ CORRECT: Adapts cleanly in both light and dark mode -->
-<label class="flex items-start gap-2.5 p-2.5 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)]">
-  ...
-</label>
-
-<!-- ❌ INCORRECT: Glows white in dark mode -->
-<label class="border border-gray-200 bg-gray-50/50 hover:bg-gray-50 text-gray-700">
-  ...
-</label>
-```
-
 ### ⚠️ Rule 3: Uniform Page Headings
-**Problem:** Some pages have `h1` titles rendered at `text-lg` with `text-gray-500` or washed-out `#e5e7eb` in light mode, while other pages use `text-2xl font-bold text-gray-800`.
+**Problem:** Some pages have `h1` titles rendered at `text-lg` with washed-out text, while other pages use different ad-hoc sizes.
 **Requirement:** All primary view titles must use standard `h1` page heading styling:
 ```html
 <!-- ✅ STANDARD PAGE TITLE -->
@@ -180,45 +173,33 @@ Applies to dense browse/project card grids unless overridden by a specific sub-s
 ### 8.2 Cards & Form Containers
 - **Main View Cards:**
   ```html
-  <div class="settings-card bg-[var(--surface-card)] rounded border border-[var(--border-default)] shadow p-6 space-y-5">
+  <div class="route-card bg-[var(--surface-card)] rounded-xl border border-[var(--border-default)] shadow p-6 space-y-4">
     ...
-  </div>
-  ```
-- **Sticky Form Headers (Settings / Wizards):**
-  ```html
-  <div class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-[var(--border-default)] bg-[var(--surface-card)] px-6 py-4 backdrop-blur">
-    <h1 class="text-lg font-bold text-[var(--text-primary)]">Page Title</h1>
-    <button type="submit" class="settings-primary-button menu-button-primary">Save Changes</button>
   </div>
   ```
 
 ### 8.3 Buttons & Actions
-- **Primary Action (Purple/Indigo solid):**
-  - Class: `.menu-button-primary` or `.settings-primary-button`
-  - Style: `#4f46e5` / `#4338ca` background, `#ffffff` text, `0.35rem` radius, `0.5rem 1rem` padding.
+- **Primary Action (Brand solid):**
+  - Class: `.btn-primary` or `.menu-button-primary`
+  - Style: `var(--control-accent)` background, white text, `0.375rem` radius, `0.5rem 1rem` padding.
 - **Secondary Action (Neutral Outline):**
-  - Class: `.menu-button-secondary`
+  - Class: `.btn-secondary` or `.menu-button-secondary`
   - Style: `border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]`.
-- **Ghost Action (Toolbar / Icons):**
-  - Class: `.menu-button-ghost`
-  - Style: subtle border or borderless, hover surface highlight (`var(--surface-hover)`).
 - **Destructive Action:**
-  - Class: `menu-button-secondary text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900/50 dark:hover:bg-red-950/30`.
+  - Class: `.btn-danger` or `.menu-button-danger`
+  - Style: `background-color: var(--notice-error-border); color: var(--notice-error-text);`.
 - **Button Sizing & Rhythm:**
-  - Primary button height target: `2rem` to `2.25rem`.
+  - Primary button height target: `2rem` to `2.5rem`.
   - Button labels use sentence case.
   - Action button groups use `.ui-action-button-group` (`flex`, `flex-wrap`, `gap: 1rem`, `align-items: center`).
 
 ### 8.4 Form Controls & Inputs
 - **Text & Number Inputs:**
-  - Class: `.ui-text-input`, `.settings-input`
-  - Attributes: `background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 0.35rem; padding: 0.45rem 0.75rem; font-size: 0.875rem;`
-  - Focus state: `outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);`
-- **Dropdown Selects:**
-  - Class: `.ui-select-input`
-  - Matching height (`2rem` to `2.25rem`) to align with inputs.
+  - Class: `.input-field`, `.settings-input`
+  - Attributes: `background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem;`
+  - Focus state: `border-color: var(--border-focus); box-shadow: 0 0 0 1px var(--border-focus);`
 - **Checkboxes & Radios:**
-  - Use `var(--control-accent)` for tinted active states.
+  - Class: `accent-[var(--text-brand)]`
   - Visible border with `var(--border-default)` in unselected states.
 - **Monospace Code / Path Display:**
   - `font-mono text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)] px-2.5 py-1.5 break-all`
@@ -231,31 +212,23 @@ Applies to dense browse/project card grids unless overridden by a specific sub-s
 
 ### 8.6 Alerts, Banners & Notices
 - **Info Notice:**
-  - Light: `bg-blue-50 border border-blue-200 text-blue-800`
-  - Dark: `dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300`
+  - Class: `.notice-info` (uses `var(--notice-info-bg)`, `var(--notice-info-border)`, `var(--notice-info-text)`)
 - **Success Notice:**
-  - Light: `bg-green-50 border border-green-200 text-green-800`
-  - Dark: `dark:bg-green-950/40 dark:border-green-800 dark:text-green-300`
+  - Class: `.notice-success` (uses `var(--notice-success-bg)`, `var(--notice-success-border)`, `var(--notice-success-text)`)
 - **Warning / Advisory Notice:**
-  - Light: `bg-amber-50 border border-amber-300 text-amber-900`
-  - Dark: `dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300`
+  - Class: `.notice-warn` (uses `var(--notice-warn-bg)`, `var(--notice-warn-border)`, `var(--notice-warn-text)`)
 - **Error / Failure Notice:**
-  - Light: `bg-red-50 border border-red-300 text-red-800`
-  - Dark: `dark:bg-red-950/40 dark:border-red-800 dark:text-red-300`
+  - Class: `.notice-error` (uses `var(--notice-error-bg)`, `var(--notice-error-border)`, `var(--notice-error-text)`)
 
-### 8.7 Semantic Tag Pills & Badges
-- **Image Tags (Subject / Theme):**
-  - Light: `bg-green-100 text-green-800 border border-green-200`
-  - Dark: `dark:bg-green-900/40 dark:text-green-300 dark:border-green-800`
-- **Stitching Tags (Technical / Density):**
-  - Light: `bg-blue-100 text-blue-800 border border-blue-200`
-  - Dark: `dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800`
-- **Verified Badge:**
-  - Light: `bg-emerald-100 text-emerald-800 border border-emerald-300`
-  - Dark: `dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-700`
-- **Unverified Badge:**
-  - Light: `bg-amber-100 text-amber-800 border border-amber-300`
-  - Dark: `dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-700`
+### 8.7 Semantic Badges & Status Indicators
+- **Verified Status Badge:**
+  - Class: `.badge-status-verified` (uses `var(--notice-success-border)` background, `var(--notice-success-text)` text)
+- **Partial / Warning Status Badge:**
+  - Class: `.badge-status-warn` (uses `var(--notice-warn-border)` background, `var(--notice-warn-text)` text)
+- **Unverified / Error Status Badge:**
+  - Class: `.badge-status-error` (uses `var(--notice-error-border)` background, `var(--notice-error-text)` text)
+- **Star Ratings:**
+  - Class: `.text-rating-star` (uses `var(--notice-warn-text)`)
 
 ---
 

@@ -356,12 +356,18 @@ describe("DesignDetailView", () => {
       expect(bluePill).not.toBeNull();
 
       // Tag types:
-      //  - "image" group  → bg-green-100 text-green-700
-      //  - "stitching"    → bg-blue-100 text-blue-700
-      //  - null / other   → bg-gray-100 text-gray-700
-      expect(floralPill).toHaveClass("bg-green-100", "text-green-700");
-      expect(satinPill).toHaveClass("bg-blue-100", "text-blue-700");
-      expect(bluePill).toHaveClass("bg-gray-100", "text-gray-700");
+      //  - "image" group  → bg-[var(--notice-success-bg)] text-[var(--notice-success-text)]
+      //  - "stitching"    → bg-[var(--notice-info-bg)] text-[var(--notice-info-text)]
+      //  - null / other   → bg-[var(--surface-card-subtle)] text-[var(--text-secondary)]
+      expect(floralPill).toHaveClass(
+        "bg-[var(--notice-success-bg)]",
+        "text-[var(--notice-success-text)]"
+      );
+      expect(satinPill).toHaveClass("bg-[var(--notice-info-bg)]", "text-[var(--notice-info-text)]");
+      expect(bluePill).toHaveClass(
+        "bg-[var(--surface-card-subtle)]",
+        "text-[var(--text-secondary)]"
+      );
     });
 
     it("renders the projects list", async () => {

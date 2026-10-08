@@ -24,13 +24,13 @@
 </script>
 
 <div
-  class="selection-header flex flex-wrap items-center gap-4 py-3 px-4 bg-gray-50 border-b border-gray-200"
+  class="selection-header flex flex-wrap items-center gap-4 py-3 px-4 bg-[var(--surface-card-subtle)] border-b border-[var(--border-default)]"
 >
   <div class="flex flex-wrap items-center gap-3">
     {#if isSearching}
-      <span class="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700">
+      <span class="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--text-brand)]">
         <svg
-          class="animate-spin h-3.5 w-3.5 text-indigo-600"
+          class="animate-spin h-3.5 w-3.5 text-[var(--control-accent)]"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -47,20 +47,20 @@
         Searching designs...
       </span>
     {:else}
-      <span class="text-sm font-medium text-gray-600">
+      <span class="text-sm font-medium text-[var(--text-secondary)]">
         {totalFilteredCount === 1 ? "1 design found" : `${totalFilteredCount} designs found`}
       </span>
     {/if}
-    <span class="text-gray-300 select-none" aria-hidden="true">•</span>
-    <span class="text-sm font-medium text-gray-600">
+    <span class="text-[var(--border-strong)] select-none" aria-hidden="true">•</span>
+    <span class="text-sm font-medium text-[var(--text-secondary)]">
       {selectedCountOnPage} of {totalCountOnPage} selected
     </span>
     <label
-      class="flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-gray-700"
+      class="flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-[var(--text-primary)]"
     >
       <input
         type="checkbox"
-        class="ui-checkbox accent-indigo-650 rounded cursor-pointer"
+        class="ui-checkbox rounded cursor-pointer"
         checked={isAllSelectedOnPage}
         onchange={(e: Event) =>
           onToggleSelectAllPage((e.currentTarget as HTMLInputElement).checked)}

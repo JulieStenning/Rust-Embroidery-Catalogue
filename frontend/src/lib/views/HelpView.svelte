@@ -3,75 +3,101 @@
 
 <div class="space-y-10 max-w-3xl">
   <div class="space-y-1 font-sans no-print">
-    <h1 class="ui-page-title text-2xl font-bold text-gray-800">Help</h1>
-    <p class="text-gray-600 text-sm">Quick guidance for using the Embroidery Catalogue.</p>
+    <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)]">Help</h1>
+    <p class="text-[var(--text-secondary)] text-sm">
+      Quick guidance for using the Embroidery Catalogue.
+    </p>
   </div>
 
   <nav class="flex flex-wrap gap-3 text-sm no-print">
     <a
       href="#/help?section=search"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🔍 Search</a
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+      >🔍 Search</a
     >
     <a
       href="#/help?section=importing"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📥 Importing</a
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+      >📥 Importing</a
     >
     <a
       href="#/help?section=word-matches"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
       >🔤 Tag Word Matches</a
     >
     <a
       href="#/help?section=storage"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
       >💾 Data Storage & External Drives</a
     >
     <a
       href="#/help?section=ai-tagging"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🤖 AI Tagging</a
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+      >🤖 AI Tagging</a
     >
     <a
       href="#/help?section=batch-operations"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
       >🏷 Batch Operations</a
     >
     <a
       href="#/help?section=projects"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">📁 Projects</a
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+      >📁 Projects</a
     >
     <a
       href="#/help?section=maintenance"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100">🛠 Maintenance</a
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+      >🛠 Maintenance</a
     >
     <a
       href="#/help?section=troubleshooting"
-      class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100"
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
       >🔧 Troubleshooting</a
     >
   </nav>
 
   <section id="search">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🔍 Search</h2>
-    <p class="text-sm text-gray-700 mb-3">
-      Use the general search box on the <a href="#/designs" class="text-indigo-600 hover:underline"
-        >Browse</a
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      🔍 Search
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
+      Use the general search box on the <a
+        href="#/designs"
+        class="text-[var(--text-brand)] hover:underline">Browse</a
       > page to find designs by keyword. The search checks the filename, notes, designer, source, and
       tags.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
         <strong>Quoted phrases:</strong>
-        <code class="bg-gray-100 px-1 rounded">"cross stitch"</code>
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >"cross stitch"</code
+        >
       </p>
       <p>
         <strong>Exclude terms:</strong>
-        <code class="bg-gray-100 px-1 rounded">-rose -applique</code>
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >-rose -applique</code
+        >
       </p>
       <p>
-        <strong>OR searches:</strong> <code class="bg-gray-100 px-1 rounded">rose OR tulip</code>
+        <strong>OR searches:</strong>
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >rose OR tulip</code
+        >
       </p>
       <p>
-        <strong>Filename wildcards:</strong> <code class="bg-gray-100 px-1 rounded">rose*.jef</code>
+        <strong>Filename wildcards:</strong>
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >rose*.jef</code
+        >
       </p>
       <p><strong>Unverified only:</strong> show designs with tags that still need verifying.</p>
       <p>
@@ -87,10 +113,14 @@
   </section>
 
   <section id="importing">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">📥 Importing</h2>
-    <p class="text-sm text-gray-700 mb-3">
-      Use <a href="#/import" class="text-indigo-600 hover:underline">Import</a> to scan one or more folders
-      and their sub-folders.
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      📥 Importing
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
+      Use <a href="#/import" class="text-[var(--text-brand)] hover:underline">Import</a> to scan one or
+      more folders and their sub-folders.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
@@ -105,7 +135,7 @@
       <p>
         <strong>Tagging during import:</strong> imports apply File & Folder Rules only (matching tag
         names and configured
-        <a href="#/about/document/tag-word-matches" class="text-indigo-600 hover:underline"
+        <a href="#/about/document/tag-word-matches" class="text-[var(--text-brand)] hover:underline"
           >Word Matches</a
         >) and never call Gemini.
       </p>
@@ -117,8 +147,12 @@
   </section>
 
   <section id="word-matches">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🔤 Tag Word Matches</h2>
-    <p class="text-sm text-gray-700 mb-3">
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      🔤 Tag Word Matches
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
       Tag Word Matches allow words in filenames and folder paths to automatically assign tags during
       import and batch backfill operations.
     </p>
@@ -129,20 +163,20 @@
       </p>
       <p>
         <strong>Manage matches:</strong> open
-        <a href="#/admin/data/tag-matches" class="text-indigo-600 hover:underline"
+        <a href="#/admin/data/tag-matches" class="text-[var(--text-brand)] hover:underline"
           >Admin → Manage Data → Word Matches</a
         > to view cards, filter by tag group, and quickly add keywords.
       </p>
       <p>
         <strong>Contextual access:</strong> click the <strong>Matches</strong> button next to any
         tag in
-        <a href="#/admin/data/tags" class="text-indigo-600 hover:underline"
+        <a href="#/admin/data/tags" class="text-[var(--text-brand)] hover:underline"
           >Admin → Manage Data → Tags</a
         > or add matches immediately after creating a new tag.
       </p>
       <p>
         <strong>Full guide:</strong> open the
-        <a href="#/about/document/tag-word-matches" class="text-indigo-600 hover:underline"
+        <a href="#/about/document/tag-word-matches" class="text-[var(--text-brand)] hover:underline"
           >Tag Word Matches Guide</a
         >.
       </p>
@@ -150,8 +184,12 @@
   </section>
 
   <section id="storage">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">💾 Data Storage & External Drives</h2>
-    <p class="text-sm text-gray-700 mb-3">
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      💾 Data Storage & External Drives
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
       The catalogue manages two data components: your design files (copied from your original files)
       and the internal catalogue database containing images and other details about the designs.
     </p>
@@ -176,7 +214,7 @@
       </p>
       <p>
         <strong>Full guide:</strong> open the
-        <a href="#/about/document/data-storage" class="text-indigo-600 hover:underline"
+        <a href="#/about/document/data-storage" class="text-[var(--text-brand)] hover:underline"
           >Data Storage & External Drives Guide</a
         >.
       </p>
@@ -184,33 +222,39 @@
   </section>
 
   <section id="ai-tagging">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🤖 AI Tagging</h2>
-    <p class="text-sm text-gray-700 mb-3">
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      🤖 AI Tagging
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
       Optional Google AI tagging can suggest design-type tags for imported embroidery files.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
         <strong>Get an API key:</strong>
-        <a href="https://aistudio.google.com/" class="text-indigo-600 hover:underline"
+        <a href="https://aistudio.google.com/" class="text-[var(--text-brand)] hover:underline"
           >Google AI Studio</a
         >, then save it in
-        <a href="#/admin/system/settings" class="text-indigo-600 hover:underline">Settings</a>.
+        <a href="#/admin/system/settings" class="text-[var(--text-brand)] hover:underline"
+          >Settings</a
+        >.
       </p>
       <p>
         <strong>In-app actions:</strong> run Gemini Vision from
-        <a href="#/admin/batch-operations" class="text-indigo-600 hover:underline"
+        <a href="#/admin/batch-operations" class="text-[var(--text-brand)] hover:underline"
           >Admin → Batch Operations</a
         >. AI tagging runs on demand in Batch Operations rather than during import.
       </p>
       <p>
         <strong>Potential costs:</strong> review
-        <a href="https://ai.google.dev/pricing" class="text-indigo-600 hover:underline"
+        <a href="https://ai.google.dev/pricing" class="text-[var(--text-brand)] hover:underline"
           >current pricing</a
         >.
       </p>
       <p>
         <strong>Full guide:</strong> open the
-        <a href="#/about/document/ai-tagging" class="text-indigo-600 hover:underline"
+        <a href="#/about/document/ai-tagging" class="text-[var(--text-brand)] hover:underline"
           >AI Tagging &amp; Batch Operations Guide</a
         >.
       </p>
@@ -218,11 +262,15 @@
   </section>
 
   <section id="batch-operations">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🏷 Batch Operations</h2>
-    <p class="text-sm text-gray-700 mb-3">
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      🏷 Batch Operations
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
       Run AI tagging and file maintenance on existing designs from <a
         href="#/admin/batch-operations"
-        class="text-indigo-600 hover:underline">Admin → Batch Operations</a
+        class="text-[var(--text-brand)] hover:underline">Admin → Batch Operations</a
       >.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
@@ -236,10 +284,14 @@
   </section>
 
   <section id="projects">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">📁 Projects</h2>
-    <p class="text-sm text-gray-700 mb-3">
-      <a href="#/projects" class="text-indigo-600 hover:underline">Projects</a> let you group designs
-      for planned embroidery tasks.
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      📁 Projects
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
+      <a href="#/projects" class="text-[var(--text-brand)] hover:underline">Projects</a> let you group
+      designs for planned embroidery tasks.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p><strong>What projects are for:</strong> collect designs for a specific plan or session.</p>
@@ -252,9 +304,13 @@
   </section>
 
   <section id="maintenance">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🛠 Maintenance</h2>
-    <p class="text-sm text-gray-700 mb-3">
-      Use <a href="#/admin/system/discrepancies" class="text-indigo-600 hover:underline"
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      🛠 Maintenance
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
+      Use <a href="#/admin/system/discrepancies" class="text-[var(--text-brand)] hover:underline"
         >Library Discrepancies</a
       > to find records whose files are missing or uncatalogued disk files.
     </p>
@@ -269,7 +325,11 @@
   </section>
 
   <section id="troubleshooting">
-    <h2 class="text-xl font-semibold mb-3 border-b pb-1">🔧 Troubleshooting</h2>
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      🔧 Troubleshooting
+    </h2>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
         <strong>Missing folder / changed drive letter:</strong> ensure the full data folder moved with
@@ -279,7 +339,10 @@
         <strong>Database missing or unreadable on startup:</strong> Embroidery Catalogue
         automatically opens in Recovery Mode to help you reconnect a relocated drive, restore from a
         backup, or create a clean catalogue (damaged databases are safely archived as
-        <code class="bg-gray-100 px-1 rounded">.corrupt-&lt;timestamp&gt;</code>).
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >.corrupt-&lt;timestamp&gt;</code
+        >).
       </p>
       <p><strong>Import scan finds nothing:</strong> confirm folder path and supported formats.</p>
       <p>

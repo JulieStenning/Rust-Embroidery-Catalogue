@@ -31,7 +31,7 @@ describe("AboutView", () => {
       // card also contains file-extension names, so match a unique phrase that
       // only appears in the app description.
       const description = element(
-        document.querySelector("p.text-gray-700"),
+        screen.getByText(/Embroidery Catalogue is a local, desktop catalogue/i),
         "Expected the app description paragraph."
       );
       const normalized = (description.textContent ?? "").replace(/\s+/g, " ").trim();

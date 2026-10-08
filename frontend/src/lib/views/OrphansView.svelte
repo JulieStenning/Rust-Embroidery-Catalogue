@@ -208,8 +208,10 @@
 
 <div class="space-y-6">
   <div class="space-y-1 font-sans">
-    <h1 class="ui-page-title text-2xl font-bold text-gray-800">Library Discrepancies</h1>
-    <p class="text-gray-600 text-sm">
+    <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)]">
+      Library Discrepancies
+    </h1>
+    <p class="text-[var(--text-secondary)] text-sm">
       Reconcile differences between your database catalogue and the files on disk.
     </p>
   </div>
@@ -218,19 +220,25 @@
 
   <div class="space-y-4">
     <div class="space-y-1 font-sans">
-      <h2 class="text-lg font-semibold text-gray-800">Missing Design Files (Orphans)</h2>
-      <p class="text-gray-600 text-sm">
+      <h2 class="text-lg font-semibold text-[var(--text-primary)]">
+        Missing Design Files (Orphans)
+      </h2>
+      <p class="text-[var(--text-secondary)] text-sm">
         Find and remove database records whose files no longer exist on disk.
       </p>
     </div>
 
     {#if orphansError}
-      <div class="bg-red-50 border border-red-300 text-red-800 rounded px-4 py-2 text-sm">
+      <div
+        class="bg-[var(--notice-error-bg)] border border-[var(--notice-error-border)] text-[var(--notice-error-text)] rounded px-4 py-2 text-sm"
+      >
         {orphansError}
       </div>
     {/if}
 
-    <div class="flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
+    <div
+      class="flex items-center justify-between text-sm text-[var(--text-secondary)] flex-wrap gap-2"
+    >
       <span>
         {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
       </span>
@@ -277,7 +285,7 @@
         </button>
         <button
           type="button"
-          class="menu-button-secondary text-red-600 border-red-200 hover:bg-red-50"
+          class="menu-button-secondary text-[var(--notice-error-text)] border-[var(--notice-error-border)] hover:bg-[var(--notice-error-bg)]"
           onclick={deleteEveryOrphan}
           disabled={orphansLoading || busyActive || orphanTotal === 0}
         >
@@ -286,10 +294,14 @@
       </div>
     </div>
 
-    <div class="admin-table-shell overflow-auto max-h-[60vh] border rounded shadow bg-white">
+    <div
+      class="admin-table-shell overflow-auto max-h-[60vh] border border-[var(--border-default)] rounded shadow bg-[var(--surface-card)]"
+    >
       <table class="admin-table w-full text-left border-collapse text-sm">
         <thead>
-          <tr class="bg-gray-50 border-b text-gray-700 font-semibold">
+          <tr
+            class="bg-[var(--surface-card-subtle)] border-b border-[var(--border-default)] text-[var(--text-primary)] font-semibold"
+          >
             <th class="px-4 py-2 w-10">Select</th>
             <th class="px-4 py-2 w-16 text-right">ID</th>
             <th class="px-4 py-2">Filename</th>
@@ -297,40 +309,42 @@
             <th class="px-4 py-2 w-24 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
+        <tbody class="divide-y divide-[var(--border-subtle)]">
           {#if orphanItems.length === 0}
             <tr>
-              <td colspan="5" class="px-4 py-3 text-gray-400"
+              <td colspan="5" class="px-4 py-3 text-[var(--text-muted)]"
                 >No orphaned records found. Refresh or scan to check.</td
               >
             </tr>
           {:else}
             {#each orphanItems as item}
-              <tr class="hover:bg-gray-50">
+              <tr class="hover:bg-[var(--surface-hover)]">
                 <td class="px-4 py-2">
                   <input
                     type="checkbox"
-                    class="rounded accent-indigo-500 cursor-pointer"
+                    class="rounded accent-[var(--text-brand)] cursor-pointer"
                     checked={orphanIsSelected(item.id)}
                     onchange={(e) => toggleOrphanSelection(item.id, e.currentTarget.checked)}
                   />
                 </td>
-                <td class="px-4 py-2 text-right text-gray-500 font-mono">{item.id}</td>
+                <td class="px-4 py-2 text-right text-[var(--text-muted)] font-mono">{item.id}</td>
                 <td class="px-4 py-2 font-medium">
                   <button
                     type="button"
-                    class="text-indigo-600 hover:underline text-left font-medium"
+                    class="text-[var(--text-brand)] hover:underline text-left font-medium"
                     onclick={() => openOrphanDesign(item.id)}
                     title="Click to view/edit in system editor (if file exists)"
                   >
                     {item.filename || "Unknown"}
                   </button>
                 </td>
-                <td class="px-4 py-2 text-xs text-gray-600 font-mono break-all">{item.filepath}</td>
+                <td class="px-4 py-2 text-xs text-[var(--text-secondary)] font-mono break-all"
+                  >{item.filepath}</td
+                >
                 <td class="px-4 py-2 text-right">
                   <button
                     type="button"
-                    class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:text-[var(--text-brand-hover)] text-xs font-semibold"
                     onclick={() => openOrphanPath(item.filepath)}
                   >
                     Locate Folder

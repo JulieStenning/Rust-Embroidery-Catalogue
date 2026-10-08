@@ -74,81 +74,113 @@
   </div>
 
   <div
-    class="route-panel print:p-0 print:shadow-none print:border-none bg-white rounded shadow p-6"
+    class="route-panel print:p-0 print:shadow-none print:border-none bg-[var(--surface-card)] rounded shadow p-6 border border-[var(--border-default)]"
   >
     {#if detailLoading}
-      <p>Loading printable design detail...</p>
+      <p class="text-[var(--text-muted)]">Loading printable design detail...</p>
     {:else if detailError}
-      <p class="text-red-600">{detailError}</p>
+      <p class="text-[var(--notice-error-text)]">{detailError}</p>
     {:else if !detailItem}
-      <p>No design found for id {printDesignId}.</p>
+      <p class="text-[var(--text-muted)]">No design found for id {printDesignId}.</p>
     {:else}
-      <div class="space-y-4">
-        <h2 class="text-2xl font-bold text-gray-800">{detailItem.filename}</h2>
+      <div class="space-y-4 text-[var(--text-primary)]">
+        <h2 class="text-2xl font-bold text-[var(--text-primary)]">{detailItem.filename}</h2>
         {#if detailItem.imageDataUrl}
           <img
             src={detailItem.imageDataUrl}
             alt={detailItem.filename}
-            class="w-full max-h-[32rem] object-contain border rounded p-2 bg-gray-50 shadow-sm"
+            class="w-full max-h-[32rem] object-contain border border-[var(--border-default)] rounded p-2 bg-[var(--surface-preview)] shadow-sm"
           />
         {/if}
         <div class="grid sm:grid-cols-2 gap-3 text-sm">
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>File:</strong>
-            <span class="break-all font-mono text-xs">{detailItem.filepath || "Unknown"}</span>
+            <span class="break-all font-mono text-xs text-[var(--text-secondary)]"
+              >{detailItem.filepath || "Unknown"}</span
+            >
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Designer:</strong>
             {detailItem.designer || "Unknown"}
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Source:</strong>
             {detailItem.source || "Unknown"}
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Hoop:</strong>
             {detailItem.hoop || "Unknown"}
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Dimensions:</strong>
             {detailItem.widthMm ?? "?"} x {detailItem.heightMm ?? "?"} mm
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Stitches:</strong>
             {detailItem.stitchCount ?? "?"}
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Colours:</strong>
             {detailItem.colorCount ?? "?"}
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Colour changes:</strong>
             {detailItem.colorChangeCount ?? "?"}
           </div>
-          <div class="p-2 bg-gray-50 rounded border">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
             <strong>Added:</strong>
             {detailItem.dateAdded || "Unknown"}
           </div>
         </div>
         {#if detailItem.rating}
-          <div class="p-2 bg-gray-50 rounded border text-sm">
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)] text-sm"
+          >
             <strong>Rating:</strong>
-            <span class="text-yellow-500 font-bold">{ratingToStars(detailItem.rating)}</span>
+            <span class="text-rating-star font-bold">{ratingToStars(detailItem.rating)}</span>
           </div>
         {/if}
         {#if detailItem.isStitched}
-          <div class="p-2 bg-gray-50 rounded border text-sm"><strong>Stitched:</strong> Yes</div>
+          <div
+            class="p-2 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)] text-sm"
+          >
+            <strong>Stitched:</strong> Yes
+          </div>
         {/if}
         {#if detailItem.notes}
-          <div class="p-4 bg-gray-50 rounded border">
-            <p class="font-semibold text-sm text-gray-800 mb-1">Notes</p>
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">{detailItem.notes}</p>
+          <div
+            class="p-4 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
+            <p class="font-semibold text-sm text-[var(--text-primary)] mb-1">Notes</p>
+            <p class="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">
+              {detailItem.notes}
+            </p>
           </div>
         {/if}
         {#if Array.isArray(detailItem.tags) && detailItem.tags.length > 0}
-          <div class="p-4 bg-gray-50 rounded border">
-            <p class="font-semibold text-sm text-gray-800 mb-1">Tags</p>
-            <p class="text-sm text-gray-700">
+          <div
+            class="p-4 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
+          >
+            <p class="font-semibold text-sm text-[var(--text-primary)] mb-1">Tags</p>
+            <p class="text-sm text-[var(--text-secondary)]">
               {detailItem.tags
                 .map((/** @type {{description: string}} */ tag) => tag.description)
                 .join(", ")}

@@ -69,18 +69,18 @@
       <div class="modal-header">
         <h2
           id="confirm-deactivate-licence-modal-title"
-          class="text-lg font-bold text-gray-800 dark:text-gray-100 m-0"
+          class="text-lg font-bold text-[var(--text-primary)] m-0"
         >
           Deactivate licence?
         </h2>
       </div>
 
       <div class="modal-body">
-        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
+        <p class="text-sm text-[var(--text-secondary)] mb-3">
           Are you sure you want to deactivate this licence key?
         </p>
 
-        <p class="text-xs text-amber-800 dark:text-amber-300 m-0">
+        <p class="text-xs text-[var(--notice-warn-text)] m-0">
           You will need to re-enter a valid licence key to continue using the application.
         </p>
       </div>

@@ -36,16 +36,16 @@ SOFTWARE.`;
 </script>
 
 <div class="max-w-4xl mx-auto space-y-6 font-sans">
-  <div class="bg-white rounded-xl shadow p-6 space-y-4">
+  <div class="route-card rounded-xl shadow p-6 space-y-4">
     <div class="flex items-center gap-4">
       <span class="text-4xl" aria-hidden="true">🧵</span>
       <div>
-        <h1 class="text-2xl font-bold text-gray-800 font-sans">{APP_NAME}</h1>
-        <p class="text-sm text-gray-500">Version v{APP_VERSION}</p>
+        <h1 class="text-2xl font-bold text-[var(--text-primary)] font-sans">{APP_NAME}</h1>
+        <p class="text-sm text-[var(--text-muted)]">Version v{APP_VERSION}</p>
       </div>
     </div>
 
-    <p class="text-sm text-gray-700">
+    <p class="text-sm text-[var(--text-secondary)]">
       Embroidery Catalogue is a local, desktop catalogue for browsing, tagging, and managing a
       collection of digital embroidery designs. It reads a broad range of embroidery formats
       directly via built-in readers (<code>.jef</code>, <code>.pes</code>, <code>.hus</code>,
@@ -53,22 +53,26 @@ SOFTWARE.`;
       local database. An Internet connection is required for advanced tagging.
     </p>
 
-    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm space-y-1">
-      <h2 class="ui-section-label font-semibold text-gray-850">Primary Copyright</h2>
-      <p class="text-gray-700">Copyright (C) 2026 Julie Stenning</p>
+    <div
+      class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 text-sm space-y-1"
+    >
+      <h2 class="ui-section-label font-semibold text-[var(--text-primary)]">Primary Copyright</h2>
+      <p class="text-[var(--text-secondary)]">Copyright (C) 2026 Julie Stenning</p>
     </div>
   </div>
 
-  <div class="bg-white rounded-xl shadow p-6 space-y-4">
-    <h2 class="text-lg font-bold text-gray-800 font-sans">
+  <div class="route-card rounded-xl shadow p-6 space-y-4">
+    <h2 class="text-lg font-bold text-[var(--text-primary)] font-sans">
       Acknowledgements & Code Porting Attributions
     </h2>
     <div class="space-y-4 text-sm">
-      <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h3 class="ui-section-label font-semibold text-gray-850 mb-1">
+      <div
+        class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4"
+      >
+        <h3 class="ui-section-label font-semibold text-[var(--text-primary)] mb-1">
           pyembroidery (MIT License)
         </h3>
-        <p class="text-gray-700">
+        <p class="text-[var(--text-secondary)]">
           Binary parsing routines for <code>.pes</code>, <code>.jef</code>, <code>.vp3</code>,
           <code>.hus</code>, <code>.dst</code> and <code>.exp</code>, together with the PNG preview
           rendering logic derived from pyembroidery's PngWriter module, were ported/derived into
@@ -77,41 +81,36 @@ SOFTWARE.`;
             href="https://github.com/EmbroidePy/pyembroidery"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-indigo-600 hover:underline font-medium break-all"
+            class="text-[var(--text-brand)] hover:underline font-medium break-all"
             >https://github.com/EmbroidePy/pyembroidery</a
           >.
         </p>
-        <p class="text-gray-700 mt-2">
+        <p class="text-[var(--text-secondary)] mt-2">
           Copyright (c) 2018 Tatarize and the EmbroidePy pyembroidery contributors.
         </p>
-        <p class="text-gray-700 mt-2">
+        <p class="text-[var(--text-secondary)] mt-2">
           Our thanks go to Tatarize and the EmbroidePy pyembroidery contributors for publishing
           their work under a permissive licence, and for providing the reference implementations of
           the embroidery file formats that made this application possible.
         </p>
         <details class="mt-3" data-testid="pyembroidery-mit-notice">
           <summary
-            class="cursor-pointer ui-section-label font-semibold text-indigo-600 hover:underline"
+            class="cursor-pointer ui-section-label font-semibold text-[var(--text-brand)] hover:underline"
           >
             View the MIT License notice required by pyembroidery
           </summary>
           <pre
-            class="whitespace-pre-wrap text-xs text-gray-700 bg-white border border-gray-200 rounded-lg p-3 mt-2 overflow-x-auto font-mono">{PYEMBROIDERY_MIT_NOTICE}</pre>
+            class="whitespace-pre-wrap text-xs text-[var(--text-secondary)] bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-3 mt-2 overflow-x-auto font-mono">{PYEMBROIDERY_MIT_NOTICE}</pre>
         </details>
       </div>
     </div>
   </div>
 
-  <div class="bg-white rounded-xl shadow p-6 flex items-center justify-between gap-4">
-    <p class="text-sm text-gray-600">
+  <div class="route-card rounded-xl shadow p-6 flex items-center justify-between gap-4">
+    <p class="text-sm text-[var(--text-secondary)]">
       The full application licence, Rust crate credits, and frontend package credits are available
       here.
     </p>
-    <a
-      href="#/about/licence"
-      class="shrink-0 bg-indigo-600 text-white px-4 py-2.5 rounded text-sm hover:bg-indigo-700 font-medium shadow-sm transition"
-    >
-      View Full Licences
-    </a>
+    <a href="#/about/licence" class="btn-primary shrink-0"> View Full Licences </a>
   </div>
 </div>

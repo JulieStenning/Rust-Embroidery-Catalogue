@@ -161,7 +161,7 @@
               {:else if pendingDeleteTagId === tag.id}
                 <button
                   type="button"
-                  class="text-red-600 hover:underline text-xs font-bold"
+                  class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
                   onclick={() => confirmDelete(tag.id)}
                 >
                   Confirm delete
@@ -202,7 +202,7 @@
                 </button>
                 <button
                   type="button"
-                  class="text-red-400 hover:text-red-600 hover:underline text-xs font-semibold"
+                  class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
                   onclick={() => requestDelete(tag)}
                 >
                   Delete
@@ -212,8 +212,8 @@
           </td>
         </tr>
         {#if pendingDeleteTagId === tag.id}
-          <tr class="bg-amber-50">
-            <td colspan="3" class="px-4 py-2 text-xs text-amber-800">
+          <tr class="bg-[var(--notice-warn-bg)]">
+            <td colspan="3" class="px-4 py-2 text-xs text-[var(--notice-warn-text)]">
               {#if Number(tag.design_count) > 0}
                 This tag is used by {tag.design_count} design(s). If you delete it, those designs will
                 no longer have the tag assigned.

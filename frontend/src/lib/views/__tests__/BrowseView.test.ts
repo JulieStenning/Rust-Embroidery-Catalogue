@@ -653,7 +653,7 @@ describe("BrowseView", () => {
 
       const badge = await screen.findByLabelText("Unverified");
       expect(badge).toBeInTheDocument();
-      expect(badge).toHaveClass("bg-red-500");
+      expect(badge).toHaveClass("badge-status-error");
       expect(badge).toHaveTextContent("○");
     });
 

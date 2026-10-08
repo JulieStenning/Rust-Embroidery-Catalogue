@@ -1,7 +1,17 @@
 <!-- SPDX-FileCopyrightText: 2026 Julie Stenning -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
-<script>
+<script lang="ts">
+  interface PaginationProps {
+    currentPage?: number;
+    totalPages?: number;
+    onPageChange: (page: number) => void;
+    disabled?: boolean;
+    ariaLabel?: string;
+    windowSize?: number;
+    showFirstLast?: boolean;
+  }
+
   let {
     currentPage = 1,
     totalPages = 1,
@@ -10,13 +20,13 @@
     ariaLabel = "Pagination",
     windowSize = 2,
     showFirstLast = false,
-  } = $props();
+  }: PaginationProps = $props();
 
   let pageTokens = $derived.by(() => {
     if (totalPages <= 1) {
       return [1];
     }
-    const pages = [];
+    const pages: (number | string)[] = [];
     const windowStart = Math.max(1, currentPage - windowSize);
     const windowEnd = Math.min(totalPages, currentPage + windowSize);
 
@@ -47,7 +57,7 @@
     {#if showFirstLast}
       <button
         type="button"
-        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] text-sm font-medium hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(1)}
         disabled={disabled || currentPage <= 1}
       >
@@ -58,7 +68,7 @@
     {#if currentPage > 1}
       <button
         type="button"
-        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] text-sm font-medium hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(currentPage - 1)}
         {disabled}
       >
@@ -68,16 +78,16 @@
 
     {#each pageTokens as pageToken}
       {#if pageToken === "..."}
-        <span class="px-1 text-gray-500 font-medium select-none">...</span>
+        <span class="px-1 text-[var(--text-muted)] font-medium select-none">...</span>
       {:else if pageToken === currentPage}
         <span
-          class="px-3 py-1.5 min-h-[2rem] border border-indigo-600 rounded bg-indigo-600 text-white text-sm font-semibold inline-flex items-center justify-center"
+          class="px-3 py-1.5 min-h-[2rem] border border-[var(--control-accent)] rounded bg-[var(--control-accent)] text-white text-sm font-semibold inline-flex items-center justify-center"
           aria-current="page">{pageToken}</span
         >
-      {:else}
+      {:else if typeof pageToken === "number"}
         <button
           type="button"
-          class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          class="px-3 py-1.5 min-h-[2rem] rounded border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] text-sm font-medium hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onclick={() => onPageChange(pageToken)}
           {disabled}
         >
@@ -89,7 +99,7 @@
     {#if currentPage < totalPages}
       <button
         type="button"
-        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] text-sm font-medium hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(currentPage + 1)}
         {disabled}
       >
@@ -100,7 +110,7 @@
     {#if showFirstLast}
       <button
         type="button"
-        class="px-3 py-1.5 min-h-[2rem] rounded border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="px-3 py-1.5 min-h-[2rem] rounded border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] text-sm font-medium hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={() => onPageChange(totalPages)}
         disabled={disabled || currentPage >= totalPages}
       >

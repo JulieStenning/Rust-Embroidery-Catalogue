@@ -228,8 +228,8 @@
               <span
                 class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border {activeTag.tag_group.toLowerCase() ===
                 'stitching'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'}"
+                  ? 'tag-pill-stitching'
+                  : 'tag-pill-image'}"
               >
                 {activeTag.tag_group}
               </span>
@@ -253,12 +253,12 @@
                 bind:value={wordsInput}
                 placeholder="e.g. frog, toad, newt"
                 disabled={isSaving}
-                class="admin-input border rounded-lg px-3 py-1.5 text-sm flex-1 bg-[var(--surface-primary)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--brand-primary)] focus:outline-none"
+                class="admin-input border rounded-lg px-3 py-1.5 text-sm flex-1 bg-[var(--surface-input)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--border-focus)] focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={isSaving || !wordsInput.trim()}
-                class="px-4 py-1.5 text-sm font-medium rounded-lg bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="menu-button-primary px-4 py-1.5 text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSaving ? "Adding..." : "Add"}
               </button>
@@ -280,7 +280,7 @@
                 <button
                   type="button"
                   onclick={handleClearAll}
-                  class="text-xs text-red-500 hover:text-red-700 hover:underline font-medium"
+                  class="text-xs text-[var(--notice-error-text)] hover:underline font-medium"
                 >
                   Clear All
                 </button>
@@ -291,24 +291,24 @@
               <p class="text-xs text-[var(--text-muted)] py-4 text-center">Loading words...</p>
             {:else if currentKeywords.length === 0}
               <div
-                class="bg-[var(--surface-primary)] border border-dashed border-[var(--border-default)] rounded-lg p-4 text-center text-xs text-[var(--text-muted)]"
+                class="bg-[var(--surface-card-subtle)] border border-dashed border-[var(--border-default)] rounded-lg p-4 text-center text-xs text-[var(--text-muted)]"
               >
                 No custom word matches yet for this tag. Direct words in the tag name still match
                 automatically.
               </div>
             {:else}
               <div
-                class="flex flex-wrap gap-1.5 p-3 bg-[var(--surface-primary)] border border-[var(--border-default)] rounded-lg max-h-48 overflow-y-auto"
+                class="flex flex-wrap gap-1.5 p-3 bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg max-h-48 overflow-y-auto"
               >
                 {#each currentKeywords as kw (kw.id)}
                   <span
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] shadow-sm hover:border-[var(--brand-primary)] transition-colors"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] shadow-sm hover:border-[var(--border-focus)] transition-colors"
                   >
                     <span>{kw.keyword}</span>
                     <button
                       type="button"
                       onclick={() => handleDeleteKeyword(kw.id)}
-                      class="text-[var(--text-muted)] hover:text-red-500 rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
+                      class="text-[var(--text-muted)] hover:text-[var(--notice-error-text)] rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
                       aria-label={`Remove ${kw.keyword}`}
                       title={`Remove ${kw.keyword}`}
                     >
@@ -328,7 +328,7 @@
       >
         <button
           type="button"
-          class="px-4 py-2 text-sm font-semibold rounded-lg bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-hover)] transition-colors"
+          class="menu-button-primary px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
           onclick={onClose}
         >
           Done

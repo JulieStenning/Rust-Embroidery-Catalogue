@@ -149,7 +149,7 @@
             <input
               type="radio"
               name="delete-file-action"
-              class="accent-indigo-600"
+              class="accent-[var(--control-accent)]"
               checked={!deleteFile}
               disabled={busy}
               onchange={() => {
@@ -164,7 +164,7 @@
             <input
               type="radio"
               name="delete-file-action"
-              class="accent-indigo-600"
+              class="accent-[var(--control-accent)]"
               checked={deleteFile}
               disabled={busy}
               onchange={() => {
@@ -175,7 +175,7 @@
           </label>
           {#if deleteFile}
             <p
-              class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5"
+              class="text-xs text-[var(--notice-warn-text)] bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] rounded px-2 py-1.5"
             >
               ⚠️ Source file{selectedCount === 1 ? "" : "s"} will be moved to the system recycle bin.
               You can restore them from there if needed.

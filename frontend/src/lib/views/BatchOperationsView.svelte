@@ -612,8 +612,8 @@
 </script>
 
 <section class="batch-operations-page space-y-6 font-sans">
-  <h1 class="ui-page-title text-2xl font-bold text-gray-800 mb-2">Batch Operations</h1>
-  <p class="text-sm text-gray-600 mb-4">
+  <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)] mb-2">Batch Operations</h1>
+  <p class="text-sm text-[var(--text-secondary)] mb-4">
     Automated AI categorisation, rule-based tagging, and library file maintenance.
   </p>
 
@@ -652,21 +652,21 @@
     {#if activeTab === "tagging"}
       <!-- API Key Status -->
       {#if !taggingHasGoogleApiKey}
-        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded px-4 py-3 text-sm">
+        <div class="notice-info rounded px-4 py-3 text-sm">
           No Google API key is configured in <a
             href="#/admin/system/settings"
             class="underline font-semibold hover:opacity-80">Settings</a
           >. Gemini Vision tagging will be skipped. File &amp; Folder Rules always run.
         </div>
       {:else}
-        <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
+        <div class="notice-warn rounded px-4 py-3 text-sm">
           API key detected — AI tagging actions are available. Gemini calls may incur charges on
           your Google account.
         </div>
       {/if}
 
       {#if taggingFreeTier && taggingHasGoogleApiKey}
-        <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded px-4 py-3 text-sm">
+        <div class="notice-warn rounded px-4 py-3 text-sm">
           Free tier detected — Gemini limits are roughly 15 requests/minute and 1,500/day. If a 429
           rate-limit error occurs the run stops and tells you how long to wait; it will not retry
           automatically.
@@ -694,7 +694,7 @@
                 value={option.id}
                 bind:group={goal}
                 disabled={busyActive || (option.requiresAi && !taggingHasGoogleApiKey)}
-                class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                class="mt-1 h-4 w-4 accent-[var(--text-brand)]"
               />
               <div>
                 <span class="font-semibold">{option.title}</span>
@@ -706,7 +706,7 @@
         {#if !taggingHasGoogleApiKey}
           <p class="text-xs text-[var(--text-muted)] italic">
             Configure a Gemini API key in
-            <a href="#/admin/system/settings" class="text-indigo-600 underline font-medium"
+            <a href="#/admin/system/settings" class="text-[var(--text-brand)] underline font-medium"
               >Settings</a
             >
             to enable AI-powered tag suggestions.
@@ -723,13 +723,14 @@
           {#each scopeOptionsFor as option}
             {#if option.disabled}
               <div
-                class="flex items-start gap-3 text-sm text-gray-400 rounded border border-dashed border-[var(--border-default)] p-3"
+                class="flex items-start gap-3 text-sm text-[var(--text-muted)] rounded border border-dashed border-[var(--border-default)] p-3"
               >
                 <input type="radio" disabled class="mt-1 h-4 w-4" />
                 <div class="flex-1">
                   <span class="font-semibold">{option.title}</span>
                   <p class="text-xs mt-0.5">
-                    {option.subtitle} <span class="font-medium text-indigo-500">(coming soon)</span>
+                    {option.subtitle}
+                    <span class="font-medium text-[var(--text-brand)]">(coming soon)</span>
                   </p>
                 </div>
               </div>
@@ -746,13 +747,13 @@
                   value={option.id}
                   bind:group={scope}
                   disabled={busyActive}
-                  class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  class="mt-1 h-4 w-4 accent-[var(--text-brand)]"
                 />
                 <div class="flex-1">
                   <div class="flex items-center justify-between gap-3">
                     <span class="font-semibold">{option.title}</span>
                     {#if countsLoading}
-                      <span class="text-xs text-gray-400 italic">(counting…)</span>
+                      <span class="text-xs text-[var(--text-muted)] italic">(counting…)</span>
                     {:else if scopeCounts[option.id] !== undefined}
                       <span class="text-xs font-medium text-[var(--text-muted)]"
                         >{(activeCountFor(option.id) ?? 0).toLocaleString()} designs</span
@@ -799,7 +800,7 @@
                     </span>
                     <button
                       type="button"
-                      class="menu-button-secondary py-1 px-2 text-xs text-red-500 border-red-200"
+                      class="menu-button-secondary py-1 px-2 text-xs text-[var(--notice-error-text)] border-[var(--notice-error-border)] hover:bg-[var(--notice-error-bg)]"
                       onclick={() => removeTaggingFolder(folderPath)}
                       disabled={busyActive}
                       title="Remove this folder"
@@ -818,7 +819,7 @@
                   bind:checked={includeSubfolders}
                   onchange={() => loadScopeCounts()}
                   disabled={busyActive}
-                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  class="rounded accent-[var(--text-brand)]"
                 />
                 <span>Include subfolders</span>
               </label>
@@ -839,7 +840,7 @@
             type="checkbox"
             bind:checked={excludeVerified}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded accent-[var(--text-brand)]"
           />
           <div>
             <span class="font-semibold">Exclude human-verified designs (recommended)</span>
@@ -869,7 +870,7 @@
                 value={option.id}
                 bind:group={merge}
                 disabled={busyActive}
-                class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                class="mt-1 h-4 w-4 accent-[var(--text-brand)]"
               />
               <div>
                 <span class="font-semibold">{option.title}</span>
@@ -900,7 +901,7 @@
             counts, and hoop dimensions are calculated directly from stitch files under
             <button
               type="button"
-              class="text-indigo-600 underline font-medium hover:text-indigo-800 cursor-pointer inline"
+              class="text-[var(--text-brand)] underline font-medium hover:underline cursor-pointer inline"
               onclick={switchToMaintenanceTab}
             >
               Maintenance &amp; File Processing
@@ -949,7 +950,7 @@
               value="all"
               bind:group={maintenanceScope}
               disabled={busyActive}
-              class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+              class="mt-1 h-4 w-4 accent-[var(--text-brand)]"
             />
             <div class="flex-1">
               <span class="font-semibold">Entire catalogue</span>
@@ -970,13 +971,13 @@
               value="missing_previews"
               bind:group={maintenanceScope}
               disabled={busyActive}
-              class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+              class="mt-1 h-4 w-4 accent-[var(--text-brand)]"
             />
             <div class="flex-1">
               <div class="flex items-center justify-between gap-3">
                 <span class="font-semibold">Designs missing preview images only</span>
                 {#if missingPreviewCountLoading}
-                  <span class="text-xs text-gray-400 italic">(counting…)</span>
+                  <span class="text-xs text-[var(--text-muted)] italic">(counting…)</span>
                 {:else if missingPreviewCount !== null}
                   <span class="text-xs font-medium text-[var(--text-muted)]"
                     >{missingPreviewCount.toLocaleString()} designs</span
@@ -999,7 +1000,7 @@
             type="checkbox"
             bind:checked={maintenanceRunStitching}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded accent-[var(--text-brand)]"
           />
           <div>
             <span class="font-semibold">Detect / recalculate stitching tags</span>
@@ -1017,7 +1018,7 @@
               type="checkbox"
               bind:checked={maintenanceStitchingOverwrite}
               disabled={busyActive}
-              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              class="rounded accent-[var(--text-brand)]"
             />
             <span>Overwrite human-verified stitching tags</span>
           </label>
@@ -1028,7 +1029,7 @@
             type="checkbox"
             bind:checked={maintenanceRunImages}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded accent-[var(--text-brand)]"
           />
           <div>
             <span class="font-semibold">Generate preview images</span>
@@ -1039,7 +1040,7 @@
             type="checkbox"
             bind:checked={maintenanceRunColorCounts}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded accent-[var(--text-brand)]"
           />
           <div>
             <span class="font-semibold">Recalculate colour / stitch counts</span>
@@ -1053,7 +1054,7 @@
             type="checkbox"
             bind:checked={maintenanceRunHoopDimensions}
             disabled={busyActive}
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            class="mt-1 h-4 w-4 rounded accent-[var(--text-brand)]"
           />
           <div>
             <span class="font-semibold">Recalculate hoops / dimensions</span>
@@ -1120,7 +1121,7 @@
             <p class="mt-1">
               <button
                 type="button"
-                class="text-indigo-600 underline cursor-pointer"
+                class="text-[var(--text-brand)] underline cursor-pointer"
                 onclick={reviewNeedsAttentionInBrowse}
               >
                 Review these in Browse
@@ -1132,10 +1133,10 @@
           {/if}
         {/if}
         {#if taggingLastSummary.stopped}
-          <p class="text-amber-700 font-semibold">Stopped early</p>
+          <p class="text-[var(--notice-warn-text)] font-semibold">Stopped early</p>
         {/if}
         {#if taggingLastSummary.error}
-          <p class="text-red-600">{taggingLastSummary.error}</p>
+          <p class="text-[var(--notice-error-text)]">{taggingLastSummary.error}</p>
         {/if}
       </div>
     {/if}
@@ -1156,10 +1157,10 @@
           {#each taggingLogEntries as entry}
             <div
               class="text-xs font-mono p-1 rounded {entry.level === 'error'
-                ? 'text-red-600 bg-red-50'
+                ? 'notice-error'
                 : entry.level === 'warn'
-                  ? 'text-amber-700 bg-amber-50'
-                  : 'text-gray-700'}"
+                  ? 'notice-warn'
+                  : 'text-[var(--text-primary)]'}"
             >
               <span class="font-semibold uppercase text-[10px] mr-1">{entry.level}</span>
               {entry.message}

@@ -216,12 +216,12 @@
 
     {#if recentlyCreatedTag}
       <div
-        class="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs text-indigo-900"
+        class="flex items-center justify-between bg-[var(--notice-info-bg)] border border-[var(--notice-info-border)] rounded-lg p-3 text-xs text-[var(--notice-info-text)]"
       >
         <span>Tag <strong>"{recentlyCreatedTag.description}"</strong> added successfully.</span>
         <button
           type="button"
-          class="font-semibold underline hover:text-indigo-700"
+          class="font-semibold underline text-[var(--text-brand)] hover:text-[var(--text-brand-hover)]"
           onclick={() => {
             if (recentlyCreatedTag) {
               modalTagId = recentlyCreatedTag.id;
@@ -238,15 +238,15 @@
   </div>
 
   <details
-    class="admin-card rounded shadow overflow-hidden max-w-3xl border"
+    class="admin-card rounded shadow overflow-hidden max-w-3xl border border-[var(--border-default)] bg-[var(--surface-card)]"
     open={adminImageTagsOpen}
     ontoggle={(event) => handleAdminTagPanelToggle("image", event)}
   >
     <summary
-      class="bg-green-50 border-b border-green-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none"
+      class="bg-[var(--notice-success-bg)] border-b border-[var(--notice-success-border)] px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none"
     >
       <svg
-        class={`h-4 w-4 text-green-700 transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`}
+        class={`h-4 w-4 text-[var(--notice-success-text)] transition-transform duration-200 ${adminImageTagsOpen ? "rotate-0" : "-rotate-90"}`}
         viewBox="0 0 20 20"
         fill="currentColor"
         aria-hidden="true"
@@ -257,7 +257,7 @@
           clip-rule="evenodd"
         ></path>
       </svg>
-      <h2 class="text-sm font-bold text-green-800 tracking-wide">Image Tags</h2>
+      <h2 class="text-sm font-bold text-[var(--notice-success-text)] tracking-wide">Image Tags</h2>
     </summary>
     <TagTable
       tags={imageTags}
@@ -268,15 +268,15 @@
   </details>
 
   <details
-    class="admin-card rounded shadow overflow-hidden max-w-3xl border"
+    class="admin-card rounded shadow overflow-hidden max-w-3xl border border-[var(--border-default)] bg-[var(--surface-card)]"
     open={adminStitchingTagsOpen}
     ontoggle={(event) => handleAdminTagPanelToggle("stitching", event)}
   >
     <summary
-      class="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none"
+      class="bg-[var(--notice-info-bg)] border-b border-[var(--notice-info-border)] px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none"
     >
       <svg
-        class={`h-4 w-4 text-blue-700 transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`}
+        class={`h-4 w-4 text-[var(--notice-info-text)] transition-transform duration-200 ${adminStitchingTagsOpen ? "rotate-0" : "-rotate-90"}`}
         viewBox="0 0 20 20"
         fill="currentColor"
         aria-hidden="true"
@@ -287,7 +287,7 @@
           clip-rule="evenodd"
         ></path>
       </svg>
-      <h2 class="text-sm font-bold text-blue-800 tracking-wide">Stitching Tags</h2>
+      <h2 class="text-sm font-bold text-[var(--notice-info-text)] tracking-wide">Stitching Tags</h2>
     </summary>
     <TagTable
       tags={stitchingTags}

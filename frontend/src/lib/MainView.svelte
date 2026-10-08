@@ -202,7 +202,7 @@
       >
     </div>
 
-    <div class="menu-admin-group flex items-center gap-3 text-xs text-indigo-200">
+    <div class="menu-admin-group flex items-center gap-3 text-xs opacity-80">
       <span class="menu-admin-label opacity-70" aria-hidden="true">Admin:</span>
       <a
         href="#/admin/data/designers"
@@ -269,9 +269,9 @@
   {:else if currentUiKind === "help"}
     <HelpView />
   {:else}
-    <div class="bg-white rounded-xl shadow p-6 space-y-4 border">
-      <h1 class="ui-page-title text-2xl font-bold text-gray-800">Route Not Found</h1>
-      <p class="text-gray-600">
+    <div class="route-card rounded-xl shadow p-6 space-y-4">
+      <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)]">Route Not Found</h1>
+      <p class="text-[var(--text-secondary)]">
         The requested route does not exist. Use one of the known placeholders below.
       </p>
 
@@ -282,7 +282,7 @@
       </div>
 
       <div
-        class="border border-gray-200 rounded-lg p-4 bg-gray-50 text-sm text-gray-700 shadow-inner"
+        class="border border-[var(--border-default)] rounded-lg p-4 bg-[var(--surface-card-subtle)] text-sm text-[var(--text-secondary)] shadow-inner"
       >
         <p class="font-semibold mb-2">Known routes</p>
         <ul class="space-y-1">
@@ -295,20 +295,22 @@
   {/if}
 </main>
 
-<footer class="max-w-7xl mx-auto px-4 pb-6 text-xs text-gray-500">
-  <div class="border-t border-gray-300 pt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+<footer class="max-w-7xl mx-auto px-4 pb-6 text-xs text-[var(--text-muted)]">
+  <div
+    class="border-t border-[var(--border-default)] pt-4 flex flex-wrap items-center gap-x-3 gap-y-1"
+  >
     <span>Embroidery Catalogue</span>
     <span aria-hidden="true">•</span>
     <a
       href="#/about"
-      class="hover:underline text-indigo-650 font-medium"
+      class="hover:underline text-[var(--text-brand)] font-medium"
       aria-disabled={busyActive}
       onclick={guardNavClick}>About</a
     >
     <span aria-hidden="true">•</span>
     <a
       href="#/about/licence"
-      class="hover:underline text-indigo-650 font-medium"
+      class="hover:underline text-[var(--text-brand)] font-medium"
       aria-disabled={busyActive}
       onclick={guardNavClick}>Licence</a
     >

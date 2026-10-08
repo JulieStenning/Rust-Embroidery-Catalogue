@@ -318,23 +318,23 @@
       {#if loading}
         <p class="text-sm text-[var(--text-muted)]">Loading document...</p>
       {:else if error}
-        <p class="text-sm text-red-650 bg-red-50 border border-red-200 rounded p-3">{error}</p>
+        <p class="notice-error rounded p-3 text-sm">{error}</p>
       {:else if documentItem?.document_text}
         {#if shouldRenderAsHtml(documentItem)}
           <div
-            class="text-sm text-gray-700 bg-gray-50 text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-4 shadow-inner"
+            class="text-sm text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-4 shadow-inner"
           >
             {@html documentItem.document_text}
           </div>
         {:else if shouldRenderAsMarkdown(documentItem)}
           <div
-            class="text-sm text-gray-700 bg-gray-50 text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 prose dark:prose-invert max-w-none shadow-inner document-markdown"
+            class="text-sm text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 prose dark:prose-invert max-w-none shadow-inner document-markdown"
           >
             {@html renderMarkdown(documentItem.document_text)}
           </div>
         {:else}
           <pre
-            class="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>
+            class="whitespace-pre-wrap text-sm text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 overflow-x-auto font-mono shadow-inner">{documentItem.document_text}</pre>
         {/if}
       {:else}
         <p class="text-sm text-[var(--text-muted)] italic">Document content is unavailable.</p>
