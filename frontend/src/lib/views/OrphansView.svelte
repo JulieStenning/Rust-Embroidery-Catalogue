@@ -141,7 +141,10 @@
       try {
         const result = await removeOrphans(orphanSelectedIds);
         if (!result?.persisted) {
-          addToast(`Could not delete selected orphans: ${result?.error || "Unknown error"}`, "error");
+          addToast(
+            `Could not delete selected orphans: ${result?.error || "Unknown error"}`,
+            "error"
+          );
           return;
         }
 
@@ -360,4 +363,3 @@
   onClose={() => (showDeleteModal = false)}
   onConfirm={handleConfirmDeleteOrphans}
 />
-

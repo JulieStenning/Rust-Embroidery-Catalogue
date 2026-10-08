@@ -24,9 +24,7 @@
   }: Props = $props();
 
   let isAll = $derived(mode === "all");
-  let dialogTitle = $derived(
-    isAll ? "Delete all orphan records?" : "Delete selected records?"
-  );
+  let dialogTitle = $derived(isAll ? "Delete all orphan records?" : "Delete selected records?");
   let confirmLabel = $derived(
     isDeleting
       ? "Deleting…"
@@ -68,7 +66,6 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div
     use:portalToBody
     class="modal-overlay no-print"
@@ -97,16 +94,22 @@
       <div class="modal-body">
         {#if isAll}
           <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
-            Are you sure you want to delete all <strong class="font-semibold text-gray-900 dark:text-white">{count}</strong> orphaned records from the catalogue database?
+            Are you sure you want to delete all <strong
+              class="font-semibold text-gray-900 dark:text-white">{count}</strong
+            > orphaned records from the catalogue database?
           </p>
         {:else}
           <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
-            Are you sure you want to delete <strong class="font-semibold text-gray-900 dark:text-white">{count}</strong> selected {count === 1 ? "record" : "records"} from the catalogue database?
+            Are you sure you want to delete <strong
+              class="font-semibold text-gray-900 dark:text-white">{count}</strong
+            >
+            selected {count === 1 ? "record" : "records"} from the catalogue database?
           </p>
         {/if}
 
         <p class="text-xs text-amber-800 dark:text-amber-300 m-0">
-          This removes the catalogue database entries for missing files. This action cannot be undone.
+          This removes the catalogue database entries for missing files. This action cannot be
+          undone.
         </p>
       </div>
 

@@ -17,7 +17,9 @@
     compactDatabase,
   } from "../api/commandAdapter";
   import { getLicenceStatus, deactivateLicence } from "../api/licenceAdapter";
+  import { runDatabaseBackup } from "../api/backupAdapter";
   import ConfirmDeactivateLicenceModal from "../components/ConfirmDeactivateLicenceModal.svelte";
+  import ConfirmCompactDatabaseModal from "../components/ConfirmCompactDatabaseModal.svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
   import { themeStore, setTheme } from "../stores/themeStore";
@@ -118,6 +120,8 @@
   let settingsDbIdleCheckIntervalSecs = $state("1800");
   let dbStats = $state(/** @type {DbStats | null} */ (null));
   let isCompacting = $state(false);
+  let isBackingUpForCompact = $state(false);
+  let showCompactConfirm = $state(false);
 
   // Clean/known-persisted snapshot of the editable values that `saveSettings`
   // actually persists to SQLite. `data_root` is intentionally excluded: it is
@@ -388,7 +392,41 @@
     }
   }
 
-  async function runManualCompaction() {
+  function promptManualCompaction() {
+    if (isCompacting || isBackingUpForCompact || busyActive) return;
+    showCompactConfirm = true;
+  }
+
+  async function handleCompactOnly() {
+    showCompactConfirm = false;
+    await executeCompaction();
+  }
+
+  async function handleBackupAndCompact() {
+    if (isCompacting || isBackingUpForCompact || busyActive) return;
+    showCompactConfirm = false;
+    isBackingUpForCompact = true;
+    beginBusy("Backing up database");
+    try {
+      const backupResult = await runDatabaseBackup();
+      if (!backupResult.success) {
+        addToast(
+          `Backup failed: ${backupResult.error || "Unknown error"}. Compaction aborted.`,
+          "error"
+        );
+        return;
+      }
+      addToast("Database backup created successfully.", "success");
+      await executeCompaction();
+    } catch (error) {
+      addToast(`Backup failed: ${error}. Compaction aborted.`, "error");
+    } finally {
+      isBackingUpForCompact = false;
+      endBusy();
+    }
+  }
+
+  async function executeCompaction() {
     if (isCompacting) return;
     isCompacting = true;
     beginBusy("Compacting database");
@@ -411,6 +449,7 @@
     } finally {
       isCompacting = false;
       endBusy();
+      showCompactConfirm = false;
     }
   }
 
@@ -1193,10 +1232,14 @@
         <button
           type="button"
           class="settings-primary-button menu-button-primary"
-          onclick={runManualCompaction}
-          disabled={isCompacting || busyActive}
+          onclick={promptManualCompaction}
+          disabled={isCompacting || isBackingUpForCompact || busyActive}
         >
-          {isCompacting ? "Compacting…" : "Optimize & Compact Database"}
+          {isCompacting
+            ? "Compacting…"
+            : isBackingUpForCompact
+              ? "Backing up…"
+              : "Optimize & Compact Database"}
         </button>
         <p class="text-xs text-gray-500">
           Runs a full database optimisation (VACUUM + PRAGMA optimize).
@@ -1357,3 +1400,14 @@
   onConfirm={handleConfirmDeactivateLicence}
 />
 
+<ConfirmCompactDatabaseModal
+  open={showCompactConfirm}
+  dbSizeBytes={dbStats?.file_size_bytes ?? 0}
+  reclaimableBytes={dbStats?.reclaimable_bytes ?? 0}
+  driveLetter={databaseLocationDrive}
+  {isCompacting}
+  isBackingUp={isBackingUpForCompact}
+  onClose={() => (showCompactConfirm = false)}
+  onCompactOnly={handleCompactOnly}
+  onBackupAndCompact={handleBackupAndCompact}
+/>

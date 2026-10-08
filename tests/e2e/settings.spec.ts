@@ -445,4 +445,41 @@ test.describe.serial("application settings", () => {
     await expect(page.locator("#settings-google-api-key")).toHaveValue("");
     await expect(page.locator("#settings-ai-model")).toBeDisabled();
   });
+
+  test("opens database compaction confirmation modal and allows cancellation", async ({
+    page,
+  }) => {
+    await gotoRoute(page, "#/admin/system/settings");
+
+    const compactButton = page.getByRole("button", {
+      name: "Optimize & Compact Database",
+    });
+    await expect(compactButton).toBeVisible();
+    await expect(compactButton).toBeEnabled();
+
+    // Click to open confirmation modal
+    await compactButton.click();
+
+    const modal = page.getByTestId("compact-confirm-modal");
+    await expect(modal).toBeVisible();
+    await expect(page.getByText("Optimize & Compact Database")).toBeVisible();
+    await expect(page.getByText(/What it does:/i)).toBeVisible();
+    await expect(page.getByText(/Protection:/i)).toBeVisible();
+    await expect(page.getByText(/Disk space:/i)).toBeVisible();
+
+    const cancelButton = page.getByTestId("compact-confirm-cancel");
+    const compactOnlyButton = page.getByTestId("compact-confirm-compact-only");
+    const backupAndCompactButton = page.getByTestId(
+      "compact-confirm-backup-and-compact",
+    );
+
+    await expect(cancelButton).toBeVisible();
+    await expect(compactOnlyButton).toBeVisible();
+    await expect(backupAndCompactButton).toBeVisible();
+
+    // Dismiss with cancel
+    await cancelButton.click();
+    await expect(modal).toBeHidden();
+  });
 });
+

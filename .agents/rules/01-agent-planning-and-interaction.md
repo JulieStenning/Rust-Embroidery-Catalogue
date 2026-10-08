@@ -44,6 +44,7 @@
 - @BrowseFilterPanel.svelte
 - @BrowseSelectionBar.svelte
 - @CancelBackupModal.svelte
+- @ConfirmCompactDatabaseModal.svelte
 - @ConfirmDeleteProjectModal.svelte
 - @ConfirmRestoreModal.svelte
 - @DeleteDesignsModal.svelte

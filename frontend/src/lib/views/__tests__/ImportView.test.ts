@@ -314,7 +314,7 @@ describe("ImportView busy lock during scans", () => {
       message: "Cancel requested.",
     });
 
-    let rejectScan: (reason?: any) => void = () => {};
+    let rejectScan: (reason?: unknown) => void = () => {};
     adapterMocks.previewImportFromRoots.mockImplementation(
       () =>
         new Promise((_, rej) => {

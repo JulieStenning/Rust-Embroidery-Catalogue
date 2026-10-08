@@ -27,6 +27,7 @@ const compactDatabaseMock = vi.hoisted(() => vi.fn());
 const listGeminiModelsMock = vi.hoisted(() => vi.fn());
 const testGeminiModelMock = vi.hoisted(() => vi.fn());
 const getLicenceStatusMock = vi.hoisted(() => vi.fn());
+const runDatabaseBackupMock = vi.hoisted(() => vi.fn());
 const deactivateLicenceMock = vi.hoisted(() => vi.fn());
 const addToastMock = vi.hoisted(() => vi.fn());
 
@@ -43,6 +44,10 @@ vi.mock("../../api/commandAdapter", () => ({
   compactDatabase: compactDatabaseMock,
   listGeminiModels: listGeminiModelsMock,
   testGeminiModel: testGeminiModelMock,
+}));
+
+vi.mock("../../api/backupAdapter", () => ({
+  runDatabaseBackup: runDatabaseBackupMock,
 }));
 
 vi.mock("../../api/licenceAdapter", () => ({
@@ -820,6 +825,7 @@ describe("SettingsView.svelte", () => {
     expect(getDbStatsMock).toHaveBeenCalledTimes(1);
 
     await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith(
@@ -843,6 +849,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith("disk full", "error");
@@ -862,6 +869,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith("Could not compact database.", "error");
@@ -876,6 +884,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith("Could not compact database: Error: boom", "error");
@@ -890,6 +899,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
 
     await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
     await tick();
 
     const compactingButton = screen.getByRole("button", { name: "Compacting…" });
@@ -992,9 +1002,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    expect(
-      screen.getByText(/Requires at least 100 MB of free space on E:\\/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Requires at least 100 MB of free space on E:\\/i)).toBeInTheDocument();
   });
 
   it("renders fallback compaction disk space requirements when db stats are missing", async () => {
@@ -1008,6 +1016,129 @@ describe("SettingsView.svelte", () => {
     expect(
       screen.getByText(/Requires free space on D:\\ equal to at least the current database size/i)
     ).toBeInTheDocument();
+  });
+
+  it("opens compaction confirmation modal when Optimize & Compact Database is clicked", async () => {
+    renderView();
+    await waitForSettingsLoaded();
+
+    expect(screen.queryByTestId("compact-confirm-modal")).not.toBeInTheDocument();
+
+    const compactButton = screen.getByRole("button", { name: "Optimize & Compact Database" });
+    await fireEvent.click(compactButton);
+
+    expect(screen.getByTestId("compact-confirm-modal")).toBeInTheDocument();
+    expect(screen.getByText(/What it does:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Protection:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Disk space:/i)).toBeInTheDocument();
+
+    // Cancel closes the modal with no IPC calls
+    const cancelButton = screen.getByTestId("compact-confirm-cancel");
+    await fireEvent.click(cancelButton);
+
+    expect(screen.queryByTestId("compact-confirm-modal")).not.toBeInTheDocument();
+    expect(compactDatabaseMock).not.toHaveBeenCalled();
+    expect(runDatabaseBackupMock).not.toHaveBeenCalled();
+  });
+
+  it("compacts directly when Compact Only is clicked in confirmation modal", async () => {
+    compactDatabaseMock.mockResolvedValue({
+      source: "rust",
+      result: {
+        file_size_before: 5000000,
+        file_size_after: 4000000,
+        pages_reclaimed: 250,
+        freelist_pages_before: 100,
+        freelist_pages_after: 0,
+        duration_ms: 120,
+      },
+      error: null,
+    });
+
+    renderView();
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    const compactOnlyButton = screen.getByTestId("compact-confirm-compact-only");
+    await fireEvent.click(compactOnlyButton);
+
+    await waitFor(() => {
+      expect(compactDatabaseMock).toHaveBeenCalledTimes(1);
+    });
+    expect(runDatabaseBackupMock).not.toHaveBeenCalled();
+    expect(addToastMock).toHaveBeenCalledWith(
+      expect.stringContaining("Database compacted — 250 pages reclaimed"),
+      "success"
+    );
+  });
+
+  it("backs up database first then compacts when Backup & Compact is clicked", async () => {
+    runDatabaseBackupMock.mockResolvedValue({
+      source: "rust",
+      success: true,
+      backup_path: "D:\\Backups\\catalogue_backup.db",
+      size_bytes: 5000000,
+      completed_at: "2026-10-07T23:55:00Z",
+      error: "",
+      cancelled: false,
+    });
+    compactDatabaseMock.mockResolvedValue({
+      source: "rust",
+      result: {
+        file_size_before: 5000000,
+        file_size_after: 4000000,
+        pages_reclaimed: 250,
+        freelist_pages_before: 100,
+        freelist_pages_after: 0,
+        duration_ms: 120,
+      },
+      error: null,
+    });
+
+    renderView();
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    const backupAndCompactButton = screen.getByTestId("compact-confirm-backup-and-compact");
+    await fireEvent.click(backupAndCompactButton);
+
+    await waitFor(() => {
+      expect(runDatabaseBackupMock).toHaveBeenCalledTimes(1);
+      expect(compactDatabaseMock).toHaveBeenCalledTimes(1);
+    });
+    expect(addToastMock).toHaveBeenCalledWith("Database backup created successfully.", "success");
+    expect(addToastMock).toHaveBeenCalledWith(
+      expect.stringContaining("Database compacted — 250 pages reclaimed"),
+      "success"
+    );
+  });
+
+  it("aborts compaction if the pre-compaction backup fails", async () => {
+    runDatabaseBackupMock.mockResolvedValue({
+      source: "rust",
+      success: false,
+      backup_path: "",
+      size_bytes: 0,
+      completed_at: "",
+      error: "Backup drive is full",
+      cancelled: false,
+    });
+
+    renderView();
+    await waitForSettingsLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    const backupAndCompactButton = screen.getByTestId("compact-confirm-backup-and-compact");
+    await fireEvent.click(backupAndCompactButton);
+
+    await waitFor(() => {
+      expect(runDatabaseBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(compactDatabaseMock).not.toHaveBeenCalled();
+    expect(addToastMock).toHaveBeenCalledWith(
+      "Backup failed: Backup drive is full. Compaction aborted.",
+      "error"
+    );
   });
 
   // -- Help link -----------------------------------------------------------

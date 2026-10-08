@@ -50,7 +50,6 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div
     use:portalToBody
     class="modal-overlay no-print"
@@ -68,7 +67,10 @@
 
     <div class="modal-dialog">
       <div class="modal-header">
-        <h2 id="confirm-deactivate-licence-modal-title" class="text-lg font-bold text-gray-800 dark:text-gray-100 m-0">
+        <h2
+          id="confirm-deactivate-licence-modal-title"
+          class="text-lg font-bold text-gray-800 dark:text-gray-100 m-0"
+        >
           Deactivate licence?
         </h2>
       </div>
