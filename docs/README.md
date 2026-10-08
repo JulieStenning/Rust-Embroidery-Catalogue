@@ -27,8 +27,7 @@ Welcome to the documentation portal for the **Rust Embroidery Catalogue**. This 
 
 ### UI & Styling Standards
 
-- [**UI Global Standards**](Specs/ui-global-standards.md): Cross-page layout rules, card contract, responsive breakpoints, and accessibility.
-- [**Look & Feel Implementation Spec**](Specs/look-and-feel-implementation-spec.md): Design tokens, typography, form styling, and component density.
+- [**UI Global Standards**](Specs/ui-global-standards.md): Master specification for cross-page layout rules, design tokens, light/dark theme parity, card contracts, responsive breakpoints, and accessibility.
 
 ### Frontend Guides
 
