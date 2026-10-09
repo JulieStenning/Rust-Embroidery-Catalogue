@@ -63,4 +63,4 @@ tauri-build = { version = "2", features = [] }
 serial_test = "4.0"
 tauri = { version = "2", features = ["test"] }
 mockito = "1"
-criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
