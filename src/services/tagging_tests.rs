@@ -43,9 +43,9 @@ fn normalize_text_replaces_punctuation_with_spaces() {
 }
 
 #[test]
-fn significant_tokens_filters_short_words() {
+fn significant_tokens_filters_short_words_and_conjunctions() {
     let tokens = significant_tokens("a big cat and a dog");
-    assert_eq!(tokens, vec!["big", "cat", "and", "dog"]);
+    assert_eq!(tokens, vec!["big", "cat", "dog"]);
 }
 
 // ─── inflector sanity ──────────────────────────────────────────────
@@ -326,4 +326,31 @@ fn suggest_path_rule_synonym_baby_children() {
     let matched =
         suggest_path_rule_descriptions("", "C:/imports/baby/shirts/design.pes", &valid, &synonyms);
     assert!(matched.contains(&"Children & Toys".to_string()));
+}
+
+#[test]
+fn suggest_path_rule_does_not_match_on_and_conjunction() {
+    let valid = HashSet::from([
+        "Badges and Crests".to_string(),
+        "Words and Letters".to_string(),
+        "Celebrations".to_string(),
+        "Christmas".to_string(),
+    ]);
+    let synonyms = default_test_synonyms();
+    let matched = suggest_path_rule_descriptions(
+        "#28001.pes",
+        "F:/MachineEmbroideryDesigns/Filed/Holidays and Celebrations/028 - Christmas/#28001.pes",
+        &valid,
+        &synonyms,
+    );
+    assert!(matched.contains(&"Celebrations".to_string()));
+    assert!(matched.contains(&"Christmas".to_string()));
+    assert!(
+        !matched.contains(&"Badges and Crests".to_string()),
+        "should not match 'Badges and Crests' solely because path contains 'and'"
+    );
+    assert!(
+        !matched.contains(&"Words and Letters".to_string()),
+        "should not match 'Words and Letters' solely because path contains 'and'"
+    );
 }

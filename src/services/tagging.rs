@@ -44,12 +44,12 @@ fn tokenize(value: &str) -> HashSet<String> {
         .collect()
 }
 
-/// Significant tokens: tokens longer than 2 characters, used for tag-description
-/// token matching to avoid matches on noise words like "of", "a", "&", "an".
+/// Significant tokens: tokens longer than 2 characters and not noise words like
+/// "and", used for tag-description token matching to avoid spurious matches.
 fn significant_tokens(value: &str) -> Vec<String> {
     normalize_text(value)
         .split_whitespace()
-        .filter(|part| part.len() > 2)
+        .filter(|part| part.len() > 2 && *part != "and")
         .map(String::from)
         .collect()
 }
