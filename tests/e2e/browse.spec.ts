@@ -86,7 +86,7 @@ const resetButton = (page: Page): Locator =>
 const needsAttention = (page: Page): Locator =>
   drawer(page)
     .locator("label", { hasText: "Needs attention" })
-    .locator("input");
+    .locator("select");
 const unverifiedOnly = (page: Page): Locator =>
   page.locator("label", { hasText: "Unverified only" }).locator("input");
 
@@ -308,11 +308,11 @@ test.describe("additional filters drawer", () => {
     await openFilters(page);
 
     await expect(resetButton(page)).toBeDisabled();
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     await expect(resetButton(page)).toBeEnabled();
 
     await resetButton(page).click();
-    await expect(needsAttention(page)).not.toBeChecked();
+    await expect(needsAttention(page)).toHaveValue("off");
     await expect(resetButton(page)).toBeDisabled();
   });
 });
@@ -322,7 +322,7 @@ test.describe("needs attention", () => {
     await openBrowse(page);
     await openFilters(page);
 
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
     await expect(
       browseCard(page, "ZZ-broken.pes").locator(
@@ -330,7 +330,15 @@ test.describe("needs attention", () => {
       ),
     ).toBeVisible();
 
-    await needsAttention(page).uncheck();
+    await needsAttention(page).selectOption("cannot_draw");
+    await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
+
+    await needsAttention(page).selectOption("master_only");
+    await expect(selectionHeader(page)).toContainText("0 designs found", {
+      timeout: 20_000,
+    });
+
+    await needsAttention(page).selectOption("off");
     await expect
       .poll(() => browseCards(page).count(), { timeout: 20_000 })
       .toBeGreaterThan(2);
@@ -342,7 +350,7 @@ test.describe("needs attention", () => {
     await openBrowse(page);
     await openFilters(page);
 
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     // Let the Needs-attention reload settle before applying the second filter:
     // otherwise the two backend loads overlap and the earlier result can land
     // last, leaving the grid showing the needs-attention set.
@@ -670,7 +678,7 @@ test.describe("navigation persistence", () => {
   }) => {
     await openBrowse(page);
     await openFilters(page);
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
 
     // Open a flagged design, then return to Browse.
@@ -681,7 +689,7 @@ test.describe("navigation persistence", () => {
     await expect(
       page.getByRole("heading", { name: "Browse Designs" }),
     ).toBeVisible();
-    await expect(needsAttention(page)).toBeChecked();
+    await expect(needsAttention(page)).toHaveValue("all");
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
   });
 });
@@ -1238,7 +1246,7 @@ test.describe("needs attention combinations", () => {
     await openBrowse(page);
     await openFilters(page);
 
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
 
     // Both flagged designs are unverified, so the AND intersection is unchanged.
@@ -1249,7 +1257,7 @@ test.describe("needs attention combinations", () => {
   test("sorts and paginates only the flagged set", async ({ page }) => {
     await openBrowse(page);
     await openFilters(page);
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
 
     // Only two flagged designs, so no pagination controls are offered.

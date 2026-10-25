@@ -2654,7 +2654,7 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
                 hoop_size: Some("Hoop A".to_string()),
                 min_rating: Some(4),
                 stitched_status: Some("yes".to_string()),
-                needs_attention: Some(false),
+                needs_attention: Some("off".to_string()),
                 ..Default::default()
             }),
             page: Some(1),
@@ -2677,45 +2677,97 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
 
     // A design WITH a stored preview must be excluded by the filter.
     sqlx::query(
-        "INSERT INTO designs (filename, filepath, image_data, image_type, date_added) \
-         VALUES ('with_preview.pes', 'Folder/with_preview.pes', X'89504E47', '2d', DATE('now'))",
+        "INSERT INTO designs (filename, filepath, image_data, image_type, date_added, is_master_only) \
+         VALUES ('with_preview.pes', 'Folder/with_preview.pes', X'89504E47', '2d', DATE('now'), 0)",
     )
     .execute(&pool)
     .await
     .expect("seed design with preview");
 
-    // A design WITHOUT a preview must match (the seeded rose.pes also has no preview).
+    // A stitch design WITHOUT a preview (cannot be drawn).
     sqlx::query(
-        "INSERT INTO designs (filename, filepath, date_added) \
-         VALUES ('no_preview.pes', 'Folder/no_preview.pes', DATE('now'))",
+        "INSERT INTO designs (filename, filepath, date_added, is_master_only) \
+         VALUES ('no_preview.pes', 'Folder/no_preview.pes', DATE('now'), 0)",
     )
     .execute(&pool)
     .await
     .expect("seed design without preview");
 
-    let result = get_designs_page_with_pool(
+    // A master-only design without associated stitch file.
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added, is_master_only) \
+         VALUES ('master_only.art', 'Folder/master_only.art', DATE('now'), 1)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed master-only design");
+
+    // 1. "all" mode matches rose.pes (no preview), no_preview.pes, and master_only.art.
+    let result_all = get_designs_page_with_pool(
         &pool,
         Some(GetDesignsPayload {
             additional_filters: Some(BrowseAdditionalFiltersPayload {
-                needs_attention: Some(true),
+                needs_attention: Some("all".to_string()),
                 ..Default::default()
             }),
             ..Default::default()
         }),
     )
     .await
-    .expect("browse needs-attention query should succeed");
+    .expect("browse needs-attention all query should succeed");
 
-    // rose.pes (no image) + no_preview.pes match; with_preview.pes does not.
-    assert_eq!(result.total, 2);
-    let filenames: Vec<&str> = result
+    assert_eq!(result_all.total, 3);
+    let filenames_all: Vec<&str> = result_all
         .items
         .iter()
         .map(|item| item.filename.as_str())
         .collect();
-    assert!(filenames.contains(&"rose.pes"));
-    assert!(filenames.contains(&"no_preview.pes"));
-    assert!(!filenames.contains(&"with_preview.pes"));
+    assert!(filenames_all.contains(&"rose.pes"));
+    assert!(filenames_all.contains(&"no_preview.pes"));
+    assert!(filenames_all.contains(&"master_only.art"));
+    assert!(!filenames_all.contains(&"with_preview.pes"));
+
+    // 2. "cannot_draw" mode matches only stitch designs with missing previews (rose.pes and no_preview.pes).
+    let result_cannot_draw = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                needs_attention: Some("cannot_draw".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("browse needs-attention cannot_draw query should succeed");
+
+    assert_eq!(result_cannot_draw.total, 2);
+    let filenames_cannot_draw: Vec<&str> = result_cannot_draw
+        .items
+        .iter()
+        .map(|item| item.filename.as_str())
+        .collect();
+    assert!(filenames_cannot_draw.contains(&"rose.pes"));
+    assert!(filenames_cannot_draw.contains(&"no_preview.pes"));
+    assert!(!filenames_cannot_draw.contains(&"master_only.art"));
+    assert!(!filenames_cannot_draw.contains(&"with_preview.pes"));
+
+    // 3. "master_only" mode matches only is_master_only = 1.
+    let result_master_only = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                needs_attention: Some("master_only".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("browse needs-attention master_only query should succeed");
+
+    assert_eq!(result_master_only.total, 1);
+    assert_eq!(result_master_only.items[0].filename, "master_only.art");
 }
 
 // ---------------------------------------------------------------------------

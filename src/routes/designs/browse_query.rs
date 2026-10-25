@@ -1,8 +1,72 @@
 // SPDX-FileCopyrightText: 2026 Julie Stenning
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use serde::de::{self, Deserializer};
 use serde::Deserialize;
 use sqlx::{QueryBuilder, Sqlite};
+
+fn deserialize_optional_string_or_bool<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct StringOrBool;
+
+    impl<'de> de::Visitor<'de> for StringOrBool {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a string, boolean, or null")
+        }
+
+        fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            if v {
+                Ok(Some("all".to_string()))
+            } else {
+                Ok(Some("off".to_string()))
+            }
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(v.to_string()))
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(v))
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(self)
+        }
+    }
+
+    deserializer.deserialize_option(StringOrBool)
+}
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct BrowseAdditionalFiltersPayload {
@@ -17,9 +81,13 @@ pub struct BrowseAdditionalFiltersPayload {
     pub max_height: Option<f64>,
     pub min_rating: Option<i64>,
     pub stitched_status: Option<String>,
-    /// When true, restrict to designs with no stored preview (`image_data IS NULL`) — the flagged
-    /// "needs attention" set whose file may be corrupt or unreadable.
-    pub needs_attention: Option<bool>,
+    /// Attention filter mode:
+    /// - "all": designs with no stored preview (`image_data IS NULL`)
+    /// - "cannot_draw": stitch designs that failed preview generation (`is_master_only = 0 AND image_data IS NULL`)
+    /// - "master_only": master files without machine sewing files (`is_master_only = 1`)
+    /// - "off" / empty / None: no attention filter applied
+    #[serde(default, deserialize_with = "deserialize_optional_string_or_bool")]
+    pub needs_attention: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -322,9 +390,24 @@ pub(crate) fn push_browse_filters(
             }
         }
 
-        if filters.needs_attention.unwrap_or(false) {
-            push_where_clause(query_builder, &mut has_where);
-            query_builder.push("d.image_data IS NULL");
+        if let Some(ref attention) = filters.needs_attention {
+            let attention_trimmed = attention.trim().to_ascii_lowercase();
+            match attention_trimmed.as_str() {
+                "all" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("d.image_data IS NULL");
+                }
+                "cannot_draw" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder
+                        .push("COALESCE(d.is_master_only, 0) = 0 AND d.image_data IS NULL");
+                }
+                "master_only" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("COALESCE(d.is_master_only, 0) = 1");
+                }
+                _ => {}
+            }
         }
     }
 }

@@ -163,7 +163,7 @@
     rating: "",
     stitched: "",
     unverifiedOnly: false,
-    needsAttention: false,
+    needsAttention: "off",
     searchFilename: true,
     searchTags: true,
     searchFolder: true,
@@ -192,7 +192,7 @@
       browseFilters.rating === "" &&
       browseFilters.stitched === "" &&
       !browseFilters.unverifiedOnly &&
-      !browseFilters.needsAttention &&
+      (browseFilters.needsAttention === "off" || !browseFilters.needsAttention) &&
       browseFilters.searchFilename &&
       browseFilters.searchTags &&
       browseFilters.searchFolder &&
@@ -499,7 +499,8 @@
               : null,
           min_rating: browseFilters.rating ? Number(browseFilters.rating) : null,
           stitched_status: stitchedStatus,
-          needs_attention: browseFilters.needsAttention,
+          needs_attention:
+            browseFilters.needsAttention === "off" ? undefined : browseFilters.needsAttention,
         },
       };
       const [result, fullIds] = await Promise.all([

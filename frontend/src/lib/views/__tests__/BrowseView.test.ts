@@ -1185,7 +1185,7 @@ describe("BrowseView", () => {
       expect(screen.queryByText("verified.pes")).not.toBeInTheDocument();
     });
 
-    it("filters by 'Needs attention' checkbox in additional filters", async () => {
+    it("filters by 'Needs attention' dropdown in additional filters", async () => {
       mockBackendDesigns([design({ id: 1, filename: "rose.pes" })]);
 
       renderBrowse();
@@ -1193,13 +1193,29 @@ describe("BrowseView", () => {
 
       await openFilters();
 
-      const needsCheckbox = screen.getByLabelText("Needs attention");
-      await fireEvent.click(needsCheckbox);
+      const needsSelect = screen.getByLabelText("Needs attention");
+      await fireEvent.change(needsSelect, { target: { value: "all" } });
 
       await waitFor(() => {
         const calls = adapterMocks.getBrowseDesigns.mock.calls;
         const lastPayload = calls[calls.length - 1]?.[0] || {};
-        expect(lastPayload.additional_filters?.needs_attention).toBe(true);
+        expect(lastPayload.additional_filters?.needs_attention).toBe("all");
+      });
+
+      await fireEvent.change(needsSelect, { target: { value: "cannot_draw" } });
+
+      await waitFor(() => {
+        const calls = adapterMocks.getBrowseDesigns.mock.calls;
+        const lastPayload = calls[calls.length - 1]?.[0] || {};
+        expect(lastPayload.additional_filters?.needs_attention).toBe("cannot_draw");
+      });
+
+      await fireEvent.change(needsSelect, { target: { value: "master_only" } });
+
+      await waitFor(() => {
+        const calls = adapterMocks.getBrowseDesigns.mock.calls;
+        const lastPayload = calls[calls.length - 1]?.[0] || {};
+        expect(lastPayload.additional_filters?.needs_attention).toBe("master_only");
       });
     });
   });

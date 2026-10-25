@@ -13,8 +13,8 @@ export interface BrowseAdditionalFilters {
   max_height?: number | null;
   min_rating?: number | null;
   stitched_status?: "all" | "yes" | "no" | null;
-  /** When true, restrict to designs with no stored preview (the flagged "needs attention" set). */
-  needs_attention?: boolean;
+  /** Attention filter mode: "off" | "all" | "cannot_draw" | "master_only" */
+  needs_attention?: "off" | "all" | "cannot_draw" | "master_only" | string | null;
 }
 
 export interface SearchPayload {
@@ -54,7 +54,7 @@ export interface BrowseFilterState {
   rating: string;
   stitched: string;
   unverifiedOnly: boolean;
-  needsAttention: boolean;
+  needsAttention: "off" | "all" | "cannot_draw" | "master_only" | string;
   searchFilename: boolean;
   searchTags: boolean;
   searchFolder: boolean;

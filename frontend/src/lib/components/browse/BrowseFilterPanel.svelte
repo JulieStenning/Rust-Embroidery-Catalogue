@@ -387,17 +387,21 @@
           </label>
         </div>
 
-        <label class="flex items-center gap-2 pt-1 cursor-pointer text-[var(--text-primary)]">
-          <input
-            type="checkbox"
-            class="ui-checkbox rounded"
-            checked={browseFilters.needsAttention}
-            onchange={(event) => onUpdateFilter("needsAttention", event.currentTarget.checked)}
-          />
-          <span>Needs attention</span>
+        <label class="block">
+          <span class="block font-semibold text-[var(--text-secondary)] mb-1">Needs attention</span>
+          <select
+            class="ui-select-input border border-[var(--border-default)] rounded px-2.5 py-1.5 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
+            value={browseFilters.needsAttention}
+            onchange={(e) => onUpdateFilter("needsAttention", e.currentTarget.value)}
+          >
+            <option value="off">Off</option>
+            <option value="all">All needing attention</option>
+            <option value="cannot_draw">Cannot be drawn (missing preview)</option>
+            <option value="master_only">Master files without stitch files</option>
+          </select>
         </label>
         <p class="text-[11px] text-[var(--text-dim)] leading-snug">
-          Designs with no preview image or awaiting stitch file export.
+          Filter by designs that cannot be drawn or master files awaiting stitch file export.
         </p>
       </div>
     </div>

@@ -51,7 +51,7 @@ function defaultFilters(): BrowseFilterState {
     rating: "",
     stitched: "",
     unverifiedOnly: false,
-    needsAttention: false,
+    needsAttention: "off",
     searchFilename: true,
     searchTags: true,
     searchFolder: true,
@@ -116,11 +116,11 @@ function createBrowseSessionStore() {
 
     /**
      * Pre-apply the "Needs attention" filter so navigating to Browse opens directly on designs
-     * whose preview could not be generated (no stored preview). Resets all other filters/page.
+     * whose preview could not be generated (no stored preview) or matching a given mode. Resets all other filters/page.
      */
-    focusNeedsAttention() {
+    focusNeedsAttention(mode: "all" | "cannot_draw" | "master_only" = "cannot_draw") {
       set({
-        filters: { ...defaultFilters(), needsAttention: true },
+        filters: { ...defaultFilters(), needsAttention: mode },
         currentPage: 1,
         total: 0,
         totalPages: 1,

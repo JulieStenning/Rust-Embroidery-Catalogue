@@ -234,7 +234,7 @@
 
   /** Pre-apply the "Needs attention" Browse filter and jump to Browse Designs. */
   function reviewNeedsAttentionInBrowse() {
-    browseSessionStore.focusNeedsAttention();
+    browseSessionStore.focusNeedsAttention("cannot_draw");
     if (typeof window !== "undefined") {
       window.location.hash = "#/designs";
     }
