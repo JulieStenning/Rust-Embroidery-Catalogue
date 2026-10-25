@@ -123,6 +123,7 @@ pub(crate) async fn filter_existing_scanned_files(
         if existing_path_set.contains(&normalized_prospective) {
             excluded_by_path += 1;
         } else {
+            existing_path_set.insert(normalized_prospective);
             path_survivors.push(file);
         }
     }
@@ -137,16 +138,22 @@ pub(crate) async fn filter_existing_scanned_files(
         return Ok(Vec::new());
     }
 
-    let candidate_sizes: HashSet<i64> = path_survivors
-        .iter()
-        .filter_map(|f| f.file_size_bytes)
-        .collect();
+    let mut batch_pair_counts: HashMap<(String, i64), usize> = HashMap::new();
+    let mut candidate_sizes: HashSet<i64> = HashSet::new();
+    for file in &path_survivors {
+        if let Some(size) = file.file_size_bytes {
+            candidate_sizes.insert(size);
+            *batch_pair_counts
+                .entry((file.filename.to_ascii_lowercase(), size))
+                .or_insert(0) += 1;
+        }
+    }
 
-    let fingerprint_set: HashSet<(String, i64, String)> = if candidate_sizes.is_empty() {
-        HashSet::new()
+    let db_fingerprints: HashMap<(String, i64), Vec<String>> = if candidate_sizes.is_empty() {
+        HashMap::new()
     } else if candidate_sizes.len() <= 500 {
         let sizes_vec: Vec<i64> = candidate_sizes.into_iter().collect();
-        let mut set = HashSet::new();
+        let mut map: HashMap<(String, i64), Vec<String>> = HashMap::new();
         for chunk in sizes_vec.chunks(200) {
             let mut builder = QueryBuilder::<Sqlite>::new(
                 "SELECT filename, file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IN (",
@@ -164,14 +171,12 @@ pub(crate) async fn filter_existing_scanned_files(
                 .map_err(|e| e.to_string())?;
 
             for (filename, size, hash) in rows {
-                set.insert((
-                    filename.to_ascii_lowercase(),
-                    size,
-                    hash.to_ascii_lowercase(),
-                ));
+                map.entry((filename.to_ascii_lowercase(), size))
+                    .or_default()
+                    .push(hash.to_ascii_lowercase());
             }
         }
-        set
+        map
     } else {
         let fingerprint_rows: Vec<(String, i64, String)> = sqlx::query_as(
             "SELECT filename, file_size_bytes, file_hash_blake3 FROM designs WHERE file_size_bytes IS NOT NULL AND file_hash_blake3 IS NOT NULL",
@@ -180,19 +185,17 @@ pub(crate) async fn filter_existing_scanned_files(
         .await
         .map_err(|e| e.to_string())?;
 
-        fingerprint_rows
-            .into_iter()
-            .map(|(filename, size, hash)| {
-                (
-                    filename.to_ascii_lowercase(),
-                    size,
-                    hash.to_ascii_lowercase(),
-                )
-            })
-            .collect()
+        let mut map: HashMap<(String, i64), Vec<String>> = HashMap::new();
+        for (filename, size, hash) in fingerprint_rows {
+            map.entry((filename.to_ascii_lowercase(), size))
+                .or_default()
+                .push(hash.to_ascii_lowercase());
+        }
+        map
     };
 
     let mut result: Vec<scanning::ScannedFile> = Vec::with_capacity(path_survivors.len());
+    let mut seen_in_batch: HashMap<(String, i64), Vec<String>> = HashMap::new();
     let mut excluded_by_triple: usize = 0;
 
     for file in path_survivors {
@@ -205,17 +208,12 @@ pub(crate) async fn filter_existing_scanned_files(
             }
         };
 
-        if fingerprint_set.is_empty() {
-            result.push(file);
-            continue;
-        }
+        let pair_key = (filename_lower, file_size);
+        let in_db = db_fingerprints.get(&pair_key);
+        let in_batch = seen_in_batch.get(&pair_key);
+        let has_batch_multiples = batch_pair_counts.get(&pair_key).copied().unwrap_or(0) > 1;
 
-        let candidate_triples: Vec<&(String, i64, String)> = fingerprint_set
-            .iter()
-            .filter(|(fname, fsize, _)| *fname == filename_lower && *fsize == file_size)
-            .collect();
-
-        if candidate_triples.is_empty() {
+        if in_db.is_none() && !has_batch_multiples {
             result.push(file);
             continue;
         }
@@ -234,15 +232,15 @@ pub(crate) async fn filter_existing_scanned_files(
             }
         };
 
-        let is_duplicate = candidate_triples
-            .iter()
-            .any(|(_, _, existing_hash)| *existing_hash == file_hash);
+        let matches_db = in_db.is_some_and(|hashes| hashes.contains(&file_hash));
+        let matches_batch = in_batch.is_some_and(|hashes| hashes.contains(&file_hash));
 
-        if is_duplicate {
+        if matches_db || matches_batch {
             excluded_by_triple += 1;
             continue;
         }
 
+        seen_in_batch.entry(pair_key).or_default().push(file_hash);
         result.push(file);
     }
 

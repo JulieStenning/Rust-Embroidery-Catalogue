@@ -1847,6 +1847,86 @@ async fn filter_existing_scanned_files_triple_match_excludes() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+#[tokio::test]
+#[serial]
+async fn filter_existing_scanned_files_excludes_intra_batch_duplicates() {
+    let pool = import_test_pool().await;
+
+    let dir = std::env::temp_dir().join(format!(
+        "rec-filter-intrabatch-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let folder_a = dir.join("folder_a");
+    let folder_b = dir.join("folder_b");
+    fs::create_dir_all(&folder_a).expect("folder_a should be created");
+    fs::create_dir_all(&folder_b).expect("folder_b should be created");
+
+    let file_a = folder_a.join("Bonus Ampersand 1 Inch.jef");
+    let file_b = folder_b.join("Bonus Ampersand 1 Inch.jef");
+    let file_unique = folder_a.join("Unique Design.jef");
+
+    let content = b"exact duplicate stitch content for intra-batch dedup test";
+    fs::write(&file_a, content).expect("file_a written");
+    fs::write(&file_b, content).expect("file_b written");
+    fs::write(&file_unique, b"unique non-duplicate content").expect("file_unique written");
+
+    let size_dup = content.len() as i64;
+    let size_unique = 28i64;
+
+    let scanned = vec![
+        scanning::ScannedFile {
+            full_path: file_a.to_string_lossy().to_string(),
+            filename: "Bonus Ampersand 1 Inch.jef".to_string(),
+            extension: "jef".to_string(),
+            file_size_bytes: Some(size_dup),
+            dedup_group_key: "ampersand".to_string(),
+            is_master: false,
+        },
+        scanning::ScannedFile {
+            full_path: file_b.to_string_lossy().to_string(),
+            filename: "Bonus Ampersand 1 Inch.jef".to_string(),
+            extension: "jef".to_string(),
+            file_size_bytes: Some(size_dup),
+            dedup_group_key: "ampersand".to_string(),
+            is_master: false,
+        },
+        scanning::ScannedFile {
+            full_path: file_unique.to_string_lossy().to_string(),
+            filename: "Unique Design.jef".to_string(),
+            extension: "jef".to_string(),
+            file_size_bytes: Some(size_unique),
+            dedup_group_key: "unique".to_string(),
+            is_master: false,
+        },
+    ];
+
+    let root_paths = vec![dir.to_string_lossy().to_string()];
+    let filtered = filter_existing_scanned_files(&pool, scanned, &root_paths)
+        .await
+        .expect("filter should succeed");
+
+    assert_eq!(
+        filtered.len(),
+        2,
+        "intra-batch duplicate should be excluded while unique design and first copy are kept"
+    );
+    assert_eq!(
+        filtered[0].full_path,
+        file_a.to_string_lossy().to_string(),
+        "first duplicate file should be preserved"
+    );
+    assert_eq!(
+        filtered[1].full_path,
+        file_unique.to_string_lossy().to_string(),
+        "unique file should be preserved"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn persist_bulk_import_confirm_if_initialized_no_pool() {
     // Without a pool initialized, this should return Ok(0) with no panic
