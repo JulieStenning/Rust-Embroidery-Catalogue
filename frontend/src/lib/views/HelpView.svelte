@@ -13,7 +13,7 @@
     <a
       href="#/help?section=search"
       class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🔍 Search</a
+      >🔍 Browse & Search</a
     >
     <a
       href="#/help?section=importing"
@@ -61,7 +61,7 @@
     <h2
       class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
     >
-      🔍 Search
+      🔍 Browse & Search
     </h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Use the general search box on the <a
@@ -122,7 +122,8 @@
           >birds</code
         >) with <em>Unverified only</em> ticked to gather similar designs into rows and pages. You
         can then select whole rows or pages at once and use <strong>Choose tags...</strong> in the bottom
-        action bar to apply clean tags and verify the entire batch in one click.
+        action bar to apply clean tags and verify the batch (with independent checkboxes to verify image
+        or stitching tags as needed).
       </p>
       <p>
         <strong>Full guide:</strong> open the

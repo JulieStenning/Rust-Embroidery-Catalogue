@@ -63,7 +63,7 @@ describe("HelpView", () => {
       render(HelpView);
 
       const expectedLinks = [
-        { text: "Search", href: "#/help?section=search", emoji: "🔍" },
+        { text: "Browse & Search", href: "#/help?section=search", emoji: "🔍" },
         { text: "Importing", href: "#/help?section=importing", emoji: "📥" },
         {
           text: "Tag Word Matches",
@@ -103,10 +103,10 @@ describe("HelpView", () => {
   });
 
   describe("search section", () => {
-    it("renders the Search heading", () => {
+    it("renders the Browse & Search heading", () => {
       render(HelpView);
 
-      expect(screen.getByRole("heading", { name: "🔍 Search" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "🔍 Browse & Search" })).toBeInTheDocument();
     });
 
     it("renders the search section content", () => {
