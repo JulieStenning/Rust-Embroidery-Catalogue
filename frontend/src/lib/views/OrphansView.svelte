@@ -218,9 +218,11 @@
 
   <UnmatchedFilesReconciler />
 
-  <div class="space-y-4">
+  <div
+    class="route-card rounded shadow p-6 space-y-4 bg-[var(--surface-card)] border border-[var(--border-default)]"
+  >
     <div class="space-y-1 font-sans">
-      <h2 class="text-lg font-semibold text-[var(--text-primary)]">
+      <h2 class="text-base font-semibold text-[var(--text-primary)]">
         Missing Design Files (Orphans)
       </h2>
       <p class="text-[var(--text-secondary)] text-sm">
