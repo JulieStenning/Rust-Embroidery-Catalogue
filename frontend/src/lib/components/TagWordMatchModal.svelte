@@ -9,6 +9,7 @@
     deleteAllTagSynonymsForTag,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
   import TagCombobox from "./TagCombobox.svelte";
 
   /**
@@ -43,8 +44,16 @@
   let wordsInput = $state("");
   let isSaving = $state(false);
   let isLoading = $state(false);
+  /** @type {number | null} */
+  let deletingSynonymId = $state(null);
+  let isClearing = $state(false);
   /** @type {AdminTagSynonymKeyword[]} */
   let currentKeywords = $state([]);
+
+  let busyActive = $derived($busyState.active);
+  const anyActionBusy = $derived(
+    isSaving || deletingSynonymId !== null || isClearing || busyActive
+  );
 
   // Sync active tag ID whenever modal opens or props change
   $effect(() => {
@@ -83,14 +92,15 @@
   /** @param {SubmitEvent | MouseEvent} e */
   async function handleAddWords(e) {
     e.preventDefault();
-    if (!activeTagId) {
-      addToast("Please select a tag first.", "error");
+    if (!activeTagId || anyActionBusy) {
+      if (!activeTagId) addToast("Please select a tag first.", "error");
       return;
     }
     const trimmed = wordsInput.trim();
     if (!trimmed) return;
 
     isSaving = true;
+    beginBusy("Adding word matches");
     try {
       const res = await addTagSynonyms(activeTagId, trimmed);
       if (res?.persisted && res.item) {
@@ -105,11 +115,15 @@
       addToast(`Could not add matches: ${err}`, "error");
     } finally {
       isSaving = false;
+      endBusy();
     }
   }
 
   /** @param {number} synonymId */
   async function handleDeleteKeyword(synonymId) {
+    if (anyActionBusy) return;
+    deletingSynonymId = synonymId;
+    beginBusy("Deleting word match");
     try {
       const res = await deleteTagSynonym(synonymId);
       if (res?.persisted) {
@@ -120,11 +134,16 @@
       }
     } catch (err) {
       addToast(`Could not delete word match: ${err}`, "error");
+    } finally {
+      deletingSynonymId = null;
+      endBusy();
     }
   }
 
   async function handleClearAll() {
-    if (!activeTagId) return;
+    if (!activeTagId || anyActionBusy) return;
+    isClearing = true;
+    beginBusy("Clearing word matches");
     try {
       const res = await deleteAllTagSynonymsForTag(activeTagId);
       if (res?.persisted) {
@@ -136,12 +155,15 @@
       }
     } catch (err) {
       addToast(`Could not clear matches: ${err}`, "error");
+    } finally {
+      isClearing = false;
+      endBusy();
     }
   }
 
   /** @param {KeyboardEvent} e */
   function handleKeyDown(e) {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !anyActionBusy) {
       onClose();
     }
   }
@@ -161,7 +183,9 @@
       type="button"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm cursor-default"
       aria-label="Close modal"
-      onclick={onClose}
+      onclick={() => {
+        if (!anyActionBusy) onClose();
+      }}
     ></button>
 
     <!-- Modal Dialog Box -->
@@ -182,7 +206,8 @@
         </div>
         <button
           type="button"
-          class="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--surface-hover)] text-lg leading-none"
+          class="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--surface-hover)] text-lg leading-none disabled:opacity-50 disabled:pointer-events-none"
+          disabled={anyActionBusy}
           onclick={onClose}
           aria-label="Close modal"
         >
@@ -252,12 +277,12 @@
                 type="text"
                 bind:value={wordsInput}
                 placeholder="e.g. frog, toad, newt"
-                disabled={isSaving}
-                class="admin-input border rounded-lg px-3 py-1.5 text-sm flex-1 bg-[var(--surface-input)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--border-focus)] focus:outline-none"
+                disabled={anyActionBusy}
+                class="admin-input border rounded-lg px-3 py-1.5 text-sm flex-1 bg-[var(--surface-input)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--border-focus)] focus:outline-none disabled:opacity-50"
               />
               <button
                 type="submit"
-                disabled={isSaving || !wordsInput.trim()}
+                disabled={anyActionBusy || !wordsInput.trim()}
                 class="menu-button-primary px-4 py-1.5 text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSaving ? "Adding..." : "Add"}
@@ -280,9 +305,10 @@
                 <button
                   type="button"
                   onclick={handleClearAll}
-                  class="text-xs text-[var(--notice-error-text)] hover:underline font-medium"
+                  disabled={anyActionBusy}
+                  class="text-xs text-[var(--notice-error-text)] hover:underline font-medium disabled:opacity-50 disabled:no-underline"
                 >
-                  Clear All
+                  {isClearing ? "Clearing..." : "Clear All"}
                 </button>
               {/if}
             </div>
@@ -308,7 +334,8 @@
                     <button
                       type="button"
                       onclick={() => handleDeleteKeyword(kw.id)}
-                      class="text-[var(--text-muted)] hover:text-[var(--notice-error-text)] rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors"
+                      disabled={anyActionBusy}
+                      class="text-[var(--text-muted)] hover:text-[var(--notice-error-text)] rounded-full hover:bg-[var(--surface-hover)] p-0.5 leading-none transition-colors disabled:opacity-50 disabled:pointer-events-none"
                       aria-label={`Remove ${kw.keyword}`}
                       title={`Remove ${kw.keyword}`}
                     >
@@ -328,7 +355,8 @@
       >
         <button
           type="button"
-          class="menu-button-primary px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+          class="menu-button-primary px-4 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          disabled={anyActionBusy}
           onclick={onClose}
         >
           Done

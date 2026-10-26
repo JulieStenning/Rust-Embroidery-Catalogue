@@ -54,6 +54,12 @@
 - **Theme-Compliant Svelte Modals:** All user confirmations and alerts must use accessible in-app Svelte components (`@Notice.svelte`, `@ConfirmDeleteProjectModal.svelte`, `@DeleteDesignsModal.svelte`, `@ConfirmRestoreModal.svelte`, etc.) styled with CSS theme custom properties.
 - **Deterministic Test Selectors:** Every modal dialog container and confirmation/dismiss button must provide explicit `data-testid` attributes (e.g. `data-testid="confirm-delete-button"`).
 
+### 9. Database Mutation Busy Guards & Anti-Double-Click Navigation Locking
+
+- **Global Busy State (`busyStore`):** Any asynchronous database mutation (creating, editing, or deleting entities, batch tagging, bulk operations, migrations, backups, or reconciliations) must call `beginBusy(label)` before initiating the backend IPC call and `endBusy()` in a `try ... finally` block.
+- **Anti-Double-Click & Button Disablement:** Trigger buttons (e.g. `"Confirm delete"`, `"Save"`, `"Add"`) must immediately disable on click (`disabled={isBusy}`), reflect an in-flight label (e.g. `"Deleting..."`, `"Saving..."`), and reject duplicate invocations via in-flight guard state. Adjacent actions (such as `"Cancel"` or other row actions) must also be disabled during execution.
+- **Global & Sub-Tab Navigation Lockdown:** All global navigation links (`@MainView.svelte`), sub-tab links (`@ReferenceDataView.svelte`, `@SystemMaintenanceView.svelte`, `@BatchOperationsView.svelte`), and browser back affordances must observe `busyState.active` and block navigation via `aria-disabled` and click prevention guards, leaving active only explicit ADR 011 Stop or Cancel affordances where supported.
+
 ---
 
 ## 🧪 Svelte 5 View Testing Rules

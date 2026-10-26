@@ -10,6 +10,7 @@
     deleteSource as removeSource,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
 
@@ -27,10 +28,20 @@
   let editingSourceName = $state("");
   /** @type {number | null} */
   let pendingDeleteSourceId = $state(null);
+  /** @type {number | null} */
+  let deletingSourceId = $state(null);
+  /** @type {number | null} */
+  let savingSourceId = $state(null);
+  let addingSource = $state(false);
   let adminLoading = $state(false);
 
-  let canAddSource = $derived(newSourceName.trim().length > 0);
-  let canClearSourceForm = $derived(newSourceName.length > 0);
+  let busyActive = $derived($busyState.active);
+  const anyActionBusy = $derived(
+    deletingSourceId !== null || savingSourceId !== null || addingSource || busyActive
+  );
+
+  let canAddSource = $derived(!anyActionBusy && newSourceName.trim().length > 0);
+  let canClearSourceForm = $derived(!anyActionBusy && newSourceName.length > 0);
 
   /**
    * @template T
@@ -64,24 +75,32 @@
   /** @param {SubmitEvent} event */
   async function addSource(event) {
     event.preventDefault();
+    if (anyActionBusy) return;
     const name = newSourceName.trim();
     if (!name) return;
 
-    const result = await createSource(name);
-    if (!result?.persisted) {
-      addToast(`Could not add source: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    addingSource = true;
+    beginBusy(`Adding source '${name}'`);
+    try {
+      const result = await createSource(name);
+      if (!result?.persisted) {
+        addToast(`Could not add source: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    newSourceName = "";
-    sourceNameInput?.focus();
-    addToast("Source added.", "success");
-    await loadSources(true);
+      newSourceName = "";
+      sourceNameInput?.focus();
+      addToast("Source added.", "success");
+      await loadSources(true);
+    } finally {
+      addingSource = false;
+      endBusy();
+    }
   }
 
   /** @param {AdminEntityRow} source */
   function beginEditSource(source) {
-    if (!source) return;
+    if (!source || anyActionBusy) return;
     pendingDeleteSourceId = null;
     editingSourceId = Number(source.id);
     editingSourceName = String(source.name || "");
@@ -94,26 +113,34 @@
 
   /** @param {number} id */
   async function saveSourceEdit(id) {
+    if (anyActionBusy) return;
     const name = editingSourceName.trim();
     if (!name) {
       addToast("Enter a source name.", "error");
       return;
     }
 
-    const result = await updateSource(id, name);
-    if (!result?.persisted) {
-      addToast(`Could not update source: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    savingSourceId = id;
+    beginBusy(`Updating source '${name}'`);
+    try {
+      const result = await updateSource(id, name);
+      if (!result?.persisted) {
+        addToast(`Could not update source: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    cancelEditSource();
-    addToast("Source updated.", "success");
-    await loadSources(true);
+      cancelEditSource();
+      addToast("Source updated.", "success");
+      await loadSources(true);
+    } finally {
+      savingSourceId = null;
+      endBusy();
+    }
   }
 
   /** @param {AdminEntityRow} source */
   function requestDeleteSource(source) {
-    if (!source) return;
+    if (!source || anyActionBusy) return;
     cancelEditSource();
     pendingDeleteSourceId = Number(source.id);
     if (Number(source.designCount) > 0) {
@@ -132,14 +159,23 @@
 
   /** @param {number} id */
   async function deleteSource(id) {
-    const result = await removeSource(id);
-    if (!result?.persisted) {
-      addToast(`Could not delete source: ${result?.error || "Unknown error"}`, "error");
-      return;
+    if (!id || anyActionBusy) return;
+    const target = sources.find((s) => s.id === id);
+    deletingSourceId = id;
+    beginBusy(`Deleting source '${target?.name || id}'`);
+    try {
+      const result = await removeSource(id);
+      if (!result?.persisted) {
+        addToast(`Could not delete source: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
+      pendingDeleteSourceId = null;
+      addToast("Source deleted.", "success");
+      await loadSources(true);
+    } finally {
+      deletingSourceId = null;
+      endBusy();
     }
-    pendingDeleteSourceId = null;
-    addToast("Source deleted.", "success");
-    await loadSources(true);
   }
 
   function clearNewSourceForm() {
@@ -168,10 +204,13 @@
       type="text"
       bind:value={newSourceName}
       required
+      disabled={anyActionBusy}
       placeholder="e.g. Purchased, Downloaded..."
-      class="admin-input flex-1 border rounded px-3 py-2 text-sm"
+      class="admin-input flex-1 border rounded px-3 py-2 text-sm disabled:opacity-50"
     />
-    <button type="submit" class="menu-button-primary text-sm" disabled={!canAddSource}>Add</button>
+    <button type="submit" class="menu-button-primary text-sm" disabled={!canAddSource}>
+      {addingSource ? "Adding..." : "Add"}
+    </button>
     <button
       type="button"
       class="menu-button-secondary text-sm"
@@ -205,7 +244,8 @@
                 <input
                   type="text"
                   bind:value={editingSourceName}
-                  class="admin-input border rounded px-2 py-1 text-sm w-full font-sans"
+                  disabled={anyActionBusy}
+                  class="admin-input border rounded px-2 py-1 text-sm w-full font-sans disabled:opacity-50"
                 />
               {:else}
                 {source.name}
@@ -219,14 +259,16 @@
                 {#if editingSourceId === source.id}
                   <button
                     type="button"
-                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => saveSourceEdit(source.id)}
                   >
-                    Save
+                    {savingSourceId === source.id ? "Saving..." : "Save"}
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={cancelEditSource}
                   >
                     Cancel
@@ -234,14 +276,16 @@
                 {:else if pendingDeleteSourceId === source.id}
                   <button
                     type="button"
-                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => deleteSource(source.id)}
                   >
-                    Confirm delete
+                    {deletingSourceId === source.id ? "Deleting..." : "Confirm delete"}
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={cancelDeleteSource}
                   >
                     Cancel
@@ -249,14 +293,16 @@
                 {:else}
                   <button
                     type="button"
-                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => beginEditSource(source)}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => requestDeleteSource(source)}
                   >
                     Delete

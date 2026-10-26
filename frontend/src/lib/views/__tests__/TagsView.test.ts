@@ -33,6 +33,9 @@ const tagChangeMock = vi.hoisted(() => ({
 }));
 vi.mock("../../stores/tagChangeStore.js", () => tagChangeMock);
 
+import { get } from "svelte/store";
+import { busyState, resetBusy } from "../../stores/busyStore.js";
+
 /** Wraps items in an AdapterListResponse. */
 const listResponse = (items: unknown[] = []) => ({ source: "rust", items });
 
@@ -40,6 +43,7 @@ describe("TagsView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    resetBusy();
     toastMock.addToast.mockResolvedValue(undefined);
     adapterMocks.listTags.mockResolvedValue(listResponse([]));
     adapterMocks.createTag.mockResolvedValue({ persisted: true });
@@ -500,5 +504,110 @@ describe("TagsView", () => {
     // ternaries must fall back to safe defaults rather than crash.
     await screen.findByRole("heading", { name: "Manage Tags" });
     expect(adapterMocks.listTags).toHaveBeenCalled();
+  });
+
+  it("disables confirm delete button, shows Deleting... label, engages busyStore, and rejects duplicate clicks while deletion is in flight", async () => {
+    adapterMocks.listTags.mockResolvedValue(
+      listResponse([{ id: 42, description: "Animals", tag_group: "image", design_count: 91000 }])
+    );
+
+    let resolveDelete: (val: unknown) => void = () => {};
+    adapterMocks.deleteTag.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = resolve;
+        })
+    );
+
+    render(TagsView);
+
+    await waitFor(() => {
+      expect(screen.getByText("Animals")).toBeInTheDocument();
+    });
+
+    // Initial state: busyStore is idle
+    expect(get(busyState).active).toBe(false);
+
+    // Click "Delete" on the tag
+    const deleteBtn = screen.getByRole("button", { name: "Delete" });
+    await fireEvent.click(deleteBtn);
+
+    // Shows "Confirm delete" and "Cancel"
+    const confirmBtn = await screen.findByRole("button", { name: "Confirm delete" });
+    const cancelBtn = screen.getByRole("button", { name: "Cancel" });
+    expect(confirmBtn).toBeInTheDocument();
+    expect(confirmBtn).not.toBeDisabled();
+    expect(cancelBtn).not.toBeDisabled();
+
+    // Click "Confirm delete"
+    await fireEvent.click(confirmBtn);
+
+    // While deletion is in flight:
+    // 1. busyStore must be active with operation label
+    expect(get(busyState).active).toBe(true);
+    expect(get(busyState).label).toContain("Deleting tag 'Animals'");
+
+    // 2. Button changes label to "Deleting..." and is disabled
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Deleting..." })).toBeDisabled();
+    });
+    expect(cancelBtn).toBeDisabled();
+
+    // 3. Duplicate clicks on the disabled button must NOT invoke deleteTag a second time
+    await fireEvent.click(screen.getByRole("button", { name: "Deleting..." }));
+    expect(adapterMocks.deleteTag).toHaveBeenCalledTimes(1);
+    expect(adapterMocks.deleteTag).toHaveBeenCalledWith(42);
+
+    // Resolve deletion
+    resolveDelete({ persisted: true });
+
+    // After resolution:
+    // 1. busyStore returns to idle
+    await waitFor(() => {
+      expect(get(busyState).active).toBe(false);
+    });
+
+    // 2. Tag deletion toast is shown
+    expect(toastMock.addToast).toHaveBeenCalledWith("Tag deleted.", "success");
+  });
+
+  it("disables add tag button and inputs while tag creation is in flight", async () => {
+    let resolveCreate: (val: unknown) => void = () => {};
+    adapterMocks.createTag.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        })
+    );
+
+    render(TagsView);
+    await screen.findByRole("heading", { name: "Manage Tags" });
+
+    const input = screen.getByPlaceholderText(/e\.g\. Animals/i);
+    await fireEvent.input(input, { target: { value: "New Category" } });
+
+    const addBtn = screen.getByRole("button", { name: "Add" });
+    expect(addBtn).not.toBeDisabled();
+
+    // Submit form
+    await fireEvent.click(addBtn);
+
+    // While creation is in flight:
+    expect(get(busyState).active).toBe(true);
+    expect(get(busyState).label).toContain("Adding tag 'New Category'");
+    expect(screen.getByRole("button", { name: "Adding..." })).toBeDisabled();
+    expect(input).toBeDisabled();
+
+    // Duplicate clicks do not fire createTag again
+    await fireEvent.click(screen.getByRole("button", { name: "Adding..." }));
+    expect(adapterMocks.createTag).toHaveBeenCalledTimes(1);
+
+    // Resolve creation
+    resolveCreate({ persisted: true, item: { id: 100, description: "New Category" } });
+
+    await waitFor(() => {
+      expect(get(busyState).active).toBe(false);
+    });
+    expect(toastMock.addToast).toHaveBeenCalledWith("Tag added.", "success");
   });
 });

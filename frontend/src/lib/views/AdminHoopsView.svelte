@@ -10,6 +10,7 @@
     deleteHoop as removeHoop,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
   import { HOOP_UNKNOWN_FILTER } from "../utils/hoopConstants.js";
 
   /** @typedef {{ id: number, name: string, maxWidthMm: number, maxHeightMm: number, designCount: number }} HoopRow */
@@ -32,10 +33,24 @@
   let editingHoopHeight = $state(0);
   /** @type {number | null} */
   let pendingDeleteHoopId = $state(null);
+  /** @type {number | null} */
+  let deletingHoopId = $state(null);
+  /** @type {number | null} */
+  let savingHoopId = $state(null);
+  let addingHoop = $state(false);
   let adminLoading = $state(false);
 
-  let canAddHoop = $derived(newHoopName.trim().length > 0 && newHoopWidth > 0 && newHoopHeight > 0);
-  let canClearHoopForm = $derived(newHoopName.length > 0 || newHoopWidth > 0 || newHoopHeight > 0);
+  let busyActive = $derived($busyState.active);
+  const anyActionBusy = $derived(
+    deletingHoopId !== null || savingHoopId !== null || addingHoop || busyActive
+  );
+
+  let canAddHoop = $derived(
+    !anyActionBusy && newHoopName.trim().length > 0 && newHoopWidth > 0 && newHoopHeight > 0
+  );
+  let canClearHoopForm = $derived(
+    !anyActionBusy && (newHoopName.length > 0 || newHoopWidth > 0 || newHoopHeight > 0)
+  );
 
   /**
    * @template T
@@ -76,6 +91,7 @@
   /** @param {SubmitEvent} event */
   async function addHoop(event) {
     event.preventDefault();
+    if (anyActionBusy) return;
     const name = newHoopName.trim();
     const w = Number(newHoopWidth);
     const h = Number(newHoopHeight);
@@ -88,23 +104,30 @@
       return;
     }
 
-    const result = await createHoop(name, w, h);
-    if (!result?.persisted) {
-      addToast(`Could not add hoop: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    addingHoop = true;
+    beginBusy(`Adding hoop '${name}'`);
+    try {
+      const result = await createHoop(name, w, h);
+      if (!result?.persisted) {
+        addToast(`Could not add hoop: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    newHoopName = "";
-    newHoopWidth = 0;
-    newHoopHeight = 0;
-    hoopNameInput?.focus();
-    addToast("Hoop added.", "success");
-    await loadHoops(true);
+      newHoopName = "";
+      newHoopWidth = 0;
+      newHoopHeight = 0;
+      hoopNameInput?.focus();
+      addToast("Hoop added.", "success");
+      await loadHoops(true);
+    } finally {
+      addingHoop = false;
+      endBusy();
+    }
   }
 
   /** @param {HoopRow} hoop */
   function beginEditHoop(hoop) {
-    if (!hoop) return;
+    if (!hoop || anyActionBusy) return;
     pendingDeleteHoopId = null;
     editingHoopId = Number(hoop.id);
     editingHoopName = String(hoop.name || "");
@@ -121,6 +144,7 @@
 
   /** @param {number} id */
   async function saveHoopEdit(id) {
+    if (anyActionBusy) return;
     const name = editingHoopName.trim();
     const w = Number(editingHoopWidth);
     const h = Number(editingHoopHeight);
@@ -136,20 +160,27 @@
       return;
     }
 
-    const result = await updateHoop(id, name, w, h);
-    if (!result?.persisted) {
-      addToast(`Could not update hoop: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    savingHoopId = id;
+    beginBusy(`Updating hoop '${name}'`);
+    try {
+      const result = await updateHoop(id, name, w, h);
+      if (!result?.persisted) {
+        addToast(`Could not update hoop: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    cancelEditHoop();
-    addToast("Hoop updated.", "success");
-    await loadHoops(true);
+      cancelEditHoop();
+      addToast("Hoop updated.", "success");
+      await loadHoops(true);
+    } finally {
+      savingHoopId = null;
+      endBusy();
+    }
   }
 
   /** @param {HoopRow} hoop */
   function requestDeleteHoop(hoop) {
-    if (!hoop) return;
+    if (!hoop || anyActionBusy) return;
     cancelEditHoop();
     pendingDeleteHoopId = Number(hoop.id);
     if (Number(hoop.designCount) > 0) {
@@ -168,14 +199,23 @@
 
   /** @param {number} id */
   async function deleteHoop(id) {
-    const result = await removeHoop(id);
-    if (!result?.persisted) {
-      addToast(`Could not delete hoop: ${result?.error || "Unknown error"}`, "error");
-      return;
+    if (!id || anyActionBusy) return;
+    const target = hoops.find((h) => h.id === id);
+    deletingHoopId = id;
+    beginBusy(`Deleting hoop '${target?.name || id}'`);
+    try {
+      const result = await removeHoop(id);
+      if (!result?.persisted) {
+        addToast(`Could not delete hoop: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
+      pendingDeleteHoopId = null;
+      addToast("Hoop deleted.", "success");
+      await loadHoops(true);
+    } finally {
+      deletingHoopId = null;
+      endBusy();
     }
-    pendingDeleteHoopId = null;
-    addToast("Hoop deleted.", "success");
-    await loadHoops(true);
   }
 
   function clearNewHoopForm() {
@@ -212,8 +252,9 @@
         type="text"
         bind:value={newHoopName}
         required
+        disabled={anyActionBusy}
         placeholder="e.g. 5x7 hoop"
-        class="admin-input border rounded px-3 py-2 text-sm w-52 font-sans"
+        class="admin-input border rounded px-3 py-2 text-sm w-52 font-sans disabled:opacity-50"
       />
     </div>
     <div>
@@ -228,7 +269,8 @@
         step="1"
         bind:value={newHoopWidth}
         required
-        class="admin-input border rounded px-3 py-2 text-sm w-36 font-sans text-right"
+        disabled={anyActionBusy}
+        class="admin-input border rounded px-3 py-2 text-sm w-36 font-sans text-right disabled:opacity-50"
       />
     </div>
     <div>
@@ -243,12 +285,13 @@
         step="1"
         bind:value={newHoopHeight}
         required
-        class="admin-input border rounded px-3 py-2 text-sm w-36 font-sans text-right"
+        disabled={anyActionBusy}
+        class="admin-input border rounded px-3 py-2 text-sm w-36 font-sans text-right disabled:opacity-50"
       />
     </div>
-    <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddHoop}
-      >Add</button
-    >
+    <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddHoop}>
+      {addingHoop ? "Adding..." : "Add"}
+    </button>
     <button
       type="button"
       class="menu-button-secondary text-sm py-2"
@@ -326,14 +369,16 @@
                 {#if editingHoopId === hoop.id}
                   <button
                     type="button"
-                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => saveHoopEdit(hoop.id)}
                   >
-                    Save
+                    {savingHoopId === hoop.id ? "Saving..." : "Save"}
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={cancelEditHoop}
                   >
                     Cancel
@@ -341,14 +386,16 @@
                 {:else if pendingDeleteHoopId === hoop.id}
                   <button
                     type="button"
-                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => deleteHoop(hoop.id)}
                   >
-                    Confirm delete
+                    {deletingHoopId === hoop.id ? "Deleting..." : "Confirm delete"}
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={cancelDeleteHoop}
                   >
                     Cancel
@@ -356,14 +403,16 @@
                 {:else}
                   <button
                     type="button"
-                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => beginEditHoop(hoop)}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => requestDeleteHoop(hoop)}
                   >
                     Delete

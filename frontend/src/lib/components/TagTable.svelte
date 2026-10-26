@@ -5,6 +5,7 @@
   import { deleteTag as removeTag, updateTag } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { tagChangeStore } from "../stores/tagChangeStore.js";
+  import { beginBusy, endBusy } from "../stores/busyStore.js";
 
   /**
    * @typedef {import("../types/ipc").AdminTagSummary} AdminTagSummary
@@ -19,6 +20,12 @@
   let editingTagDescription = $state("");
   /** @type {number | null} */
   let pendingDeleteTagId = $state(null);
+  /** @type {number | null} */
+  let deletingTagId = $state(null);
+  /** @type {number | null} */
+  let savingTagId = $state(null);
+
+  const anyRowBusy = $derived(deletingTagId !== null || savingTagId !== null);
 
   /** Whether this row represents a protected system-defined tag. */
   const isSystemTag = $derived(
@@ -29,7 +36,7 @@
    * @param {TagRow} tag
    */
   function beginEdit(tag) {
-    if (!tag || isSystemTag(tag)) return;
+    if (!tag || isSystemTag(tag) || anyRowBusy) return;
     pendingDeleteTagId = null;
     editingTagId = Number(tag.id);
     editingTagDescription = String(tag.description || "");
@@ -42,6 +49,7 @@
 
   /** @param {TagRow} tag */
   async function saveEdit(tag) {
+    if (anyRowBusy) return;
     if (isSystemTag(tag)) {
       addToast("System tags cannot be modified.", "error");
       return;
@@ -53,26 +61,30 @@
       return;
     }
 
-    const result = await updateTag(id, description);
-    if (!result?.persisted) {
-      addToast(`Could not update tag: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    savingTagId = id;
+    beginBusy(`Updating tag '${description}'`);
+    try {
+      const result = await updateTag(id, description);
+      if (!result?.persisted) {
+        addToast(`Could not update tag: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    cancelEdit();
-    addToast("Tag updated.", "success");
-    await onRefresh(true);
-    tagChangeStore.flagTagRenamed(Number(tag?.design_count) > 0);
+      cancelEdit();
+      addToast("Tag updated.", "success");
+      await onRefresh(true);
+      tagChangeStore.flagTagRenamed(Number(tag?.design_count) > 0);
+    } finally {
+      savingTagId = null;
+      endBusy();
+    }
   }
 
   /**
    * @param {TagRow} tag
    */
   function requestDelete(tag) {
-    if (!tag || isSystemTag(tag)) {
-      addToast("System tags cannot be deleted.", "error");
-      return;
-    }
+    if (!tag || isSystemTag(tag) || anyRowBusy) return;
     cancelEdit();
     pendingDeleteTagId = Number(tag.id);
     if (Number(tag.design_count) > 0) {
@@ -89,17 +101,27 @@
     pendingDeleteTagId = null;
   }
 
-  /** @param {number} id */
-  async function confirmDelete(id) {
-    const result = await removeTag(id);
-    if (!result?.persisted) {
-      addToast(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
-      return;
+  /** @param {TagRow} tag */
+  async function confirmDelete(tag) {
+    const id = Number(tag?.id);
+    if (!id || anyRowBusy) return;
+
+    deletingTagId = id;
+    beginBusy(`Deleting tag '${tag?.description || id}'`);
+    try {
+      const result = await removeTag(id);
+      if (!result?.persisted) {
+        addToast(`Could not delete tag: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
+      pendingDeleteTagId = null;
+      addToast("Tag deleted.", "success");
+      await onRefresh(true);
+      tagChangeStore.flagTagDeleted();
+    } finally {
+      deletingTagId = null;
+      endBusy();
     }
-    pendingDeleteTagId = null;
-    addToast("Tag deleted.", "success");
-    await onRefresh(true);
-    tagChangeStore.flagTagDeleted();
   }
 
   const sortedTags = $derived(
@@ -146,14 +168,16 @@
               {#if editingTagId === tag.id}
                 <button
                   type="button"
-                  class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                  class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={() => saveEdit(tag)}
                 >
-                  Save
+                  {savingTagId === tag.id ? "Saving..." : "Save"}
                 </button>
                 <button
                   type="button"
-                  class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                  class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={cancelEdit}
                 >
                   Cancel
@@ -161,14 +185,16 @@
               {:else if pendingDeleteTagId === tag.id}
                 <button
                   type="button"
-                  class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
-                  onclick={() => confirmDelete(tag.id)}
+                  class="text-[var(--notice-error-text)] hover:underline text-xs font-bold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
+                  onclick={() => confirmDelete(tag)}
                 >
-                  Confirm delete
+                  {deletingTagId === tag.id ? "Deleting..." : "Confirm delete"}
                 </button>
                 <button
                   type="button"
-                  class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                  class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={cancelDelete}
                 >
                   Cancel
@@ -176,7 +202,8 @@
               {:else if isSystemTag(tag)}
                 <button
                   type="button"
-                  class="text-[var(--text-secondary)] hover:text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                  class="text-[var(--text-secondary)] hover:text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={() => onOpenMatches(tag)}
                 >
                   Matches
@@ -188,21 +215,24 @@
               {:else}
                 <button
                   type="button"
-                  class="text-[var(--text-secondary)] hover:text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                  class="text-[var(--text-secondary)] hover:text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={() => onOpenMatches(tag)}
                 >
                   Matches
                 </button>
                 <button
                   type="button"
-                  class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                  class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={() => beginEdit(tag)}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
-                  class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
+                  class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                  disabled={anyRowBusy}
                   onclick={() => requestDelete(tag)}
                 >
                   Delete

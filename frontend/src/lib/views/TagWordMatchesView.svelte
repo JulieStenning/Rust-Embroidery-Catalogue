@@ -10,6 +10,7 @@
     deleteAllTagSynonymsForTag,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
   import TagCombobox from "../components/TagCombobox.svelte";
   import TagWordMatchModal from "../components/TagWordMatchModal.svelte";
 
@@ -34,6 +35,8 @@
   let selectedGroupFilter = $state("all"); // 'all' | 'image' | 'stitching'
   let showMatchesOnly = $state(true);
 
+  let busyActive = $derived($busyState.active);
+
   // Quick Add Bar State
   /** @type {number | null} */
   let quickAddTagId = $state(null);
@@ -45,6 +48,11 @@
   let inlineWordsInput = $state({});
   /** @type {Record<number, boolean>} */
   let inlineSaving = $state({});
+
+  /** @type {number | null} */
+  let deletingSynonymId = $state(null);
+  /** @type {number | null} */
+  let clearingTagId = $state(null);
 
   // Modal State
   let modalOpen = $state(false);
@@ -146,8 +154,8 @@
   /** @param {SubmitEvent | MouseEvent} e */
   async function handleQuickAdd(e) {
     e.preventDefault();
-    if (!quickAddTagId) {
-      addToast("Please select a tag first.", "error");
+    if (!quickAddTagId || quickAddSaving || busyActive) {
+      if (!quickAddTagId) addToast("Please select a tag first.", "error");
       return;
     }
     const trimmed = quickAddWords.trim();
@@ -155,6 +163,7 @@
 
     const targetTagId = quickAddTagId;
     quickAddSaving = true;
+    beginBusy("Adding word matches");
     try {
       const res = await addTagSynonyms(targetTagId, trimmed);
       if (res?.persisted) {
@@ -175,6 +184,7 @@
       addToast(`Could not add matches: ${err}`, "error");
     } finally {
       quickAddSaving = false;
+      endBusy();
     }
   }
 
@@ -184,10 +194,12 @@
    */
   async function handleInlineAdd(tagId, e) {
     e.preventDefault();
+    if (inlineSaving[tagId] || busyActive) return;
     const input = (inlineWordsInput[tagId] || "").trim();
     if (!input) return;
 
     inlineSaving[tagId] = true;
+    beginBusy("Adding word match");
     try {
       const res = await addTagSynonyms(tagId, input);
       if (res?.persisted) {
@@ -208,6 +220,7 @@
       addToast(`Could not add match: ${err}`, "error");
     } finally {
       inlineSaving[tagId] = false;
+      endBusy();
     }
   }
 
@@ -215,6 +228,9 @@
    * @param {number} synonymId
    */
   async function handleDeleteKeyword(synonymId) {
+    if (deletingSynonymId !== null || busyActive) return;
+    deletingSynonymId = synonymId;
+    beginBusy("Deleting word match");
     try {
       const res = await deleteTagSynonym(synonymId);
       if (res?.persisted) {
@@ -230,6 +246,9 @@
       }
     } catch (err) {
       addToast(`Could not delete match: ${err}`, "error");
+    } finally {
+      deletingSynonymId = null;
+      endBusy();
     }
   }
 
@@ -237,6 +256,9 @@
    * @param {number} tagId
    */
   async function handleClearTagMatches(tagId) {
+    if (clearingTagId !== null || busyActive) return;
+    clearingTagId = tagId;
+    beginBusy("Clearing word matches");
     try {
       const res = await deleteAllTagSynonymsForTag(tagId);
       if (res?.persisted) {
@@ -250,6 +272,9 @@
       }
     } catch (err) {
       addToast(`Could not clear matches: ${err}`, "error");
+    } finally {
+      clearingTagId = null;
+      endBusy();
     }
   }
 

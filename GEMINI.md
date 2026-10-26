@@ -28,6 +28,7 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
 - **Action Semantics (ADR 011):**
   - **Cancel (Atomic Rollback):** Complete discard of uncommitted work; zero changes persist (e.g. setup abort, storage migration cancel, scan cancel).
   - **Stop (Progressive Halt):** Halts iterative batch processes mid-flight while strictly retaining committed work (e.g. bulk import, unified backfill). Button transitions: `"Stop"` $\rightarrow$ `"Stopping..."`.
+- **Database Mutation Busy Guards & Anti-Double-Click Navigation Locking:** Every async database mutation (create, edit, delete, batch updates, migrations) must engage `busyStore` (`beginBusy`/`endBusy` in `try ... finally`), immediately disable trigger buttons (`"Deleting..."`, `"Saving..."`), reject duplicate invocations, and lock down all global and sub-tab navigation.
 
 ---
 

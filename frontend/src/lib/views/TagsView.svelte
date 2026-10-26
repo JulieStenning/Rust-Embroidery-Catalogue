@@ -6,6 +6,7 @@
   import { listTags, createTag } from "../api/commandAdapter";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
   import TagTable from "../components/TagTable.svelte";
   import TagWordMatchModal from "../components/TagWordMatchModal.svelte";
 
@@ -23,6 +24,9 @@
   let adminImageTagsOpen = $state(true);
   let adminStitchingTagsOpen = $state(true);
   let tagsLoading = $state(false);
+  let addingTag = $state(false);
+
+  let busyActive = $derived($busyState.active);
 
   // Modal State
   let modalOpen = $state(false);
@@ -36,8 +40,8 @@
 
   const allTags = $derived([...imageTags, ...stitchingTags]);
 
-  let canAddTag = $derived(newTagDescription.trim().length > 0);
-  let canClearTagForm = $derived(newTagDescription.length > 0);
+  let canAddTag = $derived(!busyActive && !addingTag && newTagDescription.trim().length > 0);
+  let canClearTagForm = $derived(!busyActive && !addingTag && newTagDescription.length > 0);
 
   /**
    * @template T
@@ -83,27 +87,35 @@
   /** @param {SubmitEvent} event */
   async function addTag(event) {
     event.preventDefault();
+    if (addingTag || busyActive) return;
     const desc = newTagDescription.trim();
     if (!desc) return;
 
-    const result = await createTag(desc, newTagGroup);
-    if (!result?.persisted) {
-      addToast(`Could not add tag: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    addingTag = true;
+    beginBusy(`Adding tag '${desc}'`);
+    try {
+      const result = await createTag(desc, newTagGroup);
+      if (!result?.persisted) {
+        addToast(`Could not add tag: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    if (result.item) {
-      recentlyCreatedTag = {
-        id: result.item.id,
-        description: result.item.description,
-        tag_group: result.item.tag_group || newTagGroup,
-      };
-    }
+      if (result.item) {
+        recentlyCreatedTag = {
+          id: result.item.id,
+          description: result.item.description,
+          tag_group: result.item.tag_group || newTagGroup,
+        };
+      }
 
-    newTagDescription = "";
-    tagDescriptionInput?.focus();
-    addToast("Tag added.", "success");
-    await loadTags(true);
+      newTagDescription = "";
+      tagDescriptionInput?.focus();
+      addToast("Tag added.", "success");
+      await loadTags(true);
+    } finally {
+      addingTag = false;
+      endBusy();
+    }
   }
 
   function clearNewTagForm() {
@@ -165,7 +177,13 @@
     </div>
     <a
       href="#/admin/data/tag-matches"
-      class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-hover)] text-[var(--text-brand)] transition-colors inline-flex items-center gap-1.5"
+      class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-hover)] text-[var(--text-brand)] transition-colors inline-flex items-center gap-1.5 {busyActive
+        ? 'pointer-events-none opacity-50'
+        : ''}"
+      aria-disabled={busyActive}
+      onclick={(e) => {
+        if (busyActive) e.preventDefault();
+      }}
     >
       <span>🔤 Tag Word Matches Hub</span>
     </a>
@@ -185,8 +203,9 @@
           type="text"
           bind:value={newTagDescription}
           required
+          disabled={addingTag || busyActive}
           placeholder="e.g. Animals, Cross stitch..."
-          class="admin-input border rounded px-3 py-2 text-sm w-56 font-sans"
+          class="admin-input border rounded px-3 py-2 text-sm w-56 font-sans disabled:opacity-50"
         />
       </div>
       <div>
@@ -197,15 +216,16 @@
         <select
           id="admin-tag-group"
           bind:value={newTagGroup}
-          class="admin-input border rounded px-3 py-2 text-sm font-sans"
+          disabled={addingTag || busyActive}
+          class="admin-input border rounded px-3 py-2 text-sm font-sans disabled:opacity-50"
         >
           <option value="image">Image</option>
           <option value="stitching">Stitching</option>
         </select>
       </div>
-      <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddTag}
-        >Add</button
-      >
+      <button type="submit" class="menu-button-primary text-sm py-2" disabled={!canAddTag}>
+        {addingTag ? "Adding..." : "Add"}
+      </button>
       <button
         type="button"
         class="menu-button-secondary text-sm py-2"

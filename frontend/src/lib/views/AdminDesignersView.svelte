@@ -10,6 +10,7 @@
     deleteDesigner as removeDesigner,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
 
@@ -27,10 +28,20 @@
   let editingDesignerName = $state("");
   /** @type {number | null} */
   let pendingDeleteDesignerId = $state(null);
+  /** @type {number | null} */
+  let deletingDesignerId = $state(null);
+  /** @type {number | null} */
+  let savingDesignerId = $state(null);
+  let addingDesigner = $state(false);
   let adminLoading = $state(false);
 
-  let canAddDesigner = $derived(newDesignerName.trim().length > 0);
-  let canClearDesignerForm = $derived(newDesignerName.length > 0);
+  let busyActive = $derived($busyState.active);
+  const anyActionBusy = $derived(
+    deletingDesignerId !== null || savingDesignerId !== null || addingDesigner || busyActive
+  );
+
+  let canAddDesigner = $derived(!anyActionBusy && newDesignerName.trim().length > 0);
+  let canClearDesignerForm = $derived(!anyActionBusy && newDesignerName.length > 0);
 
   /**
    * @template T
@@ -64,24 +75,32 @@
   /** @param {SubmitEvent} event */
   async function addDesigner(event) {
     event.preventDefault();
+    if (anyActionBusy) return;
     const name = newDesignerName.trim();
     if (!name) return;
 
-    const result = await createDesigner(name);
-    if (!result?.persisted) {
-      addToast(`Could not add designer: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    addingDesigner = true;
+    beginBusy(`Adding designer '${name}'`);
+    try {
+      const result = await createDesigner(name);
+      if (!result?.persisted) {
+        addToast(`Could not add designer: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    newDesignerName = "";
-    designerNameInput?.focus();
-    addToast("Designer added.", "success");
-    await loadDesigners(true);
+      newDesignerName = "";
+      designerNameInput?.focus();
+      addToast("Designer added.", "success");
+      await loadDesigners(true);
+    } finally {
+      addingDesigner = false;
+      endBusy();
+    }
   }
 
   /** @param {AdminEntityRow} designer */
   function beginEditDesigner(designer) {
-    if (!designer) return;
+    if (!designer || anyActionBusy) return;
     pendingDeleteDesignerId = null;
     editingDesignerId = Number(designer.id);
     editingDesignerName = String(designer.name || "");
@@ -94,26 +113,34 @@
 
   /** @param {number} id */
   async function saveDesignerEdit(id) {
+    if (anyActionBusy) return;
     const name = editingDesignerName.trim();
     if (!name) {
       addToast("Enter a designer name.", "error");
       return;
     }
 
-    const result = await updateDesigner(id, name);
-    if (!result?.persisted) {
-      addToast(`Could not update designer: ${result?.error || "Unknown error"}`, "error");
-      return;
-    }
+    savingDesignerId = id;
+    beginBusy(`Updating designer '${name}'`);
+    try {
+      const result = await updateDesigner(id, name);
+      if (!result?.persisted) {
+        addToast(`Could not update designer: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
 
-    cancelEditDesigner();
-    addToast("Designer updated.", "success");
-    await loadDesigners(true);
+      cancelEditDesigner();
+      addToast("Designer updated.", "success");
+      await loadDesigners(true);
+    } finally {
+      savingDesignerId = null;
+      endBusy();
+    }
   }
 
   /** @param {AdminEntityRow} designer */
   function requestDeleteDesigner(designer) {
-    if (!designer) return;
+    if (!designer || anyActionBusy) return;
     cancelEditDesigner();
     pendingDeleteDesignerId = Number(designer.id);
     if (Number(designer.designCount) > 0) {
@@ -132,14 +159,23 @@
 
   /** @param {number} id */
   async function deleteDesigner(id) {
-    const result = await removeDesigner(id);
-    if (!result?.persisted) {
-      addToast(`Could not delete designer: ${result?.error || "Unknown error"}`, "error");
-      return;
+    if (!id || anyActionBusy) return;
+    const target = designers.find((d) => d.id === id);
+    deletingDesignerId = id;
+    beginBusy(`Deleting designer '${target?.name || id}'`);
+    try {
+      const result = await removeDesigner(id);
+      if (!result?.persisted) {
+        addToast(`Could not delete designer: ${result?.error || "Unknown error"}`, "error");
+        return;
+      }
+      pendingDeleteDesignerId = null;
+      addToast("Designer deleted.", "success");
+      await loadDesigners(true);
+    } finally {
+      deletingDesignerId = null;
+      endBusy();
     }
-    pendingDeleteDesignerId = null;
-    addToast("Designer deleted.", "success");
-    await loadDesigners(true);
   }
 
   function clearNewDesignerForm() {
@@ -170,11 +206,13 @@
       type="text"
       bind:value={newDesignerName}
       required
+      disabled={anyActionBusy}
       placeholder="New designer name..."
-      class="admin-input flex-1 border rounded px-3 py-2 text-sm"
+      class="admin-input flex-1 border rounded px-3 py-2 text-sm disabled:opacity-50"
     />
-    <button type="submit" class="menu-button-primary text-sm" disabled={!canAddDesigner}>Add</button
-    >
+    <button type="submit" class="menu-button-primary text-sm" disabled={!canAddDesigner}>
+      {addingDesigner ? "Adding..." : "Add"}
+    </button>
     <button
       type="button"
       class="menu-button-secondary text-sm"
@@ -208,7 +246,8 @@
                 <input
                   type="text"
                   bind:value={editingDesignerName}
-                  class="admin-input border rounded px-2 py-1 text-sm w-full font-sans"
+                  disabled={anyActionBusy}
+                  class="admin-input border rounded px-2 py-1 text-sm w-full font-sans disabled:opacity-50"
                 />
               {:else}
                 {designer.name}
@@ -222,14 +261,16 @@
                 {#if editingDesignerId === designer.id}
                   <button
                     type="button"
-                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => saveDesignerEdit(designer.id)}
                   >
-                    Save
+                    {savingDesignerId === designer.id ? "Saving..." : "Save"}
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={cancelEditDesigner}
                   >
                     Cancel
@@ -237,14 +278,16 @@
                 {:else if pendingDeleteDesignerId === designer.id}
                   <button
                     type="button"
-                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-bold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => deleteDesigner(designer.id)}
                   >
-                    Confirm delete
+                    {deletingDesignerId === designer.id ? "Deleting..." : "Confirm delete"}
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={cancelDeleteDesigner}
                   >
                     Cancel
@@ -252,14 +295,16 @@
                 {:else}
                   <button
                     type="button"
-                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold"
+                    class="text-[var(--text-brand)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => beginEditDesigner(designer)}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold"
+                    class="text-[var(--notice-error-text)] hover:underline text-xs font-semibold disabled:opacity-50 disabled:no-underline"
+                    disabled={anyActionBusy}
                     onclick={() => requestDeleteDesigner(designer)}
                   >
                     Delete
