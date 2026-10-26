@@ -1727,9 +1727,75 @@ describe("BrowseView", () => {
         expect(args[1]).toEqual([1]);
         expect(args[2]).toEqual([]);
         expect(args[3]).toBe(false);
+        expect(args[4]).toEqual({ imageTagsVerified: true, stitchingTagsVerified: true });
       });
 
       expect(toastMock.addToast).toHaveBeenCalledWith("Updated tags for 1 design(s).", "success");
+    });
+
+    it("allows unticking verify image tags and verify stitching tags", async () => {
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
+      adapterMocks.bulkSetTagsForDesigns.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        updated: 1,
+      });
+
+      await selectItems(2);
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+      const verifyImageCheckbox = within(dialog).getByTestId(
+        "bulk-verify-image-checkbox"
+      ) as HTMLInputElement;
+      const verifyStitchingCheckbox = within(dialog).getByTestId(
+        "bulk-verify-stitching-checkbox"
+      ) as HTMLInputElement;
+
+      // Both should be checked by default
+      expect(verifyImageCheckbox.checked).toBe(true);
+      expect(verifyStitchingCheckbox.checked).toBe(true);
+
+      // Untick image verification
+      await fireEvent.click(verifyImageCheckbox);
+      expect(verifyImageCheckbox.checked).toBe(false);
+
+      await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.bulkSetTagsForDesigns).toHaveBeenCalled();
+        const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
+        expect(args[4]).toEqual({ imageTagsVerified: false, stitchingTagsVerified: true });
+      });
+    });
+
+    it("allows unticking verify stitching tags", async () => {
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
+      adapterMocks.bulkSetTagsForDesigns.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        updated: 1,
+      });
+
+      await selectItems(2);
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+      const verifyStitchingCheckbox = within(dialog).getByTestId(
+        "bulk-verify-stitching-checkbox"
+      ) as HTMLInputElement;
+
+      // Untick stitching verification
+      await fireEvent.click(verifyStitchingCheckbox);
+      expect(verifyStitchingCheckbox.checked).toBe(false);
+
+      await fireEvent.click(within(dialog).getByRole("button", { name: "Apply tags" }));
+
+      await waitFor(() => {
+        expect(adapterMocks.bulkSetTagsForDesigns).toHaveBeenCalled();
+        const args = adapterMocks.bulkSetTagsForDesigns.mock.calls[0];
+        expect(args[4]).toEqual({ imageTagsVerified: true, stitchingTagsVerified: false });
+      });
     });
 
     it("shows an error toast when bulk tags fail", async () => {

@@ -78,7 +78,10 @@ export interface BrowseFilterPanelProps {
   browseStitchingTagOptions: BrowseTagOption[];
   browseSourceFilterOptions: string[];
   browseHoopFilterOptions: string[];
-  onUpdateFilter: (key: string, value: any) => void;
+  onUpdateFilter: (
+    key: keyof BrowseFilterState,
+    value: BrowseFilterState[keyof BrowseFilterState]
+  ) => void;
   onToggleFilter: (
     key: "designerFilters" | "imageTagFilters" | "stitchingTagFilters" | "sourceFilters",
     value: string

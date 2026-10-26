@@ -1133,7 +1133,13 @@ test.describe("sort keys and pagination controls", () => {
       "Cake 3.jef",
     ];
 
-    for (const key of ["folder", "date_added", "date_updated", "rating", "stitched"]) {
+    for (const key of [
+      "folder",
+      "date_added",
+      "date_updated",
+      "rating",
+      "stitched",
+    ]) {
       await sortSelect(page).selectOption(key);
       await expect(sortSelect(page)).toHaveValue(key);
       await expect
@@ -1325,6 +1331,12 @@ test.describe("batch mutations", () => {
     await expect(
       dialog.getByRole("checkbox", { name: /Untagged/ }),
     ).toBeVisible();
+    await expect(
+      dialog.getByTestId("bulk-verify-image-checkbox"),
+    ).toBeChecked();
+    await expect(
+      dialog.getByTestId("bulk-verify-stitching-checkbox"),
+    ).toBeChecked();
 
     // Cancel must not commit anything.
     await dialog.getByRole("checkbox", { name: /Food/ }).click();
