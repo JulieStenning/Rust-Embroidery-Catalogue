@@ -14,7 +14,7 @@ The main search box supports Google-style search operators to match keywords acr
 - **OR search:** `rose OR tulip` (matches designs containing either term).
 - **Filename wildcard:** `*.pes` or `rose*.jef` (matches specific file patterns).
 - **Search scopes:** Tick or untick **File name**, **Folder name**, and **Tags** to restrict where the query looks.
-- **Unverified only:** Check **Unverified only** to focus on designs with tags requiring manual review.
+- **Verification status:** Use the **Verification** dropdown next to the search input to filter by **All**, **Unverified only** (designs with tags requiring review), **Verified only** (fully verified designs), or **Partially verified**.
 
 ### ⏳ Live Search, Busy Indicator & Cancellation
 - **Live Search & Busy Indicator:** As you type into the general search box or adjust filters, an animated spinner appears inside the search input and the selection bar displays **"Searching designs..."**.
@@ -46,7 +46,9 @@ Click **Additional Filters** to expand advanced criteria:
     - Entering only a **Min** (e.g. Min Width = `100`) matches designs from `100 mm` and wider.
     - Entering both sets a strict bounded range (e.g. `50 mm` to `150 mm`).
 
-### 3. Ratings & Sewing Status
+### 3. Ratings, Verification & Sewing Status
+- **Image Tags Verification:** Filter by **Any**, **Verified only**, or **Unverified only**.
+- **Stitching Tags Verification:** Filter by **Any**, **Verified only**, or **Unverified only**.
 - **Minimum rating:** Filter by star rating (1★ to 5★).
 - **Stitched status:** Filter by **Stitched** or **Not Stitched**.
 - **Needs attention:** Restrict to designs missing preview images (e.g. unreadable or corrupted files) or master-only outline files awaiting machine stitch file export.

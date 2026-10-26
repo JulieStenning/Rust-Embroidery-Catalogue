@@ -163,6 +163,9 @@
     rating: "",
     stitched: "",
     unverifiedOnly: false,
+    verificationStatus: "all",
+    imageTagVerification: "all",
+    stitchingTagVerification: "all",
     needsAttention: "off",
     searchFilename: true,
     searchTags: true,
@@ -192,6 +195,10 @@
       browseFilters.rating === "" &&
       browseFilters.stitched === "" &&
       !browseFilters.unverifiedOnly &&
+      (browseFilters.verificationStatus === "all" || !browseFilters.verificationStatus) &&
+      (browseFilters.imageTagVerification === "all" || !browseFilters.imageTagVerification) &&
+      (browseFilters.stitchingTagVerification === "all" ||
+        !browseFilters.stitchingTagVerification) &&
       (browseFilters.needsAttention === "off" || !browseFilters.needsAttention) &&
       browseFilters.searchFilename &&
       browseFilters.searchTags &&
@@ -463,6 +470,10 @@
         search_tags: browseFilters.searchTags,
         search_folder_name: browseFilters.searchFolder,
         unverified_only: browseFilters.unverifiedOnly,
+        verification_status:
+          browseFilters.verificationStatus && browseFilters.verificationStatus !== "all"
+            ? browseFilters.verificationStatus
+            : undefined,
         page: browseCurrentPage,
         page_size: browsePageSize,
         sort_by: browseFilters.sortBy,
@@ -501,6 +512,15 @@
           stitched_status: stitchedStatus,
           needs_attention:
             browseFilters.needsAttention === "off" ? undefined : browseFilters.needsAttention,
+          image_tag_verification:
+            browseFilters.imageTagVerification && browseFilters.imageTagVerification !== "all"
+              ? browseFilters.imageTagVerification
+              : undefined,
+          stitching_tag_verification:
+            browseFilters.stitchingTagVerification &&
+            browseFilters.stitchingTagVerification !== "all"
+              ? browseFilters.stitchingTagVerification
+              : undefined,
         },
       };
       const [result, fullIds] = await Promise.all([

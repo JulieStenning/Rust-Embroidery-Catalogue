@@ -15,6 +15,8 @@ export interface BrowseAdditionalFilters {
   stitched_status?: "all" | "yes" | "no" | null;
   /** Attention filter mode: "off" | "all" | "cannot_draw" | "master_only" */
   needs_attention?: "off" | "all" | "cannot_draw" | "master_only" | string | null;
+  image_tag_verification?: "all" | "verified" | "unverified" | string | null;
+  stitching_tag_verification?: "all" | "verified" | "unverified" | string | null;
 }
 
 export interface SearchPayload {
@@ -23,6 +25,7 @@ export interface SearchPayload {
   search_tags?: boolean;
   search_folder_name?: boolean;
   unverified_only?: boolean;
+  verification_status?: "all" | "unverified" | "verified" | "partial" | string | null;
   additional_filters?: BrowseAdditionalFilters;
   page?: number;
   page_size?: number;
@@ -54,12 +57,38 @@ export interface BrowseFilterState {
   rating: string;
   stitched: string;
   unverifiedOnly: boolean;
+  verificationStatus: "all" | "unverified" | "verified" | "partial" | string;
+  imageTagVerification: "all" | "verified" | "unverified" | string;
+  stitchingTagVerification: "all" | "verified" | "unverified" | string;
   needsAttention: "off" | "all" | "cannot_draw" | "master_only" | string;
   searchFilename: boolean;
   searchTags: boolean;
   searchFolder: boolean;
   sortBy: string;
   sortDir: string;
+}
+
+export interface BrowseFilterPanelProps {
+  browseFilters: BrowseFilterState;
+  browseLoading: boolean;
+  browseAdditionalFiltersOpen: boolean;
+  browseFiltersAreDefault: boolean;
+  browseDesignerFilterOptions: string[];
+  browseImageTagOptions: BrowseTagOption[];
+  browseStitchingTagOptions: BrowseTagOption[];
+  browseSourceFilterOptions: string[];
+  browseHoopFilterOptions: string[];
+  onUpdateFilter: (key: string, value: any) => void;
+  onToggleFilter: (
+    key: "designerFilters" | "imageTagFilters" | "stitchingTagFilters" | "sourceFilters",
+    value: string
+  ) => void;
+  onToggleAdditionalFilters: () => void;
+  onClearFilters: () => void;
+  onCancelSearch: () => void;
+  onClearSearchInput: () => void;
+  onSearchKeyDown: (event: KeyboardEvent) => void;
+  onApplyFilters: () => void;
 }
 
 /** Progress streamed from Rust during catalogue storage migration. */

@@ -197,8 +197,14 @@ function applyBackendFilter(
     }
   }
 
-  if (payload.unverified_only) {
+  if (payload.verification_status === "unverified" || payload.unverified_only) {
     result = result.filter((item) => !(item.image_tags_verified && item.stitching_tags_verified));
+  } else if (payload.verification_status === "verified") {
+    result = result.filter((item) => item.image_tags_verified && item.stitching_tags_verified);
+  } else if (payload.verification_status === "partial") {
+    result = result.filter(
+      (item) => Boolean(item.image_tags_verified) !== Boolean(item.stitching_tags_verified)
+    );
   }
 
   const af = (payload.additional_filters || {}) as Record<string, unknown>;
@@ -296,6 +302,15 @@ function applyBackendFilter(
   const stitched = String(af.stitched_status || "").trim();
   if (stitched === "yes") result = result.filter((item) => item.is_stitched);
   else if (stitched === "no") result = result.filter((item) => !item.is_stitched);
+
+  const imgVer = String(af.image_tag_verification || "").trim();
+  if (imgVer === "verified") result = result.filter((item) => item.image_tags_verified);
+  else if (imgVer === "unverified") result = result.filter((item) => !item.image_tags_verified);
+
+  const stitchVer = String(af.stitching_tag_verification || "").trim();
+  if (stitchVer === "verified") result = result.filter((item) => item.stitching_tags_verified);
+  else if (stitchVer === "unverified")
+    result = result.filter((item) => !item.stitching_tags_verified);
 
   return result;
 }
@@ -1157,7 +1172,7 @@ describe("BrowseView", () => {
       expect(screen.queryByText("stitched.pes")).not.toBeInTheDocument();
     });
 
-    it("filters by 'unverified only' checkbox", async () => {
+    it("filters by verification status dropdown (unverified only and verified only)", async () => {
       mockBackendDesigns([
         design({
           id: 1,
@@ -1176,13 +1191,69 @@ describe("BrowseView", () => {
       renderBrowse();
       await settle();
 
-      const unverifiedCheckbox = screen.getByLabelText("Unverified only");
-      await fireEvent.click(unverifiedCheckbox);
+      const verificationSelect = screen.getByLabelText("Verification status");
+      await fireEvent.change(verificationSelect, { target: { value: "unverified" } });
 
       await waitFor(() => {
         expect(screen.getByText("unverified.pes")).toBeInTheDocument();
       });
       expect(screen.queryByText("verified.pes")).not.toBeInTheDocument();
+
+      // Switch to verified
+      await fireEvent.change(verificationSelect, { target: { value: "verified" } });
+      await waitFor(() => {
+        expect(screen.getByText("verified.pes")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("unverified.pes")).not.toBeInTheDocument();
+    });
+
+    it("filters by granular image tag and stitching tag verification in additional filters", async () => {
+      mockBackendDesigns([
+        design({
+          id: 1,
+          filename: "img_verified_stitch_unverified.pes",
+          image_tags_verified: true,
+          stitching_tags_verified: false,
+        }),
+        design({
+          id: 2,
+          filename: "both_verified.pes",
+          image_tags_verified: true,
+          stitching_tags_verified: true,
+        }),
+        design({
+          id: 3,
+          filename: "both_unverified.pes",
+          image_tags_verified: false,
+          stitching_tags_verified: false,
+        }),
+      ]);
+
+      renderBrowse();
+      await settle();
+
+      // Open additional filters
+      const additionalFiltersSummary = screen.getByText("Additional Filters");
+      await fireEvent.click(additionalFiltersSummary);
+
+      const imgVerSelect = screen.getByLabelText("Image tags verification");
+      const stitchVerSelect = screen.getByLabelText("Stitching tags verification");
+
+      // Filter: Image tags verified only
+      await fireEvent.change(imgVerSelect, { target: { value: "verified" } });
+      await waitFor(() => {
+        expect(screen.getByText("img_verified_stitch_unverified.pes")).toBeInTheDocument();
+        expect(screen.getByText("both_verified.pes")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("both_unverified.pes")).not.toBeInTheDocument();
+
+      // Additionally filter: Stitching tags unverified only
+      await fireEvent.change(stitchVerSelect, { target: { value: "unverified" } });
+      await waitFor(() => {
+        expect(screen.getByText("img_verified_stitch_unverified.pes")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("both_verified.pes")).not.toBeInTheDocument();
+      expect(screen.queryByText("both_unverified.pes")).not.toBeInTheDocument();
     });
 
     it("filters by 'Needs attention' dropdown in additional filters", async () => {

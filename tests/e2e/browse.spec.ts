@@ -87,8 +87,12 @@ const needsAttention = (page: Page): Locator =>
   drawer(page)
     .locator("label", { hasText: "Needs attention" })
     .locator("select");
-const unverifiedOnly = (page: Page): Locator =>
-  page.locator("label", { hasText: "Unverified only" }).locator("input");
+const verificationSelect = (page: Page): Locator =>
+  page.locator("select#browse-verification-select");
+const imageTagStatusSelect = (page: Page): Locator =>
+  drawer(page).locator("#filter-image-tag-verification");
+const stitchingTagStatusSelect = (page: Page): Locator =>
+  drawer(page).locator("#filter-stitching-tag-verification");
 
 async function openBrowse(page: Page): Promise<void> {
   await gotoRoute(page, "#/designs");
@@ -561,15 +565,15 @@ test.describe("reference filters", () => {
   });
 });
 
-test.describe("unverified only", () => {
-  test("restricts to designs with an unverified tag group", async ({
+test.describe("verification filtering", () => {
+  test("restricts to designs by verification status and granular tag status", async ({
     page,
   }) => {
     await openBrowse(page);
 
-    // A design counts as unverified when either tag group is unverified, so the
-    // partially verified design is included alongside the fully unverified ones.
-    await unverifiedOnly(page).check();
+    // 1. Unverified only: a design counts as unverified when either tag group is unverified,
+    // so the partially verified design is included alongside the fully unverified ones.
+    await verificationSelect(page).selectOption("unverified");
     await expectTitles(page, [
       "Cake 3 - to be verified.jef",
       "Cake 3 Cross Stitch Fred.jef",
@@ -577,10 +581,36 @@ test.describe("unverified only", () => {
       "ZZ-broken.pes",
     ]);
 
-    await unverifiedOnly(page).uncheck();
+    // 2. Verified only: both tag groups must be verified
+    await verificationSelect(page).selectOption("verified");
+    await expect
+      .poll(() => browseCards(page).count(), { timeout: 20_000 })
+      .toBeGreaterThan(0);
+    for (const title of [
+      "Cake 3 - to be verified.jef",
+      "Cake 3 Cross Stitch Fred.jef",
+      "ZZ-broken-2.pes",
+      "ZZ-broken.pes",
+    ]) {
+      await expect(browseCard(page, title)).toHaveCount(0);
+    }
+
+    // 3. Reset to all
+    await verificationSelect(page).selectOption("all");
     await expect
       .poll(() => browseCards(page).count(), { timeout: 20_000 })
       .toBeGreaterThan(4);
+
+    // 4. Granular: Additional filters -> Image tag status = Verified, Stitching tag status = Unverified
+    await openFilters(page);
+    await imageTagStatusSelect(page).selectOption("verified");
+    await stitchingTagStatusSelect(page).selectOption("unverified");
+    // Cake 3 - to be verified.jef has image = 1, stitching = 0
+    await expectTitles(page, ["Cake 3 - to be verified.jef"]);
+
+    // Reset filters
+    await resetButton(page).click();
+    await expect(verificationSelect(page)).toHaveValue("all");
   });
 });
 
@@ -1287,7 +1317,9 @@ test.describe("batch mutations", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByRole("heading", { name: /Choose Tags for Selected Designs/i }),
+      dialog.getByRole("heading", {
+        name: /Choose Tags for Selected Designs/i,
+      }),
     ).toBeVisible();
     await expect(dialog.getByText("1 design selected.")).toBeVisible();
     await expect(

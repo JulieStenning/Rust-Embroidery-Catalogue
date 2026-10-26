@@ -136,7 +136,7 @@ describe("HelpView", () => {
       expect(section.getByText("rose OR tulip")).toBeInTheDocument();
       expect(section.getByText("Filename wildcards:")).toBeInTheDocument();
       expect(section.getByText("rose*.jef")).toBeInTheDocument();
-      expect(section.getByText("Unverified only:")).toBeInTheDocument();
+      expect(section.getByText("Verification status:")).toBeInTheDocument();
       expect(section.getByText("Quick search vs. filters:")).toBeInTheDocument();
       expect(section.getByText("Fast tag verification:")).toBeInTheDocument();
       const bulkActionsLink = section.getByRole("link", {

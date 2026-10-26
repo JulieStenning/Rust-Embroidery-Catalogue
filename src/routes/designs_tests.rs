@@ -2661,6 +2661,7 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
             page_size: Some(50),
             sort_by: Some("filename".to_string()),
             sort_dir: Some("asc".to_string()),
+            ..Default::default()
         }),
     )
     .await
@@ -2669,6 +2670,97 @@ async fn get_designs_page_with_pool_applies_all_filter_types() {
     assert_eq!(result.total, 1);
     assert_eq!(result.items.len(), 1);
     assert_eq!(result.items[0].filename, "flower.pes");
+}
+
+#[tokio::test]
+async fn browse_verification_filters_return_matching_designs() {
+    let pool = test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, image_tags_verified, stitching_tags_verified) VALUES \
+         ('fully_verified.pes', 'F/fully_verified.pes', 1, 1), \
+         ('image_only.pes', 'F/image_only.pes', 1, 0), \
+         ('stitching_only.pes', 'F/stitching_only.pes', 0, 1), \
+         ('neither_verified.pes', 'F/neither_verified.pes', 0, 0)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed verification test designs");
+
+    // 1. Overall verified
+    let verified = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            verification_status: Some("verified".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query verified");
+    let verified_names: Vec<String> = verified.items.into_iter().map(|d| d.filename).collect();
+    assert_eq!(verified_names, vec!["fully_verified.pes"]);
+
+    // 2. Overall partial
+    let partial = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            verification_status: Some("partial".to_string()),
+            sort_by: Some("filename".to_string()),
+            sort_dir: Some("asc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query partial");
+    let partial_names: Vec<String> = partial.items.into_iter().map(|d| d.filename).collect();
+    assert_eq!(partial_names, vec!["image_only.pes", "stitching_only.pes"]);
+
+    // 3. Granular image verified
+    let img_verified = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                image_tag_verification: Some("verified".to_string()),
+                ..Default::default()
+            }),
+            sort_by: Some("filename".to_string()),
+            sort_dir: Some("asc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query image verified");
+    let img_verified_names: Vec<String> =
+        img_verified.items.into_iter().map(|d| d.filename).collect();
+    assert_eq!(
+        img_verified_names,
+        vec!["fully_verified.pes", "image_only.pes"]
+    );
+
+    // 4. Granular stitching verified
+    let stitch_verified = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                stitching_tag_verification: Some("verified".to_string()),
+                ..Default::default()
+            }),
+            sort_by: Some("filename".to_string()),
+            sort_dir: Some("asc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query stitching verified");
+    let stitch_verified_names: Vec<String> = stitch_verified
+        .items
+        .into_iter()
+        .map(|d| d.filename)
+        .collect();
+    assert_eq!(
+        stitch_verified_names,
+        vec!["fully_verified.pes", "stitching_only.pes"]
+    );
 }
 
 #[tokio::test]

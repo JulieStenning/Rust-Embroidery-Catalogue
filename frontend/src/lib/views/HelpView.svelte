@@ -99,7 +99,12 @@
           >rose*.jef</code
         >
       </p>
-      <p><strong>Unverified only:</strong> show designs with tags that still need verifying.</p>
+      <p>
+        <strong>Verification status:</strong> filter designs by verification state using the
+        dropdown in the search bar (<em>All</em>, <em>Unverified only</em>, <em>Verified only</em>,
+        or <em>Partially verified</em>). You can also filter Image and Stitching tag verification
+        independently under Additional Filters.
+      </p>
       <p>
         <strong>Quick search vs. filters:</strong> use Additional filters for designer, image and stitching
         tags, sources, hoop size, dimensions (width and height mm ranges), rating, and stitched status.

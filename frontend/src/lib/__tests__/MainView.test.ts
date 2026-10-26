@@ -215,8 +215,14 @@ function mockBackendDesigns(all: Array<Record<string, unknown>>) {
         return false;
       });
     }
-    if (payload.unverified_only) {
+    if (payload.verification_status === "unverified" || payload.unverified_only) {
       items = items.filter((item) => !(item.image_tags_verified && item.stitching_tags_verified));
+    } else if (payload.verification_status === "verified") {
+      items = items.filter((item) => item.image_tags_verified && item.stitching_tags_verified);
+    } else if (payload.verification_status === "partial") {
+      items = items.filter(
+        (item) => Boolean(item.image_tags_verified) !== Boolean(item.stitching_tags_verified)
+      );
     }
     const af = (payload.additional_filters || {}) as Record<string, unknown>;
     const designers = Array.isArray(af.designer_filters) ? af.designer_filters.map(String) : [];
@@ -817,15 +823,22 @@ describe("browse filtering and search", () => {
       expect(screen.getByText("verified.pes")).toBeInTheDocument();
     });
 
-    const unverifiedCheckbox = container.querySelector<HTMLInputElement>(
-      ".browse-unverified-checkbox"
+    const verificationSelect = container.querySelector<HTMLSelectElement>(
+      ".browse-verification-select"
     );
-    await fireEvent.change(element(unverifiedCheckbox), { target: { checked: true } });
+    await fireEvent.change(element(verificationSelect), { target: { value: "unverified" } });
 
     await waitFor(() => {
       expect(screen.getByText("unverified.pes")).toBeInTheDocument();
     });
     expect(screen.queryByText("verified.pes")).not.toBeInTheDocument();
+
+    // Now switch to verified
+    await fireEvent.change(element(verificationSelect), { target: { value: "verified" } });
+    await waitFor(() => {
+      expect(screen.getByText("verified.pes")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("unverified.pes")).not.toBeInTheDocument();
   });
 
   it("sorts ascending by default and descends when direction changes", async () => {
@@ -971,10 +984,10 @@ describe("browse filtering and search", () => {
     const resetButton = screen.getByRole("button", { name: "Reset filters" });
     expect(resetButton).toBeDisabled();
 
-    const unverifiedCheckbox = container.querySelector<HTMLInputElement>(
-      ".browse-unverified-checkbox"
+    const verificationSelect = container.querySelector<HTMLSelectElement>(
+      ".browse-verification-select"
     );
-    await fireEvent.change(element(unverifiedCheckbox), { target: { checked: true } });
+    await fireEvent.change(element(verificationSelect), { target: { value: "unverified" } });
 
     await waitFor(() => {
       expect(resetButton).not.toBeDisabled();

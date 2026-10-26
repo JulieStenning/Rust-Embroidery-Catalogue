@@ -88,6 +88,8 @@ pub struct BrowseAdditionalFiltersPayload {
     /// - "off" / empty / None: no attention filter applied
     #[serde(default, deserialize_with = "deserialize_optional_string_or_bool")]
     pub needs_attention: Option<String>,
+    pub image_tag_verification: Option<String>,
+    pub stitching_tag_verification: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -97,6 +99,7 @@ pub struct GetDesignsPayload {
     pub search_tags: Option<bool>,
     pub search_folder_name: Option<bool>,
     pub unverified_only: Option<bool>,
+    pub verification_status: Option<String>,
     pub additional_filters: Option<BrowseAdditionalFiltersPayload>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
@@ -191,7 +194,23 @@ pub(crate) fn push_browse_filters(
         }
     }
 
-    if payload.unverified_only.unwrap_or(false) {
+    if let Some(ref status) = payload.verification_status {
+        match status.trim().to_ascii_lowercase().as_str() {
+            "unverified" => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("(d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)");
+            }
+            "verified" => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("(d.image_tags_verified = 1 AND d.stitching_tags_verified = 1)");
+            }
+            "partial" => {
+                push_where_clause(query_builder, &mut has_where);
+                query_builder.push("(d.image_tags_verified != d.stitching_tags_verified)");
+            }
+            _ => {}
+        }
+    } else if payload.unverified_only.unwrap_or(false) {
         push_where_clause(query_builder, &mut has_where);
         query_builder.push("(d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)");
     }
@@ -405,6 +424,34 @@ pub(crate) fn push_browse_filters(
                 "master_only" => {
                     push_where_clause(query_builder, &mut has_where);
                     query_builder.push("COALESCE(d.is_master_only, 0) = 1");
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(ref img_ver) = filters.image_tag_verification {
+            match img_ver.trim().to_ascii_lowercase().as_str() {
+                "verified" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("d.image_tags_verified = 1");
+                }
+                "unverified" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("d.image_tags_verified = 0");
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(ref stitch_ver) = filters.stitching_tag_verification {
+            match stitch_ver.trim().to_ascii_lowercase().as_str() {
+                "verified" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("d.stitching_tags_verified = 1");
+                }
+                "unverified" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("d.stitching_tags_verified = 0");
                 }
                 _ => {}
             }

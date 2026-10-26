@@ -4,30 +4,9 @@
 <script>
   import { HOOP_UNKNOWN_FILTER } from "../../utils/hoopConstants.js";
 
-  /** @typedef {import("../../types/ipc").BrowseFilterState} BrowseFilterState */
-  /** @typedef {import("../../types/ipc").BrowseTagOption} BrowseTagOption */
+  /** @typedef {import("../../types/ipc").BrowseFilterPanelProps} BrowseFilterPanelProps */
 
-  /**
-   * @type {{
-   *   browseFilters: BrowseFilterState,
-   *   browseLoading: boolean,
-   *   browseAdditionalFiltersOpen: boolean,
-   *   browseFiltersAreDefault: boolean,
-   *   browseDesignerFilterOptions: string[],
-   *   browseImageTagOptions: BrowseTagOption[],
-   *   browseStitchingTagOptions: BrowseTagOption[],
-   *   browseSourceFilterOptions: string[],
-   *   browseHoopFilterOptions: string[],
-   *   onUpdateFilter: (key: string, value: any) => void,
-   *   onToggleFilter: (key: "designerFilters" | "imageTagFilters" | "stitchingTagFilters" | "sourceFilters", value: string) => void,
-   *   onToggleAdditionalFilters: () => void,
-   *   onClearFilters: () => void,
-   *   onCancelSearch: () => void,
-   *   onClearSearchInput: () => void,
-   *   onSearchKeyDown: (event: KeyboardEvent) => void,
-   *   onApplyFilters: () => void
-   * }}
-   */
+  /** @type {BrowseFilterPanelProps} */
   let {
     browseFilters,
     browseLoading,
@@ -47,6 +26,12 @@
     onSearchKeyDown,
     onApplyFilters,
   } = $props();
+
+  /** @param {Event & { currentTarget: HTMLSelectElement }} e */
+  function onVerificationChange(e) {
+    onUpdateFilter("verificationStatus", e.currentTarget.value);
+    onUpdateFilter("unverifiedOnly", e.currentTarget.value === "unverified");
+  }
 </script>
 
 <form
@@ -57,77 +42,91 @@
   }}
 >
   <div class="ui-section-shell browse-general-search space-y-1.5">
-    <label
-      class="ui-section-label browse-general-search-label block text-xs font-semibold text-[var(--text-secondary)] uppercase"
-      for="browse-q">General search</label
-    >
-    <p></p>
-    <div class="browse-general-search-row flex items-center gap-2">
-      <div class="relative flex-1 min-w-[20rem] flex items-center">
-        <input
-          id="browse-q"
-          class="ui-text-input ui-control-text-inset browse-general-input text-sm w-full font-mono border border-[var(--border-default)] rounded px-3 py-2 pr-24 bg-[var(--surface-input)] text-[var(--text-primary)]"
-          placeholder="e.g. rose &quot;cross stitch&quot; -applique or *.hus"
-          value={browseFilters.q}
-          oninput={(event) => onUpdateFilter("q", event.currentTarget.value)}
-          onkeydown={(event) => onSearchKeyDown(event)}
-        />
-        {#if browseLoading}
-          <div class="absolute right-2 flex items-center gap-1.5 select-none">
-            <svg
-              class="animate-spin h-4 w-4 text-[var(--control-accent)]"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
+    <div class="browse-general-search-row flex items-start gap-3">
+      <div class="flex-1 min-w-[20rem] space-y-1.5">
+        <label
+          class="ui-section-label browse-general-search-label block text-xs font-semibold text-[var(--text-secondary)] uppercase"
+          for="browse-q"
+        >
+          General search
+        </label>
+        <div class="relative w-full flex items-center">
+          <input
+            id="browse-q"
+            class="ui-text-input ui-control-text-inset browse-general-input text-sm w-full font-mono border border-[var(--border-default)] rounded px-3 py-2 pr-24 bg-[var(--surface-input)] text-[var(--text-primary)]"
+            placeholder="e.g. rose &quot;cross stitch&quot; -applique or *.hus"
+            value={browseFilters.q}
+            oninput={(event) => onUpdateFilter("q", event.currentTarget.value)}
+            onkeydown={(event) => onSearchKeyDown(event)}
+          />
+          {#if browseLoading}
+            <div class="absolute right-2 flex items-center gap-1.5 select-none">
+              <svg
+                class="animate-spin h-4 w-4 text-[var(--control-accent)]"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                ></circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <button
+                type="button"
+                class="text-xs font-medium text-[var(--notice-error-text)] bg-[var(--notice-error-bg)] border border-[var(--notice-error-border)] hover:bg-[var(--surface-hover)] px-1.5 py-0.5 rounded transition-colors"
+                title="Cancel search (Esc)"
+                aria-label="Cancel search"
+                onclick={onCancelSearch}
+              >
+                Cancel
+              </button>
+            </div>
+          {:else if browseFilters.q}
             <button
               type="button"
-              class="text-xs font-medium text-[var(--notice-error-text)] bg-[var(--notice-error-bg)] border border-[var(--notice-error-border)] hover:bg-[var(--surface-hover)] px-1.5 py-0.5 rounded transition-colors"
-              title="Cancel search (Esc)"
-              aria-label="Cancel search"
-              onclick={onCancelSearch}
+              class="absolute right-2 text-sm text-[var(--text-dim)] hover:text-[var(--text-primary)] px-1.5 py-0.5"
+              title="Clear search"
+              aria-label="Clear search"
+              onclick={onClearSearchInput}
             >
-              Cancel
+              ✕
             </button>
-          </div>
-        {:else if browseFilters.q}
-          <button
-            type="button"
-            class="absolute right-2 text-sm text-[var(--text-dim)] hover:text-[var(--text-primary)] px-1.5 py-0.5"
-            title="Clear search"
-            aria-label="Clear search"
-            onclick={onClearSearchInput}
-          >
-            ✕
-          </button>
-        {/if}
+          {/if}
+        </div>
       </div>
-      <label
-        class="ui-field-label browse-unverified-label flex items-center gap-1.5 cursor-pointer select-none text-sm text-[var(--text-primary)] whitespace-nowrap"
-      >
-        <input
-          type="checkbox"
-          class="ui-checkbox browse-unverified-checkbox rounded"
-          checked={browseFilters.unverifiedOnly}
-          onchange={(event) => onUpdateFilter("unverifiedOnly", event.currentTarget.checked)}
-        />
-        Unverified only
-      </label>
+      <div class="shrink-0 space-y-1.5">
+        <label
+          for="browse-verification-select"
+          class="ui-section-label block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide cursor-pointer"
+        >
+          Verification
+        </label>
+        <select
+          id="browse-verification-select"
+          class="ui-select-input browse-verification-select border border-[var(--border-default)] rounded px-2.5 py-2 text-xs bg-[var(--surface-input)] text-[var(--text-primary)] h-[38px] cursor-pointer"
+          value={browseFilters.verificationStatus ||
+            (browseFilters.unverifiedOnly ? "unverified" : "all")}
+          onchange={onVerificationChange}
+          data-testid="filter-verification-status"
+          aria-label="Verification status"
+        >
+          <option value="all">All</option>
+          <option value="unverified">Unverified only</option>
+          <option value="verified">Verified only</option>
+          <option value="partial">Partially verified</option>
+        </select>
+      </div>
     </div>
     <div
       class="browse-search-in-row flex flex-wrap items-center gap-4 text-xs text-[var(--text-primary)] my-1.5 py-1.5 px-3 bg-[var(--surface-card-subtle)] rounded border border-[var(--border-default)]"
@@ -387,6 +386,43 @@
           </label>
         </div>
 
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="block font-semibold text-[var(--text-secondary)] mb-1"
+              >Image tag status</span
+            >
+            <select
+              id="filter-image-tag-verification"
+              class="ui-select-input border border-[var(--border-default)] rounded px-2.5 py-1.5 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
+              value={browseFilters.imageTagVerification || "all"}
+              onchange={(e) => onUpdateFilter("imageTagVerification", e.currentTarget.value)}
+              data-testid="filter-image-tag-verification"
+              aria-label="Image tags verification"
+            >
+              <option value="all">Any</option>
+              <option value="verified">Verified</option>
+              <option value="unverified">Unverified</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="block font-semibold text-[var(--text-secondary)] mb-1"
+              >Stitching tag status</span
+            >
+            <select
+              id="filter-stitching-tag-verification"
+              class="ui-select-input border border-[var(--border-default)] rounded px-2.5 py-1.5 w-full bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
+              value={browseFilters.stitchingTagVerification || "all"}
+              onchange={(e) => onUpdateFilter("stitchingTagVerification", e.currentTarget.value)}
+              data-testid="filter-stitching-tag-verification"
+              aria-label="Stitching tags verification"
+            >
+              <option value="all">Any</option>
+              <option value="verified">Verified</option>
+              <option value="unverified">Unverified</option>
+            </select>
+          </label>
+        </div>
+
         <label class="block">
           <span class="block font-semibold text-[var(--text-secondary)] mb-1">Needs attention</span>
           <select
@@ -411,23 +447,23 @@
   <div
     class="flex flex-wrap items-center justify-between gap-3 pt-2 pb-4 text-xs border-t border-[var(--border-subtle)] text-[var(--text-secondary)] px-4"
   >
-    <div class="flex flex-wrap items-center gap-3">
-      <label class="flex items-center gap-1.5 font-medium">
-        Sort by:
+    <div class="flex flex-wrap items-end gap-3">
+      <label class="block font-medium">
+        <span class="block mb-1">Sort by:</span>
         <select
           class="ui-select-input border border-[var(--border-default)] rounded px-2 py-1 bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
           value={browseFilters.sortBy}
           onchange={(e) => onUpdateFilter("sortBy", e.currentTarget.value)}
         >
+          <option value="date_added">Date Added</option>
+          <option value="folder">Folder</option>
           <option value="name">Name</option>
           <option value="rating">Rating</option>
           <option value="stitched">Stitched</option>
-          <option value="folder">Folder</option>
-          <option value="date_added">Date Added</option>
         </select>
       </label>
-      <label class="flex items-center gap-1.5 font-medium">
-        Direction:
+      <label class="block font-medium">
+        <span class="block mb-1">Direction:</span>
         <select
           class="ui-select-input border border-[var(--border-default)] rounded px-2 py-1 bg-[var(--surface-input)] text-xs text-[var(--text-primary)]"
           value={browseFilters.sortDir}
@@ -439,7 +475,7 @@
       </label>
       <button
         type="button"
-        class="browse-search-reset-button text-[var(--text-brand)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+        class="browse-search-reset-button text-[var(--text-brand)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed pb-1.5"
         onclick={onClearFilters}
         disabled={browseFiltersAreDefault}>Reset filters</button
       >
