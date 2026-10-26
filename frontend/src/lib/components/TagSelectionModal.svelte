@@ -243,7 +243,7 @@
       >
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <h2 id="tag-modal-title" class="text-lg font-semibold" style="margin:0;">
-            Choose tags for this design
+            Choose Tags for This Design
           </h2>
         </div>
 

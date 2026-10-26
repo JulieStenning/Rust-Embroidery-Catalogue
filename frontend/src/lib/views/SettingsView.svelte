@@ -1310,7 +1310,7 @@
       </div>
 
       <div class="border-t border-[var(--border-default)] pt-5 space-y-3">
-        <h3 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Storage locations</h3>
+        <h3 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Storage Locations</h3>
         <p class="text-sm text-[var(--text-secondary)]">
           The catalogue database and imported embroidery files live under the catalogue data
           location shown below. Logs are stored separately so they survive data moves.

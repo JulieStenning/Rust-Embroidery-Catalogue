@@ -610,7 +610,7 @@ describe("DesignDetailView", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("dialog", { name: "Choose tags for this design" })
+          screen.getByRole("dialog", { name: "Choose Tags for This Design" })
         ).toBeInTheDocument();
       });
     });

@@ -377,7 +377,7 @@ test.describe.serial("application settings", () => {
 
     // Storage locations section
     await expect(
-      page.getByRole("heading", { name: "Storage locations" }),
+      page.getByRole("heading", { name: "Storage Locations" }),
     ).toBeVisible();
     await expect(
       page.getByText(

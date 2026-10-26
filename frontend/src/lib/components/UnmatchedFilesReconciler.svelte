@@ -170,7 +170,7 @@
     class="route-card rounded shadow p-6 space-y-3 bg-[var(--surface-card)] border border-[var(--border-default)]"
     data-testid="unmatched-files-prompt"
   >
-    <h2 class="text-base font-semibold text-[var(--text-primary)]">Unmatched Files Found</h2>
+    <h2 class="text-base font-semibold text-[var(--text-primary)]">Unmatched files found</h2>
     <p class="text-sm text-[var(--text-secondary)]">
       {$unmatchedFilesStore.count} design file(s) on disk have no record in the catalogue
       {$unmatchedFilesStore.checked > 0 ? `(scanned ${$unmatchedFilesStore.checked})` : ""}. You can

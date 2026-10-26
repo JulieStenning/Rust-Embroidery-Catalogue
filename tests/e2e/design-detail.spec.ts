@@ -507,7 +507,7 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     const tagModal = page.locator(".tag-chooser-dialog");
     await expect(tagModal).toBeVisible();
     await expect(
-      tagModal.getByRole("heading", { name: "Choose tags for this design" }),
+      tagModal.getByRole("heading", { name: "Choose Tags for This Design" }),
     ).toBeVisible();
 
     // Filter tags with search input
