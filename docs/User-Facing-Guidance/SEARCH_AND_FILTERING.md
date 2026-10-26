@@ -57,7 +57,7 @@ Click **Additional Filters** to expand advanced criteria:
 
 ## 🏷️ Active Filter Chips & Accordion Badge
 
-Whenever you select one or more criteria in **Additional Filters** (or select a non-default **Verification** status), the active criteria are displayed immediately beneath the search bar as interactive chips:
+Whenever you select one or more criteria in **Additional Filters**, the active criteria are displayed immediately beneath the search bar as interactive chips:
 
 - **Visibility:** Active filter chips remain visible even when the **Additional Filters** accordion is closed, so you always know what criteria are shaping your search results.
 - **Granular 1-Click Removal:** Each chip features an **✕** button (e.g. `Designer: Urban Threads ✕`, `Width ≥ 50mm ✕`, `Rating: ≥ 4★ ✕`). Clicking the **✕** instantly removes that specific criterion and refreshes the search results without having to expand the drawer or search through options.

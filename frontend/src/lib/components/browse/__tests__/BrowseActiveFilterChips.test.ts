@@ -151,7 +151,7 @@ describe("BrowseActiveFilterChips.svelte", () => {
     expect(screen.getByText("Hoop: Hoop unknown")).toBeInTheDocument();
   });
 
-  it("renders status chips (rating, stitched, verification, needsAttention)", async () => {
+  it("renders status chips (rating, stitched, tag verification, needsAttention)", async () => {
     const onUpdateFilter = vi.fn();
     const filters = createDefaultFilters({
       rating: "4",
@@ -159,7 +159,6 @@ describe("BrowseActiveFilterChips.svelte", () => {
       imageTagVerification: "verified",
       stitchingTagVerification: "unverified",
       needsAttention: "cannot_draw",
-      verificationStatus: "partial",
     });
 
     render(BrowseActiveFilterChips, {
@@ -176,7 +175,6 @@ describe("BrowseActiveFilterChips.svelte", () => {
     expect(screen.getByText("Image tags: Verified")).toBeInTheDocument();
     expect(screen.getByText("Stitching tags: Unverified")).toBeInTheDocument();
     expect(screen.getByText("Needs attention: Cannot be drawn")).toBeInTheDocument();
-    expect(screen.getByText("Verification: Partially verified")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByTestId("active-filter-remove-rating"));
     expect(onUpdateFilter).toHaveBeenCalledWith("rating", "");
@@ -186,10 +184,6 @@ describe("BrowseActiveFilterChips.svelte", () => {
 
     await fireEvent.click(screen.getByTestId("active-filter-remove-needs-attention"));
     expect(onUpdateFilter).toHaveBeenCalledWith("needsAttention", "off");
-
-    await fireEvent.click(screen.getByTestId("active-filter-remove-verification-status"));
-    expect(onUpdateFilter).toHaveBeenCalledWith("verificationStatus", "all");
-    expect(onUpdateFilter).toHaveBeenCalledWith("unverifiedOnly", false);
   });
 
   it("calls onClearFilters when clicking Clear all", async () => {

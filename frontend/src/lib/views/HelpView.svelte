@@ -110,9 +110,8 @@
         tags, sources, hoop size, dimensions (width and height mm ranges), rating, and stitched status.
       </p>
       <p>
-        <strong>Active filter chips:</strong> whenever additional filters (or a verification status)
-        are selected, removable chips appear beneath the search controls. Click the
-        <strong>✕</strong>
+        <strong>Active filter chips:</strong> whenever criteria under Additional filters are
+        selected, removable chips appear beneath the search controls. Click the <strong>✕</strong>
         on any chip to remove that filter instantly, or click <em>Clear all</em>. A counter badge on
         the
         <em>Additional Filters</em> heading shows how many filters are currently active.

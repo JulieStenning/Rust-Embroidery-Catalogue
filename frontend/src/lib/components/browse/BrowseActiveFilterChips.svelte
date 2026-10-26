@@ -16,35 +16,6 @@
       /** @type {BrowseActiveFilterItem[]} */
       const chips = [];
 
-      // Verification status
-      if (browseFilters.verificationStatus && browseFilters.verificationStatus !== "all") {
-        let label = "Verification: Unknown";
-        if (browseFilters.verificationStatus === "unverified")
-          label = "Verification: Unverified only";
-        else if (browseFilters.verificationStatus === "verified")
-          label = "Verification: Verified only";
-        else if (browseFilters.verificationStatus === "partial")
-          label = "Verification: Partially verified";
-
-        chips.push({
-          id: "verification-status",
-          label,
-          onRemove: () => {
-            onUpdateFilter("verificationStatus", "all");
-            onUpdateFilter("unverifiedOnly", false);
-          },
-        });
-      } else if (browseFilters.unverifiedOnly) {
-        chips.push({
-          id: "verification-status",
-          label: "Verification: Unverified only",
-          onRemove: () => {
-            onUpdateFilter("verificationStatus", "all");
-            onUpdateFilter("unverifiedOnly", false);
-          },
-        });
-      }
-
       // Designers
       if (Array.isArray(browseFilters.designerFilters)) {
         for (const designer of browseFilters.designerFilters) {
