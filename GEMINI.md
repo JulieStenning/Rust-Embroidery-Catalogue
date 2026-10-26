@@ -43,6 +43,6 @@ The workspace rules are modularized across `.agents/rules/` for comprehensive de
 3. [`.agents/rules/03-rust-standards.md`](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/.agents/rules/03-rust-standards.md)
    - Zero panics in binary parsing, canonical `designs.filepath` format, instant database schema checks, Criterion benchmarking, and 500-line module limits.
 4. [`.agents/rules/04-frontend-standards.md`](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/.agents/rules/04-frontend-standards.md)
-   - Native Svelte 5 runes, strict typing (no implicit any), 500-line component limit, ADR 010 modal invariant, canonical UI theme tokens, and view testing rules.
+   - Native Svelte 5 runes, strict typing (no implicit any), 500-line component limit, ADR 010 modal invariant, canonical UI theme tokens, initial capitals for h2 section headings, and view testing rules.
 5. [`.agents/rules/05-testing-and-benchmarks.md`](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/.agents/rules/05-testing-and-benchmarks.md)
    - MainView dual-suite discipline, Playwright WebView2 CDP setup, formatting & command gotchas, and execution benchmark table with polling cadence guidelines.

@@ -240,7 +240,7 @@ describe("ImportView unmatched files reconciliation", () => {
   it("does not render the unmatched files reconciler card on Step 1", async () => {
     renderHarness("#/import");
     expect(
-      screen.queryByRole("heading", { name: "Find unmatched design files" })
+      screen.queryByRole("heading", { name: /Find Unmatched Design Files/i })
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId("scan-unmatched-button")).not.toBeInTheDocument();
   });

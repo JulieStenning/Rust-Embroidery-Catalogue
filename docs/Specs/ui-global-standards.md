@@ -141,6 +141,10 @@ Page specs can define element-specific behavior across these breakpoints but sho
 </p>
 ```
 
+### ⚠️ Rule 4: Initial Capitals for Section & Card Headings (h2)
+**Problem:** Inconsistent casing across card and section titles (some sentence case, some title case) creates visual dissonance and degrades desktop look-and-feel consistency.
+**Requirement:** All section, card, and panel headings (`<h2>` level, standard styling `text-base font-semibold text-[var(--text-primary)]`) MUST use **Title Case / Initial Capitals** (e.g. *Find Unmatched Design Files*, *Missing Design Files (Orphans)*, *Backup Destinations*, *Database Backup*, *Restore Database*). Never use sentence case for `<h2>` headings.
+
 ---
 
 ## 6. Action Semantics: Cancel vs Stop (ADR 011)

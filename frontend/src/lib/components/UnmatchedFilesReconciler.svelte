@@ -146,7 +146,7 @@
 <div
   class="route-card rounded shadow p-6 space-y-3 bg-[var(--surface-card)] border border-[var(--border-default)]"
 >
-  <h2 class="text-base font-semibold text-[var(--text-primary)]">Find unmatched design files</h2>
+  <h2 class="text-base font-semibold text-[var(--text-primary)]">Find Unmatched Design Files</h2>
   <p class="text-sm text-[var(--text-secondary)]">
     Scans <code>MachineEmbroideryDesigns</code> for design files that have no record in the catalogue
     — for example after syncing designs from a backup without restoring the database. You can then import
@@ -170,7 +170,7 @@
     class="route-card rounded shadow p-6 space-y-3 bg-[var(--surface-card)] border border-[var(--border-default)]"
     data-testid="unmatched-files-prompt"
   >
-    <h2 class="text-base font-semibold text-[var(--text-primary)]">Unmatched files found</h2>
+    <h2 class="text-base font-semibold text-[var(--text-primary)]">Unmatched Files Found</h2>
     <p class="text-sm text-[var(--text-secondary)]">
       {$unmatchedFilesStore.count} design file(s) on disk have no record in the catalogue
       {$unmatchedFilesStore.checked > 0 ? `(scanned ${$unmatchedFilesStore.checked})` : ""}. You can
