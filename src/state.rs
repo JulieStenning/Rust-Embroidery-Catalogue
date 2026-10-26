@@ -139,6 +139,7 @@ pub struct TaskCoordinator {
     pub bulk_import_scan_cancel_requested: AtomicBool,
     pub backup_cancel_requested: AtomicBool,
     pub restore_cancel_requested: AtomicBool,
+    pub unmatched_scan_cancel_requested: AtomicBool,
 }
 
 /// Shared application state managed by Tauri.

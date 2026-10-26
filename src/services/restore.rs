@@ -512,9 +512,22 @@ async fn load_enabled_master_formats(pool: &SqlitePool) -> Vec<String> {
 pub async fn detect_design_files_absent_from_database(
     pool: &SqlitePool,
     designs_root: &Path,
+    cancel_flag: Option<&AtomicBool>,
 ) -> Result<DetectUnmatchedFilesResult, String> {
-    let disk = mnt::collect_file_snapshots(designs_root, true)?;
+    let disk = mnt::collect_file_snapshots_with_cancel(designs_root, true, cancel_flag)?;
+    if cancel_flag
+        .map(|f| f.load(Ordering::Relaxed))
+        .unwrap_or(false)
+    {
+        return Err("Scan cancelled".to_string());
+    }
     let referenced = referenced_design_paths(pool, designs_root).await?;
+    if cancel_flag
+        .map(|f| f.load(Ordering::Relaxed))
+        .unwrap_or(false)
+    {
+        return Err("Scan cancelled".to_string());
+    }
     let master_formats = load_enabled_master_formats(pool).await;
 
     let mut unmatched: Vec<String> = disk

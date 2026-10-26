@@ -94,6 +94,28 @@ fn request_stop_restore_sets_flag() {
     assert!(result.stop_requested);
 }
 
+#[tokio::test]
+#[serial]
+async fn request_cancel_unmatched_scan_sets_flag() {
+    let pool = restore_test_pool().await;
+    let app = tauri::test::mock_app();
+    app.manage(command_app_state(pool));
+    let app_state = app.state::<AppState>();
+
+    assert!(!app_state
+        .tasks
+        .unmatched_scan_cancel_requested
+        .load(Ordering::SeqCst));
+    let result = request_cancel_unmatched_scan(app_state);
+    assert!(result.cancel_requested);
+
+    let app_state_after = app.state::<AppState>();
+    assert!(app_state_after
+        .tasks
+        .unmatched_scan_cancel_requested
+        .load(Ordering::SeqCst));
+}
+
 #[test]
 fn restore_guard_resets_flag_on_drop() {
     let flag = AtomicBool::new(true);

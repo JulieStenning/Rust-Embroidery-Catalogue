@@ -63,6 +63,11 @@ pub struct CancelRestoreResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct CancelUnmatchedScanResult {
+    pub cancel_requested: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct StopRestoreResult {
     pub stop_requested: bool,
 }
@@ -168,6 +173,18 @@ pub fn request_stop_restore() -> StopRestoreResult {
     RESTORE_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
     StopRestoreResult {
         stop_requested: true,
+    }
+}
+
+/// Raise the cooperative unmatched files scan cancel flag.
+#[tauri::command]
+pub fn request_cancel_unmatched_scan(state: State<'_, AppState>) -> CancelUnmatchedScanResult {
+    state
+        .tasks
+        .unmatched_scan_cancel_requested
+        .store(true, Ordering::SeqCst);
+    CancelUnmatchedScanResult {
+        cancel_requested: true,
     }
 }
 
@@ -477,7 +494,7 @@ pub async fn restore_both(
         .db
         .pool()
         .ok_or_else(|| "The database pool is unavailable.".to_string())?;
-    let unmatched = restore::detect_design_files_absent_from_database(&pool, &dest_root)
+    let unmatched = restore::detect_design_files_absent_from_database(&pool, &dest_root, None)
         .await
         .ok();
     tracing::info!(
@@ -521,7 +538,14 @@ pub async fn detect_design_files_absent_from_database(
 ) -> Result<restore::DetectUnmatchedFilesResult, String> {
     let pool = state.db_pool()?;
     let dest_root = mnt::derive_designs_source_path();
-    match restore::detect_design_files_absent_from_database(&pool, &dest_root).await {
+    state
+        .tasks
+        .unmatched_scan_cancel_requested
+        .store(false, Ordering::SeqCst);
+    let cancel_flag = &state.tasks.unmatched_scan_cancel_requested;
+    match restore::detect_design_files_absent_from_database(&pool, &dest_root, Some(cancel_flag))
+        .await
+    {
         Ok(result) => {
             tracing::info!(
                 "[restore] detect_design_files_absent_from_database checked={} unmatched={}",

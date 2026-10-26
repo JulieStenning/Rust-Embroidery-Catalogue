@@ -18,6 +18,7 @@ const adapterMocks = vi.hoisted(() => ({
   detectDesignFilesAbsentFromDatabase: vi.fn(),
   importUnmatchedDesignFiles: vi.fn(),
   requestStopRestore: vi.fn(),
+  requestCancelUnmatchedScan: vi.fn(),
 }));
 vi.mock("../../api/commandAdapter", () => adapterMocks);
 
@@ -270,5 +271,43 @@ describe("UnmatchedFilesReconciler", () => {
         "warning"
       )
     );
+  });
+
+  it("cancels a running scan, disables button during cancelling, and leaves no prompt", async () => {
+    let resolveScan!: (value: unknown) => void;
+    adapterMocks.detectDesignFilesAbsentFromDatabase.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveScan = resolve;
+        })
+    );
+    adapterMocks.requestCancelUnmatchedScan.mockResolvedValue({
+      source: "rust",
+      cancel_requested: true,
+    });
+    render(UnmatchedFilesReconciler);
+
+    await fireEvent.click(screen.getByTestId("scan-unmatched-button"));
+
+    const cancelBtn = await screen.findByTestId("cancel-unmatched-scan");
+    expect(cancelBtn).toHaveTextContent("Cancel");
+    expect(cancelBtn).not.toBeDisabled();
+
+    await fireEvent.click(cancelBtn);
+    expect(adapterMocks.requestCancelUnmatchedScan).toHaveBeenCalledTimes(1);
+    expect(cancelBtn).toBeDisabled();
+    expect(cancelBtn).toHaveTextContent("Cancelling…");
+
+    resolveScan({
+      source: "mock",
+      error: "Scan cancelled",
+      checked: 0,
+      unmatched: 0,
+      sample: [],
+    });
+
+    await waitFor(() => expect(toastMock.addToast).toHaveBeenCalledWith("Scan cancelled.", "info"));
+    expect(screen.queryByTestId("unmatched-files-prompt")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cancel-unmatched-scan")).not.toBeInTheDocument();
   });
 });

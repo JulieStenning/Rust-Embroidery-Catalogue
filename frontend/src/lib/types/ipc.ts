@@ -1087,6 +1087,10 @@ export interface CancelRestoreResult {
   cancel_requested: boolean;
 }
 
+export interface CancelUnmatchedScanResult {
+  cancel_requested: boolean;
+}
+
 export interface StopRestoreResult {
   stop_requested: boolean;
 }

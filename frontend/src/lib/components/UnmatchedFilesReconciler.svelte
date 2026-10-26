@@ -9,6 +9,7 @@
     detectDesignFilesAbsentFromDatabase,
     importUnmatchedDesignFiles,
     requestStopRestore,
+    requestCancelUnmatchedScan,
   } from "../api/commandAdapter";
   import {
     unmatchedFilesStore,
@@ -20,6 +21,7 @@
 
   let busyActive = $derived($busyState.active);
   let scanning = $state(false);
+  let scanCancelPending = $state(false);
   let importing = $state(false);
   let stopping = $state(false);
   let totalToImport = $state(0);
@@ -59,9 +61,14 @@
   async function handleScan() {
     if (scanning || busyActive) return;
     scanning = true;
+    scanCancelPending = false;
     beginBusy("Scanning for unmatched design files");
     try {
       const result = await detectDesignFilesAbsentFromDatabase();
+      if (scanCancelPending || /cancelled/i.test(result?.error || "")) {
+        addToast("Scan cancelled.", "info");
+        return;
+      }
       if (result.error) {
         addToast(`Scan failed: ${result.error}`, "error");
         return;
@@ -81,10 +88,26 @@
         );
       }
     } catch (error) {
-      addToast(`Scan failed: ${error}`, "error");
+      if (scanCancelPending || /cancelled/i.test(String(error))) {
+        addToast("Scan cancelled.", "info");
+      } else {
+        addToast(`Scan failed: ${error}`, "error");
+      }
     } finally {
       scanning = false;
+      scanCancelPending = false;
       endBusy();
+    }
+  }
+
+  /** Ask the backend to cancel the running unmatched files scan. */
+  async function handleCancelScan() {
+    if (!scanning || scanCancelPending) return;
+    scanCancelPending = true;
+    try {
+      await requestCancelUnmatchedScan();
+    } catch {
+      scanCancelPending = false;
     }
   }
 
@@ -162,6 +185,17 @@
     >
       {scanning ? "Scanning…" : "Scan for unmatched files"}
     </button>
+    {#if scanning}
+      <button
+        type="button"
+        class="menu-button-secondary"
+        onclick={handleCancelScan}
+        disabled={scanCancelPending}
+        data-testid="cancel-unmatched-scan"
+      >
+        {scanCancelPending ? "Cancelling…" : "Cancel"}
+      </button>
+    {/if}
   </div>
 </div>
 

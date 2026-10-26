@@ -257,7 +257,7 @@ async fn detect_design_files_absent_from_database_reports_unreferenced_files() {
         .await
         .expect("open db");
 
-    let result = detect_design_files_absent_from_database(&pool, &root)
+    let result = detect_design_files_absent_from_database(&pool, &root, None)
         .await
         .unwrap();
     assert_eq!(result.checked, 2);
@@ -860,7 +860,7 @@ async fn detect_unmatched_files_includes_configured_master_formats() {
     .await
     .unwrap();
 
-    let result = detect_design_files_absent_from_database(&pool, &root)
+    let result = detect_design_files_absent_from_database(&pool, &root, None)
         .await
         .unwrap();
 
@@ -890,7 +890,7 @@ async fn detect_unmatched_files_ignores_unconfigured_master_formats() {
         .expect("open db");
 
     // Setting is empty
-    let result = detect_design_files_absent_from_database(&pool, &root)
+    let result = detect_design_files_absent_from_database(&pool, &root, None)
         .await
         .unwrap();
 
@@ -933,7 +933,7 @@ async fn detect_unmatched_files_treats_master_filepath_as_referenced() {
     .await
     .unwrap();
 
-    let result = detect_design_files_absent_from_database(&pool, &root)
+    let result = detect_design_files_absent_from_database(&pool, &root, None)
         .await
         .unwrap();
 
@@ -942,6 +942,32 @@ async fn detect_unmatched_files_treats_master_filepath_as_referenced() {
         result.unmatched, 0,
         "both stitch and master files are already referenced in database"
     );
+
+    pool.close().await;
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn detect_unmatched_files_respects_cancellation() {
+    let tmp = unique_temp_dir("detect-cancel");
+    let root = tmp.join("MachineEmbroideryDesigns");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("stitch.pes"), b"stitch").unwrap();
+
+    let db_path = tmp.join("test.db");
+    make_db(&db_path, &[]).await;
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&db_path))
+        .await
+        .expect("open db");
+
+    let cancel_flag = std::sync::atomic::AtomicBool::new(true);
+    let result = detect_design_files_absent_from_database(&pool, &root, Some(&cancel_flag)).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Scan cancelled");
 
     pool.close().await;
     let _ = fs::remove_dir_all(&tmp);

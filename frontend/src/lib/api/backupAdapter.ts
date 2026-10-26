@@ -11,6 +11,7 @@ import type {
   BackupViewModel,
   CancelBackupResult,
   CancelRestoreResult,
+  CancelUnmatchedScanResult,
   StopRestoreResult,
   DatabaseBackupResult,
   DetectUnmatchedFilesResult,
@@ -530,5 +531,22 @@ export async function requestStopRestore(): Promise<{ source: string } & StopRes
     };
   } catch {
     return { source: "mock", stop_requested: false };
+  }
+}
+
+/**
+ * Raise the cooperative unmatched files scan cancel flag.
+ */
+export async function requestCancelUnmatchedScan(): Promise<
+  { source: string } & CancelUnmatchedScanResult
+> {
+  try {
+    const result = await invokeLoose<LooseRecord>("request_cancel_unmatched_scan");
+    return {
+      source: "rust",
+      cancel_requested: Boolean(result?.cancel_requested ?? result?.cancelRequested),
+    };
+  } catch {
+    return { source: "mock", cancel_requested: false };
   }
 }

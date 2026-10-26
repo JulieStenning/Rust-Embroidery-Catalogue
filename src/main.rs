@@ -641,6 +641,7 @@ fn main() {
             routes::restore::import_unmatched_design_files,
             routes::restore::request_cancel_restore,
             routes::restore::request_stop_restore,
+            routes::restore::request_cancel_unmatched_scan,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

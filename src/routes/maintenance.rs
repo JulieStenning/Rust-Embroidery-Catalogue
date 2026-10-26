@@ -1390,12 +1390,20 @@ pub(crate) fn collect_file_snapshots(
     root: &Path,
     skip_deleted_tree: bool,
 ) -> Result<HashMap<PathBuf, FileSnapshot>, String> {
+    collect_file_snapshots_with_cancel(root, skip_deleted_tree, None)
+}
+
+pub(crate) fn collect_file_snapshots_with_cancel(
+    root: &Path,
+    skip_deleted_tree: bool,
+    cancel_flag: Option<&AtomicBool>,
+) -> Result<HashMap<PathBuf, FileSnapshot>, String> {
     let mut map = HashMap::new();
     if !root.exists() {
         return Ok(map);
     }
 
-    collect_file_snapshots_recursive(root, root, skip_deleted_tree, &mut map)?;
+    collect_file_snapshots_recursive(root, root, skip_deleted_tree, &mut map, cancel_flag)?;
     Ok(map)
 }
 
@@ -1404,8 +1412,21 @@ pub(crate) fn collect_file_snapshots_recursive(
     current: &Path,
     skip_deleted_tree: bool,
     map: &mut HashMap<PathBuf, FileSnapshot>,
+    cancel_flag: Option<&AtomicBool>,
 ) -> Result<(), String> {
+    if cancel_flag
+        .map(|f| f.load(Ordering::Relaxed))
+        .unwrap_or(false)
+    {
+        return Err("Scan cancelled".to_string());
+    }
     for entry in fs::read_dir(current).map_err(|error| error.to_string())? {
+        if cancel_flag
+            .map(|f| f.load(Ordering::Relaxed))
+            .unwrap_or(false)
+        {
+            return Err("Scan cancelled".to_string());
+        }
         let entry = entry.map_err(|error| error.to_string())?;
         let path = entry.path();
         let file_type = entry.file_type().map_err(|error| error.to_string())?;
@@ -1419,7 +1440,7 @@ pub(crate) fn collect_file_snapshots_recursive(
         }
 
         if file_type.is_dir() {
-            collect_file_snapshots_recursive(root, &path, skip_deleted_tree, map)?;
+            collect_file_snapshots_recursive(root, &path, skip_deleted_tree, map, cancel_flag)?;
             continue;
         }
 

@@ -77,6 +77,7 @@ import {
   browseRestoreFile,
   detectDesignFilesAbsentFromDatabase,
   importUnmatchedDesignFiles,
+  requestCancelUnmatchedScan,
   runStitchingBackfill,
   runUnifiedBackfill,
   saveBackupSettings,
@@ -3113,5 +3114,13 @@ describe("restore adapters", () => {
     expect(result.imported).toBe(2);
     expect(result.flagged).toBe(1);
     expect(result.cancelled).toBe(true);
+  });
+
+  it("requestCancelUnmatchedScan maps result", async () => {
+    invokeMock.mockResolvedValue({ cancel_requested: true });
+    const result = await requestCancelUnmatchedScan();
+    expect(invokeMock).toHaveBeenCalledWith("request_cancel_unmatched_scan");
+    expect(result.source).toBe("rust");
+    expect(result.cancel_requested).toBe(true);
   });
 });
