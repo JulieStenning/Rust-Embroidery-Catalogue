@@ -12,6 +12,8 @@
     - ✅ `@DesignDetailView.svelte`, `@MainView.svelte`
     - ❌ `'@DesignDetailView.svelte'`, `"@MainView.svelte"`, `DesignDetailView.svelte`
 
+- **Mandatory Documentation Updates on Functional Changes:** Whenever user-facing functionality, UI workflows, or features are introduced, modified, or extended, you must update the relevant in-app help (@HelpView.svelte) and user-facing guidance (in `docs/User-Facing-Guidance/`), and maintain test coverage in `HelpView.test.ts`.
+
 ### Svelte Module Inventory (Current as of October 2026)
 
 **Primary Views (`frontend/src/lib/views/` & `frontend/src/lib/`):**
@@ -40,7 +42,9 @@
 **Shared Components & Modals (`frontend/src/lib/components/`):**
 
 - @App.svelte
+- @BrowseActiveFilterChips.svelte
 - @BrowseCardGrid.svelte
+- @BrowseFilterCheckboxList.svelte
 - @BrowseFilterPanel.svelte
 - @BrowseSelectionBar.svelte
 - @CancelBackupModal.svelte
@@ -86,3 +90,5 @@ The plan must be structural and high-level—**no code snippets or pseudocode**�
    - A short, numbered list of the order of execution.
    - Targeted unit and integration test commands (Vitest, `cargo test`).
    - **Mandatory Playwright E2E Coverage:** For any UI changes, interactive workflows, modal behavior, button states (e.g. enabled, disabled, busy), or navigation changes, explicitly specify the Playwright E2E test file (`tests/e2e/*.spec.ts`) and test scenario to add or update.
+5. **Documentation Updates Plan:**
+   - Explicitly identify the user-facing guidance documents (`docs/User-Facing-Guidance/*.md`) and the section(s) in @HelpView.svelte to update, along with corresponding assertions in `HelpView.test.ts`.

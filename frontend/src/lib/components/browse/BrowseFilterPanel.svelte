@@ -3,6 +3,8 @@
 
 <script>
   import { HOOP_UNKNOWN_FILTER } from "../../utils/hoopConstants.js";
+  import BrowseActiveFilterChips from "./BrowseActiveFilterChips.svelte";
+  import BrowseFilterCheckboxList from "./BrowseFilterCheckboxList.svelte";
 
   /** @typedef {import("../../types/ipc").BrowseFilterPanelProps} BrowseFilterPanelProps */
 
@@ -26,6 +28,29 @@
     onSearchKeyDown,
     onApplyFilters,
   } = $props();
+
+  let additionalFiltersActiveCount = $derived(
+    (Array.isArray(browseFilters.designerFilters) ? browseFilters.designerFilters.length : 0) +
+      (Array.isArray(browseFilters.imageTagFilters) ? browseFilters.imageTagFilters.length : 0) +
+      (Array.isArray(browseFilters.stitchingTagFilters)
+        ? browseFilters.stitchingTagFilters.length
+        : 0) +
+      (Array.isArray(browseFilters.sourceFilters) ? browseFilters.sourceFilters.length : 0) +
+      (browseFilters.hoop ? 1 : 0) +
+      (browseFilters.minWidth && browseFilters.minWidth.trim() !== "" ? 1 : 0) +
+      (browseFilters.maxWidth && browseFilters.maxWidth.trim() !== "" ? 1 : 0) +
+      (browseFilters.minHeight && browseFilters.minHeight.trim() !== "" ? 1 : 0) +
+      (browseFilters.maxHeight && browseFilters.maxHeight.trim() !== "" ? 1 : 0) +
+      (browseFilters.rating && browseFilters.rating.trim() !== "" ? 1 : 0) +
+      (browseFilters.stitched && browseFilters.stitched !== "all" && browseFilters.stitched !== ""
+        ? 1
+        : 0) +
+      (browseFilters.imageTagVerification && browseFilters.imageTagVerification !== "all" ? 1 : 0) +
+      (browseFilters.stitchingTagVerification && browseFilters.stitchingTagVerification !== "all"
+        ? 1
+        : 0) +
+      (browseFilters.needsAttention && browseFilters.needsAttention !== "off" ? 1 : 0)
+  );
 
   /** @param {Event & { currentTarget: HTMLSelectElement }} e */
   function onVerificationChange(e) {
@@ -173,12 +198,14 @@
     </p>
   </div>
 
+  <BrowseActiveFilterChips {browseFilters} {onUpdateFilter} {onToggleFilter} {onClearFilters} />
+
   <details
     class="ui-section-shell browse-additional-filters overflow-visible relative"
     open={browseAdditionalFiltersOpen}
   >
     <summary
-      class="ui-section-label browse-additional-summary cursor-pointer text-xs font-semibold text-[var(--text-secondary)] uppercase select-none list-none flex items-center gap-1"
+      class="ui-section-label browse-additional-summary cursor-pointer text-xs font-semibold text-[var(--text-secondary)] uppercase select-none list-none flex items-center gap-1.5"
       onclick={(event) => {
         event.preventDefault();
         onToggleAdditionalFilters();
@@ -186,97 +213,49 @@
     >
       <span>{browseAdditionalFiltersOpen ? "▼" : "▶"}</span>
       <span>Additional Filters</span>
+      {#if additionalFiltersActiveCount > 0}
+        <span
+          class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[var(--control-accent)] text-white select-none leading-tight"
+          data-testid="additional-filters-count-badge"
+        >
+          {additionalFiltersActiveCount}
+        </span>
+      {/if}
     </summary>
     <div
       class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-[var(--border-subtle)] mt-2 px-4"
     >
       <!-- Designers Filter -->
-      <div class="space-y-1">
-        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Designer</span>
-        <div
-          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
-        >
-          {#each browseDesignerFilterOptions as opt}
-            <label
-              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={browseFilters.designerFilters.includes(opt)}
-                onchange={() => onToggleFilter("designerFilters", opt)}
-                class="ui-checkbox rounded"
-              />
-              <span>{opt}</span>
-            </label>
-          {/each}
-        </div>
-      </div>
+      <BrowseFilterCheckboxList
+        title="Designer"
+        options={browseDesignerFilterOptions}
+        selected={browseFilters.designerFilters}
+        onToggle={(opt) => onToggleFilter("designerFilters", opt)}
+      />
 
       <!-- Image Tags Filter -->
-      <div class="space-y-1">
-        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Image tags</span>
-        <div
-          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
-        >
-          {#each browseImageTagOptions as opt}
-            <label
-              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={browseFilters.imageTagFilters.includes(opt.description)}
-                onchange={() => onToggleFilter("imageTagFilters", opt.description)}
-                class="ui-checkbox rounded"
-              />
-              <span>{opt.description}</span>
-            </label>
-          {/each}
-        </div>
-      </div>
+      <BrowseFilterCheckboxList
+        title="Image tags"
+        options={browseImageTagOptions}
+        selected={browseFilters.imageTagFilters}
+        onToggle={(opt) => onToggleFilter("imageTagFilters", opt)}
+      />
 
       <!-- Stitching Tags Filter -->
-      <div class="space-y-1">
-        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Stitching tags</span>
-        <div
-          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
-        >
-          {#each browseStitchingTagOptions as opt}
-            <label
-              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={browseFilters.stitchingTagFilters.includes(opt.description)}
-                onchange={() => onToggleFilter("stitchingTagFilters", opt.description)}
-                class="ui-checkbox rounded"
-              />
-              <span>{opt.description}</span>
-            </label>
-          {/each}
-        </div>
-      </div>
+      <BrowseFilterCheckboxList
+        title="Stitching tags"
+        options={browseStitchingTagOptions}
+        selected={browseFilters.stitchingTagFilters}
+        onToggle={(opt) => onToggleFilter("stitchingTagFilters", opt)}
+      />
 
       <!-- Sources Filter -->
-      <div class="space-y-1">
-        <span class="block text-xs font-semibold text-[var(--text-secondary)]">Source</span>
-        <div
-          class="border border-[var(--border-default)] rounded bg-[var(--surface-input)] max-h-36 overflow-auto p-1.5 space-y-1"
-        >
-          {#each browseSourceFilterOptions as opt}
-            <label
-              class="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={browseFilters.sourceFilters.includes(opt)}
-                onchange={() => onToggleFilter("sourceFilters", opt)}
-                class="ui-checkbox rounded"
-              />
-              <span>{opt}</span>
-            </label>
-          {/each}
-        </div>
-      </div>
+      <BrowseFilterCheckboxList
+        title="Source"
+        options={browseSourceFilterOptions}
+        selected={browseFilters.sourceFilters}
+        onToggle={(opt) => onToggleFilter("sourceFilters", opt)}
+      />
 
       <!-- Other Properties & Dimensions -->
       <div class="space-y-2.5 text-xs sm:col-span-2 md:col-span-2">

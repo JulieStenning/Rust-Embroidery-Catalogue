@@ -55,9 +55,20 @@ Click **Additional Filters** to expand advanced criteria:
 
 ---
 
+## 🏷️ Active Filter Chips & Accordion Badge
+
+Whenever you select one or more criteria in **Additional Filters** (or select a non-default **Verification** status), the active criteria are displayed immediately beneath the search bar as interactive chips:
+
+- **Visibility:** Active filter chips remain visible even when the **Additional Filters** accordion is closed, so you always know what criteria are shaping your search results.
+- **Granular 1-Click Removal:** Each chip features an **✕** button (e.g. `Designer: Urban Threads ✕`, `Width ≥ 50mm ✕`, `Rating: ≥ 4★ ✕`). Clicking the **✕** instantly removes that specific criterion and refreshes the search results without having to expand the drawer or search through options.
+- **Clear All:** A **Clear all** link appears beside the chips to reset all active filter criteria in one action.
+- **Accordion Count Badge:** The **Additional Filters** heading displays a numbered pill badge (e.g. `Additional Filters [3]`) indicating the exact number of active filter criteria currently applied.
+
+---
+
 ## 🔄 Resetting Filters
 
-Click **Reset filters** at the bottom of the filter controls or clear the general search input to restore default browse view settings.
+Click **Reset filters** at the bottom of the filter controls, click **Clear all** in the active filter chips row, or clear the general search input to restore default browse view settings.
 
 ---
 

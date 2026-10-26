@@ -94,6 +94,25 @@ export interface BrowseFilterPanelProps {
   onApplyFilters: () => void;
 }
 
+export interface BrowseActiveFilterItem {
+  id: string;
+  label: string;
+  onRemove: () => void;
+}
+
+export interface BrowseActiveFilterChipsProps {
+  browseFilters: BrowseFilterState;
+  onUpdateFilter: (
+    key: keyof BrowseFilterState,
+    value: BrowseFilterState[keyof BrowseFilterState]
+  ) => void;
+  onToggleFilter: (
+    key: "designerFilters" | "imageTagFilters" | "stitchingTagFilters" | "sourceFilters",
+    value: string
+  ) => void;
+  onClearFilters: () => void;
+}
+
 /** Progress streamed from Rust during catalogue storage migration. */
 export interface StorageMigrationProgress {
   current_phase:

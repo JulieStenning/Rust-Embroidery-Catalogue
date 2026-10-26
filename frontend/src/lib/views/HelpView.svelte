@@ -110,6 +110,14 @@
         tags, sources, hoop size, dimensions (width and height mm ranges), rating, and stitched status.
       </p>
       <p>
+        <strong>Active filter chips:</strong> whenever additional filters (or a verification status)
+        are selected, removable chips appear beneath the search controls. Click the
+        <strong>✕</strong>
+        on any chip to remove that filter instantly, or click <em>Clear all</em>. A counter badge on
+        the
+        <em>Additional Filters</em> heading shows how many filters are currently active.
+      </p>
+      <p>
         <strong>Dimension ranges:</strong> specify minimum and/or maximum width or height in mm. Setting
         only a maximum (e.g. Max H: 80) matches designs from 0mm up to 80mm; setting only a minimum (e.g.
         Min W: 100) matches all designs 100mm and wider.

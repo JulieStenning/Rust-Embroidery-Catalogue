@@ -10,12 +10,14 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
 - **Direct Implementation on Approved Tasks:** When explicitly tasked with implementing features, fixing bugs, or writing tests, directly write and modify the code and verify it with the appropriate test commands.
 - **Svelte Module Reference Syntax (CRITICAL):**
   - Always reference Svelte view and component modules using a bare `@` prefix **without quotes** so IDE navigation works (e.g. `@DesignDetailView.svelte`, `@MainView.svelte`, `@ImportView.svelte`).
+- **Mandatory Documentation Updates on Functional Changes:** Whenever user-facing functionality, UI workflows, or features are introduced, modified, or extended, you must update the relevant in-app help (@HelpView.svelte) and user-facing guidance (`docs/User-Facing-Guidance/`), and update test coverage in `HelpView.test.ts`.
 - **Pre-Execution Planning (Required Before Changes):**
   - Produce a concise structural implementation plan covering:
     1. Affected Files & Scope Boundary
     2. Boundary & IPC Contracts (Tauri v2 ↔ Svelte, camelCase JS keys)
     3. Specification & Safety Constraints (read-only original designs, SQLite schema)
     4. Step-by-Step Execution Sequence & Test Plan (Vitest, `cargo test`, and mandatory Playwright E2E coverage for UI changes)
+    5. Documentation Updates Plan (@HelpView.svelte & `docs/User-Facing-Guidance/`)
 
 ---
 

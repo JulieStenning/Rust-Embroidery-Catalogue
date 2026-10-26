@@ -505,6 +505,48 @@ test.describe("reference filters", () => {
     await expectTitles(page, ["Bean Z.jef"]);
   });
 
+  test("shows active filter chips and accordion count badge, allows individual chip dismissal and clear all", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await openFilters(page);
+
+    // Select a designer
+    await optionCheckbox(page, "Designer", "Thistlebury Stitch").click();
+
+    // Chip appears and accordion badge shows 1
+    const chipsContainer = page.locator('[data-testid="active-filter-chips"]');
+    await expect(chipsContainer).toBeVisible();
+    await expect(chipsContainer).toContainText("Designer: Thistlebury Stitch");
+    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveText("1");
+
+    // Close accordion - chip should remain visible
+    await page.locator("summary.browse-additional-summary").click();
+    await expect(chipsContainer).toBeVisible();
+    await expect(chipsContainer).toContainText("Designer: Thistlebury Stitch");
+
+    // Click chip dismiss button
+    const removeBtn = page.locator('[data-testid="active-filter-remove-designer-Thistlebury Stitch"]');
+    await removeBtn.click();
+
+    // Chip disappears, badge disappears
+    await expect(chipsContainer).toHaveCount(0);
+    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveCount(0);
+
+    // Reopen and select multiple filters to verify "Clear all"
+    await openFilters(page);
+    await optionCheckbox(page, "Designer", "Thistlebury Stitch").click();
+    await optionCheckbox(page, "Source", "Threadwise Guild").click();
+    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveText("2");
+    await expect(chipsContainer).toContainText("Designer: Thistlebury Stitch");
+    await expect(chipsContainer).toContainText("Source: Threadwise Guild");
+
+    // Click "Clear all" in active chips row
+    await page.locator('[data-testid="active-filters-clear-all"]').click();
+    await expect(chipsContainer).toHaveCount(0);
+    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveCount(0);
+  });
+
   test("filters by hoop, minimum rating and stitched status", async ({
     page,
   }) => {
