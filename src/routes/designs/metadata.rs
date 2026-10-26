@@ -131,7 +131,7 @@ pub(crate) async fn update_design_metadata_with_pool(
     let notes = normalize_optional_text(&request.notes);
 
     sqlx::query(
-        "UPDATE designs SET notes = ?, designer_id = ?, source_id = ?, hoop_id = ? WHERE id = ?",
+        "UPDATE designs SET notes = ?, designer_id = ?, source_id = ?, hoop_id = ?, date_updated = datetime('now') WHERE id = ?",
     )
     .bind(notes)
     .bind(designer_id)
@@ -156,7 +156,7 @@ pub(crate) async fn set_design_rating_with_pool(
     ensure_design_exists(pool, design_id).await?;
     let normalized = validate_rating(rating)?;
 
-    sqlx::query("UPDATE designs SET rating = ? WHERE id = ?")
+    sqlx::query("UPDATE designs SET rating = ?, date_updated = datetime('now') WHERE id = ?")
         .bind(normalized)
         .bind(design_id)
         .execute(pool)
@@ -176,7 +176,7 @@ pub(crate) async fn set_design_stitched_with_pool(
 ) -> Result<DesignCommandResult, String> {
     ensure_design_exists(pool, design_id).await?;
 
-    sqlx::query("UPDATE designs SET is_stitched = ? WHERE id = ?")
+    sqlx::query("UPDATE designs SET is_stitched = ?, date_updated = datetime('now') WHERE id = ?")
         .bind(is_stitched)
         .bind(design_id)
         .execute(pool)
@@ -198,20 +198,24 @@ pub(crate) async fn set_design_verification_with_pool(
     ensure_design_exists(pool, design_id).await?;
 
     if let Some(value) = image_tags_verified {
-        sqlx::query("UPDATE designs SET image_tags_verified = ? WHERE id = ?")
-            .bind(value)
-            .bind(design_id)
-            .execute(pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "UPDATE designs SET image_tags_verified = ?, date_updated = datetime('now') WHERE id = ?",
+        )
+        .bind(value)
+        .bind(design_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
     }
     if let Some(value) = stitching_tags_verified {
-        sqlx::query("UPDATE designs SET stitching_tags_verified = ? WHERE id = ?")
-            .bind(value)
-            .bind(design_id)
-            .execute(pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "UPDATE designs SET stitching_tags_verified = ?, date_updated = datetime('now') WHERE id = ?",
+        )
+        .bind(value)
+        .bind(design_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
     }
 
     Ok(DesignCommandResult {

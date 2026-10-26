@@ -456,6 +456,7 @@
           onchange={(e) => onUpdateFilter("sortBy", e.currentTarget.value)}
         >
           <option value="date_added">Date Added</option>
+          <option value="date_updated">Date Updated</option>
           <option value="folder">Folder</option>
           <option value="name">Name</option>
           <option value="rating">Rating</option>

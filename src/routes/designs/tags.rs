@@ -180,6 +180,11 @@ pub(crate) async fn set_design_tags_with_pool(
             .await
             .map_err(|e| e.to_string())?;
     }
+    sqlx::query("UPDATE designs SET date_updated = datetime('now') WHERE id = ?")
+        .bind(design_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
     tx.commit().await.map_err(|e| e.to_string())?;
 
@@ -220,19 +225,18 @@ pub(crate) async fn remove_design_tag_with_pool(
         .map_err(|e| e.to_string())?;
 
     if result.rows_affected() > 0 {
-        if tag_group.eq_ignore_ascii_case("stitching") {
-            sqlx::query("UPDATE designs SET stitching_tags_verified = 0 WHERE id = ?")
-                .bind(design_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
+        let col = if tag_group.eq_ignore_ascii_case("stitching") {
+            "stitching_tags_verified"
         } else {
-            sqlx::query("UPDATE designs SET image_tags_verified = 0 WHERE id = ?")
-                .bind(design_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
-        }
+            "image_tags_verified"
+        };
+        let query =
+            format!("UPDATE designs SET {col} = 0, date_updated = datetime('now') WHERE id = ?");
+        sqlx::query(sqlx::AssertSqlSafe(query))
+            .bind(design_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
     tx.commit().await.map_err(|e| e.to_string())?;
@@ -351,6 +355,11 @@ pub(crate) async fn bulk_set_tags_for_designs_with_pool(
         }
 
         if design_changed {
+            sqlx::query("UPDATE designs SET date_updated = datetime('now') WHERE id = ?")
+                .bind(*design_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
             updated_count += 1;
         }
     }
@@ -381,7 +390,7 @@ pub async fn bulk_verify_designs(
 
     for design_id in &design_ids {
         let result = sqlx::query(
-            "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1 WHERE id = ?",
+            "UPDATE designs SET image_tags_verified = 1, stitching_tags_verified = 1, date_updated = datetime('now') WHERE id = ?",
         )
         .bind(*design_id)
         .execute(&mut *tx)

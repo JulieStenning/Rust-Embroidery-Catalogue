@@ -43,7 +43,7 @@
   /** @typedef {import("../types/ipc").MutationPatch} MutationPatch */
   /** @typedef {{ persisted: boolean, deleted_count: number, files_trashed: number, errors?: Array<string> }} BulkDeleteResult */
   /** @typedef {import("../types/ipc").BrowseFilterState} BrowseFilterState */
-  /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: Array<string> | string, folder?: string, date_added?: string | null }} BrowseCardInput */
+  /** @typedef {Omit<BrowseDesignSummaryWire, "projects" | "tags"> & { projects?: Array<string | { name?: string }> | string, tags?: Array<string | { description?: string }>, project_names?: Array<string> | string, folder?: string, date_added?: string | null, date_updated?: string | null }} BrowseCardInput */
   /** @typedef {{ persisted: boolean, updated_count?: number, updated?: number, error?: string }} BulkSetTagsResult */
   /** @typedef {{ persisted: boolean, added_count?: number, updated?: number, error?: string }} BulkAddToProjectResult */
   /** @typedef {{ persisted: boolean, verified_count?: number, updated?: number, error?: string }} BulkVerifyResult */
@@ -364,6 +364,7 @@
       tags: flatTags,
       folder,
       dateAdded,
+      dateUpdated: item.date_updated ?? null,
     };
   }
 

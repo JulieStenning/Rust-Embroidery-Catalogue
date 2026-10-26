@@ -344,6 +344,12 @@ function applyBackendSort(
       const c = x.localeCompare(y);
       if (c !== 0) return c * dir;
     }
+    if (sortBy === "date_updated") {
+      const x = String(a.date_updated || a.date_added || "");
+      const y = String(b.date_updated || b.date_added || "");
+      const c = x.localeCompare(y);
+      if (c !== 0) return c * dir;
+    }
     return (
       String(a.filename || "").localeCompare(String(b.filename || ""), undefined, {
         sensitivity: "base",

@@ -77,6 +77,7 @@ const baseDetail = {
   imageTagsVerified: false,
   stitchingTagsVerified: false,
   dateAdded: "2026-05-01",
+  dateUpdated: "2026-05-02",
   tags: [
     { id: 11, description: "Floral", tag_group: "image" },
     { id: 12, description: "Satin Stitch", tag_group: "stitching" },
@@ -309,6 +310,8 @@ describe("DesignDetailView", () => {
       expect(screen.getByText("Hoop A")).toBeInTheDocument();
       // Date Added
       expect(screen.getByText("2026-05-01")).toBeInTheDocument();
+      // Date Updated
+      expect(screen.getByText("2026-05-02")).toBeInTheDocument();
       // Dimensions — rendered as "120 × 80 mm"
       expect(screen.getByText("120 × 80 mm")).toBeInTheDocument();
       // Stitches

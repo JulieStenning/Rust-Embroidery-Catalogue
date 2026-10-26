@@ -133,8 +133,8 @@ pub(crate) async fn render_design_3d_preview_with_pool(
     let height_mm = round_mm_to_i64(generation_result.height_mm);
 
     sqlx::query(
-		"UPDATE designs SET image_data = ?, image_type = ?, width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ? WHERE id = ?",
-	)
+        "UPDATE designs SET image_data = ?, image_type = ?, width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, date_updated = datetime('now') WHERE id = ?",
+    )
 	.bind(generation_result.image_data)
 	.bind(image_type.clone())
 	.bind(width_mm)
@@ -181,7 +181,7 @@ pub(crate) async fn reparse_design_file_with_pool(
     let hoop_id = design_metadata::recommend_hoop_for_design(pool, width_mm, height_mm).await?;
 
     sqlx::query(
-        "UPDATE designs SET width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, hoop_id = ? WHERE id = ?",
+        "UPDATE designs SET width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, hoop_id = ?, date_updated = datetime('now') WHERE id = ?",
     )
     .bind(width_mm)
     .bind(height_mm)

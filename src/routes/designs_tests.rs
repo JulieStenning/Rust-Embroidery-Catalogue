@@ -479,6 +479,7 @@ async fn test_pool() -> SqlitePool {
 				image_tags_verified BOOLEAN NOT NULL DEFAULT 0,
 				stitching_tags_verified BOOLEAN NOT NULL DEFAULT 0,
 				date_added DATE,
+				date_updated TEXT,
 				designer_id INTEGER REFERENCES designers(id) ON DELETE SET NULL,
 				source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
 				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL,
@@ -3071,4 +3072,109 @@ async fn browse_dimension_filters_apply_correctly() {
     .expect("query bounding box");
     assert_eq!(res.items.len(), 1);
     assert_eq!(res.items[0].filename, "medium.pes");
+}
+
+#[tokio::test]
+async fn browse_sort_by_date_updated_returns_ordered_results() {
+    let pool = test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added, date_updated) \
+         VALUES ('design_a.pes', 'design_a.pes', '2026-01-01 10:00:00', '2026-01-01 10:00:00')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design a");
+
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added, date_updated) \
+         VALUES ('design_b.pes', 'design_b.pes', '2026-01-02 10:00:00', '2026-03-01 10:00:00')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design b");
+
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added, date_updated) \
+         VALUES ('design_c.pes', 'design_c.pes', '2026-01-03 10:00:00', '2026-02-01 10:00:00')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design c");
+
+    // Ascending: design_a (Jan), design_c (Feb), design_b (Mar)
+    let res_asc = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            sort_by: Some("date_updated".to_string()),
+            sort_dir: Some("asc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query sort asc");
+
+    let asc_names: Vec<_> = res_asc.items.iter().map(|d| d.filename.as_str()).collect();
+    let pos_a = asc_names.iter().position(|&x| x == "design_a.pes").unwrap();
+    let pos_c = asc_names.iter().position(|&x| x == "design_c.pes").unwrap();
+    let pos_b = asc_names.iter().position(|&x| x == "design_b.pes").unwrap();
+    assert!(pos_a < pos_c);
+    assert!(pos_c < pos_b);
+
+    // Descending: design_b (Mar), design_c (Feb), design_a (Jan)
+    let res_desc = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            sort_by: Some("date_updated".to_string()),
+            sort_dir: Some("desc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query sort desc");
+
+    let desc_names: Vec<_> = res_desc.items.iter().map(|d| d.filename.as_str()).collect();
+    let pos_desc_b = desc_names
+        .iter()
+        .position(|&x| x == "design_b.pes")
+        .unwrap();
+    let pos_desc_c = desc_names
+        .iter()
+        .position(|&x| x == "design_c.pes")
+        .unwrap();
+    let pos_desc_a = desc_names
+        .iter()
+        .position(|&x| x == "design_a.pes")
+        .unwrap();
+    assert!(pos_desc_b < pos_desc_c);
+    assert!(pos_desc_c < pos_desc_a);
+}
+
+#[tokio::test]
+async fn metadata_mutations_stamp_date_updated() {
+    let pool = test_pool().await;
+
+    let insert_res = sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added, date_updated) \
+         VALUES ('stamp_test.pes', 'stamp_test.pes', '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed design");
+    let design_id = insert_res.last_insert_rowid();
+
+    // Updating rating stamps date_updated to now (> 2026-01-01)
+    set_design_rating_with_pool(&pool, design_id, Some(4))
+        .await
+        .expect("set rating");
+
+    let updated_stamp: Option<String> =
+        sqlx::query_scalar("SELECT date_updated FROM designs WHERE id = ?")
+            .bind(design_id)
+            .fetch_one(&pool)
+            .await
+            .expect("fetch date_updated");
+
+    let stamp = updated_stamp.expect("date_updated must be set");
+    assert!(stamp.as_str() > "2026-01-01 00:00:00");
 }

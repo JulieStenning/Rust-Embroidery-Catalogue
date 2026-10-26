@@ -707,6 +707,8 @@ async fn run_migrations_creates_browse_sort_indexes() {
     let expected_indexes = [
         "ix_designs_date_added_asc",
         "ix_designs_date_added_desc",
+        "ix_designs_date_updated_asc",
+        "ix_designs_date_updated_desc",
         "ix_designs_filepath_nocase_asc",
         "ix_designs_filepath_nocase_desc",
         "ix_designs_rating_asc",

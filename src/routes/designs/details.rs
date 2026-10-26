@@ -36,6 +36,7 @@ pub struct DesignDetail {
     pub image_tags_verified: bool,
     pub stitching_tags_verified: bool,
     pub date_added: Option<String>,
+    pub date_updated: Option<String>,
     pub tags: Vec<DesignTagDetail>,
     pub projects: Vec<ProjectListItem>,
     pub available_projects: Vec<ProjectListItem>,
@@ -71,6 +72,7 @@ struct DesignDetailRow {
     image_tags_verified: bool,
     stitching_tags_verified: bool,
     date_added: Option<String>,
+    date_updated: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -117,7 +119,8 @@ pub(crate) async fn get_design_detail_with_pool(
 			d.is_stitched AS is_stitched,
 			d.image_tags_verified AS image_tags_verified,
 			d.stitching_tags_verified AS stitching_tags_verified,
-			d.date_added AS date_added
+			d.date_added AS date_added,
+			d.date_updated AS date_updated
 		FROM designs d
 		LEFT JOIN designers ON designers.id = d.designer_id
 		LEFT JOIN sources ON sources.id = d.source_id
@@ -258,6 +261,7 @@ pub(crate) async fn get_design_detail_with_pool(
         image_tags_verified: row.image_tags_verified,
         stitching_tags_verified: row.stitching_tags_verified,
         date_added: row.date_added,
+        date_updated: row.date_updated,
         tags,
         projects,
         available_projects,

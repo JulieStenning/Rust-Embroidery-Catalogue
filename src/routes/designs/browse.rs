@@ -26,6 +26,7 @@ pub struct BrowseDesignSummary {
     pub stitching_tags_verified: bool,
     pub rating: Option<i64>,
     pub date_added: Option<String>,
+    pub date_updated: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -47,6 +48,7 @@ struct BrowseDesignSummaryRow {
     pub stitching_tags_verified: bool,
     pub rating: Option<i64>,
     pub date_added: Option<String>,
+    pub date_updated: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -181,7 +183,8 @@ pub(crate) async fn get_designs_page_with_pool(
             d.image_tags_verified AS image_tags_verified,
             d.stitching_tags_verified AS stitching_tags_verified,
             d.rating AS rating,
-            d.date_added AS date_added
+            d.date_added AS date_added,
+            d.date_updated AS date_updated
         FROM designs d
         LEFT JOIN designers ON designers.id = d.designer_id
         LEFT JOIN sources ON sources.id = d.source_id
@@ -256,6 +259,7 @@ pub(crate) async fn get_designs_page_with_pool(
             stitching_tags_verified: row.stitching_tags_verified,
             rating: row.rating,
             date_added: row.date_added,
+            date_updated: row.date_updated,
         })
         .collect();
 

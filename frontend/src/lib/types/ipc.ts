@@ -140,6 +140,7 @@ export interface BrowseDesignSummaryWire {
   stitching_tags_verified: boolean;
   rating: number | null;
   date_added?: string | null;
+  date_updated?: string | null;
 }
 
 export interface BrowseDesignCard {
@@ -161,6 +162,7 @@ export interface BrowseDesignCard {
   rating: number | null;
   folder: string;
   dateAdded: string;
+  dateUpdated?: string | null;
 }
 
 export interface MutationPatch {
@@ -225,6 +227,7 @@ export interface DesignDetailWire {
   image_tags_verified: boolean;
   stitching_tags_verified: boolean;
   date_added: string | null;
+  date_updated?: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
   available_projects: ProjectListItem[];
@@ -259,6 +262,7 @@ export interface DesignDetail {
   imageTagsVerified: boolean;
   stitchingTagsVerified: boolean;
   dateAdded: string | null;
+  dateUpdated?: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
   availableProjects: ProjectListItem[];
@@ -1262,6 +1266,7 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     imageTagsVerified: Boolean(wire.image_tags_verified),
     stitchingTagsVerified: Boolean(wire.stitching_tags_verified),
     dateAdded: wire.date_added ?? null,
+    dateUpdated: wire.date_updated ?? null,
     tags: Array.isArray(wire.tags) ? wire.tags : [],
     projects: Array.isArray(wire.projects) ? wire.projects : [],
     availableProjects: Array.isArray(wire.available_projects) ? wire.available_projects : [],

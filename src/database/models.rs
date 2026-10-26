@@ -64,6 +64,7 @@ pub struct Design {
     pub image_tags_verified: bool,
     pub stitching_tags_verified: bool,
     pub date_added: Option<String>,
+    pub date_updated: Option<String>,
     pub designer_id: Option<i64>,
     pub source_id: Option<i64>,
     pub hoop_id: Option<i64>,

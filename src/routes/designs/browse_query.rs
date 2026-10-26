@@ -148,6 +148,9 @@ pub(crate) fn browse_sort_clause(sort_by: Option<&str>, sort_dir: Option<&str>) 
         // the parent directory name is a path prefix of `filepath`.
         Some(sort) if sort.eq_ignore_ascii_case("folder") => "d.filepath COLLATE NOCASE",
         Some(sort) if sort.eq_ignore_ascii_case("date_added") => "COALESCE(d.date_added, '')",
+        Some(sort) if sort.eq_ignore_ascii_case("date_updated") => {
+            "COALESCE(d.date_updated, d.date_added, '')"
+        }
         _ => "d.filename COLLATE NOCASE",
     };
 

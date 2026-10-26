@@ -1133,7 +1133,7 @@ test.describe("sort keys and pagination controls", () => {
       "Cake 3.jef",
     ];
 
-    for (const key of ["folder", "date_added", "rating", "stitched"]) {
+    for (const key of ["folder", "date_added", "date_updated", "rating", "stitched"]) {
       await sortSelect(page).selectOption(key);
       await expect(sortSelect(page)).toHaveValue(key);
       await expect

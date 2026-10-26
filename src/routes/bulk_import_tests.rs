@@ -73,6 +73,7 @@ async fn import_test_pool() -> SqlitePool {
                 filename TEXT NOT NULL,
                 filepath TEXT NOT NULL,
                 date_added TEXT,
+                date_updated TEXT,
                 designer_id INTEGER,
                 source_id INTEGER,
                 hoop_id INTEGER,

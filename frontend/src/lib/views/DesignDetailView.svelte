@@ -86,8 +86,9 @@
       if (!item) {
         return [
           { label: "Hoop", value: "?" },
-          { label: "Date Added", value: "?" },
           { label: "Dimensions", value: "?" },
+          { label: "Date Added", value: "?" },
+          { label: "Date Updated", value: "?" },
           { label: "Stitches", value: "?" },
           { label: "Colours", value: "?" },
           { label: "Colour Changes", value: "?" },
@@ -95,7 +96,6 @@
       }
       return [
         { label: "Hoop", value: item.hoop || "Unknown" },
-        { label: "Date Added", value: item.dateAdded || "Unknown" },
         {
           label: "Dimensions",
           value:
@@ -103,6 +103,8 @@
               ? `${item.widthMm} × ${item.heightMm} mm`
               : "?",
         },
+        { label: "Date Added", value: item.dateAdded || "Unknown" },
+        { label: "Date Updated", value: item.dateUpdated || item.dateAdded || "Unknown" },
         { label: "Stitches", value: item.stitchCount ?? "?" },
         { label: "Colours", value: item.colorCount ?? "?" },
         { label: "Colour Changes", value: item.colorChangeCount ?? "?" },

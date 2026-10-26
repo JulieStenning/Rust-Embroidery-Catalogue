@@ -136,6 +136,7 @@ async fn make_designs_db(path: &Path) {
             master_filepath TEXT,
             is_master_only INTEGER NOT NULL DEFAULT 0,
             date_added TEXT,
+            date_updated TEXT,
             designer_id INTEGER,
             source_id INTEGER,
             hoop_id INTEGER,
