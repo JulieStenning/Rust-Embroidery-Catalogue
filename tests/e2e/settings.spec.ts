@@ -345,7 +345,7 @@ test.describe.serial("application settings", () => {
 
     // Maintenance & diagnostics section is present
     await expect(
-      page.getByRole("heading", { name: "Maintenance & diagnostics" }),
+      page.getByRole("heading", { name: /Maintenance & Diagnostics/i }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Database Maintenance" }),

@@ -199,7 +199,7 @@
 {/if}
 
 <div class="admin-card rounded shadow p-5 max-w-xl border mt-2">
-  <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new designer</h2>
+  <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add New Designer</h2>
   <form class="flex gap-2" onsubmit={addDesigner}>
     <input
       bind:this={designerNameInput}

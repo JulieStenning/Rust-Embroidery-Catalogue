@@ -75,7 +75,7 @@ describe("AdminDesignersView.svelte", () => {
     expect(
       screen.getByText(/Designers are the creators or brands of embroidery designs/)
     ).toBeInTheDocument();
-    expect(screen.getByText("Add new designer")).toBeInTheDocument();
+    expect(screen.getByText("Add New Designer")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("No designers yet.")).toBeInTheDocument();
@@ -557,7 +557,7 @@ describe("AdminDesignersView.svelte", () => {
     expect(
       screen.queryByText(/Designers are the creators or brands of embroidery designs/)
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Add new designer")).toBeInTheDocument();
+    expect(screen.getByText("Add New Designer")).toBeInTheDocument();
   });
 
   it("handles a list response where items is not an array", async () => {

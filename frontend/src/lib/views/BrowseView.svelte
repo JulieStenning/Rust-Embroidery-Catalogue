@@ -1527,7 +1527,7 @@
           class="text-lg font-bold text-[var(--text-primary)]"
           style="margin:0;"
         >
-          Choose tags for selected designs
+          Choose Tags for Selected Designs
         </h2>
       </div>
       <div class="tag-chooser-body">

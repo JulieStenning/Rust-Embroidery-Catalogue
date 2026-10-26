@@ -190,7 +190,7 @@
   </div>
 
   <div class="admin-card rounded shadow p-5 max-w-3xl border space-y-3">
-    <h2 class="text-sm font-semibold text-[var(--text-primary)]">Add new tag</h2>
+    <h2 class="text-sm font-semibold text-[var(--text-primary)]">Add New Tag</h2>
     <form class="flex flex-wrap gap-3 items-end" onsubmit={addTag}>
       <div>
         <label

@@ -50,7 +50,7 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
 
     // Section 1: Target scope heading and options
     await expect(
-      page.getByRole("heading", { name: "1. Target scope" }),
+      page.getByRole("heading", { name: /1\. Target Scope/i }),
     ).toBeVisible();
 
     const entireCatalogueRadio = page.locator(
@@ -69,7 +69,7 @@ test.describe.serial("batch operations - maintenance & file processing", () => {
 
     // Section 2: Maintenance tasks heading
     await expect(
-      page.getByRole("heading", { name: "2. Maintenance tasks" }),
+      page.getByRole("heading", { name: /2\. Maintenance Tasks/i }),
     ).toBeVisible();
 
     // Reconciler card

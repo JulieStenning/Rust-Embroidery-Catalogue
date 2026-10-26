@@ -1287,7 +1287,7 @@ test.describe("batch mutations", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByRole("heading", { name: "Choose tags for selected designs" }),
+      dialog.getByRole("heading", { name: /Choose Tags for Selected Designs/i }),
     ).toBeVisible();
     await expect(dialog.getByText("1 design selected.")).toBeVisible();
     await expect(

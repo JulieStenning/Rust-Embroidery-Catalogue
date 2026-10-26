@@ -142,8 +142,11 @@ Page specs can define element-specific behavior across these breakpoints but sho
 ```
 
 ### ⚠️ Rule 4: Initial Capitals for Section & Card Headings (h2)
-**Problem:** Inconsistent casing across card and section titles (some sentence case, some title case) creates visual dissonance and degrades desktop look-and-feel consistency.
-**Requirement:** All section, card, and panel headings (`<h2>` level, standard styling `text-base font-semibold text-[var(--text-primary)]`) MUST use **Title Case / Initial Capitals** (e.g. *Find Unmatched Design Files*, *Missing Design Files (Orphans)*, *Backup Destinations*, *Database Backup*, *Restore Database*). Never use sentence case for `<h2>` headings.
+**Problem:** Inconsistent casing across card and section titles creates visual dissonance and degrades desktop look-and-feel consistency.
+**Requirement:** All structural section, card, and panel headings (`<h2>` level, standard styling `text-base font-semibold text-[var(--text-primary)]`) MUST use **Title Case / Initial Capitals** (e.g. *Find Unmatched Design Files*, *Missing Design Files (Orphans)*, *Backup Destinations*, *Add New Designer*, *Google Gemini API Key*, *Target Scope*).
+**Exceptions (Sentence Case):**
+1. **Conversational Questions / Wizard Steps:** Headings phrased as full questions or sentences ending with a question mark (e.g. *1. What do you want to do?*, *2. Which designs should be processed?*) must use standard sentence case.
+2. **Status & Informational Banners:** Transient progress indicators, completion banners, and alert headers (e.g. *Restore in progress*, *First import complete!*) are informational feedback rather than structural headings and must use sentence case.
 
 ---
 

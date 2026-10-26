@@ -76,7 +76,7 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(maintenanceTab).toHaveAttribute("aria-selected", "true");
     await expect(taggingTab).toHaveAttribute("aria-selected", "false");
     await expect(
-      page.getByRole("heading", { name: "1. Target scope" }),
+      page.getByRole("heading", { name: /1\. Target Scope/i }),
     ).toBeVisible();
 
     // Switch back to Tagging tab

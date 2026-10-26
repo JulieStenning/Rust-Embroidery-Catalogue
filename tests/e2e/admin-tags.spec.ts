@@ -62,7 +62,7 @@ test.describe("manage tags", () => {
 
     // Add new tag section
     await expect(
-      page.getByRole("heading", { name: "Add new tag" }),
+      page.getByRole("heading", { name: /Add New Tag/i }),
     ).toBeVisible();
     const descInput = page.locator("#admin-tag-description");
     const groupSelect = page.locator("#admin-tag-group");

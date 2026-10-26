@@ -943,7 +943,7 @@
 
         <div>
           <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1">
-            Google Gemini API key
+            Google Gemini API Key
           </h2>
           <p class="text-sm text-[var(--text-secondary)]">
             The Google API key is only required if you want your designs to be tagged automatically
@@ -1175,7 +1175,7 @@
         </div>
 
         <div class="border-t border-[var(--border-default)] pt-4 space-y-3">
-          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Catalogue storage</h2>
+          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Catalogue Storage</h2>
           <p class="text-sm text-[var(--text-secondary)]">
             Large catalogue data lives under a single home folder.
             {#if settingsCanConfigureDataRoot}
@@ -1227,7 +1227,7 @@
       class="settings-card settings-meta bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-6"
     >
       <div>
-        <h2 class="text-lg font-bold text-[var(--text-primary)]">Maintenance & diagnostics</h2>
+        <h2 class="text-lg font-bold text-[var(--text-primary)]">Maintenance & Diagnostics</h2>
         <p class="mt-1 text-sm text-[var(--text-secondary)]">
           Database maintenance tools and the read-only storage layout for this installation. These
           aren't part of the settings you save above.

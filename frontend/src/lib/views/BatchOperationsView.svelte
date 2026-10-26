@@ -929,7 +929,7 @@
       </div>
     {:else}
       <div class="route-card p-6 space-y-4">
-        <h2 class="text-base font-semibold text-[var(--text-primary)]">1. Target scope</h2>
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">1. Target Scope</h2>
         <p class="text-xs text-[var(--text-muted)]">
           All tasks below run against the population chosen here. <strong>Entire catalogue</strong
           >{" "}
@@ -993,7 +993,7 @@
       </div>
 
       <div class="route-card p-6 space-y-4">
-        <h2 class="text-base font-semibold text-[var(--text-primary)]">2. Maintenance tasks</h2>
+        <h2 class="text-base font-semibold text-[var(--text-primary)]">2. Maintenance Tasks</h2>
 
         <label class="flex items-start gap-3 text-sm text-[var(--text-primary)] cursor-pointer">
           <input

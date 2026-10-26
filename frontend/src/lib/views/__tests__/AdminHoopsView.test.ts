@@ -89,7 +89,7 @@ describe("AdminHoopsView.svelte", () => {
       expect(screen.getByText("Manage Hoops")).toBeInTheDocument();
     });
     expect(screen.getByText(/Hoop sizes depend on your machine/)).toBeInTheDocument();
-    expect(screen.getByText("Add new hoop")).toBeInTheDocument();
+    expect(screen.getByText("Add New Hoop")).toBeInTheDocument();
     expect(
       screen.getByText("No hoops defined yet. Add your own machine hoops above.")
     ).toBeInTheDocument();

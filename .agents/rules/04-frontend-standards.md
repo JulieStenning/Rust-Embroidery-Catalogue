@@ -45,7 +45,7 @@
   - Notices / Alerts: `.notice-info`, `.notice-success`, `.notice-warn`, `.notice-error`
   - Action Controls: `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.input-field`
   - Modals & Badges: `.modal-backdrop`, `.modal-card`, `.badge-status-verified`, `.badge-status-warn`, `.badge-status-error`, `.text-rating-star`
-- **Initial Capitals for Section & Card Headings (h2):** All section, card, and panel headings (`<h2>` level, standard styling `text-base font-semibold text-[var(--text-primary)]`) must use **Title Case / Initial Capitals** (e.g., "Find Unmatched Design Files", "Missing Design Files (Orphans)", "Backup Destinations", "Restore Database") rather than sentence case.
+- **Initial Capitals for Section & Card Headings (h2):** All structural section, card, and panel headings (`<h2>` level, standard styling `text-base font-semibold text-[var(--text-primary)]`) must use **Title Case / Initial Capitals** (e.g., "Find Unmatched Design Files", "Missing Design Files (Orphans)", "Backup Destinations", "Add New Designer"). Conversational questions/wizard steps (e.g., "1. What do you want to do?") and status/progress banners (e.g., "Restore in progress") remain in standard sentence case.
 - Never use un-gated `@media (prefers-color-scheme: dark)` overrides without `:root:not([data-theme="light"])`.
 - **Reference Gold Standards:** Model new pages and components on **Browse Designs**, **Choose Tags**, and **Design Details**.
 

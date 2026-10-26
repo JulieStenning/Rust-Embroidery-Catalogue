@@ -1616,7 +1616,7 @@ describe("BrowseView", () => {
 
       const dialog = screen.getByRole("dialog");
       expect(dialog).toBeInTheDocument();
-      expect(within(dialog).getByText("Choose tags for selected designs")).toBeInTheDocument();
+      expect(within(dialog).getByText("Choose Tags for Selected Designs")).toBeInTheDocument();
       expect(within(dialog).getByText("Image tags")).toBeInTheDocument();
       expect(within(dialog).getByText("Stitching tags")).toBeInTheDocument();
       expect(within(dialog).getByText("Floral")).toBeInTheDocument();

@@ -74,7 +74,7 @@ describe("AdminSourcesView.svelte", () => {
 
     expect(screen.getByText("Manage Sources")).toBeInTheDocument();
     expect(screen.getByText(/Sources describe where your designs came from/)).toBeInTheDocument();
-    expect(screen.getByText("Add new source")).toBeInTheDocument();
+    expect(screen.getByText("Add New Source")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("No sources yet.")).toBeInTheDocument();
@@ -553,7 +553,7 @@ describe("AdminSourcesView.svelte", () => {
     expect(
       screen.queryByText(/Sources describe where your designs came from/)
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Add new source")).toBeInTheDocument();
+    expect(screen.getByText("Add New Source")).toBeInTheDocument();
   });
 
   it("handles a list response where items is not an array", async () => {

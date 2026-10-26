@@ -239,7 +239,7 @@
 {/if}
 
 <div class="admin-card rounded shadow p-5 max-w-4xl border mt-2">
-  <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new hoop</h2>
+  <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add New Hoop</h2>
   <form class="flex gap-3 items-end flex-wrap" onsubmit={addHoop}>
     <div>
       <label
