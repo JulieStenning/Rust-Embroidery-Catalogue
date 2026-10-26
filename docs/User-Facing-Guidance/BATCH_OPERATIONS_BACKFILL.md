@@ -88,6 +88,9 @@ In comparative benchmarks conducted in September 2026, alternative models—incl
 
 - **Outcome:** Gemini AI Vision selected as the primary backend provider due to superior tagging accuracy (even though, like all AI vision models, results are not perfect).
 
+> **Tip: Using AI tags as a starting point (clustering)**
+> Automated tags do not have to be flawless to save hours of manual entry. AI vision excels at **clustering** designs into subject groups, even when suggestions are broad or approximate. Once a batch run finishes, go to **Browse**, search for a keyword or filter by the automated tags with **Unverified only** ticked, and use [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md#rapid-tag-verification-using-search--bulk-selection-clustering) to verify or refine whole rows or pages of designs in one click.
+
 
 
 

@@ -21,6 +21,9 @@ The main search box supports Google-style search operators to match keywords acr
 - **Cancelling a Search:** When searching large catalogues, an inline red **Cancel** button appears in the search box while a query is running. Clicking **Cancel** (or pressing the **`Escape`** key) immediately aborts the active search and restores your previous results.
 - **Clearing Search Input:** When idle, clicking the **`✕`** button on the right of the search input or pressing the **`Escape`** key clears the text query.
 
+### 💡 Practical Tip: Clustered Search for Fast Tag Verification
+Automated tags from imports or AI runs do not have to be 100% accurate to save time. By searching for a keyword (such as `birds`) across filenames, folder paths, and tags while checking **Unverified only** (and optionally filtering by broad tags like *Animals* or *Food*), you isolate a concentrated cluster of similar designs. This allows you to inspect, retag, or verify entire rows or pages in one go using [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md#rapid-tag-verification-using-search--bulk-selection-clustering).
+
 ---
 
 ## 🎛️ Additional Filters

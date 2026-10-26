@@ -90,6 +90,28 @@ Use this before starting a different bulk action set.
 4. Tick the final replacement tag set.
 5. Click **Apply tags**.
 
+### Rapid tag verification using search & bulk selection (clustering)
+
+Automated tagging (from File & Folder Rules or Gemini Vision) does not need to be 100% accurate to save you hours of work. Even if an automated pass assigns multiple overlapping or approximate tags (for instance, tagging bird designs with *Birds*, *Animals*, and *Food*), it has already done the heavy lifting by **clustering** your designs into related groups.
+
+Instead of opening and editing thousands of designs individually, use search and filters to group similar designs together, then review and fix them an entire row or page at a time:
+
+1. **Find the cluster:**
+   - In the **Search** box on Browse, enter your subject keyword (e.g. `birds`), with scopes set to **File name**, **Folder name**, and **Tags**.
+   - Optionally filter by the broad automated tags you observed (e.g. Image tags: *Animals*, *Food*).
+   - Tick **Unverified only** so you only see designs that still require manual review.
+2. **Review visually in bulk:**
+   - Because the search gathers dozens or hundreds of related designs onto consecutive pages, you can scan the visual thumbnails quickly.
+   - You will often spot full rows or entire pages where every design clearly belongs to the same subject.
+3. **Select and apply in one click:**
+   - Select a whole row of cards, or click **Select all** for the visible page.
+   - In the bottom action bar, click **Choose tags...**.
+   - Tick the clean, canonical tags for this group (e.g. *Birds*, while leaving extraneous tags unticked).
+   - Click **Apply tags**.
+   - *Result:* All selected designs are updated with the clean tag set and automatically marked as **Verified** in a single operation.
+4. **Repeat for the next batch:**
+   - Browse automatically refreshes with the newly verified designs cleared from the unverified view, presenting the next cluster ready for review.
+
 ### Project staging pass
 
 1. Select designs for a sewing session.

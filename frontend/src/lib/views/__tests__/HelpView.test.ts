@@ -138,6 +138,11 @@ describe("HelpView", () => {
       expect(section.getByText("rose*.jef")).toBeInTheDocument();
       expect(section.getByText("Unverified only:")).toBeInTheDocument();
       expect(section.getByText("Quick search vs. filters:")).toBeInTheDocument();
+      expect(section.getByText("Fast tag verification:")).toBeInTheDocument();
+      const bulkActionsLink = section.getByRole("link", {
+        name: "Browse & Bulk Actions Guide",
+      });
+      expect(bulkActionsLink).toHaveAttribute("href", "#/about/document/browse-bulk-actions");
     });
 
     it("renders the search section with a section id of 'search'", () => {
@@ -365,6 +370,7 @@ describe("HelpView", () => {
       expect(section.getByText("Tag untagged and unverified designs:")).toBeInTheDocument();
       expect(section.getByText("Re-tag ALL designs:")).toBeInTheDocument();
       expect(section.getByText("Local stitching backfill:")).toBeInTheDocument();
+      expect(section.getByText("Tag verification workflow:")).toBeInTheDocument();
     });
 
     it("renders the batch-operations section with a section id of 'batch-operations'", () => {

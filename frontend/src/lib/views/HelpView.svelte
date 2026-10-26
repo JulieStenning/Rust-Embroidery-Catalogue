@@ -109,6 +109,23 @@
         only a maximum (e.g. Max H: 80) matches designs from 0mm up to 80mm; setting only a minimum (e.g.
         Min W: 100) matches all designs 100mm and wider.
       </p>
+      <p>
+        <strong>Fast tag verification:</strong> automated tags don't need to be perfect to save
+        time. Search for a subject keyword (e.g.
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >birds</code
+        >) with <em>Unverified only</em> ticked to gather similar designs into rows and pages. You
+        can then select whole rows or pages at once and use <strong>Choose tags...</strong> in the bottom
+        action bar to apply clean tags and verify the entire batch in one click.
+      </p>
+      <p>
+        <strong>Full guide:</strong> open the
+        <a
+          href="#/about/document/browse-bulk-actions"
+          class="text-[var(--text-brand)] hover:underline">Browse &amp; Bulk Actions Guide</a
+        >.
+      </p>
     </div>
   </section>
 
@@ -279,6 +296,11 @@
       <p><strong>Re-tag ALL designs:</strong> overwrites everything and requires confirmation.</p>
       <p>
         <strong>Local stitching backfill:</strong> updates stitching group tags using local pattern geometry.
+      </p>
+      <p>
+        <strong>Tag verification workflow:</strong> automated tagging clusters similar designs together
+        so you can review and verify whole rows or pages at once on Browse using search filters and bulk
+        actions.
       </p>
     </div>
   </section>
