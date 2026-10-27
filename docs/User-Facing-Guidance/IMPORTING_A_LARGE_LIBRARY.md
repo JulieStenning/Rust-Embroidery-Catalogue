@@ -117,15 +117,12 @@ scanned), you'll see a clear message such as:
 - *"Import precheck failed: ..."*
 - *"Import action failed: ..."*
 
-### If you leave the import wizard open too long
+### Overnight and multi-hour scanning
 
-The app keeps your import selections in a short-lived session. If you navigate
-away (for example to the About or Settings pages) and come back later, or leave
-the wizard open for more than about fifteen minutes before clicking **Import
-Designs**, the app may need to **re-check your selections** before starting.
-You'll see a message such as *"Import context expired. Re-checking your
-selections before retrying..."* - the app re-scans and re-selects the files you
-chose, so you do not have to redo the whole wizard.
+The app retains your scan results and folder selections in memory for as long as
+the application remains running. There is no time-based expiration, so you can safely
+start scanning a large collection before bed, leave it overnight, and review and
+import your designs in the morning.
 
 
 ## When the import finishes

@@ -1104,8 +1104,8 @@ fn bulk_import_context_store_evicts_oldest_when_capacity_is_exceeded() {
 }
 
 #[test]
-fn bulk_import_context_store_expires_old_entries_on_access() {
-    let expired_token = "bulk-import-test-expired".to_string();
+fn bulk_import_context_store_retains_entries_regardless_of_age() {
+    let token = "bulk-import-test-old-entry".to_string();
     let current_wire = BulkImportConfirmWire {
         wire: BulkImportWire {
             root_paths: vec!["C:/imports".to_string()],
@@ -1119,16 +1119,11 @@ fn bulk_import_context_store_expires_old_entries_on_access() {
         canonical_confirm: false,
     };
 
-    let expired_created_at =
-        current_timestamp_millis().saturating_sub(BULK_IMPORT_CONTEXT_TTL.as_millis() + 1);
-    insert_bulk_import_context_for_test(
-        expired_token.clone(),
-        current_wire,
-        expired_created_at,
-        9999,
-    );
+    // Simulate entry created 48 hours ago
+    let forty_eight_hours_ago = current_timestamp_millis().saturating_sub(48 * 60 * 60 * 1000);
+    insert_bulk_import_context_for_test(token.clone(), current_wire, forty_eight_hours_ago, 9999);
 
-    assert!(take_bulk_import_context(&expired_token).is_none());
+    assert!(take_bulk_import_context(&token).is_some());
 }
 
 // =========================================================================
@@ -2809,6 +2804,27 @@ fn scan_store_round_trips_catalogue() {
     // Taking consumes the token.
     assert!(take_bulk_import_scan(&token).is_none());
     assert!(take_bulk_import_scan("missing-token").is_none());
+}
+
+#[test]
+fn scan_store_retains_entries_regardless_of_age() {
+    let files = vec![bi_scanned_file("C:/Designs/A/a.pes")];
+    let token = "scan-test-old-entry".to_string();
+    let forty_eight_hours_ago = current_timestamp_millis().saturating_sub(48 * 60 * 60 * 1000);
+    let stored = StoredBulkImportScan {
+        root_paths: vec!["C:/Designs".to_string()],
+        scanned_files: files.clone(),
+        created_at_millis: forty_eight_hours_ago,
+        sequence: 9999,
+    };
+    let token_clone = token.clone();
+    let _ = with_bulk_import_scan_store(|store| {
+        store.insert(token_clone, stored);
+    });
+
+    let taken = take_bulk_import_scan(&token).expect("old scan should be retrievable");
+    assert_eq!(taken.root_paths, vec!["C:/Designs".to_string()]);
+    assert_eq!(taken.scanned_files, files);
 }
 
 #[test]

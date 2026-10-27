@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub(crate) const BULK_IMPORT_CONTEXT_TTL: Duration = Duration::from_secs(15 * 60);
+pub(crate) const BULK_IMPORT_CONTEXT_TTL: Duration = Duration::ZERO;
 pub(crate) const BULK_IMPORT_CONTEXT_MAX_ENTRIES: usize = 128;
 
 pub(crate) static BULK_IMPORT_CONTEXT_STORE: OnceLock<
@@ -30,7 +30,8 @@ pub(crate) static BULK_IMPORT_SCAN_CANCEL_REQUESTED: AtomicBool = AtomicBool::ne
 pub(crate) const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 100;
 pub(crate) const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
 
-pub(crate) const BULK_IMPORT_SCAN_TTL: Duration = Duration::from_secs(60 * 60);
+#[allow(dead_code)]
+pub(crate) const BULK_IMPORT_SCAN_TTL: Duration = Duration::ZERO;
 pub(crate) const BULK_IMPORT_SCAN_MAX_ENTRIES: usize = 64;
 pub(crate) const IMPORT_UNKNOWN_FOLDER: &str = "Unknown folder";
 
@@ -38,6 +39,7 @@ pub(crate) const IMPORT_UNKNOWN_FOLDER: &str = "Unknown folder";
 pub(crate) struct StoredBulkImportScan {
     pub(crate) root_paths: Vec<String>,
     pub(crate) scanned_files: Vec<scanning::ScannedFile>,
+    #[allow(dead_code)]
     pub(crate) created_at_millis: u128,
     pub(crate) sequence: u64,
 }
@@ -62,6 +64,7 @@ pub(crate) struct BulkImportProgressEvent {
 #[derive(Debug, Clone)]
 pub(crate) struct StoredBulkImportContext {
     pub(crate) confirm_wire: BulkImportConfirmWire,
+    #[allow(dead_code)]
     pub(crate) created_at_millis: u128,
     pub(crate) sequence: u64,
 }
@@ -92,10 +95,6 @@ pub(crate) fn current_timestamp_millis() -> u128 {
 pub(crate) fn prune_bulk_import_context_store(
     store: &mut HashMap<String, StoredBulkImportContext>,
 ) {
-    let now = current_timestamp_millis();
-    let ttl_millis = BULK_IMPORT_CONTEXT_TTL.as_millis();
-    store.retain(|_, entry| now.saturating_sub(entry.created_at_millis) <= ttl_millis);
-
     if store.len() > BULK_IMPORT_CONTEXT_MAX_ENTRIES {
         let mut entries = store
             .iter()
@@ -125,10 +124,6 @@ where
 }
 
 pub(crate) fn prune_bulk_import_scan_store(store: &mut HashMap<String, StoredBulkImportScan>) {
-    let now = current_timestamp_millis();
-    let ttl_millis = BULK_IMPORT_SCAN_TTL.as_millis();
-    store.retain(|_, entry| now.saturating_sub(entry.created_at_millis) <= ttl_millis);
-
     if store.len() > BULK_IMPORT_SCAN_MAX_ENTRIES {
         let mut entries = store
             .iter()

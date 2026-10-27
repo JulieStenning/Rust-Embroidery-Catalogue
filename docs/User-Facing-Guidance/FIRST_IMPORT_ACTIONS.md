@@ -66,7 +66,7 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 
 | Issue | What to do |
 |---|---|
-| Import Designs reports the import context expired | The import context is time-limited (~15 minutes). The app re-checks your selections automatically and retries; if it cannot, rescan and continue again. |
+| Import Designs reports an unknown import context | If the application was closed and reopened, rescan your folders to rebuild the review list. When the app remains open, scans and selections do not expire. |
 | You skipped hoops and now want auto hoop matching | Add hoops in **Admin → Hoops**, then run another import or regenerate previews as needed. |
 | Gemini Vision did not run | Gemini Vision is not part of import. Run it from **Admin → Batch Operations** and check the API key and Gemini Vision settings in **Admin → Settings**. |
 | You cannot find Review Hoops / Tags / Sources / Designers | Those buttons were removed from the import wizard. Use the Admin pages instead — your import selections are preserved while you are away. |
