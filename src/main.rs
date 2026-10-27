@@ -58,7 +58,7 @@ fn get_app_status(state: State<'_, AppState>) -> AppStatus {
 /// Return the detailed database status used by the recovery flow.
 #[tauri::command]
 fn get_database_status(state: State<'_, AppState>) -> DatabaseStatus {
-    state.database_status.clone()
+    state.get_database_status()
 }
 
 /// Return the persisted, user-configured data root for Installed mode.
@@ -275,7 +275,7 @@ fn main() {
 
     // Run async setup using Tauri's built-in Tokio runtime
     // This avoids creating a conflicting second runtime alongside Tauri's own
-    let (pool, database_status) = if recovery_mode {
+    let (pool, initial_db_status, should_migrate) = if recovery_mode {
         tracing::warn!(
             "Database recovery mode: configured database missing at {} - awaiting user re-pointing.",
             app_paths.database_path.display()
@@ -293,7 +293,7 @@ fn main() {
                     std::process::exit(1);
                 })
         });
-        (in_mem, database_status)
+        (in_mem, database_status, false)
     } else {
         tauri::async_runtime::block_on(async {
             // Ensure the database directory exists before trying to connect
@@ -307,64 +307,15 @@ fn main() {
                 let mut status = database_status;
                 status.status = DatabaseStatusKind::Corrupted;
                 status.error_message = Some(format!("Could not create database directory: {err}"));
-                return (in_mem, status);
+                return (in_mem, status, false);
             }
 
             // Establish the SQLite connection pool using resolved paths
             match database::connection::establish_connection(&app_paths).await {
                 Ok(pool) => {
-                    // Apply any pending database schema migrations automatically.
-                    if let Err(err) = database::migrations::run_migrations(&pool).await {
-                        tracing::error!(
-                            "Database migration failed at {}: {err}",
-                            app_paths.database_path.display()
-                        );
-                        let in_mem = SqlitePoolOptions::new()
-                            .max_connections(1)
-                            .connect("sqlite::memory:")
-                            .await
-                            .expect("in-memory recovery pool");
-                        let mut status = database_status;
-                        status.status = DatabaseStatusKind::Corrupted;
-                        status.error_message = Some(format!("Database migration failed: {err}"));
-                        return (in_mem, status);
-                    }
-
-                    // Fast schema sanity check: verify essential catalogue tables (settings and designs) exist.
-                    // Avoid full B-tree integrity scans (PRAGMA quick_check) on the synchronous startup path
-                    // as they scan the entire file on disk (taking minutes on multi-gigabyte databases).
-                    let schema_check = match sqlx::query("SELECT 1 FROM settings LIMIT 1")
-                        .execute(&pool)
-                        .await
-                    {
-                        Ok(_) => match sqlx::query("SELECT 1 FROM designs LIMIT 1")
-                            .execute(&pool)
-                            .await
-                        {
-                            Ok(_) => Ok(()),
-                            Err(err) => Err(format!("Missing or corrupt 'designs' table: {err}")),
-                        },
-                        Err(err) => Err(format!("Missing or corrupt 'settings' table: {err}")),
-                    };
-
-                    match schema_check {
-                        Ok(()) => (pool, database_status),
-                        Err(err_msg) => {
-                            tracing::error!(
-                                "Database sanity check failed at {}: {err_msg}",
-                                app_paths.database_path.display()
-                            );
-                            let in_mem = SqlitePoolOptions::new()
-                                .max_connections(1)
-                                .connect("sqlite::memory:")
-                                .await
-                                .expect("in-memory recovery pool");
-                            let mut status = database_status;
-                            status.status = DatabaseStatusKind::Corrupted;
-                            status.error_message = Some(err_msg);
-                            (in_mem, status)
-                        }
-                    }
+                    let mut status = database_status;
+                    status.status = DatabaseStatusKind::Migrating;
+                    (pool, status, true)
                 }
                 Err(err) => {
                     tracing::error!(
@@ -379,7 +330,7 @@ fn main() {
                     let mut status = database_status;
                     status.status = DatabaseStatusKind::Corrupted;
                     status.error_message = Some(format!("Database connection failed: {err}"));
-                    (in_mem, status)
+                    (in_mem, status, false)
                 }
             }
         })
@@ -387,7 +338,7 @@ fn main() {
 
     let app_state = AppState {
         db: PoolHolder::new(pool),
-        database_status,
+        database_status: std::sync::RwLock::new(initial_db_status),
         paths: app_paths,
         log_guard,
         shutdown_requested: AtomicBool::new(false),
@@ -398,41 +349,114 @@ fn main() {
         tasks: TaskCoordinator::default(),
     };
 
-    // Launch a lightweight background backfill for orphan fingerprint data
-    // (hash + file size).  This is fire-and-forget â€” errors are logged, not fatal.
-    if recovery_mode {
-        // In recovery mode the frontend is blocked on the DatabaseRecoveryView;
-        // none of the normal background DB work (fingerprint backfill, bulk
-        // import pool, health monitor) should run against the in-memory pool.
-        tracing::info!("Skipping background DB initialisation during database recovery mode.");
-    } else {
-        let fp_pool = match app_state.db_pool() {
-            Ok(pool) => pool,
-            Err(err) => {
-                eprintln!("{err}");
-                std::process::exit(1);
-            }
-        };
-        routes::bulk_import::initialize_bulk_import_db_pool(fp_pool.clone());
-        tauri::async_runtime::spawn(async move {
-            if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await {
-                tracing::error!("Startup fingerprint backfill error: {}", err);
-            }
-        });
-        let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
-        tracing::info!(
-            "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
-            startup_reset.cleared_context_count,
-            startup_reset.active_context_count,
-            startup_reset.reset_count,
-            startup_reset.reset_at_millis
-        );
-    }
-
     let app = tauri::Builder::default()
         .manage(app_state)
-        .setup(|app| {
+        .setup(move |app| {
             routes::bulk_import::initialize_bulk_import_app_handle(app.handle().clone());
+            routes::batch_operations::initialize_backfill_app_handle(app.handle().clone());
+
+            if should_migrate {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = app_handle.state::<AppState>();
+                    let pool = match state.db_pool() {
+                        Ok(p) => p,
+                        Err(e) => {
+                            tracing::error!("Cannot get db pool for migration: {e}");
+                            return;
+                        }
+                    };
+
+                    let _ = app_handle.emit(
+                        "database-migration-status",
+                        serde_json::json!({
+                            "status": "migrating",
+                            "message": "Updating database schema & optimizing indexes..."
+                        }),
+                    );
+
+                    match database::migrations::run_migrations(&pool).await {
+                        Ok(()) => {
+                            let schema_check = match sqlx::query("SELECT 1 FROM settings LIMIT 1")
+                                .execute(&pool)
+                                .await
+                            {
+                                Ok(_) => match sqlx::query("SELECT 1 FROM designs LIMIT 1")
+                                    .execute(&pool)
+                                    .await
+                                {
+                                    Ok(_) => Ok(()),
+                                    Err(err) => Err(format!("Missing or corrupt 'designs' table: {err}")),
+                                },
+                                Err(err) => Err(format!("Missing or corrupt 'settings' table: {err}")),
+                            };
+
+                            match schema_check {
+                                Ok(()) => {
+                                    let mut current = state.get_database_status();
+                                    current.status = DatabaseStatusKind::Connected;
+                                    current.error_message = None;
+                                    state.set_database_status(current);
+
+                                    routes::bulk_import::initialize_bulk_import_db_pool(pool.clone());
+                                    let fp_pool = pool.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        if let Err(err) = services::fingerprint::run_fingerprint_backfill(&fp_pool, 100).await {
+                                            tracing::error!("Startup fingerprint backfill error: {}", err);
+                                        }
+                                    });
+                                    let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
+                                    tracing::info!(
+                                        "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
+                                        startup_reset.cleared_context_count,
+                                        startup_reset.active_context_count,
+                                        startup_reset.reset_count,
+                                        startup_reset.reset_at_millis
+                                    );
+
+                                    let _ = app_handle.emit(
+                                        "database-migration-status",
+                                        serde_json::json!({
+                                            "status": "connected"
+                                        }),
+                                    );
+                                }
+                                Err(err_msg) => {
+                                    tracing::error!("Database sanity check failed: {err_msg}");
+                                    let mut current = state.get_database_status();
+                                    current.status = DatabaseStatusKind::Corrupted;
+                                    current.error_message = Some(err_msg.clone());
+                                    state.set_database_status(current);
+
+                                    let _ = app_handle.emit(
+                                        "database-migration-status",
+                                        serde_json::json!({
+                                            "status": "corrupted",
+                                            "message": err_msg
+                                        }),
+                                    );
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            tracing::error!("Database migration failed: {err}");
+                            let err_msg = format!("Database migration failed: {err}");
+                            let mut current = state.get_database_status();
+                            current.status = DatabaseStatusKind::Corrupted;
+                            current.error_message = Some(err_msg.clone());
+                            state.set_database_status(current);
+
+                            let _ = app_handle.emit(
+                                "database-migration-status",
+                                serde_json::json!({
+                                    "status": "corrupted",
+                                    "message": err_msg
+                                }),
+                            );
+                        }
+                    }
+                });
+            }
             routes::batch_operations::initialize_backfill_app_handle(app.handle().clone());
 
             // â”€â”€ Database health monitor: startup check + idle interval â”€â”€â”€â”€â”€â”€
@@ -670,23 +694,27 @@ fn main() {
         // pool first â€” preventing the "pool timed out waiting for an open
         // connection" error.
         let state = app.state::<AppState>();
-        let pool = state.db_pool().expect("database pool available at startup");
-        let maintenance_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let shutdown_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let startup_handle = app.handle().clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            if let Err(err) = services::db_health::check_and_schedule_maintenance(
-                pool,
-                maintenance_flag,
-                shutdown_flag,
-                startup_handle,
-            )
-            .await
-            {
-                tracing::warn!("Startup DB health check failed: {}", err);
-            }
-        });
+        if let Ok(pool) = state.db_pool() {
+            let maintenance_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let shutdown_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let startup_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                let current_state = startup_handle.state::<AppState>();
+                if current_state.get_database_status().status == DatabaseStatusKind::Connected {
+                    if let Err(err) = services::db_health::check_and_schedule_maintenance(
+                        pool,
+                        maintenance_flag,
+                        shutdown_flag,
+                        startup_handle,
+                    )
+                    .await
+                    {
+                        tracing::warn!("Startup DB health check failed: {}", err);
+                    }
+                }
+            });
+        }
     }
 
     app.run(|app_handle, event| {
@@ -703,12 +731,13 @@ fn main() {
 
                 // Close the SQLite connection pool so VACUUM / WAL checkpoints
                 // finish cleanly before the process exits.
-                let pool = state.db_pool().expect("database pool available on exit");
-                let pool_clone = pool.clone();
-                tauri::async_runtime::spawn(async move {
-                    pool_clone.close().await;
-                    tracing::info!("SQLite connection pool closed.");
-                });
+                if let Ok(pool) = state.db_pool() {
+                    let pool_clone = pool.clone();
+                    tauri::async_runtime::spawn(async move {
+                        pool_clone.close().await;
+                        tracing::info!("SQLite connection pool closed.");
+                    });
+                }
             }
             tauri::RunEvent::Exit => {
                 tracing::info!("Embroidery Catalogue exiting.");

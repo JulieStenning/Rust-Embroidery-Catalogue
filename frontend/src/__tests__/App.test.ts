@@ -174,6 +174,33 @@ describe("App.svelte", () => {
     expect(screen.queryByTestId("initial-setup-view")).not.toBeInTheDocument();
   });
 
+  it("renders the database migration preparation splash when status is migrating", async () => {
+    installTauriBridge();
+    getDatabaseStatusMock.mockResolvedValue({
+      source: "rust",
+      status: {
+        status: "migrating",
+        configured_data_root: "D:/EmbroideryCatalogue",
+        database_path: "D:/EmbroideryCatalogue/Database/EmbroideryCatalogue.db",
+        embroidery_dir: "D:/EmbroideryCatalogue/MachineEmbroideryDesigns",
+        data_root_missing: false,
+      },
+    });
+
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByText("Preparing Catalogue Database")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Updating database schema & optimizing indexes… Please do not close the app."
+        )
+      ).toBeInTheDocument();
+    });
+    expect(checkInitialSetupMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("main-view")).not.toBeInTheDocument();
+  });
+
   it("renders the setup wizard when setup is required", async () => {
     installTauriBridge();
     checkInitialSetupMock.mockResolvedValue(false);

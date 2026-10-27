@@ -102,6 +102,14 @@ async function waitForLoaded() {
   );
 }
 
+/** Render and trigger a user-initiated disk scan to populate orphans. */
+async function renderAndScan() {
+  render(OrphansView);
+  await waitForLoaded();
+  await fireEvent.click(screen.getByRole("button", { name: "Scan Disk" }));
+  await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalled());
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockDefaults();
@@ -128,15 +136,15 @@ describe("OrphansView page chrome", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders all control buttons with default counts", async () => {
+  it("renders all control buttons with initial pre-scan states", async () => {
     render(OrphansView);
     await waitForLoaded();
-    expect(screen.getByRole("button", { name: "Scan Disk" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Select all" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Deselect all" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete selected (2)" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete all (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scan Disk" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Deselect all" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete selected (0)" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete all (0)" })).toBeDisabled();
   });
 
   it("renders the table column headers", async () => {
@@ -162,15 +170,19 @@ describe("OrphansView page chrome", () => {
 // Initial data loading
 // ---------------------------------------------------------------------------
 describe("OrphansView initial data loading", () => {
-  it("calls getOrphansPage with page 1 and page size 100 on mount", async () => {
+  it("does not call getOrphansPage on mount and displays pre-scan state", async () => {
     render(OrphansView);
-    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1));
-    expect(adapterMocks.getOrphansPage).toHaveBeenCalledWith({ page: 1, pageSize: 100 });
+    await waitForLoaded();
+    expect(adapterMocks.getOrphansPage).not.toHaveBeenCalled();
+    expect(screen.getByText("No scan performed yet")).toBeInTheDocument();
+    expect(
+      screen.getByText('No scan performed yet. Click "Scan Disk" to check for orphaned records.')
+    ).toBeInTheDocument();
   });
 
-  it("renders orphan rows with filename and filepath", async () => {
-    render(OrphansView);
-    await waitFor(() => expect(screen.getByText("rose.pes")).toBeInTheDocument());
+  it("renders orphan rows with filename and filepath after user triggers scan", async () => {
+    await renderAndScan();
+    expect(screen.getByText("rose.pes")).toBeInTheDocument();
     expect(screen.getByText("missing.vp3")).toBeInTheDocument();
     expect(screen.getByText("C:/Designs/rose.pes")).toBeInTheDocument();
     expect(screen.getByText("C:/Designs/missing.vp3")).toBeInTheDocument();
@@ -178,17 +190,15 @@ describe("OrphansView initial data loading", () => {
   });
 
   it("renders each orphan id in the id column", async () => {
-    render(OrphansView);
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3));
-
+    await renderAndScan();
     const rows = screen.getAllByRole("row");
+    expect(rows).toHaveLength(3);
     expect(within(rows[1]).getByText("1")).toBeInTheDocument();
     expect(within(rows[2]).getByText("2")).toBeInTheDocument();
   });
 
   it("renders the orphan summary line", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
     expect(
       screen.getByText(/2 orphaned record\(s\) total, page 1 of 1, showing 2/)
     ).toBeInTheDocument();
@@ -209,8 +219,8 @@ describe("OrphansView initial data loading", () => {
         ],
       })
     );
-    render(OrphansView);
-    await waitFor(() => expect(screen.getByText("Unknown")).toBeInTheDocument());
+    await renderAndScan();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
   });
 });
 
@@ -218,24 +228,21 @@ describe("OrphansView initial data loading", () => {
 // Empty state
 // ---------------------------------------------------------------------------
 describe("OrphansView empty state", () => {
-  it("shows the no-orphans message when the page has no items", async () => {
+  it("shows the no-orphans message when the scan finds no items", async () => {
     adapterMocks.getOrphansPage.mockResolvedValue(
       orphanPageResponse({ total: 0, total_pages: 1, items: [] })
     );
-    render(OrphansView);
-    await waitFor(() =>
-      expect(
-        screen.getByText("No orphaned records found. Refresh or scan to check.")
-      ).toBeInTheDocument()
-    );
+    await renderAndScan();
+    expect(
+      screen.getByText("No orphaned records found. Refresh or scan to check.")
+    ).toBeInTheDocument();
   });
 
   it("disables select and delete-all controls when there are no orphans", async () => {
     adapterMocks.getOrphansPage.mockResolvedValue(
       orphanPageResponse({ total: 0, total_pages: 1, items: [] })
     );
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
     expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Deselect all" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete selected (0)" })).toBeDisabled();
@@ -250,16 +257,16 @@ describe("OrphansView error banner", () => {
   it("shows the error banner and falls back to the empty state when loading fails", async () => {
     adapterMocks.getOrphansPage.mockRejectedValue(new Error("db down"));
     render(OrphansView);
+    await waitForLoaded();
+    await fireEvent.click(screen.getByRole("button", { name: "Scan Disk" }));
 
     await waitFor(() =>
       expect(screen.getByText("Could not load orphans: Error: db down")).toBeInTheDocument()
     );
     expect(
-      screen.getByText("No orphaned records found. Refresh or scan to check.")
+      screen.getByText('No scan performed yet. Click "Scan Disk" to check for orphaned records.')
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/0 orphaned record\(s\) total, page 1 of 1, showing 0/)
-    ).toBeInTheDocument();
+    expect(screen.getByText("No scan performed yet")).toBeInTheDocument();
   });
 });
 
@@ -268,8 +275,7 @@ describe("OrphansView error banner", () => {
 // ---------------------------------------------------------------------------
 describe("OrphansView selection", () => {
   it("pre-selects all loaded orphans on page load", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     const checkboxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
     expect(checkboxes).toHaveLength(2);
@@ -280,8 +286,7 @@ describe("OrphansView selection", () => {
   });
 
   it("toggles a single orphan selection off and updates the count", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     const first = screen.getAllByRole("checkbox")[0] as HTMLInputElement;
     await fireEvent.click(first);
@@ -291,8 +296,7 @@ describe("OrphansView selection", () => {
   });
 
   it("toggles a selection back on", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     const first = screen.getAllByRole("checkbox")[0] as HTMLInputElement;
     await fireEvent.click(first);
@@ -302,8 +306,7 @@ describe("OrphansView selection", () => {
   });
 
   it("selects and deselects all orphans on the page", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
     const unchecked = screen.getAllByRole("checkbox") as HTMLInputElement[];
@@ -323,8 +326,7 @@ describe("OrphansView selection", () => {
 // ---------------------------------------------------------------------------
 describe("OrphansView delete selected orphans", () => {
   it("deletes the selected orphans and shows a success toast", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
     expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
@@ -336,8 +338,7 @@ describe("OrphansView delete selected orphans", () => {
   });
 
   it("deletes only the ids that remain selected", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getAllByRole("checkbox")[0]);
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (1)" }));
@@ -346,8 +347,8 @@ describe("OrphansView delete selected orphans", () => {
   });
 
   it("does not delete when the user cancels the confirmation", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
+    toastMocks.addToast.mockClear();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
     expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
@@ -365,8 +366,7 @@ describe("OrphansView delete selected orphans", () => {
       deleted: 0,
       error: "disk failure",
     });
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
     await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
@@ -381,8 +381,7 @@ describe("OrphansView delete selected orphans", () => {
   });
 
   it("refreshes the current page after a successful deletion", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
     await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
@@ -396,8 +395,7 @@ describe("OrphansView delete selected orphans", () => {
 // ---------------------------------------------------------------------------
 describe("OrphansView delete all orphans", () => {
   it("deletes all orphans after confirmation and shows a success toast", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
     expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
@@ -409,8 +407,7 @@ describe("OrphansView delete all orphans", () => {
   });
 
   it("refreshes page 1 after a successful delete-all", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
     await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
@@ -420,8 +417,8 @@ describe("OrphansView delete all orphans", () => {
   });
 
   it("does not delete all when the user cancels the confirmation", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
+    toastMocks.addToast.mockClear();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
     expect(screen.getByTestId("confirm-delete-orphans-modal")).toBeInTheDocument();
@@ -439,8 +436,7 @@ describe("OrphansView delete all orphans", () => {
       deleted: 0,
       error: "db locked",
     });
-    render(OrphansView);
-    await waitForLoaded();
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
     await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
@@ -546,8 +542,8 @@ describe("OrphansView disk scan", () => {
 describe("OrphansView browse orphan path", () => {
   it("shows a success toast when the folder opens", async () => {
     adapterMocks.browseOrphanPath.mockResolvedValue(browseResponse({ opened: "C:\\Designs" }));
-    render(OrphansView);
-    await waitFor(() => expect(screen.getAllByText("Locate Folder")).toHaveLength(2));
+    await renderAndScan();
+    expect(screen.getAllByText("Locate Folder")).toHaveLength(2);
 
     await fireEvent.click(screen.getAllByText("Locate Folder")[0]);
     await waitFor(() =>
@@ -560,8 +556,8 @@ describe("OrphansView browse orphan path", () => {
     adapterMocks.browseOrphanPath.mockResolvedValue(
       browseResponse({ source: "mock", ok: false, error: "No such path" })
     );
-    render(OrphansView);
-    await waitFor(() => expect(screen.getAllByText("Locate Folder")).toHaveLength(2));
+    await renderAndScan();
+    expect(screen.getAllByText("Locate Folder")).toHaveLength(2);
 
     await fireEvent.click(screen.getAllByText("Locate Folder")[0]);
     await waitFor(() =>
@@ -576,8 +572,8 @@ describe("OrphansView browse orphan path", () => {
     adapterMocks.browseOrphanPath.mockResolvedValue(
       browseResponse({ source: "mock", ok: false, opened: "" })
     );
-    render(OrphansView);
-    await waitFor(() => expect(screen.getAllByText("Locate Folder")).toHaveLength(2));
+    await renderAndScan();
+    expect(screen.getAllByText("Locate Folder")).toHaveLength(2);
 
     await fireEvent.click(screen.getAllByText("Locate Folder")[0]);
     await waitFor(() =>
@@ -594,10 +590,8 @@ describe("OrphansView browse orphan path", () => {
 // ---------------------------------------------------------------------------
 describe("OrphansView open design in editor", () => {
   it("opens the design in the system editor when the filename is clicked", async () => {
-    render(OrphansView);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "rose.pes" })).toBeInTheDocument()
-    );
+    await renderAndScan();
+    expect(screen.getByRole("button", { name: "rose.pes" })).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "rose.pes" }));
     expect(adapterMocks.openDesignInEditor).toHaveBeenCalledWith(1);
@@ -618,10 +612,8 @@ describe("OrphansView open design in editor", () => {
         ],
       })
     );
-    render(OrphansView);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "bad.pes" })).toBeInTheDocument()
-    );
+    await renderAndScan();
+    expect(screen.getByRole("button", { name: "bad.pes" })).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "bad.pes" }));
     expect(adapterMocks.openDesignInEditor).not.toHaveBeenCalled();
@@ -636,10 +628,8 @@ describe("OrphansView pagination", () => {
     adapterMocks.getOrphansPage.mockResolvedValue(
       orphanPageResponse({ total: 250, total_pages: 3 })
     );
-    render(OrphansView);
-    await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Orphans pagination" })).toBeInTheDocument()
-    );
+    await renderAndScan();
+    expect(screen.getByRole("navigation", { name: "Orphans pagination" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /First/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Next/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Last/ })).toBeInTheDocument();
@@ -649,20 +639,18 @@ describe("OrphansView pagination", () => {
     adapterMocks.getOrphansPage.mockResolvedValue(
       orphanPageResponse({ total: 250, total_pages: 3 })
     );
-    render(OrphansView);
-    await waitFor(() =>
-      expect(
-        screen.getByText(/250 orphaned record\(s\) total, page 1 of 3, showing 2/)
-      ).toBeInTheDocument()
-    );
+    await renderAndScan();
+    expect(
+      screen.getByText(/250 orphaned record\(s\) total, page 1 of 3, showing 2/)
+    ).toBeInTheDocument();
   });
 
   it("loads the next page when Next is clicked", async () => {
     adapterMocks.getOrphansPage.mockImplementation(({ page }: { page: number }) =>
       Promise.resolve(orphanPageResponse({ page, total: 250, total_pages: 3 }))
     );
-    render(OrphansView);
-    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1));
+    await renderAndScan();
+    expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1);
 
     await fireEvent.click(screen.getByRole("button", { name: /Next/ }));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
@@ -673,8 +661,8 @@ describe("OrphansView pagination", () => {
     adapterMocks.getOrphansPage.mockImplementation(({ page }: { page: number }) =>
       Promise.resolve(orphanPageResponse({ page, total: 250, total_pages: 3 }))
     );
-    render(OrphansView);
-    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1));
+    await renderAndScan();
+    expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1);
 
     await fireEvent.click(screen.getByRole("button", { name: /Next/ }));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
@@ -689,8 +677,8 @@ describe("OrphansView pagination", () => {
     adapterMocks.getOrphansPage.mockImplementation(({ page }: { page: number }) =>
       Promise.resolve(orphanPageResponse({ page, total: 250, total_pages: 3 }))
     );
-    render(OrphansView);
-    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1));
+    await renderAndScan();
+    expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1);
 
     await fireEvent.click(screen.getByRole("button", { name: /Last/ }));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
@@ -702,9 +690,8 @@ describe("OrphansView pagination", () => {
 // Refresh button
 // ---------------------------------------------------------------------------
 describe("OrphansView refresh button", () => {
-  it("reloads the current orphan page when Refresh is clicked", async () => {
-    render(OrphansView);
-    await waitForLoaded();
+  it("reloads the current orphan page when Refresh is clicked after scan", async () => {
+    await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
@@ -716,24 +703,25 @@ describe("OrphansView refresh button", () => {
 // Loading state
 // ---------------------------------------------------------------------------
 describe("OrphansView loading state", () => {
-  it("disables controls and shows 'Scanning...' while the initial page loads", async () => {
-    let resolvePage!: (v: unknown) => void;
-    adapterMocks.getOrphansPage.mockReturnValue(
+  it("disables controls and shows 'Scanning...' while the scan runs", async () => {
+    let resolveScan!: (v: unknown) => void;
+    adapterMocks.scanOrphans.mockReturnValue(
       new Promise((r) => {
-        resolvePage = r;
+        resolveScan = r;
       })
     );
     render(OrphansView);
+    await waitForLoaded();
 
-    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("button", { name: "Scanning..." })).toBeDisabled();
+    await fireEvent.click(screen.getByRole("button", { name: "Scan Disk" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Scanning..." })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Deselect all" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete selected (0)" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete all (0)" })).toBeDisabled();
 
-    resolvePage(orphanPageResponse());
+    resolveScan(scanResponse());
     await waitFor(() => expect(screen.getByRole("button", { name: "Scan Disk" })).toBeEnabled());
   });
 });

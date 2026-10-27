@@ -26,6 +26,8 @@ pub enum DatabaseStatusKind {
     Missing,
     /// The database file exists but cannot be opened or is corrupted.
     Corrupted,
+    /// Database schema migrations or index optimizations are currently running.
+    Migrating,
 }
 
 /// Detailed database status report sent to the frontend.
@@ -148,8 +150,8 @@ pub struct TaskCoordinator {
 pub struct AppState {
     /// Connection pool for the SQLite database (swappable at runtime).
     pub db: PoolHolder,
-    /// Status of the configured database (Connected / Missing / Uninitialized).
-    pub database_status: DatabaseStatus,
+    /// Status of the configured database (Connected / Missing / Uninitialized / Migrating / Corrupted).
+    pub database_status: std::sync::RwLock<DatabaseStatus>,
     /// Resolved application paths (Portable vs Installed mode).
     pub paths: paths::AppPaths,
     /// Log guard — kept alive so log writes are flushed on app exit.
@@ -170,6 +172,28 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Return a clone of the current database status.
+    pub fn get_database_status(&self) -> DatabaseStatus {
+        self.database_status
+            .read()
+            .map(|s| s.clone())
+            .unwrap_or_else(|_| DatabaseStatus {
+                status: DatabaseStatusKind::Corrupted,
+                configured_data_root: None,
+                database_path: None,
+                embroidery_dir: None,
+                data_root_missing: false,
+                error_message: Some("Database status lock poisoned".to_string()),
+            })
+    }
+
+    /// Update the database status in a thread-safe manner.
+    pub fn set_database_status(&self, status: DatabaseStatus) {
+        if let Ok(mut lock) = self.database_status.write() {
+            *lock = status;
+        }
+    }
+
     /// Clone the current live database pool for use by a command. Fails fast
     /// while a database restore is swapping the pool so no command touches a
     /// closed pool.

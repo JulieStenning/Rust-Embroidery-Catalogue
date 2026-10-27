@@ -292,7 +292,7 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
 
     let app_state = AppState {
         db: crate::PoolHolder::new(pool),
-        database_status: crate::DatabaseStatus {
+        database_status: std::sync::RwLock::new(crate::DatabaseStatus {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(tmp.to_string_lossy().to_string()),
             database_path: Some(
@@ -308,7 +308,7 @@ async fn get_settings_view_model_inner_reflects_dev_mode() {
             ),
             data_root_missing: false,
             error_message: None,
-        },
+        }),
         paths: crate::paths::AppPaths {
             mode: crate::paths::ExecutionMode::Dev,
             data_root: tmp.clone(),

@@ -2,7 +2,6 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
   import {
     getOrphansPage,
     deleteOrphans as removeOrphans,
@@ -201,9 +200,7 @@
     }
   }
 
-  onMount(() => {
-    loadOrphansPage(1);
-  });
+  // Scanning for orphaned files is explicitly started by the user via triggerDiskScan.
 </script>
 
 <div class="space-y-6">
@@ -242,7 +239,11 @@
       class="flex items-center justify-between text-sm text-[var(--text-secondary)] flex-wrap gap-2"
     >
       <span>
-        {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
+        {#if orphansLoaded}
+          {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
+        {:else}
+          No scan performed yet
+        {/if}
       </span>
       <div class="flex gap-2">
         <button
@@ -250,6 +251,7 @@
           class="menu-button-primary"
           onclick={triggerDiskScan}
           disabled={orphansLoading || busyActive}
+          data-testid="scan-orphans-button"
         >
           {orphansLoading ? "Scanning..." : "Scan Disk"}
         </button>
@@ -257,7 +259,7 @@
           type="button"
           class="menu-button-secondary"
           onclick={() => loadOrphansPage(orphanPage, true)}
-          disabled={orphansLoading || busyActive}
+          disabled={orphansLoading || busyActive || !orphansLoaded}
         >
           Refresh
         </button>
@@ -312,7 +314,13 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[var(--border-subtle)]">
-          {#if orphanItems.length === 0}
+          {#if !orphansLoaded}
+            <tr>
+              <td colspan="5" class="px-4 py-3 text-[var(--text-muted)]"
+                >No scan performed yet. Click &quot;Scan Disk&quot; to check for orphaned records.</td
+              >
+            </tr>
+          {:else if orphanItems.length === 0}
             <tr>
               <td colspan="5" class="px-4 py-3 text-[var(--text-muted)]"
                 >No orphaned records found. Refresh or scan to check.</td

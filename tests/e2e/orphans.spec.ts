@@ -150,14 +150,16 @@ test.describe.serial("orphaned files management", () => {
       page.getByRole("heading", { name: "Library Discrepancies", exact: true }),
     ).toBeVisible();
 
-    // Summary counter shows 0 records
+    // Summary counter shows pre-scan state
     await expect(
-      page.getByText(/0 orphaned record\(s\) total, page 1 of 1, showing 0/i),
+      page.getByText("No scan performed yet", { exact: true }),
     ).toBeVisible();
 
     // Empty state table body row
     await expect(
-      page.getByText("No orphaned records found. Refresh or scan to check."),
+      page.getByText(
+        'No scan performed yet. Click "Scan Disk" to check for orphaned records.',
+      ),
     ).toBeVisible();
 
     // Table header columns
@@ -191,7 +193,7 @@ test.describe.serial("orphaned files management", () => {
     const deleteAllButton = page.getByRole("button", { name: /^Delete all/i });
 
     await expect(scanButton).toBeEnabled();
-    await expect(refreshButton).toBeEnabled();
+    await expect(refreshButton).toBeDisabled();
     await expect(selectAllButton).toBeDisabled();
     await expect(deselectAllButton).toBeDisabled();
     await expect(deleteSelectedButton).toBeDisabled();
@@ -329,7 +331,7 @@ test.describe.serial("orphaned files management", () => {
     ]);
 
     await gotoRoute(page, "#/admin/system/discrepancies");
-    await page.reload();
+    await page.getByRole("button", { name: "Scan Disk", exact: true }).click();
 
     await expect(page.getByText(/3 orphaned record\(s\) total/i)).toBeVisible();
 
@@ -389,7 +391,7 @@ test.describe.serial("orphaned files management", () => {
     ]);
 
     await gotoRoute(page, "#/admin/system/discrepancies");
-    await page.reload();
+    await page.getByRole("button", { name: "Scan Disk", exact: true }).click();
 
     await expect(
       page.getByRole("button", { name: "Locate_Me.jef", exact: true }),
@@ -425,7 +427,7 @@ test.describe.serial("orphaned files management", () => {
     const targetKeepId = createdOrphanIds[0];
 
     await gotoRoute(page, "#/admin/system/discrepancies");
-    await page.reload();
+    await page.getByRole("button", { name: "Scan Disk", exact: true }).click();
 
     await expect(page.getByText(/2 orphaned record\(s\) total/i)).toBeVisible();
 
@@ -502,7 +504,7 @@ test.describe.serial("orphaned files management", () => {
     const [id1, id2] = createdOrphanIds;
 
     await gotoRoute(page, "#/admin/system/discrepancies");
-    await page.reload();
+    await page.getByRole("button", { name: "Scan Disk", exact: true }).click();
 
     await expect(page.getByText(/2 orphaned record\(s\) total/i)).toBeVisible();
 
@@ -570,7 +572,7 @@ test.describe.serial("orphaned files management", () => {
     createdOrphanIds = insertSyntheticOrphans(records);
 
     await gotoRoute(page, "#/admin/system/discrepancies");
-    await page.reload();
+    await page.getByRole("button", { name: "Scan Disk", exact: true }).click();
 
     // Summary indicates multi-page setup
     await expect(

@@ -835,14 +835,14 @@ fn database_status_dev_mode_uses_app_paths_data_root() {
 fn test_app_state(pool: PoolHolder, restore_in_progress: bool) -> AppState {
     AppState {
         db: pool,
-        database_status: DatabaseStatus {
+        database_status: std::sync::RwLock::new(DatabaseStatus {
             status: DatabaseStatusKind::Uninitialized,
             configured_data_root: None,
             database_path: None,
             embroidery_dir: None,
             data_root_missing: false,
             error_message: None,
-        },
+        }),
         paths: paths::AppPaths {
             mode: paths::ExecutionMode::Dev,
             data_root: PathBuf::from("D:/dev_data"),

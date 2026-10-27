@@ -282,7 +282,7 @@ Use it for:
 
 ## Related guides
 
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - Gemini Vision tagging, costs, and bulk workflows
+- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - Gemini Vision tagging, bulk operations, and Library Discrepancies reconciliation
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) - first-import defaults and action flow
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup and restore operations
 - [GETTING_STARTED.md](GETTING_STARTED.md) - installation and basic setup

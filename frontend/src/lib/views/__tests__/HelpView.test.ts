@@ -444,6 +444,8 @@ describe("HelpView", () => {
       });
       expect(discrepanciesLink).toHaveAttribute("href", "#/admin/system/discrepancies");
 
+      expect(section.getByText("Find Unmatched Design Files:")).toBeInTheDocument();
+      expect(section.getByText("Missing Design Files (Orphans):")).toBeInTheDocument();
       expect(section.getByText("What orphaned records are:")).toBeInTheDocument();
       expect(section.getByText("Deleting orphans:")).toBeInTheDocument();
       expect(section.getByText("Use carefully:")).toBeInTheDocument();
@@ -470,6 +472,7 @@ describe("HelpView", () => {
       const section = sectionQueries(container, "troubleshooting");
 
       expect(section.getByText("Missing folder / changed drive letter:")).toBeInTheDocument();
+      expect(section.getByText("Database preparation on startup:")).toBeInTheDocument();
       expect(section.getByText("Database missing or unreadable on startup:")).toBeInTheDocument();
       expect(section.getByText("Import scan finds nothing:")).toBeInTheDocument();
       expect(section.getByText("Files missing after import:")).toBeInTheDocument();

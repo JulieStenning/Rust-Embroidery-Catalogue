@@ -43,7 +43,7 @@ fn command_app_state(pool: SqlitePool) -> AppState {
     std::fs::create_dir_all(&tmp_dir).ok();
     AppState {
         db: crate::PoolHolder::new(pool),
-        database_status: crate::DatabaseStatus {
+        database_status: std::sync::RwLock::new(crate::DatabaseStatus {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(tmp_dir.clone().to_string_lossy().to_string()),
             database_path: Some(
@@ -61,7 +61,7 @@ fn command_app_state(pool: SqlitePool) -> AppState {
             ),
             data_root_missing: false,
             error_message: None,
-        },
+        }),
         paths: crate::paths::AppPaths {
             mode: crate::paths::ExecutionMode::Installed,
             data_root: tmp_dir.clone(),

@@ -438,7 +438,8 @@ export interface AppStatus {
 }
 
 /** Status of the configured database reported at startup. */
-export type DatabaseStatusKind = "uninitialized" | "connected" | "missing" | "corrupted";
+export type DatabaseStatusKind =
+  "uninitialized" | "connected" | "missing" | "corrupted" | "migrating";
 
 /** Detailed database status used by the recovery flow. */
 export interface DatabaseStatus {

@@ -351,6 +351,20 @@
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
+        The <strong>Library Discrepancies</strong> page provides two user-initiated tools to synchronize
+        your catalogue and disk files without automatic background scanning on page load:
+      </p>
+      <ul class="list-disc list-inside space-y-1 text-[var(--text-secondary)]">
+        <li>
+          <strong>Find Unmatched Design Files:</strong> click <em>Scan for unmatched files</em> to detect
+          disk files not yet catalogued, with options to import them.
+        </li>
+        <li>
+          <strong>Missing Design Files (Orphans):</strong> click <em>Scan Disk</em> to check for database
+          records whose physical files are no longer found on disk.
+        </li>
+      </ul>
+      <p>
         <strong>What orphaned records are:</strong> database records where design files are no longer
         present.
       </p>
@@ -369,6 +383,12 @@
       <p>
         <strong>Missing folder / changed drive letter:</strong> ensure the full data folder moved with
         the app.
+      </p>
+      <p>
+        <strong>Database preparation on startup:</strong> when the application upgrades or optimizes
+        indexes for large catalogues, the window opens immediately with a
+        <em>Preparing Catalogue Database</em>
+        progress screen. Please keep the app open while these one-off optimizations complete.
       </p>
       <p>
         <strong>Database missing or unreadable on startup:</strong> Embroidery Catalogue

@@ -20,6 +20,10 @@
 
   /** Whether the startup check has completed */
   let loading = $state(true);
+  /** Whether database schema migrations or index optimizations are running */
+  let migrating = $state(false);
+  /** Informative status message shown during migration */
+  let migrationMessage = $state("");
   /** Whether a valid licence is active */
   let licenceValid = $state(false);
   /** Whether the initial setup wizard has been completed or skipped */
@@ -49,9 +53,18 @@
 
     try {
       // Check the database recovery status first. If the configured database
-      // is missing or corrupt, block the main UI until the user recovers via
+      // is currently migrating, keep the splash screen with optimization text.
+      // If it is missing or corrupt, block the main UI until the user recovers via
       // backup, re-points the location, or explicitly creates a new catalogue.
       const dbStatus = await getDatabaseStatus();
+      if (dbStatus.status?.status === "migrating") {
+        migrating = true;
+        migrationMessage =
+          "Updating database schema & optimizing indexes… Please do not close the app.";
+        loading = true;
+        return;
+      }
+
       if (
         dbStatus.status &&
         (dbStatus.status.status === "missing" || dbStatus.status.status === "corrupted")
@@ -85,7 +98,9 @@
       }
       console.error("check_initial_setup failed:", e);
     } finally {
-      loading = false;
+      if (!migrating) {
+        loading = false;
+      }
     }
   }
 
@@ -111,6 +126,9 @@
     initialSetupCompleted = true;
   }
 
+  /** Cleanup function for database migration status listener. */
+  let stopMigrationEvents = () => {};
+
   // Subscribe to database maintenance lifecycle events as early as possible
   // (so the completion toast is shown even if ToastContainer mounts later).
   onMount(() => {
@@ -118,10 +136,39 @@
     initDbMaintenanceEvents().then((stop) => {
       stopDbMaintenanceEvents = stop;
     });
+
+    if (hasTauriInvoke()) {
+      import("@tauri-apps/api/event").then(({ listen }) => {
+        listen("database-migration-status", (event) => {
+          const payload = /** @type {any} */ (event.payload);
+          if (payload?.status === "migrating") {
+            migrating = true;
+            migrationMessage =
+              payload.message ||
+              "Updating database schema & optimizing indexes… Please do not close the app.";
+            loading = true;
+          } else if (payload?.status === "connected") {
+            migrating = false;
+            migrationMessage = "";
+            checkStartup();
+          } else if (payload?.status === "corrupted") {
+            migrating = false;
+            databaseMissing = true;
+            loading = false;
+            if (payload.message) {
+              checkError = payload.message;
+            }
+          }
+        }).then((unlisten) => {
+          stopMigrationEvents = unlisten;
+        });
+      });
+    }
   });
 
   onDestroy(() => {
     stopDbMaintenanceEvents();
+    stopMigrationEvents();
     stopTheme();
   });
 
@@ -134,9 +181,34 @@
 {#if loading}
   <!-- Splash / loading state -->
   <div class="flex items-center justify-center min-h-screen">
-    <div class="text-center space-y-3">
-      <p class="text-2xl">🧵</p>
-      <p class="text-[var(--text-muted)] text-sm">Loading Embroidery Catalogue…</p>
+    <div class="text-center space-y-4 max-w-md px-6">
+      <p class="text-4xl animate-bounce">🧵</p>
+      <div class="space-y-1">
+        <p class="text-base font-medium text-[var(--text-primary)]">
+          {migrating ? "Preparing Catalogue Database" : "Loading Embroidery Catalogue…"}
+        </p>
+        <p class="text-sm text-[var(--text-muted)]">
+          {migrating ? migrationMessage : "Please wait…"}
+        </p>
+      </div>
+      {#if migrating}
+        <div class="flex items-center justify-center space-x-2 pt-2">
+          <svg
+            class="animate-spin h-5 w-5 text-[var(--brand-primary)]"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+            ></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-xs text-[var(--text-secondary)]"
+            >Optimizing indexes and checking tables…</span
+          >
+        </div>
+      {/if}
     </div>
   </div>
 {:else if checkError}

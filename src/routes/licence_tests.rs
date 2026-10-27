@@ -26,14 +26,14 @@ fn make_test_paths(data_root: std::path::PathBuf) -> crate::paths::AppPaths {
 fn make_app_state(pool: SqlitePool, paths: crate::paths::AppPaths) -> AppState {
     AppState {
         db: crate::PoolHolder::new(pool),
-        database_status: crate::DatabaseStatus {
+        database_status: std::sync::RwLock::new(crate::DatabaseStatus {
             status: crate::DatabaseStatusKind::Connected,
             configured_data_root: Some(paths.data_root.to_string_lossy().to_string()),
             database_path: Some(paths.database_path.to_string_lossy().to_string()),
             embroidery_dir: Some(paths.embroidery_designs_dir.to_string_lossy().to_string()),
             data_root_missing: false,
             error_message: None,
-        },
+        }),
         paths,
         log_guard: crate::logging::LogGuard::dummy_for_test(),
         shutdown_requested: AtomicBool::new(false),
