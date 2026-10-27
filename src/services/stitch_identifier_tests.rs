@@ -310,6 +310,99 @@ fn ith_keyword_beats_filled() {
     assert!(!tags.contains(&"Filled".to_string()));
 }
 
+/// A filled pattern in a folder containing the word "with" must NOT be tagged
+/// as ITH ("In The Hoop") because "with" is not the keyword "ith".
+#[test]
+fn folder_containing_with_does_not_trigger_ith() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Filled".to_string(), "In The Hoop".to_string()]);
+
+    let tags = suggest_stitching_from_pattern(
+        &pattern,
+        "bear.pes",
+        "C:/imports/Animals with hats/bear.pes",
+        &valid,
+        Some(0.70),
+    );
+
+    assert!(tags.contains(&"Filled".to_string()));
+    assert!(!tags.contains(&"In The Hoop".to_string()));
+}
+
+/// A filled pattern whose name contains substrings like "smith" or "faith" must
+/// NOT be tagged as ITH ("In The Hoop").
+#[test]
+fn filename_containing_smith_does_not_trigger_ith() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Filled".to_string(), "In The Hoop".to_string()]);
+
+    let tags = suggest_stitching_from_pattern(
+        &pattern,
+        "blacksmith_anvil.pes",
+        "C:/imports/blacksmith/blacksmith_anvil.pes",
+        &valid,
+        Some(0.70),
+    );
+
+    assert!(tags.contains(&"Filled".to_string()));
+    assert!(!tags.contains(&"In The Hoop".to_string()));
+}
+
+/// A folder containing "Market Place" or a file "necklace" must NOT trigger
+/// the "Lace" keyword tag.
+#[test]
+fn words_containing_lace_substring_do_not_trigger_lace() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Filled".to_string(), "Lace".to_string()]);
+
+    let tags_place = suggest_stitching_from_pattern(
+        &pattern,
+        "flower.pes",
+        "C:/imports/Market Place/flower.pes",
+        &valid,
+        Some(0.70),
+    );
+    assert!(tags_place.contains(&"Filled".to_string()));
+    assert!(!tags_place.contains(&"Lace".to_string()));
+
+    let tags_necklace = suggest_stitching_from_pattern(
+        &pattern,
+        "necklace_beads.pes",
+        "C:/imports/Jewellery/necklace_beads.pes",
+        &valid,
+        Some(0.70),
+    );
+    assert!(tags_necklace.contains(&"Filled".to_string()));
+    assert!(!tags_necklace.contains(&"Lace".to_string()));
+}
+
+/// Hyphenated "In-The-Hoop" and "fsl" keywords still trigger their respective tags.
+#[test]
+fn delimited_phrases_and_acronyms_match() {
+    let pattern = filled_pattern();
+    let valid_ith = HashSet::from(["Filled".to_string(), "In The Hoop".to_string()]);
+    let tags_ith = suggest_stitching_from_pattern(
+        &pattern,
+        "wallet.pes",
+        "C:/imports/In-The-Hoop/wallet.pes",
+        &valid_ith,
+        Some(0.70),
+    );
+    assert!(tags_ith.contains(&"In The Hoop".to_string()));
+    assert!(!tags_ith.contains(&"Filled".to_string()));
+
+    let valid_lace = HashSet::from(["Filled".to_string(), "Lace".to_string()]);
+    let tags_lace = suggest_stitching_from_pattern(
+        &pattern,
+        "angel.pes",
+        "C:/imports/fsl/angel.pes",
+        &valid_lace,
+        Some(0.70),
+    );
+    assert!(tags_lace.contains(&"Lace".to_string()));
+    assert!(!tags_lace.contains(&"Filled".to_string()));
+}
+
 /// A filled pattern whose filename contains an "applique" keyword. Applique
 /// must win because the priority chain stops at it before filled is
 /// considered.

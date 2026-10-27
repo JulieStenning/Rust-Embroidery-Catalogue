@@ -122,6 +122,19 @@ struct StitchIdentifier<'a> {
     folder_name: String,
 }
 
+fn normalize_for_keyword_matching(text: &str) -> String {
+    let lower = text.to_lowercase();
+    let words: Vec<&str> = lower
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|part| !part.is_empty())
+        .collect();
+    if words.is_empty() {
+        String::new()
+    } else {
+        format!(" {} ", words.join(" "))
+    }
+}
+
 impl<'a> StitchIdentifier<'a> {
     fn new(
         pattern: &'a EmbPattern,
@@ -134,7 +147,8 @@ impl<'a> StitchIdentifier<'a> {
         } else {
             filename
         };
-        let name_text = format!("{} {}", folder_name, raw_filename).to_ascii_lowercase();
+        let combined = format!("{} {}", folder_name, raw_filename);
+        let name_text = normalize_for_keyword_matching(&combined);
 
         Self {
             pattern,
@@ -585,14 +599,15 @@ impl<'a> StitchIdentifier<'a> {
     fn name_confidence(&self, stitch_type: &str) -> f64 {
         let keywords: &[&str] = match stitch_type {
             "ith" => &["in the hoop", "ith", "hoop"],
-            "applique" => &["applique", "appliquee", "appliquÃ©", "appique"],
+            "applique" => &["applique", "appliquee", "appliqué", "appique"],
             "cross_stitch" => &["cross stitch", "cross-stitch", "cross_stitch"],
             "lace" => &["lace", "fsl", "freestanding lace", "free standing lace"],
             _ => &[],
         };
 
         for keyword in keywords {
-            if self.name_text.contains(keyword) {
+            let normalized_kw = normalize_for_keyword_matching(keyword);
+            if !normalized_kw.is_empty() && self.name_text.contains(&normalized_kw) {
                 return 0.99;
             }
         }
