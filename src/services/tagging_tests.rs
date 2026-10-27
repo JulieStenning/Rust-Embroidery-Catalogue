@@ -43,6 +43,13 @@ fn normalize_text_replaces_punctuation_with_spaces() {
 }
 
 #[test]
+fn normalize_text_splits_letter_digit_and_camelcase_transitions() {
+    assert_eq!(normalize_text("Butterfly1"), "butterfly 1");
+    assert_eq!(normalize_text("12Floral"), "12 floral");
+    assert_eq!(normalize_text("MonarchButterfly"), "monarch butterfly");
+}
+
+#[test]
 fn significant_tokens_filters_short_words_and_conjunctions() {
     let tokens = significant_tokens("a big cat and a dog");
     assert_eq!(tokens, vec!["big", "cat", "dog"]);
@@ -353,4 +360,52 @@ fn suggest_path_rule_does_not_match_on_and_conjunction() {
         !matched.contains(&"Words and Letters".to_string()),
         "should not match 'Words and Letters' solely because path contains 'and'"
     );
+}
+
+#[test]
+fn suggest_path_rule_matches_trailing_number_butterfly1() {
+    let valid = HashSet::from(["Butterflies and Insects".to_string()]);
+    let synonyms = default_test_synonyms();
+    let matched = suggest_path_rule_descriptions(
+        "Butterfly1.vp3",
+        "F:\\MachineEmbroideryDesigns\\dime\\Designs\\Perfect Stitch Viewer Free Designs\\Vp3\\Butterfly1.vp3",
+        &valid,
+        &synonyms,
+    );
+    assert!(
+        matched.contains(&"Butterflies and Insects".to_string()),
+        "file 'Butterfly1.vp3' should match 'Butterflies and Insects': {:?}",
+        matched
+    );
+}
+
+#[test]
+fn suggest_path_rule_matches_numbered_and_camelcase_designs() {
+    let valid = HashSet::from([
+        "Cats".to_string(),
+        "Flowers".to_string(),
+        "Butterflies and Insects".to_string(),
+        "Crests".to_string(),
+    ]);
+    let synonyms = default_test_synonyms();
+
+    // Cat02 matches Cats via singular form "cat"
+    let matched_cat = suggest_path_rule_descriptions("Cat02.pes", "C:/imports/", &valid, &synonyms);
+    assert!(matched_cat.contains(&"Cats".to_string()));
+
+    // 12Floral matches Flowers via synonym "floral"
+    let matched_floral =
+        suggest_path_rule_descriptions("12Floral.pes", "C:/imports/", &valid, &synonyms);
+    assert!(matched_floral.contains(&"Flowers".to_string()));
+
+    // MonarchButterfly matches Butterflies and Insects via camelCase split
+    let matched_butterfly =
+        suggest_path_rule_descriptions("MonarchButterfly.pes", "C:/imports/", &valid, &synonyms);
+    assert!(matched_butterfly.contains(&"Butterflies and Insects".to_string()));
+
+    // Boundary safety: Crests1 must never match Cats
+    let matched_crests =
+        suggest_path_rule_descriptions("Crests1.pes", "C:/imports/", &valid, &synonyms);
+    assert!(matched_crests.contains(&"Crests".to_string()));
+    assert!(!matched_crests.contains(&"Cats".to_string()));
 }

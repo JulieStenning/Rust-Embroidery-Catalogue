@@ -25,23 +25,62 @@ use std::collections::{HashMap, HashSet};
 // ─── Normalisation ───────────────────────────────────────────────────────
 
 fn normalize_text(value: &str) -> String {
-    value
+    let mut normalized = String::with_capacity(value.len() * 2);
+    let mut prev_char: Option<char> = None;
+
+    for ch in value.chars() {
+        if ch.is_alphabetic() {
+            if let Some(prev) = prev_char {
+                // Split on digit -> letter (e.g. "1Butterfly" -> "1 butterfly")
+                // or lowercase -> uppercase (e.g. "MonarchButterfly" -> "monarch butterfly")
+                if prev.is_numeric() || (prev.is_lowercase() && ch.is_uppercase()) {
+                    normalized.push(' ');
+                }
+            }
+            normalized.extend(ch.to_lowercase());
+            prev_char = Some(ch);
+        } else if ch.is_numeric() {
+            if let Some(prev) = prev_char {
+                // Split on letter -> digit (e.g. "Butterfly1" -> "butterfly 1")
+                if prev.is_alphabetic() {
+                    normalized.push(' ');
+                }
+            }
+            normalized.push(ch);
+            prev_char = Some(ch);
+        } else {
+            normalized.push(' ');
+            prev_char = None;
+        }
+    }
+
+    normalized
+}
+
+fn tokenize(value: &str) -> HashSet<String> {
+    let mut tokens = HashSet::new();
+
+    // Primary: boundary-split normalized tokens (splits letter/digit and camelCase)
+    for token in normalize_text(value).split_whitespace() {
+        tokens.insert(token.to_string());
+    }
+
+    // Secondary: raw alphanumeric tokens without boundary splitting (keeps e.g. "butterfly1")
+    let raw_alphanumeric: String = value
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
+            if ch.is_alphanumeric() {
                 ch.to_ascii_lowercase()
             } else {
                 ' '
             }
         })
-        .collect::<String>()
-}
+        .collect();
+    for token in raw_alphanumeric.split_whitespace() {
+        tokens.insert(token.to_string());
+    }
 
-fn tokenize(value: &str) -> HashSet<String> {
-    normalize_text(value)
-        .split_whitespace()
-        .map(String::from)
-        .collect()
+    tokens
 }
 
 /// Significant tokens: tokens longer than 2 characters and not noise words like

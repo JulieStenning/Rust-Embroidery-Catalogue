@@ -188,8 +188,9 @@
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
-        <strong>Offline &amp; automatic:</strong> runs 100% locally with no API key; matches whole words,
-        plurals, and singulars.
+        <strong>Offline &amp; automatic:</strong> runs 100% locally with no API key; matches whole
+        words, plurals, singulars, and automatically splits trailing numbers (e.g.
+        <em>Butterfly1</em>) and CamelCase names.
       </p>
       <p>
         <strong>Manage matches:</strong> open

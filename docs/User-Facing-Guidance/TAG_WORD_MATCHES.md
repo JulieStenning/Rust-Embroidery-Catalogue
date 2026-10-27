@@ -28,6 +28,7 @@ When designs are imported (see [Import workflow and local rules](IMPORT_WORKFLOW
 Matching is performed on whole word boundaries. For example:
 - A match word `cat` will match `Black_Cat.pes` or a folder named `Cats`.
 - It will **not** falsely match `Catch_The_Ball.pes` or `Catalogue`.
+- Sequentially numbered filenames without punctuation (such as `Butterfly1.vp3`, `Rose02.pes`, or `12Floral.jef`) and CamelCase compound names (`MonarchButterfly.pes`) are automatically recognized and split on word boundaries, so `Butterfly1` matches `butterflies`.
 
 ### 3. Plurals and Singulars
 The matching engine automatically handles regular English plurals and singular forms:
