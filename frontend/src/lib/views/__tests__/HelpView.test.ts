@@ -139,6 +139,7 @@ describe("HelpView", () => {
       expect(section.getByText("Verification status:")).toBeInTheDocument();
       expect(section.getByText("Quick search vs. filters:")).toBeInTheDocument();
       expect(section.getByText("Active filter chips:")).toBeInTheDocument();
+      expect(section.getByText("Sorting:")).toBeInTheDocument();
       expect(section.getByText("Fast tag verification:")).toBeInTheDocument();
       const bulkActionsLink = section.getByRole("link", {
         name: "Browse & Bulk Actions Guide",

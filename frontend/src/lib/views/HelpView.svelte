@@ -122,6 +122,11 @@
         Min W: 100) matches all designs 100mm and wider.
       </p>
       <p>
+        <strong>Sorting:</strong> sort designs by Date Added, Date Updated, Name, Rating, Stitched status,
+        or <em>Folder</em>. When sorting by Folder, designs are grouped by folder path, with filenames
+        automatically sorted alphabetically (A&ndash;Z) within each folder to streamline bulk-tagging related files.
+      </p>
+      <p>
         <strong>Fast tag verification:</strong> automated tags don't need to be perfect to save
         time. Search for a subject keyword (e.g.
         <code

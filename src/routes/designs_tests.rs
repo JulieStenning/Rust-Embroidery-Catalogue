@@ -3178,3 +3178,70 @@ async fn metadata_mutations_stamp_date_updated() {
     let stamp = updated_stamp.expect("date_updated must be set");
     assert!(stamp.as_str() > "2026-01-01 00:00:00");
 }
+
+#[tokio::test]
+async fn browse_sort_by_folder_groups_by_directory_and_sorts_filename_asc() {
+    let pool = test_pool().await;
+
+    // Seed designs across folders with differing filename order
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath) \
+         VALUES ('zebra_b.pes', 'Animals/Zebra/zebra_b.pes'), \
+                ('grizzly.pes', 'Animals/Bears/grizzly.pes'), \
+                ('black_bear.pes', 'Animals/Bears/black_bear.pes'), \
+                ('rose.pes', 'Flowers/Roses/rose.pes')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed designs");
+
+    // Ascending: Animals/Bears/ (black_bear then grizzly), Animals/Zebra/, Flowers/Roses/
+    let res_asc = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            sort_by: Some("folder".to_string()),
+            sort_dir: Some("asc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query sort folder asc");
+
+    let asc_names: Vec<_> = res_asc.items.iter().map(|d| d.filename.as_str()).collect();
+    let pos_black_bear = asc_names.iter().position(|&x| x == "black_bear.pes").unwrap();
+    let pos_grizzly = asc_names.iter().position(|&x| x == "grizzly.pes").unwrap();
+    let pos_zebra = asc_names.iter().position(|&x| x == "zebra_b.pes").unwrap();
+    let pos_rose = asc_names.iter().position(|&x| x == "rose.pes").unwrap();
+
+    // Folder Animals/Bears precedes Animals/Zebra precedes Flowers/Roses
+    assert!(pos_black_bear < pos_zebra);
+    assert!(pos_grizzly < pos_zebra);
+    assert!(pos_zebra < pos_rose);
+    // Inside Animals/Bears, black_bear precedes grizzly (filename ASC)
+    assert!(pos_black_bear < pos_grizzly);
+
+    // Descending: Flowers/Roses/, Animals/Zebra/, Animals/Bears/ (black_bear then grizzly!)
+    let res_desc = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            sort_by: Some("folder".to_string()),
+            sort_dir: Some("desc".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("query sort folder desc");
+
+    let desc_names: Vec<_> = res_desc.items.iter().map(|d| d.filename.as_str()).collect();
+    let d_pos_black_bear = desc_names.iter().position(|&x| x == "black_bear.pes").unwrap();
+    let d_pos_grizzly = desc_names.iter().position(|&x| x == "grizzly.pes").unwrap();
+    let d_pos_zebra = desc_names.iter().position(|&x| x == "zebra_b.pes").unwrap();
+    let d_pos_rose = desc_names.iter().position(|&x| x == "rose.pes").unwrap();
+
+    // Folders in reverse order: Flowers/Roses precedes Animals/Zebra precedes Animals/Bears
+    assert!(d_pos_rose < d_pos_zebra);
+    assert!(d_pos_zebra < d_pos_black_bear);
+    assert!(d_pos_zebra < d_pos_grizzly);
+    // Crucial: inside Animals/Bears, secondary sort is STILL filename ASC!
+    assert!(d_pos_black_bear < d_pos_grizzly);
+}

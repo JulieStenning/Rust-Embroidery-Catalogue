@@ -144,9 +144,12 @@ pub(crate) fn browse_sort_clause(sort_by: Option<&str>, sort_dir: Option<&str>) 
     let column = match sort_by {
         Some(sort) if sort.eq_ignore_ascii_case("rating") => "COALESCE(d.rating, -1)",
         Some(sort) if sort.eq_ignore_ascii_case("stitched") => "d.is_stitched",
-        // Approximates the frontend's "folder then filename" ordering, because
-        // the parent directory name is a path prefix of `filepath`.
-        Some(sort) if sort.eq_ignore_ascii_case("folder") => "d.filepath COLLATE NOCASE",
+        // Groups by the directory path portion of `filepath` (stripping trailing filename)
+        // so designs within each folder are kept alphabetical by `filename ASC` as
+        // a secondary sort, regardless of whether folders are sorted ASC or DESC.
+        Some(sort) if sort.eq_ignore_ascii_case("folder") => {
+            "SUBSTR(d.filepath, 1, LENGTH(d.filepath) - LENGTH(d.filename)) COLLATE NOCASE"
+        }
         Some(sort) if sort.eq_ignore_ascii_case("date_added") => "COALESCE(d.date_added, '')",
         Some(sort) if sort.eq_ignore_ascii_case("date_updated") => {
             "COALESCE(d.date_updated, d.date_added, '')"

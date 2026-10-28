@@ -66,6 +66,26 @@ Whenever you select one or more criteria in **Additional Filters**, the active c
 
 ---
 
+## ↕️ Sorting Designs
+
+You can reorder the designs displayed in the Browse grid using the **Sort by** and **Direction** controls:
+
+- **Sort by:**
+  - **Date Added:** Orders designs by the date they were imported into the catalogue.
+  - **Date Updated:** Orders designs by recent changes (ratings, tags, or metadata updates).
+  - **Folder:** Groups designs by their containing directory path on disk.
+  - **Name:** Alphabetical order by design filename.
+  - **Rating:** Star rating order.
+  - **Stitched:** Orders designs by their stitched status.
+- **Direction:** **Ascending** (A to Z / oldest first / lowest first) or **Descending** (Z to A / newest first / highest first).
+
+### 💡 Folder Sorting & Secondary Filename Ordering
+When sorting by **Folder**, designs are primary-sorted by their relative directory path and automatically secondary-sorted by **Filename (Ascending)** within each folder.
+
+Even when folder direction is set to **Descending** (browsing folder names Z to A), the designs within each individual folder remain cleanly ordered alphabetically A to Z. This keeps numbered design series and sets grouped sequentially, making it effortless to select related files in the same folder and perform bulk tag updates.
+
+---
+
 ## 🔄 Resetting Filters
 
 Click **Reset filters** at the bottom of the filter controls, click **Clear all** in the active filter chips row, or clear the general search input to restore default browse view settings.
