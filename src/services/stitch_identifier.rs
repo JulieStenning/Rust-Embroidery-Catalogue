@@ -598,7 +598,7 @@ impl<'a> StitchIdentifier<'a> {
 
     fn name_confidence(&self, stitch_type: &str) -> f64 {
         let keywords: &[&str] = match stitch_type {
-            "ith" => &["in the hoop", "ith", "hoop"],
+            "ith" => &["in the hoop", "ith", "inthehoop"],
             "applique" => &["applique", "appliquee", "appliqué", "appique"],
             "cross_stitch" => &["cross stitch", "cross-stitch", "cross_stitch"],
             "lace" => &["lace", "fsl", "freestanding lace", "free standing lace"],

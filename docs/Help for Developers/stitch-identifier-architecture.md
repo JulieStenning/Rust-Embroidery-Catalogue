@@ -74,7 +74,7 @@ Before any geometry analysis, the filename and folder name are checked for keywo
 | Stitch type | Keywords |
 |---|---|
 | `lace` | `lace`, `fsl`, `freestanding lace`, `free standing lace` |
-| `ith` | `in the hoop`, `ith`, `hoop` |
+| `ith` | `in the hoop`, `ith`, `inthehoop` |
 | `applique` | `applique`, `appliquee`, `appliqué`, `appique` |
 | `cross_stitch` | `cross stitch`, `cross-stitch`, `cross_stitch` |
 

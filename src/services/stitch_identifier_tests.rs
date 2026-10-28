@@ -403,6 +403,79 @@ fn delimited_phrases_and_acronyms_match() {
     assert!(!tags_lace.contains(&"Filled".to_string()));
 }
 
+/// The standalone word "Hoop" (e.g. hoop size references like "4x4 Hoop") must NOT
+/// trigger "In The Hoop". It should allow subsequent keywords like "Applique" to match.
+#[test]
+fn hoop_keyword_alone_does_not_trigger_ith() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Applique".to_string(), "In The Hoop".to_string()]);
+
+    let tags = suggest_stitching_from_pattern(
+        &pattern,
+        "01 Pumpkin Applique 4x4 Hoop.jef",
+        "F:/MachineEmbroideryDesigns/Food/Embroidery Super Deal/Falls Gold/Applique/01 Pumpkin Applique 4x4 Hoop.jef",
+        &valid,
+        Some(0.70),
+    );
+
+    assert!(tags.contains(&"Applique".to_string()));
+    assert!(!tags.contains(&"In The Hoop".to_string()));
+}
+
+/// "ITH", "In The Hoop", and unspaced "InTheHoop" (case insensitive) must all trigger
+/// the "In The Hoop" tag.
+#[test]
+fn ith_keyword_variants_match_in_the_hoop() {
+    let pattern = filled_pattern();
+    let valid = HashSet::from(["Filled".to_string(), "In The Hoop".to_string()]);
+
+    for (filename, filepath) in [
+        ("pumpkin_ITH.pes", "C:/imports/pumpkin_ITH.pes"),
+        ("pumpkin_inthehoop.pes", "C:/imports/pumpkin_inthehoop.pes"),
+        ("pumpkin_InTheHoop.pes", "C:/imports/pumpkin_InTheHoop.pes"),
+        (
+            "pumpkin in the hoop.pes",
+            "C:/imports/pumpkin in the hoop.pes",
+        ),
+    ] {
+        let tags = suggest_stitching_from_pattern(&pattern, filename, filepath, &valid, Some(0.70));
+        assert!(
+            tags.contains(&"In The Hoop".to_string()),
+            "Expected 'In The Hoop' for filename '{}', got {:?}",
+            filename,
+            tags
+        );
+        assert!(!tags.contains(&"Filled".to_string()));
+    }
+}
+
+#[test]
+fn buck_bust_hoop_file_is_not_tagged_in_the_hoop() {
+    let path = "F:/MachineEmbroideryDesigns/Animals/Embroidery Super Deal/214AnimalsJEF/030 Buck Bust 4x4 Hoop.jef";
+    if !std::path::Path::new(path).exists() {
+        return;
+    }
+    let valid = HashSet::from([
+        "Filled".to_string(),
+        "In The Hoop".to_string(),
+        "Applique".to_string(),
+        "Line Outline".to_string(),
+        "Satin Stitch".to_string(),
+    ]);
+    let tags = suggest_stitching_from_pattern_file(
+        path,
+        "030 Buck Bust 4x4 Hoop.jef",
+        path,
+        &valid,
+        Some(0.70),
+    );
+    assert!(
+        !tags.contains(&"In The Hoop".to_string()),
+        "Did not expect 'In The Hoop' tag, got {:?}",
+        tags
+    );
+}
+
 /// A filled pattern whose filename contains an "applique" keyword. Applique
 /// must win because the priority chain stops at it before filled is
 /// considered.
