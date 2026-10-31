@@ -382,6 +382,7 @@ fn test_settings_struct_derives() {
         ai_workers: "2".to_string(),
         ai_free_tier: false,
         enabled_master_formats: "eof,ecf".to_string(),
+        zip_alphabets: false,
         data_root: "/root".to_string(),
         db_idle_check_interval_secs: "60".to_string(),
     };

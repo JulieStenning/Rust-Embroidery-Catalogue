@@ -18,6 +18,7 @@ pub const KEY_AI_WORKERS: &str = "ai.workers";
 pub const KEY_AI_FREE_TIER: &str = "ai.free_tier";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
 pub const KEY_IMPORT_ENABLED_MASTER_FORMATS: &str = "import.enabled_master_formats";
+pub const KEY_IMPORT_ZIP_ALPHABETS: &str = "import.zip_alphabets";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
 pub const KEY_DB_IDLE_CHECK_INTERVAL_SECS: &str = "db.idle_check_interval_secs";
 
@@ -34,6 +35,7 @@ pub struct SettingsViewModel {
     pub ai_free_tier: bool,
     pub import_last_browse_folder: String,
     pub enabled_master_formats: String,
+    pub zip_alphabets: bool,
     pub can_configure_data_root: bool,
     pub data_root: String,
     pub library_root: String,
@@ -61,6 +63,8 @@ pub struct SaveSettingsRequest {
     pub ai_free_tier: bool,
     #[serde(default)]
     pub enabled_master_formats: String,
+    #[serde(default)]
+    pub zip_alphabets: bool,
     pub data_root: String,
     #[serde(default)]
     pub db_idle_check_interval_secs: String,
@@ -104,6 +108,8 @@ pub(crate) async fn get_settings_view_model_inner(
         get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER).await?;
     let enabled_master_formats =
         get_setting_with_default(&mut conn, KEY_IMPORT_ENABLED_MASTER_FORMATS).await?;
+    let zip_alphabets =
+        is_truthy(&get_setting_with_default(&mut conn, KEY_IMPORT_ZIP_ALPHABETS).await?);
     let db_idle_check_interval_secs =
         get_setting_with_default(&mut conn, KEY_DB_IDLE_CHECK_INTERVAL_SECS).await?;
     let google_api_key = get_setting_with_default(&mut conn, KEY_AI_GOOGLE_API_KEY).await?;
@@ -138,6 +144,7 @@ pub(crate) async fn get_settings_view_model_inner(
         ai_free_tier,
         import_last_browse_folder,
         enabled_master_formats,
+        zip_alphabets,
         can_configure_data_root,
         data_root,
         library_root,
@@ -209,6 +216,12 @@ pub(crate) async fn save_settings_view_model_inner(
         &mut conn,
         KEY_IMPORT_ENABLED_MASTER_FORMATS,
         &enabled_master_formats,
+    )
+    .await?;
+    upsert_setting(
+        &mut conn,
+        KEY_IMPORT_ZIP_ALPHABETS,
+        bool_to_setting(request.zip_alphabets),
     )
     .await?;
     upsert_setting(
@@ -378,6 +391,7 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_WORKERS => "",
         KEY_AI_FREE_TIER => "false",
         KEY_IMPORT_ENABLED_MASTER_FORMATS => DEFAULT_ENABLED_MASTER_FORMATS,
+        KEY_IMPORT_ZIP_ALPHABETS => "false",
         KEY_PREVIEW_3D_PROFILE => "balanced",
         // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "1800",
@@ -396,6 +410,7 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_FREE_TIER => "Whether your Gemini API key is on the free tier. Free-tier keys have strict per-minute and per-day limits; the app stops hard on 429 and tells you how long to wait.",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_IMPORT_ENABLED_MASTER_FORMATS => "Comma-separated list of enabled digitising/master file extensions to scan and pair.",
+        KEY_IMPORT_ZIP_ALPHABETS => "Whether to compress full alphabet/font sets into a ZIP archive and import representative samples only.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "Interval in seconds between automatic database fragmentation checks (default 1800).",
         _ => "",

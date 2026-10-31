@@ -3208,7 +3208,10 @@ async fn browse_sort_by_folder_groups_by_directory_and_sorts_filename_asc() {
     .expect("query sort folder asc");
 
     let asc_names: Vec<_> = res_asc.items.iter().map(|d| d.filename.as_str()).collect();
-    let pos_black_bear = asc_names.iter().position(|&x| x == "black_bear.pes").unwrap();
+    let pos_black_bear = asc_names
+        .iter()
+        .position(|&x| x == "black_bear.pes")
+        .unwrap();
     let pos_grizzly = asc_names.iter().position(|&x| x == "grizzly.pes").unwrap();
     let pos_zebra = asc_names.iter().position(|&x| x == "zebra_b.pes").unwrap();
     let pos_rose = asc_names.iter().position(|&x| x == "rose.pes").unwrap();
@@ -3233,7 +3236,10 @@ async fn browse_sort_by_folder_groups_by_directory_and_sorts_filename_asc() {
     .expect("query sort folder desc");
 
     let desc_names: Vec<_> = res_desc.items.iter().map(|d| d.filename.as_str()).collect();
-    let d_pos_black_bear = desc_names.iter().position(|&x| x == "black_bear.pes").unwrap();
+    let d_pos_black_bear = desc_names
+        .iter()
+        .position(|&x| x == "black_bear.pes")
+        .unwrap();
     let d_pos_grizzly = desc_names.iter().position(|&x| x == "grizzly.pes").unwrap();
     let d_pos_zebra = desc_names.iter().position(|&x| x == "zebra_b.pes").unwrap();
     let d_pos_rose = desc_names.iter().position(|&x| x == "rose.pes").unwrap();

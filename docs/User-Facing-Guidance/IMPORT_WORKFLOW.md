@@ -59,6 +59,13 @@ When you run the import:
 The button shows live progress while it runs; **Cancel** becomes **Stop** if you need to
 halt it. After success, you are redirected to Browse Designs.
 
+## Alphabet & font compression (optional)
+If enabled in **Admin → Settings** ("Zip / compress alphabet folders on import"):
+- Scanned folders recognized as alphabet or font collections are automatically bundled into a companion `.zip` archive (`<AlphabetFolder>.zip`) in the library folder.
+- Only key representative glyphs are added to the database: **Upper A**, **Lower a**, digit **9**, and **all punctuation/symbol files** for each size found.
+- Letters `B`–`Z`, `b`–`z`, and digits `0`–`8` remain safely archived inside the `.zip` so they do not overwhelm your catalogue with hundreds of individual letter cards.
+- Embrilliance `.bx` files and all folder contents are preserved within the `.zip`, allowing full unzipping or selective extraction at any time.
+
 ## Leaving the import wizard
 You can leave the Import page at any point using the top navigation — there is no
 "unsaved changes" prompt. The wizard keeps your scan and selections, so returning to

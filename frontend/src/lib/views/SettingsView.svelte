@@ -33,7 +33,7 @@
    * Subset of SaveSettingsRequest that is both editable in the form and
    * actually persisted by `saveSettings` (deliberately excludes `data_root`,
    * which is only ever changed via the catalogue migration -> restart flow).
-   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; enabled_master_formats: string; db_idle_check_interval_secs: string; }} EditableSettingsValues
+   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; enabled_master_formats: string; zip_alphabets: boolean; db_idle_check_interval_secs: string; }} EditableSettingsValues
    */
 
   const MASTER_FORMAT_PRESETS = [
@@ -112,6 +112,7 @@
   let settingsAiFreeTier = $state(false);
   let settingsEnabledMasterFormats = $state("");
   let settingsCustomMasterFormats = $state("");
+  let settingsZipAlphabets = $state(false);
   /** @type {string[]} */
   let settingsGeminiModels = $state([]);
   let settingsModelsLoading = $state(false);
@@ -235,6 +236,7 @@
       ai_workers: settingsNumericToString(settingsAiWorkers),
       ai_free_tier: settingsAiFreeTier,
       enabled_master_formats: normalizeMasterFormats(settingsEnabledMasterFormats),
+      zip_alphabets: settingsZipAlphabets,
       db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
     };
   }
@@ -262,6 +264,7 @@
       cur.ai_workers !== base.ai_workers ||
       cur.ai_free_tier !== base.ai_free_tier ||
       cur.enabled_master_formats !== base.enabled_master_formats ||
+      cur.zip_alphabets !== base.zip_alphabets ||
       cur.db_idle_check_interval_secs !== base.db_idle_check_interval_secs
     );
   }
@@ -288,6 +291,7 @@
     const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
     const customExts = [...currentSet].filter((ext) => !knownExts.has(ext));
     settingsCustomMasterFormats = customExts.join(", ");
+    settingsZipAlphabets = Boolean(model?.zip_alphabets);
     settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
     settingsDataRoot = String(model?.data_root || "");
@@ -939,6 +943,46 @@
               >
             </p>
           </div>
+        </div>
+
+        <div
+          class="border-b border-[var(--border-default)] pb-5"
+          data-testid="settings-alphabet-compression-section"
+        >
+          <h2
+            class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+          >
+            <span>🔤</span>
+            <span>Alphabet &amp; Font Compression</span>
+          </h2>
+          <p class="text-sm text-[var(--text-secondary)] mb-3">
+            Choose how digital embroidery font and alphabet packages are catalogued during import.
+          </p>
+          <label
+            class="flex items-start gap-2.5 p-3 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
+            data-testid="settings-zip-alphabets-label"
+          >
+            <input
+              type="checkbox"
+              class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
+              checked={settingsZipAlphabets}
+              onchange={(e) =>
+                (settingsZipAlphabets = /** @type {HTMLInputElement} */ (e.target).checked)}
+              disabled={busyActive}
+              data-testid="settings-zip-alphabets-checkbox"
+            />
+            <div>
+              <span class="font-medium text-[var(--text-primary)] block">
+                Compress full alphabet sets and catalogue preview samples only
+              </span>
+              <span class="text-xs text-[var(--text-secondary)] block mt-0.5">
+                When enabled, imports detect alphabet collections and compress the full font set
+                into a companion .zip archive (or copy an existing companion .zip) in the designs
+                folder. Only representative preview glyphs (Upper A, Lower a, 9, and all punctuation
+                &amp; symbol glyphs) for each size are catalogued in the database.
+              </span>
+            </div>
+          </label>
         </div>
 
         <div>

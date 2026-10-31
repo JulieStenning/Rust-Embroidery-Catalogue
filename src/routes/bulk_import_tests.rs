@@ -3404,3 +3404,82 @@ fn bulk_import_request_deserializes_from_snake_case_json() {
     assert_eq!(request.root_paths, vec!["F:/Designs/FolderB"]);
     assert!(request.include_library);
 }
+
+#[test]
+fn filter_alphabet_samples_filters_compressible_letters() {
+    use super::precheck_helpers::filter_alphabet_samples;
+    use crate::services::scanning::ScannedFile;
+
+    let scanned = vec![
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/Upper_A.pes".to_string(),
+            filename: "Upper_A.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "a".to_string(),
+            is_master: false,
+        },
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/Upper_B.pes".to_string(),
+            filename: "Upper_B.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "b".to_string(),
+            is_master: false,
+        },
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/Lower_a.pes".to_string(),
+            filename: "Lower_a.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "la".to_string(),
+            is_master: false,
+        },
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/Lower_z.pes".to_string(),
+            filename: "Lower_z.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "lz".to_string(),
+            is_master: false,
+        },
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/9.pes".to_string(),
+            filename: "9.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "9".to_string(),
+            is_master: false,
+        },
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/1.pes".to_string(),
+            filename: "1.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "1".to_string(),
+            is_master: false,
+        },
+        ScannedFile {
+            full_path: "C:/Embroidery/My_Alphabet/comma.pes".to_string(),
+            filename: "comma.pes".to_string(),
+            extension: "pes".to_string(),
+            file_size_bytes: Some(100),
+            dedup_group_key: "comma".to_string(),
+            is_master: false,
+        },
+    ];
+
+    let filtered = filter_alphabet_samples(scanned);
+    let names: Vec<String> = filtered.into_iter().map(|f| f.filename).collect();
+
+    // Must include samples: Upper A, Lower a, 9, comma
+    assert!(names.contains(&"Upper_A.pes".to_string()));
+    assert!(names.contains(&"Lower_a.pes".to_string()));
+    assert!(names.contains(&"9.pes".to_string()));
+    assert!(names.contains(&"comma.pes".to_string()));
+
+    // Must exclude: Upper B, Lower z, 1
+    assert!(!names.contains(&"Upper_B.pes".to_string()));
+    assert!(!names.contains(&"Lower_z.pes".to_string()));
+    assert!(!names.contains(&"1.pes".to_string()));
+}

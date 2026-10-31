@@ -118,3 +118,89 @@ pub fn debug_bulk_import_assignment_resolution_wire(
         blank_field_count,
     })
 }
+
+pub(crate) fn filter_alphabet_samples(
+    scanned_files: Vec<scanning::ScannedFile>,
+) -> Vec<scanning::ScannedFile> {
+    use std::fs;
+    use std::path::Path;
+
+    let mut by_dir: HashMap<String, Vec<scanning::ScannedFile>> = HashMap::new();
+    for file in scanned_files {
+        let parent = Path::new(&file.full_path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        by_dir.entry(parent).or_default().push(file);
+    }
+
+    let mut result = Vec::new();
+    for (dir_path, files) in by_dir {
+        let dir_p = Path::new(&dir_path);
+        let has_bx = if dir_p.is_dir() {
+            fs::read_dir(dir_p)
+                .map(|entries| {
+                    entries.filter_map(Result::ok).any(|e| {
+                        e.path()
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("bx"))
+                    })
+                })
+                .unwrap_or(false)
+        } else {
+            false
+        };
+
+        let companion_zip = if dir_p.is_dir() {
+            fs::read_dir(dir_p)
+                .map(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .find(|e| {
+                            e.path()
+                                .extension()
+                                .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+                        })
+                        .map(|e| e.path().to_string_lossy().to_string())
+                })
+                .unwrap_or(None)
+        } else {
+            None
+        };
+
+        let file_paths: Vec<String> = files.iter().map(|f| f.full_path.clone()).collect();
+        let analysis = crate::services::alphabet_detector::analyze_alphabet_folder(
+            &dir_path,
+            &file_paths,
+            has_bx,
+            companion_zip,
+        );
+
+        if analysis.is_alphabet {
+            tracing::info!(
+                "Alphabet detected at '{}': retaining {} samples, skipping {} compressible glyphs",
+                dir_path,
+                analysis.sample_files.len(),
+                analysis.compressible_files.len()
+            );
+            let sample_set: HashSet<String> = analysis.sample_files.into_iter().collect();
+            let other_set: HashSet<String> = analysis.other_files.into_iter().collect();
+
+            for f in files {
+                if sample_set.contains(&f.full_path) || other_set.contains(&f.full_path) {
+                    result.push(f);
+                }
+            }
+        } else {
+            result.extend(files);
+        }
+    }
+
+    result.sort_by(|left, right| {
+        left.full_path
+            .to_ascii_lowercase()
+            .cmp(&right.full_path.to_ascii_lowercase())
+    });
+
+    result
+}

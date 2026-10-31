@@ -15,6 +15,7 @@ Use this runbook when you need to:
 
 Open **Admin -> Settings** to manage:
 - default image preview mode for imports (2D vs 3D),
+- alphabet & font packaging into companion `.zip` files during import,
 - enabled digitising & master outline formats (e.g. Embird, Hatch, Bernina, Embrilliance, Janome, mySewnet),
 - Google Gemini API key (used by Gemini Vision in Batch Operations),
 - AI and throughput tuning values for Batch Operations runs,
@@ -67,6 +68,26 @@ Notes:
 
 Related:
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
+
+### Alphabet & font compression (optional)
+
+Purpose:
+- Automatically detects embroidery font and alphabet packages during import.
+- Keeps your catalogue clean and responsive by importing only representative sample letters while safeguarding the entire font package in a companion `.zip` archive.
+
+Behavior:
+- **Automatic packaging**: When enabled, any scanned folder recognized as an embroidery alphabet or font collection has its complete contents packaged into a companion `.zip` file inside the library folder (`MachineEmbroideryDesigns/<AlphabetFolder>/<AlphabetName>.zip`) if one does not already exist, or copies an existing companion `.zip` from the source folder.
+- **Representative glyphs catalogued**: For **each size** found in the alphabet package, only the following sample designs are imported into the database:
+  - **Upper A** (`Upper A`, `Uppercase A`, `Cap A`)
+  - **Lower a** (`Lower a`, `Lowercase a`)
+  - **Digit 9** (`9`, `Number 9`)
+  - **All punctuation and symbols** (periods, commas, ampersands, exclamation marks, etc.)
+- **Compressible letters omitted from database**: Letters `B`–`Z`, `b`–`z`, and digits `0`–`8` are skipped during database insertion, preventing hundreds of redundant design cards from cluttering your search and browse views.
+- **Instant extraction**: Because the full package (including all letters, sizes, and Embrilliance `.bx` files) is preserved in the companion `.zip` in the folder, you can extract any needed letter directly whenever you stitch.
+- **Safety**: Original source files are strictly read-only and never altered or deleted. Existing catalogued designs in your library are never deleted.
+
+Related:
+- [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
 
 ### Digitising & Master File Formats (optional)
 

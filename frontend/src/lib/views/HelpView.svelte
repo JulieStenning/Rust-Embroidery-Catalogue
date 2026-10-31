@@ -122,9 +122,10 @@
         Min W: 100) matches all designs 100mm and wider.
       </p>
       <p>
-        <strong>Sorting:</strong> sort designs by Date Added, Date Updated, Name, Rating, Stitched status,
-        or <em>Folder</em>. When sorting by Folder, designs are grouped by folder path, with filenames
-        automatically sorted alphabetically (A&ndash;Z) within each folder to streamline bulk-tagging related files.
+        <strong>Sorting:</strong> sort designs by Date Added, Date Updated, Name, Rating, Stitched
+        status, or <em>Folder</em>. When sorting by Folder, designs are grouped by folder path, with
+        filenames automatically sorted alphabetically (A&ndash;Z) within each folder to streamline
+        bulk-tagging related files.
       </p>
       <p>
         <strong>Fast tag verification:</strong> automated tags don't need to be perfect to save
@@ -177,6 +178,18 @@
       <p>
         <strong>Error files and large scans:</strong> unreadable files are skipped; large scans may summarise
         rows.
+      </p>
+      <p>
+        <strong>Alphabet &amp; font compression:</strong> when enabled in Settings, full embroidery
+        alphabet and font collections are automatically recognized and packaged into a companion
+        <code
+          class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+          >.zip</code
+        >
+        archive in the designs library folder. Only representative preview samples (Upper A, Lower a,
+        9, and all punctuation &amp; symbols) for each size are catalogued into the database, keeping
+        your catalogue clean and responsive while preserving full font packages for immediate extraction
+        whenever needed.
       </p>
     </div>
   </section>

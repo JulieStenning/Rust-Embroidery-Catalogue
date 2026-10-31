@@ -363,6 +363,105 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
     let enabled_master_formats =
         crate::services::settings::parse_enabled_master_formats(&master_formats_setting);
 
+    let zip_alphabets_setting =
+        sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+            .bind(crate::services::settings::KEY_IMPORT_ZIP_ALPHABETS)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_default();
+    let zip_alphabets = crate::services::settings::is_truthy(&zip_alphabets_setting);
+
+    if zip_alphabets {
+        let mut processed_folders: HashSet<String> = HashSet::new();
+        for file_path in &confirm_wire.wire.selected_files {
+            let parent_dir = Path::new(file_path)
+                .parent()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            if parent_dir.is_empty() || processed_folders.contains(&parent_dir) {
+                continue;
+            }
+            processed_folders.insert(parent_dir.clone());
+
+            let parent_path = Path::new(&parent_dir);
+            if !parent_path.is_dir() {
+                continue;
+            }
+
+            let has_bx = std::fs::read_dir(parent_path)
+                .map(|entries| {
+                    entries.filter_map(Result::ok).any(|e| {
+                        e.path()
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("bx"))
+                    })
+                })
+                .unwrap_or(false);
+
+            let companion_zip = std::fs::read_dir(parent_path)
+                .map(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .find(|e| {
+                            e.path()
+                                .extension()
+                                .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+                        })
+                        .map(|e| e.path())
+                })
+                .unwrap_or(None);
+
+            let folder_files: Vec<String> = std::fs::read_dir(parent_path)
+                .map(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .filter(|e| e.path().is_file())
+                        .map(|e| e.path().to_string_lossy().to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let analysis = crate::services::alphabet_detector::analyze_alphabet_folder(
+                &parent_dir,
+                &folder_files,
+                has_bx,
+                companion_zip
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_string()),
+            );
+
+            if analysis.is_alphabet {
+                if let Ok(prospective) = super::paths::compute_prospective_stored_filepath(
+                    file_path,
+                    &confirm_wire.wire.root_paths,
+                ) {
+                    let rel_parent = Path::new(&prospective)
+                        .parent()
+                        .map(|p| p.to_string_lossy().trim_start_matches('/').to_string())
+                        .unwrap_or_default();
+
+                    let dest_folder = get_designs_base_path().join(rel_parent);
+                    if let Err(err) =
+                        crate::services::alphabet_compressor::compress_or_copy_alphabet(
+                            parent_path,
+                            &dest_folder,
+                            companion_zip.as_deref(),
+                        )
+                    {
+                        tracing::error!(
+                            "Failed to compress alphabet folder '{}' to '{}': {}",
+                            parent_dir,
+                            dest_folder.display(),
+                            err
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     let ctx = ImportExecutionCtx {
         confirm_wire,
         resolved_assignments: &resolved_assignments,

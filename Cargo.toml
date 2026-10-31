@@ -19,6 +19,7 @@ path = "src/main.rs"
 [[bin]]
 name = "keygen"
 path = "src/bin/keygen.rs"
+test = false
 
 [[bench]]
 name = "rendering_and_parsing"
@@ -55,6 +56,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 Inflector = "0.11"
 time = { version = "0.3", features = ["formatting", "local-offset"] }
+zip = { version = "2.2.2", default-features = false, features = ["deflate"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

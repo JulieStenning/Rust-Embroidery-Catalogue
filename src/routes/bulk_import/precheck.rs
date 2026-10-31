@@ -11,7 +11,9 @@ use super::inference::{
     load_designers_for_import_inference, load_sources_for_import_inference,
     resolve_bulk_import_assignments, resolve_folder_assignment_wire,
 };
-use super::precheck_helpers::{count_selected_in_folder, selected_files_from_scan};
+use super::precheck_helpers::{
+    count_selected_in_folder, filter_alphabet_samples, selected_files_from_scan,
+};
 use super::session::{
     get_bulk_import_context, get_bulk_import_db_pool, store_bulk_import_context,
     store_bulk_import_scan, take_bulk_import_context, take_bulk_import_scan,
@@ -33,19 +35,35 @@ pub(crate) fn preview_bulk_import_wire_with_pool(
         validation::validate_path(root_path).map_err(|e| format!("{:?}", e))?;
     }
 
-    let master_extensions: Vec<String> = if let Some(active_pool) = pool {
-        let setting_val = tauri::async_runtime::block_on(
-            sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
-                .bind(crate::services::settings::KEY_IMPORT_ENABLED_MASTER_FORMATS)
-                .fetch_optional(active_pool),
+    let (master_extensions, zip_alphabets): (Vec<String>, bool) = if let Some(active_pool) = pool {
+        let (formats_val, zip_alphabets_val) = tauri::async_runtime::block_on(async {
+            let formats =
+                sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+                    .bind(crate::services::settings::KEY_IMPORT_ENABLED_MASTER_FORMATS)
+                    .fetch_optional(active_pool)
+                    .await
+                    .unwrap_or(None)
+                    .unwrap_or_default();
+
+            let zip_alphabets =
+                sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+                    .bind(crate::services::settings::KEY_IMPORT_ZIP_ALPHABETS)
+                    .fetch_optional(active_pool)
+                    .await
+                    .unwrap_or(None)
+                    .unwrap_or_default();
+
+            (formats, zip_alphabets)
+        });
+
+        (
+            crate::services::settings::parse_enabled_master_formats(&formats_val)
+                .into_iter()
+                .collect(),
+            crate::services::settings::is_truthy(&zip_alphabets_val),
         )
-        .unwrap_or(None)
-        .unwrap_or_default();
-        crate::services::settings::parse_enabled_master_formats(&setting_val)
-            .into_iter()
-            .collect()
     } else {
-        Vec::new()
+        (Vec::new(), false)
     };
 
     let is_cancelled = || {
@@ -84,6 +102,10 @@ pub(crate) fn preview_bulk_import_wire_with_pool(
             scanned_files,
             &wire.root_paths,
         ))?;
+    }
+
+    if zip_alphabets {
+        scanned_files = filter_alphabet_samples(scanned_files);
     }
 
     let discovered_count = scanned_files.len();

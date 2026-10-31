@@ -588,6 +588,7 @@ async fn save_settings_view_model_inner_persists_all_fields() {
         ai_workers: "".to_string(),
         ai_free_tier: true,
         enabled_master_formats: "eof,ecf".to_string(),
+        zip_alphabets: false,
         data_root: String::new(),
         db_idle_check_interval_secs: "1800".to_string(),
     };
@@ -656,6 +657,7 @@ fn settings_view_model_serializes_all_fields() {
         ai_free_tier: false,
         import_last_browse_folder: "".to_string(),
         enabled_master_formats: "eof,ecf".to_string(),
+        zip_alphabets: false,
         can_configure_data_root: true,
         data_root: "/data".to_string(),
         library_root: "/data/MachineEmbroideryDesigns".to_string(),
@@ -678,6 +680,7 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("ai_free_tier"));
     assert!(map.contains_key("import_last_browse_folder"));
     assert!(map.contains_key("enabled_master_formats"));
+    assert!(map.contains_key("zip_alphabets"));
     assert!(map.contains_key("can_configure_data_root"));
     assert!(map.contains_key("data_root"));
     assert!(map.contains_key("library_root"));
@@ -686,7 +689,7 @@ fn settings_view_model_serializes_all_fields() {
     assert!(map.contains_key("app_mode"));
     assert!(map.contains_key("ai_tagging_help_url"));
     assert!(map.contains_key("db_idle_check_interval_secs"));
-    assert_eq!(map.len(), 19);
+    assert_eq!(map.len(), 20);
 }
 
 #[test]
@@ -936,6 +939,7 @@ async fn command_save_settings_view_model_persists() {
         ai_workers: "".to_string(),
         ai_free_tier: true,
         enabled_master_formats: "eof,ecf".to_string(),
+        zip_alphabets: false,
         data_root: String::new(),
         db_idle_check_interval_secs: "1800".to_string(),
     };

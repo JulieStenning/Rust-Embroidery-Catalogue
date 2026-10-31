@@ -350,6 +350,7 @@ export interface SettingsViewModel {
   ai_free_tier: boolean;
   import_last_browse_folder: string;
   enabled_master_formats: string;
+  zip_alphabets: boolean;
   can_configure_data_root: boolean;
   data_root: string;
   library_root: string;
@@ -370,6 +371,7 @@ export interface SaveSettingsRequest {
   ai_workers: string;
   ai_free_tier: boolean;
   enabled_master_formats?: string;
+  zip_alphabets?: boolean;
   data_root: string;
   db_idle_check_interval_secs?: string;
 }

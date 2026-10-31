@@ -74,6 +74,7 @@ const defaultModel: SettingsViewModel = {
   ai_free_tier: false,
   import_last_browse_folder: "",
   enabled_master_formats: "",
+  zip_alphabets: false,
   can_configure_data_root: true,
   data_root: "D:\\EmbroideryData",
   library_root: "D:\\EmbroideryData\\MachineEmbroideryDesigns",
@@ -310,6 +311,7 @@ describe("SettingsView.svelte", () => {
         ai_workers: "",
         ai_free_tier: false,
         enabled_master_formats: "",
+        zip_alphabets: false,
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -351,6 +353,7 @@ describe("SettingsView.svelte", () => {
         ai_workers: "",
         ai_free_tier: false,
         enabled_master_formats: "",
+        zip_alphabets: false,
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
       });
@@ -1259,6 +1262,22 @@ describe("SettingsView.svelte", () => {
     await tick();
 
     expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
+  });
+
+  it("renders alphabet compression setting and marks dirty on change", async () => {
+    renderView();
+    await waitForSettingsLoaded();
+
+    expect(screen.getByTestId("settings-alphabet-compression-section")).toBeInTheDocument();
+    const checkbox = screen.getByTestId("settings-zip-alphabets-checkbox");
+    expect(checkbox).not.toBeChecked();
+
+    await fireEvent.click(checkbox);
+    await tick();
+
+    expect(checkbox).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeEnabled();
+    expect(screen.getByTestId("settings-dirty-hint")).toBeInTheDocument();
   });
 
   describe("Licence deactivation modal", () => {

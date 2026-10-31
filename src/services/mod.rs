@@ -42,6 +42,8 @@
 
 pub mod about_documents;
 pub mod admin;
+pub mod alphabet_compressor;
+pub mod alphabet_detector;
 pub mod auto_tagging;
 pub mod backfill;
 pub mod compaction;

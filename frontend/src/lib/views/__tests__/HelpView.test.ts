@@ -182,6 +182,7 @@ describe("HelpView", () => {
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
       expect(section.getByText("Tagging during import:")).toBeInTheDocument();
       expect(section.getByText("Error files and large scans:")).toBeInTheDocument();
+      expect(section.getByText("Alphabet & font compression:")).toBeInTheDocument();
     });
 
     it("renders the importing section with a section id of 'importing'", () => {
