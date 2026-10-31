@@ -90,6 +90,7 @@ export const HELP_SECTION_IDS = new Set([
   "batch-operations",
   "projects",
   "maintenance",
+  "settings",
   "troubleshooting",
 ]);
 

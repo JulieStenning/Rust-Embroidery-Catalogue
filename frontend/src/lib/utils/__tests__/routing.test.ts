@@ -151,7 +151,7 @@ describe("shouldShowBackButton", () => {
 });
 
 describe("HELP_SECTION_IDS", () => {
-  it("contains all 9 valid help section identifiers", () => {
+  it("contains all 10 valid help section identifiers", () => {
     expect(Array.from(HELP_SECTION_IDS)).toEqual([
       "search",
       "importing",
@@ -161,6 +161,7 @@ describe("HELP_SECTION_IDS", () => {
       "batch-operations",
       "projects",
       "maintenance",
+      "settings",
       "troubleshooting",
     ]);
   });

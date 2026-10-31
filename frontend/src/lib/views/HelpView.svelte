@@ -51,6 +51,11 @@
       >🛠 Maintenance</a
     >
     <a
+      href="#/help?section=settings"
+      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+      >⚙️ Settings</a
+    >
+    <a
       href="#/help?section=troubleshooting"
       class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
       >🔧 Troubleshooting</a
@@ -389,6 +394,43 @@
       </p>
       <p><strong>Deleting orphans:</strong> removes database records only, not physical files.</p>
       <p><strong>Use carefully:</strong> verify files are truly gone before deleting records.</p>
+    </div>
+  </section>
+
+  <section id="settings">
+    <h2
+      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
+    >
+      ⚙️ Settings & Configuration
+    </h2>
+    <p class="text-sm text-[var(--text-secondary)] mb-3">
+      Manage your application preferences, preview options, and digitising format filters in
+      <a href="#/admin/system/settings" class="text-[var(--text-brand)] hover:underline"
+        >Admin → Settings</a
+      >.
+    </p>
+    <div class="route-card rounded shadow p-4 space-y-3 text-sm">
+      <p>
+        <strong>Preview mode:</strong> select default 2D or 3D thread rendering for design cards.
+      </p>
+      <p>
+        <strong>Alphabet & font compression:</strong> enable packaging to archive whole font packages
+        into companion .zip files while keeping preview samples in the catalogue.
+      </p>
+      <p>
+        <strong>Master formats:</strong> select software-native master outline formats (Embird, Hatch,
+        Bernina, Janome, etc.) to index alongside stitch files.
+      </p>
+      <p>
+        <strong>Licence & API keys:</strong> activate licence keys and store optional Google Gemini API
+        keys for vision-based tagging.
+      </p>
+      <p>
+        <strong>Full guide:</strong> open the
+        <a href="#/about/document/settings-guide" class="text-[var(--text-brand)] hover:underline"
+          >Settings Guide</a
+        >.
+      </p>
     </div>
   </section>
 

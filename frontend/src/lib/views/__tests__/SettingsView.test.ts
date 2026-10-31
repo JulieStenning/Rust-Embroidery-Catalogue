@@ -157,6 +157,10 @@ describe("SettingsView.svelte", () => {
 
     expect(screen.getByText("Loading settings...")).toBeInTheDocument();
     expect(screen.getByText("Application Settings")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-guide-link")).toHaveAttribute(
+      "href",
+      "#/about/document/settings-guide"
+    );
   });
 
   it("loads settings on mount and renders every model field", async () => {

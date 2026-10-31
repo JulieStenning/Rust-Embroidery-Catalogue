@@ -731,9 +731,20 @@
         class="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-t border-b border-[var(--border-default)] bg-[var(--surface-card)] px-6 py-4 backdrop-blur"
         data-testid="settings-header"
       >
-        <h1 class="ui-page-title text-lg font-bold text-[var(--text-primary)]">
-          Application Settings
-        </h1>
+        <div class="flex items-center gap-3">
+          <h1 class="ui-page-title text-lg font-bold text-[var(--text-primary)]">
+            Application Settings
+          </h1>
+          <a
+            href="#/about/document/settings-guide"
+            class="text-xs text-[var(--text-brand)] hover:underline font-medium inline-flex items-center gap-1 bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-2.5 py-1 rounded transition-colors"
+            data-testid="settings-guide-link"
+            title="Read the user-facing settings guide"
+          >
+            <span>📖</span>
+            <span>Settings Guide</span>
+          </a>
+        </div>
         <div class="flex shrink-0 items-center gap-3">
           {#if settingsIsDirty}
             <span

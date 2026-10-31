@@ -88,6 +88,11 @@ describe("HelpView", () => {
           emoji: "🛠",
         },
         {
+          text: "Settings",
+          href: "#/help?section=settings",
+          emoji: "⚙️",
+        },
+        {
           text: "Troubleshooting",
           href: "#/help?section=troubleshooting",
           emoji: "🔧",
@@ -462,6 +467,38 @@ describe("HelpView", () => {
     });
   });
 
+  describe("settings section", () => {
+    it("renders the Settings heading", () => {
+      render(HelpView);
+
+      expect(
+        screen.getByRole("heading", { name: "⚙️ Settings & Configuration" })
+      ).toBeInTheDocument();
+    });
+
+    it("renders the settings section content", () => {
+      const { container } = render(HelpView);
+      const section = sectionQueries(container, "settings");
+
+      expect(section.getByText("Preview mode:")).toBeInTheDocument();
+      expect(section.getByText("Alphabet & font compression:")).toBeInTheDocument();
+      expect(section.getByText("Master formats:")).toBeInTheDocument();
+      expect(section.getByText("Licence & API keys:")).toBeInTheDocument();
+      expect(section.getByText("Full guide:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", { name: "Settings Guide" });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/settings-guide");
+    });
+
+    it("renders the settings section with a section id of 'settings'", () => {
+      const { container } = render(HelpView);
+
+      const section = container.querySelector("#settings");
+      expect(section).not.toBeNull();
+      expect(section?.tagName).toBe("SECTION");
+    });
+  });
+
   describe("troubleshooting section", () => {
     it("renders the Troubleshooting heading", () => {
       render(HelpView);
@@ -493,13 +530,13 @@ describe("HelpView", () => {
   });
 
   describe("structure", () => {
-    it("renders exactly 9 help sections with the expected ids", () => {
+    it("renders exactly 10 help sections with the expected ids", () => {
       const { container } = render(HelpView);
 
       const sections = Array.from(container.querySelectorAll("section"));
       const ids = sections.map((section) => section.id);
 
-      expect(sections).toHaveLength(9);
+      expect(sections).toHaveLength(10);
       expect(ids).toEqual([
         "search",
         "importing",
@@ -509,6 +546,7 @@ describe("HelpView", () => {
         "batch-operations",
         "projects",
         "maintenance",
+        "settings",
         "troubleshooting",
       ]);
     });
@@ -519,14 +557,14 @@ describe("HelpView", () => {
       const links = Array.from(container.querySelectorAll("a"));
       const sections = container.querySelectorAll("section");
 
-      expect(links.length).toBeGreaterThanOrEqual(9);
-      expect(sections).toHaveLength(9);
+      expect(links.length).toBeGreaterThanOrEqual(10);
+      expect(sections).toHaveLength(10);
 
-      // Exactly 9 of the links are the in-page section navigators.
+      // Exactly 10 of the links are the in-page section navigators.
       const sectionNavigators = links.filter((link) =>
         (link.getAttribute("href") || "").startsWith("#/help?section=")
       );
-      expect(sectionNavigators).toHaveLength(9);
+      expect(sectionNavigators).toHaveLength(10);
     });
   });
 });
