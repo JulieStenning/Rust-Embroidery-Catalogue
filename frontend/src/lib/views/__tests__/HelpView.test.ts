@@ -187,6 +187,7 @@ describe("HelpView", () => {
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
       expect(section.getByText("Tagging during import:")).toBeInTheDocument();
       expect(section.getByText("Error files and large scans:")).toBeInTheDocument();
+      expect(section.getByText("Large collections & folder review:")).toBeInTheDocument();
       expect(section.getByText("Alphabet & font compression:")).toBeInTheDocument();
     });
 

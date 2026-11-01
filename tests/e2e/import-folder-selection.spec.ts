@@ -325,4 +325,30 @@ test.describe("bulk import step 1", () => {
       await expect(page.getByText("Source Folder(s) *")).toBeVisible();
     }
   });
+
+  test("shows folder filter input on Step 2 and filters folders", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const source = prepareMixedImportSource();
+    await resetImportView(page);
+
+    await page.locator("#import-root-path").fill(source.root);
+    await page.getByRole("button", { name: "Scan folder(s)" }).click();
+    await expect(page.getByText("Review scanned files")).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const folderSearch = page.getByRole("searchbox", {
+      name: "Filter folders by name or path",
+    });
+    await expect(folderSearch).toBeVisible();
+
+    await folderSearch.fill("Nested");
+    await expect(page.getByTestId("import-folder-shell")).toHaveCount(1);
+    await expect(page.getByText("Nested", { exact: false })).toBeVisible();
+
+    await folderSearch.fill("");
+    await expect(page.getByTestId("import-folder-shell")).toHaveCount(2);
+  });
 });

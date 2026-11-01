@@ -89,11 +89,21 @@ export function buildImportFolderCatalog(scannedFiles) {
   }
   const records = Array.from(grouped.values());
   for (const record of records) {
-    record.filePaths.sort((left, right) =>
-      filenameOf(left).localeCompare(filenameOf(right), undefined, { sensitivity: "base" })
-    );
+    record.filePaths.sort((left, right) => {
+      const a = filenameOf(left).toLowerCase();
+      const b = filenameOf(right).toLowerCase();
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    });
   }
-  records.sort((left, right) => left.folderPath.localeCompare(right.folderPath));
+  records.sort((left, right) => {
+    const a = left.folderPath.toLowerCase();
+    const b = right.folderPath.toLowerCase();
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
   return records;
 }
 

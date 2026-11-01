@@ -28,12 +28,14 @@ The review screen groups results by source folder and shows, per folder:
 
 You can:
 - select or deselect files for import, per file or per folder,
-- use the global "Select all" / "Deselect all" buttons,
+- use the global "Select all" / "Deselect all" buttons (applies to all folders across all pages),
+- navigate folders in pages (25 per page) and filter folders by name or path,
+- click "Show files" to expand any collapsed folder and toggle individual designs,
 - keep the inferred Designer/Source,
 - choose an existing Designer/Source,
 - apply a global Designer/Source override to every folder.
 
-Then click **Continue with N designs**.
+Then click **Continue with N designs** (available at both the top and bottom of the list).
 
 ## Step 3 - Before You Import
 Before importing, the app shows a short confirmation step:

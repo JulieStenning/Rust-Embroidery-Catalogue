@@ -2156,4 +2156,84 @@ describe("ImportView step 2 very large folders", () => {
     const roseAssignment = assignments.find((a) => String(a.folder_path).includes("Rose Studio"));
     expect(roseAssignment?.source_id).toBe(77);
   });
+
+  it("paginates folders in Step 2 when more than 25 folders exist", async () => {
+    const foldersCount = 30;
+    const scannedFiles = Array.from({ length: foldersCount }, (_, i) => ({
+      full_path: `C:/Designs/Collection_${String(i).padStart(2, "0")}/file.pes`,
+    }));
+    adapterMocks.previewImportFromRoots.mockResolvedValue(
+      previewResponse({
+        discovered_count: foldersCount,
+        selected_count: foldersCount,
+        folder_count: foldersCount,
+        scanned_files: scannedFiles,
+      })
+    );
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    // Page 1 should show exactly 25 folder shells
+    const shells = screen.getAllByTestId("import-folder-shell");
+    expect(shells.length).toBe(25);
+    expect(screen.getByText("Collection_00")).toBeInTheDocument();
+    expect(screen.getByText("Collection_24")).toBeInTheDocument();
+    expect(screen.queryByText("Collection_25")).not.toBeInTheDocument();
+
+    // Top and bottom folder pagination controls should exist
+    expect(screen.getByRole("navigation", { name: "Folders top" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Folders bottom" })).toBeInTheDocument();
+
+    // Bottom continue button should exist and have testid
+    expect(screen.getByTestId("import-step2-continue-bottom")).toBeInTheDocument();
+
+    // All folders start collapsed because > 5 folders
+    expect(screen.getAllByRole("button", { name: "Show files (1)" }).length).toBe(25);
+
+    // Go to Page 2
+    const nextButtons = screen.getAllByRole("button", { name: /Next/ });
+    await fireEvent.click(nextButtons[0]);
+    await tick();
+
+    // Page 2 shows remaining 5 folders
+    const page2Shells = screen.getAllByTestId("import-folder-shell");
+    expect(page2Shells.length).toBe(5);
+    expect(screen.getByText("Collection_25")).toBeInTheDocument();
+    expect(screen.getByText("Collection_29")).toBeInTheDocument();
+    expect(screen.queryByText("Collection_00")).not.toBeInTheDocument();
+  });
+
+  it("filters folders by name in Step 2", async () => {
+    const foldersCount = 10;
+    const scannedFiles = Array.from({ length: foldersCount }, (_, i) => ({
+      full_path: `C:/Designs/${i === 3 ? "Special_Folder" : `Normal_${i}`}/file.pes`,
+    }));
+    adapterMocks.previewImportFromRoots.mockResolvedValue(
+      previewResponse({
+        discovered_count: foldersCount,
+        selected_count: foldersCount,
+        folder_count: foldersCount,
+        scanned_files: scannedFiles,
+      })
+    );
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    const searchInput = screen.getByRole("searchbox", { name: "Filter folders by name or path" });
+    await fireEvent.input(searchInput, { target: { value: "Special" } });
+    await tick();
+
+    const shells = screen.getAllByTestId("import-folder-shell");
+    expect(shells.length).toBe(1);
+    expect(screen.getByText("Special_Folder")).toBeInTheDocument();
+
+    // Clear filter
+    await fireEvent.input(searchInput, { target: { value: "NonExistent" } });
+    await tick();
+    expect(screen.getByText(/No folders match "NonExistent"/)).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    await tick();
+    expect(screen.getAllByTestId("import-folder-shell").length).toBe(10);
+  });
 });

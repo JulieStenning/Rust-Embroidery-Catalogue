@@ -49,7 +49,7 @@ The review screen groups results by source folder and shows the filename, file
 size, and per-folder **Designer** and **Source** controls. You can:
 
 - select or deselect individual files,
-- use **Select all / Clear all**,
+- use **Select all / Deselect all** (applies across all folders on all pages),
 - keep the app's inferred Designer/Source per folder, or choose your own,
 - apply one Designer/Source override to all folders in a multi-folder import.
 
@@ -57,6 +57,18 @@ The heading tells you the totals, e.g.:
 
 - *"1,200 folder(s) scanned - 128,450 file(s) found. Selected files will be
   copied into the catalogue."*
+
+### Navigating large collections in Step 2:
+- **Folder pagination:** folders are displayed in manageable pages (25 folders per page)
+  with page navigation at both the top and bottom of the list.
+- **Folder search filter:** use the search input (*"Filter folders by name or path..."*)
+  to jump directly to any specific collection or designer subfolder.
+- **Collapsed folders:** when scanning multi-folder libraries, folders default to collapsed
+  to keep the interface fast and lightweight. Click **Show files** on any folder to inspect
+  or toggle individual design checkboxes.
+- **Top and bottom actions:** the **Continue with X designs**, **Cancel**, **Select all**,
+  and **Deselect all** buttons are available at both the top and the bottom of the list so
+  you don't need to scroll back up after reviewing a page.
 
 Then click **Continue** to move to the pre-import step.
 

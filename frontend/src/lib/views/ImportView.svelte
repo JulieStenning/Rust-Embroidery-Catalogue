@@ -37,9 +37,12 @@
 
   // Step-2 file list rendering: folders larger than this start collapsed; smaller
   // folders keep today's always-visible rows. Files within a folder page at this
-  // size.
+  // size. When total folders scanned exceeds auto-expand threshold, all folders
+  // start collapsed to protect UI thread responsiveness.
   const IMPORT_FOLDER_AUTO_EXPAND_MAX = 100;
+  const IMPORT_FOLDER_AUTO_EXPAND_TOTAL_FOLDERS_MAX = 5;
   const IMPORT_FOLDER_PAGE_SIZE = 250;
+  const IMPORT_FOLDERS_PER_PAGE = 25;
 
   let { currentRoute, navigateTo, onImportCompleted } = $props();
 
@@ -83,6 +86,10 @@
   let importFolderSearchByPath = $state({});
   /** @type {Record<string, number>} */
   let importFolderPageByPath = $state({});
+
+  // Folder-level pagination & search filter state
+  let importFolderCurrentPage = $state(1);
+  let importFolderSearchText = $state("");
 
   let importContextToken = $state("");
   let importActionMessage = $state("");
@@ -479,6 +486,17 @@
     return (/** @type {number} */ page) => setFolderPage(folderPath, page);
   }
 
+  /** @param {Event & { currentTarget: HTMLInputElement }} event */
+  function handleFolderSearchInput(event) {
+    importFolderSearchText = event.currentTarget.value;
+    importFolderCurrentPage = 1;
+  }
+
+  /** @param {number} page */
+  function handleFolderPageChange(page) {
+    importFolderCurrentPage = page;
+  }
+
   /** Per-folder review summary: cheap counts only, no per-file objects. */
   /** @type {Array<Record<string, any>>} */
   let importFolderSummary = $derived(
@@ -499,15 +517,47 @@
     })
   );
 
+  /** @type {Array<Record<string, any>>} */
+  let filteredImportFolderSummary = $derived(
+    (() => {
+      const q = String(importFolderSearchText || "")
+        .trim()
+        .toLowerCase();
+      if (!q) return importFolderSummary;
+      return importFolderSummary.filter((folder) => {
+        const label = String(folder.label || "").toLowerCase();
+        const path = String(folder.folderPath || "").toLowerCase();
+        return label.includes(q) || path.includes(q);
+      });
+    })()
+  );
+
+  let importFolderTotalPages = $derived(
+    Math.max(1, Math.ceil(filteredImportFolderSummary.length / IMPORT_FOLDERS_PER_PAGE))
+  );
+
+  let safeImportFolderPage = $derived(
+    Math.min(Math.max(1, Number(importFolderCurrentPage) || 1), importFolderTotalPages)
+  );
+
+  /** @type {Array<Record<string, any>>} */
+  let pagedImportFolderSummary = $derived(
+    (() => {
+      const start = (safeImportFolderPage - 1) * IMPORT_FOLDERS_PER_PAGE;
+      return filteredImportFolderSummary.slice(start, start + IMPORT_FOLDERS_PER_PAGE);
+    })()
+  );
+
   /** Per-folder paged file window, keyed by folder path. Depends only on the
-   *  catalog and the transient search/page state — never on selection, so a
-   *  checkbox toggle does not rebuild these slices. */
+   *  paged folders and the transient search/page state — never on selection, so a
+   *  checkbox toggle does not rebuild these slices. Computes windows only for
+   *  currently visible folder cards to avoid blocking the UI thread. */
   /** @type {Record<string, any>} */
   let importFolderFileWindowByPath = $derived(
     (() => {
       /** @type {Record<string, any>} */
       const windows = {};
-      for (const record of importFolderCatalog) {
+      for (const record of pagedImportFolderSummary) {
         const folderPath = String(record.folderPath || "");
         const searchText = String(importFolderSearchByPath?.[folderPath] || "")
           .trim()
@@ -852,6 +902,8 @@
       importExpandedByPath = {};
       importFolderSearchByPath = {};
       importFolderPageByPath = {};
+      importFolderCurrentPage = 1;
+      importFolderSearchText = "";
       importPrecheck = null;
       importPrecheckSource = "mock";
       importPrecheckMessage = "Run precheck after selecting files.";
@@ -870,6 +922,8 @@
       importExpandedByPath = {};
       importFolderSearchByPath = {};
       importFolderPageByPath = {};
+      importFolderCurrentPage = 1;
+      importFolderSearchText = "";
       importPerFolderAssignmentByPath = {};
       importPrecheck = null;
       importContextToken = "";
@@ -1059,6 +1113,8 @@
     importExpandedByPath = {};
     importFolderSearchByPath = {};
     importFolderPageByPath = {};
+    importFolderCurrentPage = 1;
+    importFolderSearchText = "";
     importContextToken = "";
     importActionMessage = "";
     importActionSource = "mock";
@@ -1467,214 +1523,339 @@
         </div>
 
         {#if importFolderSummary.length > 0}
-          <div class="space-y-4">
-            {#each importFolderSummary as folder (folder.folderPath)}
-              {@const autoExpand = folder.total <= IMPORT_FOLDER_AUTO_EXPAND_MAX}
-              {@const isExpanded = autoExpand || Boolean(importExpandedByPath[folder.folderPath])}
-              {@const fileWindow = importFolderFileWindowByPath[folder.folderPath] || {
-                page: 1,
-                pageCount: 1,
-                filteredCount: 0,
-                visible: [],
-              }}
-              {@const selectionStatus =
-                folder.kind === "all"
-                  ? `All ${folder.total} selected`
-                  : folder.kind === "none"
-                    ? "None selected"
-                    : `${folder.selectedCount} of ${folder.total} selected`}
-              {@const folderSelectAllDisabled = importSelectionLocked || folder.kind === "all"}
-              {@const folderDeselectAllDisabled = importSelectionLocked || folder.kind === "none"}
-              <div
-                class="ui-section-shell overflow-hidden border rounded import-step2-folder-shell shadow-sm"
-                data-testid="import-folder-shell"
+          <div
+            class="flex flex-wrap items-center justify-between gap-3 pt-1 pb-1 import-step2-folder-controls"
+          >
+            <div class="flex-1 min-w-[200px] max-w-md">
+              <input
+                type="search"
+                class="ui-text-input ui-control-text-inset w-full border rounded px-3 py-1.5 text-sm"
+                placeholder="Filter folders by name or path…"
+                value={importFolderSearchText}
+                oninput={handleFolderSearchInput}
+                aria-label="Filter folders by name or path"
+              />
+            </div>
+            {#if importFolderTotalPages > 1}
+              <Pagination
+                currentPage={safeImportFolderPage}
+                totalPages={importFolderTotalPages}
+                onPageChange={handleFolderPageChange}
+                disabled={importSelectionLocked}
+                ariaLabel="Folders top"
+              />
+            {/if}
+          </div>
+
+          {#if filteredImportFolderSummary.length === 0}
+            <div class="notice-info p-4 rounded text-sm space-y-2">
+              <p class="font-semibold text-[var(--notice-info-text)]">
+                No folders match "{importFolderSearchText}".
+              </p>
+              <button
+                type="button"
+                class="menu-button-secondary ui-action-button text-xs"
+                onclick={() => {
+                  importFolderSearchText = "";
+                  importFolderCurrentPage = 1;
+                }}
               >
+                Clear filter
+              </button>
+            </div>
+          {:else}
+            <div class="space-y-4">
+              {#each pagedImportFolderSummary as folder (folder.folderPath)}
+                {@const autoExpand =
+                  importFolderSummary.length <= IMPORT_FOLDER_AUTO_EXPAND_TOTAL_FOLDERS_MAX &&
+                  folder.total <= IMPORT_FOLDER_AUTO_EXPAND_MAX}
+                {@const isExpanded = autoExpand || Boolean(importExpandedByPath[folder.folderPath])}
+                {@const fileWindow = importFolderFileWindowByPath[folder.folderPath] || {
+                  page: 1,
+                  pageCount: 1,
+                  filteredCount: 0,
+                  visible: [],
+                }}
+                {@const selectionStatus =
+                  folder.kind === "all"
+                    ? `All ${folder.total} selected`
+                    : folder.kind === "none"
+                      ? "None selected"
+                      : `${folder.selectedCount} of ${folder.total} selected`}
+                {@const folderSelectAllDisabled = importSelectionLocked || folder.kind === "all"}
+                {@const folderDeselectAllDisabled = importSelectionLocked || folder.kind === "none"}
                 <div
-                  class="border-b px-4 py-2.5 flex flex-wrap items-center gap-3 import-step2-folder-header"
+                  class="ui-section-shell overflow-hidden border rounded import-step2-folder-shell shadow-sm"
+                  data-testid="import-folder-shell"
                 >
-                  <div class="flex-1 min-w-0">
-                    <code class="text-xs font-bold import-step2-folder-label">{folder.label}</code>
-                    <span class="mx-2 text-xs text-[var(--text-muted)]" aria-hidden="true">-</span>
-                    <code class="text-xs text-[var(--text-muted)] break-all"
-                      >{folder.folderPath}</code
-                    >
-                  </div>
-                  <span
-                    class="text-xs font-semibold text-[var(--text-brand)] import-step2-folder-count"
+                  <div
+                    class="border-b px-4 py-2.5 flex flex-wrap items-center gap-3 import-step2-folder-header"
                   >
-                    {selectionStatus}
-                  </span>
-                  {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
+                    <div class="flex-1 min-w-0">
+                      <code class="text-xs font-bold import-step2-folder-label">{folder.label}</code
+                      >
+                      <span class="mx-2 text-xs text-[var(--text-muted)]" aria-hidden="true">-</span
+                      >
+                      <code class="text-xs text-[var(--text-muted)] break-all"
+                        >{folder.folderPath}</code
+                      >
+                    </div>
+                    <span
+                      class="text-xs font-semibold text-[var(--text-brand)] import-step2-folder-count"
+                    >
+                      {selectionStatus}
+                    </span>
+                    {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX || importFolderSummary.length > IMPORT_FOLDER_AUTO_EXPAND_TOTAL_FOLDERS_MAX}
+                      <button
+                        type="button"
+                        class="import-folder-action-btn text-xs px-2 py-1 rounded border font-semibold"
+                        onclick={() => toggleFolderExpanded(folder.folderPath)}
+                        disabled={importSelectionLocked}
+                      >
+                        {isExpanded ? "Hide files" : `Show files (${folder.total})`}
+                      </button>
+                    {/if}
                     <button
                       type="button"
-                      class="import-folder-action-btn text-xs px-2 py-1 rounded border font-semibold"
-                      onclick={() => toggleFolderExpanded(folder.folderPath)}
-                      disabled={importSelectionLocked}
+                      aria-label={`Select all files in ${folder.label}`}
+                      class="import-folder-action-btn px-2 py-1 rounded border text-xs font-semibold"
+                      onclick={() => selectAllInFolder(folder.folderPath)}
+                      disabled={folderSelectAllDisabled}
                     >
-                      {isExpanded ? "Hide files" : `Show files (${folder.total})`}
+                      Select all
                     </button>
+                    <button
+                      type="button"
+                      aria-label={`Deselect all files in ${folder.label}`}
+                      class="import-folder-action-btn px-2 py-1 rounded border text-xs font-semibold"
+                      onclick={() => deselectAllInFolder(folder.folderPath)}
+                      disabled={folderDeselectAllDisabled}
+                    >
+                      Deselect all
+                    </button>
+                  </div>
+
+                  <div class="px-4 py-3 border-b import-step2-folder-overrides">
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                      <label class="ui-field-label text-sm block">
+                        <span class="block font-medium mb-1">Designer for this folder</span>
+                        <div class="flex items-center gap-2">
+                          <select
+                            class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
+                            value={getImportFolderDesigner(folder.folderPath)}
+                            onchange={(event) =>
+                              setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
+                            disabled={importReferenceLoading ||
+                              importLoading ||
+                              importActionLoading}
+                          >
+                            <option value=""
+                              >{getImportFolderDesignerInferredLabel(folder.folderPath)}</option
+                            >
+                            {#each importDesigners as designer}
+                              <option value={String(designer.id)}>{designer.name}</option>
+                            {/each}
+                          </select>
+                          <button
+                            type="button"
+                            class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
+                            onclick={() => openQuickAdd("designer", "folder", folder.folderPath)}
+                            disabled={importReferenceLoading ||
+                              importLoading ||
+                              importActionLoading}
+                            title={`Add new designer for ${folder.label}`}
+                            aria-label={`Add new designer for ${folder.label}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </label>
+                      <label class="ui-field-label text-sm block">
+                        <span class="block font-medium mb-1">Source for this folder</span>
+                        <div class="flex items-center gap-2">
+                          <select
+                            class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
+                            value={getImportFolderSource(folder.folderPath)}
+                            onchange={(event) =>
+                              setImportFolderSource(folder.folderPath, event.currentTarget.value)}
+                            disabled={importReferenceLoading ||
+                              importLoading ||
+                              importActionLoading}
+                          >
+                            <option value=""
+                              >{getImportFolderSourceInferredLabel(folder.folderPath)}</option
+                            >
+                            {#each importSources as source}
+                              <option value={String(source.id)}>{source.name}</option>
+                            {/each}
+                          </select>
+                          <button
+                            type="button"
+                            class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
+                            onclick={() => openQuickAdd("source", "folder", folder.folderPath)}
+                            disabled={importReferenceLoading ||
+                              importLoading ||
+                              importActionLoading}
+                            title={`Add new source for ${folder.label}`}
+                            aria-label={`Add new source for ${folder.label}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {#if isExpanded}
+                    <div class="import-step2-file-list-shell p-4">
+                      {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX || importFolderSummary.length > IMPORT_FOLDER_AUTO_EXPAND_TOTAL_FOLDERS_MAX}
+                        <p class="text-xs ui-help-note mb-2">
+                          This folder contains {folder.total} files. Use Select/Deselect all to work on
+                          the whole folder, or filter to find specific files.
+                        </p>
+                      {/if}
+                      {#if folder.total > IMPORT_FOLDER_PAGE_SIZE}
+                        <div class="mb-2">
+                          <input
+                            type="search"
+                            class="ui-text-input ui-control-text-inset w-full border rounded px-3 py-1.5 text-sm"
+                            placeholder="Filter files in this folder…"
+                            value={importFolderSearchByPath[folder.folderPath] || ""}
+                            oninput={(event) =>
+                              setFolderSearch(folder.folderPath, event.currentTarget.value)}
+                            aria-label={`Filter files in ${folder.label}`}
+                          />
+                        </div>
+                      {/if}
+                      {#if fileWindow.visible.length > 0}
+                        <div
+                          class="import-step2-file-columns grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
+                        >
+                          {#each fileWindow.visible as fullPath (fullPath)}
+                            {@const isChecked = selIsSelected(
+                              importSelection,
+                              folder.folderPath,
+                              fullPath
+                            )}
+                            <label
+                              class="import-step2-file-item flex items-start gap-2 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                class="ui-checkbox mt-1 accent-[var(--text-brand)] rounded"
+                                checked={isChecked}
+                                onchange={(event) =>
+                                  toggleImportFile(
+                                    folder.folderPath,
+                                    fullPath,
+                                    event.currentTarget.checked
+                                  )}
+                                disabled={importLoading || importActionLoading}
+                              />
+                              <span
+                                class="ui-field-label text-sm break-all font-mono"
+                                title={fullPath}>{getImportFilenameFromPath(fullPath)}</span
+                              >
+                            </label>
+                          {/each}
+                        </div>
+                      {:else}
+                        <p class="text-sm ui-help-note italic">No files match your filter.</p>
+                      {/if}
+                      {#if fileWindow.pageCount > 1}
+                        <Pagination
+                          currentPage={fileWindow.page}
+                          totalPages={fileWindow.pageCount}
+                          onPageChange={makeFolderPageHandler(folder.folderPath)}
+                          disabled={importLoading || importActionLoading || busyActive}
+                          ariaLabel={`Files in ${folder.label}`}
+                        />
+                      {/if}
+                    </div>
+                  {:else}
+                    <div class="import-step2-file-list-shell p-4">
+                      <p class="text-sm ui-help-note italic">
+                        Files are hidden for this folder ({folder.total} file{folder.total === 1
+                          ? ""
+                          : "s"}). Use the controls above to select or deselect the whole folder, or
+                        click Show files.
+                      </p>
+                    </div>
                   {/if}
+                </div>
+              {/each}
+            </div>
+
+            {#if importFolderTotalPages > 1}
+              <div class="pt-4 flex justify-center import-step2-pagination-bottom">
+                <Pagination
+                  currentPage={safeImportFolderPage}
+                  totalPages={importFolderTotalPages}
+                  onPageChange={handleFolderPageChange}
+                  disabled={importSelectionLocked}
+                  ariaLabel="Folders bottom"
+                />
+              </div>
+            {/if}
+
+            {#if importFolderTotalPages > 1 || importFolderSummary.length > IMPORT_FOLDER_AUTO_EXPAND_TOTAL_FOLDERS_MAX}
+              <div class="space-y-2 import-step2-actions-shell-bottom pt-4 border-t mt-4">
+                <div
+                  class="ui-action-button-group import-step2-primary-actions flex flex-wrap gap-2 items-center"
+                >
+                  <button
+                    class="menu-button-primary ui-action-button ui-action-button-primary"
+                    onclick={runImportPrecheck}
+                    disabled={importLoading ||
+                      importActionLoading ||
+                      busyActive ||
+                      importSelectedCount === 0}
+                    aria-label={importSelectedCount > 0
+                      ? `Proceed with ${importSelectedCount} designs`
+                      : "Proceed"}
+                    data-testid="import-step2-continue-bottom"
+                  >
+                    {#if importLoading}
+                      Running…
+                    {:else if importSelectedCount > 0}
+                      Continue with {importSelectedCount} design{importSelectedCount === 1
+                        ? ""
+                        : "s"}
+                    {:else}
+                      Continue
+                    {/if}
+                  </button>
                   <button
                     type="button"
-                    aria-label={`Select all files in ${folder.label}`}
-                    class="import-folder-action-btn px-2 py-1 rounded border text-xs font-semibold"
-                    onclick={() => selectAllInFolder(folder.folderPath)}
-                    disabled={folderSelectAllDisabled}
+                    class="menu-button-secondary ui-action-button"
+                    onclick={() => navigateTo("#/import/step1")}
+                    disabled={importLoading || importActionLoading || busyActive}
+                    aria-label="Cancel import (bottom)"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="import-folder-action-btn px-3 py-1.5 rounded border text-xs font-semibold"
+                    onclick={selectAllImportFiles}
+                    disabled={importSelectAllDisabled}
+                    aria-label="Select all files across all folders (bottom)"
                   >
                     Select all
                   </button>
                   <button
                     type="button"
-                    aria-label={`Deselect all files in ${folder.label}`}
-                    class="import-folder-action-btn px-2 py-1 rounded border text-xs font-semibold"
-                    onclick={() => deselectAllInFolder(folder.folderPath)}
-                    disabled={folderDeselectAllDisabled}
+                    class="import-folder-action-btn px-3 py-1.5 rounded border text-xs font-semibold"
+                    onclick={deselectAllImportFiles}
+                    disabled={importDeselectAllDisabled}
+                    aria-label="Deselect all files across all folders (bottom)"
                   >
                     Deselect all
                   </button>
                 </div>
-
-                <div class="px-4 py-3 border-b import-step2-folder-overrides">
-                  <div class="grid grid-cols-2 gap-3 text-sm">
-                    <label class="ui-field-label text-sm block">
-                      <span class="block font-medium mb-1">Designer for this folder</span>
-                      <div class="flex items-center gap-2">
-                        <select
-                          class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
-                          value={getImportFolderDesigner(folder.folderPath)}
-                          onchange={(event) =>
-                            setImportFolderDesigner(folder.folderPath, event.currentTarget.value)}
-                          disabled={importReferenceLoading || importLoading || importActionLoading}
-                        >
-                          <option value=""
-                            >{getImportFolderDesignerInferredLabel(folder.folderPath)}</option
-                          >
-                          {#each importDesigners as designer}
-                            <option value={String(designer.id)}>{designer.name}</option>
-                          {/each}
-                        </select>
-                        <button
-                          type="button"
-                          class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
-                          onclick={() => openQuickAdd("designer", "folder", folder.folderPath)}
-                          disabled={importReferenceLoading || importLoading || importActionLoading}
-                          title={`Add new designer for ${folder.label}`}
-                          aria-label={`Add new designer for ${folder.label}`}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </label>
-                    <label class="ui-field-label text-sm block">
-                      <span class="block font-medium mb-1">Source for this folder</span>
-                      <div class="flex items-center gap-2">
-                        <select
-                          class="ui-select-input ui-control-text-inset flex-1 border rounded px-3 py-1.5"
-                          value={getImportFolderSource(folder.folderPath)}
-                          onchange={(event) =>
-                            setImportFolderSource(folder.folderPath, event.currentTarget.value)}
-                          disabled={importReferenceLoading || importLoading || importActionLoading}
-                        >
-                          <option value=""
-                            >{getImportFolderSourceInferredLabel(folder.folderPath)}</option
-                          >
-                          {#each importSources as source}
-                            <option value={String(source.id)}>{source.name}</option>
-                          {/each}
-                        </select>
-                        <button
-                          type="button"
-                          class="menu-button-secondary px-2.5 py-1.5 text-xs font-bold"
-                          onclick={() => openQuickAdd("source", "folder", folder.folderPath)}
-                          disabled={importReferenceLoading || importLoading || importActionLoading}
-                          title={`Add new source for ${folder.label}`}
-                          aria-label={`Add new source for ${folder.label}`}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                {#if isExpanded}
-                  <div class="import-step2-file-list-shell p-4">
-                    {#if folder.total > IMPORT_FOLDER_AUTO_EXPAND_MAX}
-                      <p class="text-xs ui-help-note mb-2">
-                        This folder contains {folder.total} files. Use Select/Deselect all to work on
-                        the whole folder, or filter to find specific files.
-                      </p>
-                    {/if}
-                    {#if folder.total > IMPORT_FOLDER_PAGE_SIZE}
-                      <div class="mb-2">
-                        <input
-                          type="search"
-                          class="ui-text-input ui-control-text-inset w-full border rounded px-3 py-1.5 text-sm"
-                          placeholder="Filter files in this folder…"
-                          value={importFolderSearchByPath[folder.folderPath] || ""}
-                          oninput={(event) =>
-                            setFolderSearch(folder.folderPath, event.currentTarget.value)}
-                          aria-label={`Filter files in ${folder.label}`}
-                        />
-                      </div>
-                    {/if}
-                    {#if fileWindow.visible.length > 0}
-                      <div
-                        class="import-step2-file-columns grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
-                      >
-                        {#each fileWindow.visible as fullPath (fullPath)}
-                          {@const isChecked = selIsSelected(
-                            importSelection,
-                            folder.folderPath,
-                            fullPath
-                          )}
-                          <label
-                            class="import-step2-file-item flex items-start gap-2 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              class="ui-checkbox mt-1 accent-[var(--text-brand)] rounded"
-                              checked={isChecked}
-                              onchange={(event) =>
-                                toggleImportFile(
-                                  folder.folderPath,
-                                  fullPath,
-                                  event.currentTarget.checked
-                                )}
-                              disabled={importLoading || importActionLoading}
-                            />
-                            <span
-                              class="ui-field-label text-sm break-all font-mono"
-                              title={fullPath}>{getImportFilenameFromPath(fullPath)}</span
-                            >
-                          </label>
-                        {/each}
-                      </div>
-                    {:else}
-                      <p class="text-sm ui-help-note italic">No files match your filter.</p>
-                    {/if}
-                    {#if fileWindow.pageCount > 1}
-                      <Pagination
-                        currentPage={fileWindow.page}
-                        totalPages={fileWindow.pageCount}
-                        onPageChange={makeFolderPageHandler(folder.folderPath)}
-                        disabled={importLoading || importActionLoading || busyActive}
-                        ariaLabel={`Files in ${folder.label}`}
-                      />
-                    {/if}
-                  </div>
-                {:else}
-                  <div class="import-step2-file-list-shell p-4">
-                    <p class="text-sm ui-help-note italic">
-                      Files are hidden for this large folder ({folder.total} file{folder.total === 1
-                        ? ""
-                        : "s"}). Use the controls above to select or deselect the whole folder.
-                    </p>
-                  </div>
-                {/if}
               </div>
-            {/each}
-          </div>
+            {/if}
+          {/if}
         {:else}
           <div class="notice-warn p-4 rounded text-sm space-y-2">
             <p class="font-semibold text-[var(--notice-warn-text)]">

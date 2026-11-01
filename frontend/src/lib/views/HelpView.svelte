@@ -185,6 +185,12 @@
         rows.
       </p>
       <p>
+        <strong>Large collections &amp; folder review:</strong> when reviewing large scans, folders are
+        paginated (25 per page) with a folder search filter. Folders default to collapsed for speed; click
+        Show files to inspect individual designs. Top and bottom action buttons allow continuing or selecting
+        all across all pages at once.
+      </p>
+      <p>
         <strong>Alphabet &amp; font compression:</strong> when enabled in Settings, full embroidery
         alphabet and font collections are automatically recognized and packaged into a companion
         <code
