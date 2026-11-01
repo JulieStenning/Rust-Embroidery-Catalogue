@@ -110,6 +110,7 @@
   /** @type {HTMLDivElement | null} */
   let browseBulkBarNode = $state(null);
   let browseBulkModalOpen = $state(false);
+  let browseApplyingTags = $state(false);
   /** @type {Array<number | string>} */
   let browseBulkTagAddIds = $state([]);
   /** @type {Array<number | string>} */
@@ -861,10 +862,15 @@
     browseBulkTagRemoveIds = [];
     browseBulkTagIndeterminateIds = indeterminateIds;
     browseBulkClearAll = false;
+    browseApplyingTags = false;
     browseBulkModalOpen = true;
   }
 
-  function closeBulkTagModal() {
+  /**
+   * @param {boolean} [force]
+   */
+  function closeBulkTagModal(force = false) {
+    if (browseApplyingTags && !force) return;
     browseBulkModalOpen = false;
   }
 
@@ -937,7 +943,7 @@
   }
 
   async function applyBulkTags() {
-    if (browseSelectedIds.size === 0) return;
+    if (browseSelectedIds.size === 0 || browseApplyingTags || busyActive) return;
 
     const clearAll = browseBulkClearAll;
     // When 'Untagged' is active, `clear_all_tags` wipes every original tag and
@@ -948,6 +954,7 @@
     const imageTagsVerified = browseBulkVerifyImage;
     const stitchingTagsVerified = browseBulkVerifyStitching;
 
+    browseApplyingTags = true;
     browseLoading = true;
     beginBusy("Applying bulk tags");
     try {
@@ -965,22 +972,24 @@
           `Updated tags for ${result.updated_count ?? result.updated} design(s).`,
           "success"
         );
-        closeBulkTagModal();
+        closeBulkTagModal(true);
         await loadBrowseItems(true);
       } else {
         addToast(result?.error || "Could not bulk update tags.", "error");
-        closeBulkTagModal();
+        closeBulkTagModal(true);
       }
     } catch (e) {
       addToast(`Bulk tagging failed: ${e}`, "error");
-      closeBulkTagModal();
+      closeBulkTagModal(true);
     } finally {
+      browseApplyingTags = false;
       browseLoading = false;
       endBusy();
     }
   }
 
   async function applySharedTagChooser() {
+    if (browseApplyingTags) return;
     await applyBulkTags();
   }
 
@@ -1454,18 +1463,26 @@
 <!-- Browse Bulk Tag Modal -->
 {#if browseBulkModalOpen}
   {@const groupedTagOptions = browseGroupedTagOptions}
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div
     use:portalToBody
     class="tag-chooser-overlay no-print"
     role="dialog"
     aria-modal="true"
+    aria-busy={browseApplyingTags}
     aria-labelledby="bulk-tag-title"
+    onkeydown={(event) => {
+      if (event.key === "Escape" && !browseApplyingTags) {
+        closeBulkTagModal();
+      }
+    }}
   >
     <button
       type="button"
       class="tag-chooser-backdrop"
       aria-label="Close tag chooser"
-      onclick={closeBulkTagModal}
+      onclick={() => closeBulkTagModal()}
+      disabled={browseApplyingTags}
     ></button>
     <div class="tag-chooser-dialog">
       <div class="tag-chooser-header">
@@ -1488,6 +1505,7 @@
               <input
                 type="checkbox"
                 checked={browseBulkClearAll}
+                disabled={browseApplyingTags}
                 onchange={(event) => {
                   browseBulkClearAll = event.currentTarget.checked;
                   // Untagged = replace mode: wipe every on-screen tag selection so
@@ -1507,6 +1525,7 @@
                 type="checkbox"
                 data-testid="bulk-verify-image-checkbox"
                 checked={browseBulkVerifyImage}
+                disabled={browseApplyingTags}
                 onchange={(event) => {
                   browseBulkVerifyImage = event.currentTarget.checked;
                 }}
@@ -1519,6 +1538,7 @@
                 type="checkbox"
                 data-testid="bulk-verify-stitching-checkbox"
                 checked={browseBulkVerifyStitching}
+                disabled={browseApplyingTags}
                 onchange={(event) => {
                   browseBulkVerifyStitching = event.currentTarget.checked;
                 }}
@@ -1541,6 +1561,7 @@
                     class="tag-chooser-option"
                     role="checkbox"
                     aria-checked={tagChooserAria(tagOption.id)}
+                    disabled={browseApplyingTags}
                     onclick={() => toggleTagChooserSelection(tagOption.id)}
                   >
                     <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
@@ -1565,6 +1586,7 @@
                     class="tag-chooser-option"
                     role="checkbox"
                     aria-checked={tagChooserAria(tagOption.id)}
+                    disabled={browseApplyingTags}
                     onclick={() => toggleTagChooserSelection(tagOption.id)}
                   >
                     <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
@@ -1589,6 +1611,7 @@
                     class="tag-chooser-option"
                     role="checkbox"
                     aria-checked={tagChooserAria(tagOption.id)}
+                    disabled={browseApplyingTags}
                     onclick={() => toggleTagChooserSelection(tagOption.id)}
                   >
                     <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
@@ -1601,11 +1624,21 @@
         </div>
       </div>
       <div class="tag-chooser-footer">
-        <button type="button" class="menu-button-secondary" onclick={closeBulkTagModal}
-          >Cancel</button
+        <button
+          type="button"
+          class="menu-button-secondary"
+          onclick={() => closeBulkTagModal()}
+          disabled={browseApplyingTags}
         >
-        <button type="button" class="menu-button-primary" onclick={applySharedTagChooser}>
-          Apply tags
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="menu-button-primary"
+          onclick={applySharedTagChooser}
+          disabled={browseApplyingTags}
+        >
+          {browseApplyingTags ? "Applying tags..." : "Apply tags"}
         </button>
       </div>
     </div>

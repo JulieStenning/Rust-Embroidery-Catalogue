@@ -1733,6 +1733,63 @@ describe("BrowseView", () => {
       expect(toastMock.addToast).toHaveBeenCalledWith("Updated tags for 1 design(s).", "success");
     });
 
+    it("disables modal controls and shows 'Applying tags...' while bulkSetTagsForDesigns is in-flight", async () => {
+      adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
+      let resolvePromise: (val: any) => void = () => {};
+      const pendingPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+      adapterMocks.bulkSetTagsForDesigns.mockReturnValue(pendingPromise);
+
+      await selectItems(2);
+      await fireEvent.click(screen.getByRole("button", { name: "Choose tags" }));
+
+      const dialog = screen.getByRole("dialog");
+      const floralButton = within(dialog).getByRole("checkbox", { name: /Floral/ });
+      const applyButton = within(dialog).getByRole("button", { name: "Apply tags" });
+      const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
+      const verifyImageCheckbox = within(dialog).getByTestId("bulk-verify-image-checkbox");
+
+      expect(applyButton).not.toBeDisabled();
+      expect(cancelButton).not.toBeDisabled();
+      expect(floralButton).not.toBeDisabled();
+      expect(verifyImageCheckbox).not.toBeDisabled();
+
+      // Click Apply tags
+      await fireEvent.click(applyButton);
+
+      // Verify immediate transition: label changes and controls are disabled
+      expect(applyButton).toHaveTextContent("Applying tags...");
+      expect(applyButton).toBeDisabled();
+      expect(cancelButton).toBeDisabled();
+      expect(floralButton).toBeDisabled();
+      expect(verifyImageCheckbox).toBeDisabled();
+      expect(dialog).toHaveAttribute("aria-busy", "true");
+
+      // Verify duplicate clicks mid-flight are rejected
+      await fireEvent.click(applyButton);
+      expect(adapterMocks.bulkSetTagsForDesigns).toHaveBeenCalledTimes(1);
+
+      // Verify Cancel and Escape mid-flight do not dismiss dialog
+      await fireEvent.click(cancelButton);
+      expect(dialog).toBeInTheDocument();
+
+      await fireEvent.keyDown(dialog, { key: "Escape" });
+      expect(dialog).toBeInTheDocument();
+
+      // Complete the pending promise
+      resolvePromise({
+        source: "rust",
+        persisted: true,
+        updated: 2,
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+      expect(toastMock.addToast).toHaveBeenCalledWith("Updated tags for 2 design(s).", "success");
+    });
+
     it("allows unticking verify image tags and verify stitching tags", async () => {
       adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
       adapterMocks.bulkSetTagsForDesigns.mockResolvedValue({

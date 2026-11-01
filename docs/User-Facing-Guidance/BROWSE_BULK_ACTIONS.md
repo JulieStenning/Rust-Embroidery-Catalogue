@@ -37,6 +37,7 @@ Use Browse bulk actions when you want to:
 - Opens an in-page modal.
 - Lets you tick tags to apply to all currently selected designs.
 - Applying tags replaces existing tags on those selected designs.
+- While tags are being applied, the button displays **Applying tags...** and dialog controls are disabled to prevent accidental modifications or duplicate submissions.
 - **Verification controls:** The top of the modal includes **Verify image tags** and **Verify stitching tags** checkboxes (both ticked by default). Untick either checkbox if you want to apply tags without marking that category as verified (for example, when standardising image tags on live designs while technical stitching tags differ or have not yet been reviewed).
 
 Use this when you want to standardise tag sets across many designs.
@@ -88,7 +89,7 @@ Use this before starting a different bulk action set.
 2. Select designs.
 3. Click **Choose tags...**.
 4. Tick the final replacement tag set.
-5. Click **Apply tags**.
+5. Click **Apply tags** (the button transitions to **Applying tags...** and disables modal controls while changes are saved).
 
 ### Rapid tag verification using search & bulk selection (clustering)
 
@@ -108,7 +109,7 @@ Instead of opening and editing thousands of designs individually, use search and
    - In the bottom action bar, click **Choose tags...**.
    - Tick the clean, canonical tags for this group (e.g. *Birds*, while leaving extraneous tags unticked).
    - Check the **Verify image tags** and **Verify stitching tags** options at the top of the modal. Both are ticked by default; if stitching tags differ across the batch or haven't been reviewed yet, untick **Verify stitching tags** to keep them unverified while verifying image tags.
-   - Click **Apply tags**.
+   - Click **Apply tags** (the button displays **Applying tags...** and dialog controls are disabled while updating the database).
    - *Result:* All selected designs are updated with the clean tag set, and their verification flags are updated according to your checkbox selections in a single operation.
 4. **Repeat for the next batch:**
    - Browse automatically refreshes with the newly verified designs cleared from the unverified view, presenting the next cluster ready for review.
