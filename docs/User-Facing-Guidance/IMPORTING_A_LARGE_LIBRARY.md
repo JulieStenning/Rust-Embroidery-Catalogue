@@ -30,7 +30,7 @@ expectations and avoid surprises.
    folder picker, or type the path directly).
 3. Click **Scan folder(s)**.
 
-While scanning, the button shows **Running...**. The app walks every selected
+While scanning, the button updates with live progress (e.g. **Scanning… (14 folders, 120 files)**, followed by **Scanning… Checking catalogue**). The app walks every selected
 folder and its subfolders, finds all supported embroidery files, and checks
 which ones are already in the catalogue so they can be skipped.
 

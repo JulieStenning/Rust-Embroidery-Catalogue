@@ -168,6 +168,10 @@
         <strong>Choosing folders:</strong> enter paths, use Browse, or add multiple folders; sub-folders
         are scanned automatically.
       </p>
+      <p>
+        <strong>Live scan progress:</strong> while scanning, the scan button displays real-time counts
+        of folders and files discovered as well as catalogue check progress.
+      </p>
       <p><strong>Review and metadata:</strong> set Designer and Source per folder before import.</p>
       <p>
         <strong>Tag check before import:</strong> first import asks for tag review, later imports can

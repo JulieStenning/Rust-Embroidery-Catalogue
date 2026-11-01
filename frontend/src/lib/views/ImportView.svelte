@@ -114,6 +114,24 @@
   let importLoading = $state(false);
   let importScanCancelPending = $state(false);
   let importBrowseLoading = $state(false);
+  let importScanFoldersCount = $state(0);
+  let importScanFilesCount = $state(0);
+  let importScanPhase = $state("");
+  /** @type {(() => void) | null} */
+  let importScanProgressUnlisten = null;
+
+  let importScanButtonLabel = $derived.by(() => {
+    if (!importLoading) return "Scan folder(s)";
+    if (importScanFoldersCount === 0 && importScanFilesCount === 0) {
+      return "Scanning…";
+    }
+    const folderText = `${importScanFoldersCount} folder${importScanFoldersCount === 1 ? "" : "s"}`;
+    const fileText = `${importScanFilesCount} file${importScanFilesCount === 1 ? "" : "s"}`;
+    if (importScanPhase === "checking_catalogue") {
+      return `Scanning… Checking catalogue (${folderText}, ${fileText})`;
+    }
+    return `Scanning… (${folderText}, ${fileText})`;
+  });
 
   let quickAddOpen = $state(false);
   /** @type {"designer" | "source"} */
@@ -866,6 +884,31 @@
     };
   }
 
+  async function stopImportScanProgressUpdates() {
+    if (importScanProgressUnlisten) {
+      importScanProgressUnlisten();
+      importScanProgressUnlisten = null;
+    }
+    importScanFoldersCount = 0;
+    importScanFilesCount = 0;
+    importScanPhase = "";
+  }
+
+  async function startImportScanProgressUpdates() {
+    if (importScanProgressUnlisten) return;
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      importScanProgressUnlisten = await listen("bulk-import-scan-progress", (event) => {
+        const payload = event?.payload || {};
+        importScanFoldersCount = Number(payload?.foldersScanned ?? payload?.folders_scanned ?? 0);
+        importScanFilesCount = Number(payload?.filesFound ?? payload?.files_found ?? 0);
+        importScanPhase = String(payload?.phase || "");
+      });
+    } catch (error) {
+      console.info("Bulk import scan progress events unavailable.", error);
+    }
+  }
+
   async function requestScanCancel() {
     if (!importLoading || importScanCancelPending) return;
     importScanCancelPending = true;
@@ -879,9 +922,13 @@
   async function runImportPreview() {
     importLoading = true;
     importScanCancelPending = false;
+    importScanFoldersCount = 0;
+    importScanFilesCount = 0;
+    importScanPhase = "";
     importActionMessage = "";
     importActionNeedsSkipHoopsConfirm = false;
     beginBusy("Scanning import folders");
+    void startImportScanProgressUpdates();
 
     try {
       const result = await previewImportFromRoots(getActiveImportRoots(), importIncludeLibrary);
@@ -1230,6 +1277,7 @@
       loadImportReferenceData();
       loadSettingsFromBackend();
     }
+    void startImportScanProgressUpdates();
   });
 
   onDestroy(() => {
@@ -1237,6 +1285,7 @@
       importProgressUnlisten();
       importProgressUnlisten = null;
     }
+    stopImportScanProgressUpdates();
   });
 </script>
 
@@ -1374,7 +1423,7 @@
             type="submit"
             disabled={importLoading || importBrowseLoading || !importHasActiveRoots}
           >
-            {importLoading ? "Scanning…" : "Scan folder(s)"}
+            {importScanButtonLabel}
           </button>
           {#if importLoading}
             <button

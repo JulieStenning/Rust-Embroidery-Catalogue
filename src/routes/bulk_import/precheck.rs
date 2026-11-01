@@ -26,6 +26,7 @@ use super::types::{
 };
 use crate::services::{folder_picker, scanning, validation};
 use sqlx::SqlitePool;
+use tauri::Emitter;
 
 pub(crate) fn preview_bulk_import_wire_with_pool(
     wire: BulkImportWire,
@@ -70,9 +71,26 @@ pub(crate) fn preview_bulk_import_wire_with_pool(
         super::session::BULK_IMPORT_SCAN_CANCEL_REQUESTED.load(std::sync::atomic::Ordering::Relaxed)
     };
 
+    let emit_scan_progress = |folders: usize, files: usize, phase: &str| {
+        if let Some(handle) = super::session::get_bulk_import_app_handle() {
+            let event = super::session::BulkImportScanProgressEvent {
+                folders_scanned: folders,
+                files_found: files,
+                phase: phase.to_string(),
+            };
+            let _ = handle.emit(super::session::BULK_IMPORT_SCAN_PROGRESS_EVENT, &event);
+        }
+    };
+
+    emit_scan_progress(0, 0, "scanning");
+
     let mut scanned_files = Vec::new();
     let mut missing_root = false;
     let mut root_had_any_existing_dir = false;
+    let mut cumulative_folders = 0usize;
+    let mut cumulative_files = 0usize;
+    let mut last_emit = std::time::Instant::now();
+
     for root_path in &wire.root_paths {
         if is_cancelled() {
             return Err("Scan cancelled".to_string());
@@ -81,12 +99,39 @@ pub(crate) fn preview_bulk_import_wire_with_pool(
             root_path.clone(),
             master_extensions.clone(),
         );
-        let scan_result = scanning::scan_with_error_and_cancel(&scan_input, Some(&is_cancelled))
-            .map_err(|err| err.to_string())?;
+
+        let root_base_folders = cumulative_folders;
+        let root_base_files = cumulative_files;
+        let mut root_last_folders = 0usize;
+        let mut root_last_files = 0usize;
+
+        let mut progress_cb = |folders: usize, files: usize| {
+            root_last_folders = folders;
+            root_last_files = files;
+            let current_folders = root_base_folders + folders;
+            let current_files = root_base_files + files;
+            if last_emit.elapsed() >= std::time::Duration::from_millis(100) {
+                last_emit = std::time::Instant::now();
+                emit_scan_progress(current_folders, current_files, "scanning");
+            }
+        };
+
+        let scan_result = scanning::scan_with_progress_and_cancel(
+            &scan_input,
+            Some(&is_cancelled),
+            Some(&mut progress_cb),
+        )
+        .map_err(|err| err.to_string())?;
+
+        cumulative_folders = root_base_folders + root_last_folders;
+        cumulative_files = root_base_files + root_last_files;
+
         missing_root = missing_root || scan_result.missing_root;
         root_had_any_existing_dir = root_had_any_existing_dir || !scan_result.missing_root;
         scanned_files.extend(scan_result.files);
     }
+
+    emit_scan_progress(cumulative_folders, cumulative_files, "checking_catalogue");
     let invalid_root = false;
     let no_supported_files = scanned_files.is_empty() && root_had_any_existing_dir;
 
@@ -167,13 +212,19 @@ pub fn preview_bulk_import_wire(wire: BulkImportWire) -> Result<BulkImportPrevie
 }
 
 #[tauri::command]
-pub fn preview_bulk_import(request: BulkImportRequest) -> Result<BulkImportPreview, String> {
+pub async fn preview_bulk_import(request: BulkImportRequest) -> Result<BulkImportPreview, String> {
     super::session::BULK_IMPORT_SCAN_CANCEL_REQUESTED
         .store(false, std::sync::atomic::Ordering::SeqCst);
     let wire: BulkImportWire = request.into();
-    let mut preview = preview_bulk_import_wire(wire.clone())?;
-    preview.scan_token =
-        store_bulk_import_scan(wire.root_paths.clone(), preview.scanned_files.clone());
+    let preview = tauri::async_runtime::spawn_blocking(move || {
+        let mut preview = preview_bulk_import_wire(wire.clone())?;
+        preview.scan_token =
+            store_bulk_import_scan(wire.root_paths.clone(), preview.scanned_files.clone());
+        Ok::<_, String>(preview)
+    })
+    .await
+    .map_err(|e| format!("Scan task failed to join: {e}"))??;
+
     Ok(preview)
 }
 

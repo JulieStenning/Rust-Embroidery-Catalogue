@@ -3483,3 +3483,62 @@ fn filter_alphabet_samples_filters_compressible_letters() {
     assert!(!names.contains(&"Lower_z.pes".to_string()));
     assert!(!names.contains(&"1.pes".to_string()));
 }
+
+#[test]
+fn bulk_import_scan_progress_event_serializes_to_camel_case() {
+    let event = super::session::BulkImportScanProgressEvent {
+        folders_scanned: 12,
+        files_found: 48,
+        phase: "scanning".to_string(),
+    };
+
+    let json = serde_json::to_string(&event).expect("serialize scan progress event");
+    assert!(json.contains(r#""foldersScanned":12"#));
+    assert!(json.contains(r#""filesFound":48"#));
+    assert!(json.contains(r#""phase":"scanning""#));
+
+    let deserialized: super::session::BulkImportScanProgressEvent =
+        serde_json::from_str(&json).expect("deserialize scan progress event");
+    assert_eq!(deserialized.folders_scanned, 12);
+    assert_eq!(deserialized.files_found, 48);
+    assert_eq!(deserialized.phase, "scanning");
+}
+
+#[test]
+fn scanning_with_progress_and_cancel_invokes_callback() {
+    use crate::services::scanning::{self, ScanInput};
+    use std::fs;
+
+    let root = std::env::temp_dir().join(format!(
+        "scan-progress-test-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    ));
+    let sub1 = root.join("SubFolder1");
+    let sub2 = root.join("SubFolder2");
+    fs::create_dir_all(&sub1).unwrap();
+    fs::create_dir_all(&sub2).unwrap();
+
+    fs::write(sub1.join("design1.pes"), b"dummy").unwrap();
+    fs::write(sub2.join("design2.dst"), b"dummy").unwrap();
+    fs::write(sub2.join("ignored.txt"), b"dummy").unwrap();
+
+    let mut progress_snapshots = Vec::new();
+    let mut progress_cb = |folders: usize, files: usize| {
+        progress_snapshots.push((folders, files));
+    };
+
+    let input = ScanInput::new(root.to_string_lossy().to_string());
+    let result =
+        scanning::scan_with_progress_and_cancel(&input, None, Some(&mut progress_cb)).unwrap();
+
+    assert_eq!(result.files.len(), 2);
+    assert!(!progress_snapshots.is_empty());
+    let (final_folders, final_files) = progress_snapshots.last().cloned().unwrap();
+    assert_eq!(final_folders, 3); // root + sub1 + sub2
+    assert_eq!(final_files, 2); // design1.pes + design2.dst
+
+    let _ = fs::remove_dir_all(&root);
+}

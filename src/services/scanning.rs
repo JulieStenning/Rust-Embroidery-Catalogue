@@ -91,7 +91,9 @@ fn visit_dir(
     dir: &Path,
     master_extensions: &[String],
     dedup: &mut HashMap<String, ScannedFile>,
+    folder_count: &mut usize,
     is_cancelled: Option<&dyn Fn() -> bool>,
+    on_progress: &mut Option<&mut dyn FnMut(usize, usize)>,
 ) -> Result<(), AppError> {
     if is_cancelled.map(|f| f()).unwrap_or(false) {
         return Err(AppError::invalid_input("Scan cancelled"));
@@ -99,6 +101,11 @@ fn visit_dir(
 
     if should_skip_directory(dir) {
         return Ok(());
+    }
+
+    *folder_count += 1;
+    if let Some(ref mut progress) = on_progress {
+        progress(*folder_count, dedup.len());
     }
 
     let entries = match fs::read_dir(dir) {
@@ -114,7 +121,14 @@ fn visit_dir(
         let path = entry.path();
 
         if path.is_dir() {
-            visit_dir(&path, master_extensions, dedup, is_cancelled)?;
+            visit_dir(
+                &path,
+                master_extensions,
+                dedup,
+                folder_count,
+                is_cancelled,
+                on_progress,
+            )?;
             continue;
         }
 
@@ -145,7 +159,7 @@ fn visit_dir(
             None => continue,
         };
 
-        let file_size_bytes = fs::metadata(&path).ok().map(|m| m.len() as i64);
+        let file_size_bytes = entry.metadata().ok().map(|m| m.len() as i64);
 
         let dedup_group_key = make_dedup_group_key(parent, stem, &extension);
         let candidate = ScannedFile {
@@ -158,6 +172,9 @@ fn visit_dir(
         };
 
         dedup.insert(dedup_group_key, candidate);
+        if let Some(ref mut progress) = on_progress {
+            progress(*folder_count, dedup.len());
+        }
     }
     Ok(())
 }
@@ -192,6 +209,14 @@ pub fn scan_with_error_and_cancel(
     input: &ScanInput,
     is_cancelled: Option<&dyn Fn() -> bool>,
 ) -> Result<ScanResult, AppError> {
+    scan_with_progress_and_cancel(input, is_cancelled, None)
+}
+
+pub fn scan_with_progress_and_cancel(
+    input: &ScanInput,
+    is_cancelled: Option<&dyn Fn() -> bool>,
+    mut on_progress: Option<&mut dyn FnMut(usize, usize)>,
+) -> Result<ScanResult, AppError> {
     let root_path = PathBuf::from(&input.root_path);
 
     let trimmed = input.root_path.trim();
@@ -218,7 +243,15 @@ pub fn scan_with_error_and_cancel(
         .collect();
 
     let mut dedup: HashMap<String, ScannedFile> = HashMap::new();
-    visit_dir(&root_path, &normalized_masters, &mut dedup, is_cancelled)?;
+    let mut folder_count = 0;
+    visit_dir(
+        &root_path,
+        &normalized_masters,
+        &mut dedup,
+        &mut folder_count,
+        is_cancelled,
+        &mut on_progress,
+    )?;
 
     let mut files: Vec<ScannedFile> = dedup.into_values().collect();
     files.sort_by(|left, right| {

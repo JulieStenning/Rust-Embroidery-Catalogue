@@ -6,7 +6,7 @@ use super::types::{
     BulkImportScanCancelResult, BulkImportStopResult,
 };
 use crate::services::scanning;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -29,6 +29,15 @@ pub(crate) static BULK_IMPORT_SCAN_CANCEL_REQUESTED: AtomicBool = AtomicBool::ne
 
 pub(crate) const DEFAULT_IMPORT_COMMIT_BATCH_SIZE: usize = 100;
 pub(crate) const BULK_IMPORT_PROGRESS_EVENT: &str = "bulk-import-progress";
+pub(crate) const BULK_IMPORT_SCAN_PROGRESS_EVENT: &str = "bulk-import-scan-progress";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BulkImportScanProgressEvent {
+    pub(crate) folders_scanned: usize,
+    pub(crate) files_found: usize,
+    pub(crate) phase: String,
+}
 
 #[allow(dead_code)]
 pub(crate) const BULK_IMPORT_SCAN_TTL: Duration = Duration::ZERO;

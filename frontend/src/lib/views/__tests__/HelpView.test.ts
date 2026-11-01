@@ -183,6 +183,7 @@ describe("HelpView", () => {
       expect(importLink).toHaveAttribute("href", "#/import");
 
       expect(section.getByText("Choosing folders:")).toBeInTheDocument();
+      expect(section.getByText("Live scan progress:")).toBeInTheDocument();
       expect(section.getByText("Review and metadata:")).toBeInTheDocument();
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
       expect(section.getByText("Tagging during import:")).toBeInTheDocument();

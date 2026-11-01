@@ -307,6 +307,57 @@ describe("ImportView busy lock during scans", () => {
     view.unmount();
   });
 
+  it("updates the scan button to show live folders and files count and checking catalogue phase", async () => {
+    let resolveScan: (value: unknown) => void = () => {};
+    adapterMocks.previewImportFromRoots.mockImplementation(
+      () =>
+        new Promise((res) => {
+          resolveScan = res;
+        })
+    );
+
+    const { container, view } = renderHarness("#/import");
+    await scanFolder(container, "C:\\Designs");
+    await tick();
+
+    await waitFor(() => {
+      expect(eventMocks.listen).toHaveBeenCalledWith(
+        "bulk-import-scan-progress",
+        expect.any(Function)
+      );
+    });
+
+    const scanHandler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-scan-progress"
+    )?.[1];
+    expect(scanHandler).toBeDefined();
+
+    scanHandler({
+      payload: { foldersScanned: 2, filesFound: 15, phase: "scanning" },
+    });
+    await tick();
+
+    expect(
+      screen.getByRole("button", { name: "Scanning… (2 folders, 15 files)" })
+    ).toBeInTheDocument();
+
+    scanHandler({
+      payload: { foldersScanned: 2, filesFound: 15, phase: "checking_catalogue" },
+    });
+    await tick();
+
+    expect(
+      screen.getByRole("button", { name: "Scanning… Checking catalogue (2 folders, 15 files)" })
+    ).toBeInTheDocument();
+
+    resolveScan(previewResponse());
+    await waitFor(() => {
+      expect(screen.getByText("Review scanned files")).toBeInTheDocument();
+    });
+
+    view.unmount();
+  });
+
   it("invokes requestCancelBulkImportScan, shows 'Cancelling…', and resets cleanly on scan cancel", async () => {
     adapterMocks.requestCancelBulkImportScan.mockResolvedValue({
       source: "rust",
