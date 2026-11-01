@@ -120,7 +120,7 @@ closes immediately, or a Command Prompt window stays open with an error message.
 1. **Database file is missing or drive letter changed:**
    - If you moved your catalogue to an external drive (or Windows changed your drive letter from `D:` to `E:`), the app scans connected drives and offers a **"Re-connect to this location"** button.
    - You can also click **"Choose another catalogue folder…"** to point to your data folder.
-   - If setting up a new catalogue, click **"Start fresh with a clean catalogue"** to initialize a clean database.
+   - If setting up a new catalogue, click **"Start fresh with a clean catalogue"** to initialise a clean database.
 
 2. **Corrupted or damaged database:**
    - When a database file exists but cannot be parsed by SQLite, the app displays **"Your catalogue database is unreadable"** with the diagnostic error message.
@@ -175,7 +175,7 @@ preview image.
 ## Desktop window is blank or crashes
 
 **Symptom:** The app icon appears, but the window is blank, white, or shows an error
-dialog instead of the catalogue UI.
+dialogue instead of the catalogue UI.
 
 **Common causes and fixes:**
 
@@ -304,7 +304,7 @@ the sections above.
 ### The desktop app does not start
 
 **Symptom:** Double-clicking the Start Menu shortcut or `EmbroideryCatalogue.exe` does
-nothing, or shows a brief error dialog.
+nothing, or shows a brief error dialogue.
 
 **Fix:**
 

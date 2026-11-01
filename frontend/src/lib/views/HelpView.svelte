@@ -197,7 +197,7 @@
       <p>
         <strong>Alphabet &amp; font compression:</strong> enabled by default during initial setup
         (and configurable in Settings), full embroidery alphabet and font collections are
-        automatically recognized and packaged into a companion
+        automatically recognised and packaged into a companion
         <code
           class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
           >.zip</code
@@ -388,7 +388,7 @@
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
-        The <strong>Library Discrepancies</strong> page provides two user-initiated tools to synchronize
+        The <strong>Library Discrepancies</strong> page provides two user-initiated tools to synchronise
         your catalogue and disk files without automatic background scanning on page load:
       </p>
       <ul class="list-disc list-inside space-y-1 text-[var(--text-secondary)]">
@@ -430,7 +430,7 @@
         <strong>Google Gemini &amp; AI Tagging:</strong> store optional API keys, select vision models, and tune concurrency.
       </p>
       <p>
-        <strong>Database Maintenance:</strong> optimize and compact storage and monitor automatic health checks.
+        <strong>Database Maintenance:</strong> optimise and compact storage and monitor automatic health checks.
       </p>
       <p>
         <strong>Catalogue Storage:</strong> relocate your database and design library to a different location.
@@ -463,10 +463,10 @@
         the app.
       </p>
       <p>
-        <strong>Database preparation on startup:</strong> when the application upgrades or optimizes
+        <strong>Database preparation on startup:</strong> when the application upgrades or optimises
         indexes for large catalogues, the window opens immediately with a
         <em>Preparing Catalogue Database</em>
-        progress screen. Please keep the app open while these one-off optimizations complete.
+        progress screen. Please keep the app open while these one-off optimisations complete.
       </p>
       <p>
         <strong>Database missing or unreadable on startup:</strong> Embroidery Catalogue

@@ -80,7 +80,7 @@ Use **Upgrade existing 2D images to 3D** when you already have 2D previews and w
 
 ---
 
-## Option behavior
+## Option behaviour
 
 ### Re-process all images
 
@@ -174,5 +174,5 @@ For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - unified maintenance actions overview
 - [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md) - format compatibility and notes
-- [COLOUR_COUNTS.md](COLOUR_COUNTS.md) - stitch/colour metadata behavior
+- [COLOUR_COUNTS.md](COLOUR_COUNTS.md) - stitch/colour metadata behaviour
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup guidance before large operations

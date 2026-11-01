@@ -39,7 +39,7 @@ Use Browse bulk actions when you want to:
 - Applying tags replaces existing tags on those selected designs.
 - **Verification controls:** The top of the modal includes **Verify image tags** and **Verify stitching tags** checkboxes (both ticked by default). Untick either checkbox if you want to apply tags without marking that category as verified (for example, when standardising image tags on live designs while technical stitching tags differ or have not yet been reviewed).
 
-Use this when you want to standardize tag sets across many designs.
+Use this when you want to standardise tag sets across many designs.
 
 ### Verify selected
 
@@ -64,7 +64,7 @@ Use this before starting a different bulk action set.
 
 ---
 
-## Selection behavior to know
+## Selection behaviour to know
 
 - Selection is page-based.
 - **Select all** affects visible results on the current page only.

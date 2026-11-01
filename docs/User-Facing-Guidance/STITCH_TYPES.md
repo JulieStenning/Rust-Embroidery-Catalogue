@@ -85,7 +85,7 @@ The stitching action is useful when:
 - you want to refresh stitching tags after improving the detector,
 - you want to run a local backfill without touching AI tags.
 
-Important behavior:
+Important behaviour:
 
 - the stitching backfill is local,
 - verified designs are left alone when the backfill is configured to work on unverified items only,

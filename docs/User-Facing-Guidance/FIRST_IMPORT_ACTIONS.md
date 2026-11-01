@@ -48,7 +48,7 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 - after editing reference data you can return to **Import** and continue — the wizard keeps
   your scan and selections while you are away.
 
-## Continue and Cancel Behavior
+## Continue and Cancel Behaviour
 - **Import Designs**: runs the import with your current selections.
 - **Cancel** (or **Stop** while a run is in progress): abandons the run and clears the wizard.
 - After a successful import the app routes you to **Browse Designs**.

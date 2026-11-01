@@ -5,7 +5,7 @@
 [![Svelte](https://img.shields.io/badge/svelte-v5-ff3e00.svg)](https://svelte.dev)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
-A high-performance, cross-platform desktop application designed to catalog, search, preview, and organize machine embroidery designs (`.pes`, `.dst`, `.jef`, `.exp`, `.hus`, `.vp3`).
+A high-performance, cross-platform desktop application designed to catalogue, search, preview, and organise machine embroidery designs (`.pes`, `.dst`, `.jef`, `.exp`, `.hus`, `.vp3`).
 
 Built with **Tauri v2**, **Rust**, **SQLite**, and **Svelte 5**.
 
@@ -15,8 +15,8 @@ Built with **Tauri v2**, **Rust**, **SQLite**, and **Svelte 5**.
 
 - **Fast Multi-Format Ingestion:** Native Rust binary parsers extract stitch geometry, bounding boxes, and thread palettes from Tajima (`.dst`), Melco (`.exp`), Husqvarna Viking (`.hus`), Janome (`.jef`), Brother (`.pes`), and Pfaff (`.vp3`).
 - **Real-Time Visual Rendering:** Generates realistic thread previews with lighting, shading, and jump stitch suppression directly from raw stitch coordinates.
-- **Smart Cataloging & AI Tagging:** Automated rule-based tagging and optional Google Gemini AI integration for intelligent subject classification. Evaluated in September 2026 against Claude Sonnet and Hugging Face models; Gemini AI Vision was selected as the primary backend provider due to superior tagging accuracy.
-- **Robust SQLite Storage:** Single-file catalog database with WAL (Write-Ahead Logging), multi-root library support, and portable drive relocation.
+- **Smart Cataloguing & AI Tagging:** Automated rule-based tagging and optional Google Gemini AI integration for intelligent subject classification. Evaluated in September 2026 against Claude Sonnet and Hugging Face models; Gemini AI Vision was selected as the primary backend provider due to superior tagging accuracy.
+- **Robust SQLite Storage:** Single-file catalogue database with WAL (Write-Ahead Logging), multi-root library support, and portable drive relocation.
 - **Batch Operations & Maintenance:** Asynchronous thumbnail regeneration, database compaction, automated backups, and recovery tooling.
 
 ---

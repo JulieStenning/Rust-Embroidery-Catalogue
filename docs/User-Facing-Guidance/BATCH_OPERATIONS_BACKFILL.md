@@ -77,8 +77,8 @@ Two tagging modes are available when tagging a design:
 Scopes for a Gemini Vision / Full Re-Scan run let you target designs by their analysis state:
 
 - **Designs missing Gemini Vision analysis** — designs not yet scanned by Gemini Vision.
-- **Gemini Vision found no match** — designs Gemini Vision analyzed but produced no tags.
-- **Re-analyze (already analyzed)** — designs already analyzed, run again.
+- **Gemini Vision found no match** — designs Gemini Vision analysed but produced no tags.
+- **Re-analyse (already analysed)** — designs already analysed, run again.
 - **Untagged designs only**, **Specific Folder(s)**, and **Entire collection** are also available.
 
 ### Model selection & evaluation (September 2026)
