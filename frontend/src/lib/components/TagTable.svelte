@@ -28,9 +28,7 @@
   const anyRowBusy = $derived(deletingTagId !== null || savingTagId !== null);
 
   /** Whether this row represents a protected system-defined tag. */
-  const isSystemTag = $derived(
-    (/** @type {TagRow} */ tag) => group === "stitching" && Boolean(tag?.is_system)
-  );
+  const isSystemTag = $derived((/** @type {TagRow} */ tag) => Boolean(tag?.is_system));
 
   /**
    * @param {TagRow} tag

@@ -50,7 +50,7 @@ export const MOCK_DESIGNS = [
     filename: "monogram-a.dst",
     designer: "Mock Designer",
     source: "Purchased",
-    tags: ["Words and Letters"],
+    tags: ["Alphabets"],
     hoop: null,
     rating: null,
     is_stitched: false,
@@ -65,7 +65,8 @@ export const TAG_SEED = [
   "Applique",
   "Food",
   "Nautical",
-  "Words and Letters",
+  "Words",
+  "Alphabets",
   "Floral",
   "Butterflies and Insects",
 ];

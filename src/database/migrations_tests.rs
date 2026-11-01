@@ -789,3 +789,76 @@ async fn run_migrations_creates_batch_operations_indexes() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_splits_words_and_alphabets_tags_and_synonyms() {
+    let tmp = unique_tmp_dir("words-alphabets-migration");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("words_alphabets.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    // 'Words and Letters' should no longer exist
+    let old_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM tags WHERE description = 'Words and Letters'")
+            .fetch_one(&pool)
+            .await
+            .expect("query old tag");
+    assert_eq!(
+        old_count.0, 0,
+        "'Words and Letters' should be migrated away"
+    );
+
+    // 'Words' should exist and NOT be a system tag
+    let words_tag: (i64, bool) =
+        sqlx::query_as("SELECT id, is_system FROM tags WHERE description = 'Words'")
+            .fetch_one(&pool)
+            .await
+            .expect("query Words tag");
+    assert!(!words_tag.1, "'Words' should have is_system = false");
+
+    // 'Alphabets' should exist and BE a system tag
+    let alphabets_tag: (i64, bool) =
+        sqlx::query_as("SELECT id, is_system FROM tags WHERE description = 'Alphabets'")
+            .fetch_one(&pool)
+            .await
+            .expect("query Alphabets tag");
+    assert!(alphabets_tag.1, "'Alphabets' should have is_system = true");
+
+    // Check tag_synonyms routing
+    let alphabet_synonyms: Vec<String> = sqlx::query_scalar(
+        "SELECT keyword FROM tag_synonyms WHERE tag_id = ? ORDER BY keyword ASC",
+    )
+    .bind(alphabets_tag.0)
+    .fetch_all(&pool)
+    .await
+    .expect("query alphabets synonyms");
+
+    assert!(alphabet_synonyms.contains(&"alphabet".to_string()));
+    assert!(alphabet_synonyms.contains(&"font".to_string()));
+    assert!(alphabet_synonyms.contains(&"monogram".to_string()));
+    assert!(alphabet_synonyms.contains(&"number".to_string()));
+    assert!(alphabet_synonyms.contains(&"punctuation".to_string()));
+
+    let words_synonyms: Vec<String> = sqlx::query_scalar(
+        "SELECT keyword FROM tag_synonyms WHERE tag_id = ? ORDER BY keyword ASC",
+    )
+    .bind(words_tag.0)
+    .fetch_all(&pool)
+    .await
+    .expect("query words synonyms");
+
+    assert!(words_synonyms.contains(&"saying".to_string()));
+    assert!(words_synonyms.contains(&"quote".to_string()));
+    assert!(words_synonyms.contains(&"blackboard".to_string()));
+    assert!(words_synonyms.contains(&"bookmark".to_string()));
+    assert!(words_synonyms.contains(&"bookworm".to_string()));
+    assert!(words_synonyms.contains(&"text".to_string()));
+    assert!(words_synonyms.contains(&"wording".to_string()));
+    assert!(words_synonyms.contains(&"writing".to_string()));
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}

@@ -86,6 +86,9 @@ The plan must be structural and high-levelâ€”**no code snippets or pseudocode**â
    - Affirm that source embroidery files remain strictly read-only and unmutated.
    - SQLite queries / schema adjustments involved.
    - File cache / thumbnail storage locations.
+   - **Tag Synonym Planning Invariants:**
+     - *No Singular/Plural Duplication:* The tagging engine automatically computes inflections (`to_singular()` and `to_plural()`). Plans must never include both singular and plural forms (use only singular base words: `quote`, `bookmark`).
+     - *No Self-Synonyms:* Tag names are directly token-matched in singular and plural forms during Pass 2. Plans must never include synonyms matching words already in the tag name (e.g. do not suggest `word`/`words` for `Words`, or `alphabet`/`alphabets` for `Alphabets`).
 4. **Step-by-Step Execution Sequence & Test Plan:**
    - A short, numbered list of the order of execution.
    - Targeted unit and integration test commands (Vitest, `cargo test`).

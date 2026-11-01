@@ -138,7 +138,7 @@ async fn import_test_pool() -> SqlitePool {
     .await
     .expect("failed to create sources table");
 
-    sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Words and Letters', 'image'), ('Flowers', 'image'), ('Line Outline', 'stitching')")
+    sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Words', 'image'), ('Alphabets', 'image'), ('Flowers', 'image'), ('Line Outline', 'stitching')")
             .execute(&pool)
             .await
             .expect("failed to seed tags");
@@ -2331,9 +2331,10 @@ fn load_default_stitching_tag_id_direct() {
 fn load_tag_catalog_returns_seeded_tags() {
     let pool = tauri::async_runtime::block_on(import_test_pool());
     let tags = tauri::async_runtime::block_on(load_tag_catalog(&pool)).expect("load tags");
-    assert_eq!(tags.len(), 3);
+    assert_eq!(tags.len(), 4);
     let descriptions: Vec<&str> = tags.iter().map(|(_, d)| d.as_str()).collect();
-    assert!(descriptions.contains(&"Words and Letters"));
+    assert!(descriptions.contains(&"Words"));
+    assert!(descriptions.contains(&"Alphabets"));
     assert!(descriptions.contains(&"Line Outline"));
 }
 

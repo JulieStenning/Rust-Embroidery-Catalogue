@@ -59,6 +59,9 @@ pub const ALPHABET_KEYWORDS: &[&str] = &[
     "monograms",
     "initials",
     "letters",
+    "numbers",
+    "numerals",
+    "digits",
 ];
 
 /// Category of an embroidery file glyph inside a font package.

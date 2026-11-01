@@ -197,6 +197,25 @@ pub fn suggest_path_rule_descriptions(
         }
     }
 
+    // If the file is classified as an alphabet glyph (single letter, digit, or punctuation mark),
+    // assign "Alphabets" and suppress "Words" so glyphs aren't tagged as word phrases.
+    let is_glyph = crate::services::alphabet_detector::classify_glyph_name(filename)
+        != crate::services::alphabet_detector::GlyphCategory::NonGlyph;
+    if is_glyph {
+        if let Some(alphabets_canonical) = valid_descriptions
+            .iter()
+            .find(|candidate| candidate.eq_ignore_ascii_case("Alphabets"))
+        {
+            matched.insert(alphabets_canonical.clone());
+        }
+        if let Some(words_canonical) = valid_descriptions
+            .iter()
+            .find(|candidate| candidate.eq_ignore_ascii_case("Words"))
+        {
+            matched.remove(words_canonical);
+        }
+    }
+
     let mut results: Vec<String> = matched.into_iter().collect();
     results.sort();
     results

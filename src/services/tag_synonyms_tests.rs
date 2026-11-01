@@ -107,3 +107,23 @@ async fn test_delete_synonym() {
     let list_after = list_tag_synonyms(&pool).await.expect("list empty");
     assert_eq!(list_after.len(), 0);
 }
+
+#[tokio::test]
+async fn test_add_synonyms_duplicate_is_idempotent_no_error() {
+    let pool = setup_test_db().await;
+
+    // Add initial keyword
+    let kw1 = add_tag_synonyms(&pool, 1, "alphabet, font")
+        .await
+        .expect("initial add");
+    assert_eq!(kw1.len(), 2);
+
+    // Re-adding the exact same keyword or mixed duplicates must succeed without error
+    let kw2 = add_tag_synonyms(&pool, 1, "font, ALPHABET, monogram")
+        .await
+        .expect("re-add duplicate must not error");
+    assert_eq!(kw2.len(), 3);
+    assert_eq!(kw2[0].keyword, "alphabet");
+    assert_eq!(kw2[1].keyword, "font");
+    assert_eq!(kw2[2].keyword, "monogram");
+}

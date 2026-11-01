@@ -68,6 +68,10 @@ When maintaining your general tag list in **Admin → Manage Data → [Tags](#/a
 
 The catalogue comes pre-loaded with standard starter word matches for common embroidery themes (including animal species, floral types, holidays, and stitching techniques like In The Hoop and Free Standing Lace).
 
+It also separates text-based embroidery into two distinct categories:
+- **Alphabets (Protected System Tag):** Includes matches for `alphabet`, `font`, `monogram`, `initials`, `upper`, `lower`, number sets (`number`, `numeral`, `digit`), and punctuation marks (`punctuation`, `symbol`).
+- **Words:** Includes matches for standalone phrase designs like `saying`, `quote`, `phrase`, `sentiment`, `verse`, `slogan`, `blackboard`, `bookmark`, `bookworm`, `text`, `wording`, and `writing`.
+
 - **Fully Editable:** There are no system-locked word matches. You can delete any starter match that does not fit your workflow or add custom keywords that match your personal folder conventions.
 - **Safe & Reversible:** Modifying word matches does not alter any of your physical embroidery files.
 

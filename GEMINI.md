@@ -11,6 +11,9 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
 - **Svelte Module Reference Syntax (CRITICAL):**
   - Always reference Svelte view and component modules using a bare `@` prefix **without quotes** so IDE navigation works (e.g. `@DesignDetailView.svelte`, `@MainView.svelte`, `@ImportView.svelte`).
 - **Mandatory Documentation Updates on Functional Changes:** Whenever user-facing functionality, UI workflows, or features are introduced, modified, or extended, you must update the relevant in-app help (@HelpView.svelte) and user-facing guidance (`docs/User-Facing-Guidance/`), and update test coverage in `HelpView.test.ts`.
+- **Tag Synonym Planning Invariants:**
+  - **No Singular/Plural Duplication:** The tagging engine automatically handles inflections (`to_singular()` and `to_plural()`). Never suggest or seed both singular and plural forms of a word (e.g., plan only `quote`, never `quote` and `quotes`; `bookmark`, never `bookmark` and `bookmarks`).
+  - **No Self-Synonyms:** The tagging engine directly matches significant words from the tag description itself in both singular and plural forms. Never suggest or seed synonyms that duplicate words in the tag's own name (e.g., for tag `Words`, never add `word` or `words`; for `Alphabets`, never add `alphabet` or `alphabets`). Synonyms are strictly for alternative vocabulary not already present in the tag name.
 - **Pre-Execution Planning (Required Before Changes):**
   - Produce a concise structural implementation plan covering:
     1. Affected Files & Scope Boundary

@@ -202,9 +202,9 @@
           >.zip</code
         >
         archive in the designs library folder. Only representative preview samples (Upper A, Lower a,
-        9, and all punctuation &amp; symbols) for each size are catalogued into the database, keeping
-        your catalogue clean and responsive while preserving full font packages for immediate extraction
-        whenever needed.
+        9, and all punctuation &amp; symbols) for each size are catalogued into the database and tagged
+        with the protected <strong>Alphabets</strong> system tag, keeping your catalogue clean and responsive
+        while preserving full font packages for immediate extraction whenever needed.
       </p>
     </div>
   </section>
@@ -223,7 +223,9 @@
       <p>
         <strong>Offline &amp; automatic:</strong> runs 100% locally with no API key; matches whole
         words, plurals, singulars, and automatically splits trailing numbers (e.g.
-        <em>Butterfly1</em>) and CamelCase names.
+        <em>Butterfly1</em>) and CamelCase names. Text designs are cleanly separated into the
+        protected system tag <strong>Alphabets</strong> (fonts, monograms, number sets 0&ndash;9,
+        and punctuation) and <strong>Words</strong> (quotes, phrases, sayings, and typography).
       </p>
       <p>
         <strong>Manage matches:</strong> open

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Database migration helpers using SQLx
+// Recompiled with 20261101000001_reclassify_alphabet_glyphs
 use crate::error::AppError;
 use std::borrow::Cow;
 

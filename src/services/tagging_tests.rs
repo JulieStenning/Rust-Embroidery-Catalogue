@@ -9,25 +9,16 @@ fn default_test_synonyms() -> HashMap<String, Vec<String>> {
     map.insert("kitten".to_string(), vec!["Cats".to_string()]);
     map.insert("puppy".to_string(), vec!["Dogs".to_string()]);
     map.insert("frog".to_string(), vec!["Animals".to_string()]);
-    map.insert(
-        "alphabet".to_string(),
-        vec!["Words and Letters".to_string()],
-    );
-    map.insert("font".to_string(), vec!["Words and Letters".to_string()]);
-    map.insert(
-        "monogram".to_string(),
-        vec!["Words and Letters".to_string()],
-    );
-    map.insert("upper".to_string(), vec!["Words and Letters".to_string()]);
-    map.insert("lower".to_string(), vec!["Words and Letters".to_string()]);
-    map.insert(
-        "uppercase".to_string(),
-        vec!["Words and Letters".to_string()],
-    );
-    map.insert(
-        "lowercase".to_string(),
-        vec!["Words and Letters".to_string()],
-    );
+    map.insert("alphabet".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("font".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("monogram".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("upper".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("lower".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("uppercase".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("lowercase".to_string(), vec!["Alphabets".to_string()]);
+    map.insert("blackboard".to_string(), vec!["Words".to_string()]);
+    map.insert("bookmark".to_string(), vec!["Words".to_string()]);
+    map.insert("saying".to_string(), vec!["Words".to_string()]);
     map.insert("xmas".to_string(), vec!["Christmas".to_string()]);
     map.insert("floral".to_string(), vec!["Flowers".to_string()]);
     map.insert("baby".to_string(), vec!["Children & Toys".to_string()]);
@@ -137,27 +128,27 @@ fn suggest_path_rule_compound_tag_fairies() {
 }
 
 #[test]
-fn suggest_path_rule_synonym_maps_monogram_to_words_and_letters() {
-    let valid = HashSet::from(["Words and Letters".to_string()]);
+fn suggest_path_rule_synonym_maps_monogram_to_alphabets() {
+    let valid = HashSet::from(["Alphabets".to_string()]);
     let synonyms = default_test_synonyms();
     let matched =
         suggest_path_rule_descriptions("", "C:/imports/Monogram/design.pes", &valid, &synonyms);
     assert!(
-        matched.contains(&"Words and Letters".to_string()),
-        "folder 'Monogram' should match 'Words and Letters' via the 'monogram' synonym: {:?}",
+        matched.contains(&"Alphabets".to_string()),
+        "folder 'Monogram' should match 'Alphabets' via the 'monogram' synonym: {:?}",
         matched
     );
 }
 
 #[test]
-fn suggest_path_rule_synonym_maps_font_to_words_and_letters() {
-    let valid = HashSet::from(["Words and Letters".to_string()]);
+fn suggest_path_rule_synonym_maps_font_to_alphabets() {
+    let valid = HashSet::from(["Alphabets".to_string()]);
     let synonyms = default_test_synonyms();
     let matched =
         suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid, &synonyms);
     assert!(
-        matched.contains(&"Words and Letters".to_string()),
-        "folder 'Font' should match 'Words and Letters' via the 'font' synonym: {:?}",
+        matched.contains(&"Alphabets".to_string()),
+        "folder 'Font' should match 'Alphabets' via the 'font' synonym: {:?}",
         matched
     );
 }
@@ -259,7 +250,7 @@ fn suggest_path_rule_empty_catalogue_returns_empty() {
 
 #[test]
 fn suggest_path_rule_synonym_upper_lower_is_case_insensitive() {
-    let valid = HashSet::from(["Words and Letters".to_string()]);
+    let valid = HashSet::from(["Alphabets".to_string()]);
     let synonyms = default_test_synonyms();
     for folder in ["Upper", "UPPER", "lower", "Lower Case", "Uppercase"] {
         let matched = suggest_path_rule_descriptions(
@@ -269,27 +260,27 @@ fn suggest_path_rule_synonym_upper_lower_is_case_insensitive() {
             &synonyms,
         );
         assert!(
-            matched.contains(&"Words and Letters".to_string()),
-            "folder '{folder}' should be tagged 'Words and Letters': {matched:?}"
+            matched.contains(&"Alphabets".to_string()),
+            "folder '{folder}' should be tagged 'Alphabets': {matched:?}"
         );
     }
 }
 
 #[test]
 fn suggest_path_rule_synonym_upper_from_filename() {
-    let valid = HashSet::from(["Words and Letters".to_string()]);
+    let valid = HashSet::from(["Alphabets".to_string()]);
     let synonyms = default_test_synonyms();
     let matched =
         suggest_path_rule_descriptions("Upper Case Alphabet.pes", "C:/imports/", &valid, &synonyms);
     assert!(
-        matched.contains(&"Words and Letters".to_string()),
-        "filename 'Upper Case Alphabet.pes' should be tagged 'Words and Letters': {matched:?}"
+        matched.contains(&"Alphabets".to_string()),
+        "filename 'Upper Case Alphabet.pes' should be tagged 'Alphabets': {matched:?}"
     );
 }
 
 #[test]
-fn suggest_path_rule_synonym_alphabet_words_and_letters() {
-    let valid = HashSet::from(["Words and Letters".to_string()]);
+fn suggest_path_rule_synonym_alphabet_to_alphabets() {
+    let valid = HashSet::from(["Alphabets".to_string()]);
     let synonyms = default_test_synonyms();
     for folder in ["Alphabet", "alphabets", "ALPHABETS"] {
         let matched = suggest_path_rule_descriptions(
@@ -299,21 +290,79 @@ fn suggest_path_rule_synonym_alphabet_words_and_letters() {
             &synonyms,
         );
         assert!(
-            matched.contains(&"Words and Letters".to_string()),
-            "folder '{folder}' should be tagged 'Words and Letters': {matched:?}"
+            matched.contains(&"Alphabets".to_string()),
+            "folder '{folder}' should be tagged 'Alphabets': {matched:?}"
         );
     }
 }
 
 #[test]
 fn suggest_path_rule_synonym_description_is_case_insensitive() {
-    let valid = HashSet::from(["WORDS AND LETTERS".to_string()]);
+    let valid = HashSet::from(["ALPHABETS".to_string()]);
     let synonyms = default_test_synonyms();
     let matched =
         suggest_path_rule_descriptions("", "C:/imports/Font/design.pes", &valid, &synonyms);
     assert!(
-        matched.contains(&"WORDS AND LETTERS".to_string()),
+        matched.contains(&"ALPHABETS".to_string()),
         "synonym target should resolve case-insensitively to the catalogue casing: {matched:?}"
+    );
+}
+
+#[test]
+fn suggest_path_rule_words_synonyms_match() {
+    let valid = HashSet::from(["Words".to_string()]);
+    let synonyms = default_test_synonyms();
+    for folder in ["Blackboard", "Bookmark", "Saying"] {
+        let matched = suggest_path_rule_descriptions(
+            "",
+            &format!("C:/imports/{folder}/quote.pes"),
+            &valid,
+            &synonyms,
+        );
+        assert!(
+            matched.contains(&"Words".to_string()),
+            "folder '{folder}' should be tagged 'Words': {matched:?}"
+        );
+    }
+}
+
+#[test]
+fn suggest_path_rule_glyph_in_words_path_suppresses_words_tag() {
+    let valid = HashSet::from(["Alphabets".to_string(), "Words".to_string()]);
+    let synonyms = default_test_synonyms();
+    let matched = suggest_path_rule_descriptions(
+        "UpperA.pes",
+        "C:/imports/Words and Font/UpperA.pes",
+        &valid,
+        &synonyms,
+    );
+    assert!(
+        matched.contains(&"Alphabets".to_string()),
+        "single glyph should match 'Alphabets': {matched:?}"
+    );
+    assert!(
+        !matched.contains(&"Words".to_string()),
+        "single glyph in alphabet collection should suppress 'Words': {matched:?}"
+    );
+}
+
+#[test]
+fn suggest_path_rule_punctuation_glyph_bonus_ampersand_matches_alphabets() {
+    let valid = HashSet::from(["Alphabets".to_string(), "Words".to_string()]);
+    let synonyms = default_test_synonyms();
+    let matched = suggest_path_rule_descriptions(
+        "Bonus Ampersand 1 Inch.jef",
+        "BillyTheKidJEF/JEF/Bonus Ampersand 1 Inch.jef",
+        &valid,
+        &synonyms,
+    );
+    assert!(
+        matched.contains(&"Alphabets".to_string()),
+        "Bonus Ampersand should be tagged 'Alphabets': {matched:?}"
+    );
+    assert!(
+        !matched.contains(&"Words".to_string()),
+        "Bonus Ampersand should not be tagged 'Words': {matched:?}"
     );
 }
 
@@ -339,7 +388,7 @@ fn suggest_path_rule_synonym_baby_children() {
 fn suggest_path_rule_does_not_match_on_and_conjunction() {
     let valid = HashSet::from([
         "Badges and Crests".to_string(),
-        "Words and Letters".to_string(),
+        "Words".to_string(),
         "Celebrations".to_string(),
         "Christmas".to_string(),
     ]);
@@ -357,8 +406,8 @@ fn suggest_path_rule_does_not_match_on_and_conjunction() {
         "should not match 'Badges and Crests' solely because path contains 'and'"
     );
     assert!(
-        !matched.contains(&"Words and Letters".to_string()),
-        "should not match 'Words and Letters' solely because path contains 'and'"
+        !matched.contains(&"Words".to_string()),
+        "should not match 'Words' solely because path contains 'and'"
     );
 }
 

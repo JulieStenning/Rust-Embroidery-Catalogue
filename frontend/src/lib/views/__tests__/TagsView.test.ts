@@ -335,12 +335,12 @@ describe("TagsView", () => {
     expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 
-  it("keeps full CRUD actions for image tags even when is_system is truthy", async () => {
+  it("locks system image tags from edit and delete while allowing matches", async () => {
     adapterMocks.listTags.mockResolvedValue(
       listResponse([
         {
           id: 10,
-          description: "Special Image",
+          description: "Alphabets",
           tag_group: "image",
           design_count: 0,
           is_system: true,
@@ -351,14 +351,14 @@ describe("TagsView", () => {
     render(TagsView);
 
     await waitFor(() => {
-      expect(screen.getByText("Special Image")).toBeInTheDocument();
+      expect(screen.getByText("Alphabets")).toBeInTheDocument();
     });
 
-    // Image tags never show the System/Locked state regardless of is_system.
-    expect(screen.queryByText("System")).not.toBeInTheDocument();
-    expect(screen.queryByText("Locked")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Edit" }).length).toBe(1);
-    expect(screen.getAllByRole("button", { name: "Delete" }).length).toBe(1);
+    // System tags display Locked and do not offer Edit or Delete buttons
+    expect(screen.getByText("Locked")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Matches" })).toBeInTheDocument();
   });
 
   it("persists collapsible panel state to localStorage on toggle", async () => {
