@@ -53,14 +53,14 @@ Hoops, tags, sources and designers are managed on their own Admin pages
 - **Cancel** (or **Stop** while a run is in progress): abandons the run and clears the wizard.
 - After a successful import the app routes you to **Browse Designs**.
 
-## AI and Image Preference Notes
+## AI and Tagging Notes
 
 - The import itself never calls an AI service and needs no Google API key. It always
   applies the free, local keyword and stitching tags.
 - **Gemini Vision** auto-tagging is run separately, after the import, from
   **Admin → Batch Operations**. See [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
-- There is no per-import 2D/3D preview choice. The preview style is a global setting under
-  **Admin → Settings**.
+- Preview images are automatically generated locally during import; no manual preview mode
+  selection is required.
 
 ## Troubleshooting
 

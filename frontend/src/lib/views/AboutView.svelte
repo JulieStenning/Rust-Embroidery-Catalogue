@@ -2,8 +2,56 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
+  import { onMount } from "svelte";
+  import { getLicenceStatus, deactivateLicence } from "../api/licenceAdapter";
+  import ConfirmDeactivateLicenceModal from "../components/ConfirmDeactivateLicenceModal.svelte";
+  import { addToast } from "../stores/toastStore.js";
+  import { busyState } from "../stores/busyStore.js";
+
   const APP_NAME = "Embroidery Catalogue";
   const APP_VERSION = "0.1.0";
+
+  let licenceStatus = $state(/** @type {import("../types/licence").LicenceStatus | null} */ (null));
+  let showDeactivateModal = $state(false);
+  let isDeactivatingLicence = $state(false);
+
+  let busyActive = $derived($busyState.active);
+
+  async function loadLicence() {
+    if (typeof getLicenceStatus !== "function") return;
+    try {
+      licenceStatus = await getLicenceStatus();
+    } catch (error) {
+      console.info("Could not load licence status.", error);
+    }
+  }
+
+  function handleDeactivateLicence() {
+    if (busyActive || isDeactivatingLicence) return;
+    showDeactivateModal = true;
+  }
+
+  async function handleConfirmDeactivateLicence() {
+    if (busyActive || isDeactivatingLicence) return;
+    isDeactivatingLicence = true;
+    try {
+      const updated = await deactivateLicence();
+      licenceStatus = updated;
+      showDeactivateModal = false;
+      addToast("Licence deactivated. Reloading…", "info");
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    } catch (err) {
+      addToast(`Could not deactivate licence: ${err}`, "error");
+    } finally {
+      isDeactivatingLicence = false;
+    }
+  }
+
+  onMount(() => {
+    loadLicence();
+  });
 
   /**
    * The verbatim MIT notice required by pyembroidery's licence. It is reproduced
@@ -61,9 +109,64 @@ SOFTWARE.`;
     </div>
   </div>
 
+  <div class="route-card rounded-xl shadow p-6 space-y-4" data-testid="about-licence-section">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-[var(--text-primary)] font-sans flex items-center gap-2">
+        <span>🔐</span>
+        <span>Product Licence &amp; Activation</span>
+      </h2>
+      {#if licenceStatus?.is_valid}
+        <span
+          class="px-2.5 py-0.5 text-xs font-semibold rounded bg-[var(--notice-success-bg)] text-[var(--notice-success-text)] border border-[var(--notice-success-border)] uppercase tracking-wide"
+        >
+          {licenceStatus.tier ? licenceStatus.tier.toUpperCase() : "ACTIVE"}
+        </span>
+      {/if}
+    </div>
+    <p class="text-sm text-[var(--text-secondary)]">
+      Manage your application licence key and registration status.
+    </p>
+
+    {#if licenceStatus?.is_valid}
+      <div
+        class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 text-sm"
+      >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <span class="block text-xs text-[var(--text-muted)] font-medium">Registered Email</span>
+            <span class="font-medium text-[var(--text-primary)]" data-testid="about-licence-email">
+              {licenceStatus.email || "—"}
+            </span>
+          </div>
+          <div>
+            <span class="block text-xs text-[var(--text-muted)] font-medium">Validity</span>
+            <span class="font-medium text-[var(--text-primary)]" data-testid="about-licence-expiry">
+              {licenceStatus.expires_at_formatted
+                ? `Valid until ${licenceStatus.expires_at_formatted}`
+                : "Lifetime (No Expiry)"}
+            </span>
+          </div>
+        </div>
+        <div class="pt-1">
+          <button
+            type="button"
+            data-testid="about-deactivate-licence-button"
+            onclick={handleDeactivateLicence}
+            disabled={busyActive}
+            class="text-xs text-[var(--notice-error-text)] hover:underline font-medium"
+          >
+            Deactivate / Switch Licence Key
+          </button>
+        </div>
+      </div>
+    {:else}
+      <p class="text-xs text-[var(--text-muted)]">No active licence detected.</p>
+    {/if}
+  </div>
+
   <div class="route-card rounded-xl shadow p-6 space-y-4">
     <h2 class="text-lg font-bold text-[var(--text-primary)] font-sans">
-      Acknowledgements & Code Porting Attributions
+      Acknowledgements &amp; Code Porting Attributions
     </h2>
     <div class="space-y-4 text-sm">
       <div
@@ -108,9 +211,18 @@ SOFTWARE.`;
 
   <div class="route-card rounded-xl shadow p-6 flex items-center justify-between gap-4">
     <p class="text-sm text-[var(--text-secondary)]">
-      The full application licence, Rust crate credits, and frontend package credits are available
-      here.
+      The full open-source application licence, Rust crate credits, and frontend package credits are
+      available here.
     </p>
-    <a href="#/about/licence" class="btn-primary shrink-0"> View Full Licences </a>
+    <a href="#/about/licence" class="btn-primary shrink-0">
+      View Open-Source Licences &amp; Credits
+    </a>
   </div>
 </div>
+
+<ConfirmDeactivateLicenceModal
+  open={showDeactivateModal}
+  isDeactivating={isDeactivatingLicence}
+  onClose={() => (showDeactivateModal = false)}
+  onConfirm={handleConfirmDeactivateLicence}
+/>

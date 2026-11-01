@@ -417,26 +417,30 @@
       ⚙️ Settings & Configuration
     </h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
-      Manage your application preferences, preview options, and digitising format filters in
+      Manage your application preferences, appearance themes, and digitising format filters in
       <a href="#/admin/system/settings" class="text-[var(--text-brand)] hover:underline"
         >Admin → Settings</a
       >.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
-        <strong>Preview mode:</strong> select default 2D or 3D thread rendering for design cards.
+        <strong>Appearance:</strong> choose between System Default, Light, or Dark theme modes.
       </p>
       <p>
-        <strong>Alphabet & font compression:</strong> enabled by default during initial setup; packages
-        whole font packages into companion .zip files while keeping preview samples in the catalogue.
+        <strong>Google Gemini &amp; AI Tagging:</strong> store optional API keys, select vision models, and tune concurrency.
       </p>
       <p>
-        <strong>Master formats:</strong> select software-native master outline formats (Embird, Hatch,
-        Bernina, Janome, etc.) to index alongside stitch files.
+        <strong>Database Maintenance:</strong> optimize and compact storage and monitor automatic health checks.
       </p>
       <p>
-        <strong>Licence & API keys:</strong> activate licence keys and store optional Google Gemini API
-        keys for vision-based tagging.
+        <strong>Catalogue Storage:</strong> relocate your database and design library to a different location.
+      </p>
+      <p>
+        <strong>Digitising &amp; Format Rules:</strong> configure software master outline formats and alphabet font compression.
+      </p>
+      <p>
+        <strong>Product licence:</strong> manage your licence activation and registration in
+        <a href="#/about" class="text-[var(--text-brand)] hover:underline">About</a>.
       </p>
       <p>
         <strong>Full guide:</strong> open the

@@ -482,10 +482,12 @@ describe("HelpView", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "settings");
 
-      expect(section.getByText("Preview mode:")).toBeInTheDocument();
-      expect(section.getByText("Alphabet & font compression:")).toBeInTheDocument();
-      expect(section.getByText("Master formats:")).toBeInTheDocument();
-      expect(section.getByText("Licence & API keys:")).toBeInTheDocument();
+      expect(section.getByText("Appearance:")).toBeInTheDocument();
+      expect(section.getByText("Google Gemini & AI Tagging:")).toBeInTheDocument();
+      expect(section.getByText("Database Maintenance:")).toBeInTheDocument();
+      expect(section.getByText("Catalogue Storage:")).toBeInTheDocument();
+      expect(section.getByText("Digitising & Format Rules:")).toBeInTheDocument();
+      expect(section.getByText("Product licence:")).toBeInTheDocument();
       expect(section.getByText("Full guide:")).toBeInTheDocument();
 
       const guideLink = section.getByRole("link", { name: "Settings Guide" });

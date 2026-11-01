@@ -23,6 +23,19 @@ Any system setting or configuration influencing file discovery, scanning, master
 - **Dual Persistence:** Ensure the setting is handled and persisted via `saveSettings` in both `@InitialSetupView.svelte` and `@SettingsView.svelte`.
 - **Pipeline Consistency:** Verify that both the pre-import scan (`precheck.rs`) and the bulk import executor (`executor.rs`) query and apply the setting consistently.
 
+### 3. British English Spelling Invariant
+All user-facing copy, documentation (`docs/User-Facing-Guidance/`), in-app help (`@HelpView.svelte`), UI labels, tooltips, modals, notifications, and error messages must strictly use **British English** spelling:
+- **-our Endings:** `colour`, `behaviour`, `neighbour`, `flavour`.
+- **-ise / -isation Suffixes:** `optimise`, `recognise`, `normalise`, `customise`, `initialise`, `categorise`, `optimisation`, `synchronisation`.
+- **Noun/Verb Distinctions & Double Consonants:** `licence` (noun), `license` (verb), `catalogue`, `dialogue`, `cancelling`, `cancelled`, `traveller`.
+- **Technical Identifier Exception:** Code symbols, Rust crate names, SQLite PRAGMA commands (e.g. `PRAGMA optimize`), and external API parameters remain verbatim in code and markdown backticks, but all surrounding prose, documentation, headings, and UI text must strictly use British English.
+
+### 4. Clickable In-App Navigation Links Invariant
+Desktop application users have no browser address/URL bar to view or type routes into.
+- **Never display raw URL hash strings or instruct users to type paths:** Avoid unlinked prose such as `Admin → About or #/about` or `type #/import`.
+- **Always use clickable markdown links:** Any route reference in user-facing guidance (`docs/User-Facing-Guidance/`) or in-app help (@HelpView.svelte) must be formatted as a clickable markdown link using the Svelte hash route (e.g. `[Admin → About](#/about)`, `[Admin → Settings](#/admin/system/settings)`, `[Admin → Batch Operations](#/admin/batch-operations)`).
+- **In-App Link Resolution:** In-app markdown renderers (e.g. `markdown.js`) preserve hash routes (`target.startsWith("#")`) as working internal links within the WebView2 desktop app.
+
 ## Structural Implementation Plan Sections
 
 A pre-execution plan must strictly contain:

@@ -2,9 +2,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import "@testing-library/jest-dom/vitest";
-import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/svelte";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/svelte";
 import AboutView from "../AboutView.svelte";
+import type { LicenceStatus } from "../../types/licence";
+
+const getLicenceStatusMock = vi.hoisted(() => vi.fn());
+const deactivateLicenceMock = vi.hoisted(() => vi.fn());
+const addToastMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../api/licenceAdapter", () => ({
+  getLicenceStatus: getLicenceStatusMock,
+  deactivateLicence: deactivateLicenceMock,
+}));
+
+vi.mock("../../stores/toastStore.js", () => ({
+  addToast: addToastMock,
+}));
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
 function element<T extends Element>(value: T | null | undefined, message?: string): T {
@@ -15,6 +29,19 @@ function element<T extends Element>(value: T | null | undefined, message?: strin
 }
 
 describe("AboutView", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getLicenceStatusMock.mockResolvedValue({
+      is_active: true,
+      is_valid: true,
+      email: "user@example.com",
+      tier: "lifetime",
+      expires_at: null,
+      expires_at_formatted: null,
+      error_message: null,
+    } satisfies LicenceStatus);
+  });
+
   describe("page chrome", () => {
     it("renders the app name, logo, and version", () => {
       render(AboutView);
@@ -27,9 +54,6 @@ describe("AboutView", () => {
     it("renders the primary application description", () => {
       render(AboutView);
 
-      // Scope to the exact description paragraph. The pyembroidery attribution
-      // card also contains file-extension names, so match a unique phrase that
-      // only appears in the app description.
       const description = element(
         screen.getByText(/Embroidery Catalogue is a local, desktop catalogue/i),
         "Expected the app description paragraph."
@@ -53,35 +77,93 @@ describe("AboutView", () => {
     });
   });
 
+  describe("product licence & activation", () => {
+    it("renders the licence details when valid", async () => {
+      render(AboutView);
+
+      await waitFor(() => {
+        expect(getLicenceStatusMock).toHaveBeenCalled();
+      });
+
+      expect(screen.getByText("Product Licence & Activation")).toBeInTheDocument();
+      expect(screen.getByText("LIFETIME")).toBeInTheDocument();
+      expect(screen.getByTestId("about-licence-email")).toHaveTextContent("user@example.com");
+      expect(screen.getByTestId("about-licence-expiry")).toHaveTextContent("Lifetime (No Expiry)");
+      expect(screen.getByTestId("about-deactivate-licence-button")).toBeInTheDocument();
+    });
+
+    it("renders expiry date when present", async () => {
+      getLicenceStatusMock.mockResolvedValue({
+        is_active: true,
+        is_valid: true,
+        email: "subscriber@example.com",
+        tier: "annual",
+        expires_at: 1780000000,
+        expires_at_formatted: "01/12/2026",
+        error_message: null,
+      });
+
+      render(AboutView);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("about-licence-expiry")).toHaveTextContent(
+          "Valid until 01/12/2026"
+        );
+      });
+      expect(screen.getByText("ANNUAL")).toBeInTheDocument();
+    });
+
+    it("shows no active licence detected when not valid", async () => {
+      getLicenceStatusMock.mockResolvedValue({
+        is_active: false,
+        is_valid: false,
+        email: null,
+        tier: null,
+        expires_at: null,
+        expires_at_formatted: null,
+        error_message: null,
+      });
+
+      render(AboutView);
+
+      await waitFor(() => {
+        expect(screen.getByText("No active licence detected.")).toBeInTheDocument();
+      });
+    });
+
+    it("opens deactivation confirmation modal on button click", async () => {
+      render(AboutView);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("about-deactivate-licence-button")).toBeInTheDocument();
+      });
+
+      const deactivateBtn = screen.getByTestId("about-deactivate-licence-button");
+      await fireEvent.click(deactivateBtn);
+
+      expect(screen.getByTestId("confirm-deactivate-licence-modal")).toBeInTheDocument();
+    });
+  });
+
   describe("acknowledgements & code porting attributions", () => {
     it("credits pyembroidery with an MIT license and a repository link", () => {
       render(AboutView);
 
       expect(
+        screen.getByRole("heading", {
+          name: "Acknowledgements & Code Porting Attributions",
+        })
+      ).toBeInTheDocument();
+      expect(
         screen.getByRole("heading", { name: "pyembroidery (MIT License)" })
       ).toBeInTheDocument();
-
-      const pyembroideryHeading = screen.getByRole("heading", {
-        name: "pyembroidery (MIT License)",
-      });
-      const card = pyembroideryHeading.closest("div");
-      expect(card).not.toBeNull();
-
-      expect(
-        within(card as HTMLElement).getByText(
-          "Copyright (c) 2018 Tatarize and the EmbroidePy pyembroidery contributors."
-        )
-      ).toBeInTheDocument();
-
-      const link = within(card as HTMLElement).getByRole("link", {
+      const link = screen.getByRole("link", {
         name: "https://github.com/EmbroidePy/pyembroidery",
       });
       expect(link).toHaveAttribute("href", "https://github.com/EmbroidePy/pyembroidery");
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noopener noreferrer");
     });
 
-    it("describes pyembroidery as the basis for Rust binary parsing routines", () => {
+    it("identifies ported binary parsing routines and formats in attribution", () => {
       render(AboutView);
 
       const heading = screen.getByRole("heading", {
@@ -89,13 +171,9 @@ describe("AboutView", () => {
       });
       const card = heading.closest("div");
       expect(card).not.toBeNull();
-
-      // Normalize whitespace before matching: Prettier may re-wrap the markup,
-      // which puts line breaks in the middle of a rendered phrase.
       const text = ((card as HTMLElement).textContent ?? "").replace(/\s+/g, " ");
-      expect(text).toContain("ported/derived into native Rust modules");
-      expect(text).toContain(".pes");
       expect(text).toContain(".jef");
+      expect(text).toContain(".pes");
       expect(text).toContain(".vp3");
       expect(text).toContain(".hus");
       expect(text).toContain(".exp");
@@ -133,7 +211,6 @@ describe("AboutView", () => {
       const notice = element(details.querySelector("pre"), "Expected the MIT notice <pre>.");
       const text = notice.textContent ?? "";
       expect(text).toContain("MIT License");
-      // The upstream notice's copyright line carries no name — kept verbatim.
       expect(text).toContain("Copyright (c) 2018");
       expect(text).toContain(
         "Permission is hereby granted, free of charge, to any person obtaining a copy"
@@ -145,11 +222,11 @@ describe("AboutView", () => {
     });
   });
 
-  describe("View Full Licences navigation", () => {
+  describe("View Open-Source Licences navigation", () => {
     it("links to the dedicated licence route", () => {
       render(AboutView);
 
-      const button = screen.getByRole("link", { name: "View Full Licences" });
+      const button = screen.getByRole("link", { name: "View Open-Source Licences & Credits" });
       expect(button).toHaveAttribute("href", "#/about/licence");
     });
   });

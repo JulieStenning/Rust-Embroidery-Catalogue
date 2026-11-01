@@ -148,21 +148,22 @@ test.describe.serial("Licence Activation and Verification Flow", () => {
     // 3. Navigate to Application Settings
     await gotoRoute(page, "#/admin/system/settings");
 
-    // 4. Verify the Licence & Activation section in Settings
-    const licenceSection = page.getByTestId("settings-licence-section");
+    // 4. Verify the Licence & Activation section in About
+    await gotoRoute(page, "#/about");
+    const licenceSection = page.getByTestId("about-licence-section");
     await expect(licenceSection).toBeVisible();
 
-    const registeredEmail = page.getByTestId("settings-licence-email");
+    const registeredEmail = page.getByTestId("about-licence-email");
     await expect(registeredEmail).toBeVisible();
     await expect(registeredEmail).toHaveText(email);
 
     const deactivateBtn = page.getByTestId(
-      "settings-deactivate-licence-button",
+      "about-deactivate-licence-button",
     );
     await expect(deactivateBtn).toBeVisible();
   });
 
-  test("deactivates licence from settings and returns to activation gate", async ({
+  test("deactivates licence from about and returns to activation gate", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -180,10 +181,10 @@ test.describe.serial("Licence Activation and Verification Flow", () => {
     await activateButton.click();
     await expectMainView(page);
 
-    // 2. Navigate to Settings
-    await gotoRoute(page, "#/admin/system/settings");
+    // 2. Navigate to About
+    await gotoRoute(page, "#/about");
     const deactivateBtn = page.getByTestId(
-      "settings-deactivate-licence-button",
+      "about-deactivate-licence-button",
     );
     await expect(deactivateBtn).toBeVisible();
 

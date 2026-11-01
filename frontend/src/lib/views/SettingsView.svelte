@@ -16,9 +16,7 @@
     getDbStats,
     compactDatabase,
   } from "../api/commandAdapter";
-  import { getLicenceStatus, deactivateLicence } from "../api/licenceAdapter";
   import { runDatabaseBackup } from "../api/backupAdapter";
-  import ConfirmDeactivateLicenceModal from "../components/ConfirmDeactivateLicenceModal.svelte";
   import ConfirmCompactDatabaseModal from "../components/ConfirmCompactDatabaseModal.svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
@@ -670,46 +668,9 @@
     }
   }
 
-  let licenceStatus = $state(/** @type {import("../types/licence").LicenceStatus | null} */ (null));
-  let showDeactivateModal = $state(false);
-  let isDeactivatingLicence = $state(false);
-
-  async function loadLicence() {
-    if (typeof getLicenceStatus !== "function") return;
-    try {
-      licenceStatus = await getLicenceStatus();
-    } catch (error) {
-      console.info("Could not load licence status.", error);
-    }
-  }
-
-  function handleDeactivateLicence() {
-    if (busyActive || isDeactivatingLicence) return;
-    showDeactivateModal = true;
-  }
-
-  async function handleConfirmDeactivateLicence() {
-    if (busyActive || isDeactivatingLicence) return;
-    isDeactivatingLicence = true;
-    try {
-      const updated = await deactivateLicence();
-      licenceStatus = updated;
-      showDeactivateModal = false;
-      addToast("Licence deactivated. Reloading…", "info");
-      if (typeof window !== "undefined") {
-        window.location.reload();
-      }
-    } catch (err) {
-      addToast(`Could not deactivate licence: ${err}`, "error");
-    } finally {
-      isDeactivatingLicence = false;
-    }
-  }
-
   onMount(() => {
     loadSettingsFromBackend();
     loadDbStats();
-    loadLicence();
   });
 </script>
 
@@ -772,77 +733,16 @@
         </div>
       </div>
 
-      <div class="p-6 space-y-5">
+      <div class="p-6 space-y-6">
+        <!-- 1. Appearance -->
         <div
-          class="border-b border-[var(--border-default)] pb-5"
-          data-testid="settings-licence-section"
-        >
-          <div class="flex items-center justify-between mb-1">
-            <h2 class="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-              <span>🔐</span>
-              <span>Licence &amp; Activation</span>
-            </h2>
-            {#if licenceStatus?.is_valid}
-              <span
-                class="px-2 py-0.5 text-xs font-semibold rounded bg-[var(--notice-success-bg)] text-[var(--notice-success-text)] border border-[var(--notice-success-border)]"
-              >
-                {licenceStatus.tier ? licenceStatus.tier.toUpperCase() : "ACTIVE"}
-              </span>
-            {/if}
-          </div>
-          <p class="text-sm text-[var(--text-secondary)] mb-3">
-            Manage your application licence key and registration status.
-          </p>
-          {#if licenceStatus?.is_valid}
-            <div
-              class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 text-sm"
-            >
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <span class="block text-xs text-[var(--text-muted)] font-medium"
-                    >Registered Email</span
-                  >
-                  <span
-                    class="font-medium text-[var(--text-primary)]"
-                    data-testid="settings-licence-email"
-                  >
-                    {licenceStatus.email || "—"}
-                  </span>
-                </div>
-                <div>
-                  <span class="block text-xs text-[var(--text-muted)] font-medium">Validity</span>
-                  <span
-                    class="font-medium text-[var(--text-primary)]"
-                    data-testid="settings-licence-expiry"
-                  >
-                    {licenceStatus.expires_at_formatted
-                      ? `Valid until ${licenceStatus.expires_at_formatted}`
-                      : "Lifetime (No Expiry)"}
-                  </span>
-                </div>
-              </div>
-              <div class="pt-1">
-                <button
-                  type="button"
-                  data-testid="settings-deactivate-licence-button"
-                  onclick={handleDeactivateLicence}
-                  disabled={busyActive}
-                  class="text-xs text-[var(--notice-error-text)] hover:underline font-medium"
-                >
-                  Deactivate / Switch Licence Key
-                </button>
-              </div>
-            </div>
-          {:else}
-            <p class="text-xs text-[var(--text-muted)]">No active licence detected.</p>
-          {/if}
-        </div>
-
-        <div
-          class="border-b border-[var(--border-default)] pb-5"
+          class="border-b border-[var(--border-default)] pb-6"
           data-testid="settings-appearance-section"
         >
-          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Appearance</h2>
+          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+            <span>🎨</span>
+            <span>Appearance</span>
+          </h2>
           <p class="text-sm text-[var(--text-secondary)] mb-3">
             Choose whether the application should follow your operating system theme, or force a
             light or dark theme.
@@ -893,354 +793,352 @@
           </div>
         </div>
 
+        <!-- 2. Google Gemini & AI Tagging -->
         <div
-          class="border-b border-[var(--border-default)] pb-5"
-          data-testid="settings-master-formats-section"
+          class="border-b border-[var(--border-default)] pb-6 space-y-4"
+          data-testid="settings-gemini-section"
         >
-          <h2
-            class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
-          >
-            <span>🧵</span>
-            <span>Digitising &amp; Master File Formats</span>
-          </h2>
-          <p class="text-sm text-[var(--text-secondary)] mb-3">
-            Select the digitising software and master working formats you use. When scanning and
-            importing, these editable source files will be paired alongside machine stitch files.
-            Unchecked formats are ignored.
-          </p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            {#each MASTER_FORMAT_PRESETS as preset}
-              <label
-                class="flex items-start gap-2.5 p-2.5 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
-                data-testid={`master-format-preset-${preset.id}`}
-              >
-                <input
-                  type="checkbox"
-                  class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
-                  checked={isPresetEnabled(preset)}
-                  onchange={() => togglePreset(preset)}
-                  disabled={busyActive}
-                />
-                <div>
-                  <span class="font-medium text-[var(--text-primary)] block">{preset.name}</span>
-                  <span class="text-xs text-[var(--text-muted)] font-mono">{preset.desc}</span>
-                </div>
-              </label>
-            {/each}
-          </div>
           <div>
-            <label
-              for="settings-custom-master-formats"
-              class="block text-xs font-semibold text-[var(--text-secondary)] mb-1"
-            >
-              Additional / Custom extensions <span class="font-normal text-[var(--text-muted)]"
-                >(comma-separated)</span
-              >
-            </label>
-            <input
-              id="settings-custom-master-formats"
-              type="text"
-              value={settingsCustomMasterFormats}
-              oninput={(e) =>
-                handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
-              placeholder="e.g. pxf, pat"
-              disabled={busyActive}
-              class="settings-input border border-[var(--border-default)] rounded px-3 py-1.5 text-sm font-mono w-full sm:w-80"
-              data-testid="settings-custom-master-formats"
-            />
-            <p class="mt-1 text-xs text-[var(--text-muted)]">
-              Active formats: <span class="font-mono text-[var(--text-brand)]"
-                >{settingsEnabledMasterFormats || "none"}</span
+            <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+              <span>✨</span>
+              <span>Google Gemini &amp; AI Tagging</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)]">
+              The Google API key is only required if you want your designs to be tagged automatically
+              by Google AI in Batch Operations.
+              <a href={settingsHelpUrl} class="text-[var(--text-brand)] hover:underline"
+                >Press here for more information.</a
               >
             </p>
           </div>
-        </div>
 
-        <div
-          class="border-b border-[var(--border-default)] pb-5"
-          data-testid="settings-alphabet-compression-section"
-        >
-          <h2
-            class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
-          >
-            <span>🔤</span>
-            <span>Alphabet &amp; Font Compression</span>
-          </h2>
-          <p class="text-sm text-[var(--text-secondary)] mb-3">
-            Choose how digital embroidery font and alphabet packages are catalogued during import.
-          </p>
-          <label
-            class="flex items-start gap-2.5 p-3 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
-            data-testid="settings-zip-alphabets-label"
-          >
-            <input
-              type="checkbox"
-              class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
-              checked={settingsZipAlphabets}
-              onchange={(e) =>
-                (settingsZipAlphabets = /** @type {HTMLInputElement} */ (e.target).checked)}
-              disabled={busyActive}
-              data-testid="settings-zip-alphabets-checkbox"
-            />
-            <div>
-              <span class="font-medium text-[var(--text-primary)] block">
-                Compress full alphabet sets and catalogue preview samples only
-              </span>
-              <span class="text-xs text-[var(--text-secondary)] block mt-0.5">
-                When enabled, imports detect alphabet collections and compress the full font set
-                into a companion .zip archive (or copy an existing companion .zip) in the designs
-                folder. Only representative preview glyphs (Upper A, Lower a, 9, and all punctuation
-                &amp; symbol glyphs) for each size are catalogued in the database.
-              </span>
-            </div>
-          </label>
-        </div>
-
-        <div>
-          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1">
-            Google Gemini API Key
-          </h2>
-          <p class="text-sm text-[var(--text-secondary)]">
-            The Google API key is only required if you want your designs to be tagged automatically
-            by Google AI.
-            <a href={settingsHelpUrl} class="text-[var(--text-brand)] hover:underline"
-              >Press here for more information.</a
-            >
-          </p>
-        </div>
-
-        <div>
-          <label
-            for="settings-google-api-key"
-            class="block text-sm font-semibold text-[var(--text-secondary)] mb-1">API key</label
-          >
-          <div class="flex items-center gap-2">
-            <input
-              id="settings-google-api-key"
-              type={settingsApiKeyRevealed ? "text" : "password"}
-              bind:value={settingsGoogleApiKey}
-              placeholder="AIzaSy..."
-              autocomplete="off"
-              spellcheck="false"
-              class="settings-input flex-1 border border-[var(--border-default)] rounded px-3 py-2 text-sm font-mono"
-            />
-            <button
-              type="button"
-              class="settings-secondary-button border border-[var(--border-default)] rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Show or hide API key"
-              aria-pressed={settingsApiKeyRevealed}
-              title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
-              disabled={busyActive || isCompacting}
-              onclick={toggleSettingsApiKeyVisibility}
-            >
-              <span aria-hidden="true" class="settings-eye-icon"
-                >{settingsApiKeyRevealed ? "🙈" : "👁"}</span
-              >
-            </button>
-          </div>
-          <p class="mt-2 text-xs text-[var(--text-muted)]">
-            {#if settingsHasGoogleApiKey}
-              A key is currently saved. You can leave it as-is or replace it here.
-            {:else}
-              Leave this blank if you only want File & Folder Rules tagging with no Google AI calls.
-            {/if}
-          </p>
-        </div>
-
-        <div class="border-t border-[var(--border-default)] pt-4">
-          <label class="flex flex-col gap-1 text-sm text-[var(--text-primary)] cursor-pointer">
-            <span class="flex items-center gap-2">
-              <input
-                type="checkbox"
-                bind:checked={settingsAiFreeTier}
-                class="rounded border-[var(--border-default)] accent-[var(--text-brand)]"
-              />
-              My Google API key is on the <strong>free tier</strong>
-            </span>
-            <span class="text-xs text-[var(--text-muted)]"
-              >Tick this only if your key is on the free tier - it has stricter rate limits.</span
-            >
-          </label>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label
-              for="settings-ai-batch-size"
+              for="settings-google-api-key"
+              class="block text-sm font-semibold text-[var(--text-secondary)] mb-1">API key</label
+            >
+            <div class="flex items-center gap-2">
+              <input
+                id="settings-google-api-key"
+                type={settingsApiKeyRevealed ? "text" : "password"}
+                bind:value={settingsGoogleApiKey}
+                placeholder="AIzaSy..."
+                autocomplete="off"
+                spellcheck="false"
+                class="settings-input flex-1 border border-[var(--border-default)] rounded px-3 py-2 text-sm font-mono"
+              />
+              <button
+                type="button"
+                class="settings-secondary-button border border-[var(--border-default)] rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Show or hide API key"
+                aria-pressed={settingsApiKeyRevealed}
+                title={settingsApiKeyRevealed ? "Hide API key" : "Show API key"}
+                disabled={busyActive || isCompacting}
+                onclick={toggleSettingsApiKeyVisibility}
+              >
+                <span aria-hidden="true" class="settings-eye-icon"
+                  >{settingsApiKeyRevealed ? "🙈" : "👁"}</span
+                >
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-[var(--text-muted)]">
+              {#if settingsHasGoogleApiKey}
+                A key is currently saved. You can leave it as-is or replace it here.
+              {:else}
+                Leave this blank if you only want File &amp; Folder Rules tagging with no Google AI calls.
+              {/if}
+            </p>
+          </div>
+
+          <div>
+            <label class="flex flex-col gap-1 text-sm text-[var(--text-primary)] cursor-pointer">
+              <span class="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  bind:checked={settingsAiFreeTier}
+                  class="rounded border-[var(--border-default)] accent-[var(--text-brand)]"
+                />
+                My Google API key is on the <strong>free tier</strong>
+              </span>
+              <span class="text-xs text-[var(--text-muted)]"
+                >Tick this only if your key is on the free tier - it has stricter rate limits.</span
+              >
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label
+                for="settings-ai-batch-size"
+                class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
+              >
+                AI tagging batch size <span class="font-normal text-[var(--text-muted)]"
+                  >(optional)</span
+                >
+              </label>
+              <input
+                id="settings-ai-batch-size"
+                type="number"
+                min="1"
+                bind:value={settingsAiBatchSize}
+                placeholder="e.g. 100"
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-full"
+              />
+              <p class="mt-1 text-xs text-[var(--text-muted)]">
+                Designs processed per batch (default 100).
+              </p>
+            </div>
+            <div>
+              <label
+                for="settings-ai-commit-every"
+                class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
+              >
+                Commit every <span class="font-normal text-[var(--text-muted)]">(optional)</span>
+              </label>
+              <input
+                id="settings-ai-commit-every"
+                type="number"
+                min="1"
+                bind:value={settingsAiCommitEvery}
+                placeholder="e.g. 100"
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-full"
+              />
+              <p class="mt-1 text-xs text-[var(--text-muted)]">
+                Progress/commit cadence during a run (default 100).
+              </p>
+            </div>
+            <div>
+              <label
+                for="settings-ai-workers"
+                class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
+              >
+                Workers <span class="font-normal text-[var(--text-muted)]">(optional)</span>
+              </label>
+              <input
+                id="settings-ai-workers"
+                type="number"
+                min="1"
+                max="32"
+                bind:value={settingsAiWorkers}
+                placeholder={`e.g. ${settingsDefaultWorkers}${settingsAiFreeTier ? " (free tier)" : ""}`}
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-full"
+              />
+              <p class="mt-1 text-xs text-[var(--text-muted)]">
+                Designs tagged in parallel (default {settingsDefaultWorkers}). Lower to avoid Gemini
+                rate-limit (429) errors.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label
+              for="settings-ai-delay"
               class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
             >
-              AI tagging batch size <span class="font-normal text-[var(--text-muted)]"
+              Delay between Gemini calls (seconds) <span class="font-normal text-[var(--text-muted)]"
                 >(optional)</span
               >
             </label>
             <input
-              id="settings-ai-batch-size"
+              id="settings-ai-delay"
               type="number"
-              min="1"
-              bind:value={settingsAiBatchSize}
-              placeholder="e.g. 100"
-              class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-full"
+              min="0"
+              step="0.5"
+              bind:value={settingsAiDelay}
+              placeholder={`e.g. ${settingsDefaultDelay}`}
+              class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-56"
             />
             <p class="mt-1 text-xs text-[var(--text-muted)]">
-              Designs processed per batch (default 100).
+              Seconds to wait between API calls. Increase this if you see <em
+                >429 Too Many Requests</em
+              >
+              errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
+              batch operations on the
+              <a href="#/admin/batch-operations" class="text-[var(--text-brand)] hover:underline"
+                >Batch Operations</a
+              > page.
             </p>
           </div>
+
           <div>
             <label
-              for="settings-ai-commit-every"
+              for="settings-ai-model"
               class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
             >
-              Commit every <span class="font-normal text-[var(--text-muted)]">(optional)</span>
+              Gemini model <span class="font-normal text-[var(--text-muted)]">(optional)</span>
             </label>
-            <input
-              id="settings-ai-commit-every"
-              type="number"
-              min="1"
-              bind:value={settingsAiCommitEvery}
-              placeholder="e.g. 100"
-              class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-full"
-            />
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                id="settings-ai-model"
+                bind:value={settingsAiGeminiModel}
+                disabled={!settingsHasGoogleApiKey || busyActive}
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-72"
+              >
+                <option value="">Auto-select (recommended)</option>
+                {#each settingsGeminiModels as modelName}
+                  <option value={modelName}>{modelName}</option>
+                {/each}
+              </select>
+              <button
+                type="button"
+                class="menu-button-secondary px-3 py-2 text-sm"
+                onclick={loadGeminiModels}
+                disabled={!settingsHasGoogleApiKey || settingsModelsLoading || busyActive}
+              >
+                {settingsModelsLoading ? "Loading…" : "Refresh"}
+              </button>
+              <button
+                type="button"
+                class="menu-button-secondary px-3 py-2 text-sm"
+                onclick={testSelectedModel}
+                disabled={!settingsHasGoogleApiKey || settingsModelTesting || busyActive}
+              >
+                {settingsModelTesting ? "Testing…" : "Test model"}
+              </button>
+            </div>
             <p class="mt-1 text-xs text-[var(--text-muted)]">
-              Progress/commit cadence during a run (default 100).
+              Model used for Gemini Vision tagging. Leave blank to let the app auto-select an
+              available Gemini model. If a model you pick is later retired, the app falls back to
+              auto-selection at run time.
             </p>
-          </div>
-          <div>
-            <label
-              for="settings-ai-workers"
-              class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
-            >
-              Workers <span class="font-normal text-[var(--text-muted)]">(optional)</span>
-            </label>
-            <input
-              id="settings-ai-workers"
-              type="number"
-              min="1"
-              max="32"
-              bind:value={settingsAiWorkers}
-              placeholder={`e.g. ${settingsDefaultWorkers}${settingsAiFreeTier ? " (free tier)" : ""}`}
-              class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-full"
-            />
             <p class="mt-1 text-xs text-[var(--text-muted)]">
-              Designs tagged in parallel (default {settingsDefaultWorkers}). Lower to avoid Gemini
-              rate-limit (429) errors.
+              <strong>Flash models are recommended</strong> — they are the fastest and cheapest for tagging.
+              Pro/thinking models cost more and run slower for the same small tag prompt.
             </p>
-          </div>
-        </div>
-
-        <div>
-          <label
-            for="settings-ai-delay"
-            class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
-          >
-            Delay between Gemini calls (seconds) <span class="font-normal text-[var(--text-muted)]"
-              >(optional)</span
-            >
-          </label>
-          <input
-            id="settings-ai-delay"
-            type="number"
-            min="0"
-            step="0.5"
-            bind:value={settingsAiDelay}
-            placeholder={`e.g. ${settingsDefaultDelay}`}
-            class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-56"
-          />
-          <p class="mt-1 text-xs text-[var(--text-muted)]">
-            Seconds to wait between API calls. Increase this if you see <em
-              >429 Too Many Requests</em
-            >
-            errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
-            batch operations on the
-            <a href="#/admin/batch-operations" class="text-[var(--text-brand)] hover:underline"
-              >Batch Operations</a
-            > page.
-          </p>
-        </div>
-
-        <div>
-          <label
-            for="settings-ai-model"
-            class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
-          >
-            Gemini model <span class="font-normal text-[var(--text-muted)]">(optional)</span>
-          </label>
-          <div class="flex flex-wrap items-center gap-2">
-            <select
-              id="settings-ai-model"
-              bind:value={settingsAiGeminiModel}
-              disabled={!settingsHasGoogleApiKey || busyActive}
-              class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-72"
-            >
-              <option value="">Auto-select (recommended)</option>
-              {#each settingsGeminiModels as modelName}
-                <option value={modelName}>{modelName}</option>
-              {/each}
-            </select>
-            <button
-              type="button"
-              class="menu-button-secondary px-3 py-2 text-sm"
-              onclick={loadGeminiModels}
-              disabled={!settingsHasGoogleApiKey || settingsModelsLoading || busyActive}
-            >
-              {settingsModelsLoading ? "Loading…" : "Refresh"}
-            </button>
-            <button
-              type="button"
-              class="menu-button-secondary px-3 py-2 text-sm"
-              onclick={testSelectedModel}
-              disabled={!settingsHasGoogleApiKey || settingsModelTesting || busyActive}
-            >
-              {settingsModelTesting ? "Testing…" : "Test model"}
-            </button>
-          </div>
-          <p class="mt-1 text-xs text-[var(--text-muted)]">
-            Model used for Gemini Vision tagging. Leave blank to let the app auto-select an
-            available Gemini model. If a model you pick is later retired, the app falls back to
-            auto-selection at run time.
-          </p>
-          <p class="mt-1 text-xs text-[var(--text-muted)]">
-            <strong>Flash models are recommended</strong> — they are the fastest and cheapest for tagging.
-            Pro/thinking models cost more and run slower for the same small tag prompt.
-          </p>
-          {#if settingsModelTestMessage}
-            <p class="mt-1 text-xs text-[var(--text-secondary)]">{settingsModelTestMessage}</p>
-          {/if}
-        </div>
-
-        <div>
-          <label
-            for="settings-db-idle-check-interval"
-            class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
-          >
-            Database health check interval (seconds)
-          </label>
-          <input
-            id="settings-db-idle-check-interval"
-            type="number"
-            min="5"
-            bind:value={settingsDbIdleCheckIntervalSecs}
-            placeholder="e.g. 1800"
-            class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-48"
-          />
-          <p class="mt-1 text-xs text-[var(--text-muted)]">
-            How often the app checks for database fragmentation (default 1800 = 30 minutes). When
-            free space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without
-            pausing the app. Minimum 5 seconds (for testing).
-          </p>
-        </div>
-
-        <div class="border-t border-[var(--border-default)] pt-4 space-y-3">
-          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Catalogue Storage</h2>
-          <p class="text-sm text-[var(--text-secondary)]">
-            Large catalogue data lives under a single home folder.
-            {#if settingsCanConfigureDataRoot}
-              For desktop installs you can point this to a larger drive. Changes apply after
-              restarting the app, and any missing managed files are copied into the new location
-              automatically.
-            {:else}
-              In {settingsAppMode} mode this location follows the application folder automatically.
+            {#if settingsModelTestMessage}
+              <p class="mt-1 text-xs text-[var(--text-secondary)]">{settingsModelTestMessage}</p>
             {/if}
-          </p>
+          </div>
+        </div>
+
+        <!-- 3. Database Maintenance & Diagnostics -->
+        <div
+          class="border-b border-[var(--border-default)] pb-6 space-y-4"
+          data-testid="settings-db-maintenance-section"
+        >
+          <div>
+            <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+              <span>🗄️</span>
+              <span>Database Maintenance</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)]">
+              Monitor SQLite database storage usage, configure automatic background checks, and compact
+              unused space to keep the catalogue fast. Your embroidery files are never modified.
+            </p>
+          </div>
+
+          {#if dbStats}
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div
+                class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded p-3"
+              >
+                <p class="text-xs font-semibold text-[var(--text-muted)] uppercase">Database size</p>
+                <p class="text-lg font-bold text-[var(--text-primary)]">
+                  {formatBytes(dbStats.file_size_bytes)}
+                </p>
+              </div>
+              <div
+                class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded p-3"
+              >
+                <p class="text-xs font-semibold text-[var(--text-muted)] uppercase">Recoverable</p>
+                <p class="text-lg font-bold text-[var(--notice-success-text)]">
+                  {formatBytes(dbStats.reclaimable_bytes)}
+                </p>
+              </div>
+            </div>
+            {#if dbStats.near_fat32_limit}
+              <div
+                class="bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded p-3 text-xs space-y-1"
+                data-testid="db-fat32-warning"
+              >
+                <p class="font-semibold text-[var(--notice-warn-text)]">
+                  ⚠️ Database Approaching 4 GB FAT32 Limit
+                </p>
+                <p>
+                  Your database is currently {formatBytes(dbStats.file_size_bytes)}. Your catalogue
+                  data root maybe on a FAT32-formatted drive (common with SD cards and USB flash
+                  drives). FAT32 imposes a strict 4 GB maximum single-file size limit regardless of
+                  how much free space remains on the card.
+                </p>
+                <p class="opacity-90">
+                  Consider backing up your catalogue and reformatting the card to <strong
+                    >exFAT</strong
+                  >
+                  or <strong>NTFS</strong>.
+                </p>
+              </div>
+            {/if}
+          {:else}
+            <p class="text-xs text-[var(--text-muted)] italic">Database statistics unavailable.</p>
+          {/if}
+
+          <div>
+            <button
+              type="button"
+              class="settings-primary-button menu-button-primary"
+              onclick={promptManualCompaction}
+              disabled={isCompacting || isBackingUpForCompact || busyActive}
+            >
+              {isCompacting
+                ? "Compacting…"
+                : isBackingUpForCompact
+                  ? "Backing up…"
+                  : "Optimize & Compact Database"}
+            </button>
+            <p class="mt-1.5 text-xs text-[var(--text-muted)]">
+              Runs a full database optimisation (VACUUM + PRAGMA optimize).
+              {#if dbStats && dbStats.file_size_bytes > 0}
+                Requires at least {formatBytes(dbStats.file_size_bytes)} of free space on {databaseLocationDrive}.
+              {:else}
+                Requires free space on {databaseLocationDrive} equal to at least the current database size.
+              {/if}
+            </p>
+          </div>
+
+          <div>
+            <label
+              for="settings-db-idle-check-interval"
+              class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
+            >
+              Database health check interval (seconds)
+            </label>
+            <input
+              id="settings-db-idle-check-interval"
+              type="number"
+              min="5"
+              bind:value={settingsDbIdleCheckIntervalSecs}
+              placeholder="e.g. 1800"
+              class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-48"
+            />
+            <p class="mt-1 text-xs text-[var(--text-muted)]">
+              How often the app checks for database fragmentation (default 1800 = 30 minutes). When
+              free space exceeds 20% and 20&nbsp;MB, a background scan reclaims the space without
+              pausing the app. Minimum 5 seconds (for testing).
+            </p>
+          </div>
+        </div>
+
+        <!-- 4. Catalogue Storage -->
+        <div
+          class="border-b border-[var(--border-default)] pb-6 space-y-4"
+          data-testid="settings-catalogue-storage-section"
+        >
+          <div>
+            <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+              <span>💾</span>
+              <span>Catalogue Storage</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)]">
+              Large catalogue data lives under a single home folder.
+              {#if settingsCanConfigureDataRoot}
+                For desktop installs you can point this to a different location. Changes apply after
+                restarting the app, and any missing managed files are copied into the new location
+                automatically.
+              {:else}
+                In {settingsAppMode} mode this location follows the application folder automatically.
+              {/if}
+            </p>
+          </div>
 
           {#if settingsCanConfigureDataRoot}
             <div>
@@ -1269,135 +1167,148 @@
                 </button>
               </div>
               <p class="mt-1 text-xs text-[var(--text-muted)]">
-                This is the design library folder that directly holds your imported files
-                (MachineEmbroideryDesigns). Choose it or its parent to relocate the catalogue.
+                Points to the design library folder (MachineEmbroideryDesigns). Selecting a new location
+                safely migrates your database and design files, then restarts the app.
               </p>
             </div>
           {/if}
-        </div>
-      </div>
-    </form>
 
-    <div
-      class="settings-card settings-meta bg-[var(--surface-card)] border border-[var(--border-default)] rounded shadow p-6 space-y-6"
-    >
-      <div>
-        <h2 class="text-lg font-bold text-[var(--text-primary)]">Maintenance & Diagnostics</h2>
-        <p class="mt-1 text-sm text-[var(--text-secondary)]">
-          Database maintenance tools and the read-only storage layout for this installation. These
-          aren't part of the settings you save above.
-        </p>
-      </div>
-
-      <div class="border-t border-[var(--border-default)] pt-5 space-y-3">
-        <h3 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Database Maintenance</h3>
-        <p class="text-sm text-[var(--text-secondary)]">
-          The catalogue database can grow as designs are added, edited and removed. This shows
-          current storage usage and lets you compact the database to reclaim unused space. Your
-          embroidery files are never modified.
-        </p>
-
-        {#if dbStats}
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div
-              class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded p-3"
-            >
-              <p class="text-xs font-semibold text-[var(--text-muted)] uppercase">Database size</p>
-              <p class="text-lg font-bold text-[var(--text-primary)]">
-                {formatBytes(dbStats.file_size_bytes)}
-              </p>
+          <div class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 text-xs">
+            <h3 class="font-semibold text-[var(--text-primary)] uppercase tracking-wide">
+              Active Storage Locations
+            </h3>
+            <div>
+              <span class="block text-[var(--text-muted)] font-medium mb-0.5">Data Root</span>
+              <code class="block font-mono text-[var(--text-secondary)] break-all">{settingsDataRoot}</code>
             </div>
-            <div
-              class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded p-3"
+            <div>
+              <span class="block text-[var(--text-muted)] font-medium mb-0.5">Database File</span>
+              <code class="block font-mono text-[var(--text-secondary)] break-all">{settingsDatabasePath}</code>
+            </div>
+            <div>
+              <span class="block text-[var(--text-muted)] font-medium mb-0.5">Log Folder</span>
+              <code class="block font-mono text-[var(--text-secondary)] break-all">{settingsLogFolder}</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Digitising & Format Rules -->
+        <div
+          class="space-y-5"
+          data-testid="settings-format-rules-section"
+        >
+          <div data-testid="settings-master-formats-section">
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
             >
-              <p class="text-xs font-semibold text-[var(--text-muted)] uppercase">Recoverable</p>
-              <p class="text-lg font-bold text-[var(--notice-success-text)]">
-                {formatBytes(dbStats.reclaimable_bytes)}
+              <span>🧵</span>
+              <span>Digitising &amp; Master File Formats</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)] mb-3">
+              Select the digitising software and master working formats you use. When scanning and
+              importing, these editable source files will be paired alongside machine stitch files.
+              Unchecked formats are ignored.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              {#each MASTER_FORMAT_PRESETS as preset}
+                <label
+                  class="flex items-start gap-2.5 p-2.5 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
+                  data-testid={`master-format-preset-${preset.id}`}
+                >
+                  <input
+                    type="checkbox"
+                    class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
+                    checked={isPresetEnabled(preset)}
+                    onchange={() => togglePreset(preset)}
+                    disabled={busyActive}
+                  />
+                  <div>
+                    <span class="font-medium text-[var(--text-primary)] block">{preset.name}</span>
+                    <span class="text-xs text-[var(--text-muted)] font-mono">{preset.desc}</span>
+                  </div>
+                </label>
+              {/each}
+            </div>
+            <div>
+              <label
+                for="settings-custom-master-formats"
+                class="block text-xs font-semibold text-[var(--text-secondary)] mb-1"
+              >
+                Additional / Custom extensions <span class="font-normal text-[var(--text-muted)]"
+                  >(comma-separated)</span
+                >
+              </label>
+              <input
+                id="settings-custom-master-formats"
+                type="text"
+                value={settingsCustomMasterFormats}
+                oninput={(e) =>
+                  handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
+                placeholder="e.g. pxf, pat"
+                disabled={busyActive}
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-1.5 text-sm font-mono w-full sm:w-80"
+                data-testid="settings-custom-master-formats"
+              />
+              <p class="mt-1 text-xs text-[var(--text-muted)]">
+                Active formats: <span class="font-mono text-[var(--text-brand)]"
+                  >{settingsEnabledMasterFormats || "none"}</span
+                >
               </p>
             </div>
           </div>
-          {#if dbStats.near_fat32_limit}
-            <div
-              class="bg-[var(--notice-warn-bg)] border border-[var(--notice-warn-border)] text-[var(--notice-warn-text)] rounded p-3 text-xs space-y-1"
-              data-testid="db-fat32-warning"
+
+          <div
+            class="border-t border-[var(--border-default)] pt-5"
+            data-testid="settings-alphabet-compression-section"
+          >
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
             >
-              <p class="font-semibold text-[var(--notice-warn-text)]">
-                ⚠️ Database Approaching 4 GB FAT32 Limit
-              </p>
-              <p>
-                Your database is currently {formatBytes(dbStats.file_size_bytes)}. Your catalogue
-                data root maybe on a FAT32-formatted drive (common with SD cards and USB flash
-                drives). FAT32 imposes a strict 4 GB maximum single-file size limit regardless of
-                how much free space remains on the card.
-              </p>
-              <p class="opacity-90">
-                Consider backing up your catalogue and reformatting the card to <strong
-                  >exFAT</strong
-                >
-                or <strong>NTFS</strong>.
-              </p>
-            </div>
-          {/if}
-        {:else}
-          <p class="text-xs text-[var(--text-muted)] italic">Database statistics unavailable.</p>
-        {/if}
+              <span>🔤</span>
+              <span>Alphabet &amp; Font Compression</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)] mb-3">
+              Choose how digital embroidery font and alphabet packages are catalogued during import.
+            </p>
+            <label
+              class="flex items-start gap-2.5 p-3 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
+              data-testid="settings-zip-alphabets-label"
+            >
+              <input
+                type="checkbox"
+                class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
+                checked={settingsZipAlphabets}
+                onchange={(e) =>
+                  (settingsZipAlphabets = /** @type {HTMLInputElement} */ (e.target).checked)}
+                disabled={busyActive}
+                data-testid="settings-zip-alphabets-checkbox"
+              />
+              <div>
+                <span class="font-medium text-[var(--text-primary)] block">
+                  Compress full alphabet sets and catalogue preview samples only
+                </span>
+                <span class="text-xs text-[var(--text-secondary)] block mt-0.5">
+                  When enabled, imports detect alphabet collections and compress the full font set
+                  into a companion .zip archive (or copy an existing companion .zip) in the designs
+                  folder. Only representative preview glyphs (Upper A, Lower a, 9, and all punctuation
+                  &amp; symbol glyphs) for each size are catalogued in the database.
+                </span>
+              </div>
+            </label>
+          </div>
+        </div>
 
-        <button
-          type="button"
-          class="settings-primary-button menu-button-primary"
-          onclick={promptManualCompaction}
-          disabled={isCompacting || isBackingUpForCompact || busyActive}
-        >
-          {isCompacting
-            ? "Compacting…"
-            : isBackingUpForCompact
-              ? "Backing up…"
-              : "Optimize & Compact Database"}
-        </button>
-        <p class="text-xs text-[var(--text-muted)]">
-          Runs a full database optimisation (VACUUM + PRAGMA optimize).
-          {#if dbStats && dbStats.file_size_bytes > 0}
-            Requires at least {formatBytes(dbStats.file_size_bytes)} of free space on {databaseLocationDrive}.
-          {:else}
-            Requires free space on {databaseLocationDrive} equal to at least the current database size.
-          {/if}
-        </p>
-      </div>
-
-      <div class="border-t border-[var(--border-default)] pt-5 space-y-3">
-        <h3 class="text-sm font-semibold text-[var(--text-primary)] mb-1">Storage Locations</h3>
-        <p class="text-sm text-[var(--text-secondary)]">
-          The catalogue database and imported embroidery files live under the catalogue data
-          location shown below. Logs are stored separately so they survive data moves.
-        </p>
-
-        <div>
-          <p class="block text-sm font-semibold text-[var(--text-secondary)] mb-1">
-            Catalogue data location
+        <!-- Product Licence Navigation Note -->
+        <div class="border-t border-[var(--border-default)] pt-4 flex items-center justify-between text-xs text-[var(--text-muted)]">
+          <p>
+            Looking to manage your product licence registration?
+            <a href="#/about" class="text-[var(--text-brand)] hover:underline font-medium">
+              View About &amp; Licence Registration
+            </a>
           </p>
-          <code
-            class="settings-code block bg-[var(--surface-card-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] rounded px-3 py-2 text-sm font-mono break-all"
-            >{settingsDataRoot}</code
-          >
-        </div>
-
-        <div>
-          <p class="block text-sm font-semibold text-[var(--text-secondary)] mb-1">Log folder</p>
-          <code
-            class="settings-code block bg-[var(--surface-card-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] rounded px-3 py-2 text-sm font-mono break-all"
-            >{settingsLogFolder}</code
-          >
-        </div>
-
-        <div>
-          <p class="block text-sm font-semibold text-[var(--text-secondary)] mb-1">Database</p>
-          <code
-            class="settings-code block bg-[var(--surface-card-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] rounded px-3 py-2 text-sm font-mono break-all"
-            >{settingsDatabasePath}</code
-          >
         </div>
       </div>
-    </div>
+    </form>
   </div>
 </section>
 
@@ -1507,13 +1418,6 @@
     </div>
   </div>
 {/if}
-
-<ConfirmDeactivateLicenceModal
-  open={showDeactivateModal}
-  isDeactivating={isDeactivatingLicence}
-  onClose={() => (showDeactivateModal = false)}
-  onConfirm={handleConfirmDeactivateLicence}
-/>
 
 <ConfirmCompactDatabaseModal
   open={showCompactConfirm}

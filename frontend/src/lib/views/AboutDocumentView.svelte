@@ -487,6 +487,12 @@
     padding-left: 1rem;
   }
 
+  :global(.document-markdown li > ul),
+  :global(.document-markdown li > ol) {
+    margin-top: 0.25rem;
+    margin-bottom: 0;
+  }
+
   :global(.document-markdown li) {
     margin: 0.25rem 0;
   }

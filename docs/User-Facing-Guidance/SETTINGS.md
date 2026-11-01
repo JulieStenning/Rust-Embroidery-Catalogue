@@ -1,282 +1,213 @@
 # Application Settings Runbook
 
-The **Settings** page controls defaults used across import, tagging, backup, and desktop storage behavior.
+The **Settings** page controls operational defaults and system parameters used across appearance, AI tagging, database maintenance, catalogue storage, and digitising format filters.
 
 Use this runbook when you need to:
-- configure AI behavior used by Batch Operations,
-- tune performance for large runs,
-- set up backup destinations,
-- move desktop catalogue storage to another drive,
-- troubleshoot settings-related behavior.
+- switch between system, light, and dark appearance themes,
+- set up your Google Gemini API key and tune AI throughput for Batch Operations,
+- test and select specific Google Gemini models,
+- monitor database storage usage and optimise/compact the SQLite database,
+- adjust automatic database fragmentation health checks,
+- relocate desktop catalogue storage to a different location with live migration progress,
+- configure enabled digitising software master outline formats and custom extensions,
+- manage digital alphabet and font companion packaging,
+- troubleshoot settings and performance issues.
+
+> **Note:** **Product Licence & Activation** is managed on the [About](#/about) page ([Admin → About](#/about)), where you can review your registered email, check validity, or deactivate/switch your licence key.
 
 ---
 
 ## What this page controls
 
-Open **Admin -> Settings** to manage:
-- default image preview mode for imports (2D vs 3D),
-- alphabet & font packaging into companion `.zip` files during import,
-- enabled digitising & master outline formats (e.g. Embird, Hatch, Bernina, Embrilliance, Janome, mySewnet),
-- Google Gemini API key (used by Gemini Vision in Batch Operations),
-- AI and throughput tuning values for Batch Operations runs,
-- desktop catalogue data location,
-- read-only storage location display.
-
-Some settings are used by tagging (Batch Operations) or import workflows. Others provide defaults that can be overridden in specific flows.
+Open [Admin → Settings](#/admin/system/settings) to manage:
+1. **Appearance**: toggle between System Default (OS preference), Light, or Dark theme modes.
+2. **Google Gemini & AI Tagging**:
+   - Google Gemini API key (with show/hide password toggle).
+   - Free tier API rate-limit protection mode.
+   - Batch chunk size, commit cadence, parallel worker concurrency, and call delay.
+   - Live Gemini model selection, model list refreshing, and connection testing.
+3. **Database Maintenance & Diagnostics**:
+   - Live database storage size and estimated recoverable space metrics.
+   - FAT32 4 GB single-file limit boundary warnings.
+   - Manual database compaction (`VACUUM` + `PRAGMA optimize`) with optional pre-compaction backup.
+   - Automatic database fragmentation check interval.
+4. **Catalogue Storage**:
+   - Desktop catalogue data relocation with safe interactive migration and restart.
+   - Active storage paths (data root, log folder, database path).
+5. **Digitising & Format Rules**:
+   - Software-native working formats (Embird, Wilcom/Hatch, Bernina, Embrilliance, Janome, mySewnet/Premier+).
+   - Additional custom file extensions.
+   - Alphabet & font compression into companion `.zip` archives.
 
 ---
 
 ## Before changing settings
 
-1. Keep the app open while saving so redirects and status messages are visible.
-2. Back up first before major storage-location changes.
-3. If enabling Gemini Vision, confirm you understand API costs and quotas.
-4. For large catalogues, test with a small run before increasing throughput settings.
+1. Keep the app open while saving so redirects and status messages remain visible.
+2. Back up your catalogue before major storage relocations or manual database compaction.
+3. If entering a Google Gemini API key, confirm your tier (free vs paid) and enable the Free Tier checkbox if applicable.
+4. For large catalogues, test AI tagging with a small batch before increasing parallel workers.
+5. Ensure your target drive has sufficient free space when migrating catalogue storage or compacting the database.
 
-For AI key setup and Gemini Vision details, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
+For AI key setup and vision tagging details, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
 
 ---
 
 ## Quick save workflow
 
-1. Open **Admin -> Settings**.
-2. Update one or more fields.
-3. Click **Save settings**.
-4. Confirm the green success message.
-5. If you changed desktop **Catalogue data location**, restart the app.
+The Settings page tracks unsaved changes:
+1. Open [Admin → Settings](#/admin/system/settings).
+2. Update one or more form fields.
+3. When editable fields differ from the current saved database state, an **Unsaved changes** indicator (orange accent dot) appears in the header and the **Save settings** button activates.
+4. Click **Save settings**. The button shows **Saving...** while writing to the database.
+5. Confirm the green success toast notification (**"Settings saved successfully."**).
 
-If you see an error banner, review the troubleshooting section below.
+> **Note:** Some controls take effect immediately or use dedicated modals rather than the Save button:
+> - **Appearance (Theme)** changes take effect instantly.
+> - **Catalogue Data Location** opens an interactive migration modal upon folder selection and prompts for an application restart.
+> - **Database Compaction** opens a confirmation modal to execute immediately.
 
 ---
 
 ## Field-by-field operations guide
 
-### Image preview preference (2D vs 3D)
+### 1. Appearance
 
-Options:
-- **2D**: faster flat previews, best for bulk throughput.
-- **3D**: slower stitch-simulated previews, better visual realism.
+Select the interface theme for the desktop application:
+- **🌓 System Default**: dynamically mirrors your operating system's light or dark mode setting.
+- **☀️ Light**: forces high-contrast light mode backgrounds and controls.
+- **🌙 Dark**: forces dark mode styling for comfortable low-light browsing.
 
-Use cases:
-- Choose **2D** for very large imports or slower machines.
-- Choose **3D** when preview fidelity is more important than speed.
+Theme changes apply immediately across all views without requiring a page reload or restart.
 
-Notes:
-- This is a default for new imports.
-- Existing designs keep their current image type.
-- Some import flows can override this value per session.
+---
 
-Related:
-- [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
+### 2. Google Gemini & AI Tagging
 
-### Alphabet & font compression (default: enabled)
+#### Google Gemini API key
+- **Purpose**: Enables Gemini Vision image-based tagging features in Admin → Batch Operations.
+- **Behaviour**: Stored securely in your local application database.
+- **Visibility**: Toggle using the eye icon (👁 / 🙈) to verify your entered key format.
+- **Blank State**: Leave this field blank for local-only operation. The application will continue to run free keyword and stitching rule tags locally with no external network calls.
 
-Purpose:
-- Configured during initial onboarding setup and enabled by default (recommended).
-- Automatically detects embroidery font and alphabet packages during import.
-- Keeps your catalogue clean and responsive by importing only representative sample letters while safeguarding the entire font package in a companion `.zip` archive.
+#### Google API key free tier mode
+- **Purpose**: Configures conservative concurrency and delay values when using Google's free Gemini API key tier.
+- **Behaviour**: Google's free tier imposes strict rate limits (~15 requests per minute).
+- **Automatic Tuning**: Checking **"My Google API key is on the free tier"** automatically adjusts default parameters:
+  - **Workers**: defaults to **2** (instead of 4).
+  - **Delay between calls**: defaults to **10 seconds** (instead of 0 seconds).
 
-Behavior:
-- **Automatic packaging**: When enabled, any scanned folder recognized as an embroidery alphabet or font collection has its complete contents packaged into a companion `.zip` file inside the library folder (`MachineEmbroideryDesigns/<AlphabetFolder>/<AlphabetName>.zip`) if one does not already exist, or copies an existing companion `.zip` from the source folder.
-- **Representative glyphs catalogued**: For **each size** found in the alphabet package, only the following sample designs are imported into the database:
-  - **Upper A** (`Upper A`, `Uppercase A`, `Cap A`)
-  - **Lower a** (`Lower a`, `Lowercase a`)
-  - **Digit 9** (`9`, `Number 9`)
-  - **All punctuation and symbols** (periods, commas, ampersands, exclamation marks, etc.)
-- **Compressible letters omitted from database**: Letters `B`–`Z`, `b`–`z`, and digits `0`–`8` are skipped during database insertion, preventing hundreds of redundant design cards from cluttering your search and browse views.
-- **Instant extraction**: Because the full package (including all letters, sizes, and Embrilliance `.bx` files) is preserved in the companion `.zip` in the folder, you can extract any needed letter directly whenever you stitch.
-- **Safety**: Original source files are strictly read-only and never altered or deleted. Existing catalogued designs in your library are never deleted.
+#### AI performance & throughput tuning
+- **AI tagging batch size (optional, default: 100)**: Number of designs fetched and processed together per chunk during a Batch Operations run.
+- **Commit every (optional, default: 100)**: Progress and database commit cadence during an AI run. Determines how often tag updates are committed to SQLite and reflected in the live UI counters.
+- **Workers (optional, min: 1, max: 32, default: 4, or 2 on free tier)**: Number of designs tagged concurrently in parallel worker threads. Lower to **1 or 2** if encountering API rate limits (`429 Too Many Requests`).
+- **Delay between Gemini calls (seconds) (optional, step: 0.5, default: 0 s, or 10 s on free tier)**: Pause duration inserted between consecutive API calls. Increase this if rate-limit errors persist during large runs.
 
-Related:
-- [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
+#### Gemini model selection, refresh & testing
+- **Model Dropdown**: Defaults to **Auto-select (recommended)**. When left on Auto-select, the application automatically chooses an optimal Gemini Flash model.
+- **Flash First Ordering**: Models retrieved from Google's API are sorted Flash models first. Flash models are strongly recommended: they are significantly faster and cheaper than Pro or thinking models while excelling at embroidery image vision tagging.
+- **Refresh Button**: Queries Google's API using your saved key and populates the dropdown with all currently supported models.
+- **Test Model Button**: Sends a validation ping with the selected model to verify that your API key and chosen model are valid and responding. Displays a green success or red error message below the input.
+- **Fallback Resilience**: If a previously selected model is retired by Google, the app automatically falls back to an available Flash model at run time.
 
-### Digitising & Master File Formats (optional)
+---
 
-Purpose:
-- Allows the import scanner to detect and index software-native master outline design files (e.g. `.eof`, `.ecf`, `.emb`, `.art`, `.be`, `.jan`, `.edo`, `.vp4`) alongside standard machine stitch formats.
+### 3. Database Maintenance & Diagnostics
 
-Software Presets:
-- **Embird**: `.eof`, `.ecf`
-- **Hatch / Wilcom**: `.emb`
-- **Bernina**: `.art`
-- **Embrilliance**: `.be`
-- **Janome Digitizer**: `.jan`
-- **mySewnet / Premier+**: `.edo`, `.vp4`
+#### Database size & recoverable space
+- Displays total on-disk SQLite file size and estimated reclaimable space in real time.
 
-Custom Extensions:
-- Type any custom extension (e.g. `.can`) and press Enter or Add.
+#### FAT32 4 GB limit warning
+- If your catalogue is stored on a FAT32-formatted drive (common on USB flash drives and SD cards) and the database file reaches between **3.5 GB and 4.0 GB**, an alert banner warns that FAT32 drives enforce a strict 4.0 GB single-file ceiling.
+- **Recommended Action**: Back up your catalogue immediately and reformat the storage drive to **exFAT** or **NTFS**.
 
-Behavior:
-- **Paired with stitch file**: If a master file is in the same folder as a matching stitch file (e.g. `logo.eof` and `logo.pes`), they are paired together into one card with a `[🎨 Master]` badge.
-- **Master-only**: If only a master file exists without a corresponding machine stitch file, it is catalogued with a placeholder and marked for export (*"Export to a machine stitch format to generate preview and stitch data."*).
-- By default, no master formats are enabled. Enable only the software you use.
+#### Optimize & Compact Database button
+- Opens the `ConfirmCompactDatabaseModal` with two options:
+  - **Backup & Compact (Recommended)**: creates a full database backup in your configured backup directory first, then runs compaction.
+  - **Compact Only**: proceeds directly with compaction.
+- Compaction runs `VACUUM` and `PRAGMA optimize`, defragmenting database pages and returning free disk space to the operating system.
+- **Disk Space Requirement**: Compaction requires free space on the database drive equal to at least the current database file size to assemble the defragmented file safely.
 
-Related:
-- [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
+#### Database health check interval (seconds)
+- Sets how often the application checks the SQLite database for page fragmentation while idle (default: **1800 seconds / 30 minutes**; minimum: 5 seconds).
+- When the idle check detects that reclaimable free space exceeds **20%** of database size and is at least **20 MB**, a lightweight background compaction (`PRAGMA incremental_vacuum`) reclaims disk space without pausing or freezing the user interface.
 
-### Google Gemini API key
+---
 
-Purpose:
-- Enables Gemini Vision tagging features.
+### 4. Catalogue Storage
 
-Behavior:
-- The key is stored in the app's local settings, alongside your catalogue data.
-- You can leave this blank to run File & Folder Rules only (no Gemini Vision).
+#### Catalogue data location & migration
+- **Purpose**: Relocates your catalogue database and design library folder (`MachineEmbroideryDesigns`) to a different location.
+- **Procedure**:
+  1. Under **Catalogue Storage**, click **Browse…**.
+  2. Select an existing destination folder for the new location. (The app normalises the path so the internal layout `Database/`, `MachineEmbroideryDesigns/`, and `logs/` is preserved without double-nesting).
+  3. In the interactive **Moving your catalogue…** modal, monitor real-time copy counts, byte transfers, and percentage progress. Click **Cancel** at any time to safely halt the process and roll back.
+  4. Once copying completes, the modal displays **Restart required**.
+  5. Click **Restart now** to relaunch the application pointing to the new catalogue location.
 
-Operational guidance:
-- Paste the key and save; Gemini Vision can then run from Admin → Batch Operations.
-- Use the show/hide button to verify pasted key format before saving.
+#### Storage locations panel
+- **Data Root**: Parent directory containing the library and database folders.
+- **Database File**: Absolute path to the active SQLite `.db` file.
+- **Log Folder**: Directory where system logs are kept (preserved across storage moves).
 
-Security guidance:
-- Treat this as a secret.
-- Avoid sharing screenshots that expose the key.
-- If compromised, rotate the key in Google AI Studio and update Settings.
+---
 
-Related:
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
+### 5. Digitising & Format Rules
 
-### Gemini Vision (runs from Batch Operations)
+#### Digitising & master file formats
+- **Purpose**: Allows the import scanner to detect and index software-native master outline design files alongside standard machine stitch formats.
+- **Software Presets**:
+  - **Embird Studio & Cross Stitch**: `.eof`, `.ecf`
+  - **Wilcom / Hatch**: `.emb`
+  - **Bernina**: `.art`, `.art60`, `.art70`, `.art80`
+  - **Embrilliance**: `.be`
+  - **Janome Digitizer**: `.jan`
+  - **mySewnet / Premier+**: `.edo`, `.vp4`
+- **Custom Extensions**: Type comma-separated custom extensions (e.g. `pxf, pat, can`) into the **Additional / Custom extensions** field.
+- **Behaviour**:
+  - **Paired with stitch file**: If a master file is found alongside a matching machine stitch file in the same folder (e.g. `flower.eof` and `flower.pes`), they are paired together into one card with a `[🎨 Master]` badge.
+  - **Master-only**: If only a master file exists without a corresponding machine stitch file, it is catalogued with a placeholder and marked for export (*"Export to a machine stitch format to generate preview and stitch data."*).
+  - By default, master formats are disabled. Enable only the software you actively use to avoid unwanted files being scanned.
 
-Gemini Vision (Gemini vision on the preview image) is **not** run automatically during import. There is no
-Settings toggle for it. Imports always apply **File & Folder Rules** only (local, free, no API key).
-
-To run Gemini Vision on your existing designs, open **Admin → Batch Operations**, choose a goal that
-includes Gemini Vision, and run it there.
-
-Related:
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-
-### AI tagging batch size (optional)
-
-Purpose:
-- The number of designs fetched and processed together per chunk in a Batch Operations run. A run pages
-  through the whole candidate set, so this does not cap how many designs are touched.
-
-When to lower:
-- You are hitting quota/rate limits.
-- You want shorter, incremental runs.
-
-When to increase:
-- You have stable throughput and want fewer sessions.
-
-Practical pattern:
-- Start small, observe failures/logs, then scale up.
-
-### Delay between Gemini calls (seconds) (optional)
-
-Purpose:
-- Adds spacing between API calls to reduce rate-limit failures.
-
-When to raise delay:
-- Frequent `429 Too Many Requests` responses.
-- API quota pressure during larger runs.
-
-When to keep low/default:
-- Small runs with no rate-limit errors.
-
-Notes:
-- If troubleshooting AI rate limits, tune delay and batch size together.
-- Keep expectations realistic: higher delay improves resilience but increases run time.
-
-Related:
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-
-### Import database commit batch size (optional)
-
-Purpose:
-- Controls how many design operations are written before each DB commit during import.
-
-Tradeoff:
-- Lower values: smaller rollback scope on failure, more commit overhead.
-- Higher values: better commit efficiency, larger rollback scope on interruption.
-
-Suggested starting point:
-- Use default behavior unless import performance or failure-recovery behavior requires tuning.
-
-### Catalogue data location (desktop installs)
-
-Purpose:
-- Moves catalogue database and managed design storage to a different drive/location.
-
-Typical reasons:
-- Running out of space on system drive.
-- Consolidating catalogue data on a dedicated data disk.
-
-Procedure:
-1. Back up first.
-2. Open **Admin -> Settings**.
-3. Set **Catalogue data location** using Browse or manual path.
-4. Save settings.
-5. Restart application.
-6. Verify expected data appears in Browse and imports still work.
-
-What to expect:
-- Required subfolders are created automatically.
-- Existing managed data may be copied forward when needed.
-- Logs remain in their configured logs area.
-
-Recovery if move goes wrong:
-1. Do not continue importing until paths are confirmed.
-2. Re-open Settings and set location back to the prior known-good folder.
-3. Restart app and validate browse/import behavior.
-4. If needed, restore from backup.
-
-Related:
-- [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
-- [GETTING_STARTED.md](GETTING_STARTED.md)
-
-### Database maintenance & compaction
-
-The **Database Maintenance** section on the Settings page provides tools to monitor and optimize your SQLite database file:
-- **Database size & unused space:** displays the total on-disk size and estimated reclaimable space.
-- **Compaction (VACUUM):** reclaims unused disk space from deleted designs, tags, or thumbnails and defragments database pages.
-- **Approaching 4 GB FAT32 Warning:** if the database file size is between **3.5 GB and 4.0 GB**, a warning banner appears advising that FAT32-formatted drives enforce a strict 4 GB single-file limit. If your storage is formatted as FAT32, back up your catalogue and reformat the drive to **exFAT** or **NTFS** before reaching the 4 GB ceiling.
-- **Oversized databases (4 GB and above):** once the database reaches 4 GB or more, the warning banner is not shown in Settings (because the live database is already operating safely on an exFAT or NTFS filesystem). Instead, advisory warnings appear on the Backup and Restore tabs when backing up or restoring.
-
-### Storage locations panel (read-only)
-
-This panel displays:
-- current catalogue data location,
-- current log folder.
-
-Use it for:
-- support/troubleshooting handoff,
-- confirming that a data-root move took effect,
-- locating logs for diagnostics.
+#### Alphabet & font compression (default: enabled)
+- **Purpose**: Automatically detects embroidery font and alphabet packages during import.
+- **Behaviour**:
+  - **Automatic packaging**: Scanned folders recognised as an embroidery alphabet or font collection have their complete contents packaged into a companion `.zip` archive in the library folder (`MachineEmbroideryDesigns/<AlphabetFolder>/<AlphabetName>.zip`) if one does not already exist, or copies an existing companion `.zip` from the source folder.
+  - **Representative glyphs catalogued**: For **each size** found in the alphabet package, only sample designs are imported into the database: **Upper A** (`Upper A`, `Uppercase A`, `Cap A`), **Lower a** (`Lower a`, `Lowercase a`), **Digit 9** (`9`, `Number 9`), and all punctuation and symbols.
+  - **Redundant letters omitted**: Letters `B`–`Z`, `b`–`z`, and digits `0`–`8` are skipped during database insertion, preventing hundreds of redundant design cards from cluttering your browse view.
+  - **Instant extraction**: The full package (including all letters, sizes, and Embrilliance `.bx` files) is preserved in the companion `.zip` in the folder, ready to extract whenever needed for stitching.
+  - **Safety**: Original source files are strictly read-only and never altered or deleted.
 
 ---
 
 ## Recommended operational workflows
 
-### Workflow A: Conservative defaults for reliability
+### Workflow A: Everyday setup & appearance
+1. Select your preferred Appearance theme (System, Light, or Dark).
+2. Review your Google Gemini API key or leave blank for local-only tagging.
+3. Check only the digitising master formats you use.
+4. Click **Save settings**.
 
-1. Keep image preference at 2D.
-2. Keep Gemini Vision disabled unless needed.
-3. Add API key only when preparing to use AI tagging.
-4. Leave batch and commit fields blank/default.
+### Workflow B: AI tagging with Google free-tier key
+1. Enter your Google Gemini API key.
+2. Tick **My Google API key is on the free tier**.
+3. Leave AI Workers at **2** and Delay at **10 seconds**.
+4. Leave Gemini Model on **Auto-select (recommended)** and click **Test model** to verify.
+5. Click **Save settings**.
+6. Run targeted Gemini Vision jobs from [Admin → Batch Operations](#/admin/batch-operations).
 
-### Workflow B: AI quality-first tagging
+### Workflow C: Routine database health & compaction
+1. Review the **Database size** and **Recoverable** metrics in the Database Maintenance section.
+2. If recoverable space is substantial, click **Optimize & Compact Database**.
+3. Choose **Backup & Compact** to ensure a restorable copy is preserved before compacting.
+4. Confirm completion toast reporting reclaimed pages and file size reduction.
 
-1. Configure the API key in Settings.
-2. Run Gemini Vision from Admin → Batch Operations (e.g. on untagged or Gemini-Vision-missing designs).
-3. Start with a moderate batch size.
-4. Increase the delay if rate-limit errors appear.
-5. Review tagging outcomes and costs after the run.
-
-### Workflow C: Large-library performance tuning
-
-1. Use 2D image preference.
-2. Set conservative AI batch size initially.
-3. Tune import commit batch size based on throughput and recovery needs.
-4. Process in staged runs, validating after each stage.
-
-### Workflow D: Data-root relocation
-
-1. Run backup first.
-2. Move data location in Settings.
-3. Restart app.
-4. Validate browse, detail pages, and import operations.
-5. Keep old storage untouched until validation is complete.
+### Workflow D: Relocating catalogue to a different location
+1. Run a database backup from [Admin → System Maintenance → Backup](#/admin/system/backup).
+2. Go to [Admin → Settings](#/admin/system/settings) → **Catalogue Storage** and click **Browse…**.
+3. Select your destination folder.
+4. Monitor the live migration progress bar.
+5. When finished, click **Restart now** to relaunch Embroidery Catalogue.
 
 ---
 
@@ -284,21 +215,24 @@ Use it for:
 
 | Symptom | Likely cause | What to do |
 |---|---|---|
-| Settings save shows error banner | Settings could not be saved (write or path issue) | Retry save; verify write permissions; for data-root path confirm drive exists and is writable. |
-| Gemini Vision not running | Missing API key, or run has no Gemini Vision goal | Confirm key saved, then run a Gemini Vision goal from Admin → Batch Operations; see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md). |
-| Frequent `429 Too Many Requests` | API call pressure too high | Increase delay value and/or lower AI batch size; retry smaller runs. |
-| AI runs feel slow | High delay or a large candidate scope | Lower batch size or reduce Gemini Vision usage for routine runs; reserve full Gemini Vision runs for targeted updates. |
-| Backup actions fail due missing destination | Backup folders not configured | Configure backup destinations in maintenance backup UI; see [BACKUP_RESTORE.md](BACKUP_RESTORE.md). |
-| Data-root move appears not applied | App not restarted or wrong target path | Restart app, check Storage locations panel, then verify browse/import behavior. |
-| Designs not where expected after move | Pointing to unexpected data folder | Revert to prior known-good data location, restart, validate, then migrate again carefully. |
+| Settings save shows error banner | Write permission issue or invalid path | Retry save; verify write permissions on the catalogue directory. |
+| Frequent `429 Too Many Requests` during AI tagging | Rate limits exceeded on Google API key | Tick the **My Google API key is on the free tier** checkbox; raise Delay to 10s and lower Workers to 1 or 2. |
+| Gemini model test fails | Invalid API key or model name unavailable | Re-check key in Google AI Studio; click **Refresh** to fetch valid model names; verify network connectivity. |
+| Test model button is disabled | No API key entered or task busy | Enter an API key and wait for any ongoing operations to complete. |
+| Compaction fails | Insufficient free disk space on database drive | Ensure free disk space exceeds current database file size before compacting. |
+| Database approaching 4 GB warning | Database on FAT32 drive reaching file limit | Back up your catalogue and reformat drive to exFAT or NTFS before database reaches 4 GB. |
+| Storage migration fails or stalls | Destination path unwritable or disk full | Verify destination location is accessible and has enough space; click Cancel to roll back cleanly. |
+| App does not restart after migration | System permissions prevented relaunch | Close the application and open it manually; verify new paths in the Storage Locations panel. |
+| Looking for licence key activation | Licence moved to About | Open [Admin → About](#/about) to review registration or deactivate/switch keys. |
 
 ---
 
 ## Security and operational notes
 
-- Keep API keys out of shared screenshots and logs.
-- For team or multi-machine usage, configure keys and storage paths on each target machine.
-- Revisit settings after major upgrades, especially AI defaults.
+- Google API keys are stored locally in the SQLite database and are never transmitted to third parties other than Google's Gemini API endpoints.
+- Keep API keys out of shared screenshots and export logs.
+- Original embroidery design files are **strictly read-only**: the application never modifies, renames, or deletes original files.
+- The companion `.zip` font compression preserves all original glyph files, Embrilliance `.bx` files, and notes for full fidelity.
 
 ---
 
@@ -307,4 +241,5 @@ Use it for:
 - [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md) - Gemini Vision tagging, bulk operations, and Library Discrepancies reconciliation
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md) - first-import defaults and action flow
 - [BACKUP_RESTORE.md](BACKUP_RESTORE.md) - backup and restore operations
+- [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md) - supported stitch and master design formats
 - [GETTING_STARTED.md](GETTING_STARTED.md) - installation and basic setup

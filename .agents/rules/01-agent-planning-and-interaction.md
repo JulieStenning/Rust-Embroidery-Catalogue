@@ -13,6 +13,7 @@
     - ❌ `'@DesignDetailView.svelte'`, `"@MainView.svelte"`, `DesignDetailView.svelte`
 
 - **Mandatory Documentation Updates on Functional Changes:** Whenever user-facing functionality, UI workflows, or features are introduced, modified, or extended, you must update the relevant in-app help (@HelpView.svelte) and user-facing guidance (in `docs/User-Facing-Guidance/`), and maintain test coverage in `HelpView.test.ts`.
+- **British English Spelling Invariant:** All user-facing text, UI labels, tooltips, dialogs, error messages, in-app help (@HelpView.svelte), and guidance documentation (`docs/User-Facing-Guidance/`) must strictly use **British English** spelling (`colour`, `behaviour`, `optimise`, `recognise`, `normalise`, `customise`, `licence` [noun], `cancelling`). Technical identifiers in code or backticks remain exact.
 
 ### Svelte Module Inventory (Current as of October 2026)
 
@@ -97,6 +98,11 @@ The plan must be structural and high-level—**no code snippets or pseudocode**�
        2. A safe default value (e.g. enabling compression by default to protect user libraries).
        3. Dual persistence across both @InitialSetupView.svelte and @SettingsView.svelte via `saveSettings`.
        4. Consistency across both import stages: scanning precheck (`precheck.rs`) and background executor (`executor.rs`).
+    - **British English Spelling Invariant:**
+      - All user-facing copy, documentation (`docs/User-Facing-Guidance/`), in-app help (`@HelpView.svelte`), UI labels, tooltips, modals, notifications, and error messages must strictly use British English spelling (`colour`, `behaviour`, `optimise`, `recognise`, `normalise`, `licence` as noun).
+    - **Clickable In-App Navigation Links Invariant:**
+      - Desktop application users have no browser address/URL bar. Never display raw URL hash strings or instruct users to type paths.
+      - Any in-app route reference in documentation (`docs/User-Facing-Guidance/`) or in-app help (@HelpView.svelte) must be a clickable markdown link using the Svelte hash route (e.g. `[Admin → About](#/about)`, `[Admin → Settings](#/admin/system/settings)`).
 4. **Step-by-Step Execution Sequence & Test Plan:**
    - A short, numbered list of the order of execution.
    - Targeted unit and integration test commands (Vitest, `cargo test`).

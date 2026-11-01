@@ -21,6 +21,15 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
     2. A safe default value (e.g. enabling compression by default to protect user libraries).
     3. Dual persistence across both @InitialSetupView.svelte and @SettingsView.svelte via `saveSettings`.
     4. Consistency across both import stages: scanning precheck (`precheck.rs`) and background executor (`executor.rs`).
+- **British English Spelling Invariant:**
+  - All user-facing text, UI labels, tooltips, dialogs, error messages, in-app help (@HelpView.svelte), and guidance documentation (`docs/User-Facing-Guidance/`) must strictly use **British English** spelling:
+    - `-our` endings (e.g. `colour`, `behaviour`, `neighbour`).
+    - `-ise` / `-isation` suffixes (e.g. `optimise`, `recognise`, `normalise`, `customise`, `initialise`, `categorise`).
+    - British vocabulary and noun/verb distinctions (e.g. `licence` as noun, `license` as verb; `catalogue`, `dialogue`, `cancelling`, `cancelled`).
+    - Technical identifiers (Rust crates, SQLite syntax like `PRAGMA optimize`, API keys/payloads) remain exact in code/backticks, but surrounding prose must be British English.
+- **Clickable In-App Navigation Links Invariant:**
+  - Desktop application users have no browser address/URL bar. Never display raw URL hash strings or instruct users to type paths (e.g. avoid `Admin → About or #/about`).
+  - Any route reference in user-facing guidance (`docs/User-Facing-Guidance/`) or in-app help (@HelpView.svelte) must be a clickable markdown link using the Svelte hash route (e.g. `[Admin → About](#/about)`, `[Admin → Settings](#/admin/system/settings)`).
 - **Pre-Execution Planning (Required Before Changes):**
   - Produce a concise structural implementation plan covering:
     1. Affected Files & Scope Boundary
