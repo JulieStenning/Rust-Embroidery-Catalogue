@@ -18,7 +18,7 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0, date_updated TEXT)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
         "CREATE TABLE hoops (id INTEGER PRIMARY KEY, name TEXT NOT NULL, max_width_mm REAL NOT NULL, max_height_mm REAL NOT NULL)",
     ] {
@@ -1475,6 +1475,48 @@ async fn apply_stitching_tags_empty_ids_removes_all_stitching_tags() {
             .await
             .unwrap();
     assert_eq!(verified, 0);
+}
+
+#[tokio::test]
+async fn apply_stitching_tags_stamps_date_updated_when_tags_change() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    sqlx::query("UPDATE designs SET date_updated = '2026-01-01 10:00:00' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    apply_stitching_tags(&pool, 1, &[2]).await.unwrap();
+
+    let date_updated: Option<String> =
+        sqlx::query_scalar("SELECT date_updated FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_ne!(date_updated.as_deref(), Some("2026-01-01 10:00:00"));
+}
+
+#[tokio::test]
+async fn apply_stitching_tags_leaves_date_updated_when_tags_identical() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE designs SET date_updated = '2026-01-01 10:00:00' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    apply_stitching_tags(&pool, 1, &[2]).await.unwrap();
+
+    let date_updated: Option<String> =
+        sqlx::query_scalar("SELECT date_updated FROM designs WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(date_updated.as_deref(), Some("2026-01-01 10:00:00"));
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

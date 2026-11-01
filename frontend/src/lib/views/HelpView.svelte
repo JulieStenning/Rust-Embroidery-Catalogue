@@ -1,6 +1,21 @@
 <!-- SPDX-FileCopyrightText: 2026 Julie Stenning -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
+<script lang="ts">
+  const navItems = [
+    { href: "#/help?section=search", label: "🔍 Browse & Search" },
+    { href: "#/help?section=importing", label: "📥 Importing" },
+    { href: "#/help?section=word-matches", label: "🔤 Tag Word Matches" },
+    { href: "#/help?section=storage", label: "💾 Data Storage & External Drives" },
+    { href: "#/help?section=ai-tagging", label: "🤖 AI Tagging" },
+    { href: "#/help?section=batch-operations", label: "🏷 Batch Operations" },
+    { href: "#/help?section=projects", label: "📁 Projects" },
+    { href: "#/help?section=maintenance", label: "🛠 Maintenance" },
+    { href: "#/help?section=settings", label: "⚙️ Settings" },
+    { href: "#/help?section=troubleshooting", label: "🔧 Troubleshooting" },
+  ];
+</script>
+
 <div class="space-y-10 max-w-3xl">
   <div class="space-y-1 font-sans no-print">
     <h1 class="ui-page-title text-2xl font-bold text-[var(--text-primary)]">Help</h1>
@@ -10,56 +25,13 @@
   </div>
 
   <nav class="flex flex-wrap gap-3 text-sm no-print">
-    <a
-      href="#/help?section=search"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🔍 Browse & Search</a
-    >
-    <a
-      href="#/help?section=importing"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >📥 Importing</a
-    >
-    <a
-      href="#/help?section=word-matches"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🔤 Tag Word Matches</a
-    >
-    <a
-      href="#/help?section=storage"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >💾 Data Storage & External Drives</a
-    >
-    <a
-      href="#/help?section=ai-tagging"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🤖 AI Tagging</a
-    >
-    <a
-      href="#/help?section=batch-operations"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🏷 Batch Operations</a
-    >
-    <a
-      href="#/help?section=projects"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >📁 Projects</a
-    >
-    <a
-      href="#/help?section=maintenance"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🛠 Maintenance</a
-    >
-    <a
-      href="#/help?section=settings"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >⚙️ Settings</a
-    >
-    <a
-      href="#/help?section=troubleshooting"
-      class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
-      >🔧 Troubleshooting</a
-    >
+    {#each navItems as item (item.href)}
+      <a
+        href={item.href}
+        class="bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] px-3 py-1 rounded hover:bg-[var(--surface-hover)]"
+        >{item.label}</a
+      >
+    {/each}
   </nav>
 
   <section id="search">
@@ -348,6 +320,11 @@
         <strong>Local stitching backfill:</strong> updates stitching group tags using local pattern geometry.
       </p>
       <p>
+        <strong>Date Updated tracking:</strong> whenever automated tagging adds or alters tags on a design,
+        its Date Updated timestamp refreshes so recently enriched designs are easily found by sorting
+        in Browse.
+      </p>
+      <p>
         <strong>Tag verification workflow:</strong> automated tagging clusters similar designs together
         so you can review and verify whole rows or pages at once on Browse using search filters and bulk
         actions.
@@ -427,16 +404,19 @@
         <strong>Appearance:</strong> choose between System Default, Light, or Dark theme modes.
       </p>
       <p>
-        <strong>Google Gemini &amp; AI Tagging:</strong> store optional API keys, select vision models, and tune concurrency.
+        <strong>Google Gemini &amp; AI Tagging:</strong> store optional API keys, select vision models,
+        and tune concurrency.
       </p>
       <p>
-        <strong>Database Maintenance:</strong> optimise and compact storage and monitor automatic health checks.
+        <strong>Database Maintenance:</strong> optimise and compact storage and monitor automatic health
+        checks.
       </p>
       <p>
         <strong>Catalogue Storage:</strong> relocate your database and design library to a different location.
       </p>
       <p>
-        <strong>Digitising &amp; Format Rules:</strong> configure software master outline formats and alphabet font compression.
+        <strong>Digitising &amp; Format Rules:</strong> configure software master outline formats and
+        alphabet font compression.
       </p>
       <p>
         <strong>Product licence:</strong> manage your licence activation and registration in

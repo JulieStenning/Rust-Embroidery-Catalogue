@@ -167,6 +167,8 @@ Use this to apply or refresh image-group tags.
 File & Folder Rules runs only when the chosen goal includes it (it is not run automatically).
 Gemini Vision requires a configured Google API key and is skipped when no key is present.
 
+> **Date Updated tracking:** Whenever batch tagging (File & Folder Rules or Gemini Vision) assigns new tags or updates the existing tag set on a design, the design's **Date Updated** timestamp is refreshed to the current time. If a design is re-analysed and its tags do not change (or no tags match), its timestamp remains unchanged. This allows recently tagged designs to be located immediately by sorting by **Date Updated** in [Browse](#/).
+
 ### Stitch types
 
 Use this to detect stitching tags directly from pattern geometry.

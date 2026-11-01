@@ -1636,6 +1636,22 @@ async fn apply_stitching_tags(
     design_id: i64,
     tag_ids: &[i64],
 ) -> Result<(), AppError> {
+    let existing_rows: Vec<i64> = sqlx::query_scalar(
+        "SELECT dt.tag_id \
+         FROM design_tags dt \
+         INNER JOIN tags t ON t.id = dt.tag_id \
+         WHERE dt.design_id = ? \
+           AND lower(COALESCE(t.tag_group, '')) = 'stitching'",
+    )
+    .bind(design_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| AppError::database(format!("failed to fetch existing stitching tags: {e}")))?;
+
+    let existing_set: std::collections::HashSet<i64> = existing_rows.into_iter().collect();
+    let target_set: std::collections::HashSet<i64> = tag_ids.iter().copied().collect();
+    let tags_changed = existing_set != target_set;
+
     sqlx::query(
         "DELETE FROM design_tags
 		 WHERE design_id = ?
@@ -1655,11 +1671,27 @@ async fn apply_stitching_tags(
             .map_err(|e| AppError::database(format!("failed to insert stitching tag: {e}")))?;
     }
 
-    sqlx::query("UPDATE designs SET stitching_tags_verified = 0 WHERE id = ?")
+    if tags_changed {
+        sqlx::query(
+            "UPDATE designs SET stitching_tags_verified = 0, date_updated = datetime('now') WHERE id = ?",
+        )
         .bind(design_id)
         .execute(pool)
         .await
-        .map_err(|e| AppError::database(format!("failed to update stitching verification: {e}")))?;
+        .map_err(|e| {
+            AppError::database(format!(
+                "failed to update stitching verification and date_updated: {e}"
+            ))
+        })?;
+    } else {
+        sqlx::query("UPDATE designs SET stitching_tags_verified = 0 WHERE id = ?")
+            .bind(design_id)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                AppError::database(format!("failed to update stitching verification: {e}"))
+            })?;
+    }
 
     Ok(())
 }

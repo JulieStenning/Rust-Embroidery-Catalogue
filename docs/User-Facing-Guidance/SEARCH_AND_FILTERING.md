@@ -72,7 +72,7 @@ You can reorder the designs displayed in the Browse grid using the **Sort by** a
 
 - **Sort by:**
   - **Date Added:** Orders designs by the date they were imported into the catalogue.
-  - **Date Updated:** Orders designs by recent changes (ratings, tags, or metadata updates).
+  - **Date Updated:** Orders designs by recent changes (ratings, notes, manual tag edits, or automated/AI tag changes from Batch Operations).
   - **Folder:** Groups designs by their containing directory path on disk.
   - **Name:** Alphabetical order by design filename.
   - **Rating:** Star rating order.

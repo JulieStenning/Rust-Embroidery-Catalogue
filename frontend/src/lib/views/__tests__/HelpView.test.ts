@@ -380,6 +380,7 @@ describe("HelpView", () => {
       expect(section.getByText("Tag untagged and unverified designs:")).toBeInTheDocument();
       expect(section.getByText("Re-tag ALL designs:")).toBeInTheDocument();
       expect(section.getByText("Local stitching backfill:")).toBeInTheDocument();
+      expect(section.getByText("Date Updated tracking:")).toBeInTheDocument();
       expect(section.getByText("Tag verification workflow:")).toBeInTheDocument();
     });
 
