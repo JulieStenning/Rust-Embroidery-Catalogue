@@ -195,8 +195,9 @@
         all across all pages at once.
       </p>
       <p>
-        <strong>Alphabet &amp; font compression:</strong> when enabled in Settings, full embroidery
-        alphabet and font collections are automatically recognized and packaged into a companion
+        <strong>Alphabet &amp; font compression:</strong> enabled by default during initial setup
+        (and configurable in Settings), full embroidery alphabet and font collections are
+        automatically recognized and packaged into a companion
         <code
           class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
           >.zip</code
@@ -426,8 +427,8 @@
         <strong>Preview mode:</strong> select default 2D or 3D thread rendering for design cards.
       </p>
       <p>
-        <strong>Alphabet & font compression:</strong> enable packaging to archive whole font packages
-        into companion .zip files while keeping preview samples in the catalogue.
+        <strong>Alphabet & font compression:</strong> enabled by default during initial setup; packages
+        whole font packages into companion .zip files while keeping preview samples in the catalogue.
       </p>
       <p>
         <strong>Master formats:</strong> select software-native master outline formats (Embird, Hatch,

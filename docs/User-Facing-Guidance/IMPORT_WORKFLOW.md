@@ -61,8 +61,8 @@ When you run the import:
 The button shows live progress while it runs; **Cancel** becomes **Stop** if you need to
 halt it. After success, you are redirected to Browse Designs.
 
-## Alphabet & font compression (optional)
-If enabled in **Admin → Settings** ("Zip / compress alphabet folders on import"):
+## Alphabet & font compression
+Enabled by default during first-time setup and configurable in **Admin → Settings** ("Compress full alphabet sets and catalogue preview samples only"):
 - Scanned folders recognized as alphabet or font collections are automatically bundled into a companion `.zip` archive (`<AlphabetFolder>.zip`) in the library folder.
 - Only key representative glyphs are added to the database: **Upper A**, **Lower a**, digit **9**, and **all punctuation/symbol files** for each size found.
 - All imported preview samples from an alphabet package are automatically assigned the protected system tag **Alphabets** (which covers individual letters, font sets, monograms, number sets 0–9, and punctuation).

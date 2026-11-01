@@ -245,9 +245,10 @@ describe("InitialSetupView.svelte", () => {
       await tick();
     }
 
-    expect(screen.getByText("Step 4 of 4 — Design Software")).toBeInTheDocument();
-    expect(screen.getByText("What are Design Software & Master Formats?")).toBeInTheDocument();
+    expect(screen.getByText("Step 4 of 4 — Import Settings")).toBeInTheDocument();
+    expect(screen.getByText("What are Software & Alphabet Settings?")).toBeInTheDocument();
     expect(screen.getByTestId("initial-setup-formats-view")).toBeInTheDocument();
+    expect(screen.getByTestId("initial-setup-zip-alphabets-checkbox")).toBeChecked();
     expect(screen.getByRole("button", { name: "Finish" })).toBeEnabled();
   });
 
@@ -271,6 +272,35 @@ describe("InitialSetupView.svelte", () => {
     expect(saveSettingsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         enabled_master_formats: "ecf,eof",
+        zip_alphabets: true,
+      })
+    );
+    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onInitialSetupCompleted).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("allows unchecking alphabet compression and saves zip_alphabets: false", async () => {
+    const onInitialSetupCompleted = vi.fn();
+    render(InitialSetupView, { props: { onInitialSetupCompleted } });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    const zipCheckbox = screen.getByTestId("initial-setup-zip-alphabets-checkbox");
+    expect(zipCheckbox).toBeChecked();
+    await fireEvent.click(zipCheckbox);
+    expect(zipCheckbox).not.toBeChecked();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    expect(saveSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        zip_alphabets: false,
       })
     );
     expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
@@ -289,7 +319,7 @@ describe("InitialSetupView.svelte", () => {
       await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
       await tick();
     }
-    expect(screen.getByText("Step 4 of 4 — Design Software")).toBeInTheDocument();
+    expect(screen.getByText("Step 4 of 4 — Import Settings")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     await tick();
@@ -616,7 +646,7 @@ describe("InitialSetupView.svelte", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
     await tick();
-    expect(screen.getByText("Step 4 of 4 — Design Software")).toBeInTheDocument();
+    expect(screen.getByText("Step 4 of 4 — Import Settings")).toBeInTheDocument();
     expect(screen.getByTestId("initial-setup-formats-view")).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Finish" }));

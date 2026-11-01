@@ -69,9 +69,10 @@ Notes:
 Related:
 - [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
 
-### Alphabet & font compression (optional)
+### Alphabet & font compression (default: enabled)
 
 Purpose:
+- Configured during initial onboarding setup and enabled by default (recommended).
 - Automatically detects embroidery font and alphabet packages during import.
 - Keeps your catalogue clean and responsive by importing only representative sample letters while safeguarding the entire font package in a companion `.zip` archive.
 

@@ -391,7 +391,7 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_WORKERS => "",
         KEY_AI_FREE_TIER => "false",
         KEY_IMPORT_ENABLED_MASTER_FORMATS => DEFAULT_ENABLED_MASTER_FORMATS,
-        KEY_IMPORT_ZIP_ALPHABETS => "false",
+        KEY_IMPORT_ZIP_ALPHABETS => "true",
         KEY_PREVIEW_3D_PROFILE => "balanced",
         // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "1800",

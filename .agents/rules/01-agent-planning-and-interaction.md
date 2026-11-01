@@ -42,6 +42,7 @@
 **Shared Components & Modals (`frontend/src/lib/components/`):**
 
 - @App.svelte
+- @AlphabetCompressionSetting.svelte
 - @BrowseActiveFilterChips.svelte
 - @BrowseCardGrid.svelte
 - @BrowseFilterCheckboxList.svelte
@@ -89,6 +90,13 @@ The plan must be structural and high-levelâ€”**no code snippets or pseudocode**â
    - **Tag Synonym Planning Invariants:**
      - *No Singular/Plural Duplication:* The tagging engine automatically computes inflections (`to_singular()` and `to_plural()`). Plans must never include both singular and plural forms (use only singular base words: `quote`, `bookmark`).
      - *No Self-Synonyms:* Tag names are directly token-matched in singular and plural forms during Pass 2. Plans must never include synonyms matching words already in the tag name (e.g. do not suggest `word`/`words` for `Words`, or `alphabet`/`alphabets` for `Alphabets`).
+   - **Import-Relevant System Settings Planning Invariants:**
+     - *Pipeline Impact & First-Run Audit:* Any system setting or configuration that influences file discovery, scanning, master/stitch pairing, archive extraction, cataloguing granularity, or design filtering during import must be audited for first-run onboarding impact.
+     - *Setup Wizard Placement & Safe Defaults:* If importing immediately after onboarding could result in unwanted, noisy, or irreversible database state (e.g. uncompressed alphabet glyph bloat, unindexed master formats), the plan must explicitly specify:
+       1. Exposure and placement in @InitialSetupView.svelte (e.g. within the Import Settings onboarding step).
+       2. A safe default value (e.g. enabling compression by default to protect user libraries).
+       3. Dual persistence across both @InitialSetupView.svelte and @SettingsView.svelte via `saveSettings`.
+       4. Consistency across both import stages: scanning precheck (`precheck.rs`) and background executor (`executor.rs`).
 4. **Step-by-Step Execution Sequence & Test Plan:**
    - A short, numbered list of the order of execution.
    - Targeted unit and integration test commands (Vitest, `cargo test`).

@@ -7,6 +7,7 @@
   import AdminSourcesView from "./views/AdminSourcesView.svelte";
   import AdminHoopsView from "./views/AdminHoopsView.svelte";
   import MasterFormatsSelector from "./components/MasterFormatsSelector.svelte";
+  import AlphabetCompressionSetting from "./components/AlphabetCompressionSetting.svelte";
   import {
     browseDataRootFolder,
     completeInitialSetup,
@@ -51,6 +52,8 @@
   /** Enabled master formats string configured in the setup wizard */
   let enabledMasterFormats = $state("");
   let formatsLoaded = $state(false);
+  /** Whether to compress alphabet and font packages during import (defaults to true) */
+  let zipAlphabets = $state(true);
 
   /** Whether the visible flow includes a leading Data Location step. */
   const hasDataFirstFlow = $derived(needsDataStep && dataStepFirst);
@@ -108,14 +111,14 @@
   };
 
   const formatsCopy = {
-    question: "What are Design Software & Master Formats?",
+    question: "What are Software & Alphabet Settings?",
     answer:
-      "These are working and outline design files created by digitising software (such as Embird .eof/.ecf, Hatch .emb, Bernina .art, Embrilliance .be, Janome .jan, or mySewnet .edo/.vp4). When enabled, the catalogue indexes them alongside machine stitch files (.pes, .jef, etc.).",
+      "Working files created by digitising software (such as Embird .eof/.ecf, Hatch .emb, Bernina .art, Embrilliance .be, Janome .jan, or mySewnet .edo/.vp4) can be paired with stitch files. Digital embroidery alphabets and font sets can also be compressed automatically into companion zip archives so preview samples only are catalogued.",
     whyNowTitle: "Why choose now?",
     whyNow:
-      "Selecting the software you use now ensures the import scanner automatically detects and pairs your master files with stitch files during your very first import.",
+      "Configuring these now ensures your very first import correctly detects master design files and keeps font sets tidy without flooding your catalogue with thousands of individual letter files.",
     mandatory:
-      "Not at all! By default, the catalogue only imports machine stitch files. If you only have machine files, leave this blank and finish setup. You can also change this later in Admin → Settings.",
+      "You can keep the recommended settings, or change them at any time later in Admin → Settings.",
   };
 
   const dataCopy = {
@@ -155,19 +158,11 @@
     }
     return {
       ...formatsCopy,
-      stepLabel: `Step ${formatStepIndex + 1} of ${totalSteps} — Design Software`,
+      stepLabel: `Step ${formatStepIndex + 1} of ${totalSteps} — Import Settings`,
     };
   });
 
-  /**
-   * Figure out the mode and decide the step order on mount.
-   *
-   *  - Installed + no configured root, or configured root unreachable:
-   *    Data Location runs FIRST (data-first), so the required restart
-   *    happens before designers/sources are added.
-   *  - Installed + valid configured root: skip the Data step entirely and
-   *    go straight to Designers → Sources.
-   *  - Dev/Portable mode: never show the Data step. */
+  /** Decide execution mode and step order on mount. */
   onMount(async () => {
     const [settingsRes, statusRes] = await Promise.all([
       getSettingsViewModel().catch(() => ({ model: null })),
@@ -176,6 +171,9 @@
 
     if (settingsRes?.model) {
       enabledMasterFormats = settingsRes.model.enabled_master_formats || "";
+      if (typeof settingsRes.model.zip_alphabets === "boolean") {
+        zipAlphabets = settingsRes.model.zip_alphabets;
+      }
     }
     formatsLoaded = true;
 
@@ -300,6 +298,7 @@
             ai_workers: base.ai_workers || "",
             ai_free_tier: Boolean(base.ai_free_tier),
             enabled_master_formats: enabledMasterFormats,
+            zip_alphabets: zipAlphabets,
             data_root: base.data_root || "",
             db_idle_check_interval_secs: base.db_idle_check_interval_secs || "1800",
           });
@@ -322,7 +321,8 @@
   <!-- Welcome banner -->
   <div class="notice-info rounded-lg px-4 py-3 text-sm">
     <span class="font-semibold">Welcome to Embroidery Catalogue!</span>
-    Before you import files, you can optionally add your main Designers, Sources, Hoops and Design Software.
+    Before you import files, you can optionally add your main Designers, Sources, Hoops and configure
+    Import Settings.
   </div>
 
   <!-- Main card -->
@@ -333,9 +333,9 @@
     <p class="text-sm text-[var(--text-secondary)]">
       {#if hasDataFirstFlow}
         First, choose where your data lives. Then you can configure your frequent Designers,
-        Sources, Hoops and Design Software.
+        Sources, Hoops and Import Settings.
       {:else}
-        Setting up your frequent Designers, Sources, Hoops, and Design Software now saves you time
+        Setting up your frequent Designers, Sources, Hoops, and Import Settings now saves you time
         later — allowing you to update and categorise your designs in bulk rather than one by one.
       {/if}
     </p>
@@ -415,8 +415,16 @@
     {:else if step === hoopStepIndex}
       <AdminHoopsView embedded={true} />
     {:else if step === formatStepIndex}
-      <div class="space-y-3" data-testid="initial-setup-formats-view">
+      <div class="space-y-5" data-testid="initial-setup-formats-view">
         <MasterFormatsSelector bind:value={enabledMasterFormats} />
+        <div class="pt-4 border-t border-[var(--border-default)]">
+          <AlphabetCompressionSetting
+            bind:checked={zipAlphabets}
+            disabled={finishing}
+            testIdPrefix="initial-setup"
+            showBorder={false}
+          />
+        </div>
       </div>
     {/if}
 

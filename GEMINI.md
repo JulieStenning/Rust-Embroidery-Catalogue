@@ -14,6 +14,13 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
 - **Tag Synonym Planning Invariants:**
   - **No Singular/Plural Duplication:** The tagging engine automatically handles inflections (`to_singular()` and `to_plural()`). Never suggest or seed both singular and plural forms of a word (e.g., plan only `quote`, never `quote` and `quotes`; `bookmark`, never `bookmark` and `bookmarks`).
   - **No Self-Synonyms:** The tagging engine directly matches significant words from the tag description itself in both singular and plural forms. Never suggest or seed synonyms that duplicate words in the tag's own name (e.g., for tag `Words`, never add `word` or `words`; for `Alphabets`, never add `alphabet` or `alphabets`). Synonyms are strictly for alternative vocabulary not already present in the tag name.
+- **Import-Relevant System Settings Planning Invariants:**
+  - **Pipeline Impact & First-Run Audit:** Any system setting or configuration that influences file discovery, scanning, master/stitch pairing, archive extraction, cataloguing granularity, or design filtering during import must be audited for first-run onboarding impact.
+  - **Setup Wizard Placement & Safe Defaults:** If importing immediately after onboarding could result in unwanted, noisy, or irreversible database state (e.g. uncompressed alphabet glyph bloat, unindexed master formats), the plan must explicitly specify:
+    1. Exposure and placement in @InitialSetupView.svelte (e.g. within the Import Settings onboarding step).
+    2. A safe default value (e.g. enabling compression by default to protect user libraries).
+    3. Dual persistence across both @InitialSetupView.svelte and @SettingsView.svelte via `saveSettings`.
+    4. Consistency across both import stages: scanning precheck (`precheck.rs`) and background executor (`executor.rs`).
 - **Pre-Execution Planning (Required Before Changes):**
   - Produce a concise structural implementation plan covering:
     1. Affected Files & Scope Boundary

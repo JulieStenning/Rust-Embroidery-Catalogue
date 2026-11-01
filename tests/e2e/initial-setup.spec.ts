@@ -59,12 +59,17 @@ test.describe("first-run initial setup onboarding wizard", () => {
     await expect(page.getByText("What are Hoops?")).toBeVisible();
     await continueBtn.click();
 
-    // Step 4 of 4 — Design Software & Master Formats
-    await expect(page.getByText("Step 4 of 4 — Design Software")).toBeVisible();
+    // Step 4 of 4 — Import Settings (Design Software & Alphabet Compression)
+    await expect(page.getByText("Step 4 of 4 — Import Settings")).toBeVisible();
     await expect(
-      page.getByText("What are Design Software & Master Formats?"),
+      page.getByText("What are Software & Alphabet Settings?"),
     ).toBeVisible();
     await expect(page.getByTestId("initial-setup-formats-view")).toBeVisible();
+    const alphabetCheckbox = page.getByTestId(
+      "initial-setup-zip-alphabets-checkbox",
+    );
+    await expect(alphabetCheckbox).toBeVisible();
+    await expect(alphabetCheckbox).toBeChecked();
     await expect(continueBtn).toHaveText("Finish");
 
     // Toggle software presets: Embird (.eof, .ecf) and Hatch (.emb)
@@ -86,9 +91,10 @@ test.describe("first-run initial setup onboarding wizard", () => {
     await expect(page.getByText("Step 3 of 4 — Hoops")).toBeVisible();
 
     await continueBtn.click();
-    await expect(page.getByText("Step 4 of 4 — Design Software")).toBeVisible();
+    await expect(page.getByText("Step 4 of 4 — Import Settings")).toBeVisible();
     await expect(embirdPreset.locator("input")).toBeChecked();
     await expect(hatchPreset.locator("input")).toBeChecked();
+    await expect(alphabetCheckbox).toBeChecked();
 
     // Complete setup wizard
     await continueBtn.click();
@@ -112,5 +118,8 @@ test.describe("first-run initial setup onboarding wizard", () => {
     await expect(
       page.getByTestId("settings-custom-master-formats"),
     ).toHaveValue("can");
+    await expect(
+      page.getByTestId("settings-zip-alphabets-checkbox"),
+    ).toBeChecked();
   });
 });
