@@ -365,32 +365,62 @@
     })()
   );
 
+  /** @param {any} segment */
+  function isIgnoredPathSegment(segment) {
+    const trimmed = String(segment || "").trim();
+    if (!trimmed) return true;
+    if (trimmed.endsWith(":") && trimmed.length <= 3) return true;
+
+    const compact = compactNameForImportMatching(trimmed);
+    if (!compact) return true;
+
+    return (
+      compact === "machineembroiderydesigns" ||
+      compact === "embroiderycatalogue" ||
+      compact === "embroiderycataloguedata" ||
+      compact === "database" ||
+      compact === "data"
+    );
+  }
+
   /** @param {any} pathValue @param {any[]} items */
   function suggestImportMatchFromPath(pathValue, items) {
-    const normalizedPath = normalizeNameForImportMatching(pathValue);
-    const compactPath = compactNameForImportMatching(pathValue);
-    if ((!normalizedPath && !compactPath) || !Array.isArray(items) || items.length === 0) {
+    const text = String(pathValue || "").trim();
+    if (!text || !Array.isArray(items) || items.length === 0) {
       return null;
     }
+
+    const segments = text
+      .split(/[\\/]+/)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment && !isIgnoredPathSegment(segment));
+
     const ignoredNames = new Set(["don't know", "me"]);
     const sorted = [...items]
       .filter((item) => item && typeof item === "object")
       .sort((left, right) => String(right?.name || "").length - String(left?.name || "").length);
 
-    for (const item of sorted) {
-      const rawName = String(item?.name || "").trim();
-      if (!rawName) continue;
-      if (ignoredNames.has(rawName.toLowerCase())) continue;
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const segment = segments[i];
+      const normalizedSegment = normalizeNameForImportMatching(segment);
+      const compactSegment = compactNameForImportMatching(segment);
+      if (!normalizedSegment && !compactSegment) continue;
 
-      const normalizedName = normalizeNameForImportMatching(rawName);
-      const compactName = compactNameForImportMatching(rawName);
-      const strippedCompactName = stripWebAffixesForImportMatching(rawName);
-      if (
-        (normalizedName && normalizedPath.includes(normalizedName)) ||
-        (compactName && compactPath.includes(compactName)) ||
-        (strippedCompactName && compactPath.includes(strippedCompactName))
-      ) {
-        return item;
+      for (const item of sorted) {
+        const rawName = String(item?.name || "").trim();
+        if (!rawName) continue;
+        if (ignoredNames.has(rawName.toLowerCase())) continue;
+
+        const normalizedName = normalizeNameForImportMatching(rawName);
+        const compactName = compactNameForImportMatching(rawName);
+        const strippedCompactName = stripWebAffixesForImportMatching(rawName);
+        if (
+          (normalizedName && normalizedSegment.includes(normalizedName)) ||
+          (compactName && compactSegment.includes(compactName)) ||
+          (strippedCompactName && compactSegment.includes(strippedCompactName))
+        ) {
+          return item;
+        }
       }
     }
     return null;

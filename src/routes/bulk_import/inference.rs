@@ -45,35 +45,73 @@ pub(crate) fn strip_web_affixes_for_import_matching(value: &str) -> String {
     compact
 }
 
+pub(crate) fn is_ignored_path_segment(segment: &str) -> bool {
+    let trimmed = segment.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+
+    if trimmed.ends_with(':') && trimmed.len() <= 3 {
+        return true;
+    }
+
+    let compact = compact_name_for_import_matching(trimmed);
+    if compact.is_empty() {
+        return true;
+    }
+
+    matches!(
+        compact.as_str(),
+        "machineembroiderydesigns"
+            | "embroiderycatalogue"
+            | "embroiderycataloguedata"
+            | "database"
+            | "data"
+    )
+}
+
 pub(crate) fn suggest_reference_id_from_path(
     path_value: &str,
     items: &[(i64, String)],
 ) -> Option<i64> {
-    let normalized_path = normalize_name_for_import_matching(path_value);
-    let compact_path = compact_name_for_import_matching(path_value);
-    if normalized_path.is_empty() && compact_path.is_empty() {
+    if path_value.trim().is_empty() || items.is_empty() {
         return None;
     }
 
-    for (item_id, item_name) in items {
-        let raw_name = item_name.trim();
-        if raw_name.is_empty() {
+    let segments: Vec<&str> = path_value
+        .split(['/', '\\'])
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty() && !is_ignored_path_segment(segment))
+        .collect();
+
+    for segment in segments.into_iter().rev() {
+        let normalized_segment = normalize_name_for_import_matching(segment);
+        let compact_segment = compact_name_for_import_matching(segment);
+        if normalized_segment.is_empty() && compact_segment.is_empty() {
             continue;
         }
 
-        let lowered = raw_name.to_ascii_lowercase();
-        if lowered == "don't know" || lowered == "me" {
-            continue;
-        }
+        for (item_id, item_name) in items {
+            let raw_name = item_name.trim();
+            if raw_name.is_empty() {
+                continue;
+            }
 
-        let normalized_name = normalize_name_for_import_matching(raw_name);
-        let compact_name = compact_name_for_import_matching(raw_name);
-        let stripped_compact_name = strip_web_affixes_for_import_matching(raw_name);
-        if (!normalized_name.is_empty() && normalized_path.contains(&normalized_name))
-            || (!compact_name.is_empty() && compact_path.contains(&compact_name))
-            || (!stripped_compact_name.is_empty() && compact_path.contains(&stripped_compact_name))
-        {
-            return Some(*item_id);
+            let lowered = raw_name.to_ascii_lowercase();
+            if lowered == "don't know" || lowered == "me" {
+                continue;
+            }
+
+            let normalized_name = normalize_name_for_import_matching(raw_name);
+            let compact_name = compact_name_for_import_matching(raw_name);
+            let stripped_compact_name = strip_web_affixes_for_import_matching(raw_name);
+            if (!normalized_name.is_empty() && normalized_segment.contains(&normalized_name))
+                || (!compact_name.is_empty() && compact_segment.contains(&compact_name))
+                || (!stripped_compact_name.is_empty()
+                    && compact_segment.contains(&stripped_compact_name))
+            {
+                return Some(*item_id);
+            }
         }
     }
 

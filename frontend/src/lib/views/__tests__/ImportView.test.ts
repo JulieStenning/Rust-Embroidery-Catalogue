@@ -1263,6 +1263,42 @@ describe("ImportView step 2 reference data and overrides", () => {
     expect(container).toBeTruthy();
   });
 
+  it("prioritises leaf folder over parent folder during path-based suggestion", async () => {
+    adapterMocks.listDesigners.mockResolvedValue(
+      listResponse([
+        { id: 10, name: "Embroidery Designs.com", design_count: 5 },
+        { id: 11, name: "Embroidery Super Deal", design_count: 2 },
+      ])
+    );
+    adapterMocks.previewImportFromRoots.mockResolvedValue(
+      previewResponse({
+        scanned_files: [
+          {
+            full_path: "C:/imports/Embroidery Designs.com/Embroidery Super Deal/rose.pes",
+          },
+        ],
+        folders: [
+          {
+            folder_path: "C:/imports/Embroidery Designs.com/Embroidery Super Deal",
+            file_count: 1,
+            selected_count: 1,
+          },
+        ],
+        resolved_assignments: [],
+      })
+    );
+
+    const { container } = renderHarness("#/import");
+    await gotoStep2(container);
+
+    await waitFor(() => {
+      const option = screen.getByRole("option", {
+        name: "Keep inferred (Embroidery Super Deal)",
+      });
+      expect(option).toBeInTheDocument();
+    });
+  });
+
   it("shows the inferred designer label from resolved assignments", async () => {
     adapterMocks.previewImportFromRoots.mockResolvedValue(
       previewResponse({

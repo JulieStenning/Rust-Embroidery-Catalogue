@@ -631,6 +631,48 @@ fn suggest_reference_id_from_path_matches_compact_names() {
 }
 
 #[test]
+fn suggest_reference_id_from_path_prioritises_leaf_folder_over_parent() {
+    let items = vec![
+        (1, "Embroidery Designs.com".to_string()),
+        (2, "Embroidery Super Deal".to_string()),
+    ];
+
+    let matched = suggest_reference_id_from_path(
+        "C:/imports/Embroidery Designs.com/Embroidery Super Deal",
+        &items,
+    );
+
+    assert_eq!(matched, Some(2));
+}
+
+#[test]
+fn suggest_reference_id_from_path_ignores_library_root_folder_name() {
+    let items = vec![(1, "Embroidery Designs.com".to_string())];
+
+    let matched = suggest_reference_id_from_path(
+        "C:/imports/MachineEmbroideryDesigns/Unknown Folder",
+        &items,
+    );
+
+    assert_eq!(matched, None);
+}
+
+#[test]
+fn suggest_reference_id_from_path_distinguishes_super_deal_from_designs_com() {
+    let items = vec![
+        (1, "Embroidery Designs.com".to_string()),
+        (2, "Embroidery Super Deal".to_string()),
+    ];
+
+    let matched = suggest_reference_id_from_path(
+        "C:/Users/test/AppData/Roaming/EmbroideryCatalogue/MachineEmbroideryDesigns/Embroidery Super Deal",
+        &items,
+    );
+
+    assert_eq!(matched, Some(2));
+}
+
+#[test]
 fn folder_assignment_resolution_uses_wire_defaults_and_inferred_values() {
     let confirm_wire = BulkImportConfirmWire {
         wire: BulkImportWire {

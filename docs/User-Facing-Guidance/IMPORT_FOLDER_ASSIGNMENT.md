@@ -32,6 +32,13 @@ When a design is imported, assignment is applied in this order:
 
 This means explicit folder choices always win.
 
+### Automatic Path Inference Hierarchy
+
+When choosing **Keep inferred**, the application infers Designer and Source by examining folder path segments:
+- **Leaf-First Traversal:** The folder directly containing your design files is evaluated first. Parent directories are only checked if the immediate folder does not match any registered Designer or Source.
+- **Library Root Filtering:** Storage directories such as `MachineEmbroideryDesigns` and `EmbroideryCatalogue` are ignored so standard library paths never trigger false matches.
+- **Specific Matching:** Exact folder names and registered names with web affixes (such as `.com`) match their specific folder without falsely claiming different designers in sub-folders.
+
 ---
 
 ## Create New During Import

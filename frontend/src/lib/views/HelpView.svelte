@@ -144,7 +144,12 @@
         <strong>Live scan progress:</strong> while scanning, the scan button displays real-time counts
         of folders and files discovered as well as catalogue check progress.
       </p>
-      <p><strong>Review and metadata:</strong> set Designer and Source per folder before import.</p>
+      <p>
+        <strong>Review and metadata:</strong> set Designer and Source per folder before import, or keep
+        the automatically inferred values. Inference evaluates folder paths from the immediate containing
+        folder upwards (leaf-first hierarchy), prioritising the folder directly containing your files
+        over parent directories while ignoring catalogue library root folders.
+      </p>
       <p>
         <strong>Tag check before import:</strong> first import asks for tag review, later imports can
         continue directly.
