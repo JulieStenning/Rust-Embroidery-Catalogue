@@ -180,6 +180,30 @@ describe("OrphansView initial data loading", () => {
     ).toBeInTheDocument();
   });
 
+  it("displays scanning indicator and replaces pre-scan boilerplate while scan is running", async () => {
+    let resolveScan!: (val: unknown) => void;
+    adapterMocks.scanOrphans.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveScan = resolve;
+        })
+    );
+
+    render(OrphansView);
+    await waitForLoaded();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Scan Disk" }));
+
+    expect(screen.getAllByText("Scanning disk for orphaned records...")).toHaveLength(2);
+    expect(screen.queryByText("No scan performed yet")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('No scan performed yet. Click "Scan Disk" to check for orphaned records.')
+    ).not.toBeInTheDocument();
+
+    resolveScan(scanResponse());
+    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalled());
+  });
+
   it("renders orphan rows with filename and filepath after user triggers scan", async () => {
     await renderAndScan();
     expect(screen.getByText("rose.pes")).toBeInTheDocument();
@@ -380,13 +404,31 @@ describe("OrphansView delete selected orphans", () => {
     expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1);
   });
 
-  it("refreshes the current page after a successful deletion", async () => {
+  it("refreshes the current page after a partial selective deletion", async () => {
+    await renderAndScan();
+
+    const checkboxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    await fireEvent.click(checkboxes[1]);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Delete selected (1)" }));
+    await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
+    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
+    expect(adapterMocks.getOrphansPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 });
+  });
+
+  it("clears state immediately without rescan when all selected orphans are deleted", async () => {
     await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
     await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
-    await waitFor(() => expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(2));
-    expect(adapterMocks.getOrphansPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 });
+    await waitFor(() => expect(adapterMocks.deleteOrphans).toHaveBeenCalledTimes(1));
+    expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText("0 orphaned record(s) total, page 1 of 1, showing 0")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No orphaned records found. Refresh or scan to check.")
+    ).toBeInTheDocument();
   });
 });
 
@@ -406,14 +448,19 @@ describe("OrphansView delete all orphans", () => {
     expect(toastMocks.addToast).toHaveBeenCalledWith("2 record(s) deleted.", "success");
   });
 
-  it("refreshes page 1 after a successful delete-all", async () => {
+  it("clears state immediately without rescan after a successful delete-all", async () => {
     await renderAndScan();
 
     await fireEvent.click(screen.getByRole("button", { name: "Delete all (2)" }));
     await fireEvent.click(screen.getByTestId("confirm-delete-orphans-button"));
-    await waitFor(() =>
-      expect(adapterMocks.getOrphansPage).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 })
-    );
+    await waitFor(() => expect(adapterMocks.deleteAllOrphans).toHaveBeenCalledTimes(1));
+    expect(adapterMocks.getOrphansPage).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText("0 orphaned record(s) total, page 1 of 1, showing 0")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No orphaned records found. Refresh or scan to check.")
+    ).toBeInTheDocument();
   });
 
   it("does not delete all when the user cancels the confirmation", async () => {

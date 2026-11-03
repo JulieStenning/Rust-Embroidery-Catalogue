@@ -22,6 +22,7 @@
 
   let orphansLoading = $state(false);
   let orphansLoaded = $state(false);
+  let isScanningDisk = $state(false);
   let orphansError = $state("");
   /** @type {import("../types/ipc").OrphanDesignItem[]} */
   let orphanItems = $state([]);
@@ -115,6 +116,15 @@
     showDeleteModal = true;
   }
 
+  function clearOrphanState() {
+    orphanItems = [];
+    orphanSelectedIds = [];
+    orphanTotal = 0;
+    orphanTotalPages = 1;
+    orphanPage = 1;
+    orphansLoaded = true;
+  }
+
   async function handleConfirmDeleteOrphans() {
     if (busyActive || isDeletingOrphans) return;
     isDeletingOrphans = true;
@@ -130,7 +140,7 @@
 
         showDeleteModal = false;
         addToast(`${result.deleted} record(s) deleted.`, "success");
-        await loadOrphansPage(1, true);
+        clearOrphanState();
       } finally {
         endBusy();
         isDeletingOrphans = false;
@@ -149,9 +159,13 @@
 
         showDeleteModal = false;
         addToast(`${result.deleted} record(s) deleted.`, "success");
-        await loadOrphansPage(orphanPage, true);
-        if (orphanPage > orphanTotalPages) {
-          await loadOrphansPage(orphanTotalPages, true);
+        if (orphanSelectedIds.length >= orphanTotal) {
+          clearOrphanState();
+        } else {
+          await loadOrphansPage(orphanPage, true);
+          if (orphanPage > orphanTotalPages) {
+            await loadOrphansPage(orphanTotalPages, true);
+          }
         }
       } finally {
         endBusy();
@@ -175,7 +189,8 @@
   }
 
   async function triggerDiskScan() {
-    if (orphansLoading) return;
+    if (orphansLoading || isScanningDisk) return;
+    isScanningDisk = true;
     orphansLoading = true;
     beginBusy("Scanning disk for orphaned records");
     addToast("Scanning disk for orphaned records...", "info");
@@ -195,6 +210,7 @@
     } catch (e) {
       addToast(`Could not complete scan: ${e}`, "error");
     } finally {
+      isScanningDisk = false;
       orphansLoading = false;
       endBusy();
     }
@@ -239,7 +255,9 @@
       class="flex items-center justify-between text-sm text-[var(--text-secondary)] flex-wrap gap-2"
     >
       <span>
-        {#if orphansLoaded}
+        {#if isScanningDisk}
+          Scanning disk for orphaned records...
+        {:else if orphansLoaded}
           {orphanTotal} orphaned record(s) total, page {orphanPage} of {orphanTotalPages}, showing {orphanItems.length}
         {:else}
           No scan performed yet
@@ -250,10 +268,10 @@
           type="button"
           class="menu-button-primary"
           onclick={triggerDiskScan}
-          disabled={orphansLoading || busyActive}
+          disabled={orphansLoading || isScanningDisk || busyActive}
           data-testid="scan-orphans-button"
         >
-          {orphansLoading ? "Scanning..." : "Scan Disk"}
+          {isScanningDisk ? "Scanning..." : "Scan Disk"}
         </button>
         <button
           type="button"
@@ -314,7 +332,13 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[var(--border-subtle)]">
-          {#if !orphansLoaded}
+          {#if isScanningDisk}
+            <tr>
+              <td colspan="5" class="px-4 py-3 text-[var(--text-muted)]"
+                >Scanning disk for orphaned records...</td
+              >
+            </tr>
+          {:else if !orphansLoaded}
             <tr>
               <td colspan="5" class="px-4 py-3 text-[var(--text-muted)]"
                 >No scan performed yet. Click &quot;Scan Disk&quot; to check for orphaned records.</td

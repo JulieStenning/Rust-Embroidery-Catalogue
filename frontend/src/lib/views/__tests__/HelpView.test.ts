@@ -459,6 +459,11 @@ describe("HelpView", () => {
       expect(section.getByText("Missing Design Files (Orphans):")).toBeInTheDocument();
       expect(section.getByText("What orphaned records are:")).toBeInTheDocument();
       expect(section.getByText("Deleting orphans:")).toBeInTheDocument();
+      expect(
+        section.getByText(
+          /removes database records only, not physical files\. Deleting all orphans clears the list immediately/i
+        )
+      ).toBeInTheDocument();
       expect(section.getByText("Use carefully:")).toBeInTheDocument();
     });
 

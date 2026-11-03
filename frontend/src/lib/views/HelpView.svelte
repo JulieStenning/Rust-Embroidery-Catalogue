@@ -387,7 +387,10 @@
         <strong>What orphaned records are:</strong> database records where design files are no longer
         present.
       </p>
-      <p><strong>Deleting orphans:</strong> removes database records only, not physical files.</p>
+      <p>
+        <strong>Deleting orphans:</strong> removes database records only, not physical files. Deleting
+        all orphans clears the list immediately without requiring another scan.
+      </p>
       <p><strong>Use carefully:</strong> verify files are truly gone before deleting records.</p>
     </div>
   </section>
