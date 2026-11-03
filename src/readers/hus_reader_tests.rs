@@ -657,3 +657,19 @@ fn embcompress_decompress_garbage_does_not_panic() {
 fn hus_reader_no_panic_on_empty_data() {
     let _result = HusReader.read(&[]);
 }
+
+#[test]
+fn test_read_hus_fixture_parses_stitches_regardless_of_hoop_size() {
+    let path = "tests/Test Designs/Cake 3.hus";
+    if !std::path::Path::new(path).exists() {
+        return;
+    }
+    let data = fs::read(path).expect("expected HUS fixture file");
+    let pattern = HusReader
+        .read(&data)
+        .expect("HUS reader must parse stitches cleanly");
+    assert!(pattern.count_stitch_commands(StitchType::Stitch) > 500);
+    let (min_x, min_y, max_x, max_y) = pattern.bounds();
+    assert!((max_x - min_x).abs() > 0.0);
+    assert!((max_y - min_y).abs() > 0.0);
+}

@@ -92,7 +92,8 @@ async fn import_test_pool() -> SqlitePool {
                 file_size_bytes INTEGER,
                 file_hash_blake3 TEXT,
                 master_filepath TEXT,
-                is_master_only INTEGER NOT NULL DEFAULT 0
+                is_master_only INTEGER NOT NULL DEFAULT 0,
+                preview_error TEXT
             );
             "#,
     )

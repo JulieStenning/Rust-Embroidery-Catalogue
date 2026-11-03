@@ -1083,3 +1083,24 @@ fn test_pes_reader_read_truncated_data_returns_error() {
     let err = result.unwrap_err();
     let _ = err.to_string(); // must be printable
 }
+
+#[test]
+fn test_pes_reader_uncompiled_hoop_exceeded_returns_design_exceeds_hoop() {
+    let mut data = Vec::new();
+    data.extend_from_slice(b"#PES0030");
+    data.extend_from_slice(&12u32.to_le_bytes()); // PEC block starts at offset 12
+                                                  // PEC block:
+    data.extend_from_slice(b"LA:");
+    data.extend_from_slice(b"test            "); // 16 bytes
+    data.extend_from_slice(&[0u8; 15]); // 15 bytes
+    data.push(6); // stride
+    data.push(38); // icon height
+    data.extend_from_slice(&[0u8; 12]); // 12 bytes
+    data.push(0xFF); // color_changes = 0xFF (sentinel for design exceeds hoop)
+
+    let reader = PesReader;
+    let result = reader.read(&data);
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("design_exceeds_hoop"));
+}

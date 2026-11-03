@@ -1648,6 +1648,28 @@ describe("DesignDetailView", () => {
       expect(screen.getByText("Open Stitch File")).toBeInTheDocument();
     });
 
+    it("renders design exceeds hoop banner when previewError is design_exceeds_hoop", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          filename: "27-25.pes",
+          filepath: "27-25.pes",
+          isMasterOnly: false,
+          previewError: "design_exceeds_hoop",
+          imageDataUrl: null,
+        })
+      );
+      renderDetail();
+
+      await waitFor(() =>
+        expect(screen.getAllByText("27-25.pes").length).toBeGreaterThanOrEqual(1)
+      );
+      expect(screen.getByTestId("design-exceeds-hoop-banner")).toBeInTheDocument();
+      expect(screen.getByText("Design Exceeds Hoop Area")).toBeInTheDocument();
+      expect(
+        screen.getByText(/This design exceeds the hoop size saved in your embroidery software/i)
+      ).toBeInTheDocument();
+    });
+
     it("calls openDesignMasterInEditor when clicking Open Master File", async () => {
       adapterMocks.openDesignMasterInEditor.mockResolvedValue({
         source: "rust",

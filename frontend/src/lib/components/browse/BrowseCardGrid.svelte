@@ -141,6 +141,20 @@
                     Export to a machine stitch format to generate preview and stitch data.
                   </p>
                 </div>
+              {:else if item.previewError === "design_exceeds_hoop"}
+                <div
+                  class="browse-card-image-frame p-3 flex flex-col items-center justify-center h-48 border-b border-[var(--notice-warn-border)] bg-[var(--notice-warn-bg)] text-center"
+                  data-testid="design-card-exceeds-hoop"
+                >
+                  <span class="text-2xl mb-1" aria-hidden="true">⚠️</span>
+                  <p class="text-xs font-semibold text-[var(--notice-warn-text)] mb-1">
+                    Design Exceeds Hoop Area
+                  </p>
+                  <p class="text-[11px] text-[var(--notice-warn-text)] leading-snug px-2">
+                    Design is larger than the saved hoop. Open in your embroidery software, assign a
+                    larger hoop (or scale to fit), and re-save.
+                  </p>
+                </div>
               {:else if browsePreviewById[item.id]}
                 <div
                   class="browse-card-image-frame p-2 flex items-center justify-center h-48 border-b border-[var(--border-default)] bg-[var(--surface-preview)]"

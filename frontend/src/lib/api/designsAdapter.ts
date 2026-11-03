@@ -95,6 +95,7 @@ function normalizeBrowseItem(
     filepath: String(raw?.filepath || ""),
     master_filepath: raw?.master_filepath == null ? null : String(raw.master_filepath),
     is_master_only: Boolean(raw?.is_master_only),
+    preview_error: raw?.preview_error == null ? null : String(raw.preview_error),
     designer: String(raw?.designer || "Unknown"),
     source: String(raw?.source || "Unknown"),
     projects: Array.isArray(raw?.projects)

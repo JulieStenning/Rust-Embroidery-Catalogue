@@ -84,6 +84,7 @@ pub struct BrowseAdditionalFiltersPayload {
     /// Attention filter mode:
     /// - "all": designs with no stored preview (`image_data IS NULL`)
     /// - "cannot_draw": stitch designs that failed preview generation (`is_master_only = 0 AND image_data IS NULL`)
+    /// - "exceeds_hoop": designs that could not be drawn because they exceed the hoop (`preview_error = 'design_exceeds_hoop'`)
     /// - "master_only": master files without machine sewing files (`is_master_only = 1`)
     /// - "off" / empty / None: no attention filter applied
     #[serde(default, deserialize_with = "deserialize_optional_string_or_bool")]
@@ -426,6 +427,10 @@ pub(crate) fn push_browse_filters(
                     push_where_clause(query_builder, &mut has_where);
                     query_builder
                         .push("COALESCE(d.is_master_only, 0) = 0 AND d.image_data IS NULL");
+                }
+                "exceeds_hoop" => {
+                    push_where_clause(query_builder, &mut has_where);
+                    query_builder.push("d.preview_error = 'design_exceeds_hoop'");
                 }
                 "master_only" => {
                     push_where_clause(query_builder, &mut has_where);

@@ -412,11 +412,13 @@
             <option value="off">Off</option>
             <option value="all">All needing attention</option>
             <option value="cannot_draw">Cannot be drawn (missing preview)</option>
+            <option value="exceeds_hoop">Exceeds hoop area</option>
             <option value="master_only">Master files without stitch files</option>
           </select>
         </label>
         <p class="text-[11px] text-[var(--text-dim)] leading-snug">
-          Filter by designs that cannot be drawn or master files awaiting stitch file export.
+          Filter by designs that cannot be drawn, exceed hoop boundaries, or master files awaiting
+          stitch file export.
         </p>
       </div>
     </div>

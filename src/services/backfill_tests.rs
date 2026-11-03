@@ -18,7 +18,7 @@ async fn make_test_pool() -> SqlitePool {
     for sql in [
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
         "CREATE TABLE tags (id INTEGER PRIMARY KEY, description TEXT NOT NULL, tag_group TEXT)",
-        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0, date_updated TEXT)",
+        "CREATE TABLE designs (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, filepath TEXT NOT NULL, image_data BLOB, image_type TEXT, width_mm INTEGER, height_mm INTEGER, hoop_id INTEGER, stitch_count INTEGER, color_count INTEGER, color_change_count INTEGER, image_tags_verified INTEGER NOT NULL DEFAULT 0, stitching_tags_verified INTEGER NOT NULL DEFAULT 0, vision_ai_analyzed INTEGER NOT NULL DEFAULT 0, vision_ai_matched INTEGER NOT NULL DEFAULT 0, date_updated TEXT, preview_error TEXT)",
         "CREATE TABLE design_tags (design_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, PRIMARY KEY(design_id, tag_id))",
         "CREATE TABLE hoops (id INTEGER PRIMARY KEY, name TEXT NOT NULL, max_width_mm REAL NOT NULL, max_height_mm REAL NOT NULL)",
     ] {

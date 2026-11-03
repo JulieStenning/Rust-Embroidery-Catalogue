@@ -37,6 +37,7 @@ pub struct DesignDetail {
     pub stitching_tags_verified: bool,
     pub date_added: Option<String>,
     pub date_updated: Option<String>,
+    pub preview_error: Option<String>,
     pub tags: Vec<DesignTagDetail>,
     pub projects: Vec<ProjectListItem>,
     pub available_projects: Vec<ProjectListItem>,
@@ -73,6 +74,7 @@ struct DesignDetailRow {
     stitching_tags_verified: bool,
     date_added: Option<String>,
     date_updated: Option<String>,
+    pub preview_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -120,7 +122,8 @@ pub(crate) async fn get_design_detail_with_pool(
 			d.image_tags_verified AS image_tags_verified,
 			d.stitching_tags_verified AS stitching_tags_verified,
 			d.date_added AS date_added,
-			d.date_updated AS date_updated
+			d.date_updated AS date_updated,
+			d.preview_error AS preview_error
 		FROM designs d
 		LEFT JOIN designers ON designers.id = d.designer_id
 		LEFT JOIN sources ON sources.id = d.source_id
@@ -234,6 +237,27 @@ pub(crate) async fn get_design_detail_with_pool(
     .await
     .map_err(|e| e.to_string())?;
 
+    let mut preview_error = row.preview_error;
+    if preview_error.is_none() && row.image_data.is_none() && !row.is_master_only {
+        let full_path = crate::routes::designs::launch::resolve_design_full_path(&row.filepath);
+        if full_path.is_file() {
+            let outcome = crate::services::design_metadata::parse_design_file_lenient(&full_path);
+            if let Some(err) = outcome.error {
+                let code = if err.contains("design_exceeds_hoop") {
+                    "design_exceeds_hoop"
+                } else {
+                    "unreadable"
+                };
+                preview_error = Some(code.to_string());
+                let _ = sqlx::query("UPDATE designs SET preview_error = ? WHERE id = ?")
+                    .bind(code)
+                    .bind(row.id)
+                    .execute(pool)
+                    .await;
+            }
+        }
+    }
+
     Ok(Some(DesignDetail {
         id: row.id,
         filename: row.filename,
@@ -262,6 +286,7 @@ pub(crate) async fn get_design_detail_with_pool(
         stitching_tags_verified: row.stitching_tags_verified,
         date_added: row.date_added,
         date_updated: row.date_updated,
+        preview_error,
         tags,
         projects,
         available_projects,

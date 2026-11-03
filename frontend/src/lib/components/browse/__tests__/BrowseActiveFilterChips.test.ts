@@ -186,6 +186,23 @@ describe("BrowseActiveFilterChips.svelte", () => {
     expect(onUpdateFilter).toHaveBeenCalledWith("needsAttention", "off");
   });
 
+  it("renders needs attention chip for exceeds_hoop", () => {
+    const filters = createDefaultFilters({
+      needsAttention: "exceeds_hoop",
+    });
+
+    render(BrowseActiveFilterChips, {
+      props: {
+        browseFilters: filters,
+        onUpdateFilter: vi.fn(),
+        onToggleFilter: vi.fn(),
+        onClearFilters: vi.fn(),
+      },
+    });
+
+    expect(screen.getByText("Needs attention: Exceeds hoop")).toBeInTheDocument();
+  });
+
   it("calls onClearFilters when clicking Clear all", async () => {
     const onClearFilters = vi.fn();
     const filters = createDefaultFilters({

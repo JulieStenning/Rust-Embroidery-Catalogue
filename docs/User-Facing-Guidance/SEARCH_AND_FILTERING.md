@@ -51,7 +51,7 @@ Click **Additional Filters** to expand advanced criteria:
 - **Stitching Tags Verification:** Filter by **Any**, **Verified only**, or **Unverified only**.
 - **Minimum rating:** Filter by star rating (1★ to 5★).
 - **Stitched status:** Filter by **Stitched** or **Not Stitched**.
-- **Needs attention:** Restrict to designs missing preview images (e.g. unreadable or corrupted files) or master-only outline files awaiting machine stitch file export.
+- **Needs attention:** Choose from **All needing attention**, **Cannot be drawn (missing preview)**, **Exceeds hoop area** (designs larger than the hoop saved in embroidery software), or **Master files without stitch files** awaiting machine stitch file export.
 
 ---
 

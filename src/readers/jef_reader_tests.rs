@@ -337,3 +337,35 @@ fn test_read_jef_stitch_signed8_extremes() {
 
     assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
 }
+
+#[test]
+fn test_read_jef_oversized_exceeds_standard_hoop_succeeds() {
+    // Safety test: verify that when a JEF file has stitch dimensions extending
+    // far beyond standard hoops (e.g. 200x200 mm), JefReader reads all stitches
+    // without truncation or error.
+    let stitch_offset: u32 = 116;
+    let mut data = Vec::with_capacity(180);
+
+    data.extend_from_slice(&stitch_offset.to_le_bytes());
+    data.extend_from_slice(&[0u8; 20]);
+    data.extend_from_slice(&0u32.to_le_bytes());
+    data.extend_from_slice(&[0u8; 88]);
+
+    // 20 stitches moving dx = +100 (10 mm), dy = 0
+    for _ in 0..20 {
+        data.push(100u8);
+        data.push(0u8);
+    }
+    // End of design opcode: 0x80, 0x10
+    data.push(0x80);
+    data.push(0x10);
+
+    let pattern = JefReader
+        .read(&data)
+        .expect("JEF reader must parse oversized designs");
+    assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 20);
+
+    let (min_x, _min_y, max_x, _max_y) = pattern.bounds();
+    let width_mm = ((max_x - min_x).abs()) / 10.0;
+    assert!(width_mm >= 190.0, "Expected width >= 190mm, got {width_mm}");
+}

@@ -1732,6 +1732,7 @@ struct PreviewBatchItem {
     image_type: Option<String>,
     width_mm: Option<i64>,
     height_mm: Option<i64>,
+    preview_error: Option<String>,
 }
 
 async fn generate_preview_item(
@@ -1753,15 +1754,26 @@ async fn generate_preview_item(
         .try_get("filepath")
         .map_err(|e| AppError::database(format!("failed to read filepath: {e}")))?;
     let resolved_path = resolve_stored_design_path(&filepath);
-    let result =
-        design_metadata::parse_design_file(&resolved_path).map_err(AppError::invalid_input)?;
+    let outcome = design_metadata::parse_design_file_lenient(&resolved_path);
+    let preview_error = if outcome.parsed.image_data.is_none() {
+        outcome.error.as_ref().map(|err| {
+            if err.contains("design_exceeds_hoop") {
+                "design_exceeds_hoop".to_string()
+            } else {
+                "unreadable".to_string()
+            }
+        })
+    } else {
+        None
+    };
 
     Ok(Some(PreviewBatchItem {
         design_id,
-        image_data: result.image_data,
-        image_type: result.image_type,
-        width_mm: result.width_mm,
-        height_mm: result.height_mm,
+        image_data: outcome.parsed.image_data,
+        image_type: outcome.parsed.image_type,
+        width_mm: outcome.parsed.width_mm,
+        height_mm: outcome.parsed.height_mm,
+        preview_error,
     }))
 }
 
@@ -1782,13 +1794,15 @@ async fn flush_preview_batch(
 			 SET image_data = ?,
 			     image_type = ?,
 			     width_mm = ?,
-			     height_mm = ?
+			     height_mm = ?,
+			     preview_error = ?
 			 WHERE id = ?",
         )
         .bind(item.image_data)
         .bind(item.image_type)
         .bind(item.width_mm)
         .bind(item.height_mm)
+        .bind(item.preview_error)
         .bind(item.design_id)
         .execute(&mut *tx)
         .await

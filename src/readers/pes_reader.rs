@@ -353,6 +353,12 @@ fn read_pec(
     cursor.seek(SeekFrom::Current(0xC))?;
 
     let color_changes = read_u8(cursor)?;
+    if color_changes == 0xFF {
+        return Err(binrw::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "design_exceeds_hoop",
+        )));
+    }
     let count_colors = color_changes as usize + 1; // PEC uses cc - 1, 0xFF means 0.
     let color_bytes = read_exact(cursor, count_colors)?;
 
@@ -691,7 +697,14 @@ pub struct PesReader;
 impl EmbroideryReader for PesReader {
     fn read(&self, data: &[u8]) -> Result<EmbPattern, crate::error::AppError> {
         read_pes(data)
-            .map_err(|err| crate::error::AppError::parse(format!("PES parse failed: {err}")))
+            .map_err(|err| {
+                let err_msg = err.to_string();
+                if err_msg.contains("design_exceeds_hoop") {
+                    crate::error::AppError::parse("design_exceeds_hoop: Design exceeds hoop boundaries (no compiled machine stitches)")
+                } else {
+                    crate::error::AppError::parse(format!("PES parse failed: {err}"))
+                }
+            })
     }
 }
 

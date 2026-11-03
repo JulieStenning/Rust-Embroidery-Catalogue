@@ -668,6 +668,26 @@
               folder to enable automatic previews, stitch counts, and hoop calculations.
             </p>
           </div>
+        {:else if detailItem.previewError === "design_exceeds_hoop"}
+          <div
+            class="route-card border border-[var(--notice-warn-border)] bg-[var(--notice-warn-bg)] p-4 text-center"
+            data-testid="design-exceeds-hoop-banner"
+          >
+            <span class="text-2xl mb-1 inline-block" aria-hidden="true">⚠️</span>
+            <p class="text-sm font-semibold text-[var(--notice-warn-text)]">
+              Design Exceeds Hoop Area
+            </p>
+            <p
+              class="text-xs text-[var(--notice-warn-text)] mt-1.5 leading-relaxed max-w-md mx-auto"
+            >
+              This design exceeds the hoop size saved in your embroidery software. As a result, no
+              machine stitches were compiled into the file and a preview cannot be drawn.
+            </p>
+            <p class="text-xs text-[var(--notice-warn-text)] mt-1 font-medium">
+              Use “Open in Editor” below to assign a larger hoop (or scale the design to fit within
+              the hoop), re-save, and then click “Generate Preview”.
+            </p>
+          </div>
         {:else if detailItem.imageDataUrl}
           <img
             src={detailItem.imageDataUrl}

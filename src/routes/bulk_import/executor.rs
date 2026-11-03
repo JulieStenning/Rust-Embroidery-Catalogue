@@ -112,6 +112,17 @@ async fn persist_stitch_design(
     );
     let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
     let file_hash_blake3: Option<String> = compute_file_hash_blake3(&stored_path).ok();
+    let preview_error: Option<&str> = if image_result.image_data.is_none() {
+        image_result.error.as_deref().map(|err| {
+            if err.contains("design_exceeds_hoop") {
+                "design_exceeds_hoop"
+            } else {
+                "unreadable"
+            }
+        })
+    } else {
+        None
+    };
 
     let (design_id, db_insert_elapsed_ms) = if let Some(id) = existing_design_id {
         let t_insert = Instant::now();
@@ -124,7 +135,7 @@ async fn persist_stitch_design(
              hoop_id = ?, image_data = ?, image_type = ?, width_mm = ?, height_mm = ?, \
              stitch_count = ?, color_count = ?, color_change_count = ?, \
              is_stitched = 0, stitching_tags_verified = 0, \
-             file_size_bytes = ?, file_hash_blake3 = ? \
+             file_size_bytes = ?, file_hash_blake3 = ?, preview_error = ? \
              WHERE id = ?",
         )
         .bind(&filename)
@@ -142,6 +153,7 @@ async fn persist_stitch_design(
         .bind(image_result.color_change_count)
         .bind(file_size_bytes)
         .bind(file_hash_blake3.as_ref())
+        .bind(preview_error)
         .bind(id)
         .execute(&mut **tx)
         .await
@@ -171,7 +183,7 @@ async fn persist_stitch_design(
     } else {
         let t_insert = Instant::now();
         let insert_result = sqlx::query(
-            "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, date_updated, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3) VALUES (?, ?, ?, 0, datetime('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)",
+            "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, date_added, date_updated, designer_id, source_id, hoop_id, image_data, image_type, width_mm, height_mm, stitch_count, color_count, color_change_count, is_stitched, image_tags_verified, stitching_tags_verified, file_size_bytes, file_hash_blake3, preview_error) VALUES (?, ?, ?, 0, datetime('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?)",
         )
         .bind(&filename)
         .bind(stored_filepath)
@@ -188,6 +200,7 @@ async fn persist_stitch_design(
         .bind(image_result.color_change_count)
         .bind(file_size_bytes)
         .bind(file_hash_blake3.as_ref())
+        .bind(preview_error)
         .execute(&mut **tx)
         .await
         .map_err(|e| e.to_string())?;

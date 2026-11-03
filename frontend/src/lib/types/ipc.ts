@@ -13,8 +13,8 @@ export interface BrowseAdditionalFilters {
   max_height?: number | null;
   min_rating?: number | null;
   stitched_status?: "all" | "yes" | "no" | null;
-  /** Attention filter mode: "off" | "all" | "cannot_draw" | "master_only" */
-  needs_attention?: "off" | "all" | "cannot_draw" | "master_only" | string | null;
+  /** Attention filter mode: "off" | "all" | "cannot_draw" | "exceeds_hoop" | "master_only" */
+  needs_attention?: "off" | "all" | "cannot_draw" | "exceeds_hoop" | "master_only" | string | null;
   image_tag_verification?: "all" | "verified" | "unverified" | string | null;
   stitching_tag_verification?: "all" | "verified" | "unverified" | string | null;
 }
@@ -60,7 +60,7 @@ export interface BrowseFilterState {
   verificationStatus: "all" | "unverified" | "verified" | "partial" | string;
   imageTagVerification: "all" | "verified" | "unverified" | string;
   stitchingTagVerification: "all" | "verified" | "unverified" | string;
-  needsAttention: "off" | "all" | "cannot_draw" | "master_only" | string;
+  needsAttention: "off" | "all" | "cannot_draw" | "exceeds_hoop" | "master_only" | string;
   searchFilename: boolean;
   searchTags: boolean;
   searchFolder: boolean;
@@ -163,6 +163,7 @@ export interface BrowseDesignSummaryWire {
   rating: number | null;
   date_added?: string | null;
   date_updated?: string | null;
+  preview_error?: string | null;
 }
 
 export interface BrowseDesignCard {
@@ -171,6 +172,7 @@ export interface BrowseDesignCard {
   filepath: string;
   masterFilepath?: string | null;
   isMasterOnly?: boolean;
+  previewError?: string | null;
   designer: string;
   source: string;
   hoop: string;
@@ -250,6 +252,7 @@ export interface DesignDetailWire {
   stitching_tags_verified: boolean;
   date_added: string | null;
   date_updated?: string | null;
+  preview_error?: string | null;
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
   available_projects: ProjectListItem[];
@@ -265,6 +268,7 @@ export interface DesignDetail {
   filepath: string;
   masterFilepath?: string | null;
   isMasterOnly?: boolean;
+  previewError?: string | null;
   imageType: string | null;
   imageDataUrl: string | null;
   widthMm: number | null;
@@ -1272,6 +1276,7 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     filepath: String(wire.filepath || ""),
     masterFilepath: wire.master_filepath ?? null,
     isMasterOnly: Boolean(wire.is_master_only),
+    previewError: wire.preview_error ?? null,
     imageType: wire.image_type ?? null,
     imageDataUrl: wire.image_data_url ?? null,
     widthMm: wire.width_mm ?? null,

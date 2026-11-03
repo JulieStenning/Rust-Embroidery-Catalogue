@@ -354,6 +354,7 @@
       stitchingTagsVerified: Boolean(item.stitching_tags_verified),
       masterFilepath: item.master_filepath ?? null,
       isMasterOnly: Boolean(item.is_master_only),
+      previewError: item.preview_error ?? null,
       projects,
       imageTags,
       stitchingTags,

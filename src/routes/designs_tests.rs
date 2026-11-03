@@ -484,7 +484,8 @@ async fn test_pool() -> SqlitePool {
 				source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
 				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL,
 				master_filepath VARCHAR(1000),
-				is_master_only BOOLEAN NOT NULL DEFAULT 0
+				is_master_only BOOLEAN NOT NULL DEFAULT 0,
+				preview_error TEXT
 			);
 			"#,
     )
@@ -2795,7 +2796,16 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
     .await
     .expect("seed master-only design");
 
-    // 1. "all" mode matches rose.pes (no preview), no_preview.pes, and master_only.art.
+    // A stitch design that failed preview generation because it exceeds hoop boundaries.
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, date_added, is_master_only, preview_error) \
+         VALUES ('oversized.pes', 'Folder/oversized.pes', DATE('now'), 0, 'design_exceeds_hoop')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed oversized design");
+
+    // 1. "all" mode matches rose.pes (no preview), no_preview.pes, master_only.art, and oversized.pes.
     let result_all = get_designs_page_with_pool(
         &pool,
         Some(GetDesignsPayload {
@@ -2809,7 +2819,7 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
     .await
     .expect("browse needs-attention all query should succeed");
 
-    assert_eq!(result_all.total, 3);
+    assert_eq!(result_all.total, 4);
     let filenames_all: Vec<&str> = result_all
         .items
         .iter()
@@ -2818,9 +2828,10 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
     assert!(filenames_all.contains(&"rose.pes"));
     assert!(filenames_all.contains(&"no_preview.pes"));
     assert!(filenames_all.contains(&"master_only.art"));
+    assert!(filenames_all.contains(&"oversized.pes"));
     assert!(!filenames_all.contains(&"with_preview.pes"));
 
-    // 2. "cannot_draw" mode matches only stitch designs with missing previews (rose.pes and no_preview.pes).
+    // 2. "cannot_draw" mode matches stitch designs with missing previews (rose.pes, no_preview.pes, and oversized.pes).
     let result_cannot_draw = get_designs_page_with_pool(
         &pool,
         Some(GetDesignsPayload {
@@ -2834,7 +2845,7 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
     .await
     .expect("browse needs-attention cannot_draw query should succeed");
 
-    assert_eq!(result_cannot_draw.total, 2);
+    assert_eq!(result_cannot_draw.total, 3);
     let filenames_cannot_draw: Vec<&str> = result_cannot_draw
         .items
         .iter()
@@ -2842,6 +2853,7 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
         .collect();
     assert!(filenames_cannot_draw.contains(&"rose.pes"));
     assert!(filenames_cannot_draw.contains(&"no_preview.pes"));
+    assert!(filenames_cannot_draw.contains(&"oversized.pes"));
     assert!(!filenames_cannot_draw.contains(&"master_only.art"));
     assert!(!filenames_cannot_draw.contains(&"with_preview.pes"));
 
@@ -2861,6 +2873,23 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
 
     assert_eq!(result_master_only.total, 1);
     assert_eq!(result_master_only.items[0].filename, "master_only.art");
+
+    // 4. "exceeds_hoop" mode matches only designs with preview_error = 'design_exceeds_hoop'.
+    let result_exceeds_hoop = get_designs_page_with_pool(
+        &pool,
+        Some(GetDesignsPayload {
+            additional_filters: Some(BrowseAdditionalFiltersPayload {
+                needs_attention: Some("exceeds_hoop".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("browse needs-attention exceeds_hoop query should succeed");
+
+    assert_eq!(result_exceeds_hoop.total, 1);
+    assert_eq!(result_exceeds_hoop.items[0].filename, "oversized.pes");
 }
 
 // ---------------------------------------------------------------------------
@@ -3250,4 +3279,52 @@ async fn browse_sort_by_folder_groups_by_directory_and_sorts_filename_asc() {
     assert!(d_pos_zebra < d_pos_grizzly);
     // Crucial: inside Animals/Bears, secondary sort is STILL filename ASC!
     assert!(d_pos_black_bear < d_pos_grizzly);
+}
+
+#[tokio::test]
+async fn oversized_non_pes_designs_do_not_produce_hoop_exceeded_preview_error() {
+    let pool = test_pool().await;
+
+    // Create a synthetic DST design buffer with dimensions of ~230mm
+    // (exceeding standard hoops like 100x100mm and 130x180mm).
+    let mut data = vec![0u8; 512];
+    for _ in 0..20 {
+        data.push(0x05);
+        data.push(0x05);
+        data.push(0x04);
+    }
+    data.push(0x00);
+    data.push(0x00);
+    data.push(0xF3);
+
+    // Reading the pattern succeeds and accurately records the oversized bounds.
+    let pattern =
+        crate::readers::dst_reader::read_dst(&data).expect("DstReader must parse oversized design");
+    let (min_x, _min_y, max_x, _max_y) = pattern.bounds();
+    let width_mm = ((max_x - min_x).abs()) / 10.0;
+    assert!(width_mm > 200.0, "Expected width > 200mm, got {width_mm}");
+
+    // In reference data, no hoop fits 230mm width, so recommend_hoop returns None.
+    let recommended_hoop = crate::services::design_metadata::recommend_hoop_for_design(
+        &pool,
+        Some(width_mm.round() as i64),
+        Some(10),
+    )
+    .await
+    .expect("hoop recommendation query");
+    assert!(
+        recommended_hoop.is_none(),
+        "Expected no fitting hoop for oversized design"
+    );
+
+    // Rendering preview PNG succeeds completely.
+    let rendered = crate::png_writer::render_pattern_to_png(
+        &pattern,
+        &crate::png_writer::RenderSettings::default(),
+    );
+    assert!(
+        rendered.is_ok(),
+        "Preview rendering must succeed for oversized non-PES designs"
+    );
+    assert!(!rendered.unwrap().is_empty());
 }

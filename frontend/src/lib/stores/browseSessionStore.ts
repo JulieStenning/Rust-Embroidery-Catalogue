@@ -121,7 +121,9 @@ function createBrowseSessionStore() {
      * Pre-apply the "Needs attention" filter so navigating to Browse opens directly on designs
      * whose preview could not be generated (no stored preview) or matching a given mode. Resets all other filters/page.
      */
-    focusNeedsAttention(mode: "all" | "cannot_draw" | "master_only" = "cannot_draw") {
+    focusNeedsAttention(
+      mode: "all" | "cannot_draw" | "exceeds_hoop" | "master_only" = "cannot_draw"
+    ) {
       set({
         filters: { ...defaultFilters(), needsAttention: mode },
         currentPage: 1,

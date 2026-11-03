@@ -163,6 +163,8 @@
         let label = "Needs attention: All";
         if (browseFilters.needsAttention === "cannot_draw") {
           label = "Needs attention: Cannot be drawn";
+        } else if (browseFilters.needsAttention === "exceeds_hoop") {
+          label = "Needs attention: Exceeds hoop";
         } else if (browseFilters.needsAttention === "master_only") {
           label = "Needs attention: Master files only";
         }

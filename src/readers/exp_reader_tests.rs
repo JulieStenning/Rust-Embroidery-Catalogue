@@ -364,3 +364,25 @@ fn test_read_exp_stitch_signed8_extremes() {
 
     assert_eq!(pattern.count_stitch_commands(StitchType::End), 1);
 }
+
+#[test]
+fn test_read_exp_oversized_exceeds_standard_hoop_succeeds() {
+    // Safety test: verify that when an EXP file has stitch dimensions extending
+    // far beyond standard hoops (e.g. 200x200 mm), ExpReader reads all stitches
+    // without truncation or error.
+    let mut data = Vec::new();
+    // 20 stitches each moving dx = +100 (10 mm), dy = 0
+    for _ in 0..20 {
+        data.push(100u8);
+        data.push(0u8);
+    }
+
+    let pattern = ExpReader
+        .read(&data)
+        .expect("EXP reader must parse oversized designs");
+    assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 20);
+
+    let (min_x, _min_y, max_x, _max_y) = pattern.bounds();
+    let width_mm = ((max_x - min_x).abs()) / 10.0;
+    assert!(width_mm >= 190.0, "Expected width >= 190mm, got {width_mm}");
+}

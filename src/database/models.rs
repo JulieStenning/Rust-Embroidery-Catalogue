@@ -72,6 +72,7 @@ pub struct Design {
     pub file_hash_blake3: Option<String>,
     pub master_filepath: Option<String>,
     pub is_master_only: bool,
+    pub preview_error: Option<String>,
 }
 
 /// A project record.

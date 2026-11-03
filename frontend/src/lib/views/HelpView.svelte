@@ -116,6 +116,15 @@
         or stitching tags as needed).
       </p>
       <p>
+        <strong>Missing previews &amp; hoop boundaries:</strong> if a design card displays
+        <em>Design Exceeds Hoop Area</em>, the design is larger than the hoop saved in its
+        embroidery software, leaving machine stitches uncompiled. You can quickly isolate all such
+        designs by selecting
+        <em>Exceeds hoop area</em> in the <strong>Needs attention</strong> filter. Open the design in
+        your embroidery editor, assign a larger hoop (or scale the design to fit), re-save, and regenerate
+        the preview.
+      </p>
+      <p>
         <strong>Full guide:</strong> open the
         <a
           href="#/about/document/browse-bulk-actions"

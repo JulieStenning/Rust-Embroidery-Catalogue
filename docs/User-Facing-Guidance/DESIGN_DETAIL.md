@@ -128,6 +128,7 @@ Notes:
 
 | Problem | What to do |
 |---|---|
+| Preview shows "Design Exceeds Hoop Area" | The design is larger than the hoop saved in your embroidery software, leaving machine stitches uncompiled. Click **Open in Editor**, choose a larger hoop (or scale the design to fit), re-save the file, and then click **Generate Preview**. |
 | Preview is missing | Click **Generate 3D Preview**. If it still fails, confirm the source file still exists. |
 | Open in Editor does nothing | Check file association on Windows for that embroidery format and try again. |
 | Show in Explorer opens folder but not selected file | The file may no longer exist at the stored path; verify managed storage location and file presence. |

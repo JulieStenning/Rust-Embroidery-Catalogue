@@ -1287,6 +1287,14 @@ describe("BrowseView", () => {
         expect(lastPayload.additional_filters?.needs_attention).toBe("cannot_draw");
       });
 
+      await fireEvent.change(needsSelect, { target: { value: "exceeds_hoop" } });
+
+      await waitFor(() => {
+        const calls = adapterMocks.getBrowseDesigns.mock.calls;
+        const lastPayload = calls[calls.length - 1]?.[0] || {};
+        expect(lastPayload.additional_filters?.needs_attention).toBe("exceeds_hoop");
+      });
+
       await fireEvent.change(needsSelect, { target: { value: "master_only" } });
 
       await waitFor(() => {
@@ -1735,7 +1743,7 @@ describe("BrowseView", () => {
 
     it("disables modal controls and shows 'Applying tags...' while bulkSetTagsForDesigns is in-flight", async () => {
       adapterMocks.getBrowseTags.mockResolvedValue(listResponse([tagOption(1, "Floral", "image")]));
-      let resolvePromise: (val: any) => void = () => {};
+      let resolvePromise: (val: unknown) => void = () => {};
       const pendingPromise = new Promise((resolve) => {
         resolvePromise = resolve;
       });
@@ -3128,6 +3136,27 @@ describe("BrowseView", () => {
 
       expect(await screen.findByText("flower.pes")).toBeInTheDocument();
       expect(screen.getByText("🎨 Master: .eof")).toBeInTheDocument();
+    });
+
+    it("renders design exceeds hoop banner when preview_error is design_exceeds_hoop", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          {
+            id: 103,
+            filename: "27-25.pes",
+            filepath: "27-25.pes",
+            is_master_only: false,
+            preview_error: "design_exceeds_hoop",
+          },
+        ])
+      );
+
+      renderBrowse();
+
+      expect(await screen.findByText("27-25.pes")).toBeInTheDocument();
+      expect(screen.getByTestId("design-card-exceeds-hoop")).toBeInTheDocument();
+      expect(screen.getByText("Design Exceeds Hoop Area")).toBeInTheDocument();
+      expect(screen.getByText(/Design is larger than the saved hoop/i)).toBeInTheDocument();
     });
   });
 });

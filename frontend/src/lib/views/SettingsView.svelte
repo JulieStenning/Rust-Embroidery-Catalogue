@@ -739,7 +739,9 @@
           class="border-b border-[var(--border-default)] pb-6"
           data-testid="settings-appearance-section"
         >
-          <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+          <h2
+            class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+          >
             <span>🎨</span>
             <span>Appearance</span>
           </h2>
@@ -799,13 +801,15 @@
           data-testid="settings-gemini-section"
         >
           <div>
-            <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+            >
               <span>✨</span>
               <span>Google Gemini &amp; AI Tagging</span>
             </h2>
             <p class="text-sm text-[var(--text-secondary)]">
-              The Google API key is only required if you want your designs to be tagged automatically
-              by Google AI in Batch Operations.
+              The Google API key is only required if you want your designs to be tagged
+              automatically by Google AI in Batch Operations.
               <a href={settingsHelpUrl} class="text-[var(--text-brand)] hover:underline"
                 >Press here for more information.</a
               >
@@ -845,7 +849,8 @@
               {#if settingsHasGoogleApiKey}
                 A key is currently saved. You can leave it as-is or replace it here.
               {:else}
-                Leave this blank if you only want File &amp; Folder Rules tagging with no Google AI calls.
+                Leave this blank if you only want File &amp; Folder Rules tagging with no Google AI
+                calls.
               {/if}
             </p>
           </div>
@@ -935,8 +940,8 @@
               for="settings-ai-delay"
               class="block text-sm font-semibold text-[var(--text-secondary)] mb-1"
             >
-              Delay between Gemini calls (seconds) <span class="font-normal text-[var(--text-muted)]"
-                >(optional)</span
+              Delay between Gemini calls (seconds) <span
+                class="font-normal text-[var(--text-muted)]">(optional)</span
               >
             </label>
             <input
@@ -952,8 +957,8 @@
               Seconds to wait between API calls. Increase this if you see <em
                 >429 Too Many Requests</em
               >
-              errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies to
-              batch operations on the
+              errors. Leave blank for the default ({settingsDefaultDelay} s) shown above. Also applies
+              to batch operations on the
               <a href="#/admin/batch-operations" class="text-[var(--text-brand)] hover:underline"
                 >Batch Operations</a
               > page.
@@ -1017,13 +1022,16 @@
           data-testid="settings-db-maintenance-section"
         >
           <div>
-            <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+            >
               <span>🗄️</span>
               <span>Database Maintenance</span>
             </h2>
             <p class="text-sm text-[var(--text-secondary)]">
-              Monitor SQLite database storage usage, configure automatic background checks, and compact
-              unused space to keep the catalogue fast. Your embroidery files are never modified.
+              Monitor SQLite database storage usage, configure automatic background checks, and
+              compact unused space to keep the catalogue fast. Your embroidery files are never
+              modified.
             </p>
           </div>
 
@@ -1032,7 +1040,9 @@
               <div
                 class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded p-3"
               >
-                <p class="text-xs font-semibold text-[var(--text-muted)] uppercase">Database size</p>
+                <p class="text-xs font-semibold text-[var(--text-muted)] uppercase">
+                  Database size
+                </p>
                 <p class="text-lg font-bold text-[var(--text-primary)]">
                   {formatBytes(dbStats.file_size_bytes)}
                 </p>
@@ -1090,7 +1100,8 @@
               {#if dbStats && dbStats.file_size_bytes > 0}
                 Requires at least {formatBytes(dbStats.file_size_bytes)} of free space on {databaseLocationDrive}.
               {:else}
-                Requires free space on {databaseLocationDrive} equal to at least the current database size.
+                Requires free space on {databaseLocationDrive} equal to at least the current database
+                size.
               {/if}
             </p>
           </div>
@@ -1124,7 +1135,9 @@
           data-testid="settings-catalogue-storage-section"
         >
           <div>
-            <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+            >
               <span>💾</span>
               <span>Catalogue Storage</span>
             </h2>
@@ -1167,36 +1180,41 @@
                 </button>
               </div>
               <p class="mt-1 text-xs text-[var(--text-muted)]">
-                Points to the design library folder (MachineEmbroideryDesigns). Selecting a new location
-                safely migrates your database and design files, then restarts the app.
+                Points to the design library folder (MachineEmbroideryDesigns). Selecting a new
+                location safely migrates your database and design files, then restarts the app.
               </p>
             </div>
           {/if}
 
-          <div class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 text-xs">
+          <div
+            class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 space-y-3 text-xs"
+          >
             <h3 class="font-semibold text-[var(--text-primary)] uppercase tracking-wide">
               Active Storage Locations
             </h3>
             <div>
               <span class="block text-[var(--text-muted)] font-medium mb-0.5">Data Root</span>
-              <code class="block font-mono text-[var(--text-secondary)] break-all">{settingsDataRoot}</code>
+              <code class="block font-mono text-[var(--text-secondary)] break-all"
+                >{settingsDataRoot}</code
+              >
             </div>
             <div>
               <span class="block text-[var(--text-muted)] font-medium mb-0.5">Database File</span>
-              <code class="block font-mono text-[var(--text-secondary)] break-all">{settingsDatabasePath}</code>
+              <code class="block font-mono text-[var(--text-secondary)] break-all"
+                >{settingsDatabasePath}</code
+              >
             </div>
             <div>
               <span class="block text-[var(--text-muted)] font-medium mb-0.5">Log Folder</span>
-              <code class="block font-mono text-[var(--text-secondary)] break-all">{settingsLogFolder}</code>
+              <code class="block font-mono text-[var(--text-secondary)] break-all"
+                >{settingsLogFolder}</code
+              >
             </div>
           </div>
         </div>
 
         <!-- 5. Digitising & Format Rules -->
-        <div
-          class="space-y-5"
-          data-testid="settings-format-rules-section"
-        >
+        <div class="space-y-5" data-testid="settings-format-rules-section">
           <div data-testid="settings-master-formats-section">
             <h2
               class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
@@ -1290,8 +1308,8 @@
                 <span class="text-xs text-[var(--text-secondary)] block mt-0.5">
                   When enabled, imports detect alphabet collections and compress the full font set
                   into a companion .zip archive (or copy an existing companion .zip) in the designs
-                  folder. Only representative preview glyphs (Upper A, Lower a, 9, and all punctuation
-                  &amp; symbol glyphs) for each size are catalogued in the database.
+                  folder. Only representative preview glyphs (Upper A, Lower a, 9, and all
+                  punctuation &amp; symbol glyphs) for each size are catalogued in the database.
                 </span>
               </div>
             </label>
@@ -1299,7 +1317,9 @@
         </div>
 
         <!-- Product Licence Navigation Note -->
-        <div class="border-t border-[var(--border-default)] pt-4 flex items-center justify-between text-xs text-[var(--text-muted)]">
+        <div
+          class="border-t border-[var(--border-default)] pt-4 flex items-center justify-between text-xs text-[var(--text-muted)]"
+        >
           <p>
             Looking to manage your product licence registration?
             <a href="#/about" class="text-[var(--text-brand)] hover:underline font-medium">

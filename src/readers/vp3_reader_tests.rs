@@ -477,3 +477,20 @@ fn vp3_peacock_fixture_stitch_diagnostics() {
         "expected implausibly long VP3 connector deltas to be classified as jumps"
     );
 }
+
+#[test]
+fn test_read_vp3_fixture_larger_than_small_hoop_succeeds() {
+    let file_path = PathBuf::from("tests")
+        .join("Test Designs")
+        .join("01Peacock.vp3");
+    if !file_path.exists() {
+        return;
+    }
+    let data = fs::read(&file_path).expect("should read VP3 fixture");
+    let pattern = Vp3Reader.read(&data).expect("VP3 reader must parse design");
+    let (min_x, min_y, max_x, max_y) = pattern.bounds();
+    let width_mm = ((max_x - min_x).abs()) / 10.0;
+    let height_mm = ((max_y - min_y).abs()) / 10.0;
+    assert!(width_mm > 100.0 || height_mm > 100.0);
+    assert!(pattern.count_stitch_commands(StitchType::Stitch) > 1000);
+}
