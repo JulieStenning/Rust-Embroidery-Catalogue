@@ -120,6 +120,7 @@ pub(crate) struct TagComputeResult {
 /// that errors propagates the error and does NOT mark that mode as analyzed (so
 /// it is retried on a later run). The caller applies the result later in a batched
 /// write (see [`apply_tagging_batch`]).
+#[allow(dead_code)]
 pub(crate) async fn compute_tags_for_input(
     filename: &str,
     filepath: &str,
@@ -129,17 +130,41 @@ pub(crate) async fn compute_tags_for_input(
     mode_options: &TaggingModeOptions,
     gemini: Option<&GeminiClient>,
 ) -> Result<TagComputeResult, AppError> {
+    compute_tags_for_input_with_exclusions(
+        filename,
+        filepath,
+        image_data,
+        valid_descriptions,
+        synonyms,
+        mode_options,
+        gemini,
+        &[],
+    )
+    .await
+}
+
+pub(crate) async fn compute_tags_for_input_with_exclusions(
+    filename: &str,
+    filepath: &str,
+    image_data: Option<&[u8]>,
+    valid_descriptions: &HashSet<String>,
+    synonyms: &HashMap<String, Vec<String>>,
+    mode_options: &TaggingModeOptions,
+    gemini: Option<&GeminiClient>,
+    excluded_names: &[&str],
+) -> Result<TagComputeResult, AppError> {
     let mut merged: Vec<String> = Vec::new();
     let mut vision_ai_analyzed = false;
     let mut vision_ai_matched = false;
 
     // File & Folder Rules — offline path/name matching (never an API call).
     if mode_options.path_rule_enabled {
-        merged.extend(tagging::suggest_path_rule_descriptions(
+        merged.extend(tagging::suggest_path_rule_descriptions_with_exclusions(
             filename,
             filepath,
             valid_descriptions,
             synonyms,
+            excluded_names,
         ));
     }
 

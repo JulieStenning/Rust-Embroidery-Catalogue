@@ -189,6 +189,41 @@ describe("TagWordMatchesView.svelte", () => {
     expect(screen.getByText(/Already added: frog/i)).toBeInTheDocument();
   });
 
+  it("warns and disables submit when typing prohibited domain terms or self-synonyms", async () => {
+    render(TagWordMatchesView);
+
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const comboboxInput = screen.getByPlaceholderText("Search for a tag...");
+    await fireEvent.focus(comboboxInput);
+    await tick();
+
+    const animalsOption = screen
+      .getAllByRole("option")
+      .find((el) => el.textContent?.includes("Animals"));
+    await fireEvent.click(animalsOption!);
+    await tick();
+
+    const wordsInput = screen.getByPlaceholderText(/Enter words separated by commas/i);
+    const submitBtn = screen.getByRole("button", { name: "Add Match" });
+
+    // 1. Prohibited domain term: embroidery
+    await fireEvent.input(wordsInput, { target: { value: "embroidery" } });
+    await tick();
+    expect(
+      screen.getByText(/Universal domain terms cannot be mapped: embroidery/i)
+    ).toBeInTheDocument();
+    expect(submitBtn).toBeDisabled();
+
+    // 2. Self-synonym: animal
+    await fireEvent.input(wordsInput, { target: { value: "animal" } });
+    await tick();
+    expect(
+      screen.getByText(/Automatically matched from tag name: animal/i)
+    ).toBeInTheDocument();
+    expect(submitBtn).toBeDisabled();
+  });
+
   it("displays empty state message when selecting a tag with no existing matches", async () => {
     render(TagWordMatchesView);
 

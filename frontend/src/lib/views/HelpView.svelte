@@ -215,6 +215,15 @@
         and punctuation) and <strong>Words</strong> (quotes, phrases, sayings, and typography).
       </p>
       <p>
+        <strong>Folder hierarchies &amp; supplier masking:</strong> broad category folders
+        (such as <em>Animals</em> or <em>Floral</em>) higher up in your folder structure are
+        retained and accurately tagged. When a folder segment matches an assigned or inferred
+        <strong>Source</strong> (e.g. a supplier or store name like <em>Embroidery Super Deal</em> or
+        <em>Urban Threads</em>), that folder name is automatically masked out so commercial brand words
+        do not create spurious tags. Generic medium terms (such as <em>embroidery</em> and
+        <em>stitch</em>) and format directories (such as <em>JEF</em> or <em>PES</em>) are also ignored.
+      </p>
+      <p>
         <strong>Manage matches:</strong> open
         <a href="#/admin/data/tag-matches" class="text-[var(--text-brand)] hover:underline"
           >Admin → Manage Data → Word Matches</a

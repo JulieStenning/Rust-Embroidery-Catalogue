@@ -127,29 +127,136 @@ fn token_matches_in_path(token: &str, path_tokens: &HashSet<String>) -> bool {
 
 // ─── Primary matching logic ──────────────────────────────────────────────
 
-/// Given a filename, full filepath, the set of valid tag descriptions from
-/// the database, and the dynamic synonym map (keyword -> list of tag descriptions),
-/// return the sorted list of descriptions that match.
-///
-/// Matching is **any-token OR**: if **any single** significant token of a tag
-/// description or configured word-match appears in the path (in singular or plural form),
-/// the tag is assigned.
-pub fn suggest_path_rule_descriptions(
+const DOMAIN_STOP_WORDS: &[&str] = &[
+    "embroidery",
+    "embroidered",
+    "embroideries",
+    "stitch",
+    "stitched",
+    "stitches",
+    "stitching",
+];
+
+/// Check whether a folder path segment should be ignored during tag matching.
+/// Discards drive roots, container roots, technical machine embroidery format folders,
+/// and excluded supplier/source/designer names.
+pub fn is_ignored_path_segment(segment: &str, excluded_names: &[&str]) -> bool {
+    let trimmed = segment.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    // Drive roots like "C:" or "F:"
+    if trimmed.ends_with(':') && trimmed.len() <= 3 {
+        return true;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let compact: String = lower
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect();
+    if compact.is_empty() {
+        return true;
+    }
+
+    // Container and data roots
+    if matches!(
+        compact.as_str(),
+        "machineembroiderydesigns"
+            | "embroiderycatalogue"
+            | "embroiderycataloguedata"
+            | "database"
+            | "data"
+    ) {
+        return true;
+    }
+
+    // Common machine embroidery format folders
+    if matches!(
+        compact.as_str(),
+        "jef"
+            | "pes"
+            | "dst"
+            | "exp"
+            | "vip"
+            | "vp3"
+            | "hus"
+            | "xxx"
+            | "pec"
+            | "sew"
+            | "shv"
+            | "csd"
+            | "art"
+            | "eof"
+            | "ecf"
+            | "emb"
+    ) {
+        return true;
+    }
+
+    // Excluded Source or Designer names
+    for name in excluded_names {
+        let clean = name.trim();
+        if clean.is_empty() {
+            continue;
+        }
+        if lower == clean.to_ascii_lowercase() {
+            return true;
+        }
+        let compact_name: String = clean
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .flat_map(|c| c.to_lowercase())
+            .collect();
+        if !compact_name.is_empty() && compact == compact_name {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Tokenise the filename and non-ignored directory segments of the filepath,
+/// filtering out domain stop words and excluded supplier/source folder segments.
+pub fn extract_path_rule_tokens(
+    filename: &str,
+    filepath: &str,
+    excluded_names: &[&str],
+) -> HashSet<String> {
+    let filename_stem = std::path::Path::new(filename)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(filename);
+
+    let mut parts: Vec<String> = Vec::new();
+    parts.push(filename_stem.to_string());
+
+    for segment in filepath.split(['/', '\\']) {
+        if !is_ignored_path_segment(segment, excluded_names) {
+            parts.push(segment.to_string());
+        }
+    }
+
+    let combined = parts.join(" ");
+    let mut tokens = tokenize(&combined);
+    tokens.retain(|tok| !DOMAIN_STOP_WORDS.contains(&tok.as_str()));
+    tokens
+}
+
+/// Given a filename, full filepath, valid tag descriptions, dynamic synonym map,
+/// and an optional list of excluded Source/Designer folder names, return matching tags.
+pub fn suggest_path_rule_descriptions_with_exclusions(
     filename: &str,
     filepath: &str,
     valid_descriptions: &HashSet<String>,
     synonyms: &HashMap<String, Vec<String>>,
+    excluded_names: &[&str],
 ) -> Vec<String> {
     if valid_descriptions.is_empty() {
         return Vec::new();
     }
 
-    let filename_stem = std::path::Path::new(filename)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or(filename);
-    let combined = format!("{} {}", filename_stem, filepath);
-    let path_tokens = tokenize(&combined);
+    let path_tokens = extract_path_rule_tokens(filename, filepath, excluded_names);
     if path_tokens.is_empty() {
         return Vec::new();
     }
@@ -219,6 +326,22 @@ pub fn suggest_path_rule_descriptions(
     let mut results: Vec<String> = matched.into_iter().collect();
     results.sort();
     results
+}
+
+/// Convenience overload maintaining backwards-compatibility when no exclusions are specified.
+pub fn suggest_path_rule_descriptions(
+    filename: &str,
+    filepath: &str,
+    valid_descriptions: &HashSet<String>,
+    synonyms: &HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    suggest_path_rule_descriptions_with_exclusions(
+        filename,
+        filepath,
+        valid_descriptions,
+        synonyms,
+        &[],
+    )
 }
 
 #[cfg(test)]

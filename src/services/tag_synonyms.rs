@@ -4,9 +4,20 @@
 //! Domain service for user-defined and seeded tag word matches (synonyms).
 
 use crate::error::AppError;
+use inflector::Inflector;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+const PROHIBITED_DOMAIN_TERMS: &[&str] = &[
+    "embroidery",
+    "embroidered",
+    "embroideries",
+    "stitch",
+    "stitched",
+    "stitches",
+    "stitching",
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::FromRow)]
 pub struct TagSynonymItem {
@@ -152,19 +163,26 @@ pub async fn add_tag_synonyms(
     tag_id: i64,
     words_input: &str,
 ) -> Result<Vec<TagSynonymKeyword>, AppError> {
-    // Check that the tag exists
-    let tag_exists = sqlx::query_scalar::<_, i64>("SELECT 1 FROM tags WHERE id = ? LIMIT 1")
-        .bind(tag_id)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| AppError::database(format!("database error checking tag: {e}")))?
-        .is_some();
+    // Fetch the tag and its description
+    let tag_desc = sqlx::query_scalar::<_, String>(
+        "SELECT description FROM tags WHERE id = ? LIMIT 1",
+    )
+    .bind(tag_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::database(format!("database error checking tag: {e}")))?;
 
-    if !tag_exists {
+    let Some(tag_description) = tag_desc else {
         return Err(AppError::invalid_input(format!(
             "Tag ID {tag_id} not found"
         )));
-    }
+    };
+
+    let tag_words: HashSet<String> = tag_description
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(|w| w.to_ascii_lowercase())
+        .collect();
 
     // Split words by commas, semicolons, or newlines
     let raw_tokens: Vec<&str> = words_input.split([',', ';', '\n', '\r']).collect();
@@ -175,8 +193,34 @@ pub async fn add_tag_synonyms(
             continue;
         }
 
+        // 1. Prohibit universal domain terms
+        if PROHIBITED_DOMAIN_TERMS.contains(&clean.as_str()) {
+            return Err(AppError::invalid_input(format!(
+                "'{clean}' is a universal embroidery term and cannot be assigned as a specific tag word match."
+            )));
+        }
+
+        // 2. Prohibit self-synonyms (words matching the tag name itself)
+        let singular = clean.to_singular();
+        let plural = clean.to_plural();
+        if tag_words.contains(&clean)
+            || tag_words.contains(&singular)
+            || tag_words.contains(&plural)
+        {
+            return Err(AppError::invalid_input(format!(
+                "'{clean}' duplicates words already in the tag name '{tag_description}'. The tagging engine automatically matches words from the tag name in singular and plural forms."
+            )));
+        }
+
+        // 3. Normalise to singular form to maintain the No Singular/Plural Duplication invariant
+        let canonical_keyword = if !singular.is_empty() {
+            singular
+        } else {
+            clean
+        };
+
         sqlx::query("INSERT OR IGNORE INTO tag_synonyms (keyword, tag_id) VALUES (?, ?)")
-            .bind(&clean)
+            .bind(&canonical_keyword)
             .bind(tag_id)
             .execute(pool)
             .await

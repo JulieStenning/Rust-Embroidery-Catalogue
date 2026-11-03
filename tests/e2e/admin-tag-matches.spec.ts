@@ -116,6 +116,38 @@ test.describe("manage tag word matches", () => {
     await expect(page.getByText(/⚠️ Already added:/i)).toBeHidden();
   });
 
+  test("prevents adding prohibited domain terms and self-synonyms in Quick Add card", async ({
+    page,
+  }) => {
+    await gotoRoute(page, "#/admin/data/tag-matches");
+    await expect(
+      page.getByRole("heading", { name: "Tag Word Matches" }),
+    ).toBeVisible();
+
+    // Select "Animals" tag
+    const combobox = page.locator("#quick-add-tag-combobox");
+    await combobox.click();
+    await combobox.fill("Anim");
+    await page.getByRole("option", { name: "Animals" }).click();
+
+    const wordsInput = page.locator("#quick-add-words-input");
+    const submitBtn = page.getByRole("button", { name: "Add Match" });
+
+    // 1. Prohibited domain term: embroidery
+    await wordsInput.fill("embroidery");
+    await expect(
+      page.getByText(/⚠️ Universal domain terms cannot be mapped: embroidery/i),
+    ).toBeVisible();
+    await expect(submitBtn).toBeDisabled();
+
+    // 2. Self-synonym: animal
+    await wordsInput.fill("animal");
+    await expect(
+      page.getByText(/ℹ️ Automatically matched from tag name: animal/i),
+    ).toBeVisible();
+    await expect(submitBtn).toBeDisabled();
+  });
+
   test("adds a word match via Quick Add card, persists it, and allows removal", async ({
     page,
   }) => {

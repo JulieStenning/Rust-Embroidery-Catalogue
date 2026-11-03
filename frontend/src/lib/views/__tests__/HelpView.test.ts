@@ -221,6 +221,7 @@ describe("HelpView", () => {
       ).toBeInTheDocument();
 
       expect(section.getByText("Offline & automatic:")).toBeInTheDocument();
+      expect(section.getByText("Folder hierarchies & supplier masking:")).toBeInTheDocument();
       expect(section.getByText("Manage matches:")).toBeInTheDocument();
       expect(section.getByText("Contextual access:")).toBeInTheDocument();
       expect(section.getByText("Full guide:")).toBeInTheDocument();

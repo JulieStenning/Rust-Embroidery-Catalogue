@@ -27,6 +27,8 @@ struct ImportExecutionCtx<'a> {
     tag_synonyms_map: &'a HashMap<String, Vec<String>>,
     stitching_tag_lookup: &'a HashMap<String, i64>,
     default_stitching_tag_id: Option<i64>,
+    source_names_map: &'a HashMap<i64, String>,
+    designer_names_map: &'a HashMap<i64, String>,
     preview_3d: bool,
     preview_3d_profile: &'a str,
 }
@@ -213,11 +215,24 @@ async fn persist_stitch_design(
     *total_db_insert_ms += db_insert_elapsed_ms;
 
     let t_tag = Instant::now();
-    let matched_descriptions = tagging::suggest_path_rule_descriptions(
+    let mut excluded_names: Vec<&str> = Vec::new();
+    if let Some(src_id) = source_id {
+        if let Some(name) = ctx.source_names_map.get(&src_id) {
+            excluded_names.push(name.as_str());
+        }
+    }
+    if let Some(des_id) = designer_id {
+        if let Some(name) = ctx.designer_names_map.get(&des_id) {
+            excluded_names.push(name.as_str());
+        }
+    }
+
+    let matched_descriptions = tagging::suggest_path_rule_descriptions_with_exclusions(
         &filename,
         stored_filepath,
         ctx.valid_descriptions,
         ctx.tag_synonyms_map,
+        &excluded_names,
     );
 
     let mut stitching_tag_ids: Vec<i64> = Vec::new();
@@ -317,11 +332,24 @@ async fn persist_master_design(
     let design_id = insert_result.last_insert_rowid();
 
     let t_tag = Instant::now();
-    let matched_descriptions = tagging::suggest_path_rule_descriptions(
+    let mut excluded_names: Vec<&str> = Vec::new();
+    if let Some(src_id) = source_id {
+        if let Some(name) = ctx.source_names_map.get(&src_id) {
+            excluded_names.push(name.as_str());
+        }
+    }
+    if let Some(des_id) = designer_id {
+        if let Some(name) = ctx.designer_names_map.get(&des_id) {
+            excluded_names.push(name.as_str());
+        }
+    }
+
+    let matched_descriptions = tagging::suggest_path_rule_descriptions_with_exclusions(
         &filename,
         stored_filepath,
         ctx.valid_descriptions,
         ctx.tag_synonyms_map,
+        &excluded_names,
     );
 
     for description in &matched_descriptions {
@@ -475,6 +503,22 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
         }
     }
 
+    let source_names_map: HashMap<i64, String> =
+        sqlx::query_as::<_, (i64, String)>("SELECT id, name FROM sources")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+
+    let designer_names_map: HashMap<i64, String> =
+        sqlx::query_as::<_, (i64, String)>("SELECT id, name FROM designers")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+
     let ctx = ImportExecutionCtx {
         confirm_wire,
         resolved_assignments: &resolved_assignments,
@@ -483,6 +527,8 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
         tag_synonyms_map: &tag_synonyms_map,
         stitching_tag_lookup: &stitching_tag_lookup,
         default_stitching_tag_id,
+        source_names_map: &source_names_map,
+        designer_names_map: &designer_names_map,
         preview_3d,
         preview_3d_profile,
     };

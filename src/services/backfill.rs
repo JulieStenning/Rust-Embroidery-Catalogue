@@ -1409,7 +1409,41 @@ async fn compute_design_tagging(
         None
     };
 
-    crate::services::auto_tagging::compute_tags_for_input(
+    let (source_id, designer_id) = match sqlx::query_as::<_, (Option<i64>, Option<i64>)>(
+        "SELECT source_id, designer_id FROM designs WHERE id = ?",
+    )
+    .bind(design_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(ids)) => ids,
+        _ => (None, None),
+    };
+
+    let mut excluded_names: Vec<String> = Vec::new();
+    if let Some(src_id) = source_id {
+        if let Ok(Some(name)) =
+            sqlx::query_scalar::<_, String>("SELECT name FROM sources WHERE id = ?")
+                .bind(src_id)
+                .fetch_optional(pool)
+                .await
+        {
+            excluded_names.push(name);
+        }
+    }
+    if let Some(des_id) = designer_id {
+        if let Ok(Some(name)) =
+            sqlx::query_scalar::<_, String>("SELECT name FROM designers WHERE id = ?")
+                .bind(des_id)
+                .fetch_optional(pool)
+                .await
+        {
+            excluded_names.push(name);
+        }
+    }
+    let excluded_refs: Vec<&str> = excluded_names.iter().map(|s| s.as_str()).collect();
+
+    crate::services::auto_tagging::compute_tags_for_input_with_exclusions(
         &filename,
         &filepath,
         image_data.as_deref(),
@@ -1417,6 +1451,7 @@ async fn compute_design_tagging(
         synonyms,
         mode_options,
         gemini,
+        &excluded_refs,
     )
     .await
 }

@@ -137,6 +137,16 @@
   );
   const quickAddExistingKeywords = $derived(selectedQuickAddGroup?.keywords ?? []);
 
+  const DOMAIN_PROHIBITED_WORDS = new Set([
+    "embroidery",
+    "embroidered",
+    "embroideries",
+    "stitch",
+    "stitched",
+    "stitches",
+    "stitching",
+  ]);
+
   // Parse entered words and detect overlaps
   const quickAddTypedWords = $derived(
     quickAddWords
@@ -149,6 +159,25 @@
     if (!quickAddExistingKeywords.length || !quickAddTypedWords.length) return [];
     const existingSet = new Set(quickAddExistingKeywords.map((k) => k.keyword.toLowerCase()));
     return Array.from(new Set(quickAddTypedWords.filter((w) => existingSet.has(w))));
+  });
+
+  const quickAddProhibitedWords = $derived.by(() => {
+    return Array.from(new Set(quickAddTypedWords.filter((w) => DOMAIN_PROHIBITED_WORDS.has(w))));
+  });
+
+  const quickAddSelfSynonymWords = $derived.by(() => {
+    if (!selectedQuickAddTag) return [];
+    const tagWords = new Set(
+      selectedQuickAddTag.description
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 2 && w !== "and")
+    );
+    for (const w of Array.from(tagWords)) {
+      if (w.endsWith("s")) tagWords.add(w.slice(0, -1));
+      else tagWords.add(w + "s");
+    }
+    return Array.from(new Set(quickAddTypedWords.filter((w) => tagWords.has(w))));
   });
 
   /** @param {SubmitEvent | MouseEvent} e */
@@ -387,7 +416,11 @@
       <div class="md:col-span-2">
         <button
           type="submit"
-          disabled={quickAddSaving || !quickAddTagId || !quickAddWords.trim()}
+          disabled={quickAddSaving ||
+            !quickAddTagId ||
+            !quickAddWords.trim() ||
+            quickAddProhibitedWords.length > 0 ||
+            quickAddSelfSynonymWords.length > 0}
           class="w-full py-1.5 text-sm font-semibold rounded-lg bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
         >
           {quickAddSaving ? "Adding..." : "Add Match"}
@@ -417,6 +450,20 @@
               class="text-xs text-[var(--notice-warn-text)] font-medium flex items-center gap-1"
             >
               ⚠️ Already added: {quickAddDuplicateWords.join(", ")}
+            </span>
+          {/if}
+          {#if quickAddProhibitedWords.length > 0}
+            <span
+              class="text-xs text-[var(--notice-warn-text)] font-medium flex items-center gap-1"
+            >
+              ⚠️ Universal domain terms cannot be mapped: {quickAddProhibitedWords.join(", ")}
+            </span>
+          {/if}
+          {#if quickAddSelfSynonymWords.length > 0}
+            <span
+              class="text-xs text-[var(--notice-info-text)] font-medium flex items-center gap-1"
+            >
+              ℹ️ Automatically matched from tag name: {quickAddSelfSynonymWords.join(", ")}
             </span>
           {/if}
         </div>

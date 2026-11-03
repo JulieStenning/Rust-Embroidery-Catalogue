@@ -38,6 +38,13 @@ The matching engine automatically handles regular English plurals and singular f
 ### 4. Case-Insensitive Matching
 Matching is case-insensitive. Entering `Rose` or `rose` matches `ROSE.PES`, `Rose_Border.jef`, or `red_roses.dst`. All match words are automatically normalised to lowercase when saved.
 
+### 5. Folder Hierarchies & Supplier / Source Masking
+Many users organise their designs using deep hierarchies combining categories, suppliers, and pack sets (for example: `Animals/Embroidery Super Deal/Safari Pack/lion.jef`):
+- **Category Preservation:** Parent category folders higher up the tree (such as `Animals` or `Floral`) remain active in path matching, ensuring your broad classifications are recognised and tagged.
+- **Supplier & Designer Masking:** If a folder segment matches an assigned or inferred **Source** or **Designer** (e.g. `Embroidery Super Deal` or `Urban Threads`), that specific folder name is automatically excluded from tag tokenisation so supplier brand words do not pollute your tags.
+- **Domain & Format Stop Words:** Generic medium words (`embroidery`, `stitch`, `stitched`, `stitching`) and technical machine format folders (`JEF`, `PES`, `DST`, `EXP`, etc.) are treated as medium/format metadata and filtered out from visual tag matching.
+- **Rule Invariants:** You cannot add self-synonyms (words duplicating the tag's own name, as the engine already matches them) or universal craft terms (`embroidery`, `stitch`), and plurals are automatically normalised to their singular base form.
+
 ---
 
 ## Managing Word Matches

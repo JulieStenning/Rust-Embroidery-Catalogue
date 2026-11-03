@@ -458,3 +458,55 @@ fn suggest_path_rule_matches_numbered_and_camelcase_designs() {
     assert!(matched_crests.contains(&"Crests".to_string()));
     assert!(!matched_crests.contains(&"Cats".to_string()));
 }
+
+#[test]
+fn test_suggest_path_rule_masks_supplier_and_preserves_parent_category() {
+    let mut valid = HashSet::new();
+    valid.insert("Flowers".to_string());
+    valid.insert("Sewing".to_string());
+
+    let mut synonyms = HashMap::new();
+    synonyms.insert("floral".to_string(), vec!["Flowers".to_string()]);
+    synonyms.insert("bloom".to_string(), vec!["Flowers".to_string()]);
+    synonyms.insert("needle".to_string(), vec!["Sewing".to_string()]);
+
+    let excluded_sources = ["Embroidery Super Deal"];
+
+    let matched = suggest_path_rule_descriptions_with_exclusions(
+        "Bright Bloom 1 Stitched 2_5 Inch.jef",
+        "Floral/Embroidery Super Deal/Bright Blooms JEF/Bright Bloom 1JEF/Bright Bloom 1 Stitched 2_5 Inch.jef",
+        &valid,
+        &synonyms,
+        &excluded_sources,
+    );
+
+    // Parent folder "Floral" and pack "Bright Blooms" correctly trigger "Flowers"
+    assert!(matched.contains(&"Flowers".to_string()));
+    // Supplier name and "Stitched" medium word are masked/ignored, so "Sewing" is not applied
+    assert!(!matched.contains(&"Sewing".to_string()));
+}
+
+#[test]
+fn test_suggest_path_rule_ignores_format_and_domain_stop_words() {
+    let mut valid = HashSet::new();
+    valid.insert("Household".to_string());
+    valid.insert("Sewing".to_string());
+
+    let mut synonyms = HashMap::new();
+    synonyms.insert("kitchen".to_string(), vec!["Household".to_string()]);
+    synonyms.insert("needle".to_string(), vec!["Sewing".to_string()]);
+
+    let excluded = ["Embroidery Super Deal"];
+
+    let matched = suggest_path_rule_descriptions_with_exclusions(
+        "design.jef",
+        "F:/MachineEmbroideryDesigns/Embroidery Super Deal/Rustic-KitchenJEF-dryhi6/JEF/design.jef",
+        &valid,
+        &synonyms,
+        &excluded,
+    );
+
+    assert!(matched.contains(&"Household".to_string()));
+    assert!(!matched.contains(&"Sewing".to_string()));
+}
+
