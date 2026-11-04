@@ -153,7 +153,7 @@ describe("AboutDocumentView", () => {
       expect(primary.textContent).not.toContain("ACKNOWLEDGEMENTS");
     });
 
-    it("switches to the Rust Dependencies tab and renders the sanitized rust licence HTML", async () => {
+    it("switches to the Rust Dependencies tab and renders the dependency table", async () => {
       render(AboutDocumentView, { props: { slug: "licence" } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Rust Dependencies" }));
@@ -162,20 +162,16 @@ describe("AboutDocumentView", () => {
       expect(screen.getByTestId("licence-rust-tab")).toBeInTheDocument();
       expect(screen.queryByTestId("licence-application-tab")).not.toBeInTheDocument();
 
-      // The injected {@html} is not Svelte-scoped, so query the raw DOM.
-      const rustList = element(
-        document.querySelector(".licence-rust-list"),
-        "Expected the rust licence list container."
-      );
-      expect(rustList.textContent).toContain("Apache License 2.0");
-      expect(rustList.textContent).toContain("tokio");
-      expect(rustList.querySelector("a")).toHaveAttribute(
+      const rustTab = screen.getByTestId("licence-rust-tab");
+      expect(rustTab.textContent).toContain("Apache License 2.0");
+      expect(rustTab.textContent).toContain("tokio");
+      expect(within(rustTab).getByRole("link", { name: /tokio-rs\/tokio/ })).toHaveAttribute(
         "href",
         "https://github.com/tokio-rs/tokio"
       );
     });
 
-    it("switches to the Frontend Dependencies tab and renders package details cards", async () => {
+    it("switches to the Frontend Dependencies tab and renders package table rows", async () => {
       render(AboutDocumentView, { props: { slug: "licence" } });
 
       await fireEvent.click(screen.getByRole("button", { name: "Frontend Dependencies" }));
@@ -184,28 +180,58 @@ describe("AboutDocumentView", () => {
       const tab = screen.getByTestId("licence-frontend-tab");
       expect(tab).toBeInTheDocument();
 
-      const svelteSummary = element(
-        within(tab).getByText("svelte", { selector: "span.font-medium" }).closest("summary"),
-        "Expected the svelte licence summary."
-      );
-      expect(svelteSummary.textContent).toContain("v5.56.9");
+      expect(within(tab).getByText("svelte")).toBeInTheDocument();
+      expect(within(tab).getByText("(v5.56.9)")).toBeInTheDocument();
+      expect(within(tab).getByText("@esbuild/win32-x64")).toBeInTheDocument();
+      expect(within(tab).getByText("(v0.25.12)")).toBeInTheDocument();
 
-      const esbuildSummary = element(
-        within(tab)
-          .getByText("@esbuild/win32-x64", { selector: "span.font-medium" })
-          .closest("summary"),
-        "Expected the esbuild licence summary."
-      );
-      expect(esbuildSummary.textContent).toContain("v0.25.12");
+      // license badges
+      expect(within(tab).getAllByText("MIT")).toHaveLength(2);
 
-      // license badges (one badge span per package)
-      expect(within(tab).getAllByText("MIT", { selector: "span" })).toHaveLength(2);
-
-      // repository links (target=_blank)
+      // repository links
       const repoLinks = within(tab).getAllByRole("link", { name: /github.com/ });
       expect(repoLinks).toHaveLength(2);
       expect(repoLinks[0]).toHaveAttribute("href", "https://github.com/evanw/esbuild");
       expect(repoLinks[1]).toHaveAttribute("href", "https://github.com/sveltejs/svelte");
+    });
+
+    it("filters dependencies using the search input", async () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await fireEvent.click(screen.getByRole("button", { name: "Frontend Dependencies" }));
+      await tick();
+
+      const tab = screen.getByTestId("licence-frontend-tab");
+      const searchInput = within(tab).getByTestId("dependency-search-input");
+
+      await fireEvent.input(searchInput, { target: { value: "svelte" } });
+      await tick();
+
+      expect(within(tab).getByText("svelte")).toBeInTheDocument();
+      expect(within(tab).queryByText("@esbuild/win32-x64")).not.toBeInTheDocument();
+      expect(within(tab).getByTestId("dependency-count-summary")).toHaveTextContent("Showing 1 of 2 packages");
+    });
+
+    it("opens and closes the licence terms modal", async () => {
+      render(AboutDocumentView, { props: { slug: "licence" } });
+
+      await fireEvent.click(screen.getByRole("button", { name: "Rust Dependencies" }));
+      await tick();
+
+      const rustTab = screen.getByTestId("licence-rust-tab");
+      const viewTermsBtn = within(rustTab).getByRole("button", { name: "View licence terms for tokio" });
+
+      await fireEvent.click(viewTermsBtn);
+      await tick();
+
+      expect(screen.getByTestId("licence-terms-modal")).toBeInTheDocument();
+      expect(screen.getByTestId("licence-terms-text")).toHaveTextContent("Apache license text.");
+
+      const closeBtn = screen.getByTestId("close-licence-terms-modal");
+      await fireEvent.click(closeBtn);
+      await tick();
+
+      expect(screen.queryByTestId("licence-terms-modal")).not.toBeInTheDocument();
     });
 
     it("renders the Rust empty fallback when the rust HTML asset is empty", async () => {
@@ -244,9 +270,7 @@ describe("AboutDocumentView", () => {
       await tickLazy();
 
       expect(screen.getByTestId("licence-frontend-tab")).toBeInTheDocument();
-      expect(screen.getByTestId("frontend-licences-empty")).toHaveTextContent(
-        "No frontend packages recorded."
-      );
+      expect(screen.getByText("No frontend packages recorded.")).toBeInTheDocument();
 
       view.unmount();
     });

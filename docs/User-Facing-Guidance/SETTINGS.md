@@ -13,7 +13,7 @@ Use this runbook when you need to:
 - manage digital alphabet and font companion packaging,
 - troubleshoot settings and performance issues.
 
-> **Note:** **Product Licence & Activation** is managed on the [About](#/about) page ([Admin → About](#/about)), where you can review your registered email, check validity, or deactivate/switch your licence key.
+> **Note:** **Product Licence & Activation** is managed on the [About](#/about) page ([Admin → About](#/about)), where you can review your registered email, check validity, or deactivate/switch your licence key. You can also inspect open-source dependencies and review terms in [Licence & Dependencies](#/about/licence).
 
 ---
 
@@ -224,6 +224,7 @@ Theme changes apply immediately across all views without requiring a page reload
 | Storage migration fails or stalls | Destination path unwritable or disk full | Verify destination location is accessible and has enough space; click Cancel to roll back cleanly. |
 | App does not restart after migration | System permissions prevented relaunch | Close the application and open it manually; verify new paths in the Storage Locations panel. |
 | Looking for licence key activation | Licence moved to About | Open [Admin → About](#/about) to review registration or deactivate/switch keys. |
+| Looking for third-party licences & terms | Reviewing open-source crates and packages | Open [Licence & Dependencies](#/about/licence) to search, filter, and view licence terms. |
 
 ---
 

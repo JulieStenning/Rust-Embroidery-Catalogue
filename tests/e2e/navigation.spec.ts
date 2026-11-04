@@ -68,5 +68,19 @@ test.describe("main navigation", () => {
 
     await gotoRoute(page, "#/projects");
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+
+    await gotoRoute(page, "#/about/licence");
+    await expect(page.getByTestId("licence-application-tab")).toBeVisible();
+
+    await page.getByRole("button", { name: "Rust Dependencies" }).click();
+    await expect(page.getByTestId("licence-rust-tab")).toBeVisible();
+    await expect(page.getByTestId("dependency-search-input")).toBeVisible();
+    await expect(page.getByTestId("dependency-count-summary")).toBeVisible();
+
+    await page.getByRole("button", { name: "Frontend Dependencies" }).click();
+    await expect(page.getByTestId("licence-frontend-tab")).toBeVisible();
+    const searchInput = page.getByTestId("dependency-search-input");
+    await searchInput.fill("svelte");
+    await expect(page.getByTestId("dependency-count-summary")).toContainText("packages");
   });
 });

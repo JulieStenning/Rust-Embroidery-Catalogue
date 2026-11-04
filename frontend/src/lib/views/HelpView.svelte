@@ -419,7 +419,11 @@
       </p>
       <p>
         <strong>Product licence:</strong> manage your licence activation and registration in
-        <a href="#/about" class="text-[var(--text-brand)] hover:underline">About</a>.
+        <a href="#/about" class="text-[var(--text-brand)] hover:underline">About</a>, or explore
+        open-source dependencies and terms in
+        <a href="#/about/licence" class="text-[var(--text-brand)] hover:underline"
+          >Licence &amp; Dependencies</a
+        >.
       </p>
       <p>
         <strong>Full guide:</strong> open the

@@ -10,3 +10,12 @@ export interface LicenceStatus {
   expires_at_formatted: string | null;
   error_message: string | null;
 }
+
+export interface DependencyItem {
+  name: string;
+  version: string;
+  licence: string;
+  repository: string;
+  text?: string;
+}
+
