@@ -30,6 +30,11 @@
 ### ⚙️ Read-Only SQLite Connection Invariants
 - When opening an SQLite pool or connection with `.read_only(true)`, never execute write-affecting pragmas (e.g. `SqliteJournalMode::Off` or journal mode mutations). Applying write pragmas to read-only connections triggers disk I/O error code 3850.
 
+### 🔒 Multi-Connection SQLite Pool PRAGMA Invariant
+- In SQLx, connection-scoped PRAGMAs (`busy_timeout`, `foreign_keys`, `synchronous`) must **NEVER** be applied via `query().execute(&pool)`. Executing against the pool only applies the PRAGMA to the single connection leased for that query.
+- All connection-scoped PRAGMAs must be configured on `SqliteConnectOptions` or through `SqlitePoolOptions::after_connect`.
+- Every pool connection must inherit `busy_timeout = 30000`, `foreign_keys = ON`, `journal_mode = WAL`, and `synchronous = NORMAL` so concurrent writers wait cooperatively instead of immediately failing with SQLite error code 5 (`SQLITE_BUSY: database is locked`).
+
 ### 📏 Module Size & Header Limits
 - **500-line budget:** Any Rust source file whose total line count exceeds **500 lines** (production + embedded test code) MUST have its `#[cfg(test)]` module(s) extracted into a separate sibling file `<basename>_tests.rs` with `#[path = "<basename>_tests.rs"] mod tests;`.
 - Keep top-of-file license/SPDX comment headers concise (<= 3 lines) to conserve the 500-line vertical module budget.

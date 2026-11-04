@@ -4,8 +4,10 @@
 // Database connection management using SQLx
 use crate::config::BootstrapConfig;
 use crate::paths::AppPaths;
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::SqlitePool;
+use std::str::FromStr;
+use std::time::Duration;
 
 /// Custom error type for database connection failures.
 #[derive(Debug)]
@@ -37,9 +39,36 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
     let bootstrap = BootstrapConfig::from_app_paths(paths);
     let database_url = bootstrap.database_url;
 
+    let connect_opts = SqliteConnectOptions::from_str(&database_url)
+        .map_err(|e| {
+            ConnectionError::PoolConnect(format!(
+                "Failed to parse database url '{}': {}",
+                database_url, e
+            ))
+        })?
+        .busy_timeout(Duration::from_secs(30))
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal)
+        .foreign_keys(true)
+        .pragma("auto_vacuum", "INCREMENTAL");
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&database_url)
+        .after_connect(|conn, _meta| {
+            Box::pin(async move {
+                sqlx::query("PRAGMA busy_timeout = 30000")
+                    .execute(&mut *conn)
+                    .await?;
+                sqlx::query("PRAGMA foreign_keys = ON")
+                    .execute(&mut *conn)
+                    .await?;
+                sqlx::query("PRAGMA synchronous = NORMAL")
+                    .execute(&mut *conn)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect_with(connect_opts)
         .await
         .map_err(|e| {
             ConnectionError::PoolConnect(format!(
@@ -229,7 +258,8 @@ mod tests {
             .expect("query should succeed");
         assert_eq!(row.0, 1);
 
-        // Verify concurrent queries on the multi-connection pool.
+        // Verify concurrent queries on the multi-connection pool and confirm
+        // that all leased connections inherit busy_timeout = 30000 and foreign_keys = ON.
         let mut handles = Vec::new();
         for i in 0..5 {
             let pool_clone = pool.clone();
@@ -239,13 +269,30 @@ mod tests {
                     .fetch_one(&pool_clone)
                     .await
                     .expect("concurrent query should succeed");
-                row.0
+                let (timeout,): (i64,) = sqlx::query_as("SELECT timeout FROM pragma_busy_timeout")
+                    .fetch_one(&pool_clone)
+                    .await
+                    .expect("busy_timeout query should succeed");
+                let (foreign_keys,): (i64,) =
+                    sqlx::query_as("SELECT foreign_keys FROM pragma_foreign_keys")
+                        .fetch_one(&pool_clone)
+                        .await
+                        .expect("foreign_keys query should succeed");
+                (row.0, timeout, foreign_keys)
             }));
         }
 
         for (i, handle) in handles.into_iter().enumerate() {
-            let res = handle.await.expect("task join should succeed");
+            let (res, timeout, foreign_keys) = handle.await.expect("task join should succeed");
             assert_eq!(res, i as i64);
+            assert_eq!(
+                timeout, 30000,
+                "every connection in the pool must inherit busy_timeout = 30000"
+            );
+            assert_eq!(
+                foreign_keys, 1,
+                "every connection in the pool must inherit foreign_keys = ON"
+            );
         }
 
         pool.close().await;

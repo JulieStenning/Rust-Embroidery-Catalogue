@@ -20,7 +20,7 @@ use sqlx::SqlitePool;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 /// Default free-page ratio threshold (freelist ÷ page_count) above which
 /// fragmentation maintenance is considered worthwhile. 20% of the database
@@ -33,8 +33,9 @@ pub const DEFAULT_FREE_RATIO_THRESHOLD: f64 = 0.20;
 pub const DEFAULT_MIN_RECLAIMABLE_BYTES: u64 = 20 * 1024 * 1024;
 
 /// Pages to reclaim per incremental vacuum step during a health-check-triggered
-/// run. 1000 pages ≈ 4 MiB at 4 KiB page size.
-pub const MAINTENANCE_PAGE_STEP: i64 = 1000;
+/// run. 256 pages ≈ 1 MiB at 4 KiB page size, keeping lock durations short so
+/// foreground UI queries can acquire write locks without latency spikes.
+pub const MAINTENANCE_PAGE_STEP: i64 = 256;
 
 /// Default interval (seconds) between idle-time health checks.
 pub const DEFAULT_IDLE_CHECK_INTERVAL_SECS: u64 = 1800;
@@ -156,6 +157,13 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
         return Ok(false);
     }
 
+    if let Some(state) = app_handle.try_state::<crate::AppState>() {
+        if state.maintenance_running.load(Ordering::SeqCst) {
+            tracing::info!("DB health check skipped — AppState maintenance already running");
+            return Ok(false);
+        }
+    }
+
     if crate::services::backfill::is_backfill_running() {
         tracing::info!("DB health check skipped — batch operation is actively running");
         return Ok(false);
@@ -192,6 +200,10 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
         return Ok(false);
     }
 
+    if let Some(state) = app_handle.try_state::<crate::AppState>() {
+        state.maintenance_running.store(true, Ordering::SeqCst);
+    }
+
     let started_event = DbMaintenanceStartedEvent {
         page_count: snapshot.page_count,
         freelist_pages: snapshot.freelist_count,
@@ -219,6 +231,9 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
                     "DB maintenance compaction failed (defers to next idle check): {}",
                     err
                 );
+                if let Some(state) = handle_for_task.try_state::<crate::AppState>() {
+                    state.maintenance_running.store(false, Ordering::SeqCst);
+                }
                 running_for_task.store(false, Ordering::SeqCst);
                 return;
             }
@@ -251,6 +266,9 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
         // Release the maintenance slot. Check shutdown so we don't log after exit.
         if shutdown_for_task.load(Ordering::SeqCst) {
             tracing::info!("DB maintenance complete; shutdown requested.");
+        }
+        if let Some(state) = handle_for_task.try_state::<crate::AppState>() {
+            state.maintenance_running.store(false, Ordering::SeqCst);
         }
         running_for_task.store(false, Ordering::SeqCst);
     });

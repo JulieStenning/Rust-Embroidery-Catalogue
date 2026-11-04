@@ -504,6 +504,10 @@ fn main() {
                         // Defer idle health check if a batch operation or maintenance is actively running.
                         if services::backfill::is_backfill_running()
                             || idle_maintenance.load(std::sync::atomic::Ordering::SeqCst)
+                            || idle_handle
+                                .state::<AppState>()
+                                .maintenance_running
+                                .load(std::sync::atomic::Ordering::SeqCst)
                         {
                             tracing::info!(
                                 "Idle DB health check deferred — batch operation or maintenance is in progress"

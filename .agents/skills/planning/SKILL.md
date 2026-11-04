@@ -36,6 +36,10 @@ Desktop application users have no browser address/URL bar to view or type routes
 - **Always use clickable markdown links:** Any route reference in user-facing guidance (`docs/User-Facing-Guidance/`) or in-app help (@HelpView.svelte) must be formatted as a clickable markdown link using the Svelte hash route (e.g. `[Admin → About](#/about)`, `[Admin → Settings](#/admin/system/settings)`, `[Admin → Batch Operations](#/admin/batch-operations)`).
 - **In-App Link Resolution:** In-app markdown renderers (e.g. `markdown.js`) preserve hash routes (`target.startsWith("#")`) as working internal links within the WebView2 desktop app.
 
+### 5. Database Concurrency & Maintenance Invariants
+- **Cooperative Background Yielding:** Any background operation performing SQLite writes (compaction, backfill, migration) must yield between small batches ($\le 256$ pages or $\le 100$ items) with a brief pause (`tokio::time::sleep`) to allow foreground user queries on the pool to acquire write locks.
+- **Uniform Pool PRAGMA Enforcement:** All connection pools must enforce `busy_timeout = 30000`, `foreign_keys = ON`, `journal_mode = WAL`, and `synchronous = NORMAL` on every connection via `SqliteConnectOptions` or `after_connect`, preventing `(code: 5) database is locked` errors during concurrent access.
+
 ## Structural Implementation Plan Sections
 
 A pre-execution plan must strictly contain:
