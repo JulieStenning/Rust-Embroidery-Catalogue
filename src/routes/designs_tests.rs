@@ -1292,6 +1292,121 @@ async fn bulk_set_tags_clear_all_without_flags_preserves_verification() {
 }
 
 #[tokio::test]
+async fn bulk_set_tags_handles_large_batch_efficiently() {
+    let pool = test_pool().await;
+
+    // Seed tag 3
+    sqlx::query("INSERT INTO tags (description, tag_group) VALUES ('Roses', 'image')")
+        .execute(&pool)
+        .await
+        .expect("seed tag 3");
+
+    // Seed 1,000 designs
+    let mut design_ids = Vec::with_capacity(1000);
+    for i in 100..1100 {
+        sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+            .bind(i)
+            .bind(format!("design_{i}.pes"))
+            .bind(format!("folder/design_{i}.pes"))
+            .execute(&pool)
+            .await
+            .expect("seed design");
+        design_ids.push(i);
+    }
+
+    // Seed tag 1 on the first 500 designs
+    for id in &design_ids[..500] {
+        sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (?, 1)")
+            .bind(*id)
+            .execute(&pool)
+            .await
+            .expect("seed initial tag");
+    }
+
+    // 1. Bulk apply across 1,000 designs:
+    //    - Remove tag 1
+    //    - Add tags 2 and 3
+    let result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &design_ids,
+        BulkApplyTagsRequest {
+            tags_to_add: vec![2, 3],
+            tags_to_remove: vec![1],
+            clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
+        },
+    )
+    .await
+    .expect("bulk set tags across 1000 designs should succeed");
+
+    assert_eq!(result.requested_count, 1000);
+    assert_eq!(result.updated_count, 1000);
+
+    // Verify tag 1 is completely gone from all designs
+    let count_tag1 = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM design_tags WHERE tag_id = 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count tag 1");
+    assert_eq!(count_tag1, 0);
+
+    // Verify tags 2 and 3 exist on all 1,000 designs (2,000 rows in design_tags)
+    let count_tags_total = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM design_tags",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count total tags");
+    assert_eq!(count_tags_total, 2000);
+
+    // 2. Re-applying the exact same tags (no change, no flags) should be a complete no-op (updated_count = 0)
+    let noop_result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &design_ids,
+        BulkApplyTagsRequest {
+            tags_to_add: vec![2, 3],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+            image_tags_verified: None,
+            stitching_tags_verified: None,
+        },
+    )
+    .await
+    .expect("noop bulk set tags should succeed");
+
+    assert_eq!(noop_result.requested_count, 1000);
+    assert_eq!(noop_result.updated_count, 0);
+
+    // 3. Applying explicit verification flags across all 1,000 designs
+    let flag_result = bulk_set_tags_for_designs_with_pool(
+        &pool,
+        &design_ids,
+        BulkApplyTagsRequest {
+            tags_to_add: vec![],
+            tags_to_remove: vec![],
+            clear_all_tags: false,
+            image_tags_verified: Some(true),
+            stitching_tags_verified: Some(true),
+        },
+    )
+    .await
+    .expect("flag bulk set tags should succeed");
+
+    assert_eq!(flag_result.requested_count, 1000);
+    assert_eq!(flag_result.updated_count, 1000);
+
+    let verified_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM designs WHERE image_tags_verified = 1 AND stitching_tags_verified = 1 AND id >= 100",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count verified designs");
+    assert_eq!(verified_count, 1000);
+}
+
+#[tokio::test]
 async fn add_and_remove_project_membership_round_trip() {
     let pool = test_pool().await;
 

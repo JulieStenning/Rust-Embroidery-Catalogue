@@ -40,3 +40,30 @@ pub struct BulkAddToProjectResult {
     pub requested_count: usize,
     pub added_count: usize,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BulkSetTagsResult {
+    pub requested_count: usize,
+    pub updated_count: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SetDesignTagsRequest {
+    pub tag_ids: Vec<i64>,
+    #[serde(default)]
+    pub image_tags_verified: Option<bool>,
+    #[serde(default)]
+    pub stitching_tags_verified: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulkApplyTagsRequest {
+    pub tags_to_add: Vec<i64>,
+    pub tags_to_remove: Vec<i64>,
+    #[serde(default)]
+    pub clear_all_tags: bool,
+    #[serde(default)]
+    pub image_tags_verified: Option<bool>,
+    #[serde(default)]
+    pub stitching_tags_verified: Option<bool>,
+}

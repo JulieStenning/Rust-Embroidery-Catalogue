@@ -13,6 +13,7 @@
 //! - [`tags`]: Tag assignment, removal, and bulk classification.
 //! - [`deletion`]: Single and bulk design deletion with optional file recycling.
 //! - [`types`]: Common shared wire structures and request/response payloads.
+//! - [`verification`]: Bulk design verification status updates.
 
 pub mod browse;
 pub mod browse_query;
@@ -23,6 +24,7 @@ pub mod metadata;
 pub mod preview;
 pub mod tags;
 pub mod types;
+pub mod verification;
 
 pub use browse::*;
 pub use browse_query::*;
@@ -33,6 +35,7 @@ pub use metadata::*;
 pub use preview::*;
 pub use tags::*;
 pub use types::*;
+pub use verification::*;
 
 // Internal re-exports for test module
 #[cfg(test)]
