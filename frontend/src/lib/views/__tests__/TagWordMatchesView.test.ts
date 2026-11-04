@@ -218,9 +218,7 @@ describe("TagWordMatchesView.svelte", () => {
     // 2. Self-synonym: animal
     await fireEvent.input(wordsInput, { target: { value: "animal" } });
     await tick();
-    expect(
-      screen.getByText(/Automatically matched from tag name: animal/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Automatically matched from tag name: animal/i)).toBeInTheDocument();
     expect(submitBtn).toBeDisabled();
   });
 

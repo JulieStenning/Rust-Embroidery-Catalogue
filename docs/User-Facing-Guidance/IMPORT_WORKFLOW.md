@@ -11,7 +11,8 @@ This guide explains the full import workflow from selecting folders to seeing yo
 ## Step 1 - Select folder(s)
 1. Open Import from the top menu.
 2. Add one or more source folder paths (type them or use **Browse…**).
-3. Click **Scan folder(s)**.
+3. Optionally tick **Include uncatalogued files from your library storage folder** if you have placed design files directly into your library folder on disk and want them added to the catalogue database.
+4. Click **Scan folder(s)**.
 
 What happens:
 - Subfolders are scanned automatically.

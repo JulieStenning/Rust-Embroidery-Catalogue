@@ -1353,16 +1353,25 @@
       >
         <div class="space-y-3">
           <label
-            class="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer select-none"
+            for="import-include-library"
+            class="flex items-start gap-2.5 text-sm cursor-pointer select-none"
           >
             <input
               type="checkbox"
               id="import-include-library"
               bind:checked={importIncludeLibrary}
               disabled={importLoading || importBrowseLoading || importActionLoading || busyActive}
-              class="rounded accent-[var(--text-brand)]"
+              class="ui-checkbox mt-0.5 rounded accent-[var(--text-brand)]"
             />
-            <span>Include uncatalogued files already in the Library</span>
+            <span>
+              <span class="block text-[var(--text-secondary)] font-medium">
+                Include uncatalogued files from your library storage folder
+              </span>
+              <span class="block text-xs text-[var(--text-secondary)] mt-0.5">
+                Scans your library folder for design files on disk that have not yet been added to
+                the catalogue database.
+              </span>
+            </span>
           </label>
 
           <div>

@@ -14,6 +14,9 @@
     { href: "#/help?section=settings", label: "⚙️ Settings" },
     { href: "#/help?section=troubleshooting", label: "🔧 Troubleshooting" },
   ];
+
+  const sectionHeadingClass =
+    "text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1";
 </script>
 
 <div class="space-y-10 max-w-3xl">
@@ -35,11 +38,7 @@
   </nav>
 
   <section id="search">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      🔍 Browse & Search
-    </h2>
+    <h2 class={sectionHeadingClass}>🔍 Browse & Search</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Use the general search box on the <a
         href="#/designs"
@@ -135,19 +134,18 @@
   </section>
 
   <section id="importing">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      📥 Importing
-    </h2>
+    <h2 class={sectionHeadingClass}>📥 Importing</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Use <a href="#/import" class="text-[var(--text-brand)] hover:underline">Import</a> to scan one or
       more folders and their sub-folders.
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
-        <strong>Choosing folders:</strong> enter paths, use Browse, or add multiple folders; sub-folders
-        are scanned automatically.
+        <strong>Choosing folders:</strong> enter paths, use Browse, or add multiple folders;
+        sub-folders are scanned automatically. You can also tick
+        <em>Include uncatalogued files from your library storage folder</em>
+        to scan for loose design files already stored on disk that have not yet been added to the catalogue
+        database.
       </p>
       <p>
         <strong>Live scan progress:</strong> while scanning, the scan button displays real-time counts
@@ -197,11 +195,7 @@
   </section>
 
   <section id="word-matches">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      🔤 Tag Word Matches
-    </h2>
+    <h2 class={sectionHeadingClass}>🔤 Tag Word Matches</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Tag Word Matches allow words in filenames and folder paths to automatically assign tags during
       import and batch backfill operations.
@@ -215,13 +209,16 @@
         and punctuation) and <strong>Words</strong> (quotes, phrases, sayings, and typography).
       </p>
       <p>
-        <strong>Folder hierarchies &amp; supplier masking:</strong> broad category folders
-        (such as <em>Animals</em> or <em>Floral</em>) higher up in your folder structure are
-        retained and accurately tagged. When a folder segment matches an assigned or inferred
-        <strong>Source</strong> (e.g. a supplier or store name like <em>Embroidery Super Deal</em> or
-        <em>Urban Threads</em>), that folder name is automatically masked out so commercial brand words
-        do not create spurious tags. Generic medium terms (such as <em>embroidery</em> and
-        <em>stitch</em>) and format directories (such as <em>JEF</em> or <em>PES</em>) are also ignored.
+        <strong>Folder hierarchies &amp; supplier masking:</strong> broad category folders (such as
+        <em>Animals</em>
+        or <em>Floral</em>) higher up in your folder structure are retained and accurately tagged.
+        When a folder segment matches an assigned or inferred
+        <strong>Source</strong> (e.g. a supplier or store name like <em>Embroidery Super Deal</em>
+        or
+        <em>Urban Threads</em>), that folder name is automatically masked out so commercial brand
+        words do not create spurious tags. Generic medium terms (such as <em>embroidery</em> and
+        <em>stitch</em>) and format directories (such as <em>JEF</em> or <em>PES</em>) are also
+        ignored.
       </p>
       <p>
         <strong>Manage matches:</strong> open
@@ -246,11 +243,7 @@
   </section>
 
   <section id="storage">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      💾 Data Storage & External Drives
-    </h2>
+    <h2 class={sectionHeadingClass}>💾 Data Storage & External Drives</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       The catalogue manages two data components: your design files (copied from your original files)
       and the internal catalogue database containing images and other details about the designs.
@@ -284,11 +277,7 @@
   </section>
 
   <section id="ai-tagging">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      🤖 AI Tagging
-    </h2>
+    <h2 class={sectionHeadingClass}>🤖 AI Tagging</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Optional Google AI tagging can suggest design-type tags for imported embroidery files.
     </p>
@@ -324,11 +313,7 @@
   </section>
 
   <section id="batch-operations">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      🏷 Batch Operations
-    </h2>
+    <h2 class={sectionHeadingClass}>🏷 Batch Operations</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Run AI tagging and file maintenance on existing designs from <a
         href="#/admin/batch-operations"
@@ -356,11 +341,7 @@
   </section>
 
   <section id="projects">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      📁 Projects
-    </h2>
+    <h2 class={sectionHeadingClass}>📁 Projects</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       <a href="#/projects" class="text-[var(--text-brand)] hover:underline">Projects</a> let you group
       designs for planned embroidery tasks.
@@ -376,11 +357,7 @@
   </section>
 
   <section id="maintenance">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      🛠 Maintenance
-    </h2>
+    <h2 class={sectionHeadingClass}>🛠 Maintenance</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Use <a href="#/admin/system/discrepancies" class="text-[var(--text-brand)] hover:underline"
         >Library Discrepancies</a
@@ -414,11 +391,7 @@
   </section>
 
   <section id="settings">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      ⚙️ Settings & Configuration
-    </h2>
+    <h2 class={sectionHeadingClass}>⚙️ Settings & Configuration</h2>
     <p class="text-sm text-[var(--text-secondary)] mb-3">
       Manage your application preferences, appearance themes, and digitising format filters in
       <a href="#/admin/system/settings" class="text-[var(--text-brand)] hover:underline"
@@ -458,11 +431,7 @@
   </section>
 
   <section id="troubleshooting">
-    <h2
-      class="text-xl font-semibold mb-3 border-b border-[var(--border-default)] text-[var(--text-primary)] pb-1"
-    >
-      🔧 Troubleshooting
-    </h2>
+    <h2 class={sectionHeadingClass}>🔧 Troubleshooting</h2>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p>
         <strong>Missing folder / changed drive letter:</strong> ensure the full data folder moved with

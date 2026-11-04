@@ -70,7 +70,9 @@ test.describe("bulk import step 1", () => {
     await expect(
       page.getByRole("heading", { name: "Bulk Import" }),
     ).toBeVisible();
-    await expect(page.getByText("Source Folder(s) *")).toBeVisible();
+    await expect(
+      page.getByText("Source Folder(s)", { exact: true }),
+    ).toBeVisible();
 
     const intro = page.locator(".import-step1-intro");
     await expect(intro).toContainText(
@@ -90,6 +92,20 @@ test.describe("bulk import step 1", () => {
     await expect(input).toHaveValue("");
     await expect(folderRows(page)).toHaveCount(1);
     await expect(page.getByRole("button", { name: "Browse…" })).toBeEnabled();
+
+    const libraryCheckbox = page.locator("#import-include-library");
+    await expect(libraryCheckbox).toBeVisible();
+    await expect(libraryCheckbox).not.toBeChecked();
+    await expect(
+      page.getByText(
+        "Include uncatalogued files from your library storage folder",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Scans your library folder for design files on disk that have not yet been added to the catalogue database.",
+      ),
+    ).toBeVisible();
   });
 
   test("gates Scan, Reset, Add another folder and Remove on a non-empty path", async ({
@@ -287,7 +303,9 @@ test.describe("bulk import step 1", () => {
     });
 
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByText("Source Folder(s) *")).toBeVisible();
+    await expect(
+      page.getByText("Source Folder(s)", { exact: true }),
+    ).toBeVisible();
   });
 
   test("displays Scanning… and Cancel scan during folder scanning", async ({
@@ -319,10 +337,14 @@ test.describe("bulk import step 1", () => {
     await scanBtn.click();
 
     // If Cancel scan is clicked while visible
-    const cancelScanBtn = page.getByRole("button", { name: /Cancel scan|Cancelling…/ });
+    const cancelScanBtn = page.getByRole("button", {
+      name: /Cancel scan|Cancelling…/,
+    });
     if (await cancelScanBtn.isVisible()) {
       await cancelScanBtn.click();
-      await expect(page.getByText("Source Folder(s) *")).toBeVisible();
+      await expect(
+        page.getByText("Source Folder(s)", { exact: true }),
+      ).toBeVisible();
     }
   });
 
@@ -346,7 +368,7 @@ test.describe("bulk import step 1", () => {
 
     await folderSearch.fill("Nested");
     await expect(page.getByTestId("import-folder-shell")).toHaveCount(1);
-    await expect(page.getByText("Nested", { exact: false })).toBeVisible();
+    await expect(page.getByText("Nested", { exact: true })).toBeVisible();
 
     await folderSearch.fill("");
     await expect(page.getByTestId("import-folder-shell")).toHaveCount(2);

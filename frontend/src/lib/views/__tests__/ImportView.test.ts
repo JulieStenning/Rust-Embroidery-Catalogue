@@ -931,11 +931,19 @@ describe("ImportView browse flows", () => {
 // Step 1: preview submission
 // ---------------------------------------------------------------------------
 describe("ImportView step 1 preview submission", () => {
-  it("renders Include uncatalogued files already in the Library checkbox unchecked by default", () => {
+  it("renders Include uncatalogued files from your library storage folder checkbox and helper text unchecked by default", () => {
     const { container } = renderHarness("#/import");
     const checkbox = container.querySelector<HTMLInputElement>("#import-include-library");
     expect(checkbox).toBeInTheDocument();
     expect(checkbox?.checked).toBe(false);
+    expect(
+      screen.getByText("Include uncatalogued files from your library storage folder")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Scans your library folder for design files on disk that have not yet been added to the catalogue database."
+      )
+    ).toBeInTheDocument();
   });
 
   it("enables scan button and submits preview when only includeLibrary is checked", async () => {
