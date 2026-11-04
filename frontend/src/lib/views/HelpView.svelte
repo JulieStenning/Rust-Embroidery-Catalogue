@@ -322,6 +322,10 @@
     </p>
     <div class="route-card rounded shadow p-4 space-y-3 text-sm">
       <p><strong>Tag only untagged designs:</strong> safe; does not overwrite verified tags.</p>
+      <p>
+        <strong>Tag specific folders:</strong> select one or more library folders inline with optional
+        subfolder inclusion.
+      </p>
       <p><strong>Tag untagged and unverified designs:</strong> includes unverified suggestions.</p>
       <p><strong>Re-tag ALL designs:</strong> overwrites everything and requires confirmation.</p>
       <p>

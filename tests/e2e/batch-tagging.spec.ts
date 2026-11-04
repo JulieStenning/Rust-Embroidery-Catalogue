@@ -170,6 +170,28 @@ test.describe.serial("batch operations - tagging & categorisation", () => {
     await expect(folderScope).toBeVisible();
     await expect(allScope).toBeVisible();
 
+    // Selecting specific folder reveals folder chooser positioned inline before entire collection
+    await folderScope.click();
+    await expect(folderScope).toBeChecked();
+    const chooseFoldersBtn = page.getByRole("button", {
+      name: "Choose folders…",
+    });
+    await expect(chooseFoldersBtn).toBeVisible();
+
+    const folderBox = await folderScope.boundingBox();
+    const chooseBox = await chooseFoldersBtn.boundingBox();
+    const allBox = await allScope.boundingBox();
+    expect(folderBox).not.toBeNull();
+    expect(chooseBox).not.toBeNull();
+    expect(allBox).not.toBeNull();
+    expect(chooseBox!.y).toBeGreaterThan(folderBox!.y);
+    expect(allBox!.y).toBeGreaterThan(chooseBox!.y);
+
+    // Revert back to untagged scope
+    await untaggedScope.click();
+    await expect(untaggedScope).toBeChecked();
+    await expect(chooseFoldersBtn).not.toBeVisible();
+
     // Live scope candidate counts are populated
     await expect(page.getByText(/\d+ designs/i).first()).toBeVisible();
     await expect(

@@ -87,14 +87,26 @@ describe("BatchOperationsView workflow selection", () => {
     expect(screen.getByRole("radio", { name: /Complete reset/i })).toBeChecked();
   });
 
-  it("selects the Specific Folder or Category scope and shows the folder picker", async () => {
+  it("selects the Specific Folder or Category scope and shows the folder picker under Specific folder(s)", async () => {
     render(BatchOperationsView);
     await screen.findByRole("radio", { name: /Apply file & folder rules/i });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: /Specific folder\(s\)/i }));
-    expect(screen.getByRole("radio", { name: /Specific folder\(s\)/i })).toBeChecked();
-    expect(screen.getByRole("button", { name: "Choose folders…" })).toBeInTheDocument();
+    const folderRadio = screen.getByRole("radio", { name: /Specific folder\(s\)/i });
+    const allRadio = screen.getByRole("radio", { name: /Entire collection/i });
+
+    await user.click(folderRadio);
+    expect(folderRadio).toBeChecked();
+    const chooseButton = screen.getByRole("button", { name: "Choose folders…" });
+    expect(chooseButton).toBeInTheDocument();
+
+    // Verify the folder chooser is rendered under "Specific folder(s)" and before "Entire collection"
+    expect(
+      folderRadio.compareDocumentPosition(chooseButton) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      chooseButton.compareDocumentPosition(allRadio) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("picks folders, shows them, and refreshes the folder-scope counts", async () => {

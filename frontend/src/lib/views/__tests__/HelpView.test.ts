@@ -380,6 +380,7 @@ describe("HelpView", () => {
       expect(adminLink).toHaveAttribute("href", "#/admin/batch-operations");
 
       expect(section.getByText("Tag only untagged designs:")).toBeInTheDocument();
+      expect(section.getByText("Tag specific folders:")).toBeInTheDocument();
       expect(section.getByText("Tag untagged and unverified designs:")).toBeInTheDocument();
       expect(section.getByText("Re-tag ALL designs:")).toBeInTheDocument();
       expect(section.getByText("Local stitching backfill:")).toBeInTheDocument();

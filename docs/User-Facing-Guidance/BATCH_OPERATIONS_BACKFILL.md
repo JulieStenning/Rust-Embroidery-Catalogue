@@ -79,7 +79,7 @@ Scopes for a Gemini Vision / Full Re-Scan run let you target designs by their an
 - **Designs missing Gemini Vision analysis** — designs not yet scanned by Gemini Vision.
 - **Gemini Vision found no match** — designs Gemini Vision analysed but produced no tags.
 - **Re-analyse (already analysed)** — designs already analysed, run again.
-- **Untagged designs only**, **Specific Folder(s)**, and **Entire collection** are also available.
+- **Untagged designs only**, **Specific Folder(s)**, and **Entire collection** are also available. When **Specific Folder(s)** is chosen, the folder selection panel appears inline directly beneath the option, allowing you to choose one or more library folders and optionally include subfolders.
 
 ### Model selection & evaluation (September 2026)
 

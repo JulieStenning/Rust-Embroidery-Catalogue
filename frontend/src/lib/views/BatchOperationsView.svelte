@@ -769,68 +769,72 @@
                   {/if}
                 </div>
               </label>
+
+              {#if option.id === "folder" && scope === "folder"}
+                <!-- Folder selection (Specific Folder or Category scope) -->
+                <div
+                  class="ml-7 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] p-3 space-y-3"
+                >
+                  <p class="text-xs text-[var(--text-secondary)]">
+                    Choose one or more library folders. Designs under any selected folder will be
+                    processed.
+                  </p>
+                  <button
+                    class="menu-button-secondary"
+                    onclick={chooseTaggingFolder}
+                    disabled={busyActive || countsLoading}
+                  >
+                    {selectedFolderPaths.length > 0 ? "Add folders…" : "Choose folders…"}
+                  </button>
+
+                  {#if selectedFolderPaths.length > 0}
+                    <ul class="space-y-1.5">
+                      {#each selectedFolderPaths as folderPath}
+                        <li
+                          class="tagging-folder-row flex items-center gap-2 rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-2 py-1.5"
+                          data-folder={folderPath}
+                        >
+                          <span
+                            class="flex-1 font-mono text-xs text-[var(--text-primary)] break-all"
+                          >
+                            {folderDisplayPath(folderPath)}
+                          </span>
+                          <button
+                            type="button"
+                            class="menu-button-secondary py-1 px-2 text-xs text-[var(--notice-error-text)] border-[var(--notice-error-border)] hover:bg-[var(--notice-error-bg)]"
+                            onclick={() => removeTaggingFolder(folderPath)}
+                            disabled={busyActive}
+                            title="Remove this folder"
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      {/each}
+                    </ul>
+
+                    <label
+                      class="flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        bind:checked={includeSubfolders}
+                        onchange={() => loadScopeCounts()}
+                        disabled={busyActive}
+                        class="rounded accent-[var(--text-brand)]"
+                      />
+                      <span>Include subfolders</span>
+                    </label>
+                  {/if}
+                  {#if dataStorageLocation}
+                    <p class="text-xs text-[var(--text-muted)]">
+                      Library: {dataStorageLocation}
+                    </p>
+                  {/if}
+                </div>
+              {/if}
             {/if}
           {/each}
         </div>
-
-        <!-- Folder selection (Specific Folder or Category scope) -->
-        {#if scope === "folder"}
-          <div class="rounded border border-[var(--border-default)] p-3 space-y-3">
-            <p class="text-xs text-[var(--text-secondary)]">
-              Choose one or more library folders. Designs under any selected folder will be
-              processed.
-            </p>
-            <button
-              class="menu-button-secondary"
-              onclick={chooseTaggingFolder}
-              disabled={busyActive || countsLoading}
-            >
-              {selectedFolderPaths.length > 0 ? "Add folders…" : "Choose folders…"}
-            </button>
-
-            {#if selectedFolderPaths.length > 0}
-              <ul class="space-y-1.5">
-                {#each selectedFolderPaths as folderPath}
-                  <li
-                    class="tagging-folder-row flex items-center gap-2 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] px-2 py-1.5"
-                    data-folder={folderPath}
-                  >
-                    <span class="flex-1 font-mono text-xs text-[var(--text-primary)] break-all">
-                      {folderDisplayPath(folderPath)}
-                    </span>
-                    <button
-                      type="button"
-                      class="menu-button-secondary py-1 px-2 text-xs text-[var(--notice-error-text)] border-[var(--notice-error-border)] hover:bg-[var(--notice-error-bg)]"
-                      onclick={() => removeTaggingFolder(folderPath)}
-                      disabled={busyActive}
-                      title="Remove this folder"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-
-              <label
-                class="flex items-center gap-2 text-sm text-[var(--text-primary)] cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  bind:checked={includeSubfolders}
-                  onchange={() => loadScopeCounts()}
-                  disabled={busyActive}
-                  class="rounded accent-[var(--text-brand)]"
-                />
-                <span>Include subfolders</span>
-              </label>
-            {/if}
-            {#if dataStorageLocation}
-              <p class="text-xs text-[var(--text-muted)]">
-                Library: {dataStorageLocation}
-              </p>
-            {/if}
-          </div>
-        {/if}
 
         <!-- Verified exclusion control -->
         <label
