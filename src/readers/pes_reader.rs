@@ -388,21 +388,29 @@ fn read_pec(
     if stitch_block_end < cursor.get_ref().len() as u64 {
         cursor.seek(SeekFrom::Start(stitch_block_end))?;
 
-        // Read PEC graphics (store as metadata)
+        // Read PEC graphics (store as metadata). This is non-essential
+        // auxiliary thumbnail data; if the file ends early or has fewer
+        // icon graphics than colour changes, read whatever is present
+        // without failing the pattern.
         let byte_size = pec_graphic_byte_stride as usize * pec_graphic_icon_height as usize;
-        for i in 0..count_colors {
-            let graphic = read_exact(cursor, byte_size)?;
-            let name = format!("pec_graphic_{}", i);
-            let thread_color = values.get(i).map(|t| t.hex_color()).unwrap_or_default();
-            // Store as hex-encoded string for now (graphic + stride + thread)
-            let graphic_hex: String = graphic.iter().map(|b| format!("{:02x}", b)).collect();
-            pattern.extras.insert(
-                name,
-                format!(
-                    "{};{};{}",
-                    graphic_hex, pec_graphic_byte_stride, thread_color
-                ),
-            );
+        if byte_size > 0 {
+            for i in 0..count_colors {
+                let Ok(graphic) = read_exact(cursor, byte_size) else {
+                    break;
+                };
+                let name = format!("pec_graphic_{}", i);
+                let thread_color = values.get(i).map(|t| t.hex_color()).unwrap_or_default();
+                // Store as hex-encoded string for now (graphic + stride + thread)
+                let graphic_hex: String =
+                    graphic.iter().map(|b| format!("{:02x}", b)).collect();
+                pattern.extras.insert(
+                    name,
+                    format!(
+                        "{};{};{}",
+                        graphic_hex, pec_graphic_byte_stride, thread_color
+                    ),
+                );
+            }
         }
     }
 

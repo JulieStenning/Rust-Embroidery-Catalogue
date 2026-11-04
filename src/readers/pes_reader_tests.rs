@@ -1104,3 +1104,61 @@ fn test_pes_reader_uncompiled_hoop_exceeded_returns_design_exceeds_hoop() {
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("design_exceeds_hoop"));
 }
+
+#[test]
+fn test_pes_reader_fewer_graphics_than_colour_changes_succeeds() {
+    let mut data = Vec::new();
+    data.extend_from_slice(b"#PES0001");
+    // PEC block starts at offset 12
+    data.extend_from_slice(&12u32.to_le_bytes());
+
+    // PEC block (starts at 12):
+    data.extend_from_slice(b"LA:");
+    data.extend_from_slice(b"test            "); // 16 bytes
+    data.extend_from_slice(&[0u8; 15]); // 15 bytes
+    data.push(6); // stride (6 bytes = 48 px)
+    data.push(38); // icon height (38 px)
+    data.extend_from_slice(&[0u8; 12]); // 12 bytes
+    data.push(2); // color_changes = 2 -> count_colors = 3
+    data.extend_from_slice(&[1, 2, 3]); // 3 colour palette indices
+
+    // Skip to stitch block header offset (0x1D0 - 2 = 0x1CE = 462 bytes)
+    data.resize(data.len() + 0x1D0 - 2, 0);
+
+    // stitch_block_end_offset: distance from pec_block_start to stitch block end + 5
+    // Stitches: 0x0B bytes header + 2 bytes end stitch (0xFF, 0x00) = 13 bytes.
+    // stitch_block_end = pec_block_start + offset - 5 => offset = 13 + 5 = 18
+    let offset: u32 = 18;
+    data.push((offset & 0xFF) as u8);
+    data.push(((offset >> 8) & 0xFF) as u8);
+    data.push(((offset >> 16) & 0xFF) as u8);
+
+    data.extend_from_slice(&[0u8; 11]); // 0x0B bytes
+    data.extend_from_slice(&[0xFF, 0x00]); // End marker
+
+    // Now at stitch_block_end.
+    // byte_size = 6 * 38 = 228 bytes.
+    // Instead of providing 3 graphics (3 * 228 = 684 bytes), only provide 1 graphic (228 bytes) before EOF.
+    data.extend_from_slice(&vec![0xAA; 228]);
+
+    let reader = PesReader;
+    let result = reader.read(&data);
+    assert!(result.is_ok(), "reader should succeed even if fewer graphics exist than colour changes");
+    let pattern = result.unwrap();
+    assert_eq!(pattern.threadlist.len(), 3);
+    assert!(pattern.extras.contains_key("pec_graphic_0"));
+    assert!(!pattern.extras.contains_key("pec_graphic_1"));
+}
+
+#[test]
+fn test_pes_reader_user_design_99046_if_present() {
+    let path = r#"F:\MachineEmbroideryDesigns\DVDs from Previous Owner\Holidays and Celebrations\Halloween (3) 1153\99046.pes"#;
+    if let Ok(data) = std::fs::read(path) {
+        let reader = PesReader;
+        let result = reader.read(&data);
+        assert!(result.is_ok(), "99046.pes should parse successfully: {:?}", result.err());
+        let pattern = result.unwrap();
+        assert_eq!(pattern.stitches.len(), 6546);
+        assert_eq!(pattern.threadlist.len(), 10);
+    }
+}
