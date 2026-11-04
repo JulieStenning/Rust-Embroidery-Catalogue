@@ -1909,6 +1909,44 @@ describe("ImportView bulk import progress events", () => {
     resolveAction(actionResponse());
   });
 
+  it("prefers persisted_count over lagging committed_count for imported display", async () => {
+    let resolveAction!: (v: unknown) => void;
+    adapterMocks.runPrecheckAction.mockReturnValue(
+      new Promise((r) => {
+        resolveAction = r;
+      })
+    );
+    const { container } = renderHarness("#/import");
+    await gotoStep3(container);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
+
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
+    handler({
+      payload: {
+        stage: "processed",
+        processed_count: 1000,
+        total_count: 5000,
+        persisted_count: 1000,
+        committed_count: 900,
+      },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Running Import... 1000/5000 processed (1000 imported)",
+        })
+      ).toBeInTheDocument()
+    );
+    resolveAction(actionResponse());
+  });
+
   it("ignores progress events from a different context token", async () => {
     let resolveAction!: (v: unknown) => void;
     adapterMocks.runPrecheckAction.mockReturnValue(

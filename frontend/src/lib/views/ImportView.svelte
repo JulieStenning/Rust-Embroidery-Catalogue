@@ -1235,6 +1235,13 @@
         const total = Number(payload?.total_count ?? payload?.totalCount ?? 0);
         const persisted = Number(payload?.persisted_count ?? payload?.persistedCount ?? 0);
         const committed = Number(payload?.committed_count ?? payload?.committedCount ?? persisted);
+        const imported = Number(
+          payload?.persisted_count ??
+            payload?.persistedCount ??
+            payload?.committed_count ??
+            payload?.committedCount ??
+            0
+        );
         const failed = Number(payload?.failed_count ?? payload?.failedCount ?? 0);
         const currentFile = String(payload?.current_file ?? payload?.currentFile ?? "").trim();
         const currentFilename = currentFile.replace(/\\/g, "/").split("/").pop() || currentFile;
@@ -1249,7 +1256,7 @@
         if (stage === "generating_images") {
           importProgressStatus =
             total > 0
-              ? `${processed}/${total} processed (${committed} imported) - generating preview images...`
+              ? `${processed}/${total} processed (${imported} imported) - generating preview images...`
               : "Generating preview images...";
           return;
         }
@@ -1260,31 +1267,31 @@
         if (stage === "batch_committed") {
           importProgressStatus =
             total > 0
-              ? `${processed}/${total} processed (${committed} imported) - saving batch...`
-              : `${committed} imported - saving batch...`;
+              ? `${processed}/${total} processed (${imported} imported) - saving batch...`
+              : `${imported} imported - saving batch...`;
           return;
         }
         if (stage === "stopped") {
           importProgressStatus =
             total > 0
-              ? `Stopped after ${processed}/${total} processed (${committed} imported)`
-              : `Stopped after ${committed} imported`;
+              ? `Stopped after ${processed}/${total} processed (${imported} imported)`
+              : `Stopped after ${imported} imported`;
           return;
         }
         if (stage === "completed") {
           const failedSuffix = failed > 0 ? `, ${failed} failed` : "";
           importProgressStatus =
             total > 0
-              ? `Completed ${processed}/${total} processed (${committed} imported${failedSuffix})`
-              : `Completed ${committed} imported${failedSuffix}`;
+              ? `Completed ${processed}/${total} processed (${imported} imported${failedSuffix})`
+              : `Completed ${imported} imported${failedSuffix}`;
           return;
         }
         if (total > 0) {
-          importProgressStatus = `${processed}/${total} processed (${committed} imported${
+          importProgressStatus = `${processed}/${total} processed (${imported} imported${
             failed > 0 ? `, ${failed} failed` : ""
           })`;
         } else {
-          importProgressStatus = `${committed} imported${failed > 0 ? `, ${failed} failed` : ""}`;
+          importProgressStatus = `${imported} imported${failed > 0 ? `, ${failed} failed` : ""}`;
         }
       });
     } catch (error) {
