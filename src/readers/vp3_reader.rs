@@ -173,10 +173,7 @@ fn vp3_read_thread(cursor: &mut Cursor<&[u8]>) -> Result<EmbThread, Box<dyn std:
     for _ in 0..colors {
         thread.color = read_u24_be(cursor)?;
         let _parts = read_u8(cursor)?;
-        let color_length = read_u16_be(cursor)? as i64;
-        if color_length > 0 {
-            cursor.seek(SeekFrom::Current(color_length))?;
-        }
+        let _color_length = read_u16_be(cursor)?;
     }
     let _thread_type = read_u8(cursor)?;
     let _weight = read_u8(cursor)?;

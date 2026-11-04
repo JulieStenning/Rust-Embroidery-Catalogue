@@ -43,25 +43,24 @@ fn vp3_thread_parser_consumes_all_color_entries() {
 }
 
 #[test]
-fn vp3_thread_parser_skips_color_payload_bytes() {
+fn vp3_thread_parser_handles_variegated_thread_with_segment_lengths() {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(&[
-        0x01, 0x00, // one color, no transition
-        0x11, 0x22, 0x33, // color
-        0x01, // one part
-        0x00, 0x02, // payload length
-        0xAA, 0xBB, // payload bytes to skip
+        0x02, 0x00, // two colours, no transition
+        0x11, 0x22, 0x33, 0x0A, 0x07, 0xD0, // first colour: parts=10, segment_length=2000
+        0x44, 0x55, 0x66, 0x0A, 0x07, 0xD0, // second colour: parts=10, segment_length=2000
         0x05, 0x28, // thread type, weight
-        0x00, 0x01, b'a', 0x00, 0x01, b'b', 0x00, 0x01, b'c',
+        0x00, 0x04, b'2', b'2', b'4', b'7', 0x00, 0x04, b'V', b'a', b'r', b'i', 0x00, 0x05, b'S',
+        b'u', b'l', b'k', b'y',
     ]);
 
     let mut cursor = Cursor::new(bytes.as_slice());
-    let thread = vp3_read_thread(&mut cursor).expect("VP3 thread with payload should parse");
+    let thread = vp3_read_thread(&mut cursor).expect("VP3 variegated thread should parse");
 
-    assert_eq!(thread.color, 0x112233);
-    assert_eq!(thread.catalog_number.as_deref(), Some("a"));
-    assert_eq!(thread.description.as_deref(), Some("b"));
-    assert_eq!(thread.brand.as_deref(), Some("c"));
+    assert_eq!(thread.color, 0x445566);
+    assert_eq!(thread.catalog_number.as_deref(), Some("2247"));
+    assert_eq!(thread.description.as_deref(), Some("Vari"));
+    assert_eq!(thread.brand.as_deref(), Some("Sulky"));
     assert_eq!(cursor.position() as usize, bytes.len());
 }
 

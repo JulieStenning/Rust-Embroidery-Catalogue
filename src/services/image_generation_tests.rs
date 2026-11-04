@@ -685,6 +685,41 @@ fn native_backend_parses_vp3_fixture() {
 }
 
 #[test]
+fn native_backend_parses_user_birthday_fun_border_vp3_when_present() {
+    let paths = [
+        PathBuf::from(
+            r"F:\MachineEmbroideryDesigns\From Patsy\Husqvarna Freebies\Birthday Fun Border.vp3",
+        ),
+        PathBuf::from("tests")
+            .join("Test Designs")
+            .join("Birthday Fun Border.vp3"),
+    ];
+    let Some(file_path) = paths.iter().find(|p| p.exists()) else {
+        return;
+    };
+
+    let request = ImageGenerationRequest {
+        file_path: file_path.to_string_lossy().to_string(),
+        preview_3d: false,
+        preview_3d_profile: None,
+    };
+
+    let native = generate_preview_via_native(&request);
+    assert!(
+        native.error.is_none(),
+        "native backend should succeed for Birthday Fun Border VP3 fixture: {:?}",
+        native.error
+    );
+    assert_eq!(native.image_type.as_deref(), Some("2d"));
+    assert!(native
+        .image_data
+        .as_ref()
+        .map(|bytes| !bytes.is_empty())
+        .unwrap_or(false));
+    assert!(native.stitch_count.unwrap_or_default() > 5000);
+}
+
+#[test]
 fn native_backend_parses_user_vp3_regression_fixture_when_present() {
     let file_path = PathBuf::from("tests")
         .join("Test Designs")
