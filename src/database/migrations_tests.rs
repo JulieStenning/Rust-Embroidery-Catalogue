@@ -862,3 +862,42 @@ async fn run_migrations_splits_words_and_alphabets_tags_and_synonyms() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_creates_preview_error_index() {
+    let tmp = unique_tmp_dir("preview-error-index");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("preview_error_index.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_preview_error'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query ix_designs_preview_error index");
+    assert_eq!(count.0, 1, "ix_designs_preview_error index should exist");
+
+    // Verify EXPLAIN QUERY PLAN uses the partial index for preview_error lookups
+    let eqp: Vec<(i64, i64, i64, String)> = sqlx::query_as(
+        "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM designs WHERE preview_error = 'design_exceeds_hoop'",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("explain query plan");
+    let plan = eqp
+        .iter()
+        .map(|r| r.3.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        plan.contains("ix_designs_preview_error"),
+        "expected query plan to use ix_designs_preview_error, got: {plan}"
+    );
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
