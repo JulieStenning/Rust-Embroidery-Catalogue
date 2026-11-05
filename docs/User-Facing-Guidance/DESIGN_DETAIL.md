@@ -127,7 +127,7 @@ When viewing a design catalogued from a digitising master outline format (e.g. `
 - **Check Folder for Stitch Files**:
   1. Open the master outline file in your digitising software (e.g. Embird, Hatch, Bernina).
   2. Save or export machine stitch copies (e.g. `.jef`, `.pes`) into the same folder.
-  3. Click **Check Folder for Stitch Files** (available both on the banner and in the action toolbar).
+  3. Click **Check Folder for Stitch Files** in the action toolbar.
   4. The catalogue inspects the folder, automatically pairs all matching stitch files with their master files, extracts stitch metadata, and generates visual previews.
   5. **Tag and Metadata Preservation**: All tags, project associations, designer assignments, ratings, and notes already assigned to the master design are strictly preserved and carried over into the paired design.
 

@@ -58,8 +58,8 @@ test.describe("Master outline folder stitch file pairing", () => {
       const db = getTestDb();
       try {
         const stmt = db.prepare(
-          `INSERT INTO designs (filename, filepath, master_filepath, is_master_only, notes, date_added, date_updated)
-           VALUES ('Daisy.eof', 'PairTestFolder/Daisy.eof', 'PairTestFolder/Daisy.eof', 1, 'Folder pair test note', datetime('now'), datetime('now'))`,
+          `INSERT INTO designs (filename, filepath, master_filepath, is_master_only, notes, date_added)
+           VALUES ('Daisy.eof', 'PairTestFolder/Daisy.eof', 'PairTestFolder/Daisy.eof', 1, 'Folder pair test note', datetime('now'))`,
         );
         const result = stmt.run();
         return Number(result.lastInsertRowid);
@@ -74,7 +74,9 @@ test.describe("Master outline folder stitch file pairing", () => {
       withRetry(() => {
         const db = getTestDb();
         try {
-          db.prepare("DELETE FROM design_tags WHERE design_id = ?").run(masterDesignId);
+          db.prepare("DELETE FROM design_tags WHERE design_id = ?").run(
+            masterDesignId,
+          );
           db.prepare("DELETE FROM designs WHERE id = ?").run(masterDesignId);
         } finally {
           db.close();
@@ -92,13 +94,16 @@ test.describe("Master outline folder stitch file pairing", () => {
   }) => {
     await gotoRoute(page, `#/designs/${masterDesignId}`);
 
-    // Verify master-only banner and button are rendered
+    // Verify master-only banner is rendered without an embedded button
     const banner = page.locator('[data-testid="design-master-only-banner"]');
     await expect(banner).toBeVisible({ timeout: 15_000 });
     await expect(banner).toContainText("Outline Master File");
+    await expect(
+      banner.locator('[data-testid="check-folder-stitch-files-banner-btn"]'),
+    ).toHaveCount(0);
 
     const scanBtn = page.locator(
-      '[data-testid="check-folder-stitch-files-banner-btn"]',
+      '[data-testid="check-folder-stitch-files-action-btn"]',
     );
     await expect(scanBtn).toBeVisible();
     await expect(scanBtn).toContainText("Check Folder for Stitch Files");
@@ -140,4 +145,3 @@ test.describe("Master outline folder stitch file pairing", () => {
     expect(row.notes).toBe("Folder pair test note");
   });
 });
-

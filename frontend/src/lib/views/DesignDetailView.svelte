@@ -692,18 +692,6 @@
               your embroidery design software and export a stitch file (e.g. .pes, .jef) to the same
               folder to enable automatic previews, stitch counts, and hoop calculations.
             </p>
-            <div class="pt-1.5">
-              <button
-                type="button"
-                class="menu-button-primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 shadow-sm"
-                data-testid="check-folder-stitch-files-banner-btn"
-                onclick={checkFolderForStitchFiles}
-                disabled={detailSaving || detailScanningFolder}
-              >
-                <span aria-hidden="true">🧵</span>
-                {detailScanningFolder ? "Scanning folder…" : "Check Folder for Stitch Files"}
-              </button>
-            </div>
           </div>
         {:else if detailItem.previewError === "design_exceeds_hoop"}
           <div

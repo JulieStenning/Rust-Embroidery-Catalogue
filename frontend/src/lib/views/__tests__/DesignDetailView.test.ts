@@ -1729,7 +1729,7 @@ describe("DesignDetailView", () => {
       });
     });
 
-    it("renders Check Folder for Stitch Files buttons on master-only design", async () => {
+    it("renders Check Folder for Stitch Files button on master-only design", async () => {
       adapterMocks.getDesignDetail.mockResolvedValue(
         detailResponse({
           id: 55,
@@ -1742,8 +1742,10 @@ describe("DesignDetailView", () => {
       renderDetail();
 
       await waitFor(() => {
-        expect(screen.getByTestId("check-folder-stitch-files-banner-btn")).toBeInTheDocument();
         expect(screen.getByTestId("check-folder-stitch-files-action-btn")).toBeInTheDocument();
+        expect(
+          screen.queryByTestId("check-folder-stitch-files-banner-btn")
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -1784,11 +1786,11 @@ describe("DesignDetailView", () => {
       renderDetail();
 
       await waitFor(() => {
-        expect(screen.getByTestId("check-folder-stitch-files-banner-btn")).toBeInTheDocument();
+        expect(screen.getByTestId("check-folder-stitch-files-action-btn")).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
-      await user.click(screen.getByTestId("check-folder-stitch-files-banner-btn"));
+      await user.click(screen.getByTestId("check-folder-stitch-files-action-btn"));
 
       await waitFor(() => {
         expect(adapterMocks.scanFolderForStitchFiles).toHaveBeenCalledWith(55);
@@ -1826,11 +1828,11 @@ describe("DesignDetailView", () => {
       renderDetail();
 
       await waitFor(() => {
-        expect(screen.getByTestId("check-folder-stitch-files-banner-btn")).toBeInTheDocument();
+        expect(screen.getByTestId("check-folder-stitch-files-action-btn")).toBeInTheDocument();
       });
 
       const user = userEvent.setup();
-      await user.click(screen.getByTestId("check-folder-stitch-files-banner-btn"));
+      await user.click(screen.getByTestId("check-folder-stitch-files-action-btn"));
 
       await waitFor(() => {
         expect(adapterMocks.scanFolderForStitchFiles).toHaveBeenCalledWith(55);
