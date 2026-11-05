@@ -187,19 +187,27 @@ fn read_pec_stitches(
             Ok(v) => v,
             Err(_) => break,
         };
+
+        // End marker: 0xFF. In PEC files this is either standalone 0xFF (e.g. at the
+        // end of a stitch block) or followed by 0x00.
+        if val1 == 0xFF {
+            // Consume optional 0x00 if present
+            if let Ok(val2) = read_u8(cursor) {
+                if val2 != 0x00 {
+                    let _ = cursor.seek(SeekFrom::Current(-1));
+                }
+            }
+            break;
+        }
+
         let val2 = match read_u8(cursor) {
             Ok(v) => v,
             Err(_) => break,
         };
 
-        // End marker: 0xFF 0x00
-        if val1 == 0xFF && val2 == 0x00 {
-            break;
-        }
-
         // Color change marker: 0xFE 0xB0
         if val1 == 0xFE && val2 == 0xB0 {
-            cursor.seek(SeekFrom::Current(1))?; // skip 1 byte
+            let _ = read_u8(cursor); // skip 1 byte
             pattern.add_stitch_relative(StitchType::ColorChange, 0.0, 0.0);
             continue;
         }
@@ -223,7 +231,10 @@ fn read_pec_stitches(
 
         // Decode Y â€” in the long-X case, the next unread byte becomes Y.
         let y_byte1 = if val1 & FLAG_LONG != 0 {
-            read_u8(cursor)?
+            match read_u8(cursor) {
+                Ok(b) => b,
+                Err(_) => break,
+            }
         } else {
             val2
         };
@@ -235,7 +246,10 @@ fn read_pec_stitches(
             if y_byte1 & JUMP_CODE != 0 {
                 jump = true;
             }
-            let y_byte2 = read_u8(cursor)?;
+            let y_byte2 = match read_u8(cursor) {
+                Ok(b) => b,
+                Err(_) => break,
+            };
             let code = ((y_byte1 as u16) << 8) | (y_byte2 as u16);
             signed12(code)
         } else {
@@ -369,14 +383,16 @@ fn read_pec(
     let skip = 0x1D0_usize.saturating_sub(color_changes as usize);
     cursor.seek(SeekFrom::Current(skip as i64))?;
 
-    // Read stitch block end offset (24-bit LE)
-    let pec_block_start = cursor.position();
+    // Read stitch block end offset (24-bit LE). In PEC format, this offset is
+    // relative to the second PEC header section (pec_start + 512). Since reading
+    // the 3-byte integer leaves the cursor at (pec_start + 517), subtracting 5 from
+    // the current position reproduces the exact base offset (matching pyembroidery).
     let stitch_block_end_offset = read_u24_le(cursor)?;
-    let stitch_block_end = if stitch_block_end_offset >= 5 {
-        pec_block_start + (stitch_block_end_offset as u64) - 5u64
-    } else {
-        pec_block_start
-    };
+    let stitch_block_end = cursor
+        .position()
+        .saturating_sub(5)
+        .saturating_add(stitch_block_end_offset as u64)
+        .min(cursor.get_ref().len() as u64);
 
     // Skip 0x0B bytes (3 bytes + 4Ã—2-byte shorts)
     cursor.seek(SeekFrom::Current(0x0B))?;

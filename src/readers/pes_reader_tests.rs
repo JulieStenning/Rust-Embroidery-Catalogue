@@ -448,6 +448,28 @@ fn test_read_pec_stitches_sequential_stitches_accumulate() {
 }
 
 #[test]
+fn test_read_pec_stitches_standalone_ff_end_marker() {
+    // 0xFF standalone followed by thumbnail data (0xF0, 0x03) rather than 0x00
+    let data = [
+        0x01, 0x01, // stitch 1 (+1,+1)
+        0xFF, // standalone end marker
+        0xF0, 0x03, // thumbnail/auxiliary data bytes that should NOT be consumed as a stitch
+    ];
+    let mut cursor = Cursor::new(&data[..]);
+    let mut pattern = EmbPattern::new();
+
+    read_pec_stitches(&mut cursor, &mut pattern).expect("stitch decode should succeed");
+
+    assert_eq!(pattern.stitches.len(), 2); // 1 stitch + 1 end
+    assert_eq!(pattern.stitches[0].stitch_type, StitchType::Stitch);
+    assert_eq!(pattern.stitches[0].x, 1.0);
+    assert_eq!(pattern.stitches[0].y, 1.0);
+    assert_eq!(pattern.stitches[1].stitch_type, StitchType::End);
+    // Cursor should be at offset 3 (right after 0xFF, since 0xF0 was rewound)
+    assert_eq!(cursor.position(), 3);
+}
+
+#[test]
 fn test_read_pec_stitches_empty_no_stitches_only_end() {
     let data = [0xFF, 0x00];
     let mut cursor = Cursor::new(&data[..]);
@@ -1167,5 +1189,43 @@ fn test_pes_reader_user_design_99046_if_present() {
         let pattern = result.unwrap();
         assert_eq!(pattern.stitches.len(), 6546);
         assert_eq!(pattern.threadlist.len(), 10);
+    }
+}
+
+#[test]
+fn test_pes_reader_user_design_cl301_27_if_present() {
+    let path = r#"F:\MachineEmbroideryDesigns\DVDs from Previous Owner\husqavana pes files cd\HUS 21 - Alphabet\FONT_CLARENDON\30\CL301_27.PES"#;
+    if let Ok(data) = std::fs::read(path) {
+        let reader = PesReader;
+        let result = reader.read(&data);
+        assert!(
+            result.is_ok(),
+            "CL301_27.PES should parse successfully: {:?}",
+            result.err()
+        );
+        let pattern = result.unwrap();
+        assert_eq!(pattern.stitches.len(), 675);
+        assert_eq!(pattern.threadlist.len(), 1);
+    }
+}
+
+#[test]
+fn test_generate_preview_cl301_27_if_present() {
+    let path = r#"F:\MachineEmbroideryDesigns\DVDs from Previous Owner\husqavana pes files cd\HUS 21 - Alphabet\FONT_CLARENDON\30\CL301_27.PES"#;
+    if std::path::Path::new(path).exists() {
+        let req = crate::services::image_generation::ImageGenerationRequest {
+            file_path: path.to_string(),
+            preview_3d: false,
+            preview_3d_profile: None,
+        };
+        let res = crate::services::image_generation::generate_preview(&req);
+        assert!(
+            res.error.is_none(),
+            "preview generation should not error: {:?}",
+            res.error
+        );
+        assert!(res.image_data.is_some(), "image data should be produced");
+        assert_eq!(res.stitch_count, Some(675));
+        assert_eq!(res.color_count, Some(1));
     }
 }
