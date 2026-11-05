@@ -56,6 +56,22 @@ fn test_extract_size_key() {
         extract_size_key("Font_4x4_Upper_A.pes"),
         Some("4x4".to_string())
     );
+    assert_eq!(
+        extract_size_key("Peas And Carrots Stitched 3 Inch.pes"),
+        Some("3inch".to_string())
+    );
+    assert_eq!(
+        extract_size_key("Apple And Orange Stitched 2_5 Inch.pes"),
+        Some("2.5inch".to_string())
+    );
+    assert_eq!(
+        extract_size_key("Rose 100 mm.dst"),
+        Some("100mm".to_string())
+    );
+    assert_eq!(
+        extract_size_key("Banner 4 x 4.pes"),
+        Some("4x4".to_string())
+    );
     assert_eq!(extract_size_key("Font_Upper_A.pes"), None);
 }
 
@@ -256,4 +272,121 @@ fn test_non_alphabet_folder_keeps_all_files() {
     assert!(!result.is_alphabet);
     assert_eq!(result.sample_files.len(), 3);
     assert_eq!(result.compressible_files.len(), 0);
+}
+
+#[test]
+fn test_classify_glyph_name_with_dimensions_returns_non_glyph() {
+    assert_eq!(
+        classify_glyph_name("Peas And Carrots Stitched 3 Inch.pes"),
+        GlyphCategory::NonGlyph
+    );
+    assert_eq!(
+        classify_glyph_name("Peas And Carrots Stitched 2_5 Inch.pes"),
+        GlyphCategory::NonGlyph
+    );
+    assert_eq!(
+        classify_glyph_name("Apple And Orange Stitched 5_5 Inch.pes"),
+        GlyphCategory::NonGlyph
+    );
+    assert_eq!(
+        classify_glyph_name("Chicken And Waffles Stitched 4 Inch.pes"),
+        GlyphCategory::NonGlyph
+    );
+    assert_eq!(
+        classify_glyph_name("Give Peas a Chance Stitched 5 Inch.jef"),
+        GlyphCategory::NonGlyph
+    );
+    assert_eq!(
+        classify_glyph_name("06 Carrots Applique 6x10 Hoop.jef"),
+        GlyphCategory::NonGlyph
+    );
+    assert_eq!(
+        classify_glyph_name("Christmas Tree 2.pes"),
+        GlyphCategory::NonGlyph
+    );
+}
+
+#[test]
+fn test_font_set_with_separated_size_units_classified_correctly() {
+    assert_eq!(
+        classify_glyph_name("Upper A 3 Inch.pes"),
+        GlyphCategory::UpperA
+    );
+    assert_eq!(
+        classify_glyph_name("Lower a 3 Inch.pes"),
+        GlyphCategory::LowerA
+    );
+    assert_eq!(
+        classify_glyph_name("Number 9 3 Inch.pes"),
+        GlyphCategory::Digit9
+    );
+    assert_eq!(
+        classify_glyph_name("Number 0 3 Inch.pes"),
+        GlyphCategory::OtherDigit('0')
+    );
+}
+
+#[test]
+fn test_multi_size_design_set_not_detected_as_alphabet() {
+    let files = vec![
+        "Peas And Carrots Stitched 2_5 Inch.pes".to_string(),
+        "Peas And Carrots Stitched 3 Inch.pes".to_string(),
+        "Peas And Carrots Stitched 3_5 Inch.pes".to_string(),
+        "Peas And Carrots Stitched 4 Inch.pes".to_string(),
+        "Peas And Carrots Stitched 4_5 Inch.pes".to_string(),
+        "Peas And Carrots Stitched 5 Inch.pes".to_string(),
+        "Peas And Carrots Stitched 5_5 Inch.pes".to_string(),
+        "Apple And Orange Stitched 2_5 Inch.pes".to_string(),
+        "Apple And Orange Stitched 3 Inch.pes".to_string(),
+        "Apple And Orange Stitched 3_5 Inch.pes".to_string(),
+        "Apple And Orange Stitched 4 Inch.pes".to_string(),
+        "Apple And Orange Stitched 4_5 Inch.pes".to_string(),
+        "Apple And Orange Stitched 5 Inch.pes".to_string(),
+        "Apple And Orange Stitched 5_5 Inch.pes".to_string(),
+        "Chicken And Waffles Stitched 2_5 Inch.pes".to_string(),
+        "Chicken And Waffles Stitched 3 Inch.pes".to_string(),
+    ];
+
+    let result = analyze_alphabet_folder(
+        "H:/New Embroidery Designs/Embroidery Super Deal/PerfectFoodPairsPES/PES",
+        &files,
+        false,
+        None,
+    );
+
+    assert!(!result.is_alphabet);
+    assert_eq!(result.sample_files.len(), 16);
+    assert_eq!(result.compressible_files.len(), 0);
+}
+
+fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("{}_{}", prefix, now));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn test_find_companion_zip_in_dir() {
+    let tmp = unique_temp_dir("companion_zip_test");
+    let font_dir = tmp.join("VintageFont");
+    std::fs::create_dir_all(&font_dir).unwrap();
+
+    // 1. Matching stem zip should be found
+    let zip_path = font_dir.join("VintageFont.zip");
+    std::fs::write(&zip_path, b"dummy zip").unwrap();
+    assert_eq!(
+        find_companion_zip_in_dir(&font_dir),
+        Some(zip_path.clone())
+    );
+
+    // 2. Directory with multiple unrelated design archives should NOT match as companion zip
+    let pes_dir = tmp.join("PES");
+    std::fs::create_dir_all(&pes_dir).unwrap();
+    std::fs::write(pes_dir.join("AppleAndOrange.zip"), b"dummy").unwrap();
+    std::fs::write(pes_dir.join("PeasAndCarrots.zip"), b"dummy").unwrap();
+    assert_eq!(find_companion_zip_in_dir(&pes_dir), None);
 }

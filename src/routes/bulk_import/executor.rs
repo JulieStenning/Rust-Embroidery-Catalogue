@@ -441,18 +441,8 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                 })
                 .unwrap_or(false);
 
-            let companion_zip = std::fs::read_dir(parent_path)
-                .map(|entries| {
-                    entries
-                        .filter_map(Result::ok)
-                        .find(|e| {
-                            e.path()
-                                .extension()
-                                .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
-                        })
-                        .map(|e| e.path())
-                })
-                .unwrap_or(None);
+            let companion_zip =
+                crate::services::alphabet_detector::find_companion_zip_in_dir(parent_path);
 
             let folder_files: Vec<String> = std::fs::read_dir(parent_path)
                 .map(|entries| {

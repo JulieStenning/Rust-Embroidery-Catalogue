@@ -45,12 +45,12 @@ Before importing, the app shows a short confirmation step:
 
 AI tagging and local rules:
 - Imports run File & Folder Rules only (local, no API key) and apply keyword tags (matching exact tag names and configured [Tag Word Matches](TAG_WORD_MATCHES.md)) alongside technical stitching tags.
-- Gemini Vision is run separately afterwards from **Admin → Batch Operations**.
+- Gemini Vision is run separately afterwards from [Admin → Batch Operations](#/admin/batch-operations).
 
 First import into an empty catalogue with no hoops:
 - Pressing **Import Designs** shows a warning that hoops are not configured and asks for
   confirmation. Skipping hoop setup does not create hoops for you.
-- Add your own machine hoops in **Admin → Hoops** first if hoop matching matters to you.
+- Add your own machine hoops in [Admin → Hoops](#/admin/system/hoops) first if hoop matching matters to you.
 
 ## Step 4 - Confirm and save
 When you run the import:
@@ -63,11 +63,12 @@ The button shows live progress while it runs; **Cancel** becomes **Stop** if you
 halt it. After success, you are redirected to Browse Designs.
 
 ## Alphabet & font compression
-Enabled by default during first-time setup and configurable in **Admin → Settings** ("Compress full alphabet sets and catalogue preview samples only"):
+Enabled by default during first-time setup and configurable in [Admin → Settings](#/admin/system/settings) ("Compress full alphabet sets and catalogue preview samples only"):
 - Scanned folders recognised as alphabet or font collections are automatically bundled into a companion `.zip` archive (`<AlphabetFolder>.zip`) in the library folder.
 - Only key representative glyphs are added to the database: **Upper A**, **Lower a**, digit **9**, and **all punctuation/symbol files** for each size found.
 - All imported preview samples from an alphabet package are automatically assigned the protected system tag **Alphabets** (which covers individual letters, font sets, monograms, number sets 0–9, and punctuation).
 - Standalone phrases, sayings, quotes, and typography compositions are classified under the **Words** tag rather than Alphabets.
+- Multi-size design collections with dimension labels (e.g. `3 Inch`, `2_5 Inch`, `100 mm`, `4x4 Hoop`) and descriptive design titles are recognised as standard embroidery designs and are **not** treated as alphabet glyphs.
 - Letters `B`–`Z`, `b`–`z`, and digits `0`–`8` remain safely archived inside the `.zip` so they do not overwhelm your catalogue with hundreds of individual letter cards.
 - Embrilliance `.bx` files and all folder contents are preserved within the `.zip`, allowing full unzipping or selective extraction at any time.
 

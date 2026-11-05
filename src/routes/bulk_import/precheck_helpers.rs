@@ -151,22 +151,8 @@ pub(crate) fn filter_alphabet_samples(
             false
         };
 
-        let companion_zip = if dir_p.is_dir() {
-            fs::read_dir(dir_p)
-                .map(|entries| {
-                    entries
-                        .filter_map(Result::ok)
-                        .find(|e| {
-                            e.path()
-                                .extension()
-                                .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
-                        })
-                        .map(|e| e.path().to_string_lossy().to_string())
-                })
-                .unwrap_or(None)
-        } else {
-            None
-        };
+        let companion_zip = crate::services::alphabet_detector::find_companion_zip_in_dir(dir_p)
+            .map(|p| p.to_string_lossy().to_string());
 
         let file_paths: Vec<String> = files.iter().map(|f| f.full_path.clone()).collect();
         let analysis = crate::services::alphabet_detector::analyze_alphabet_folder(
