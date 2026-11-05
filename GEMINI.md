@@ -37,6 +37,9 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
     3. Specification & Safety Constraints (read-only original designs, SQLite schema)
     4. Step-by-Step Execution Sequence & Test Plan (Vitest, `cargo test`, and mandatory Playwright E2E coverage for UI changes)
     5. Documentation Updates Plan (@HelpView.svelte & `docs/User-Facing-Guidance/`)
+- **Targeted Rust Formatting Invariant (No Crate-Wide Diff Noise):**
+  - Whenever Rust files are created or modified, format **only** the touched files before concluding the task using `rustfmt --edition 2021 <files...>`.
+  - Never run blanket `cargo fmt` during feature work or bug fixes to prevent modifying unrelated files and avoid scope creep or noisy diffs across the repository.
 
 ---
 

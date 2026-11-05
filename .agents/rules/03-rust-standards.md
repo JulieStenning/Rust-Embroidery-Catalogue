@@ -38,3 +38,8 @@
 ### 📏 Module Size & Header Limits
 - **500-line budget:** Any Rust source file whose total line count exceeds **500 lines** (production + embedded test code) MUST have its `#[cfg(test)]` module(s) extracted into a separate sibling file `<basename>_tests.rs` with `#[path = "<basename>_tests.rs"] mod tests;`.
 - Keep top-of-file license/SPDX comment headers concise (<= 3 lines) to conserve the 500-line vertical module budget.
+
+### 🎨 Targeted Rust Formatting Discipline (No Crate-Wide Diff Noise)
+- **Targeted Formatting Only:** When creating or modifying Rust files, format **only** the touched files before concluding the task using:
+  `rustfmt --edition 2021 <path/to/modified_file.rs>`
+- **Never Run Crate-Wide Formatters by Default:** Do not execute blanket `cargo fmt` during normal task execution, as it can sweep in unrelated files and produce noisy git diffs. Keep formatting strictly focused on the files edited in the current turn.
