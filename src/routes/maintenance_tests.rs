@@ -753,6 +753,100 @@ async fn get_orphans_page_with_pool_page_out_of_bounds_clamps() {
 }
 
 #[tokio::test]
+async fn get_orphans_page_with_ids_slices_correctly_without_disk_access() {
+    let pool = setup_orphans_test_pool().await;
+
+    for i in 1..=5 {
+        pool.execute(
+            sqlx::query("INSERT INTO designs (id, filename, filepath) VALUES (?, ?, ?)")
+                .bind(i as i64)
+                .bind(format!("file_{}.jef", i))
+                .bind(format!("/file_{}.jef", i)),
+        )
+        .await
+        .expect("insert should succeed");
+    }
+
+    let orphan_ids = vec![1, 2, 3, 4, 5];
+    let page1 = get_orphans_page_with_ids(
+        &pool,
+        &orphan_ids,
+        Some(GetOrphansPageRequest {
+            page: Some(1),
+            page_size: Some(2),
+        }),
+    )
+    .await
+    .expect("page 1 load should succeed");
+
+    assert_eq!(page1.page, 1);
+    assert_eq!(page1.total, 5);
+    assert_eq!(page1.total_pages, 3);
+    assert_eq!(page1.items.len(), 2);
+    assert_eq!(page1.items[0].id, 1);
+    assert_eq!(page1.items[1].id, 2);
+
+    let page3 = get_orphans_page_with_ids(
+        &pool,
+        &orphan_ids,
+        Some(GetOrphansPageRequest {
+            page: Some(3),
+            page_size: Some(2),
+        }),
+    )
+    .await
+    .expect("page 3 load should succeed");
+
+    assert_eq!(page3.page, 3);
+    assert_eq!(page3.items.len(), 1);
+    assert_eq!(page3.items[0].id, 5);
+}
+
+#[test]
+fn app_state_orphan_ids_cache_operations() {
+    let tasks = crate::TaskCoordinator::default();
+    assert!(tasks.orphan_ids_cache.read().unwrap().is_none());
+
+    let state = AppState {
+        db: crate::PoolHolder::default(),
+        database_status: std::sync::RwLock::new(crate::DatabaseStatus {
+            status: crate::DatabaseStatusKind::Connected,
+            configured_data_root: None,
+            database_path: None,
+            embroidery_dir: None,
+            data_root_missing: false,
+            error_message: None,
+        }),
+        paths: crate::paths::AppPaths {
+            mode: crate::paths::ExecutionMode::Dev,
+            data_root: std::path::PathBuf::new(),
+            embroidery_designs_dir: std::path::PathBuf::new(),
+            database_dir: std::path::PathBuf::new(),
+            database_path: std::path::PathBuf::new(),
+            log_dir: std::path::PathBuf::new(),
+        },
+        log_guard: crate::logging::LogGuard::dummy_for_test(),
+        shutdown_requested: std::sync::atomic::AtomicBool::new(false),
+        maintenance_running: std::sync::atomic::AtomicBool::new(false),
+        migration_running: std::sync::atomic::AtomicBool::new(false),
+        migration_cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        restore_in_progress: std::sync::atomic::AtomicBool::new(false),
+        tasks,
+    };
+
+    assert_eq!(state.get_cached_orphan_ids(), None);
+
+    state.set_cached_orphan_ids(vec![10, 20, 30, 40]);
+    assert_eq!(state.get_cached_orphan_ids(), Some(vec![10, 20, 30, 40]));
+
+    state.remove_cached_orphan_ids(&[20, 999]);
+    assert_eq!(state.get_cached_orphan_ids(), Some(vec![10, 30, 40]));
+
+    state.clear_cached_orphan_ids();
+    assert_eq!(state.get_cached_orphan_ids(), None);
+}
+
+#[tokio::test]
 async fn delete_design_ids_with_pool_empty_slice_returns_zero() {
     let pool = setup_orphans_test_pool().await;
 

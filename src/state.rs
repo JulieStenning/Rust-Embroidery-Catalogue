@@ -142,6 +142,7 @@ pub struct TaskCoordinator {
     pub backup_cancel_requested: AtomicBool,
     pub restore_cancel_requested: AtomicBool,
     pub unmatched_scan_cancel_requested: AtomicBool,
+    pub orphan_ids_cache: std::sync::RwLock<Option<Vec<i64>>>,
 }
 
 /// Shared application state managed by Tauri.
@@ -219,6 +220,41 @@ impl AppState {
             || self
                 .restore_in_progress
                 .load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Return a clone of the cached orphan IDs if an orphan scan has been performed.
+    pub fn get_cached_orphan_ids(&self) -> Option<Vec<i64>> {
+        self.tasks
+            .orphan_ids_cache
+            .read()
+            .ok()
+            .and_then(|guard| guard.clone())
+    }
+
+    /// Cache the list of detected orphan design IDs.
+    pub fn set_cached_orphan_ids(&self, ids: Vec<i64>) {
+        if let Ok(mut guard) = self.tasks.orphan_ids_cache.write() {
+            *guard = Some(ids);
+        }
+    }
+
+    /// Clear the cached orphan design IDs.
+    pub fn clear_cached_orphan_ids(&self) {
+        if let Ok(mut guard) = self.tasks.orphan_ids_cache.write() {
+            *guard = None;
+        }
+    }
+
+    /// Remove a slice of design IDs from the cached orphan list.
+    pub fn remove_cached_orphan_ids(&self, to_remove: &[i64]) {
+        if to_remove.is_empty() {
+            return;
+        }
+        if let Ok(mut guard) = self.tasks.orphan_ids_cache.write() {
+            if let Some(ids) = guard.as_mut() {
+                ids.retain(|id| !to_remove.contains(id));
+            }
+        }
     }
 }
 

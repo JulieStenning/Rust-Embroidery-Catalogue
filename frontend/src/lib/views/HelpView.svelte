@@ -388,7 +388,8 @@
         </li>
         <li>
           <strong>Missing Design Files (Orphans):</strong> click <em>Scan Disk</em> to check for database
-          records whose physical files are no longer found on disk.
+          records whose physical files are no longer found on disk; discovered orphans are cached for
+          instant pagination and review without repeated disk scanning.
         </li>
       </ul>
       <p>

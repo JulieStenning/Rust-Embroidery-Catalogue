@@ -201,12 +201,12 @@
       }
       const orphanChecked = Number(result?.checked ?? 0);
       const orphanFound = Number(result?.found ?? 0);
+      orphansLoading = false;
+      await loadOrphansPage(1, true);
       addToast(
         `Scan complete. Checked ${orphanChecked} file record(s). Found ${orphanFound} orphan(s).`,
         "success"
       );
-      orphansLoading = false;
-      await loadOrphansPage(1, true);
     } catch (e) {
       addToast(`Could not complete scan: ${e}`, "error");
     } finally {

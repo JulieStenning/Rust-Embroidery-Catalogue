@@ -384,7 +384,9 @@ pub async fn scan_orphans(state: State<'_, AppState>) -> Result<OrphanScanResult
     let pool = state.db_pool()?;
     let base_path = derive_designs_source_path();
 
-    scan_orphans_with_pool(&pool, &base_path).await
+    let (scan_result, orphan_ids) = scan_orphan_details_with_pool(&pool, &base_path).await?;
+    state.set_cached_orphan_ids(orphan_ids);
+    Ok(scan_result)
 }
 
 #[tauri::command]
@@ -393,9 +395,15 @@ pub async fn get_orphans_page(
     request: Option<GetOrphansPageRequest>,
 ) -> Result<OrphansPageResult, String> {
     let pool = state.db_pool()?;
-    let base_path = derive_designs_source_path();
 
-    get_orphans_page_with_pool(&pool, &base_path, request).await
+    if let Some(cached_ids) = state.get_cached_orphan_ids() {
+        return get_orphans_page_with_ids(&pool, &cached_ids, request).await;
+    }
+
+    let base_path = derive_designs_source_path();
+    let orphan_ids = find_orphan_ids_with_pool(&pool, &base_path).await?;
+    state.set_cached_orphan_ids(orphan_ids.clone());
+    get_orphans_page_with_ids(&pool, &orphan_ids, request).await
 }
 
 #[tauri::command]
@@ -405,6 +413,7 @@ pub async fn delete_orphans(
 ) -> Result<DeleteOrphansResult, String> {
     let pool = state.db_pool()?;
     let deleted = delete_design_ids_with_pool(&pool, &request.design_ids).await?;
+    state.remove_cached_orphan_ids(&request.design_ids);
 
     // Reclaim freelist pages asynchronously after the orphan delete commits,
     // so the UI never blocks on database file compaction.
@@ -416,10 +425,14 @@ pub async fn delete_orphans(
 #[tauri::command]
 pub async fn delete_all_orphans(state: State<'_, AppState>) -> Result<DeleteOrphansResult, String> {
     let pool = state.db_pool()?;
-    let base_path = derive_designs_source_path();
-
-    let orphan_ids = find_orphan_ids_with_pool(&pool, &base_path).await?;
+    let orphan_ids = if let Some(cached) = state.get_cached_orphan_ids() {
+        cached
+    } else {
+        let base_path = derive_designs_source_path();
+        find_orphan_ids_with_pool(&pool, &base_path).await?
+    };
     let deleted = delete_design_ids_with_pool(&pool, &orphan_ids).await?;
+    state.clear_cached_orphan_ids();
 
     // Reclaim freelist pages asynchronously after the orphan delete commits,
     // so the UI never blocks on database file compaction.
@@ -1139,18 +1152,19 @@ fn external_launches_disabled() -> bool {
     false
 }
 
-async fn scan_orphans_with_pool(
+async fn scan_orphan_details_with_pool(
     pool: &SqlitePool,
     base_path: &Path,
-) -> Result<OrphanScanResult, String> {
-    let rows = sqlx::query_as::<_, (String,)>("SELECT filepath FROM designs")
-        .fetch_all(pool)
-        .await
-        .map_err(|error| error.to_string())?;
+) -> Result<(OrphanScanResult, Vec<i64>), String> {
+    let rows =
+        sqlx::query_as::<_, (i64, String)>("SELECT id, filepath FROM designs ORDER BY filepath")
+            .fetch_all(pool)
+            .await
+            .map_err(|error| error.to_string())?;
 
     let mut checked = 0usize;
-    let mut found = 0usize;
-    for (filepath,) in rows {
+    let mut orphan_ids = Vec::new();
+    for (id, filepath) in rows {
         if filepath.trim().is_empty() {
             continue;
         }
@@ -1158,41 +1172,34 @@ async fn scan_orphans_with_pool(
         checked = checked.saturating_add(1);
         let full_path = resolve_design_full_path(base_path, &filepath);
         if !full_path.is_file() {
-            found = found.saturating_add(1);
+            orphan_ids.push(id);
         }
     }
 
-    Ok(OrphanScanResult { checked, found })
+    let found = orphan_ids.len();
+    Ok((OrphanScanResult { checked, found }, orphan_ids))
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+async fn scan_orphans_with_pool(
+    pool: &SqlitePool,
+    base_path: &Path,
+) -> Result<OrphanScanResult, String> {
+    let (scan_result, _orphan_ids) = scan_orphan_details_with_pool(pool, base_path).await?;
+    Ok(scan_result)
 }
 
 async fn find_orphan_ids_with_pool(
     pool: &SqlitePool,
     base_path: &Path,
 ) -> Result<Vec<i64>, String> {
-    let rows =
-        sqlx::query_as::<_, (i64, String)>("SELECT id, filepath FROM designs ORDER BY filepath")
-            .fetch_all(pool)
-            .await
-            .map_err(|error| error.to_string())?;
-
-    let mut orphan_ids = Vec::new();
-    for (id, filepath) in rows {
-        if filepath.trim().is_empty() {
-            continue;
-        }
-
-        let full_path = resolve_design_full_path(base_path, &filepath);
-        if !full_path.is_file() {
-            orphan_ids.push(id);
-        }
-    }
-
+    let (_scan_result, orphan_ids) = scan_orphan_details_with_pool(pool, base_path).await?;
     Ok(orphan_ids)
 }
 
-async fn get_orphans_page_with_pool(
+async fn get_orphans_page_with_ids(
     pool: &SqlitePool,
-    base_path: &Path,
+    orphan_ids: &[i64],
     request: Option<GetOrphansPageRequest>,
 ) -> Result<OrphansPageResult, String> {
     let page = request
@@ -1206,7 +1213,6 @@ async fn get_orphans_page_with_pool(
         .unwrap_or(100)
         .clamp(1, 500);
 
-    let orphan_ids = find_orphan_ids_with_pool(pool, base_path).await?;
     let total = i64::try_from(orphan_ids.len()).map_err(|error| error.to_string())?;
     let total_pages = if total == 0 {
         1
@@ -1219,7 +1225,7 @@ async fn get_orphans_page_with_pool(
         usize::try_from((normalized_page - 1) * page_size).map_err(|error| error.to_string())?;
     let take = usize::try_from(page_size).map_err(|error| error.to_string())?;
 
-    let page_ids: Vec<i64> = orphan_ids.into_iter().skip(offset).take(take).collect();
+    let page_ids: Vec<i64> = orphan_ids.iter().copied().skip(offset).take(take).collect();
     if page_ids.is_empty() {
         return Ok(OrphansPageResult {
             items: Vec::new(),
@@ -1259,6 +1265,16 @@ async fn get_orphans_page_with_pool(
         total,
         total_pages,
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+async fn get_orphans_page_with_pool(
+    pool: &SqlitePool,
+    base_path: &Path,
+    request: Option<GetOrphansPageRequest>,
+) -> Result<OrphansPageResult, String> {
+    let orphan_ids = find_orphan_ids_with_pool(pool, base_path).await?;
+    get_orphans_page_with_ids(pool, &orphan_ids, request).await
 }
 
 async fn delete_design_ids_with_pool(

@@ -53,10 +53,10 @@ Use **Admin -> Batch Operations** when you want to:
 
 ## Library Discrepancies (Maintenance tab)
 
-The **System → Library Discrepancies** tab provides two distinct reconciliation tools. Neither tool runs an automatic background scan when opening the tab; both are initiated on demand:
+The [System → Library Discrepancies](#/admin/system/orphans) tab provides two distinct reconciliation tools. Neither tool runs an automatic background scan when opening the tab; both are initiated on demand:
 
 1. **Find Unmatched Design Files:** Scans `MachineEmbroideryDesigns` for design files on disk that have no catalogue record — for example after a **Backup & Restore → Sync Designs from Backup**, or when files are copied into the designs folder outside the app. Click **Scan for unmatched files** to start. If unmatched files are found, you can **Import** them as new catalogue records or dismiss the prompt.
-2. **Missing Design Files (Orphans):** Scans the catalogue database for records whose corresponding physical design files no longer exist on disk. Click **Scan Disk** to search for missing files; active scanning progress is shown while the scan checks your library. You can then review the list, locate files, or delete selected/all orphaned database records. When all records are deleted, the list clears immediately without requiring a secondary rescan.
+2. **Missing Design Files (Orphans):** Scans the catalogue database for records whose corresponding physical design files no longer exist on disk. Click **Scan Disk** to search for missing files; active scanning progress is shown while the scan checks your library. Discovered orphan records are cached in memory for instant pagination and review without redundant disk scanning. You can then review the list, locate files, or delete selected/all orphaned database records. When all records are deleted, the list clears immediately without requiring a secondary rescan.
 
 ---
 
