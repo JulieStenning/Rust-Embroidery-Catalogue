@@ -90,14 +90,32 @@ fn vp3_read_colorblock(
     }
     let thread = vp3_read_thread(cursor)?;
     pattern.add_thread(thread);
-    cursor.seek(SeekFrom::Current(15))?;
-    cursor.read_exact(&mut _bytescheck)?;
-    let stitch_byte_length = block_end_position as i64 - cursor.position() as i64;
+
+    // Read the 15-byte section between thread and stitch start marker:
+    // 4 bytes position_shift_in_block_x + 4 bytes position_shift_in_block_y +
+    // 3 bytes tag 010 (\x00\x01\x00) + 4 bytes stitch_data_length_010.
+    let _shift_x = read_i32_be(cursor)?;
+    let _shift_y = read_i32_be(cursor)?;
+    let mut tag_010 = [0u8; 3];
+    cursor.read_exact(&mut tag_010)?;
+    let stitch_data_length_010 = read_i32_be(cursor)?;
+
+    cursor.read_exact(&mut _bytescheck)?; // 3 bytes: \x0A\xF6\x00
+
+    let stitch_byte_length =
+        if distance_to_next_block_050 > 0 && block_end_position >= cursor.position() {
+            (block_end_position - cursor.position()) as i64
+        } else if tag_010 == [0x00, 0x01, 0x00] && stitch_data_length_010 >= 2 {
+            (stitch_data_length_010 - 2) as i64
+        } else {
+            block_end_position as i64 - cursor.position() as i64
+        };
+
     if stitch_byte_length < 0 {
         return Err(format!("VP3: Negative stitch_byte_length: {}", stitch_byte_length).into());
     }
     let max_bytes = (cursor.get_ref().len() as i64 - cursor.position() as i64).max(0) as usize;
-    let safe_length = stitch_byte_length.min(max_bytes as i64) as usize;
+    let safe_length = (stitch_byte_length as usize).min(max_bytes);
     let mut stitch_bytes = vec![0u8; safe_length];
     cursor.read_exact(&mut stitch_bytes)?;
     let mut i = 0;
@@ -127,6 +145,24 @@ fn vp3_read_colorblock(
             // Only seen after 80 01, should have been skipped. No effect.
         } else if y == 0x03 {
             pattern.add_stitch_relative(StitchType::Trim, 0.0, 0.0);
+        }
+    }
+
+    if distance_to_next_block_050 > 0
+        && block_end_position >= cursor.position()
+        && block_end_position <= cursor.get_ref().len() as u64
+    {
+        cursor.set_position(block_end_position);
+    } else {
+        // In files where distance_to_next_block_050 is 0 (or unpopulated, e.g. Data 7),
+        // check if there is an optional 1-byte trailing \0 before the next 050 block.
+        let pos = cursor.position() as usize;
+        let data = cursor.get_ref();
+        if pos + 3 <= data.len() && &data[pos..pos + 3] != b"\x00\x05\x00" {
+            if pos + 4 <= data.len() && data[pos] == 0 && &data[pos + 1..pos + 4] == b"\x00\x05\x00"
+            {
+                cursor.set_position((pos + 1) as u64);
+            }
         }
     }
     Ok(())

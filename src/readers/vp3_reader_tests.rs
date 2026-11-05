@@ -140,8 +140,8 @@ fn vp3_read_truncated_mid_color_block_does_not_panic() {
     // start_position_x = 0, start_position_y = 0
     buf.extend_from_slice(&0i32.to_be_bytes());
     buf.extend_from_slice(&0i32.to_be_bytes());
-    // Thread: zero colors, no transition, empty strings (10 bytes)
-    buf.push(0x00); // colors = 0
+    // Thread: zero colours, no transition, empty strings (10 bytes)
+    buf.push(0x00); // colours = 0
     buf.push(0x00); // transition
     buf.push(0x00); // thread_type
     buf.push(0x00); // weight
@@ -176,8 +176,8 @@ fn vp3_block_negative_stitch_byte_length_errors() {
     // start_position_x = 0, start_position_y = 0
     buf.extend_from_slice(&0i32.to_be_bytes());
     buf.extend_from_slice(&0i32.to_be_bytes());
-    // Thread: zero colors, no transition, empty strings (10 bytes)
-    buf.push(0x00); // colors = 0
+    // Thread: zero colours, no transition, empty strings (10 bytes)
+    buf.push(0x00); // colours = 0
     buf.push(0x00); // transition
     buf.push(0x00); // thread_type
     buf.push(0x00); // weight
@@ -492,4 +492,75 @@ fn test_read_vp3_fixture_larger_than_small_hoop_succeeds() {
     let height_mm = ((max_y - min_y).abs()) / 10.0;
     assert!(width_mm > 100.0 || height_mm > 100.0);
     assert!(pattern.count_stitch_commands(StitchType::Stitch) > 1000);
+}
+
+#[test]
+fn vp3_colorblock_zero_dist_with_tag010_succeeds() {
+    let mut buf = build_minimal_vp3_header(1);
+
+    // 3-byte bytescheck (00 05 00)
+    buf.extend_from_slice(&[0, 5, 0]);
+    // distance_to_next_block_050 = 0
+    buf.extend_from_slice(&0i32.to_be_bytes());
+    // start_position_x = 0, start_position_y = 0
+    buf.extend_from_slice(&0i32.to_be_bytes());
+    buf.extend_from_slice(&0i32.to_be_bytes());
+    // Thread: zero colours, no transition, empty strings (10 bytes)
+    buf.push(0x00); // colours = 0
+    buf.push(0x00); // transition
+    buf.push(0x00); // thread_type
+    buf.push(0x00); // weight
+    buf.extend_from_slice(&0u16.to_be_bytes());
+    buf.extend_from_slice(&0u16.to_be_bytes());
+    buf.extend_from_slice(&0u16.to_be_bytes());
+
+    // 15-byte section:
+    buf.extend_from_slice(&0i32.to_be_bytes()); // shift_x
+    buf.extend_from_slice(&0i32.to_be_bytes()); // shift_y
+    buf.extend_from_slice(&[0, 1, 0]); // tag 010
+                                       // stitch_data_length_010 = 4 (which means 4 - 2 = 2 bytes of stitches)
+    buf.extend_from_slice(&4i32.to_be_bytes());
+
+    // 3-byte bytescheck (0A F6 00)
+    buf.extend_from_slice(&[0x0A, 0xF6, 0x00]);
+
+    // 2 bytes of stitch data: 1 stitch (dx=10, dy=20)
+    buf.push(10);
+    buf.push(20);
+
+    let pattern = read_vp3(&buf).expect("should succeed using tag 010 length");
+    assert_eq!(pattern.count_stitch_commands(StitchType::Stitch), 1);
+}
+
+#[test]
+fn test_vp3_reader_user_design_d83_02_if_present() {
+    let path = r#"F:\MachineEmbroideryDesigns\Passport - Arts and Crafts\ArtsAndCrafts\Resources\MachineEmbroideryDesigns\Husqvarna - Fantasy Town Squares\D83_02.VP3"#;
+    if let Ok(data) = fs::read(path) {
+        let pattern = Vp3Reader
+            .read(&data)
+            .expect("D83_02.VP3 should parse successfully");
+        assert_eq!(pattern.threadlist.len(), 10);
+        assert!(pattern.stitches.len() > 9000);
+    }
+}
+
+#[test]
+fn test_generate_preview_d83_02_if_present() {
+    let path = r#"F:\MachineEmbroideryDesigns\Passport - Arts and Crafts\ArtsAndCrafts\Resources\MachineEmbroideryDesigns\Husqvarna - Fantasy Town Squares\D83_02.VP3"#;
+    if std::path::Path::new(path).exists() {
+        let req = crate::services::image_generation::ImageGenerationRequest {
+            file_path: path.to_string(),
+            preview_3d: false,
+            preview_3d_profile: None,
+        };
+        let res = crate::services::image_generation::generate_preview(&req);
+        assert!(
+            res.error.is_none(),
+            "preview generation should not error: {:?}",
+            res.error
+        );
+        assert!(res.image_data.is_some(), "image data should be produced");
+        assert_eq!(res.color_count, Some(5));
+        assert_eq!(res.color_change_count, Some(9));
+    }
 }
