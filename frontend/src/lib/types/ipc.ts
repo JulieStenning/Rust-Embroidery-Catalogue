@@ -342,6 +342,22 @@ export interface DesignCommandResult {
   message: string;
 }
 
+export interface ScanFolderStitchFilesResultWire {
+  folder: string;
+  scanned_count: number;
+  paired_count: number;
+  current_design_paired: boolean;
+  message: string;
+}
+
+export interface ScanFolderStitchFilesResult {
+  folder: string;
+  scannedCount: number;
+  pairedCount: number;
+  currentDesignPaired: boolean;
+  message: string;
+}
+
 export interface SettingsViewModel {
   preview_3d_profile: string;
   google_api_key: string;

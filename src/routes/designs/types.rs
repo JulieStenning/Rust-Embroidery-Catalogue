@@ -29,6 +29,15 @@ pub struct DesignCommandResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanFolderStitchFilesResult {
+    pub folder: String,
+    pub scanned_count: usize,
+    pub paired_count: usize,
+    pub current_design_paired: bool,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct SetDesignProjectRequest {
     pub project_id: i64,

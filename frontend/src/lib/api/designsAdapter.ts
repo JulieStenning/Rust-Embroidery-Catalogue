@@ -700,6 +700,40 @@ export async function openDesignInExplorer(designId: number | string) {
 }
 
 /**
+ * Scan the folder of a master design for matching exported stitch files and pair them.
+ * @param {number | string} designId
+ */
+export async function scanFolderForStitchFiles(designId: number | string) {
+  const normalizedId = Number(designId);
+
+  try {
+    const wire = await invokeLoose("scan_folder_for_stitch_files", {
+      designId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result: {
+        folder: String(wire?.folder || ""),
+        scannedCount: Number(wire?.scanned_count ?? 0),
+        pairedCount: Number(wire?.paired_count ?? 0),
+        currentDesignPaired: Boolean(wire?.current_design_paired),
+        message: String(wire?.message || ""),
+      },
+      message: String(wire?.message || "Folder scan completed."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not scan folder for stitch files: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+/**
  * Generate a 2D or 3D preview for a design.
  * @param {number | string} designId
  * @param {boolean} [preview3d=true] - Whether to generate a 3D preview (true) or 2D (false).

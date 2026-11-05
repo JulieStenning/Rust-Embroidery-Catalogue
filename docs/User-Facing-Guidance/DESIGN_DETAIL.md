@@ -118,6 +118,19 @@ Result:
 - **Show in Explorer** opens Windows Explorer and selects the file when possible.
 - If the exact file is missing, Explorer opens the nearest existing folder instead.
 
+---
+
+## Outline Master Files & "Check Folder for Stitch Files"
+
+When viewing a design catalogued from a digitising master outline format (e.g. `.eof`, `.art`, `.emb`, `.be`) without stitch data:
+- An amber notice banner explains that exporting a machine stitch file will enable previews, stitch counts, and hoop calculations.
+- **Check Folder for Stitch Files**:
+  1. Open the master outline file in your digitising software (e.g. Embird, Hatch, Bernina).
+  2. Save or export machine stitch copies (e.g. `.jef`, `.pes`) into the same folder.
+  3. Click **Check Folder for Stitch Files** (available both on the banner and in the action toolbar).
+  4. The catalogue inspects the folder, automatically pairs all matching stitch files with their master files, extracts stitch metadata, and generates visual previews.
+  5. **Tag and Metadata Preservation**: All tags, project associations, designer assignments, ratings, and notes already assigned to the master design are strictly preserved and carried over into the paired design.
+
 Notes:
 - In some test/locked-down environments, external launches are intentionally suppressed.
 - The page still returns to detail view after the action.

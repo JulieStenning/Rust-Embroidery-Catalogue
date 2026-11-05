@@ -485,6 +485,8 @@ async fn test_pool() -> SqlitePool {
 				hoop_id INTEGER REFERENCES hoops(id) ON DELETE SET NULL,
 				master_filepath VARCHAR(1000),
 				is_master_only BOOLEAN NOT NULL DEFAULT 0,
+				file_size_bytes INTEGER,
+				file_hash_blake3 TEXT,
 				preview_error TEXT
 			);
 			"#,
@@ -1344,21 +1346,18 @@ async fn bulk_set_tags_handles_large_batch_efficiently() {
     assert_eq!(result.updated_count, 1000);
 
     // Verify tag 1 is completely gone from all designs
-    let count_tag1 = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM design_tags WHERE tag_id = 1",
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("count tag 1");
+    let count_tag1 =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM design_tags WHERE tag_id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("count tag 1");
     assert_eq!(count_tag1, 0);
 
     // Verify tags 2 and 3 exist on all 1,000 designs (2,000 rows in design_tags)
-    let count_tags_total = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM design_tags",
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("count total tags");
+    let count_tags_total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM design_tags")
+        .fetch_one(&pool)
+        .await
+        .expect("count total tags");
     assert_eq!(count_tags_total, 2000);
 
     // 2. Re-applying the exact same tags (no change, no flags) should be a complete no-op (updated_count = 0)
@@ -3442,4 +3441,168 @@ async fn oversized_non_pes_designs_do_not_produce_hoop_exceeded_preview_error() 
         "Preview rendering must succeed for oversized non-PES designs"
     );
     assert!(!rendered.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn scan_folder_for_stitch_files_returns_error_when_design_missing() {
+    let pool = test_pool().await;
+    let result = scan_folder_for_stitch_files_with_pool(&pool, 99999).await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("not found"));
+}
+
+#[tokio::test]
+#[serial]
+async fn scan_folder_for_stitch_files_pairs_stitch_file_and_preserves_tags() {
+    let tmp = std::env::temp_dir().join(format!(
+        "pair-test-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let base_dir = tmp.join("MachineEmbroideryDesigns");
+    let flowers_dir = base_dir.join("Flowers");
+    std::fs::create_dir_all(&flowers_dir).expect("create test dirs");
+
+    // Copy real stitch file Bean.pes as Daisy.pes
+    let candidates = [
+        "dev_data/MachineEmbroideryDesigns/Test Designs/Bean.pes",
+        "tests/Test Assets/Bean.pes",
+    ];
+    let fixture = candidates
+        .iter()
+        .map(std::path::Path::new)
+        .find(|p| p.exists());
+    let pes_target = flowers_dir.join("Daisy.pes");
+    if let Some(f) = fixture {
+        std::fs::copy(f, &pes_target).expect("copy Bean.pes fixture");
+    } else {
+        std::fs::write(&pes_target, b"test-pes-content").expect("write dummy pes");
+    }
+    // Write Daisy.eof
+    let eof_target = flowers_dir.join("Daisy.eof");
+    std::fs::write(&eof_target, b"test-eof-content").expect("write dummy eof");
+
+    let db_path = tmp.join("test.db");
+    let prior_db_url = std::env::var("DATABASE_URL").ok();
+    std::env::set_var("DATABASE_URL", format!("sqlite://{}", db_path.display()));
+
+    let pool = test_pool().await;
+
+    // Seed master-only design with tag
+    let insert_res = sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, notes) \
+         VALUES ('Daisy.eof', 'Flowers/Daisy.eof', 'Flowers/Daisy.eof', 1, 'My test notes')",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert master design");
+    let design_id = insert_res.last_insert_rowid();
+
+    // Assign tag 1 ('Flowers') to this master design
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (?, 1)")
+        .bind(design_id)
+        .execute(&pool)
+        .await
+        .expect("insert tag");
+
+    let result = scan_folder_for_stitch_files_with_pool(&pool, design_id).await;
+    assert!(
+        result.is_ok(),
+        "Folder scan should succeed: {:?}",
+        result.err()
+    );
+
+    let summary = result.unwrap();
+    assert_eq!(summary.folder, "Flowers");
+    assert!(summary.scanned_count >= 1);
+    assert_eq!(summary.paired_count, 1);
+    assert!(summary.current_design_paired);
+    assert!(summary.message.contains("Linked 1 master design"));
+
+    // Verify row in database is upgraded in-place
+    let (filename, filepath, master_filepath, is_master_only, notes, stitch_count) =
+        sqlx::query_as::<_, (String, String, Option<String>, bool, Option<String>, Option<i64>)>(
+            "SELECT filename, filepath, master_filepath, is_master_only, notes, stitch_count FROM designs WHERE id = ?",
+        )
+        .bind(design_id)
+        .fetch_one(&pool)
+        .await
+        .expect("query upgraded design");
+
+    assert_eq!(filename, "Daisy.pes");
+    assert_eq!(filepath, "Flowers/Daisy.pes");
+    assert_eq!(master_filepath.as_deref(), Some("Flowers/Daisy.eof"));
+    assert!(!is_master_only);
+    assert_eq!(notes.as_deref(), Some("My test notes"));
+    assert!(stitch_count.is_some());
+
+    // Verify tag 1 is still preserved in design_tags
+    let tag_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = ? AND tag_id = 1")
+            .bind(design_id)
+            .fetch_one(&pool)
+            .await
+            .expect("query tag count");
+    assert_eq!(
+        tag_count, 1,
+        "Original tag must be preserved on upgraded design"
+    );
+
+    if let Some(val) = prior_db_url {
+        std::env::set_var("DATABASE_URL", val);
+    } else {
+        std::env::remove_var("DATABASE_URL");
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[serial]
+async fn scan_folder_for_stitch_files_reports_zero_when_no_stitch_files_found() {
+    let tmp = std::env::temp_dir().join(format!(
+        "pair-empty-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let base_dir = tmp.join("MachineEmbroideryDesigns");
+    let empty_dir = base_dir.join("SoloMasters");
+    std::fs::create_dir_all(&empty_dir).expect("create test dirs");
+
+    let eof_target = empty_dir.join("Orphan.eof");
+    std::fs::write(&eof_target, b"test-eof-content").expect("write dummy eof");
+
+    let db_path = tmp.join("test.db");
+    let prior_db_url = std::env::var("DATABASE_URL").ok();
+    std::env::set_var("DATABASE_URL", format!("sqlite://{}", db_path.display()));
+
+    let pool = test_pool().await;
+
+    let insert_res = sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only) \
+         VALUES ('Orphan.eof', 'SoloMasters/Orphan.eof', 'SoloMasters/Orphan.eof', 1)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert master design");
+    let design_id = insert_res.last_insert_rowid();
+
+    let result = scan_folder_for_stitch_files_with_pool(&pool, design_id).await;
+    assert!(result.is_ok());
+
+    let summary = result.unwrap();
+    assert_eq!(summary.folder, "SoloMasters");
+    assert_eq!(summary.paired_count, 0);
+    assert!(!summary.current_design_paired);
+    assert!(summary.message.contains("No matching stitch files found"));
+
+    if let Some(val) = prior_db_url {
+        std::env::set_var("DATABASE_URL", val);
+    } else {
+        std::env::remove_var("DATABASE_URL");
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
 }

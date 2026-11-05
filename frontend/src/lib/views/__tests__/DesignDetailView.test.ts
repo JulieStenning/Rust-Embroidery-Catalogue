@@ -27,6 +27,7 @@ const adapterMocks = vi.hoisted(() => ({
   openDesignInExplorer: vi.fn(),
   renderDesign3dPreview: vi.fn(),
   reparseDesignFile: vi.fn(),
+  scanFolderForStitchFiles: vi.fn(),
 }));
 
 vi.mock("../../api/commandAdapter", () => adapterMocks);
@@ -1725,6 +1726,118 @@ describe("DesignDetailView", () => {
       await waitFor(() => {
         expect(adapterMocks.openDesignInEditor).toHaveBeenCalledWith(42);
         expect(toastMock.addToast).toHaveBeenCalledWith("Opened stitch file in editor.", "success");
+      });
+    });
+
+    it("renders Check Folder for Stitch Files buttons on master-only design", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          id: 55,
+          filename: "daisy.eof",
+          filepath: "daisy.eof",
+          masterFilepath: "daisy.eof",
+          isMasterOnly: true,
+        })
+      );
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("check-folder-stitch-files-banner-btn")).toBeInTheDocument();
+        expect(screen.getByTestId("check-folder-stitch-files-action-btn")).toBeInTheDocument();
+      });
+    });
+
+    it("calls scanFolderForStitchFiles and refreshes design when files are paired", async () => {
+      adapterMocks.scanFolderForStitchFiles.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        result: {
+          folder: "Flowers",
+          scannedCount: 2,
+          pairedCount: 1,
+          currentDesignPaired: true,
+          message: "Linked 1 master design with its stitch file in 'Flowers'.",
+        },
+        message: "Linked 1 master design with its stitch file in 'Flowers'.",
+      });
+
+      adapterMocks.getDesignDetail
+        .mockResolvedValueOnce(
+          detailResponse({
+            id: 55,
+            filename: "daisy.eof",
+            filepath: "daisy.eof",
+            masterFilepath: "daisy.eof",
+            isMasterOnly: true,
+          })
+        )
+        .mockResolvedValueOnce(
+          detailResponse({
+            id: 55,
+            filename: "daisy.pes",
+            filepath: "daisy.pes",
+            masterFilepath: "daisy.eof",
+            isMasterOnly: false,
+          })
+        );
+
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("check-folder-stitch-files-banner-btn")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("check-folder-stitch-files-banner-btn"));
+
+      await waitFor(() => {
+        expect(adapterMocks.scanFolderForStitchFiles).toHaveBeenCalledWith(55);
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Linked 1 master design with its stitch file in 'Flowers'.",
+          "success"
+        );
+      });
+    });
+
+    it("displays info toast when no matching stitch files are found", async () => {
+      adapterMocks.scanFolderForStitchFiles.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        result: {
+          folder: "Flowers",
+          scannedCount: 0,
+          pairedCount: 0,
+          currentDesignPaired: false,
+          message: "No matching stitch files found in 'Flowers' for unlinked master designs.",
+        },
+        message: "No matching stitch files found in 'Flowers' for unlinked master designs.",
+      });
+
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          id: 55,
+          filename: "daisy.eof",
+          filepath: "daisy.eof",
+          masterFilepath: "daisy.eof",
+          isMasterOnly: true,
+        })
+      );
+
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("check-folder-stitch-files-banner-btn")).toBeInTheDocument();
+      });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("check-folder-stitch-files-banner-btn"));
+
+      await waitFor(() => {
+        expect(adapterMocks.scanFolderForStitchFiles).toHaveBeenCalledWith(55);
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "No matching stitch files found in 'Flowers' for unlinked master designs.",
+          "info"
+        );
       });
     });
   });

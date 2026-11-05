@@ -124,6 +124,23 @@
         the preview.
       </p>
       <p>
+        <strong>Master outline files without stitch files:</strong> if you catalogue digitising
+        master outline files (such as Embird <code>.eof</code> or Bernina <code>.art</code>), they
+        appear with a placeholder preview until an exported machine stitch file (e.g.
+        <code>.jef</code>, <code>.pes</code>) is provided. Filter by
+        <em>Needs attention &rarr; Master files without stitch files</em>, open the design detail,
+        and use <strong>Check Folder for Stitch Files</strong> to pair newly exported stitch files in
+        that folder in one click while preserving all tags and metadata.
+      </p>
+      <p>
+        <strong>Master outline files without stitch files:</strong> if you catalogue digitising master
+        outline files (such as Embird <code>.eof</code> or Bernina <code>.art</code>), they appear with a
+        placeholder preview until an exported machine stitch file (e.g. <code>.jef</code>, <code>.pes</code>)
+        is provided. Filter by <em>Needs attention &rarr; Master files without stitch files</em>, open the
+        design detail, and use <strong>Check Folder for Stitch Files</strong> to pair newly exported stitch
+        files in that folder in one click while preserving all tags and metadata.
+      </p>
+      <p>
         <strong>Full guide:</strong> open the
         <a
           href="#/about/document/browse-bulk-actions"

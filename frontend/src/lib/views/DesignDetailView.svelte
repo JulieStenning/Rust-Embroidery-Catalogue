@@ -18,6 +18,7 @@
     openDesignInExplorer,
     renderDesign3dPreview,
     reparseDesignFile,
+    scanFolderForStitchFiles,
   } from "../api/commandAdapter";
   import DeleteDesignsModal from "../components/DeleteDesignsModal.svelte";
   import TagSelectionModal from "../components/TagSelectionModal.svelte";
@@ -25,6 +26,7 @@
   import { designSessionStore } from "../stores/designSessionStore.js";
   import { browseSessionStore } from "../stores/browseSessionStore.js";
   import { addToast } from "../stores/toastStore.js";
+  import { beginBusy, endBusy } from "../stores/busyStore.js";
   /** @typedef {import("../types/ipc").DesignDetail} DesignDetailItem */
   /** @typedef {import("../types/ipc").DesignTagDetail} DesignTagDetail */
 
@@ -40,6 +42,7 @@
   let detailError = $state("");
   let detailSaving = $state(false);
   let detailReparsing = $state(false);
+  let detailScanningFolder = $state(false);
   /** @type {DesignDetailItem | null} */
   let detailItem = $state(/** @type {DesignDetailItem | null} */ (null));
 
@@ -433,6 +436,28 @@
     }
   }
 
+  async function checkFolderForStitchFiles() {
+    if (!detailItem?.id || detailSaving || detailScanningFolder) return;
+
+    detailScanningFolder = true;
+    beginBusy("Scanning folder for stitch files");
+    try {
+      const result = await scanFolderForStitchFiles(detailItem.id);
+      if (result.persisted && result.result) {
+        const { pairedCount, currentDesignPaired, message } = result.result;
+        addToast(message, pairedCount > 0 ? "success" : "info");
+        if (currentDesignPaired) {
+          await refreshDetailAfterAction();
+        }
+      } else {
+        addToast(result.message || "Could not scan folder for stitch files.", "error");
+      }
+    } finally {
+      detailScanningFolder = false;
+      endBusy();
+    }
+  }
+
   function openDetailPrintView() {
     if (!detailItem?.id) return;
     navigateTo(`#/designs/${detailItem.id}/print`);
@@ -667,6 +692,18 @@
               your embroidery design software and export a stitch file (e.g. .pes, .jef) to the same
               folder to enable automatic previews, stitch counts, and hoop calculations.
             </p>
+            <div class="pt-1.5">
+              <button
+                type="button"
+                class="menu-button-primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 shadow-sm"
+                data-testid="check-folder-stitch-files-banner-btn"
+                onclick={checkFolderForStitchFiles}
+                disabled={detailSaving || detailScanningFolder}
+              >
+                <span aria-hidden="true">🧵</span>
+                {detailScanningFolder ? "Scanning folder…" : "Check Folder for Stitch Files"}
+              </button>
+            </div>
           </div>
         {:else if detailItem.previewError === "design_exceeds_hoop"}
           <div
@@ -738,6 +775,17 @@
           <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}
             ><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button
           >
+          {#if detailItem.isMasterOnly}
+            <button
+              class="menu-button-primary text-xs px-2.5 py-1.5"
+              data-testid="check-folder-stitch-files-action-btn"
+              onclick={checkFolderForStitchFiles}
+              disabled={detailSaving || detailScanningFolder}
+            >
+              <span aria-hidden="true" class="text-[10px]">🧵</span>
+              {detailScanningFolder ? "Scanning folder…" : "Check Folder for Stitch Files"}
+            </button>
+          {/if}
           {#if !detailItem.isMasterOnly}
             <button
               class="menu-button-primary text-xs px-2.5 py-1.5"
