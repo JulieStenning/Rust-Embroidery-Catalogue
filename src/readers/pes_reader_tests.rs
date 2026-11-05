@@ -1143,7 +1143,10 @@ fn test_pes_reader_fewer_graphics_than_colour_changes_succeeds() {
 
     let reader = PesReader;
     let result = reader.read(&data);
-    assert!(result.is_ok(), "reader should succeed even if fewer graphics exist than colour changes");
+    assert!(
+        result.is_ok(),
+        "reader should succeed even if fewer graphics exist than colour changes"
+    );
     let pattern = result.unwrap();
     assert_eq!(pattern.threadlist.len(), 3);
     assert!(pattern.extras.contains_key("pec_graphic_0"));
@@ -1156,7 +1159,11 @@ fn test_pes_reader_user_design_99046_if_present() {
     if let Ok(data) = std::fs::read(path) {
         let reader = PesReader;
         let result = reader.read(&data);
-        assert!(result.is_ok(), "99046.pes should parse successfully: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "99046.pes should parse successfully: {:?}",
+            result.err()
+        );
         let pattern = result.unwrap();
         assert_eq!(pattern.stitches.len(), 6546);
         assert_eq!(pattern.threadlist.len(), 10);

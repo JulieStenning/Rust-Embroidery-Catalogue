@@ -139,7 +139,10 @@ async fn test_add_synonyms_rejects_prohibited_domain_terms() {
 
     let res2 = add_tag_synonyms(&pool, 1, "stitched").await;
     assert!(res2.is_err());
-    assert!(res2.unwrap_err().to_string().contains("universal embroidery term"));
+    assert!(res2
+        .unwrap_err()
+        .to_string()
+        .contains("universal embroidery term"));
 }
 
 #[tokio::test]
@@ -149,16 +152,25 @@ async fn test_add_synonyms_rejects_self_synonyms() {
     // Tag 1 is "Animals"
     let res = add_tag_synonyms(&pool, 1, "animal").await;
     assert!(res.is_err());
-    assert!(res.unwrap_err().to_string().contains("duplicates words already in the tag name"));
+    assert!(res
+        .unwrap_err()
+        .to_string()
+        .contains("duplicates words already in the tag name"));
 
     let res_plural = add_tag_synonyms(&pool, 1, "animals").await;
     assert!(res_plural.is_err());
-    assert!(res_plural.unwrap_err().to_string().contains("duplicates words already in the tag name"));
+    assert!(res_plural
+        .unwrap_err()
+        .to_string()
+        .contains("duplicates words already in the tag name"));
 
     // Tag 2 is "Cats"
     let res_cat = add_tag_synonyms(&pool, 2, "cat").await;
     assert!(res_cat.is_err());
-    assert!(res_cat.unwrap_err().to_string().contains("duplicates words already in the tag name"));
+    assert!(res_cat
+        .unwrap_err()
+        .to_string()
+        .contains("duplicates words already in the tag name"));
 }
 
 #[tokio::test]
@@ -166,8 +178,9 @@ async fn test_add_synonyms_normalises_plural_to_singular() {
     let pool = setup_test_db().await;
 
     // Adding "toads" to "Animals" should store "toad"
-    let kw = add_tag_synonyms(&pool, 1, "toads").await.expect("add plural");
+    let kw = add_tag_synonyms(&pool, 1, "toads")
+        .await
+        .expect("add plural");
     assert_eq!(kw.len(), 1);
     assert_eq!(kw[0].keyword, "toad");
 }
-

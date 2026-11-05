@@ -509,4 +509,3 @@ fn test_suggest_path_rule_ignores_format_and_domain_stop_words() {
     assert!(matched.contains(&"Household".to_string()));
     assert!(!matched.contains(&"Sewing".to_string()));
 }
-

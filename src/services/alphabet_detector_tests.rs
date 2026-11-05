@@ -378,10 +378,7 @@ fn test_find_companion_zip_in_dir() {
     // 1. Matching stem zip should be found
     let zip_path = font_dir.join("VintageFont.zip");
     std::fs::write(&zip_path, b"dummy zip").unwrap();
-    assert_eq!(
-        find_companion_zip_in_dir(&font_dir),
-        Some(zip_path.clone())
-    );
+    assert_eq!(find_companion_zip_in_dir(&font_dir), Some(zip_path.clone()));
 
     // 2. Directory with multiple unrelated design archives should NOT match as companion zip
     let pes_dir = tmp.join("PES");

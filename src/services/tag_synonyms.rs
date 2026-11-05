@@ -164,13 +164,12 @@ pub async fn add_tag_synonyms(
     words_input: &str,
 ) -> Result<Vec<TagSynonymKeyword>, AppError> {
     // Fetch the tag and its description
-    let tag_desc = sqlx::query_scalar::<_, String>(
-        "SELECT description FROM tags WHERE id = ? LIMIT 1",
-    )
-    .bind(tag_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| AppError::database(format!("database error checking tag: {e}")))?;
+    let tag_desc =
+        sqlx::query_scalar::<_, String>("SELECT description FROM tags WHERE id = ? LIMIT 1")
+            .bind(tag_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| AppError::database(format!("database error checking tag: {e}")))?;
 
     let Some(tag_description) = tag_desc else {
         return Err(AppError::invalid_input(format!(

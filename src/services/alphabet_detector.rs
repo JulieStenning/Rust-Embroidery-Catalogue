@@ -13,16 +13,55 @@ use std::path::Path;
 
 /// Punctuation and symbol tokens commonly found in embroidery font filenames.
 pub const PUNCTUATION_WORDS: &[&str] = &[
-    "ampersand", "apostrophe", "asterisk", "at", "backslash", "brace", "bracket", "caret",
-    "colon", "comma", "dash", "dollar", "dot", "equal", "equals", "exclamation", "exclam",
-    "hash", "hyphen", "minus", "paren", "parenthesis", "percent", "period", "plus", "pound",
-    "question", "quote", "quotes", "semicolon", "slash", "star", "tilde", "underscore",
+    "ampersand",
+    "apostrophe",
+    "asterisk",
+    "at",
+    "backslash",
+    "brace",
+    "bracket",
+    "caret",
+    "colon",
+    "comma",
+    "dash",
+    "dollar",
+    "dot",
+    "equal",
+    "equals",
+    "exclamation",
+    "exclam",
+    "hash",
+    "hyphen",
+    "minus",
+    "paren",
+    "parenthesis",
+    "percent",
+    "period",
+    "plus",
+    "pound",
+    "question",
+    "quote",
+    "quotes",
+    "semicolon",
+    "slash",
+    "star",
+    "tilde",
+    "underscore",
 ];
 
 /// Folder keywords that strongly indicate an alphabet or font package.
 pub const ALPHABET_KEYWORDS: &[&str] = &[
-    "alphabet", "alphabets", "font", "fonts", "monogram", "monograms", "initials",
-    "letters", "numbers", "numerals", "digits",
+    "alphabet",
+    "alphabets",
+    "font",
+    "fonts",
+    "monogram",
+    "monograms",
+    "initials",
+    "letters",
+    "numbers",
+    "numerals",
+    "digits",
 ];
 
 /// Category of an embroidery file glyph inside a font package.
@@ -49,12 +88,23 @@ pub enum GlyphCategory {
 impl GlyphCategory {
     /// Returns true if this glyph should be kept as a catalogued preview sample in the catalogue.
     pub fn is_sample(&self) -> bool {
-        matches!(self, GlyphCategory::UpperA | GlyphCategory::LowerA | GlyphCategory::Digit9 | GlyphCategory::PunctuationOrSymbol)
+        matches!(
+            self,
+            GlyphCategory::UpperA
+                | GlyphCategory::LowerA
+                | GlyphCategory::Digit9
+                | GlyphCategory::PunctuationOrSymbol
+        )
     }
 
     /// Returns true if this glyph represents an additional letter or number to be compressed into zip.
     pub fn is_compressible(&self) -> bool {
-        matches!(self, GlyphCategory::OtherUpperLetter(_) | GlyphCategory::OtherLowerLetter(_) | GlyphCategory::OtherDigit(_))
+        matches!(
+            self,
+            GlyphCategory::OtherUpperLetter(_)
+                | GlyphCategory::OtherLowerLetter(_)
+                | GlyphCategory::OtherDigit(_)
+        )
     }
 }
 
@@ -133,7 +183,12 @@ fn normalize_stem_delimiters(stem: &str) -> String {
     let mut out = String::with_capacity(stem.len());
     let chars: Vec<char> = stem.chars().collect();
     for i in 0..chars.len() {
-        if chars[i] == '_' && i > 0 && i + 1 < chars.len() && chars[i - 1].is_ascii_digit() && chars[i + 1].is_ascii_digit() {
+        if chars[i] == '_'
+            && i > 0
+            && i + 1 < chars.len()
+            && chars[i - 1].is_ascii_digit()
+            && chars[i + 1].is_ascii_digit()
+        {
             out.push('.');
         } else {
             out.push(chars[i]);
@@ -147,7 +202,10 @@ pub fn identify_dimension_indices(tokens: &[&str]) -> Vec<bool> {
     let mut is_dim = vec![false; tokens.len()];
     for (i, &token) in tokens.iter().enumerate() {
         let t_lower = token.to_ascii_lowercase();
-        if matches!(t_lower.as_str(), "in" | "inch" | "inches" | "mm" | "cm" | "hoop") {
+        if matches!(
+            t_lower.as_str(),
+            "in" | "inch" | "inches" | "mm" | "cm" | "hoop"
+        ) {
             is_dim[i] = true;
             if i >= 1 && token_is_numeric(tokens[i - 1]) {
                 is_dim[i - 1] = true;
@@ -183,7 +241,10 @@ pub fn find_companion_zip_in_dir(dir: &Path) -> Option<std::path::PathBuf> {
     let zips: Vec<std::path::PathBuf> = entries
         .filter_map(Result::ok)
         .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("zip")))
+        .filter(|p| {
+            p.extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+        })
         .collect();
 
     if zips.is_empty() {
@@ -230,7 +291,9 @@ pub fn extract_size_key(text: &str) -> Option<String> {
                 return Some(format!("{}{}", tokens[i - 1], token));
             }
         }
-        if token == "x" && i >= 1 && i + 1 < tokens.len()
+        if token == "x"
+            && i >= 1
+            && i + 1 < tokens.len()
             && tokens[i - 1].chars().all(|c| c.is_ascii_digit())
             && tokens[i + 1].chars().all(|c| c.is_ascii_digit())
         {
@@ -304,7 +367,10 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
 
     for &token in &tokens {
         let t_lower = token.to_ascii_lowercase();
-        if matches!(t_lower.as_str(), "upper" | "uppercase" | "caps" | "cap" | "uc") {
+        if matches!(
+            t_lower.as_str(),
+            "upper" | "uppercase" | "caps" | "cap" | "uc"
+        ) {
             is_upper_indicator = true;
             continue;
         }
@@ -350,7 +416,11 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
             };
             if is_match && ch.is_ascii_alphabetic() {
                 detected_letter = Some(ch);
-                if is_upper { is_upper_indicator = true; } else { is_lower_indicator = true; }
+                if is_upper {
+                    is_upper_indicator = true;
+                } else {
+                    is_lower_indicator = true;
+                }
             } else {
                 descriptive_word_count += 1;
             }

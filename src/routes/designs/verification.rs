@@ -46,4 +46,3 @@ pub async fn bulk_verify_designs(
         verified_count,
     })
 }
-

@@ -401,8 +401,7 @@ fn read_pec(
                 let name = format!("pec_graphic_{}", i);
                 let thread_color = values.get(i).map(|t| t.hex_color()).unwrap_or_default();
                 // Store as hex-encoded string for now (graphic + stride + thread)
-                let graphic_hex: String =
-                    graphic.iter().map(|b| format!("{:02x}", b)).collect();
+                let graphic_hex: String = graphic.iter().map(|b| format!("{:02x}", b)).collect();
                 pattern.extras.insert(
                     name,
                     format!(
