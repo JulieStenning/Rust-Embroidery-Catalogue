@@ -51,6 +51,6 @@ A pre-execution plan must strictly contain:
 1. **Affected Files & Scope Boundary:** Svelte views using `@View.svelte` syntax, backend routes/services, and components intentionally left untouched.
 2. **Boundary & IPC Contracts:** Tauri v2 commands, camelCase keys for JS invocations, and matching Rust/TypeScript types.
 3. **Specification & Safety Constraints:** Read-only original designs invariant, SQLite schema checks, tag invariants, and import-relevant setting invariants.
-4. **Step-by-Step Execution Sequence & Test Plan:** Sequenced execution steps, unit tests (`cargo test`, Vitest), and mandatory Playwright E2E test file (`tests/e2e/*.spec.ts`).
+4. **Step-by-Step Execution Sequence & Test Plan:** Sequenced execution steps, unit tests (`cargo test`, Vitest), and mandatory Playwright E2E test file (`tests/e2e/*.spec.ts`). Plans must right-size testing to the affected subsystem: never include `cargo test` when changes are confined to frontend files or documentation; only include `cargo test` when Rust source files (`src/**/*.rs`), Cargo manifests, or embedded compiler assets are modified.
 5. **Documentation Updates Plan:** Updates to `@HelpView.svelte`, `HelpView.test.ts`, and `docs/User-Facing-Guidance/`.
 

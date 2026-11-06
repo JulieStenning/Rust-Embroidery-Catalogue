@@ -40,6 +40,10 @@ You are helping build **Embroidery Catalogue**, a local, offline desktop tool fo
 - **Targeted Rust Formatting Invariant (No Crate-Wide Diff Noise):**
   - Whenever Rust files are created or modified, format **only** the touched files before concluding the task using `rustfmt --edition 2021 <files...>`.
   - Never run blanket `cargo fmt` during feature work or bug fixes to prevent modifying unrelated files and avoid scope creep or noisy diffs across the repository.
+- **Targeted Subsystem Test Scope Invariant (No Redundant Rust Tests):**
+  - Never run `cargo test` when changes are isolated to frontend files (`frontend/**`), styles, views, or standalone documentation (`docs/**`).
+  - Only run `cargo test` when Rust source code (`src/**/*.rs`, `src-tauri/**/*.rs`), Cargo manifests (`Cargo.toml`), or assets embedded into Rust binaries via `include_str!` / `include_bytes!` are modified or added.
+  - Frontend changes are verified with Vitest (`npm test` / `npx vitest run <path>`), `svelte-check`, and Playwright E2E (`tests/e2e/*.spec.ts`) for UI alterations. Pure documentation changes do not require running Rust or frontend test suites unless embedded document tests or link resolvers are directly affected.
 
 ---
 

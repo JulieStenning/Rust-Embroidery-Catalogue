@@ -140,6 +140,10 @@ The plan must be structural and high-levelâ€”**no code snippets or pseudocode**â
 4. **Step-by-Step Execution Sequence & Test Plan:**
    - A short, numbered list of the order of execution.
    - Targeted unit and integration test commands (Vitest, `cargo test`).
+   - **Subsystem-Targeted Test Scope Invariant:** Plans must right-size testing to the affected subsystem:
+     - *Frontend-only changes:* Specify Vitest (`npx vitest run <path>`) and Playwright E2E; explicitly omit `cargo test`.
+     - *Backend or full-stack changes:* Specify targeted `cargo test <module>` or `cargo test`, plus Vitest if frontend files are modified.
+     - *Documentation-only changes:* Specify markdown link/routing verification; omit `cargo test`. Never run `cargo test` if zero Rust source files, Cargo configurations, or embedded assets are touched.
    - **Mandatory Playwright E2E Coverage:** For any UI changes, interactive workflows, modal behavior, button states (e.g. enabled, disabled, busy), or navigation changes, explicitly specify the Playwright E2E test file (`tests/e2e/*.spec.ts`) and test scenario to add or update.
 5. **Documentation Updates Plan:**
    - Explicitly identify the user-facing guidance documents (`docs/User-Facing-Guidance/*.md`) and the section(s) in @HelpView.svelte to update, along with corresponding assertions in `HelpView.test.ts`. Updates must follow the User Documentation Standard (Minimalism): state which user task changes and how its steps change.

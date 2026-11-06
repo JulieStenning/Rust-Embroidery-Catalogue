@@ -93,3 +93,7 @@ To avoid premature or redundant polling during task execution, use the measured 
    - For rapid frontend edits, use `svelte-check` (~17 s) to catch TypeScript / rune issues.
    - Run full suites (`npm run check:all` ~2 min, `npm run e2e` ~11 min) only at major milestones or before final delivery, rather than after every individual file edit.
 3. **Set appropriate async timeouts:** When executing longer commands, set `WaitMsBeforeAsync` or background expectations aligned with the table above rather than timing out prematurely.
+4. **Targeted Subsystem Test Scope (Skip Redundant Rust Tests):**
+   - Never run `cargo test` if no Rust source files (`src/**/*.rs`, `src-tauri/**/*.rs`), Cargo manifests (`Cargo.toml`), or directly embedded compiler assets (`include_str!` / `include_bytes!`) have been modified.
+   - Frontend changes (`frontend/src/**`) must be verified with Vitest (`npm test` or `npx vitest run <file>`), `svelte-check`, and Playwright E2E for UI changes, completely skipping `cargo test`.
+   - Pure documentation changes do not require running either `cargo test` or Vitest unless an embedded test explicitly asserts document availability.
