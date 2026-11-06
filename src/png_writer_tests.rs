@@ -362,3 +362,33 @@ fn different_physical_scales_produce_consistent_normalized_canvas() {
     // Aspect ratios should match within 2 pixels
     assert!((w_small as i32 - w_large as i32).abs() <= 2);
 }
+
+#[test]
+fn small_design_renders_with_proportional_thread_thickness() {
+    // 10 mm (100 units) satin-like zig-zag pattern
+    let mut pattern = EmbPattern::new();
+    for i in 0..10 {
+        let y = (i as f32) * 10.0;
+        pattern.stitches.push(Stitch {
+            x: 0.0,
+            y,
+            stitch_type: StitchType::Stitch,
+        });
+        pattern.stitches.push(Stitch {
+            x: 50.0,
+            y: y + 5.0,
+            stitch_type: StitchType::Stitch,
+        });
+    }
+    pattern.threadlist.push(EmbThread::new(0x0000FF));
+
+    let settings = RenderSettings::default().with_target_dimension(Some(600));
+    let png = render_pattern_to_png(&pattern, &settings).unwrap();
+    let non_bg = count_non_bg_pixels(&png, settings.background);
+
+    // With thread_radius > 4 (scaled proportionally), coverage should be substantial (> 20_000 pixels)
+    assert!(
+        non_bg > 20_000,
+        "Small design should have proportional thread stroke thickness, got {non_bg} pixels"
+    );
+}

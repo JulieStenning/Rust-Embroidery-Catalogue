@@ -148,6 +148,7 @@ describe("HelpView", () => {
       expect(section.getByText("Fast tag verification:")).toBeInTheDocument();
       expect(section.getByText("Missing previews & hoop boundaries:")).toBeInTheDocument();
       expect(section.getByText("Master outline files without stitch files:")).toBeInTheDocument();
+      expect(section.getByText("Actual size (1:1) vs fit preview:")).toBeInTheDocument();
       const bulkActionsLink = section.getByRole("link", {
         name: "Browse & Bulk Actions Guide",
       });

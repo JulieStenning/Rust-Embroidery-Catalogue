@@ -705,4 +705,38 @@ test.describe.serial("Design Detail & Design Print Views", () => {
       RICH_DESIGN,
     );
   });
+
+  test("toggles preview display mode between Fit and Actual Size (1:1)", async ({
+    page,
+  }) => {
+    await openDesignDetail(page, richDesignId);
+
+    const fitBtn = page.getByTestId("preview-mode-fit");
+    const actualBtn = page.getByTestId("preview-mode-actual");
+
+    await expect(fitBtn).toBeVisible();
+    await expect(actualBtn).toBeVisible();
+    await expect(page.getByTestId("design-preview-image-fit")).toBeVisible();
+    await expect(
+      page.getByTestId("preview-actual-size-badge"),
+    ).not.toBeVisible();
+
+    // Switch to Actual Size
+    await actualBtn.click();
+    await expect(page.getByTestId("preview-actual-size-badge")).toBeVisible();
+    await expect(page.getByTestId("preview-actual-size-badge")).toContainText(
+      "mm (1:1)",
+    );
+    await expect(
+      page.getByTestId("design-preview-actual-container"),
+    ).toBeVisible();
+    await expect(page.getByTestId("design-preview-image-actual")).toBeVisible();
+
+    // Switch back to Fit
+    await fitBtn.click();
+    await expect(
+      page.getByTestId("preview-actual-size-badge"),
+    ).not.toBeVisible();
+    await expect(page.getByTestId("design-preview-image-fit")).toBeVisible();
+  });
 });

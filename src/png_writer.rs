@@ -278,8 +278,10 @@ pub fn render_pattern_to_png(
 
             // #40 thread diameter is ~0.4 mm (= 4.0 decimillimeter units).
             // Scale thread radius with the coordinate-to-pixel scale factor.
+            // For smaller designs (e.g. alphabets/monograms), scale proportionally
+            // up to 12px radius to preserve continuous satin/fill coverage without gaps.
             let thread_radius = ((4.0 * scale) / 2.0).round() as i32;
-            let thread_radius = thread_radius.clamp(1, 4);
+            let thread_radius = thread_radius.clamp(1, 12);
 
             (width, height, scale, margin, thread_radius)
         }

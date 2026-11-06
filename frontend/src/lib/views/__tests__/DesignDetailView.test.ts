@@ -1317,6 +1317,66 @@ describe("DesignDetailView", () => {
       );
     });
 
+    it("toggles between Fit and Actual Size (1:1) preview modes when dimensions are present", async () => {
+      const user = userEvent.setup();
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          imageDataUrl: "data:image/png;base64,abc",
+          widthMm: 120,
+          heightMm: 80,
+        })
+      );
+
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("preview-mode-fit")).toBeInTheDocument();
+      });
+
+      const fitBtn = screen.getByTestId("preview-mode-fit");
+      const actualBtn = screen.getByTestId("preview-mode-actual");
+      expect(fitBtn).toBeInTheDocument();
+      expect(actualBtn).toBeInTheDocument();
+      expect(screen.getByTestId("design-preview-image-fit")).toBeInTheDocument();
+      expect(screen.queryByTestId("preview-actual-size-badge")).not.toBeInTheDocument();
+
+      // Switch to Actual Size
+      await user.click(actualBtn);
+
+      expect(screen.getByTestId("preview-actual-size-badge")).toHaveTextContent(
+        "120 × 80 mm (1:1)"
+      );
+      const actualImg = screen.getByTestId("design-preview-image-actual");
+      expect(actualImg).toBeInTheDocument();
+      expect(actualImg.getAttribute("style")).toContain("width: 120mm");
+      expect(actualImg.getAttribute("style")).toContain("height: 80mm");
+      expect(screen.getByTestId("design-preview-actual-container")).toBeInTheDocument();
+
+      // Switch back to Fit
+      await user.click(fitBtn);
+      expect(screen.queryByTestId("preview-actual-size-badge")).not.toBeInTheDocument();
+      expect(screen.getByTestId("design-preview-image-fit")).toBeInTheDocument();
+    });
+
+    it("does not render preview mode toggle when design dimensions are zero or missing", async () => {
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          imageDataUrl: "data:image/png;base64,abc",
+          widthMm: null,
+          heightMm: 0,
+        })
+      );
+
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("design-preview-image-fit")).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId("preview-mode-fit")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("preview-mode-actual")).not.toBeInTheDocument();
+    });
+
     it("renders the file path permanently", async () => {
       renderDetail();
 

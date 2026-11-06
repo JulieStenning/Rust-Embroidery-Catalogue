@@ -45,6 +45,7 @@
   let detailScanningFolder = $state(false);
   /** @type {DesignDetailItem | null} */
   let detailItem = $state(/** @type {DesignDetailItem | null} */ (null));
+  let previewScaleMode = $state(/** @type {"fit" | "actual"} */ ("fit"));
 
   let ratingHover = $state(0);
   function handleStarClick(/** @type {number} */ score) {
@@ -676,7 +677,46 @@
           {/if}
         </div>
 
-        <!-- Preview image -->
+        <!-- Preview image & scale mode toggle -->
+        {#if detailItem.imageDataUrl && detailItem.widthMm && detailItem.heightMm && detailItem.widthMm > 0 && detailItem.heightMm > 0}
+          <div class="flex items-center justify-between pb-1 text-xs">
+            <div
+              class="inline-flex rounded-md shadow-xs border border-[var(--border-default)] bg-[var(--surface-card-subtle)] p-0.5"
+              role="group"
+              aria-label="Preview display scale"
+            >
+              <button
+                type="button"
+                class="px-2.5 py-1 rounded text-xs transition-colors {previewScaleMode === 'fit'
+                  ? 'bg-[var(--surface-card)] text-[var(--text-primary)] shadow-xs font-semibold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium'}"
+                onclick={() => (previewScaleMode = "fit")}
+                data-testid="preview-mode-fit"
+              >
+                Fit
+              </button>
+              <button
+                type="button"
+                class="px-2.5 py-1 rounded text-xs transition-colors {previewScaleMode === 'actual'
+                  ? 'bg-[var(--surface-card)] text-[var(--text-primary)] shadow-xs font-semibold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium'}"
+                onclick={() => (previewScaleMode = "actual")}
+                data-testid="preview-mode-actual"
+              >
+                Actual Size (1:1)
+              </button>
+            </div>
+            {#if previewScaleMode === "actual"}
+              <span
+                class="text-[11px] font-medium text-[var(--text-muted)] px-2 py-0.5 rounded bg-[var(--surface-card-subtle)] border border-[var(--border-default)]"
+                data-testid="preview-actual-size-badge"
+              >
+                {detailItem.widthMm} × {detailItem.heightMm} mm (1:1)
+              </span>
+            {/if}
+          </div>
+        {/if}
+
         {#if detailItem.isMasterOnly}
           <div
             class="route-card border border-[var(--notice-warn-border)] bg-[var(--notice-warn-bg)] p-4 text-center space-y-2"
@@ -714,11 +754,27 @@
             </p>
           </div>
         {:else if detailItem.imageDataUrl}
-          <img
-            src={detailItem.imageDataUrl}
-            alt={detailItem.filename || "Design preview"}
-            class="w-full rounded border border-[var(--border-default)] bg-[var(--surface-preview)] p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
-          />
+          {#if previewScaleMode === "actual" && detailItem.widthMm && detailItem.heightMm && detailItem.widthMm > 0 && detailItem.heightMm > 0}
+            <div
+              class="w-full rounded border border-[var(--border-default)] bg-[var(--surface-preview)] p-4 overflow-auto flex items-center justify-center min-h-[14rem] max-h-[28vh] lg:max-h-[20rem] shadow-sm"
+              data-testid="design-preview-actual-container"
+            >
+              <img
+                src={detailItem.imageDataUrl}
+                alt={detailItem.filename || "Design preview"}
+                style="width: {detailItem.widthMm}mm; height: {detailItem.heightMm}mm; max-width: none; max-height: none;"
+                class="object-contain shadow-xs shrink-0"
+                data-testid="design-preview-image-actual"
+              />
+            </div>
+          {:else}
+            <img
+              src={detailItem.imageDataUrl}
+              alt={detailItem.filename || "Design preview"}
+              class="w-full rounded border border-[var(--border-default)] bg-[var(--surface-preview)] p-2 object-contain max-h-[28vh] lg:max-h-[20rem] shadow-sm"
+              data-testid="design-preview-image-fit"
+            />
+          {/if}
         {:else}
           <div
             class="route-card border border-[var(--notice-warn-border)] bg-[var(--notice-warn-bg)] p-4 text-center"

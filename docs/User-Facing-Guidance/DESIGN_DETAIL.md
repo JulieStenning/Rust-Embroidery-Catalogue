@@ -29,7 +29,7 @@ The page has three main areas:
 - The current desktop view also shows Prev/Next buttons and a position counter when browse history is available.
 
 2. Main detail area:
-- Left: preview image and 3D preview generation button.
+- Left: preview image, display scale toggle (Fit vs Actual Size 1:1), and 3D preview generation button.
 - Right: filename, file actions, metadata badges, rating, stitched toggle, notes/metadata form, projects.
 - The 3D button changes text based on the current preview state.
 
@@ -72,6 +72,13 @@ Result:
 Result:
 - Preview is replaced with a 3D-rendered image.
 - Dimensions are refreshed when file bounds are available.
+
+### Inspect small designs at Actual Size (1:1)
+
+1. When viewing a design with saved physical dimensions, use the display scale toggle directly above the preview image.
+2. Click **Actual Size (1:1)** to view the design constrained to its true physical dimensions (measured in millimetres) inside a centered, scrollable container. A dimension badge (e.g. `12 × 15 mm (1:1)`) displays the exact size.
+3. Viewing at true scale helps assess stitch techniques on small designs, monograms, and alphabet glyphs—making it easy to distinguish satin stitch columns from tatami fill stitching without optical distortion from magnification.
+4. Click **Fit** to return to the enlarged, container-fitting view for close inspection of thread paths.
 
 ### Add to or remove from project
 
