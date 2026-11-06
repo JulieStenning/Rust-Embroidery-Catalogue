@@ -1330,19 +1330,18 @@ describe("DesignDetailView", () => {
       renderDetail();
 
       await waitFor(() => {
-        expect(screen.getByTestId("preview-mode-fit")).toBeInTheDocument();
+        expect(screen.getByTestId("preview-mode-toggle")).toBeInTheDocument();
       });
 
-      const fitBtn = screen.getByTestId("preview-mode-fit");
-      const actualBtn = screen.getByTestId("preview-mode-actual");
-      expect(fitBtn).toBeInTheDocument();
-      expect(actualBtn).toBeInTheDocument();
+      const toggleBtn = screen.getByTestId("preview-mode-toggle");
+      expect(toggleBtn).toHaveTextContent("Actual Size (1:1)");
       expect(screen.getByTestId("design-preview-image-fit")).toBeInTheDocument();
       expect(screen.queryByTestId("preview-actual-size-badge")).not.toBeInTheDocument();
 
-      // Switch to Actual Size
-      await user.click(actualBtn);
+      // Click to switch to Actual Size
+      await user.click(toggleBtn);
 
+      expect(toggleBtn).toHaveTextContent("Fit to Frame");
       expect(screen.getByTestId("preview-actual-size-badge")).toHaveTextContent(
         "120 × 80 mm (1:1)"
       );
@@ -1352,8 +1351,9 @@ describe("DesignDetailView", () => {
       expect(actualImg.getAttribute("style")).toContain("height: 80mm");
       expect(screen.getByTestId("design-preview-actual-container")).toBeInTheDocument();
 
-      // Switch back to Fit
-      await user.click(fitBtn);
+      // Click again to toggle back to Fit
+      await user.click(toggleBtn);
+      expect(toggleBtn).toHaveTextContent("Actual Size (1:1)");
       expect(screen.queryByTestId("preview-actual-size-badge")).not.toBeInTheDocument();
       expect(screen.getByTestId("design-preview-image-fit")).toBeInTheDocument();
     });
@@ -1373,8 +1373,7 @@ describe("DesignDetailView", () => {
         expect(screen.getByTestId("design-preview-image-fit")).toBeInTheDocument();
       });
 
-      expect(screen.queryByTestId("preview-mode-fit")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("preview-mode-actual")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("preview-mode-toggle")).not.toBeInTheDocument();
     });
 
     it("renders the file path permanently", async () => {

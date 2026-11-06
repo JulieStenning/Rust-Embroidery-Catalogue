@@ -134,10 +134,11 @@
       </p>
       <p>
         <strong>Actual size (1:1) vs fit preview:</strong> when reviewing an individual design on
-        its detail page, toggle between <strong>Fit</strong> and <strong>Actual Size (1:1)</strong> directly
-        above the preview image. Viewing small designs (such as monogram letters and alphabet sets) at
-        their true physical millimetre dimensions makes it easy to assess stitch techniques and confirm
-        whether columns are satin stitch or tatami fill.
+        its detail page, click <strong>Actual Size (1:1)</strong> directly above the preview image
+        to view it at true physical millimetre dimensions, or click <strong>Fit to Frame</strong>
+        to restore container-fitting zoom. Viewing small designs (such as monogram letters and alphabet
+        sets) at real-world scale makes it easy to assess stitch techniques and confirm whether columns
+        are satin stitch or tatami fill.
       </p>
       <p>
         <strong>Full guide:</strong> open the

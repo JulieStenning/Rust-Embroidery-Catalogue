@@ -7,7 +7,7 @@ Click any design card in [Browse](#/browse) to open its detail page. Here you ca
 ## Inspect design preview and true scale (1:1)
 
 - **Preview image**: Shows the rendered embroidery design with thread paths and colours.
-- **Actual Size (1:1)**: Click **Actual Size (1:1)** above the image to display the design at its true physical dimensions in millimetres. This makes it easy to assess stitch density and column widths on small designs or alphabet glyphs. Click **Fit** to return to container-fitting zoom.
+- **Actual Size (1:1)**: Click **Actual Size (1:1)** above the image to display the design at its true physical dimensions in millimetres. This makes it easy to assess stitch density and column widths on small designs or alphabet glyphs. Click **Fit to Frame** to return to container-fitting zoom.
 - **Generate 3D Preview**: Click to render a realistic 3D thread simulation preview.
 
 ---

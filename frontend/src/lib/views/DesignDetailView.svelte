@@ -680,32 +680,17 @@
         <!-- Preview image & scale mode toggle -->
         {#if detailItem.imageDataUrl && detailItem.widthMm && detailItem.heightMm && detailItem.widthMm > 0 && detailItem.heightMm > 0}
           <div class="flex items-center justify-between pb-1 text-xs">
-            <div
-              class="inline-flex rounded-md shadow-xs border border-[var(--border-default)] bg-[var(--surface-card-subtle)] p-0.5"
-              role="group"
-              aria-label="Preview display scale"
+            <button
+              type="button"
+              class="menu-button-secondary text-xs px-2.5 py-1 flex items-center gap-1.5 font-medium"
+              onclick={() => (previewScaleMode = previewScaleMode === "fit" ? "actual" : "fit")}
+              data-testid="preview-mode-toggle"
+              aria-label={previewScaleMode === "fit"
+                ? "View design at actual size"
+                : "Fit design preview to frame"}
             >
-              <button
-                type="button"
-                class="px-2.5 py-1 rounded text-xs transition-colors {previewScaleMode === 'fit'
-                  ? 'bg-[var(--surface-card)] text-[var(--text-primary)] shadow-xs font-semibold'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium'}"
-                onclick={() => (previewScaleMode = "fit")}
-                data-testid="preview-mode-fit"
-              >
-                Fit
-              </button>
-              <button
-                type="button"
-                class="px-2.5 py-1 rounded text-xs transition-colors {previewScaleMode === 'actual'
-                  ? 'bg-[var(--surface-card)] text-[var(--text-primary)] shadow-xs font-semibold'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium'}"
-                onclick={() => (previewScaleMode = "actual")}
-                data-testid="preview-mode-actual"
-              >
-                Actual Size (1:1)
-              </button>
-            </div>
+              {previewScaleMode === "fit" ? "Actual Size (1:1)" : "Fit to Frame"}
+            </button>
             {#if previewScaleMode === "actual"}
               <span
                 class="text-[11px] font-medium text-[var(--text-muted)] px-2 py-0.5 rounded bg-[var(--surface-card-subtle)] border border-[var(--border-default)]"

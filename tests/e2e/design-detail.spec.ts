@@ -712,18 +712,18 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     const designId = richDesignId || (await findDesignId(page, RICH_DESIGN));
     await openDesignDetail(page, designId);
 
-    const fitBtn = page.getByTestId("preview-mode-fit");
-    const actualBtn = page.getByTestId("preview-mode-actual");
+    const toggleBtn = page.getByTestId("preview-mode-toggle");
 
-    await expect(fitBtn).toBeVisible();
-    await expect(actualBtn).toBeVisible();
+    await expect(toggleBtn).toBeVisible();
+    await expect(toggleBtn).toHaveText("Actual Size (1:1)");
     await expect(page.getByTestId("design-preview-image-fit")).toBeVisible();
     await expect(
       page.getByTestId("preview-actual-size-badge"),
     ).not.toBeVisible();
 
-    // Switch to Actual Size
-    await actualBtn.click();
+    // Toggle to Actual Size
+    await toggleBtn.click();
+    await expect(toggleBtn).toHaveText("Fit to Frame");
     await expect(page.getByTestId("preview-actual-size-badge")).toBeVisible();
     await expect(page.getByTestId("preview-actual-size-badge")).toContainText(
       "mm (1:1)",
@@ -733,8 +733,9 @@ test.describe.serial("Design Detail & Design Print Views", () => {
     ).toBeVisible();
     await expect(page.getByTestId("design-preview-image-actual")).toBeVisible();
 
-    // Switch back to Fit
-    await fitBtn.click();
+    // Toggle back to Fit
+    await toggleBtn.click();
+    await expect(toggleBtn).toHaveText("Actual Size (1:1)");
     await expect(
       page.getByTestId("preview-actual-size-badge"),
     ).not.toBeVisible();
