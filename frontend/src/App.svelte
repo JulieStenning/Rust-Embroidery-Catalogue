@@ -8,7 +8,9 @@
   import LicenceActivationView from "./lib/LicenceActivationView.svelte";
   import MainView from "./lib/MainView.svelte";
   import ToastContainer from "./lib/components/ToastContainer.svelte";
+  import ContextMenu from "./lib/components/ContextMenu.svelte";
   import { initDbMaintenanceEvents } from "./lib/services/dbMaintenanceEvents";
+  import { initContextMenuHandler } from "./lib/services/contextMenu";
   import { checkInitialSetup, getDatabaseStatus } from "./lib/api/commandAdapter";
   import { getLicenceStatus } from "./lib/api/licenceAdapter";
   import { initTheme } from "./lib/stores/themeStore";
@@ -17,6 +19,8 @@
   let stopDbMaintenanceEvents = $state(() => {});
   /** Cleanup function returned by initTheme(). */
   let stopTheme = () => {};
+  /** Cleanup function returned by initContextMenuHandler(). */
+  let stopContextMenu = () => {};
 
   /** Whether the startup check has completed */
   let loading = $state(true);
@@ -132,6 +136,7 @@
   // Subscribe to database maintenance lifecycle events as early as possible
   // (so the completion toast is shown even if ToastContainer mounts later).
   onMount(() => {
+    stopContextMenu = initContextMenuHandler();
     stopTheme = initTheme();
     initDbMaintenanceEvents().then((stop) => {
       stopDbMaintenanceEvents = stop;
@@ -167,6 +172,7 @@
   });
 
   onDestroy(() => {
+    stopContextMenu();
     stopDbMaintenanceEvents();
     stopMigrationEvents();
     stopTheme();
@@ -238,4 +244,5 @@
   <!-- Main application -->
   <MainView />
   <ToastContainer />
+  <ContextMenu />
 {/if}

@@ -53,6 +53,11 @@ vi.mock("../lib/components/ToastContainer.svelte", async () => {
   return { default: ToastContainer };
 });
 
+vi.mock("../lib/components/ContextMenu.svelte", async () => {
+  const { default: ContextMenu } = await import("./__mocks__/ContextMenu.svelte");
+  return { default: ContextMenu };
+});
+
 vi.mock("../lib/DatabaseRecoveryView.svelte", async () => {
   const { default: DatabaseRecoveryView } = await import("./__mocks__/DatabaseRecoveryView.svelte");
   return { default: DatabaseRecoveryView };

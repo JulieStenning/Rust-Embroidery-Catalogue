@@ -45,6 +45,14 @@ On first launch, the setup wizard guides you through your basic preferences:
 
 ---
 
+## 5. Print worksheets and project plans
+
+1. Open a design in [Browse](#/browse) and click **Print View**, or select a project in [Projects](#/projects) and click **Print Sheet**.
+2. A clean, formatted summary opens without window navigation bars.
+3. Click **Print** (or press <kbd>Ctrl+P</kbd>) to print to your printer or save as a PDF.
+
+---
+
 ## If something goes wrong
 
 | Problem | What to do |
@@ -52,6 +60,7 @@ On first launch, the setup wizard guides you through your basic preferences:
 | No designs appear after scanning a folder | Ensure the folder contains supported stitch files (such as `.pes`, `.jef`, `.dst`, `.vp3`, `.hus`). See [Supported Formats](SUPPORTED_FORMATS.md). |
 | App prompts to re-connect on startup | If your catalogue is stored on a removable drive, plug the drive in and click **Re-connect to this location**. |
 | You want to move your catalogue to another drive | Go to [Admin → Settings](#/admin/system/settings) and select a new folder under **Catalogue Storage**. |
+| Right-clicking a page does not show browser options | Embroidery Catalogue runs as an offline desktop application. Generic browser options such as Save Page As or Refresh are disabled to prevent state desynchronisation. Right-clicking inside text input fields still provides standard Cut, Copy, and Paste. |
 
 ---
 

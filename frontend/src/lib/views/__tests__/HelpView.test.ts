@@ -155,6 +155,7 @@ describe("HelpView", () => {
       expect(section.getByText("Open a design:")).toBeInTheDocument();
       expect(section.getByText("Actual size (1:1) & zoom:")).toBeInTheDocument();
       expect(section.getByText("Thread colours & stops:")).toBeInTheDocument();
+      expect(section.getByText("Print worksheet:")).toBeInTheDocument();
       expect(section.getByText("Open in embroidery software:")).toBeInTheDocument();
       expect(section.getByText("Find on disk:")).toBeInTheDocument();
       expect(section.getByText("Edit metadata:")).toBeInTheDocument();
@@ -204,10 +205,7 @@ describe("HelpView", () => {
       const firstImportGuideLink = section.getByRole("link", {
         name: "Read guide → First Import Actions Guide",
       });
-      expect(firstImportGuideLink).toHaveAttribute(
-        "href",
-        "#/about/document/first-import-actions"
-      );
+      expect(firstImportGuideLink).toHaveAttribute("href", "#/about/document/first-import-actions");
 
       const folderAssignmentGuideLink = section.getByRole("link", {
         name: "Read guide → Import Folder Assignment Guide",

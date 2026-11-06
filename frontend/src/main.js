@@ -3,6 +3,9 @@
 
 import { mount } from "svelte";
 import App from "./App.svelte";
+import { initContextMenuHandler } from "./lib/services/contextMenu";
+
+initContextMenuHandler();
 
 function ensureStartupErrorBanner(message) {
   const bannerId = "startup-error-banner";

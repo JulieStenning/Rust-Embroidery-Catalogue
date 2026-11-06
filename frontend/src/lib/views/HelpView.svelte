@@ -74,6 +74,7 @@
         <li><strong>Open a design:</strong> Click any design card on <a href="#/designs" class="text-[var(--text-brand)] hover:underline">Browse</a> to open its detail page.</li>
         <li><strong>Actual size (1:1) &amp; zoom:</strong> Click <strong>Actual Size (1:1)</strong> to inspect stitches at real-world millimetre scale, or pan and zoom to examine density and jump stitches.</li>
         <li><strong>Thread colours &amp; stops:</strong> Review the thread colour sequence, brand colour codes, and total stitch count before setting up your machine.</li>
+        <li><strong>Print worksheet:</strong> Click <strong>Print View</strong> to preview and print a clean technical summary sheet with design dimensions, colour list, and personal notes.</li>
         <li><strong>Open in embroidery software:</strong> Click <strong>Open in Editor</strong> to launch the stitch file directly in your default embroidery software.</li>
         <li><strong>Find on disk:</strong> Click <strong>Open folder</strong> to locate the original embroidery file in Windows File Explorer.</li>
         <li><strong>Edit metadata:</strong> Add or remove tags, assign star ratings, mark as stitched, or write personal project notes.</li>
@@ -219,7 +220,7 @@
       <ul class="list-disc list-outside pl-5 space-y-2 text-[var(--text-secondary)]">
         <li><strong>What projects are for:</strong> Collect and organise designs for a specific sewing session or gift set.</li>
         <li><strong>Adding designs:</strong> Add single designs from their detail page or add multiple designs in bulk from Browse.</li>
-        <li><strong>Printing:</strong> Print a clean project worksheet with thumbnails, dimensions, and colour counts for reference at your machine.</li>
+        <li><strong>Printing:</strong> Print a clean project worksheet with thumbnails, dimensions, and colour counts using the <strong>Print Sheet</strong> button.</li>
         <li><strong>Safe removal:</strong> Removing designs or deleting a project never deletes the underlying design records or files.</li>
       </ul>
       <p class="pt-2 border-t border-[var(--border-default)] text-xs">
