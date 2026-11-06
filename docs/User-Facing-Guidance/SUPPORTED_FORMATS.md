@@ -19,14 +19,6 @@ Standard machine stitch formats are parsed directly by the built-in reader engin
 
 ---
 
-## Helper formats
-
-| Format | Description | Notes |
-|---|---|---|
-| `.pmv` | Pfaff My Quilter | Helper stitch format included for catalogue completeness |
-
----
-
 ## Digitising master & outline formats
 
 You can enable detection for working design files created in popular digitising software under [Admin → Settings](#/admin/system/settings):
@@ -39,7 +31,7 @@ You can enable detection for working design files created in popular digitising 
 | `.eof` | Embird Studio | Embird Digitising Studio master outline format |
 | `.ecf` | Embird Cross Stitch | Embird Cross Stitch project format |
 | `.emb` | Wilcom / Hatch | Wilcom and Hatch all-in-one object design format |
-| `.art` | Bernina | Bernina ArtLink / Designer master format |
+| `.art` | Bernina | Bernina Embroidery Software working format |
 | `.be` | Embrilliance | Embrilliance working design format |
 | `.jan` | Janome Digitizer | Janome Digitizer working format |
 | `.edo` | mySewnet / Premier+ | mySewnet Design Outline format |
@@ -53,12 +45,15 @@ You can add custom file extensions in [Admin → Settings](#/admin/system/settin
 
 The import scanner automatically ignores non-stitch and sidecar files:
 
-| File type | Reason |
-|---|---|
-| `.col`, `.edr`, `.inf` | Colour sidecar files (not stitch files) |
-| `.json`, `.csv`, `.txt` | Data exports and text files |
-| `.png`, `.jpg`, `.svg` | Images and vector graphics |
-| `.zip` | Alphabet zip archives are catalogued via representative glyphs, not as raw stitch files |
+| Format | Origin / Category | Reason / Notes |
+|---|---|---|
+| `.bro` | Brother legacy | Excluded due to low-detail outline-only previews |
+| `.ksm` | Pfaff legacy | Excluded due to low-detail outline-only previews |
+| `.pcd` | Legacy format | Excluded due to unreliable/incomplete decode output |
+| `.col`, `.edr`, `.inf` | Sidecars | Thread colour palette files; not stitch data |
+| `.json`, `.csv`, `.txt` | Data files | Text exports and metadata; not stitch files |
+| `.png`, `.jpg`, `.svg` | Images | Raster images and vector graphics; not embroidery |
+| `.zip` | Archives | Font packages are catalogued via sample glyphs, not raw archives |
 
 ---
 
