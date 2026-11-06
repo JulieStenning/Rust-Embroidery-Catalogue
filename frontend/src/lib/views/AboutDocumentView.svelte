@@ -394,4 +394,57 @@
     border: 1px solid var(--border-default);
     overflow-x: auto;
   }
+
+  :global(.document-markdown table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  :global(.document-markdown thead) {
+    border-bottom: 2px solid var(--border-default);
+  }
+
+  :global(.document-markdown th) {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: 0.625rem 2rem 0.625rem 0.75rem;
+    vertical-align: bottom;
+  }
+
+  :global(.document-markdown td) {
+    padding: 0.75rem 2rem 0.75rem 0.75rem;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border-default);
+    color: var(--text-secondary);
+  }
+
+  :global(.document-markdown th:first-child),
+  :global(.document-markdown td:first-child) {
+    padding-left: 0;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  :global(.document-markdown th:last-child),
+  :global(.document-markdown td:last-child) {
+    padding-right: 0;
+  }
+
+  :global(.document-markdown table:has(th:nth-child(2):last-child) th:first-child),
+  :global(.document-markdown table:has(th:nth-child(2):last-child) td:first-child) {
+    width: 32%;
+    min-width: 200px;
+  }
+
+  :global(.document-markdown tbody tr:last-child td) {
+    border-bottom: none;
+  }
+
+  :global(.document-markdown tbody tr:hover) {
+    background-color: var(--surface-hover);
+  }
 </style>

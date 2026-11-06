@@ -15,6 +15,7 @@ describe("markdown utilities", () => {
       expect(DOCUMENT_SLUG_BY_FILENAME["batch_operations_backfill.md"]).toBe("ai-tagging");
       expect(DOCUMENT_SLUG_BY_FILENAME["data_storage_guide.md"]).toBe("data-storage");
       expect(DOCUMENT_SLUG_BY_FILENAME["getting_started.md"]).toBe("getting-started");
+      expect(DOCUMENT_SLUG_BY_FILENAME["search_and_filtering.md"]).toBe("search-and-filtering");
       expect(DOCUMENT_SLUG_BY_FILENAME["tag_word_matches.md"]).toBe("tag-word-matches");
     });
   });

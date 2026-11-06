@@ -47,7 +47,7 @@ struct AboutDocumentSpec {
     content: &'static str,
 }
 
-const DOCUMENTS: [AboutDocumentSpec; 21] = [
+const DOCUMENTS: [AboutDocumentSpec; 22] = [
     AboutDocumentSpec {
         slug: "disclaimer",
         title: "Disclaimer",
@@ -127,10 +127,17 @@ const DOCUMENTS: [AboutDocumentSpec; 21] = [
     },
     AboutDocumentSpec {
         slug: "browse-bulk-actions",
-        title: "Browse & Bulk Actions Guide",
+        title: "Bulk Tagging Guide",
         filename: "docs/User-Facing-Guidance/BROWSE_BULK_ACTIONS.md",
         description: "Selecting, tagging, and managing multiple embroidery designs from Browse view.",
         content: include_str!("../../docs/User-Facing-Guidance/BROWSE_BULK_ACTIONS.md"),
+    },
+    AboutDocumentSpec {
+        slug: "search-and-filtering",
+        title: "Search & Filtering Guide",
+        filename: "docs/User-Facing-Guidance/SEARCH_AND_FILTERING.md",
+        description: "Searching embroidery designs with keywords, operators, and fine-grained filters.",
+        content: include_str!("../../docs/User-Facing-Guidance/SEARCH_AND_FILTERING.md"),
     },
     AboutDocumentSpec {
         slug: "colour-counts",
@@ -262,7 +269,7 @@ mod tests {
     #[test]
     fn get_about_documents_lists_all_supported_documents() {
         let docs = get_about_documents();
-        assert_eq!(docs.len(), 21);
+        assert_eq!(docs.len(), 22);
         let slugs: Vec<&str> = docs.iter().map(|d| d.slug.as_str()).collect();
         assert_eq!(
             slugs,
@@ -279,6 +286,7 @@ mod tests {
                 "getting-started",
                 "backup-restore",
                 "browse-bulk-actions",
+                "search-and-filtering",
                 "colour-counts",
                 "design-detail",
                 "image-generation",

@@ -61,7 +61,7 @@ Use the **Sort by** and **Direction** dropdowns in the top-right:
 
 ## Related guides
 
-- [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md)
+- [Bulk Tagging Guide](BROWSE_BULK_ACTIONS.md)
 - [Design Detail](DESIGN_DETAIL.md)
 - [Stitch Types](STITCH_TYPES.md)
 - [Tag Word Matches](TAG_WORD_MATCHES.md)

@@ -25,6 +25,7 @@ export const DOCUMENT_SLUG_BY_FILENAME = {
   "import_folder_assignment.md": "import-folder-assignment",
   "import_workflow.md": "import-workflow",
   "projects.md": "projects-guide",
+  "search_and_filtering.md": "search-and-filtering",
   "settings.md": "settings-guide",
   "stitch_types.md": "stitch-types",
   "supported_formats.md": "supported-formats",

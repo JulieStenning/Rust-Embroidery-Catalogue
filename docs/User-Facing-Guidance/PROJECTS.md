@@ -61,5 +61,5 @@ The project is removed. All design records and files remain in your catalogue.
 ## Related guides
 
 - [Search and Filtering](SEARCH_AND_FILTERING.md)
-- [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md)
+- [Bulk Tagging Guide](BROWSE_BULK_ACTIONS.md)
 - [Design Detail](DESIGN_DETAIL.md)

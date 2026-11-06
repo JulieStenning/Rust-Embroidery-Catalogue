@@ -1,6 +1,6 @@
-# Browse Bulk Actions
+# Bulk Tagging Guide
 
-When you select one or more design cards in [Browse](#/browse), an action bar appears at the bottom of the window to let you update or organise them in bulk.
+To manage tags or projects across multiple designs, open [Browse](#/browse) and select the checkboxes on one or more design cards. An action bar appears at the bottom of the window with bulk actions.
 
 ---
 

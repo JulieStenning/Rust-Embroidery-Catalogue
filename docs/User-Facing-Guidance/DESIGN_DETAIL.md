@@ -59,6 +59,6 @@ Saving tags automatically marks the design as human-verified, protecting it from
 ## Related guides
 
 - [Search and Filtering](SEARCH_AND_FILTERING.md)
-- [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md)
+- [Bulk Tagging Guide](BROWSE_BULK_ACTIONS.md)
 - [Colour Counts](COLOUR_COUNTS.md)
 - [Projects](PROJECTS.md)

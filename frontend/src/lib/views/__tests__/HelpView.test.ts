@@ -7,13 +7,9 @@ import { render, screen, within } from "@testing-library/svelte";
 import HelpView from "../HelpView.svelte";
 
 // ---------------------------------------------------------------------------
-// HelpView.svelte — a purely presentational component with no props, no
-// external dependencies, and no Tauri IPC calls, so no mocks are required.
-//
-// Behaviour under test:
-//   - Renders the page title and subtitle.
-//   - Renders all 9 in-page navigation links with the correct hrefs.
-//   - Renders all 9 help sections with their headings and key content.
+// HelpView.svelte — a presentational component following John Carroll's
+// Minimalism principles. Provides quick action guidance and links to the
+// full in-app documentation guides.
 // ---------------------------------------------------------------------------
 
 /** Type-guard helper so querySelector results can be used as HTMLElements. */
@@ -22,18 +18,6 @@ function element<T extends Element>(value: T | null | undefined, message?: strin
     throw new Error(message ?? "Expected element to exist.");
   }
   return value;
-}
-
-/**
- * Creates a text matcher that compares an element's normalized textContent
- * (whitespace collapsed) against an expected string. This is required for
- * paragraphs whose text is broken up by inline elements such as <a>, <strong>
- * or <code>, where the default getByText() string matcher (which only looks at
- * direct text nodes) cannot find the full sentence.
- */
-function normalizedText(expected: string) {
-  return (_content: string, node: Element | null) =>
-    node !== null && (node.textContent ?? "").replace(/\s+/g, " ").trim() === expected;
 }
 
 /** Returns a `within`-scoped query API for the given <section id>. */
@@ -59,11 +43,17 @@ describe("HelpView", () => {
   });
 
   describe("navigation links", () => {
-    it("renders all 9 section navigation links with correct hrefs", () => {
+    it("renders all 12 section navigation links with correct hrefs", () => {
       render(HelpView);
 
       const expectedLinks = [
         { text: "Browse & Search", href: "#/help?section=search", emoji: "🔍" },
+        { text: "Design Detail", href: "#/help?section=design-detail", emoji: "🎨" },
+        {
+          text: "Designers, Sources & Hoops",
+          href: "#/help?section=designers-sources",
+          emoji: "🏷️",
+        },
         { text: "Importing", href: "#/help?section=importing", emoji: "📥" },
         {
           text: "Tag Word Matches",
@@ -114,51 +104,124 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "🔍 Browse & Search" })).toBeInTheDocument();
     });
 
-    it("renders the search section content", () => {
+    it("renders the search section content and guide links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "search");
 
-      // Intro paragraph — text is split by the inline Browse link and contains
-      // a second sentence, so match against the full normalized textContent.
-      expect(
-        section.getByText(
-          normalizedText(
-            "Use the general search box on the Browse page to find designs by keyword. The search checks the filename, notes, designer, source, and tags."
-          )
-        )
-      ).toBeInTheDocument();
-
-      // Internal Browse link
       const browseLink = section.getByRole("link", { name: "Browse" });
       expect(browseLink).toHaveAttribute("href", "#/designs");
 
-      // Example search syntax hints
-      expect(section.getByText("Quoted phrases:")).toBeInTheDocument();
-      expect(section.getByText('"cross stitch"')).toBeInTheDocument();
-      expect(section.getByText("Exclude terms:")).toBeInTheDocument();
-      expect(section.getByText("-rose -applique")).toBeInTheDocument();
-      expect(section.getByText("OR searches:")).toBeInTheDocument();
-      expect(section.getByText("rose OR tulip")).toBeInTheDocument();
-      expect(section.getByText("Filename wildcards:")).toBeInTheDocument();
-      expect(section.getByText("rose*.jef")).toBeInTheDocument();
+      expect(section.getByText("Search operators:")).toBeInTheDocument();
       expect(section.getByText("Verification status:")).toBeInTheDocument();
       expect(section.getByText("Quick search vs. filters:")).toBeInTheDocument();
       expect(section.getByText("Active filter chips:")).toBeInTheDocument();
       expect(section.getByText("Sorting:")).toBeInTheDocument();
       expect(section.getByText("Fast tag verification:")).toBeInTheDocument();
-      expect(section.getByText("Missing previews & hoop boundaries:")).toBeInTheDocument();
-      expect(section.getByText("Master outline files without stitch files:")).toBeInTheDocument();
-      expect(section.getByText("Actual size (1:1) vs fit preview:")).toBeInTheDocument();
-      const bulkActionsLink = section.getByRole("link", {
-        name: "Browse & Bulk Actions Guide",
+
+      const searchGuideLink = section.getByRole("link", {
+        name: "Read guide → Search & Filtering Guide",
       });
-      expect(bulkActionsLink).toHaveAttribute("href", "#/about/document/browse-bulk-actions");
+      expect(searchGuideLink).toHaveAttribute("href", "#/about/document/search-and-filtering");
+
+      const bulkGuideLink = section.getByRole("link", {
+        name: "Read guide → Bulk Tagging Guide",
+      });
+      expect(bulkGuideLink).toHaveAttribute("href", "#/about/document/browse-bulk-actions");
     });
 
     it("renders the search section with a section id of 'search'", () => {
       const { container } = render(HelpView);
 
       const section = container.querySelector("#search");
+      expect(section).not.toBeNull();
+      expect(section?.tagName).toBe("SECTION");
+    });
+  });
+
+  describe("design-detail section", () => {
+    it("renders the Design Detail heading", () => {
+      render(HelpView);
+
+      expect(screen.getByRole("heading", { name: "🎨 Design Detail" })).toBeInTheDocument();
+    });
+
+    it("renders the design-detail section content and full guide link", () => {
+      const { container } = render(HelpView);
+      const section = sectionQueries(container, "design-detail");
+
+      const browseLink = section.getByRole("link", { name: "Browse" });
+      expect(browseLink).toHaveAttribute("href", "#/designs");
+
+      expect(section.getByText("Open a design:")).toBeInTheDocument();
+      expect(section.getByText("Actual size (1:1) & zoom:")).toBeInTheDocument();
+      expect(section.getByText("Thread colours & stops:")).toBeInTheDocument();
+      expect(section.getByText("Open in embroidery software:")).toBeInTheDocument();
+      expect(section.getByText("Find on disk:")).toBeInTheDocument();
+      expect(section.getByText("Edit metadata:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", {
+        name: "Read guide → Design Detail Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/design-detail");
+    });
+
+    it("renders the design-detail section with a section id of 'design-detail'", () => {
+      const { container } = render(HelpView);
+
+      const section = container.querySelector("#design-detail");
+      expect(section).not.toBeNull();
+      expect(section?.tagName).toBe("SECTION");
+    });
+  });
+
+  describe("designers-sources section", () => {
+    it("renders the Designers, Sources & Hoops heading", () => {
+      render(HelpView);
+
+      expect(
+        screen.getByRole("heading", { name: "🏷️ Designers, Sources & Hoops" })
+      ).toBeInTheDocument();
+    });
+
+    it("renders the designers-sources section content and guide links", () => {
+      const { container } = render(HelpView);
+      const section = sectionQueries(container, "designers-sources");
+
+      const designersLink = section.getByRole("link", { name: "Designers" });
+      expect(designersLink).toHaveAttribute("href", "#/admin/data/designers");
+
+      const sourcesLink = section.getByRole("link", { name: "Sources" });
+      expect(sourcesLink).toHaveAttribute("href", "#/admin/data/sources");
+
+      const hoopsLink = section.getByRole("link", { name: "Hoops" });
+      expect(hoopsLink).toHaveAttribute("href", "#/admin/data/hoops");
+
+      expect(section.getByText("First import setup:")).toBeInTheDocument();
+      expect(section.getByText("Assign per folder:")).toBeInTheDocument();
+      expect(section.getByText("Manage creators & suppliers:")).toBeInTheDocument();
+      expect(section.getByText("Machine hoop compatibility:")).toBeInTheDocument();
+
+      const firstImportGuideLink = section.getByRole("link", {
+        name: "Read guide → First Import Actions Guide",
+      });
+      expect(firstImportGuideLink).toHaveAttribute(
+        "href",
+        "#/about/document/first-import-actions"
+      );
+
+      const folderAssignmentGuideLink = section.getByRole("link", {
+        name: "Read guide → Import Folder Assignment Guide",
+      });
+      expect(folderAssignmentGuideLink).toHaveAttribute(
+        "href",
+        "#/about/document/import-folder-assignment"
+      );
+    });
+
+    it("renders the designers-sources section with a section id of 'designers-sources'", () => {
+      const { container } = render(HelpView);
+
+      const section = container.querySelector("#designers-sources");
       expect(section).not.toBeNull();
       expect(section?.tagName).toBe("SECTION");
     });
@@ -171,16 +234,9 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "📥 Importing" })).toBeInTheDocument();
     });
 
-    it("renders the importing section content", () => {
+    it("renders the importing section content and full guide link", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "importing");
-
-      // Intro paragraph — text is split by the inline Import link.
-      expect(
-        section.getByText(
-          normalizedText("Use Import to scan one or more folders and their sub-folders.")
-        )
-      ).toBeInTheDocument();
 
       const importLink = section.getByRole("link", { name: "Import" });
       expect(importLink).toHaveAttribute("href", "#/import");
@@ -188,12 +244,14 @@ describe("HelpView", () => {
       expect(section.getByText("Choosing folders:")).toBeInTheDocument();
       expect(section.getByText("Live scan progress:")).toBeInTheDocument();
       expect(section.getByText("Review and metadata:")).toBeInTheDocument();
-      expect(section.getByText(/leaf-first hierarchy/i)).toBeInTheDocument();
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
       expect(section.getByText("Tagging during import:")).toBeInTheDocument();
-      expect(section.getByText("Error files and large scans:")).toBeInTheDocument();
-      expect(section.getByText("Large collections & folder review:")).toBeInTheDocument();
       expect(section.getByText("Alphabet & font compression:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", {
+        name: "Read full guide → Import Workflow Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/import-workflow");
     });
 
     it("renders the importing section with a section id of 'importing'", () => {
@@ -212,34 +270,23 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "🔤 Tag Word Matches" })).toBeInTheDocument();
     });
 
-    it("renders the word-matches section content", () => {
+    it("renders the word-matches section content and links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "word-matches");
 
-      expect(
-        section.getByText(
-          "Tag Word Matches allow words in filenames and folder paths to automatically assign tags during import and batch backfill operations."
-        )
-      ).toBeInTheDocument();
-
       expect(section.getByText("Offline & automatic:")).toBeInTheDocument();
+      expect(section.getByText("Smart matching:")).toBeInTheDocument();
       expect(section.getByText("Folder hierarchies & supplier masking:")).toBeInTheDocument();
       expect(section.getByText("Manage matches:")).toBeInTheDocument();
-      expect(section.getByText("Contextual access:")).toBeInTheDocument();
-      expect(section.getByText("Full guide:")).toBeInTheDocument();
 
-      const manageLink = section.getByRole("link", {
-        name: "Admin → Manage Data → Word Matches",
-      });
+      const manageLink = section.getByRole("link", { name: "Word Matches" });
       expect(manageLink).toHaveAttribute("href", "#/admin/data/tag-matches");
 
-      const tagsLink = section.getByRole("link", {
-        name: "Admin → Manage Data → Tags",
-      });
+      const tagsLink = section.getByRole("link", { name: "Tags" });
       expect(tagsLink).toHaveAttribute("href", "#/admin/data/tags");
 
       const guideLink = section.getByRole("link", {
-        name: "Tag Word Matches Guide",
+        name: "Read full guide → Tag Word Matches Guide",
       });
       expect(guideLink).toHaveAttribute("href", "#/about/document/tag-word-matches");
     });
@@ -262,27 +309,17 @@ describe("HelpView", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders the storage section content", () => {
+    it("renders the storage section content and guide link", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "storage");
 
-      expect(
-        section.getByText(
-          normalizedText(
-            "The catalogue manages two data components: your design files (copied from your original files) and the internal catalogue database containing images and other details about the designs."
-          )
-        )
-      ).toBeInTheDocument();
-
-      expect(section.getByText("Internal drives:")).toBeInTheDocument();
-      expect(section.getByText("External storage:")).toBeInTheDocument();
+      expect(section.getByText("Original files untouched:")).toBeInTheDocument();
       expect(section.getByText("SD card recommendation:")).toBeInTheDocument();
       expect(section.getByText("Filesystem formatting:")).toBeInTheDocument();
       expect(section.getByText("Keep drives connected:")).toBeInTheDocument();
-      expect(section.getByText("Full guide:")).toBeInTheDocument();
 
       const guideLink = section.getByRole("link", {
-        name: "Data Storage & External Drives Guide",
+        name: "Read full guide → Data Storage Guide",
       });
       expect(guideLink).toHaveAttribute("href", "#/about/document/data-storage");
     });
@@ -303,48 +340,30 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "🤖 AI Tagging" })).toBeInTheDocument();
     });
 
-    it("renders the ai-tagging section content", () => {
+    it("renders the ai-tagging section content and links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "ai-tagging");
 
-      expect(
-        section.getByText(
-          "Optional Google AI tagging can suggest design-type tags for imported embroidery files."
-        )
-      ).toBeInTheDocument();
-
-      // External links
-      const studioLink = section.getByRole("link", {
-        name: "Google AI Studio",
-      });
+      const studioLink = section.getByRole("link", { name: "Google AI Studio" });
       expect(studioLink).toHaveAttribute("href", "https://aistudio.google.com/");
 
-      const pricingLink = section.getByRole("link", {
-        name: "current pricing",
-      });
+      const pricingLink = section.getByRole("link", { name: "pricing" });
       expect(pricingLink).toHaveAttribute("href", "https://ai.google.dev/pricing");
 
-      // Internal links
       const settingsLink = section.getByRole("link", { name: "Settings" });
       expect(settingsLink).toHaveAttribute("href", "#/admin/system/settings");
 
-      // "Admin → Batch Operations" also appears in the batch-operations section
-      // further down the page, so scope this query to the ai-tagging section.
-      const batchOperationsLink = section.getByRole("link", {
-        name: "Admin → Batch Operations",
-      });
+      const batchOperationsLink = section.getByRole("link", { name: "Batch Operations" });
       expect(batchOperationsLink).toHaveAttribute("href", "#/admin/batch-operations");
 
       const guideLink = section.getByRole("link", {
-        name: "AI Tagging & Batch Operations Guide",
+        name: "Read full guide → AI Tagging & Batch Operations Guide",
       });
       expect(guideLink).toHaveAttribute("href", "#/about/document/ai-tagging");
 
-      // Content bullets
       expect(section.getByText("Get an API key:")).toBeInTheDocument();
+      expect(section.getByText("Free tier protection:")).toBeInTheDocument();
       expect(section.getByText("In-app actions:")).toBeInTheDocument();
-      expect(section.getByText("Potential costs:")).toBeInTheDocument();
-      expect(section.getByText("Full guide:")).toBeInTheDocument();
     });
 
     it("renders the ai-tagging section with a section id of 'ai-tagging'", () => {
@@ -363,31 +382,24 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "🏷 Batch Operations" })).toBeInTheDocument();
     });
 
-    it("renders the batch-operations section content", () => {
+    it("renders the batch-operations section content and links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "batch-operations");
-
-      // Intro paragraph — text is split by the inline Admin → Batch Operations link.
-      expect(
-        section.getByText(
-          normalizedText(
-            "Run AI tagging and file maintenance on existing designs from Admin → Batch Operations."
-          )
-        )
-      ).toBeInTheDocument();
 
       const adminLink = section.getByRole("link", {
         name: "Admin → Batch Operations",
       });
       expect(adminLink).toHaveAttribute("href", "#/admin/batch-operations");
 
-      expect(section.getByText("Tag only untagged designs:")).toBeInTheDocument();
-      expect(section.getByText("Tag specific folders:")).toBeInTheDocument();
-      expect(section.getByText("Tag untagged and unverified designs:")).toBeInTheDocument();
-      expect(section.getByText("Re-tag ALL designs:")).toBeInTheDocument();
+      expect(section.getByText("Tagging scopes:")).toBeInTheDocument();
       expect(section.getByText("Local stitching backfill:")).toBeInTheDocument();
-      expect(section.getByText("Date Updated tracking:")).toBeInTheDocument();
+      expect(section.getByText("File maintenance:")).toBeInTheDocument();
       expect(section.getByText("Tag verification workflow:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", {
+        name: "Read full guide → Batch Operations Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/ai-tagging");
     });
 
     it("renders the batch-operations section with a section id of 'batch-operations'", () => {
@@ -406,24 +418,22 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "📁 Projects" })).toBeInTheDocument();
     });
 
-    it("renders the projects section content", () => {
+    it("renders the projects section content and links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "projects");
-
-      // Intro paragraph — text is split by the inline Projects link.
-      expect(
-        section.getByText(
-          normalizedText("Projects let you group designs for planned embroidery tasks.")
-        )
-      ).toBeInTheDocument();
 
       const projectsLink = section.getByRole("link", { name: "Projects" });
       expect(projectsLink).toHaveAttribute("href", "#/projects");
 
       expect(section.getByText("What projects are for:")).toBeInTheDocument();
       expect(section.getByText("Adding designs:")).toBeInTheDocument();
-      expect(section.getByText("Bulk add:")).toBeInTheDocument();
       expect(section.getByText("Printing:")).toBeInTheDocument();
+      expect(section.getByText("Safe removal:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", {
+        name: "Read full guide → Projects Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/projects-guide");
     });
 
     it("renders the projects section with a section id of 'projects'", () => {
@@ -442,18 +452,9 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "🛠 Maintenance" })).toBeInTheDocument();
     });
 
-    it("renders the maintenance section content", () => {
+    it("renders the maintenance section content and links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "maintenance");
-
-      // Intro paragraph — text is split by the inline Library Discrepancies link.
-      expect(
-        section.getByText(
-          normalizedText(
-            "Use Library Discrepancies to find records whose files are missing or uncatalogued disk files."
-          )
-        )
-      ).toBeInTheDocument();
 
       const discrepanciesLink = section.getByRole("link", {
         name: "Library Discrepancies",
@@ -462,14 +463,16 @@ describe("HelpView", () => {
 
       expect(section.getByText("Find Unmatched Design Files:")).toBeInTheDocument();
       expect(section.getByText("Missing Design Files (Orphans):")).toBeInTheDocument();
-      expect(section.getByText("What orphaned records are:")).toBeInTheDocument();
       expect(section.getByText("Deleting orphans:")).toBeInTheDocument();
-      expect(
-        section.getByText(
-          /removes database records only, not physical files\. Deleting all orphans clears the list immediately/i
-        )
-      ).toBeInTheDocument();
-      expect(section.getByText("Use carefully:")).toBeInTheDocument();
+      expect(section.getByText("Backups & Restore:")).toBeInTheDocument();
+
+      const backupLink = section.getByRole("link", { name: "Backup" });
+      expect(backupLink).toHaveAttribute("href", "#/admin/system/backup");
+
+      const guideLink = section.getByRole("link", {
+        name: "Read full guide → Backup & Restore Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/backup-restore");
     });
 
     it("renders the maintenance section with a section id of 'maintenance'", () => {
@@ -490,9 +493,12 @@ describe("HelpView", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders the settings section content", () => {
+    it("renders the settings section content and links", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "settings");
+
+      const settingsLink = section.getByRole("link", { name: "Admin → Settings" });
+      expect(settingsLink).toHaveAttribute("href", "#/admin/system/settings");
 
       expect(section.getByText("Appearance:")).toBeInTheDocument();
       expect(section.getByText("Google Gemini & AI Tagging:")).toBeInTheDocument();
@@ -500,9 +506,16 @@ describe("HelpView", () => {
       expect(section.getByText("Catalogue Storage:")).toBeInTheDocument();
       expect(section.getByText("Digitising & Format Rules:")).toBeInTheDocument();
       expect(section.getByText("Product licence:")).toBeInTheDocument();
-      expect(section.getByText("Full guide:")).toBeInTheDocument();
 
-      const guideLink = section.getByRole("link", { name: "Settings Guide" });
+      const aboutLink = section.getByRole("link", { name: "About" });
+      expect(aboutLink).toHaveAttribute("href", "#/about");
+
+      const licenceLink = section.getByRole("link", { name: "Licence & Dependencies" });
+      expect(licenceLink).toHaveAttribute("href", "#/about/licence");
+
+      const guideLink = section.getByRole("link", {
+        name: "Read full guide → Settings Guide",
+      });
       expect(guideLink).toHaveAttribute("href", "#/about/document/settings-guide");
     });
 
@@ -522,18 +535,20 @@ describe("HelpView", () => {
       expect(screen.getByRole("heading", { name: "🔧 Troubleshooting" })).toBeInTheDocument();
     });
 
-    it("renders the troubleshooting section content", () => {
+    it("renders the troubleshooting section content and guide link", () => {
       const { container } = render(HelpView);
       const section = sectionQueries(container, "troubleshooting");
 
       expect(section.getByText("Missing folder / changed drive letter:")).toBeInTheDocument();
       expect(section.getByText("Database preparation on startup:")).toBeInTheDocument();
-      expect(section.getByText("Database missing or unreadable on startup:")).toBeInTheDocument();
-      expect(section.getByText("Import scan finds nothing:")).toBeInTheDocument();
-      expect(section.getByText("Files missing after import:")).toBeInTheDocument();
-      expect(section.getByText("Managed storage location:")).toBeInTheDocument();
       expect(section.getByText("Database full / 4 GB limit:")).toBeInTheDocument();
-      expect(section.getByText("Still stuck:")).toBeInTheDocument();
+      expect(section.getByText("AI tagging errors (429):")).toBeInTheDocument();
+      expect(section.getByText("Import scan finds nothing:")).toBeInTheDocument();
+
+      const guideLink = section.getByRole("link", {
+        name: "Read full guide → Getting Started & Setup Guide",
+      });
+      expect(guideLink).toHaveAttribute("href", "#/about/document/getting-started");
     });
 
     it("renders the troubleshooting section with a section id of 'troubleshooting'", () => {
@@ -546,15 +561,17 @@ describe("HelpView", () => {
   });
 
   describe("structure", () => {
-    it("renders exactly 10 help sections with the expected ids", () => {
+    it("renders exactly 12 help sections with the expected ids", () => {
       const { container } = render(HelpView);
 
       const sections = Array.from(container.querySelectorAll("section"));
       const ids = sections.map((section) => section.id);
 
-      expect(sections).toHaveLength(10);
+      expect(sections).toHaveLength(12);
       expect(ids).toEqual([
         "search",
+        "design-detail",
+        "designers-sources",
         "importing",
         "word-matches",
         "storage",
@@ -573,14 +590,14 @@ describe("HelpView", () => {
       const links = Array.from(container.querySelectorAll("a"));
       const sections = container.querySelectorAll("section");
 
-      expect(links.length).toBeGreaterThanOrEqual(10);
-      expect(sections).toHaveLength(10);
+      expect(links.length).toBeGreaterThanOrEqual(12);
+      expect(sections).toHaveLength(12);
 
-      // Exactly 10 of the links are the in-page section navigators.
+      // Exactly 12 of the links are the in-page section navigators.
       const sectionNavigators = links.filter((link) =>
         (link.getAttribute("href") || "").startsWith("#/help?section=")
       );
-      expect(sectionNavigators).toHaveLength(10);
+      expect(sectionNavigators).toHaveLength(12);
     });
   });
 });
