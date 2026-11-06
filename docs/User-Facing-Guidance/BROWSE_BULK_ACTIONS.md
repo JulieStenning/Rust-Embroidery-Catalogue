@@ -1,145 +1,65 @@
 # Browse Bulk Actions
 
-The Browse page includes a bottom action banner that appears when you select one or more designs.
-Use this banner to verify designs, replace tags in bulk, add selected designs to a project, or clear the current selection.
+When you select one or more design cards in [Browse](#/browse), an action bar appears at the bottom of the window to let you update or organise them in bulk.
 
 ---
 
-## What this feature is for
+## Verify tags on selected designs
 
-Use Browse bulk actions when you want to:
+1. In [Browse](#/browse), select the checkboxes on the designs you want to verify.
+2. In the bottom action bar, click **Verify selected**.
 
-- verify multiple designs at once,
-- apply the same tag set to many designs,
-- add several designs to a project in one step,
-- clear selection quickly and continue browsing.
+The selected designs are marked as verified without changing their current tags.
 
 ---
 
-## Where to find it
+## Replace tags across multiple designs
 
-1. Open Browse (`/designs/`).
-2. Tick one or more design checkboxes.
-3. The bottom banner appears with:
-   - selected count,
-   - **Choose tags...**,
-   - **Verify selected**,
-   - project selector,
-   - **Add to project**,
-   - **Clear selection**.
+1. Select one or more designs in [Browse](#/browse).
+2. In the bottom action bar, click **Choose tags…**.
+3. In the tag window, tick the tags you want applied to the selected designs.
+4. Tick or untick **Verify image tags** and **Verify stitching tags** as needed (both are ticked by default).
+5. Click **Apply tags**.
+
+The chosen tag set replaces the tags on all selected designs.
 
 ---
 
-## Action guide
+## Rapid tag verification using search & bulk selection (clustering)
 
-### Choose tags...
+Automated tags from imports or AI runs do not have to be 100% perfect to save hours of manual entry. By filtering for similar designs, you can review and verify whole rows or pages at once:
 
-- Opens an in-page modal.
-- Lets you tick tags to apply to all currently selected designs.
-- Applying tags replaces existing tags on those selected designs.
-- While tags are being applied, the button displays **Applying tags...** and dialog controls are disabled to prevent accidental modifications or duplicate submissions.
-- **Verification controls:** The top of the modal includes **Verify image tags** and **Verify stitching tags** checkboxes (both ticked by default). Untick either checkbox if you want to apply tags without marking that category as verified (for example, when standardising image tags on live designs while technical stitching tags differ or have not yet been reviewed).
-
-Use this when you want to standardise tag sets across many designs.
-
-### Verify selected
-
-- Marks selected designs as verified.
-- Does not change their current tags.
-
-Use this after checking that existing tags are already correct.
-
-### Add to project
-
-- Pick a project from the dropdown.
-- Click **Add to project** to add all selected designs.
-
-If no projects exist yet, create one first in Projects.
-
-### Clear selection
-
-- Unchecks current card selections on the page.
-- Hides the bottom banner.
-
-Use this before starting a different bulk action set.
+1. **Find the cluster**: In [Browse](#/browse), enter a keyword in the search box (e.g. `birds`), and tick **Unverified only** in the verification filter.
+2. **Review visually**: Scan the thumbnails on the page. Because search gathers related designs together, full rows or entire pages often share the same theme.
+3. **Select and apply**: Click **Select all** for the visible page (or select a row of cards).
+4. **Clean up tags**: Click **Choose tags…**, tick the correct tags for the group (e.g. *Birds*), and click **Apply tags**.
+5. The verified designs clear from the unverified search results, presenting the next cluster ready for review.
 
 ---
 
-## Selection behaviour to know
+## Add selected designs to a project
 
-- Selection is page-based.
-- **Select all** affects visible results on the current page only.
-- Moving to another page clears checkbox selection.
-- After a bulk action submits, Browse reloads and the previous selection is not retained.
-
----
-
-## Recommended workflows
-
-### Quick verify pass
-
-1. Filter Browse to a narrow set.
-2. Select relevant designs.
-3. Click **Verify selected**.
-4. Continue with the next filtered set.
-
-### Bulk retagging pass
-
-1. Filter Browse to target designs.
-2. Select designs.
-3. Click **Choose tags...**.
-4. Tick the final replacement tag set.
-5. Click **Apply tags** (the button transitions to **Applying tags...** and disables modal controls while changes are saved).
-
-### Rapid tag verification using search & bulk selection (clustering)
-
-Automated tagging (from File & Folder Rules or Gemini Vision) does not need to be 100% accurate to save you hours of work. Even if an automated pass assigns multiple overlapping or approximate tags (for instance, tagging bird designs with *Birds*, *Animals*, and *Food*), it has already done the heavy lifting by **clustering** your designs into related groups.
-
-Instead of opening and editing thousands of designs individually, use search and filters to group similar designs together, then review and fix them an entire row or page at a time:
-
-1. **Find the cluster:**
-   - In the **Search** box on Browse, enter your subject keyword (e.g. `birds`), with scopes set to **File name**, **Folder name**, and **Tags**.
-   - Optionally filter by the broad automated tags you observed (e.g. Image tags: *Animals*, *Food*).
-   - Tick **Unverified only** so you only see designs that still require manual review.
-2. **Review visually in bulk:**
-   - Because the search gathers dozens or hundreds of related designs onto consecutive pages, you can scan the visual thumbnails quickly.
-   - You will often spot full rows or entire pages where every design clearly belongs to the same subject.
-3. **Select and apply in one click:**
-   - Select a whole row of cards, or click **Select all** for the visible page.
-   - In the bottom action bar, click **Choose tags...**.
-   - Tick the clean, canonical tags for this group (e.g. *Birds*, while leaving extraneous tags unticked).
-   - Check the **Verify image tags** and **Verify stitching tags** options at the top of the modal. Both are ticked by default; if stitching tags differ across the batch or haven't been reviewed yet, untick **Verify stitching tags** to keep them unverified while verifying image tags.
-   - Click **Apply tags** (the button displays **Applying tags...** and dialog controls are disabled while updating the database).
-   - *Result:* All selected designs are updated with the clean tag set, and their verification flags are updated according to your checkbox selections in a single operation.
-4. **Repeat for the next batch:**
-   - Browse automatically refreshes with the newly verified designs cleared from the unverified view, presenting the next cluster ready for review.
-
-### Project staging pass
-
-1. Select designs for a sewing session.
-2. Choose the target project from the dropdown.
+1. In [Browse](#/browse), select the designs you need for a sewing project.
+2. In the bottom action bar, choose a project from the **Select project…** dropdown.
 3. Click **Add to project**.
-4. Optionally clear selection and continue.
+
+If no projects exist yet, create one first in [Projects](#/projects).
 
 ---
 
-## Troubleshooting
+## If something goes wrong
 
 | Problem | What to do |
 |---|---|
-| Bottom banner does not appear | Confirm at least one card checkbox is selected on the current page. |
-| Add to project does nothing | Choose a project in the dropdown first. |
-| No projects available | Create a project on `/projects/`, then return to Browse. |
-| Selection disappeared after moving pages | This is expected; selection does not persist across pagination. |
-| Tags changed unexpectedly after Choose tags | The bulk tag action replaces tags for selected designs; re-open the modal and apply the intended set. |
-
-For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
+| The bottom action bar does not appear | Check that at least one design card has its checkbox ticked on the current page. |
+| Selections cleared when moving pages | Checkbox selections apply to the current page. Apply bulk actions before navigating to another page. |
+| You want to clear your current selection | Click **Clear selection** on the right side of the bottom action bar. |
 
 ---
 
 ## Related guides
 
-- [DESIGN_DETAIL.md](DESIGN_DETAIL.md)
-- [HELP.md](HELP.md)
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
+- [Search and Filtering](SEARCH_AND_FILTERING.md)
+- [Design Detail](DESIGN_DETAIL.md)
+- [Projects](PROJECTS.md)
+- [Batch Operations](BATCH_OPERATIONS_BACKFILL.md)

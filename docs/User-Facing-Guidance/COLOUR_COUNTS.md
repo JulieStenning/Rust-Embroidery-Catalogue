@@ -1,102 +1,46 @@
-# Stitch and Colour Counts
+# Colour and Stitch Counts
 
-The Embroidery Catalogue can store technical embroidery metadata for each design:
-
-- stitch count,
-- colour count,
-- colour-change count.
-
-This guide covers the supported **UI workflow** for filling and reviewing these values.
-
----
-
-## What gets stored
-
-For each design, the app can store:
-
+Embroidery Catalogue reads technical stitch metadata from digital embroidery files:
 - **Stitches**: total stitch count
-- **Colours**: number of unique thread colours
-- **Colour changes**: number of colour-change commands
-
-These values are stored per design in the catalogue database and shown in selected UI screens.
+- **Colours**: number of distinct thread colours
+- **Colour changes**: total number of colour-stop commands
 
 ---
 
-## When values are populated
+## View colour and stitch counts
 
-### During import
-
-When you import new designs, the scanner reads pattern data and attempts to populate stitch/colour counts as part of normal metadata extraction.
-
-If a file cannot be parsed for counts, fields may remain empty until a later backfill run.
-
-### During Batch Operations backfill
-
-Use **Admin -> Batch Operations** and select **Threads and Colours** to backfill missing values for existing designs.
-
-This is the recommended path for large libraries that were imported before colour counts were available or for designs with missing technical metadata.
+1. Open **Browse** from the top menu and click any design card.
+2. In the design detail view, review the **Technical Details** section:
+   - Stitches badge (total stitches)
+   - Colours badge (distinct thread count)
+   - Colour changes badge (machine stop count)
+3. You can also view these counts in the **Print View** ([Design Detail → Print](#/browse)) when creating work sheets.
 
 ---
 
-## How to run Threads and Colours
+## Backfill missing counts for existing designs
 
-1. Open **Admin -> Batch Operations**.
-2. Tick **Threads and Colours**.
-3. Optionally combine with other actions in the same run.
-4. Choose batch/commit/worker values (or keep defaults).
-5. Click **Run selected actions**.
-6. Keep the page open until completion.
-7. Review progress and, if needed, download the error log.
+Counts are extracted automatically during import. If you imported designs before count extraction was available:
 
-For full combined-action guidance, see [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
+1. Open [Admin → Batch Operations](#/admin/batch-operations).
+2. Click the **Maintenance & File Processing** tab.
+3. Under **Target Scope**, select **Entire collection** or **Specific folder(s)**.
+4. Tick **Recalculate colour / stitch counts**.
+5. Click **Start Maintenance**, then confirm.
 
 ---
 
-## Where you can see the values
-
-Colour-count metadata is currently visible in:
-
-- Design detail page:
-  - Stitches badge
-  - Colours badge
-  - Colour changes badge
-- Design print view:
-  - Stitches
-  - Colours
-  - Colour changes
-- Project print view:
-  - Stitches
-  - Colours
-  - Colour changes
-
----
-
-## Interpreting missing values
-
-If one or more fields are blank for a design, common reasons are:
-
-- file format not parseable by the current reader,
-- source file missing or moved,
-- parse/read error during import or backfill.
-
-Run **Threads and Colours** again after fixing source-file issues.
-
----
-
-## Troubleshooting
+## If something goes wrong
 
 | Problem | What to do |
 |---|---|
-| Values stay empty after backfill | Check that the source file exists and is readable, then rerun **Threads and Colours**. |
-| Some designs updated, some not | Download the error log from Batch Operations and review file-level failures. |
-| Run is too slow | Use smaller batches and/or lower workers; keep defaults if unsure. |
-| Browser closed during run | Reopen Batch Operations and run again; keep the page open to monitor completion. |
-
-For broader application issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
+| A design shows no stitch or colour counts | The file format may not expose stitch totals, or the file was moved. Verify the file exists and run **Recalculate colour / stitch counts** again. |
+| Colour counts differ from your machine display | Some formats (such as Tajima `.dst`) do not store specific thread colours, only colour-change commands. The app counts colour-stop commands as unique colours. |
 
 ---
 
-## Notes for pre-release cleanup
+## Related guides
 
-This guide documents the supported user path (UI).
-Any standalone colour-count scripts or maintenance-only routes are internal/decommission paths and are not part of the supported user workflow.
+- [Batch Operations](BATCH_OPERATIONS_BACKFILL.md)
+- [Design Detail](DESIGN_DETAIL.md)
+- [Supported Formats](SUPPORTED_FORMATS.md)

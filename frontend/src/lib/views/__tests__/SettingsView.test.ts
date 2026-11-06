@@ -808,7 +808,7 @@ describe("SettingsView.svelte", () => {
     await waitForSettingsLoaded();
     expect(getDbStatsMock).toHaveBeenCalledTimes(1);
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
@@ -832,7 +832,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
@@ -852,7 +852,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
@@ -867,7 +867,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
 
     await waitFor(() => {
@@ -882,7 +882,7 @@ describe("SettingsView.svelte", () => {
 
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     await fireEvent.click(screen.getByTestId("compact-confirm-compact-only"));
     await tick();
 
@@ -1002,13 +1002,13 @@ describe("SettingsView.svelte", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens compaction confirmation modal when Optimize & Compact Database is clicked", async () => {
+  it("opens compaction confirmation modal when Optimise & Compact Database is clicked", async () => {
     renderView();
     await waitForSettingsLoaded();
 
     expect(screen.queryByTestId("compact-confirm-modal")).not.toBeInTheDocument();
 
-    const compactButton = screen.getByRole("button", { name: "Optimize & Compact Database" });
+    const compactButton = screen.getByRole("button", { name: "Optimise & Compact Database" });
     await fireEvent.click(compactButton);
 
     expect(screen.getByTestId("compact-confirm-modal")).toBeInTheDocument();
@@ -1042,7 +1042,7 @@ describe("SettingsView.svelte", () => {
     renderView();
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     const compactOnlyButton = screen.getByTestId("compact-confirm-compact-only");
     await fireEvent.click(compactOnlyButton);
 
@@ -1082,7 +1082,7 @@ describe("SettingsView.svelte", () => {
     renderView();
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     const backupAndCompactButton = screen.getByTestId("compact-confirm-backup-and-compact");
     await fireEvent.click(backupAndCompactButton);
 
@@ -1111,7 +1111,7 @@ describe("SettingsView.svelte", () => {
     renderView();
     await waitForSettingsLoaded();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Optimize & Compact Database" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Optimise & Compact Database" }));
     const backupAndCompactButton = screen.getByTestId("compact-confirm-backup-and-compact");
     await fireEvent.click(backupAndCompactButton);
 

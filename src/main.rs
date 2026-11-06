@@ -371,7 +371,7 @@ fn main() {
                         "database-migration-status",
                         serde_json::json!({
                             "status": "migrating",
-                            "message": "Updating database schema & optimizing indexes..."
+                            "message": "Updating database schema & optimising indexes..."
                         }),
                     );
 

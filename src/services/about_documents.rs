@@ -136,7 +136,7 @@ const DOCUMENTS: [AboutDocumentSpec; 21] = [
         slug: "colour-counts",
         title: "Colour Counts Guide",
         filename: "docs/User-Facing-Guidance/COLOUR_COUNTS.md",
-        description: "Understanding thread color stops and distinct color counts in embroidery files.",
+        description: "Understanding thread colour stops and distinct colour counts in embroidery files.",
         content: include_str!("../../docs/User-Facing-Guidance/COLOUR_COUNTS.md"),
     },
     AboutDocumentSpec {

@@ -1,169 +1,52 @@
-# Importing a Large Design Library
+# Importing a Large Library
 
-This guide explains what happens when you import a very large collection of
-embroidery files - for example 120,000 designs - and the feedback you will see
-from the app while the import runs.
+Importing a large collection—such as 20,000 to 100,000 designs—works the same way as importing a small folder, but requires consideration of disk space and time.
 
-The import itself works the same whether you import 50 files or 120,000. The
-difference at scale is **time**, **disk space**, and how much the app needs to
-do for each individual design. Reading this before you start will help you set
-expectations and avoid surprises.
+---
 
-## Before you start
+## 1. Prepare your storage
 
-- Put your embroidery files into one or more folders you can access. The app
-  reads subfolders automatically, so a deep folder tree is fine.
-- **Your original files are never altered, moved, or renamed.** Files that are
-  already inside your managed catalogue storage are referenced in place. Files
-  outside it are **copied** into managed storage, so a copy of every imported
-  file is kept in the catalogue.
-- **Existing files are skipped automatically.** If a design is already in the
-  catalogue, it won't be imported twice - so importing the same folder again
-  later is quick and safe.
-- Supported formats: **JEF, PES, HUS, DST, EXP, VP3**. Other file types in
-  your folders are ignored.
+Because every imported design has a copy kept in managed storage and generates a thumbnail preview:
 
-## Step 1 - Select folder(s)
+1. Check that your destination drive has sufficient free disk space (allow roughly 1 GB of free space per 10,000 designs for files and thumbnails).
+2. If using an external drive or SD card, make sure it is formatted as **exFAT** or **NTFS** (not FAT32).
+3. If using an SD card, use an **A2-rated** card for fast performance. See [Data Storage Guide](DATA_STORAGE_GUIDE.md).
 
-1. Open **Import** from the top menu.
-2. Add one or more source folder paths (use **Browse...** for the native
-   folder picker, or type the path directly).
-3. Click **Scan folder(s)**.
+---
 
-While scanning, the button updates with live progress (e.g. **Scanning… (14 folders, 120 files)**, followed by **Scanning… Checking catalogue**). The app walks every selected
-folder and its subfolders, finds all supported embroidery files, and checks
-which ones are already in the catalogue so they can be skipped.
+## 2. Review large folder lists efficiently
 
-If nothing is found, the app tells you exactly why:
+When scanning a large folder tree:
 
-- A path is missing or wrong:
-  *"The selected folder(s) could not be found on disk. Check that the path is
-  correct and the drive is available."*
-- No supported embroidery files exist in the chosen folders:
-  *"No supported embroidery files (JEF, PES, HUS, DST, EXP, VP3) were found in
-  the selected folder(s)."*
+- **Filter folders**: Type in **Filter folders by name or path…** to search for specific folders in the review list.
+- **Collapsed folders**: Large folders start collapsed to keep the review screen fast. Click **Show files** on any folder to inspect individual files.
+- **Top and bottom controls**: The **Continue with N designs**, **Select all**, and **Deselect all** buttons appear at both the top and bottom of the list so you do not need to scroll through all pages.
 
-## Step 2 - Review scanned files
+---
 
-The review screen groups results by source folder and shows the filename, file
-size, and per-folder **Designer** and **Source** controls. You can:
+## 3. Monitor import progress
 
-- select or deselect individual files,
-- use **Select all / Deselect all** (applies across all folders on all pages),
-- keep the app's inferred Designer/Source per folder, or choose your own,
-- apply one Designer/Source override to all folders in a multi-folder import.
+While the import runs:
 
-The heading tells you the totals, e.g.:
+- Keep the application open.
+- The progress bar shows the current file count, percentage, and time remaining.
+- If you need to stop, click **Stop running**. The import safely halts after the current file; designs already imported remain in your catalogue.
 
-- *"1,200 folder(s) scanned - 128,450 file(s) found. Selected files will be
-  copied into the catalogue."*
+---
 
-### Navigating large collections in Step 2:
-- **Folder pagination:** folders are displayed in manageable pages (25 folders per page)
-  with page navigation at both the top and bottom of the list.
-- **Folder search filter:** use the search input (*"Filter folders by name or path..."*)
-  to jump directly to any specific collection or designer subfolder.
-- **Collapsed folders:** when scanning multi-folder libraries, folders default to collapsed
-  to keep the interface fast and lightweight. Click **Show files** on any folder to inspect
-  or toggle individual design checkboxes.
-- **Top and bottom actions:** the **Continue with X designs**, **Cancel**, **Select all**,
-  and **Deselect all** buttons are available at both the top and the bottom of the list so
-  you don't need to scroll back up after reviewing a page.
+## If something goes wrong
 
-Then click **Continue** to move to the pre-import step.
+| Problem | What to do |
+|---|---|
+| Scanning or importing stops with disk full errors | Check your drive space. If the drive is formatted as FAT32, reformat it as exFAT or NTFS. |
+| You accidentally interrupted an import | Return to [Import](#/import) and re-scan the folder. Designs already imported are skipped automatically, so the scan will pick up only the remaining files. |
+| AI tagging did not run | Imports apply local keyword and stitching rules only. To add AI vision tags, run them in batches from [Admin → Batch Operations](#/admin/batch-operations). |
 
-## Step 3 - Before You Import
-
-This step shows a reminder to review your **hoops, tags, sources, or
-designers** before importing. On the very first import into an empty catalogue,
-hoops get special attention - if none are configured you'll be asked to confirm
-before continuing without them.
-
-Tagging during import:
-
-- Imports always apply **File & Folder Rules** only — instant, local path/name
-  matching that never calls the internet. Every imported file gets tags matched
-  from its filename and folder path.
-- Gemini Vision is **not** run during import. To analyse designs with Gemini
-  Vision, add an API key in **Admin → Settings** and run it afterwards from
-  **Admin → Batch Operations**.
-
-> **Very important for large libraries:** Gemini Vision is rate-limited — the
-> free tier is roughly **15 requests per minute** and **1,500 requests per day**.
-> File & Folder Rules run on **every** file, but a 120,000-design library will not
-> finish in one Gemini Vision session. Plan to run Gemini Vision from **Batch Operations**
-> in smaller passes afterwards if you want it.
-
-
-## Feedback you will see during the import
-
-### The live progress line
-
-While the import runs, the **Import Designs** button shows a running status,
-for example:
-
-- *"Running Import... Starting import for 120000 files..."*
-- *"Running Import... Processing 45678/120000: Sunset_Floral.pes"*
-- *"Running Import... 45680/120000 processed (45680 imported) - saving batch..."*
-- *"Running Import... Completed 120000/120000 processed (120000 imported)"*
-
-### Stop / cancel
-
-- Before the import starts, the right-hand button reads **Cancel** and abandons
-  the import entirely.
-- Once the import is running, it changes to **Stop** (then **Stopping...**).
-  The app stops at a safe point - every design already saved stays saved. The
-  line then shows something like:
-  *"Stopped after 72340/120000 processed (72340 imported)"*.
-  When you import again, the files already in the catalogue are skipped, so you
-  continue from where you left off.
-
-### Error messages
-
-The app keeps going if individual files fail. If a single file is unreadable or
-corrupt, it is skipped and the import continues with the remaining files. If
-something more serious happens (for example the selected folders could not be
-scanned), you'll see a clear message such as:
-
-- *"Import preview failed: ..."*
-- *"Import precheck failed: ..."*
-- *"Import action failed: ..."*
-
-### Overnight and multi-hour scanning
-
-The app retains your scan results and folder selections in memory for as long as
-the application remains running. There is no time-based expiration, so you can safely
-start scanning a large collection before bed, leave it overnight, and review and
-import your designs in the morning.
-
-
-## When the import finishes
-
-On success, the app:
-
-1. clears the import wizard and returns you to **Browse Designs**,
-2. shows the number of designs that were imported,
-3. your new designs (and their preview images) are immediately browsable,
-   searchable, and taggable.
-
-## Notes for very large libraries
-
-- **Import in one session if you can.** It is safe to stop and resume (finished
-  files are skipped next time), but one continuous run avoids repeating work.
-- **File & Folder Rule tags are free and local.** Every imported design gets keyword and
-  stitching tags even with no API key.
-- **AI tagging is optional and rate-limited.** Do not depend on it to tag a
-  120,000-design library during import. Set it up in Settings and run smaller
-  AI tagging passes afterwards.
-- **Watch disk space.** The catalogue keeps a copy of every imported design.
-- **Check the numbers.** Use the live progress line and the completion message
-  to confirm the totals match what you expect.
+---
 
 ## Related guides
 
-- Import workflow (concise version): [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
-- First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
-- Per-folder Designer/Source assignment: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- AI tagging settings and behaviour: [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- Getting started quick setup: [GETTING_STARTED.md](GETTING_STARTED.md)
-- Supported formats list: [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
+- [Import Workflow](IMPORT_WORKFLOW.md)
+- [Data Storage Guide](DATA_STORAGE_GUIDE.md)
+- [Folder & Designer Assignment](IMPORT_FOLDER_ASSIGNMENT.md)
+- [Batch Operations](BATCH_OPERATIONS_BACKFILL.md)

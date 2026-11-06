@@ -1,87 +1,46 @@
-# First Import Actions Guide
+# Before You Import
 
-The import wizard's final step is **Before You Import**. For a brand-new catalogue it
-pauses once to point out that no hoops are configured, and it explains how automatic
-tagging works. Reference data (hoops, tags, sources, designers) can be managed in the
-Admin pages at any time.
+When you import embroidery designs, the final step in the wizard is **Before You Import**. It lets you review settings and confirm reference data before adding designs to your catalogue.
 
-## What the final step shows
+---
 
-- The **Before You Import** panel.
-- A note explaining that the import itself uses fast, offline **File & Folder Rules**, and
-  that automated **Gemini Vision** tagging can be run later from **Batch Operations**.
-- Two actions: **Import Designs** and **Cancel**.
+## Confirm a first-time import
 
-## Where It Appears
+On a brand-new catalogue with no embroidery hoops set up yet:
 
-Import wizard flow:
-1. Select folders.
-2. Review scanned files.
-3. **Before You Import** appears.
-4. Import Designs, or cancel.
+1. Click **Import Designs**.
+2. A prompt explains that no hoops are configured.
+3. Choose one of two options:
+   - **Confirm import without hoop setup**: imports your designs immediately. Stitch sizes are recorded, but designs will not be matched to specific hoop sizes.
+   - **Cancel**: pauses the import so you can set up your machine hoops first in [Admin → Hoops](#/admin/manage-data/hoops).
 
-## First Import vs Later Imports
+You can add hoops at any time later in [Admin → Hoops](#/admin/manage-data/hoops).
 
-### First import (empty catalogue with no hoops)
-- Pressing **Import Designs** does not start the import immediately.
-- A warning appears: "Hoops are not configured for a first import. Confirm to continue anyway."
-- Choosing **Confirm import without hoop setup** runs the import. Skipping hoop setup does
-  not create any hoops for you.
+---
 
-### Later imports
-- With at least one hoop configured, **Import Designs** starts the import immediately and
-  no warning appears.
+## Import into an existing catalogue
 
-## What To Do on the Before You Import Step
-You can choose either of these actions:
-- **Import Designs** — run the import now (plus the one-off confirmation on a first import).
-- **Cancel** — abandon the import and return to step 1.
+Once at least one hoop is configured in your catalogue:
 
-If hoops matter to you (they drive hoop-size matching and hoop-based filters), add them in
-**Admin → Hoops** before your first import.
+1. Review the folder summary and assigned designers and sources on screen.
+2. Click **Import Designs**.
+3. The import starts immediately and copies the designs into your catalogue.
 
-## Managing Reference Data
+---
 
-Hoops, tags, sources and designers are managed on their own Admin pages
-(**Manage Data** / **System** in the top navigation) at any time:
-- changes are saved immediately and there is no separate "import mode",
-- after editing reference data you can return to **Import** and continue — the wizard keeps
-  your scan and selections while you are away.
+## If something goes wrong
 
-## Continue and Cancel Behaviour
-- **Import Designs**: runs the import with your current selections.
-- **Cancel** (or **Stop** while a run is in progress): abandons the run and clears the wizard.
-- After a successful import the app routes you to **Browse Designs**.
-
-## AI and Tagging Notes
-
-- The import itself never calls an AI service and needs no Google API key. It always
-  applies the free, local keyword and stitching tags.
-- **Gemini Vision** auto-tagging is run separately, after the import, from
-  **Admin → Batch Operations**. See [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md).
-- Preview images are automatically generated locally during import; no manual preview mode
-  selection is required.
-
-## Troubleshooting
-
-| Issue | What to do |
+| Problem | What to do |
 |---|---|
-| Import Designs reports an unknown import context | If the application was closed and reopened, rescan your folders to rebuild the review list. When the app remains open, scans and selections do not expire. |
-| You skipped hoops and now want auto hoop matching | Add hoops in **Admin → Hoops**, then run another import or regenerate previews as needed. |
-| Gemini Vision did not run | Gemini Vision is not part of import. Run it from **Admin → Batch Operations** and check the API key and Gemini Vision settings in **Admin → Settings**. |
-| You cannot find Review Hoops / Tags / Sources / Designers | Those buttons were removed from the import wizard. Use the Admin pages instead — your import selections are preserved while you are away. |
+| The import reports an unknown context | If the application was closed and reopened during review, return to [Import](#/import) and rescan your folder. |
+| You skipped hoop setup and want hoop matching | Add your machine hoops in [Admin → Hoops](#/admin/manage-data/hoops). Future imports will match hoops automatically. |
+| You want to stop an import in progress | Click **Stop running**. Designs already imported remain safely in your catalogue; uncommitted designs are cancelled. |
 
-## Recommended First-Run Workflow
+---
 
-1. Configure your Data Location (if prompted on first launch), Designers, Sources, and Hoops in the initial setup wizard.
-2. Select your Digitising Software & Master Formats (e.g. Embird, Hatch, Bernina, Embrilliance, Janome, mySewnet) if you use them.
-3. Import your designs via **Import Designs**.
-4. Verify the imported designs in Browse and the design detail pages.
-5. Optionally run **Batch Operations** to add Gemini Vision tags.
+## Related guides
 
-## Related Guides
-- [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
-- [SETTINGS.md](SETTINGS.md)
-- [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- [GETTING_STARTED.md](GETTING_STARTED.md)
+- [Import Workflow](IMPORT_WORKFLOW.md)
+- [Settings](SETTINGS.md)
+- [Supported Formats](SUPPORTED_FORMATS.md)
+- [Batch Operations](BATCH_OPERATIONS_BACKFILL.md)

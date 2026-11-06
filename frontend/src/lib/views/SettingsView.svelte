@@ -1093,7 +1093,7 @@
                 ? "Compacting…"
                 : isBackingUpForCompact
                   ? "Backing up…"
-                  : "Optimize & Compact Database"}
+                  : "Optimise & Compact Database"}
             </button>
             <p class="mt-1.5 text-xs text-[var(--text-muted)]">
               Runs a full database optimisation (VACUUM + PRAGMA optimize).

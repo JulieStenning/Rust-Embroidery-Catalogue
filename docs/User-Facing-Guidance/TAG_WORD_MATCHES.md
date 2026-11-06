@@ -1,94 +1,52 @@
 # Tag Word Matches
 
-This guide explains how **Tag Word Matches** work in the Embroidery Catalogue and how you can manage them to automate tagging when importing or backfilling designs.
+**Tag Word Matches** map words in filenames and folder paths to catalogue tags. For example, a file called `Puppy_4x4.pes` in a folder called `Dogs` can automatically receive the **Animals** tag.
+
+Tag word matching is completely offline and runs during import and local batch tagging.
 
 ---
 
-## Overview
+## Add keyword matches to a tag
 
-**Tag Word Matches** (synonyms and keywords) allow you to map words that appear in filenames and folder paths directly to specific catalogue tags.
+1. Go to [Admin → Manage Data → Word Matches](#/admin/data/tag-matches).
+2. At the top of the page, choose a tag from the **Select tag to add match** dropdown.
+3. In the input box, type one or more words separated by commas (e.g. `pup, puppy, hound, dog`).
+4. Click **Add Matches** (or press <kbd>Enter</kbd>).
 
-For example:
-- A file named `Cute_Puppy_4x4.pes` or in a folder called `Dogs` can automatically receive the **Animals** tag.
-- A file containing `ITH_Zipper_Pouch.jef` can automatically receive the **In The Hoop** tag.
-- A file containing `FSL_Snowflake.pes` can automatically receive the **Lace** tag.
-
----
-
-## How Matching Works
-
-Tag Word Matching is **100% local and offline** — no internet connection or Google API key is required.
-
-### 1. File & Folder Rules (Import & Batch Operations)
-When designs are imported (see [Import workflow and local rules](IMPORT_WORKFLOW.md)) or when you run **Step 1 (File & Folder Rules)** in **Admin → Batch Operations** (see [Running local batch tagging](BATCH_OPERATIONS_BACKFILL.md)):
-- The catalogue scans every folder segment and the design filename.
-- It tests against **exact tag names** as well as all configured **Tag Word Matches**.
-
-### 2. Whole Word Boundaries
-Matching is performed on whole word boundaries. For example:
-- A match word `cat` will match `Black_Cat.pes` or a folder named `Cats`.
-- It will **not** falsely match `Catch_The_Ball.pes` or `Catalogue`.
-- Sequentially numbered filenames without punctuation (such as `Butterfly1.vp3`, `Rose02.pes`, or `12Floral.jef`) and CamelCase compound names (`MonarchButterfly.pes`) are automatically recognised and split on word boundaries, so `Butterfly1` matches `butterflies`.
-
-### 3. Plurals and Singulars
-The matching engine automatically handles regular English plurals and singular forms:
-- A match rule for `frog` will match both `frog` and `frogs`.
-- A match rule for `puppies` will match both `puppy` and `puppies`.
-
-### 4. Case-Insensitive Matching
-Matching is case-insensitive. Entering `Rose` or `rose` matches `ROSE.PES`, `Rose_Border.jef`, or `red_roses.dst`. All match words are automatically normalised to lowercase when saved.
-
-### 5. Folder Hierarchies & Supplier / Source Masking
-Many users organise their designs using deep hierarchies combining categories, suppliers, and pack sets (for example: `Animals/Embroidery Super Deal/Safari Pack/lion.jef`):
-- **Category Preservation:** Parent category folders higher up the tree (such as `Animals` or `Floral`) remain active in path matching, ensuring your broad classifications are recognised and tagged.
-- **Supplier & Designer Masking:** If a folder segment matches an assigned or inferred **Source** or **Designer** (e.g. `Embroidery Super Deal` or `Urban Threads`), that specific folder name is automatically excluded from tag tokenisation so supplier brand words do not pollute your tags.
-- **Domain & Format Stop Words:** Generic medium words (`embroidery`, `stitch`, `stitched`, `stitching`) and technical machine format folders (`JEF`, `PES`, `DST`, `EXP`, etc.) are treated as medium/format metadata and filtered out from visual tag matching.
-- **Rule Invariants:** You cannot add self-synonyms (words duplicating the tag's own name, as the engine already matches them) or universal craft terms (`embroidery`, `stitch`), and plurals are automatically normalised to their singular base form.
+Alternatively, find any tag card on the page and type new words into the **Add match…** box at the bottom of its card.
 
 ---
 
-## Managing Word Matches
+## Remove a word match
 
-You can view, search, add, and remove word matches in two convenient places.
-
-### 1. Dedicated Admin Page (`Manage Data → Word Matches`)
-Navigate to **Admin → Manage Data → [Word Matches](#/admin/data/tag-matches)**.
-
-Here you will find:
-- **Search & Group Filter:** Filter tags by name or switch between **All Tags**, **Image Tags**, and **Stitching Tags**.
-- **Grouped Tag Cards:** Every tag with matches is displayed as a clean card showing all assigned match words as removable chips.
-- **Inline Add:** Add additional words directly on any tag's card.
-- **Top Quick Add Bar:**
-  - Search or select a target tag from the dropdown.
-  - As soon as you select a tag, its **existing matches are displayed immediately below** the selector. This helps inspire new keyword ideas and prevents adding words that already exist.
-  - If you type a word that is already assigned to the tag, an instant **"Already added"** duplicate warning appears.
-  - Enter single words or multiple comma-separated words at once (e.g. `kitten, puppy, bunny, hedgehog`) and click **Add Matches** (or press <kbd>Enter</kbd>).
-
-### 2. Contextual Tag Administration (`Manage Data → Tags`)
-When maintaining your general tag list in **Admin → Manage Data → [Tags](#/admin/data/tags)**:
-- Every tag row has a dedicated **Matches** button. Clicking it opens a window where you can view, add, or remove word matches for that specific tag.
-- When creating a brand-new tag, you can optionally click to assign word matches immediately upon saving the tag.
+1. Open [Admin → Manage Data → Word Matches](#/admin/data/tag-matches).
+2. Locate the tag card.
+3. Click the **✕** button on any keyword chip to remove it.
 
 ---
 
-## Starter Data & Customisation
+## How word matching works
 
-The catalogue comes pre-loaded with standard starter word matches for common embroidery themes (including animal species, floral types, holidays, and stitching techniques like In The Hoop and Free Standing Lace).
-
-It also separates text-based embroidery into two distinct categories:
-- **Alphabets (Protected System Tag):** Includes matches for `alphabet`, `font`, `monogram`, `initials`, `upper`, `lower`, number sets (`number`, `numeral`, `digit`), and punctuation marks (`punctuation`, `symbol`).
-- **Words:** Includes matches for standalone phrase designs like `saying`, `quote`, `phrase`, `sentiment`, `verse`, `slogan`, `blackboard`, `bookmark`, `bookworm`, `text`, `wording`, and `writing`.
-
-- **Fully Editable:** There are no system-locked word matches. You can delete any starter match that does not fit your workflow or add custom keywords that match your personal folder conventions.
-- **Safe & Reversible:** Modifying word matches does not alter any of your physical embroidery files.
+- **Whole word matching**: A match for `cat` matches `Black_Cat.pes` and a folder called `Cats`. It does not match `Catch.pes` or `Catalogue`.
+- **Automatic plurals**: Matching handles standard English singular and plural forms automatically. Adding `puppy` matches both `puppy` and `puppies`.
+- **Case-insensitive**: `Rose` matches `ROSE.pes`, `rose.jef`, and `Rose_Border.dst`.
+- **Designer & Source exclusion**: Words matching your saved Designer or Source names (e.g. `Embroidery Library` or `Urban Threads`) are automatically excluded from tag matching so brand names do not create accidental tags.
 
 ---
 
-## Related Guides
+## If something goes wrong
 
-- [Import workflow and local rules](IMPORT_WORKFLOW.md)
-- [First import actions & review](FIRST_IMPORT_ACTIONS.md)
-- [Assigning Designer & Source per folder](IMPORT_FOLDER_ASSIGNMENT.md)
-- [Running local batch tagging](BATCH_OPERATIONS_BACKFILL.md)
-- [Data storage and library paths](DATA_STORAGE_GUIDE.md)
-- [Getting started and initial setup](GETTING_STARTED.md)
+| Problem | What to do |
+|---|---|
+| A word shows an "Already added" warning | The word or a variation is already assigned to this tag. |
+| A word cannot be added because it matches the tag name | The tagging engine automatically matches words from the tag name itself, so you do not need to add them as synonyms. |
+| You want to re-apply updated rules to existing designs | Go to [Admin → Batch Operations](#/admin/batch-operations) and run **Apply file & folder rules**. |
+
+---
+
+## Related guides
+
+- [Batch Operations](BATCH_OPERATIONS_BACKFILL.md)
+- [Import Workflow](IMPORT_WORKFLOW.md)
+- [Stitch Types](STITCH_TYPES.md)
+- [Search and Filtering](SEARCH_AND_FILTERING.md)

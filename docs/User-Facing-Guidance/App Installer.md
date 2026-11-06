@@ -1,56 +1,43 @@
-# Installing & Deploying the Embroidery Catalogue
+# Installing Embroidery Catalogue
 
-## Installed Mode (local HDD)
-
-Run the installer from your local hard drive:
-
-```
-target/release/bundle/msi/Embroidery Catalogue_0.1.0_x64_en-US.msi
-```
-
-Or the NSIS installer:
-
-```
-target/release/bundle/nsis/Embroidery Catalogue_0.1.0_x64-setup.exe
-```
-
-The installer places the application and a seed database in the correct locations.
-On first run the app seeds `<data_root>/Database/EmbroideryCatalogue.db` automatically.
+You can install Embroidery Catalogue on your PC or run it portably from an SD card or USB stick.
 
 ---
 
-## Portable Mode (SD card / USB stick)
+## Install on your PC
 
-No installer is needed. The portable executable includes the seed database embedded
-inside the binary.
+1. Download and run the installer (`.msi` or `-setup.exe`).
+2. Follow the setup wizard on screen.
+3. Open **Embroidery Catalogue** from your Start menu or desktop shortcut.
+4. Complete the initial setup wizard to choose where your catalogue data is stored.
 
-### Setup
+---
 
-1. Create a folder on your SD card, e.g. `E:\EmbroideryCatalogue\`
+## Run portably from an SD card or USB stick
 
-2. Copy the release executable into it:
-   ```
-   Copy from:  target/release/embroidery-catalogue.exe
-   Copy to:    E:\EmbroideryCatalogue\embroidery-catalogue.exe
-   ```
+In portable mode, your database and catalogue stay entirely on the removable drive. No files are written to the host PC, and you can plug the drive into any Windows computer.
 
-3. Create an empty `data\` subfolder:
-   ```
-   E:\EmbroideryCatalogue\data\
-   ```
+1. Create a folder on your SD card or USB stick, for example `E:\EmbroideryCatalogue\`.
+2. Copy `embroidery-catalogue.exe` into that folder.
+3. Create an empty subfolder named `data` in the same folder (`E:\EmbroideryCatalogue\data\`).
+4. Double-click `embroidery-catalogue.exe`.
 
-4. Double-click `embroidery-catalogue.exe`
+The application detects the `data` folder, sets up your catalogue on the drive, and launches.
 
-That's it — no additional files are needed; the database is embedded in the `.exe`.
+---
 
-### First-run behaviour
+## If something goes wrong
 
-- The app detects `data\` next to the executable → runs in **Portable Mode**
-- No `Database\EmbroideryCatalogue.db` exists yet → the app writes the embedded
-  seed database to `data\Database\EmbroideryCatalogue.db` automatically
-- Everything stays on the SD card — no files written to the host PC
+| Problem | What to do |
+|---|---|
+| The installer is blocked by Windows SmartScreen | Click **More info**, then click **Run anyway**. |
+| Portable mode writes data to your PC drive instead | Check that the `data` subfolder is created directly next to `embroidery-catalogue.exe`. |
+| Removable drive letter changes after reconnecting | The app automatically displays the **Startup Recovery** screen; click **Re-connect to this location**. |
 
-### Cross-computer use
+---
 
-Drive letters don't matter (E:, F:, G:, etc.). All paths are resolved relative
-to the executable at runtime. The same SD card works on any Windows PC.
+## Related guides
+
+- [Getting Started](GETTING_STARTED.md)
+- [Data Storage Guide](DATA_STORAGE_GUIDE.md)
+- [Settings](SETTINGS.md)

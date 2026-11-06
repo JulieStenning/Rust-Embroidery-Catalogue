@@ -1,65 +1,56 @@
-# Import Designer and Source Per Folder
+# Assigning Designers and Sources During Import
 
-Use this guide during bulk import when different folders need different Designer or Source values.
-
----
-
-## Quick Steps
-
-1. Open Import (`/import/`) and add one or more source folders.
-2. Click Scan.
-3. In the review step, check each folder group.
-4. For each folder, choose Designer and Source:
-   - Keep inferred
-   - Choose existing
-   - Create new
-   - Leave blank
-5. If needed, set one global Designer/Source at the top to apply broadly.
-6. Keep or uncheck files using the file checkboxes.
-7. Click Continue, then complete the precheck step.
-8. Confirm import.
+When you import embroidery designs, you can assign who designed them (**Designer**) and where you acquired them (**Source**), either across all folders or folder by folder.
 
 ---
 
-## How Assignment Works
+## Set a designer or source for all folders
 
-When a design is imported, assignment is applied in this order:
+When most of the folders you are importing come from the same designer or shop:
 
-1. Per-folder choice
-2. Global choice
-3. Inferred from folder/file path
-4. Blank
-
-This means explicit folder choices always win.
-
-### Automatic Path Inference Hierarchy
-
-When choosing **Keep inferred**, the application infers Designer and Source by examining folder path segments:
-- **Leaf-First Traversal:** The folder directly containing your design files is evaluated first. Parent directories are only checked if the immediate folder does not match any registered Designer or Source.
-- **Library Root Filtering:** Storage directories such as `MachineEmbroideryDesigns` and `EmbroideryCatalogue` are ignored so standard library paths never trigger false matches.
-- **Specific Matching:** Exact folder names and registered names with web affixes (such as `.com`) match their specific folder without falsely claiming different designers in sub-folders.
+1. In **Step 2: Review Files**, use the global **Apply to all folders** dropdowns at the top of the page.
+2. Select an existing **Designer** or **Source**, or click **+ Add new** to create one.
+3. Every folder in the review list updates to that value.
 
 ---
 
-## Create New During Import
+## Override specific folders
 
-If you choose Create new for Designer or Source:
+When individual folders belong to different designers or sources:
 
-1. Enter the new name.
-2. The app checks existing values case-insensitively.
-3. If a matching value already exists, it is reused.
-4. If not, a new one is created and assigned.
+1. Locate the specific folder row in the review table.
+2. Under **Designer for this folder** or **Source for this folder**, choose:
+   - **Keep inferred**: automatically detects the designer or source from the folder name if it matches one of your saved names.
+   - **Choose existing**: pick from your saved list.
+   - **Create new**: enter a new name directly.
+   - **Leave blank**: import without a designer or source.
 
----
-
-## Multi-Folder Tips
-
-1. Use global values when most folders should match.
-2. Override only the folders that differ.
-3. Keep inferred when folder names already match your saved Designer/Source names.
-4. Use Leave blank when you intentionally do not want a Designer or Source.
+Individual folder settings always take precedence over the global dropdowns.
 
 ---
 
-For broader import flow information, see [GETTING_STARTED.md](GETTING_STARTED.md).
-For troubleshooting, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
+## How automatic folder inference works
+
+When you leave a folder set to **Keep inferred**:
+- The app checks the immediate folder name first.
+- If no match is found, parent folder names are checked.
+- Standard storage folders (like `MachineEmbroideryDesigns`) are ignored to avoid false matches.
+- Matching is case-insensitive.
+
+---
+
+## If something goes wrong
+
+| Problem | What to do |
+|---|---|
+| A folder was assigned the wrong designer | Choose the correct designer from the folder's dropdown before clicking **Continue**. |
+| You misspelled a new designer name | You can rename or merge designers at any time in [Admin → Designers](#/admin/manage-data/designers). |
+| You want to clear an assigned designer | Select **Leave blank** from the folder's dropdown. |
+
+---
+
+## Related guides
+
+- [Import Workflow](IMPORT_WORKFLOW.md)
+- [Importing a Large Library](IMPORTING_A_LARGE_LIBRARY.md)
+- [Settings](SETTINGS.md)

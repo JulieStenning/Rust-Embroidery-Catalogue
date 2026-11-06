@@ -1,70 +1,69 @@
 # Supported Embroidery Formats
 
-This document lists the embroidery file formats supported by the Embroidery Catalogue import scanner.
+Embroidery Catalogue imports and displays standard machine stitch formats and digitising master files.
 
 ---
 
-## Standard import formats
+## Standard machine stitch formats
 
-These formats are read by the application's built-in Rust readers.  Dimensions, hoop
-suggestion, and stitch preview are available for all of them where the file contains
-the necessary data.
+Standard machine stitch formats are parsed directly by the built-in reader engine. Dimensions, stitch totals, colour stops, and rendered preview images are generated automatically during import.
 
-| Extension | Notes |
-|-----------|-------|
-| `.jef`    | Janome |
-| `.pes`    | Brother / Babylock |
-| `.hus`    | Viking/Husqvarna |
-| `.vp3`    | Viking/Pfaff |
-| `.dst`    | Tajima (industrial/interchange) |
-| `.exp`    | Melco (industrial/interchange) |
+| Format | Machine manufacturer / eco-system | Notes |
+|---|---|---|
+| `.pes` | Brother / Baby Lock / Bernina | Includes colour palette and multi-needle data |
+| `.jef` | Janome / Elna | Standard Janome machine format |
+| `.vp3` | Husqvarna Viking / Pfaff | Includes thread colours and hoop boundaries |
+| `.hus` | Husqvarna Viking | Legacy Viking stitch format |
+| `.dst` | Tajima | Standard commercial format (generic colour palette) |
+| `.exp` | Melco / Bernina | Commercial and domestic stitch format |
 
 ---
 
-## Helper format
+## Helper formats
 
-| Extension | Notes |
-|-----------|-------|
-| `.pmv`    | Pfaff My Quilter helper format; included for catalogue completeness. |
-
----
-
-## Master & Digitising Outline Formats (Configurable)
-
-In addition to machine stitch formats, the catalogue supports indexing master digitising and outline design files. When enabled in **Admin → Settings**, these files are catalogued alongside machine formats:
-
-- **Paired Designs:** When a master file and a stitch file share the same base name in the same folder (e.g. `flower.eof` and `flower.pes`), the catalogue pairs them into a single entry with a `[🎨 Master]` badge. The machine stitch file provides the thumbnail preview and stitch data, while both files can be opened in their respective applications.
-- **Master-Only Designs:** If a master outline file exists without a corresponding stitch file, it is catalogued with a placeholder and marked for export (*"Export to a machine stitch format to generate preview and stitch data."*).
-
-| Extension | Associated Software / Eco-system | Notes |
-|-----------|----------------------------------|-------|
-| `.eof`    | Embird                           | Embird Digitizing Studio master outline format |
-| `.ecf`    | Embird                           | Embird Cross Stitch master format |
-| `.emb`    | Wilcom / Hatch                   | All-in-one object & stitch design format |
-| `.art`    | Bernina                          | Bernina ArtLink / Designer master format |
-| `.be`     | Embrilliance                     | Embrilliance working design format |
-| `.jan`    | Janome Digitizer                 | Janome Digitizer working format |
-| `.edo`    | mySewnet / Premier+              | mySewnet Design Outline format |
-| `.vp4`    | mySewnet / Viking                | mySewnet interactive design file |
-
-Custom master extensions can also be configured in **Admin → Settings**.
+| Format | Description | Notes |
+|---|---|---|
+| `.pmv` | Pfaff My Quilter | Helper stitch format included for catalogue completeness |
 
 ---
 
-## Excluded formats
+## Digitising master & outline formats
 
-The following formats are intentionally **not** included in the import allowlist:
+You can enable detection for working design files created in popular digitising software under [Admin → Settings](#/admin/system/settings):
 
-| Extension | Reason |
-|-----------|--------|
-| `.json`   | Output / helper format, not a stitch file |
-| `.col`    | Colour sidecar file, not a stitch file |
-| `.edr`    | Colour sidecar file, not a stitch file |
-| `.inf`    | Colour sidecar file, not a stitch file |
-| `.bro`    | Excluded due to low-detail decode output (outline-only previews) |
-| `.ksm`    | Excluded due to low-detail decode output (outline-only previews) |
-| `.pcd`    | Excluded because source files generated in Embird were unreliable/incomplete |
-| `.svg`    | Vector graphic, not an embroidery format |
-| `.csv`    | Data export, not a stitch file |
-| `.png`    | Raster image, not an embroidery format |
-| `.txt`    | Plain text, not a stitch file |
+- **Paired Designs**: When a master file sits in the same folder as a matching machine stitch file (e.g. `flower.eof` and `flower.pes`), they appear together as a single design card with a **Master** badge.
+- **Master-Only Designs**: If only the master file exists, it is catalogued with a placeholder and marked for export to a machine stitch format.
+
+| Format | Software | Notes |
+|---|---|---|
+| `.eof` | Embird Studio | Embird Digitising Studio master outline format |
+| `.ecf` | Embird Cross Stitch | Embird Cross Stitch project format |
+| `.emb` | Wilcom / Hatch | Wilcom and Hatch all-in-one object design format |
+| `.art` | Bernina | Bernina ArtLink / Designer master format |
+| `.be` | Embrilliance | Embrilliance working design format |
+| `.jan` | Janome Digitizer | Janome Digitizer working format |
+| `.edo` | mySewnet / Premier+ | mySewnet Design Outline format |
+| `.vp4` | mySewnet / Viking | mySewnet interactive design format |
+
+You can add custom file extensions in [Admin → Settings](#/admin/system/settings) under **Digitising & Master File Formats**.
+
+---
+
+## Excluded file types
+
+The import scanner automatically ignores non-stitch and sidecar files:
+
+| File type | Reason |
+|---|---|
+| `.col`, `.edr`, `.inf` | Colour sidecar files (not stitch files) |
+| `.json`, `.csv`, `.txt` | Data exports and text files |
+| `.png`, `.jpg`, `.svg` | Images and vector graphics |
+| `.zip` | Alphabet zip archives are catalogued via representative glyphs, not as raw stitch files |
+
+---
+
+## Related guides
+
+- [Import Workflow](IMPORT_WORKFLOW.md)
+- [Settings](SETTINGS.md)
+- [Getting Started](GETTING_STARTED.md)

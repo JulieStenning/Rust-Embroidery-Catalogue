@@ -1,143 +1,65 @@
 # Projects
 
-Projects let you group designs for a planned embroidery task and print a practical reference sheet.
+Use [Projects](#/projects) to group designs together for an upcoming sewing session, gift set, or customer order, and to print a planning sheet.
 
-Open Projects from the top navigation bar or visit `/projects/`.
-
----
-
-## What this feature is for
-
-Use Projects when you want to:
-
-- collect designs for one sewing session,
-- keep a short plan or notes in the project description,
-- add designs one-by-one or in bulk,
-- remove designs from a project without deleting the design records,
-- print a single project sheet for planning at your machine.
+Removing designs or deleting a project never deletes the underlying design files or catalogue records.
 
 ---
 
-## Pages at a glance
+## Create a new project
 
-### Project List (`/projects/`)
-
-- Shows all projects in a card grid.
-- Each card shows project name, optional description, and created date.
-- Use **+ New Project** to create a project.
-
-### New Project (`/projects/new`)
-
-- Enter a required **Name**.
-- Optionally add a **Description**.
-- Click **Create Project**.
-
-### Project Detail (`/projects/{id}`)
-
-- Edit project name/description inline and click **Save**.
-- View all designs currently in the project.
-- Remove any design from the project with **Remove**.
-- Open **Print Sheet** for a print-friendly summary.
-- Delete the project with **Delete Project** (designs are not deleted).
-
-### Print Sheet (`/projects/{id}/print`)
-
-- Printable summary of project designs.
-- Includes preview image (or fallback) and key metadata where available.
-
----
-
-## Quick workflows
-
-### Create a project
-
-1. Go to **Projects**.
+1. Click **Projects** in the top navigation bar.
 2. Click **+ New Project**.
-3. Enter a project name.
-4. Optionally add a description.
-5. Click **Create Project**.
+3. Enter a **Name** and optional **Description** (e.g. fabric notes or stabilizer requirements).
+4. Click **Create Project**.
 
-### Add one design from Design Detail
+---
 
-1. Open a design.
-2. In the **Projects** section, choose a project.
-3. Click **Add to Project**.
+## Add designs to a project
 
-### Add several designs from Browse
+- **From Browse (bulk)**: Select multiple design cards, choose the project from the bottom action bar dropdown, and click **Add to project**.
+- **From Design Detail (single)**: Open a design, select the project under the **Projects** section, and click **Add to Project**.
 
-1. Go to **Browse**.
-2. Select multiple designs.
-3. In the bottom action bar, choose a project.
-4. Click **Add to project**.
+---
 
-### Remove a design from a project
+## Manage designs in a project
 
-1. Open the project detail page.
-2. Find the design card.
-3. Click **Remove**.
+1. Open [Projects](#/projects) and click a project card.
+2. To remove a design from the project, click **Remove** beneath its card. The design is detached from the project; its catalogue entry and files remain unchanged.
+3. To edit the project title or notes, update the text fields and click **Save**.
 
-### Edit project details
+---
 
-1. Open project detail.
-2. Change name and/or description.
-3. Click **Save**.
+## Print a project planning sheet
 
-### Delete a project
-
-1. Open project detail.
-2. Click **Delete Project**.
-3. Confirm in the browser prompt.
-
-Result:
-- The project is removed.
-- Design records remain in your catalogue.
-
-### Print a project sheet
-
-1. Open project detail.
+1. Open the project in [Projects](#/projects).
 2. Click **Print Sheet**.
-3. Print from your browser.
+3. A clean worksheet opens displaying all project designs, preview thumbnails, dimensions, stitch totals, and colour counts.
+4. Click **Print** (or press <kbd>Ctrl+P</kbd>).
 
 ---
 
-## What appears on the print sheet
+## Delete a project
 
-Per design, the print sheet may include:
+1. Open the project in [Projects](#/projects).
+2. Click **Delete Project**.
+3. In the confirmation window, click **Delete**.
 
-- preview image,
-- filename,
-- size (mm),
-- hoop,
-- stitch count,
-- colour count,
-- colour changes,
-- designer,
-- rating,
-- stitched status,
-- notes.
-
-Only fields with available data are shown.
+The project is removed. All design records and files remain in your catalogue.
 
 ---
 
-## Troubleshooting
+## If something goes wrong
 
 | Problem | What to do |
 |---|---|
-| Add to project fails from Browse | Confirm at least one design is selected and a project is chosen. |
-| Add to project fails from Design Detail | Confirm the target project still exists, then retry. |
-| Project detail shows no designs | Add designs from Design Detail or Browse bulk actions. |
-| Print sheet shows "No image" for some designs | Generate/refresh previews for those designs and print again. |
-| Deleted a project by mistake | Recreate the project and add designs again; deleting a project does not delete designs. |
-
-For broader issues, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
+| A project does not appear in the Browse dropdown | Check that the project has been created and saved in [Projects](#/projects). |
+| You accidentally removed a design from a project | Go to [Browse](#/browse), find the design, and add it back to the project. |
 
 ---
 
 ## Related guides
 
-- [DESIGN_DETAIL.md](DESIGN_DETAIL.md)
-- [BROWSE_BULK_ACTIONS.md](BROWSE_BULK_ACTIONS.md)
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
-- [GETTING_STARTED.md](GETTING_STARTED.md)
+- [Search and Filtering](SEARCH_AND_FILTERING.md)
+- [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md)
+- [Design Detail](DESIGN_DETAIL.md)

@@ -355,9 +355,9 @@ test.describe.serial("application settings", () => {
     await expect(page.getByText("Database size")).toBeVisible();
     await expect(page.getByText("Recoverable")).toBeVisible();
 
-    // Click "Optimize & Compact Database"
+    // Click "Optimise & Compact Database"
     const compactButton = page.getByRole("button", {
-      name: "Optimize & Compact Database",
+      name: "Optimise & Compact Database",
     });
     await expect(compactButton).toBeVisible();
     await expect(compactButton).toBeEnabled();
@@ -452,7 +452,7 @@ test.describe.serial("application settings", () => {
     await gotoRoute(page, "#/admin/system/settings");
 
     const compactButton = page.getByRole("button", {
-      name: "Optimize & Compact Database",
+      name: "Optimise & Compact Database",
     });
     await expect(compactButton).toBeVisible();
     await expect(compactButton).toBeEnabled();
@@ -462,7 +462,7 @@ test.describe.serial("application settings", () => {
 
     const modal = page.getByTestId("compact-confirm-modal");
     await expect(modal).toBeVisible();
-    await expect(page.getByText("Optimize & Compact Database")).toBeVisible();
+    await expect(page.getByText("Optimise & Compact Database")).toBeVisible();
     await expect(page.getByText(/What it does:/i)).toBeVisible();
     await expect(page.getByText(/Protection:/i)).toBeVisible();
     await expect(page.getByText(/Disk space:/i)).toBeVisible();

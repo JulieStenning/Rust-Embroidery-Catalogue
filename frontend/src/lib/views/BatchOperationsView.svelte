@@ -46,7 +46,7 @@
       id: "ai_vision",
       title: "Enrich with Gemini Vision",
       subtitle:
-        "Analyze design thumbnails using Gemini Vision to detect subject matter. (Requires API key)",
+        "Analyse design thumbnails using Gemini Vision to detect subject matter. (Requires API key)",
       requiresAi: true,
     },
     {
@@ -86,12 +86,12 @@
       {
         id: "vision_no_match",
         title: "Gemini Vision found no match",
-        subtitle: "Designs Gemini Vision analyzed but found no tags for",
+        subtitle: "Designs Gemini Vision analysed but found no tags for",
       },
       {
         id: "vision_analyzed",
-        title: "Re-analyze (already analyzed by Gemini Vision)",
-        subtitle: "Designs already analyzed by Gemini Vision — run again",
+        title: "Re-analyse (already analysed by Gemini Vision)",
+        subtitle: "Designs already analysed by Gemini Vision — run again",
       },
     ],
   };
@@ -1009,7 +1009,7 @@
           <div>
             <span class="font-semibold">Detect / recalculate stitching tags</span>
             <p class="text-[var(--text-muted)] text-xs mt-0.5">
-              Analyze stitch density and fill coverage to assign stitching tags (e.g. Satin Stitch,
+              Analyse stitch density and fill coverage to assign stitching tags (e.g. Satin Stitch,
               Filled).
             </p>
           </div>
@@ -1049,7 +1049,7 @@
           <div>
             <span class="font-semibold">Recalculate colour / stitch counts</span>
             <p class="text-[var(--text-muted)] text-xs mt-0.5">
-              Refresh thread colors, stitch totals, and color changes from the design files.
+              Refresh thread colours, stitch totals, and colour changes from the design files.
             </p>
           </div>
         </label>

@@ -1,169 +1,64 @@
 # Design Detail
 
-The **Design Detail** page is where you review and update one design at a time.
-
-Open it by clicking any design card from **Browse Designs**.
+Click any design card in [Browse](#/browse) to open its detail page. Here you can inspect full technical metadata, update tags and notes, open the design file in your embroidery software, or print a summary sheet.
 
 ---
 
-## What this page is for
+## Inspect design preview and true scale (1:1)
 
-Use the detail page when you want to:
-
-- inspect a design preview and technical metadata,
-- update notes, rating, stitched status, and reference metadata,
-- review, verify, and edit assigned tags,
-- open the file in your default editor or reveal it in Explorer,
-- add or remove the design from projects,
-- print a clean summary sheet.
+- **Preview image**: Shows the rendered embroidery design with thread paths and colours.
+- **Actual Size (1:1)**: Click **Actual Size (1:1)** above the image to display the design at its true physical dimensions in millimetres. This makes it easy to assess stitch density and column widths on small designs or alphabet glyphs. Click **Fit** to return to container-fitting zoom.
+- **Generate 3D Preview**: Click to render a realistic 3D thread simulation preview.
 
 ---
 
-## Page layout at a glance
+## Update ratings, notes, and metadata
 
-The page has three main areas:
-
-1. Top navigation strip:
-- Back to Browse link.
-- Previous/Next navigation when you came from a browse list.
-- The current desktop view also shows Prev/Next buttons and a position counter when browse history is available.
-
-2. Main detail area:
-- Left: preview image, display scale toggle (Fit vs Actual Size 1:1), and 3D preview generation button.
-- Right: filename, file actions, metadata badges, rating, stitched toggle, notes/metadata form, projects.
-- The 3D button changes text based on the current preview state.
-
-3. Collapsible Tags editor:
-- Grouped tag checkboxes.
-- Save button to apply selected tags.
-- Saving tags marks the design as verified.
+1. **Rating**: Click the stars (1 to 5) to rate the design, or click **clear** to remove a rating.
+2. **Stitched status**: Click **Mark as Stitched** (or **Mark as Not Stitched**) to track designs you have completed.
+3. **Notes**: Type in the **Notes** box and click **Save**.
+4. **Designer & Source**: Change the assigned designer, source, or hoop, then click **Save**.
 
 ---
 
-## Quick start workflows
-
-### Update notes and metadata
-
-1. Open the design detail page.
-2. Edit **Notes**.
-3. Choose Designer, Source, and Hoop if needed.
-4. Click **Save**.
-
-### Rate and mark as stitched
-
-1. Click stars to set rating (1 to 5).
-2. Use **clear** to remove a rating.
-3. Click **Mark as Stitched** (or **Mark as Not Stitched**) to toggle status.
-
-### Edit and verify tags
+## Edit and verify tags
 
 1. Expand the **Tags** section.
-2. Tick/untick tag checkboxes.
-3. Click **Save Tags**.
+2. Review the assigned **Image Tags** and **Stitching Tags**.
+3. Tick or untick checkboxes to change tags, or type in the tag box to add new tags.
+4. Click **Save Tags**.
 
-Result:
-- Saving tags marks the design as verified.
-
-### Generate or refresh a 3D preview
-
-1. In the image panel, click **Generate 3D Preview** (or **Render 3D Preview**).
-2. Wait for redirect back to the page.
-
-Result:
-- Preview is replaced with a 3D-rendered image.
-- Dimensions are refreshed when file bounds are available.
-
-### Inspect small designs at Actual Size (1:1)
-
-1. When viewing a design with saved physical dimensions, use the display scale toggle directly above the preview image.
-2. Click **Actual Size (1:1)** to view the design constrained to its true physical dimensions (measured in millimetres) inside a centered, scrollable container. A dimension badge (e.g. `12 × 15 mm (1:1)`) displays the exact size.
-3. Viewing at true scale helps assess stitch techniques on small designs, monograms, and alphabet glyphs—making it easy to distinguish satin stitch columns from tatami fill stitching without optical distortion from magnification.
-4. Click **Fit** to return to the enlarged, container-fitting view for close inspection of thread paths.
-
-### Add to or remove from project
-
-1. Choose a project from the **Add to Project** selector and click **Add to Project**.
-2. Use **Remove** next to any listed project membership to detach it.
-
-### Review tags and verify
-
-1. Expand the **Tags** section.
-2. Review the grouped tag lists.
-3. Tick or clear the checkboxes.
-4. Click **Save tags**.
-
-Result:
-- Saving tags also marks the design as verified.
-
-### Print a design summary
-
-1. Click **Print View** from the detail page, or use **Print** from the printable page.
-2. A print-friendly summary opens.
-3. Print from your browser.
+Saving tags automatically marks the design as human-verified, protecting it from being altered by automated batch tagging.
 
 ---
 
-## Field and status guide
+## Open design or show in Explorer
 
-- **Dimensions**: width x height in mm.
-- **Hoop badge**: assigned hoop name.
-- **Stitches / Colours / Colour changes**: technical stitch metadata.
-- **Verified / Verify**: review status for tags/metadata.
-- **Rating stars**: personal priority/reference rating.
-- **Stitched**: whether you have sewn the design.
-- **Verified / Verify**: whether the tag set has been reviewed.
+- Click **Open in Editor** to launch the stitch file with your computer's default embroidery software.
+- Click **Show in Explorer** to reveal the design file in Windows File Explorer.
 
 ---
 
-## Open in Editor / Open Master File / Open Stitch File / Show in Explorer
+## Print a design worksheet
 
-- **Standalone designs (stitch-only or master-only)**:
-  - **Open in Editor** opens the design file with your system default application for that file format (e.g. your embroidery software or digitiser).
-- **Paired designs (both master outline and stitch file exist)**:
-  - **Open Master File** opens the master outline design file (e.g. `.eof`, `.emb`, `.art`, `.be`, etc.) in your default digitising software. This is prioritised first as the default action.
-  - **Open Stitch File** opens the machine stitch file (e.g. `.pes`, `.jef`, `.dst`, etc.) in your default embroidery editor.
-- **Show in Explorer** opens Windows Explorer and selects the file when possible.
-- If the exact file is missing, Explorer opens the nearest existing folder instead.
+1. Click **Print View** in the top navigation strip.
+2. A clean, printable summary opens showing the design image, dimensions, stitch count, thread colours, and notes.
+3. Click **Print** (or press <kbd>Ctrl+P</kbd>) to print to your printer or PDF.
 
 ---
 
-## Outline Master Files & "Check Folder for Stitch Files"
-
-When viewing a design catalogued from a digitising master outline format (e.g. `.eof`, `.art`, `.emb`, `.be`) without stitch data:
-- An amber notice banner explains that exporting a machine stitch file will enable previews, stitch counts, and hoop calculations.
-- **Check Folder for Stitch Files**:
-  1. Open the master outline file in your digitising software (e.g. Embird, Hatch, Bernina).
-  2. Save or export machine stitch copies (e.g. `.jef`, `.pes`) into the same folder.
-  3. Click **Check Folder for Stitch Files** in the action toolbar.
-  4. The catalogue inspects the folder, automatically pairs all matching stitch files with their master files, extracts stitch metadata, and generates visual previews.
-  5. **Tag and Metadata Preservation**: All tags, project associations, designer assignments, ratings, and notes already assigned to the master design are strictly preserved and carried over into the paired design.
-
-Notes:
-- In some test/locked-down environments, external launches are intentionally suppressed.
-- The page still returns to detail view after the action.
-
----
-
-## Troubleshooting
+## If something goes wrong
 
 | Problem | What to do |
 |---|---|
-| Preview shows "Design Exceeds Hoop Area" | The design is larger than the hoop saved in your embroidery software, leaving machine stitches uncompiled. Click **Open in Editor**, choose a larger hoop (or scale the design to fit), re-save the file, and then click **Generate Preview**. |
-| Preview is missing | Click **Generate 3D Preview**. If it still fails, confirm the source file still exists. |
-| Open in Editor does nothing | Check file association on Windows for that embroidery format and try again. |
-| Show in Explorer opens folder but not selected file | The file may no longer exist at the stored path; verify managed storage location and file presence. |
-| Tags did not look updated | Re-open Tags and confirm checkboxes were saved; save action should mark as verified. |
-| Rating not accepted | Ratings are limited to 1 to 5 (or clear). |
-| Project add/remove did not apply | Confirm the target project exists and refresh the detail page. |
-
-For broader app issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+| Open in Editor does not open your software | Configure Windows file associations: right-click the stitch file in Windows File Explorer, choose **Open with… → Choose another app**, select your embroidery software, and tick **Always use this app**. |
+| The design shows "File missing on disk" | The stitch file has been moved or deleted outside the app. Reconnect the storage drive, or remove orphaned records in [System → Library Discrepancies](#/admin/system/orphans). |
 
 ---
 
 ## Related guides
 
-- [IMPORT_WORKFLOW.md](IMPORT_WORKFLOW.md)
-- [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- [COLOUR_COUNTS.md](COLOUR_COUNTS.md)
-- [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
-- [GETTING_STARTED.md](GETTING_STARTED.md)
+- [Search and Filtering](SEARCH_AND_FILTERING.md)
+- [Browse Bulk Actions](BROWSE_BULK_ACTIONS.md)
+- [Colour Counts](COLOUR_COUNTS.md)
+- [Projects](PROJECTS.md)

@@ -104,7 +104,7 @@
             id="compact-confirm-modal-title"
             class="text-lg font-bold text-[var(--text-primary)] m-0"
           >
-            Optimize & Compact Database
+            Optimise & Compact Database
           </h2>
         </div>
       </div>

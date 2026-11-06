@@ -193,7 +193,7 @@ describe("App.svelte", () => {
       expect(screen.getByText("Preparing Catalogue Database")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Updating database schema & optimizing indexes… Please do not close the app."
+          "Updating database schema & optimising indexes… Please do not close the app."
         )
       ).toBeInTheDocument();
     });

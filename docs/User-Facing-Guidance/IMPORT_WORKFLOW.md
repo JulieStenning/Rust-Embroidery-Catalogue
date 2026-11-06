@@ -1,96 +1,60 @@
 # Import Workflow
 
-This guide explains the full import workflow from selecting folders to seeing your designs in the catalogue.
+Use [Import](#/import) to scan folders on your computer and add digital embroidery designs to your catalogue.
 
-## Before you start
-- Put your embroidery files into one or more folders you can access.
-- The app will copy imported files into managed catalogue storage.
-- Existing-file duplicates are skipped automatically.
-- Import runs entirely locally using **File & Folder Rules** — no Google API key is needed.
+Your original files are never altered or moved. The app copies imported files into its managed library folder and creates preview thumbnails locally.
 
-## Step 1 - Select folder(s)
-1. Open Import from the top menu.
-2. Add one or more source folder paths (type them or use **Browse…**).
-3. Optionally tick **Include uncatalogued files from your library storage folder** if you have placed design files directly into your library folder on disk and want them added to the catalogue database.
-4. Click **Scan folder(s)**.
+---
 
-What happens:
-- Subfolders are scanned automatically.
-- Supported machine stitch formats (JEF, PES, HUS, DST, EXP, VP3) and any enabled digitising master formats (e.g. .eof, .ecf, .emb, .art, .be, .jan, .edo, .vp4 configured in Setup or Settings) are picked up.
-- Files already in the catalogue, and non-embroidery files, are ignored.
-- Each selected source folder name is preserved inside managed storage.
+## 1. Scan your design folders
 
-## Step 2 - Review scanned files
-The review screen groups results by source folder and shows, per folder:
-- the folder label and its full path,
-- a selection counter ("All N selected" / "N of M selected" / "None selected"),
-- "Designer for this folder" and "Source for this folder" controls,
-- the matched files (large folders start collapsed — use **Show files (N)**).
+1. Click **Import** in the top navigation bar.
+2. Under **Step 1: Select Folder(s)**, click **Browse…** and choose a folder containing embroidery designs. Add additional folder rows if you want to scan multiple locations at once.
+3. Click **Scan folder(s)**.
 
-You can:
-- select or deselect files for import, per file or per folder,
-- use the global "Select all" / "Deselect all" buttons (applies to all folders across all pages),
-- navigate folders in pages (25 per page) and filter folders by name or path,
-- click "Show files" to expand any collapsed folder and toggle individual designs,
-- keep the inferred Designer/Source,
-- choose an existing Designer/Source,
-- apply a global Designer/Source override to every folder.
+The app scans subfolders automatically, detects supported stitch files (e.g. `.pes`, `.jef`, `.dst`, `.vp3`, `.hus`, `.exp`) and enabled digitising master formats, and skips files already in your catalogue.
 
-Then click **Continue with N designs** (available at both the top and bottom of the list).
+---
 
-## Step 3 - Before You Import
-Before importing, the app shows a short confirmation step:
-- an explanatory note about how import and Gemini Vision tagging work,
-- **Import Designs** and **Cancel**.
+## 2. Review scanned files and assign details
 
-AI tagging and local rules:
-- Imports run File & Folder Rules only (local, no API key) and apply keyword tags (matching exact tag names and configured [Tag Word Matches](TAG_WORD_MATCHES.md)) alongside technical stitching tags.
-- Gemini Vision is run separately afterwards from [Admin → Batch Operations](#/admin/batch-operations).
+1. In **Step 2: Review Files**, review the discovered designs grouped by folder.
+2. For each folder, choose how to assign **Designer** and **Source**:
+   - **Keep inferred**: uses the folder name or path if it matches an existing designer or source.
+   - **Choose existing**: pick from your saved list.
+   - **Create new**: add a new designer or source on the fly.
+   - **Leave blank**: import without a designer or source.
+3. Use the checkboxes to exclude any individual files or folders you do not want to import.
+4. Click **Continue with N designs**.
 
-First import into an empty catalogue with no hoops:
-- Pressing **Import Designs** shows a warning that hoops are not configured and asks for
-  confirmation. Skipping hoop setup does not create hoops for you.
-- Add your own machine hoops in [Admin → Hoops](#/admin/system/hoops) first if hoop matching matters to you.
+> **Alphabet packages:** Folders recognised as embroidery font or alphabet packages are automatically compressed into companion zip files. Only representative sample letters are catalogued to prevent cluttering your browse view. See [Settings](SETTINGS.md).
 
-## Step 4 - Confirm and save
-When you run the import:
-- selected files are processed,
-- previews and metadata are generated where possible,
-- designs are written to the catalogue database,
-- files are copied into managed catalogue storage.
+---
 
-The button shows live progress while it runs; **Cancel** becomes **Stop** if you need to
-halt it. After success, you are redirected to Browse Designs.
+## 3. Confirm and import
 
-## Alphabet & font compression
-Enabled by default during first-time setup and configurable in [Admin → Settings](#/admin/system/settings) ("Compress full alphabet sets and catalogue preview samples only"):
-- Scanned folders recognised as alphabet or font collections are automatically bundled into a companion `.zip` archive (`<AlphabetFolder>.zip`) in the library folder.
-- Only key representative glyphs are added to the database: **Upper A**, **Lower a**, digit **9**, and **all punctuation/symbol files** for each size found.
-- All imported preview samples from an alphabet package are automatically assigned the protected system tag **Alphabets** (which covers individual letters, font sets, monograms, number sets 0–9, and punctuation).
-- Standalone phrases, sayings, quotes, and typography compositions are classified under the **Words** tag rather than Alphabets.
-- Multi-size design collections with dimension labels (e.g. `3 Inch`, `2_5 Inch`, `100 mm`, `4x4 Hoop`) and descriptive design titles are recognised as standard embroidery designs and are **not** treated as alphabet glyphs.
-- Letters `B`–`Z`, `b`–`z`, and digits `0`–`8` remain safely archived inside the `.zip` so they do not overwhelm your catalogue with hundreds of individual letter cards.
-- Embrilliance `.bx` files and all folder contents are preserved within the `.zip`, allowing full unzipping or selective extraction at any time.
+1. In **Step 3: Before You Import**, review the import summary.
+2. Click **Import Designs**.
+3. Watch the progress bar as the app creates thumbnails and catalogues your designs.
+4. When finished, click **Go to Browse** to view your newly imported collection.
 
-## Leaving the import wizard
-You can leave the Import page at any point using the top navigation — there is no
-"unsaved changes" prompt. The wizard keeps your scan and selections, so returning to
-**Import** restores where you left off. The import context itself is time-limited
-(~15 minutes); if it expires, the app re-checks your selections and retries.
+---
 
-## Notes about supported formats
-- The app supports all major machine embroidery formats as well as software-native digitising master formats.
-- For complete details on machine formats, digitising formats, and file pairing: [SUPPORTED_FORMATS.md](SUPPORTED_FORMATS.md)
+## If something goes wrong
+
+| Problem | What to do |
+|---|---|
+| A folder shows "No supported embroidery files found" | Check that your folder contains supported stitch files. See [Supported Formats](SUPPORTED_FORMATS.md). |
+| You want to stop an import in progress | Click **Stop running**. Designs already saved remain safely in your catalogue; uncommitted files are skipped. |
+| You left the import screen and came back | Your scan and review selections are preserved while the app stays open. If the session expired, click **Scan folder(s)** again. |
+| Designs from your digitising software are not detected | Enable your digitising format (e.g. Embird, Hatch, Bernina, Embrilliance) in [Admin → Settings](#/admin/system/settings) under **Digitising & Master File Formats**. |
+
+---
 
 ## Related guides
-- Configuring keyword rules: [TAG_WORD_MATCHES.md](TAG_WORD_MATCHES.md)
-- First import action details: [FIRST_IMPORT_ACTIONS.md](FIRST_IMPORT_ACTIONS.md)
-- Per-folder Designer/Source assignment details: [IMPORT_FOLDER_ASSIGNMENT.md](IMPORT_FOLDER_ASSIGNMENT.md)
-- AI tagging settings and behaviour: [BATCH_OPERATIONS_BACKFILL.md](BATCH_OPERATIONS_BACKFILL.md)
-- Getting started quick setup: [GETTING_STARTED.md](GETTING_STARTED.md)
 
-## Troubleshooting quick tips
-- If no files were selected, return to review and choose at least one file.
-- If you leave import open a long time and context expires, the app re-checks your
-  selections automatically; if that fails, restart from Import.
-- If some files fail, the import can still continue for valid files.
+- [Before You Import](FIRST_IMPORT_ACTIONS.md)
+- [Folder & Designer Assignment](IMPORT_FOLDER_ASSIGNMENT.md)
+- [Importing a Large Library](IMPORTING_A_LARGE_LIBRARY.md)
+- [Supported Formats](SUPPORTED_FORMATS.md)
+- [Settings](SETTINGS.md)

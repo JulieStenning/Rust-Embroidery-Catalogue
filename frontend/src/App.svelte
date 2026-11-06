@@ -60,7 +60,7 @@
       if (dbStatus.status?.status === "migrating") {
         migrating = true;
         migrationMessage =
-          "Updating database schema & optimizing indexes… Please do not close the app.";
+          "Updating database schema & optimising indexes… Please do not close the app.";
         loading = true;
         return;
       }
@@ -145,7 +145,7 @@
             migrating = true;
             migrationMessage =
               payload.message ||
-              "Updating database schema & optimizing indexes… Please do not close the app.";
+              "Updating database schema & optimising indexes… Please do not close the app.";
             loading = true;
           } else if (payload?.status === "connected") {
             migrating = false;
@@ -205,7 +205,7 @@
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
           <span class="text-xs text-[var(--text-secondary)]"
-            >Optimizing indexes and checking tables…</span
+            >Optimising indexes and checking tables…</span
           >
         </div>
       {/if}

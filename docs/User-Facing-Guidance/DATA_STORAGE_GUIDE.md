@@ -1,80 +1,56 @@
-## Data Storage & External Drives Guide
+# Data Storage & External Drives
 
-To run **Embroidery Catalogue** smoothly, your storage device needs to store two main things:
+You can store your catalogue on your computer's internal drive, an SD card, or an external USB drive.
 
-1. **Your Embroidery Files:** The original design files (`.jef`, `.pes`, `.hus`, etc.) that you collect and organise.
-2. **The Catalogue Database & Image Cache:** The local database storing your tags, information about the design file, and fast-loading thumbnail previews created by the app.
-
-While storing your library directly on your computer’s main internal drive (SSD or Hard Drive) works automatically, using external storage—like an SD card or an external USB drive—is a great choice if internal space is limited.
+Your original embroidery files are never moved, renamed, or modified. The catalogue creates and stores its own database and thumbnail previews in your chosen data folder.
 
 ---
 
-## 1. Choosing the Right External Storage Device
+## Choose an external storage device
 
-Not all external storage devices perform at the same speed. Because **Embroidery Catalogue** reads hundreds or thousands of tiny design files to extract information and render thumbnails, **fast random read speeds are crucial**.
+Because the catalogue reads many small stitch files to extract details and generate thumbnails, fast random-read speed matters.
 
-### Recommended: SD Cards (Application Performance Class)
-
-If your computer has a built-in SD card slot (or a quality USB 3.0 card reader), an SD card is a compact, convenient way to host your library.
-
-* **Look for the "A2" Specification:** Always choose an **Application Performance Class 2 (A2)** SD card.
-* **Why A2 matters:** Standard SD cards are designed for writing continuous video streams (camera use) and are often slow at loading thousands of tiny files. **A2 cards are engineered specifically for rapid reading and writing of small files** (high IOPS—Input/Output Operations Per Second), making app responsiveness much faster.
-
-
-* **Speed Rating:** Look for **V30**, **U3**, or **Class 10** ratings alongside the A2 logo.
-* **Recommended Brands:** SanDisk (e.g., Extreme or Extreme Pro A2), Samsung (e.g., PRO Plus or EVO Plus A2), or Kingston.
-
-> **Visual Check:** Look for a small symbol that says **A2** printed directly on the front of the SD card or packaging. Avoid older "A1" or unrated cards if possible, as thumbing through large libraries will feel noticeably slower.
+- **Recommended: SD cards marked "A2"**: Look for the **A2** symbol on the card or packaging (Application Performance Class 2). A2 cards are designed for rapid access to thousands of small files.
+- **External Solid State Drives (SSDs)**: Fast and reliable over USB 3.0 or USB-C.
+- **USB flash drives (thumb drives)**: Work well if rated for high-speed USB 3.0 transfers.
+- **Spinning hard drives (HDDs)**: Not recommended. Browsing thumbnails will feel noticeably slower.
 
 ---
 
-### Alternative Storage Options
+## Format your drive (exFAT or NTFS)
 
-* **External Solid State Drives (Portable SSDs):**
-* *Performance:* **Excellent.**
-* Connecting a portable SSD via USB 3.0, USB-C, or Thunderbolt provides speed equal to or greater than internal drives. Fast library scanning and quick image thumbnail loading are guaranteed.
+Before storing a large collection on a new drive or SD card, make sure it is formatted as **exFAT** or **NTFS**:
 
+1. In Windows File Explorer, right-click the drive and choose **Format…**.
+2. Select **exFAT** (ideal for moving between Windows and Mac) or **NTFS** (Windows-only).
+3. Click **Start**.
 
-* **USB Flash Drives ("Thumb Drives"):**
-* *Performance:* **Variable / Moderate.**
-* Standard USB flash drives often suffer from slow random read speeds, even if labelled "USB 3.0". If using a flash drive, select a high-performance model explicitly designed for fast data transfers (e.g., SanDisk Extreme PRO USB).
-
-
-* **Traditional External Hard Drives (Spinning HDDs):**
-* *Performance:* **Not Recommended.**
-* Traditional spinning hard drives are significantly slower when reading thousands of individual thumbnail images, which will cause delayed scrolling in the browse view.
-
-
+> **Avoid FAT32:** Many USB sticks and SD cards come pre-formatted as FAT32. FAT32 cannot store any single file larger than 4 GB. As your catalogue grows, a FAT32 drive will cause errors when the database reaches 4 GB.
 
 ---
 
-## 2. Setting Up Your Library on External Storage
+## Move your catalogue to an external drive
 
-### Formatting Your Drive
-
-Ensure your external drive or SD card is formatted with a modern filesystem supported by your operating system:
-
-* **Windows:** NTFS or exFAT (Recommended)
-* **macOS:** APFS or exFAT (Recommended)
-
-*(Note: **exFAT** is ideal if you plan to move your SD card between Windows and Mac computers).*
-
-> **⚠️ Avoid FAT32 Formatting:** Many new SD cards and USB flash drives come pre-formatted as **FAT32**. FAT32 imposes a **strict 4 GB maximum single-file size limit** regardless of how much free space remains on the card. Because the catalogue database (`catalogue.db`) or backup database snapshot is stored as a single file, a FAT32 drive will trigger disk full (`SQLITE_FULL`) errors once the database reaches 4 GB. Always reformat your card or drive as **exFAT** or **NTFS** before storing a large catalogue or backups.
-
-### Managing the Drive Letter or Volume Name
-
-When using external storage, your operating system assigns it a location (e.g., `D:\` on Windows or `/Volumes/MySDCard` on macOS).
-
-* **Keep the Drive Plugged In:** Ensure your SD card or external drive is connected **before** opening **Embroidery Catalogue**.
-* **Maintain Drive Letters (Windows):** If Windows assigns a new drive letter to your SD card after unplugging it, **Embroidery Catalogue** may not locate your library files. You can assign a permanent drive letter to your SD card using Windows Disk Management.
-* **Automatic Recovery Screen:** If a drive letter changes or a drive is disconnected, **Embroidery Catalogue** will display a **Startup Recovery** screen that automatically detects your catalogue on other drives with a one-click **"Re-connect to this location"** button.
+1. Make a backup in [Admin → System Maintenance → Backup](#/admin/system/backup).
+2. Go to [Admin → Settings](#/admin/system/settings).
+3. Under **Catalogue Storage**, click **Browse…** and select the folder on your external drive.
+4. Wait for files to copy, then click **Restart now**.
 
 ---
 
-## 3. Best Practices for Data Safety
+## If something goes wrong
 
-1. **Unplug Safely:** Always use your operating system's "Eject" or "Safely Remove Hardware" option before unplugging your SD card or external drive to prevent database corruption.
-2. **Automatic Corrupt Database Archiving:** If a database file ever becomes damaged or unreadable, the application will detect it on startup, preserve it as `.corrupt-<timestamp>.db`, and help you restore from a backup.
-3. **Regular Backups:** External cards and drives can be lost or damaged. Use the built-in backup tools in **Embroidery Catalogue** ([Backup](#/admin/system/backup)) or copy your database and designs to a second drive periodically.
-4. **Keep Original Files Untouched:** **Embroidery Catalogue** is an offline-first tool that **never moves, modifies, or alters** your original embroidery files. However, keeping an independent backup of your source embroidery purchases is always recommended.
-5. **Startup Optimisations & Upgrades:** When schema updates or new indexes are added (for instance, after an application update), the window opens immediately with a **Preparing Catalogue Database** progress screen. For large libraries on external storage, these one-off optimisations may take a few minutes as indexes are organised; please leave the application open until the main view appears.
+| Problem | What to do |
+|---|---|
+| The app cannot find the catalogue after reconnecting the drive | Plug the drive into your PC, open the app, and click **Re-connect to this location** on the Startup Recovery screen. |
+| The database gives disk full or 4 GB limit errors | Your drive is formatted as FAT32. Back up your catalogue in [Backup](#/admin/system/backup), reformat the drive to exFAT or NTFS, and restore the backup. |
+| Thumbnail scrolling feels slow | Move your catalogue to an internal SSD or an A2-rated SD card. |
+| Drive removed accidentally | Close the app, reconnect the drive, and reopen the app. If a database file was damaged, the app preserves it and prompts you to restore from backup. |
+
+---
+
+## Related guides
+
+- [App Installer](App%20Installer.md)
+- [Settings](SETTINGS.md)
+- [Backup and Restore](BACKUP_RESTORE.md)

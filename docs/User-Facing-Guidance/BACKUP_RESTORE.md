@@ -1,224 +1,69 @@
 # Backup and Restore
 
-The Embroidery Catalogue stores:
+Use [Admin → System Maintenance → Backup](#/admin/system/backup) to protect your catalogue database and design files, or to restore them on a new computer.
 
-- catalogue metadata (design records, tags, projects, settings, preview metadata) in
-  **SQLite** at `data/database/catalogue.db`, and
-- imported embroidery design files in the managed folder
-  **`data/MachineEmbroideryDesigns/`**.
-
-A complete backup covers both locations.
+A complete catalogue backup covers two parts:
+1. **The database**: your tags, search index, and design information.
+2. **The design files**: your actual embroidery stitch files.
 
 ---
 
-## In-app backup
+## Set your backup folders
 
-The easiest way to back up is to use the **Backup** page inside the app:
+Before backing up for the first time:
 
-1. Open the app in your browser.
-2. Click **Backup** in the navigation bar (under Admin).
-3. Set your **Database backup folder** and/or your **Designs backup folder**, then click
-   **Save destinations**.
-4. Click **Backup database now**, **Run incremental backup**, or **Run both backups**.
-5. **Keep the page open while the backup runs** so the app can finish and return the result summary.
-
-> **Important:** The database backup and the designs backup are separate. To make a
-> **complete backup** of your catalogue, make sure you run **both** backups.
-
-### Database backup
-
-- Creates a timestamped backup of `catalogue.db`, for example:
-  `catalogue_2026-04-06_1430.db`
-- The source is the live database file at `data/database/catalogue.db`.
-- The in-app backup uses **SQLite’s backup API**, so the backup can be created safely while
-  the app is running.
-- A new timestamped file is created on every run, so you build up a history of snapshots.
-- **Large database advisory (FAT32 limit):** If your database exceeds **4 GB**, the Backup tab displays an advisory warning reminding you that destination storage (e.g. an external SD card or USB stick) must be formatted as **exFAT** or **NTFS**. A FAT32-formatted destination drive will fail when writing a backup snapshot that reaches 4 GB.
-
-### Designs backup
-
-- Runs an **incremental mirror** from `data/MachineEmbroideryDesigns/` to your chosen
-  destination folder.
-- Files are compared by relative path, size, and modification time:
-  - **New file** → copied to the backup folder.
-  - **Changed file** → the backup copy is overwritten.
-  - **Unchanged file** → skipped (no re-copy).
-  - **File removed from source** → moved into a dated archive folder inside the backup
-    destination, for example `_deleted\2026-04-06\...`, rather than being permanently
-    deleted.  This provides a safety net if a file was removed by mistake.
-- The designs backup is based on the **filesystem**, not just the database.  If you remove
-  a design from the catalogue (which removes only the database record) but the file still
-  exists on disk, it will still be included in the next designs backup.
-
-### In-app restore
-
-The **Backup** page also includes a **Restore** section:
-
-1. **Restore Database** — choose an `EmbroideryCatalogue.db` (or `.db`) backup snapshot. The app
-   closes the live database connection, keeps a **safety copy** of your current database
-   (`<database>.pre-restore-<timestamp>.db`), swaps in the selected backup, and re-opens + verifies
-   it. If verification fails, it **automatically rolls back** to the safety copy.
-   - **Large backup advisory (FAT32 limit):** If the selected `.db` backup file is **4 GB or larger**, the Restore tab displays an advisory banner reminding you that the receiving catalogue data storage location must be formatted with **exFAT** or **NTFS** (not FAT32).
-2. **Sync Designs from Backup** — incrementally copies design files back from the configured
-   Designs backup folder into `MachineEmbroideryDesigns`. Files already present with an identical
-   size + modification time are skipped.
-3. **Restore Both** — runs both of the above, then checks for **unmatched files** (design files on
-   disk that have no record in the restored database) and offers to import them as new catalogue
-   records.
-4. **Find unmatched design files** — scans `MachineEmbroideryDesigns` for design files that have no
-   catalogue record, without running a restore. Use this after a **Sync Designs from Backup** (which
-   copies files but never changes database records) or any time files are added to the design folder
-   outside the app. If any are found, the same reconciliation prompt appears and offers to import
-   them as new catalogue records (preview images and metadata are generated automatically). The same
-   action is also available on **Admin → Batch Operations** (Maintenance tab).
-
-> **Note:** No automated database migrations are run after a restore. If the backup is from an
-> older version of the app, the app shows a mild warning when the restored schema version differs.
-
-### Why unchanged files are skipped
-
-Large embroidery libraries can contain thousands of files.  Re-copying everything every
-time would be slow and would use unnecessary disk space.  The incremental approach only
-copies what has changed, so repeat backups complete quickly.
-
-### Why deleted files are archived, not removed
-
-Deleting from the catalogue only removes the database record — the file remains on disk
-until you delete it manually.  Even if you do delete the file from disk, the backup keeps
-a dated copy under `_deleted\YYYY-MM-DD\` so you have a window in which to recover it if
-the deletion was accidental.
+1. Open [Admin → System Maintenance → Backup](#/admin/system/backup).
+2. Under **Database backup folder**, click **Browse…** and select where database snapshots should be saved (e.g. an external drive or cloud sync folder).
+3. Under **Designs backup folder**, click **Browse…** and select where copies of your design files should be saved.
+4. Click **Save destinations**.
 
 ---
 
-## Startup recovery & unreadable database repair
+## Back up your catalogue
 
-If the application launches and cannot find or open your catalogue database, it automatically opens in **Recovery Mode** rather than crashing:
-
-### 1. Database missing or drive letter changed
-- **Symptom:** The screen displays **"Your catalogue database could not be found"**.
-- **Cause:** Usually caused by a removable drive changing its Windows drive letter (e.g. from `D:` to `E:`) or moving the catalogue folder.
-- **Quick Reconnect:** If the catalogue folder is detected on another connected drive, a one-click **"Re-connect to this location"** button appears.
-- **Choose folder:** Click **"Choose another catalogue folder…"** to point the app to your existing data root.
-
-### 2. Database corrupted or damaged
-- **Symptom:** The screen displays **"Your catalogue database is unreadable"** with the underlying error details.
-- **Safe data guarantee:** Your original embroidery files in `MachineEmbroideryDesigns/` are never touched or modified.
-- **Restore from backup:** Click **"Restore from a database backup…"** to choose a known-good `.db` backup file. The app validates the backup, safely archives the unreadable database aside, and installs the backup file.
-- **Safe archival (`.corrupt-<timestamp>.db`):** Whether you restore from a backup or choose to **"Start fresh with a clean catalogue"**, the damaged database is **never deleted or overwritten**. It is safely renamed to `EmbroideryCatalogue.corrupt-<timestamp>.db` (along with any `.db-wal` and `.db-shm` journal files) so your original data remains preserved on disk.
-- **Instant validation:** Verification checks run instantly (< 1 ms), ensuring fast recovery even for very large (7+ GB) catalogue databases.
+1. Open [Admin → System Maintenance → Backup](#/admin/system/backup).
+2. Choose what to back up:
+   - **Backup Everything Now** (recommended): creates a fresh database snapshot and copies any new or changed design files.
+   - **Backup Database Now**: creates only a timestamped copy of your database.
+   - **Run incremental backup**: mirrors your design files to your backup folder, skipping unchanged files.
+3. Keep the app open until the progress finishes.
 
 ---
 
-## Where is the database?
+## Restore from a backup
 
-The database lives inside the app's `data/` directory alongside the managed design files:
+1. Open [Admin → System Maintenance → Backup](#/admin/system/backup) and click the **Restore** tab at the top.
+2. Under **Restore Database**, click **Choose file…** and select a `.db` database backup file.
+3. Click **Restore Database Now** (or **Restore Everything Now** to restore both database and designs).
+4. The app checks the backup file, replaces the database, and verifies the catalogue.
 
-| Environment | Database file |
+A safety copy of your current database is automatically created before any restore. If the backup file is corrupted, your previous database is restored automatically.
+
+---
+
+## Find unmatched files after a restore
+
+If you copied design files into your library outside the app, or after restoring design files:
+
+1. Go to [Admin → System Maintenance → Library Discrepancies](#/admin/system/orphans).
+2. Click **Scan for unmatched files**.
+3. If unmatched files are found, click **Import** to add them to your catalogue database.
+
+---
+
+## If something goes wrong
+
+| Problem | What to do |
 |---|---|
-| Developer / local | `data\database\catalogue.db` inside the project root |
-| Portable (USB / SD card) | `data\database\catalogue.db` inside `EmbroideryApp\app\` |
-
----
-
-## Where are the design files?
-
-Embroidery files imported through the catalogue are copied into:
-
-```
-data\MachineEmbroideryDesigns\
-```
-
-Both the database and the design files live inside `data\`, so **copying the `data\`
-folder is a complete backup of the entire catalogue**.
-
----
-
-## Manual backup — File Explorer
-
-1. Close the application (press **Ctrl+C** in the server window, or run `stop.bat`).
-2. Open **File Explorer** and navigate to the project (or `EmbroideryApp\app\`) folder.
-3. Copy the entire **`data\`** folder to a safe location such as a USB drive, network
-   share, or cloud folder.
-
-> **Name the backup with today's date** so you can tell copies apart, for example:
-> `data_backup_2025-06-15\`
-
-### Automated / scripted backup
-
-```bat
-REM Run this from the project root (adjust paths as needed)
-set TODAY=%DATE:~-4%-%DATE:~3,2%-%DATE:~0,2%
-xcopy /E /I /Y "data" "D:\Backups\Embroidery\data_%TODAY%"
-```
-
----
-
-## Restore the catalogue
-
-1. **Stop the application** if it is running.
-2. Choose your restore source:
-   - Full catalogue restore: copy a backup `data\` folder back into the project (or
-     `EmbroideryApp\app\`) folder, replacing the existing one.
-   - Database-only restore: replace `data\database\catalogue.db` from a known-good
-     `.db` backup snapshot.
-   - Designs-only restore: copy design files/folders from the designs backup destination
-     (including `_deleted\YYYY-MM-DD\` if needed) back into `data\MachineEmbroideryDesigns\`.
-3. For a full data-folder restore, this command is the usual approach:
-
-   ```bat
-   xcopy /E /I /Y "D:\Backups\Embroidery\data_2025-06-15" "data"
-   ```
-
-4. Start the application again with `start.bat`.
-
-> **Database migrations run automatically on startup.**  If the backup was made from an
-> older version of the app, `alembic upgrade head` will update the schema safely without
-> losing data.
-
----
-
-## Copy your catalogue to the USB stick
-
-`prepare_portable_target.bat` (and `EmbroideryPortableDeploy.exe`) **do not copy the `data\`
-folder automatically**. If you want your current catalogue data on the deployment target,
-copy it manually after running the deployment:
-
-```bat
-xcopy /E /I /Y "data" "F:\EmbroideryApp\app\data"
-```
-
-If you skip this step, the portable app will create a **new empty** `catalogue.db` on
-first launch (inside `data\database\`).
-
----
-
-## Optional: copy the portable catalogue back to your developer machine
-
-```bat
-xcopy /E /I /Y "F:\EmbroideryApp\app\data" "data"
-```
-
-Use this only when the portable copy contains data you want to import into your developer
-environment.  For normal recovery, restore from your **developer backup** instead.
-
----
-
-## Tips
-
-- Use the **in-app Backup page** for quick, guided backups without closing the app.
-- For the **database**, the in-app backup uses SQLite’s built-in backup support for a
-  consistent snapshot while the app is open.
-- For the **designs folder**, use incremental backups to avoid re-copying large libraries.
-- If you rely on the in-app backup page, **keep the page open until the backup completes**.
-- **Back up before upgrading** to a new version of the application.
-- **Back up before manually replacing the `data\` folder** on the USB stick or SD card.
-- If you need to inspect or repair the database, you can open it with
-  [DB Browser for SQLite](https://sqlitebrowser.org/) (free, Windows/Mac/Linux).
+| A warning says a backup file is 4 GB or larger | The backup drive is formatted as FAT32. Reformat the destination drive to exFAT or NTFS, which support large files. |
+| Restore fails verification | The app automatically rolls back to your previous database. Try selecting an earlier backup snapshot. |
+| You want to cancel a running backup | Click **Cancel Backup**. Database snapshots already saved remain valid. |
+| Designs are restored but not showing in Browse | Go to [System → Library Discrepancies](#/admin/system/orphans) and click **Scan for unmatched files**, then **Import**. |
 
 ---
 
 ## Related guides
 
-- [GETTING_STARTED.md](GETTING_STARTED.md) — run the app locally
-- [USB_DEPLOYMENT.md](USB_DEPLOYMENT.md) — copy the app to removable media
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — fix common problems
+- [Data Storage Guide](DATA_STORAGE_GUIDE.md)
+- [Settings](SETTINGS.md)
+- [Import Workflow](IMPORT_WORKFLOW.md)
