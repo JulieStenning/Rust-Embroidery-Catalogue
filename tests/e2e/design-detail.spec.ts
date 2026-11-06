@@ -709,7 +709,8 @@ test.describe.serial("Design Detail & Design Print Views", () => {
   test("toggles preview display mode between Fit and Actual Size (1:1)", async ({
     page,
   }) => {
-    await openDesignDetail(page, richDesignId);
+    const designId = richDesignId || (await findDesignId(page, RICH_DESIGN));
+    await openDesignDetail(page, designId);
 
     const fitBtn = page.getByTestId("preview-mode-fit");
     const actualBtn = page.getByTestId("preview-mode-actual");
