@@ -83,6 +83,8 @@ export function parseSystemTab(route) {
 
 export const HELP_SECTION_IDS = new Set([
   "search",
+  "design-detail",
+  "designers-sources",
   "importing",
   "word-matches",
   "storage",

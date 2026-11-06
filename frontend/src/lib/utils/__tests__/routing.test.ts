@@ -151,9 +151,11 @@ describe("shouldShowBackButton", () => {
 });
 
 describe("HELP_SECTION_IDS", () => {
-  it("contains all 10 valid help section identifiers", () => {
+  it("contains all 12 valid help section identifiers", () => {
     expect(Array.from(HELP_SECTION_IDS)).toEqual([
       "search",
+      "design-detail",
+      "designers-sources",
       "importing",
       "word-matches",
       "storage",
