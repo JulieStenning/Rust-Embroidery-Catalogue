@@ -117,6 +117,7 @@ pub struct GeneralSearchToken {
     pub phrase: bool,
     pub exclude: bool,
     pub is_extension: bool,
+    pub extension: Option<String>,
 }
 
 /// Sentinel for the hoop browse filter: selecting it matches designs whose
@@ -522,6 +523,13 @@ pub(crate) fn parse_general_search_groups(query: &str) -> Vec<Vec<GeneralSearchT
     groups
 }
 
+pub(crate) const UNAMBIGUOUS_EXTENSIONS: &[&str] = &[
+    "pes", "jef", "dst", "exp", "vip", "vp3", "hus", "xxx", "pec", "sew", "shv", "csd", "eof",
+    "ecf", "emb", "jan", "vp4", "edo", "pcs",
+];
+
+pub(crate) const AMBIGUOUS_EXTENSIONS: &[&str] = &["art", "be"];
+
 pub(crate) fn parse_general_token(raw: &str) -> GeneralSearchToken {
     let trimmed = raw.trim();
     let mut exclude = false;
@@ -535,17 +543,50 @@ pub(crate) fn parse_general_token(raw: &str) -> GeneralSearchToken {
     let phrase = text.starts_with('"') && text.ends_with('"') || text.contains('"');
     let normalized = text.trim_matches('"').trim();
 
-    let is_extension =
-        normalized.starts_with("*") && normalized.len() > 1 && !normalized.contains(' ');
-    let final_text = if is_extension {
-        normalized
+    let mut is_extension = false;
+    let mut extension: Option<String> = None;
+    let mut final_text = normalized.to_string();
+
+    // 1. Explicit extension wildcards or prefixes: *.pes, *.hus, .pes, .jef
+    if (normalized.starts_with('*') || normalized.starts_with('.'))
+        && normalized.len() > 1
+        && !normalized.contains(' ')
+    {
+        let candidate = normalized
             .trim_start_matches('*')
             .trim_start_matches('.')
             .trim()
-            .to_string()
-    } else {
-        normalized.to_string()
-    };
+            .to_ascii_lowercase();
+        if !candidate.is_empty()
+            && candidate.len() <= 5
+            && candidate.chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            is_extension = true;
+            extension = Some(candidate.clone());
+            final_text = candidate;
+        }
+    } else if !normalized.contains('.') && !normalized.contains('*') && !normalized.contains(' ') {
+        // 2. Bare unambiguous format names (Option B: pes, jef, dst, etc.)
+        let lower = normalized.to_ascii_lowercase();
+        if UNAMBIGUOUS_EXTENSIONS.contains(&lower.as_str()) {
+            is_extension = true;
+            extension = Some(lower);
+        }
+        // Ambiguous formats ("art", "be") remain general search keywords.
+    } else if normalized.contains('.') {
+        // 3. Compound filenames with extension: e.g. Cake 3.jef, flower*.pes, daisy.eof
+        if let Some(dot_pos) = normalized.rfind('.') {
+            let ext_candidate = normalized[dot_pos + 1..].trim().to_ascii_lowercase();
+            if !ext_candidate.is_empty()
+                && ext_candidate.len() <= 5
+                && ext_candidate.chars().all(|c| c.is_ascii_alphanumeric())
+                && (UNAMBIGUOUS_EXTENSIONS.contains(&ext_candidate.as_str())
+                    || AMBIGUOUS_EXTENSIONS.contains(&ext_candidate.as_str()))
+            {
+                extension = Some(ext_candidate);
+            }
+        }
+    }
 
     GeneralSearchToken {
         text: final_text,
@@ -553,6 +594,7 @@ pub(crate) fn parse_general_token(raw: &str) -> GeneralSearchToken {
         phrase,
         exclude,
         is_extension,
+        extension,
     }
 }
 
@@ -618,8 +660,26 @@ pub(crate) fn push_general_search_clause(
 
             let mut added = false;
             if search_file {
-                query_builder.push("LOWER(d.filename) LIKE ");
-                query_builder.push_bind(pattern.clone());
+                if let Some(ref ext) = token.extension {
+                    if token.is_extension {
+                        // Pure extension filter (e.g. *.pes, .pes, or bare pes)
+                        query_builder.push("(LOWER(d.filename) LIKE ");
+                        query_builder.push_bind(pattern.clone());
+                        query_builder.push(" OR EXISTS (SELECT 1 FROM design_files df WHERE df.design_id = d.id AND df.extension = ");
+                        query_builder.push_bind(ext.clone());
+                        query_builder.push("))");
+                    } else {
+                        // Compound filename with extension (e.g. Cake 3.jef, flower*.pes)
+                        query_builder.push("(LOWER(d.filename) LIKE ");
+                        query_builder.push_bind(pattern.clone());
+                        query_builder.push(" OR EXISTS (SELECT 1 FROM design_files df WHERE df.design_id = d.id AND LOWER(df.filename) LIKE ");
+                        query_builder.push_bind(pattern.clone());
+                        query_builder.push("))");
+                    }
+                } else {
+                    query_builder.push("LOWER(d.filename) LIKE ");
+                    query_builder.push_bind(pattern.clone());
+                }
                 added = true;
             }
 

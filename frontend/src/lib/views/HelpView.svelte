@@ -70,7 +70,13 @@
           <code
             class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
             >rose*.jef</code
-          > for wildcards.
+          >
+          or
+          <code
+            class="bg-[var(--surface-card-subtle)] border border-[var(--border-default)] px-1 rounded font-mono text-xs"
+            >*.pes</code
+          >
+          for wildcards and file extensions (including sibling formats).
         </li>
         <li>
           <strong>Verification status:</strong> Filter designs by verification state (<em>All</em>,

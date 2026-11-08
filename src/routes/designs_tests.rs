@@ -206,6 +206,7 @@ mod helper_tests {
         assert!(!token.exclude);
         assert!(!token.phrase);
         assert!(!token.is_extension);
+        assert_eq!(token.extension, None);
     }
 
     #[test]
@@ -213,6 +214,7 @@ mod helper_tests {
         let token = parse_general_token("-applique");
         assert_eq!(token.text, "applique");
         assert!(token.exclude);
+        assert_eq!(token.extension, None);
     }
 
     #[test]
@@ -220,6 +222,7 @@ mod helper_tests {
         let token = parse_general_token("*.hus");
         assert_eq!(token.text, "hus");
         assert!(token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("hus"));
         assert!(!token.exclude);
     }
 
@@ -228,6 +231,7 @@ mod helper_tests {
         let token = parse_general_token("*.pes");
         assert_eq!(token.text, "pes");
         assert!(token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("pes"));
     }
 
     #[test]
@@ -235,6 +239,7 @@ mod helper_tests {
         let token = parse_general_token("\"cross stitch\"");
         assert_eq!(token.text, "cross stitch");
         assert!(token.phrase);
+        assert_eq!(token.extension, None);
     }
 
     #[test]
@@ -243,6 +248,50 @@ mod helper_tests {
         assert_eq!(token.text, "jef");
         assert!(token.exclude);
         assert!(token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("jef"));
+    }
+
+    #[test]
+    fn parse_general_token_bare_unambiguous_format() {
+        let token = parse_general_token("jef");
+        assert_eq!(token.text, "jef");
+        assert!(token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("jef"));
+        assert_eq!(token.pattern, "%jef%");
+    }
+
+    #[test]
+    fn parse_general_token_bare_ambiguous_format_remains_keyword() {
+        let token = parse_general_token("art");
+        assert_eq!(token.text, "art");
+        assert!(!token.is_extension);
+        assert_eq!(token.extension, None);
+        assert_eq!(token.pattern, "%art%");
+    }
+
+    #[test]
+    fn parse_general_token_dotted_ambiguous_format() {
+        let token = parse_general_token(".art");
+        assert_eq!(token.text, "art");
+        assert!(token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("art"));
+    }
+
+    #[test]
+    fn parse_general_token_dotted_format() {
+        let token = parse_general_token(".pes");
+        assert_eq!(token.text, "pes");
+        assert!(token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("pes"));
+    }
+
+    #[test]
+    fn parse_general_token_compound_filename_with_extension() {
+        let token = parse_general_token("Cake 3.jef");
+        assert_eq!(token.text, "Cake 3.jef");
+        assert!(!token.is_extension);
+        assert_eq!(token.extension.as_deref(), Some("jef"));
+        assert_eq!(token.pattern, "%cake 3.jef%");
     }
 
     #[test]
@@ -2367,6 +2416,7 @@ fn push_general_search_clause_adds_file_and_tag_and_folder_search() {
         phrase: false,
         exclude: false,
         is_extension: false,
+        extension: None,
     }];
     let groups = vec![tokens];
 
@@ -2392,6 +2442,7 @@ fn push_general_search_clause_with_exclusion_adds_not() {
         phrase: false,
         exclude: true,
         is_extension: false,
+        extension: None,
     }];
     let groups = vec![tokens];
 
@@ -2413,6 +2464,7 @@ fn push_general_search_clause_parenthesises_each_token() {
             phrase: false,
             exclude: false,
             is_extension: false,
+            extension: None,
         },
         GeneralSearchToken {
             text: "3".to_string(),
@@ -2420,6 +2472,7 @@ fn push_general_search_clause_parenthesises_each_token() {
             phrase: false,
             exclude: false,
             is_extension: false,
+            extension: None,
         },
     ];
     let groups = vec![tokens];
@@ -2446,6 +2499,7 @@ fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
         phrase: false,
         exclude: false,
         is_extension: false,
+        extension: None,
     }];
     let group_b = vec![GeneralSearchToken {
         text: "hus".to_string(),
@@ -2453,6 +2507,7 @@ fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
         phrase: false,
         exclude: false,
         is_extension: true,
+        extension: Some("hus".to_string()),
     }];
     let groups = vec![group_a, group_b];
 
@@ -2462,6 +2517,10 @@ fn push_general_search_clause_with_or_groups_uses_or_between_groups() {
     assert!(sql.as_str().contains(" OR "));
     // Each group adds a LIKE placeholder for the file search.
     assert!(sql.as_str().matches("LOWER(d.filename) LIKE").count() >= 2);
+    // Group B is an extension token, so it includes the EXISTS subquery on design_files.
+    assert!(sql.as_str().contains(
+        "EXISTS (SELECT 1 FROM design_files df WHERE df.design_id = d.id AND df.extension ="
+    ));
 }
 
 #[test]
@@ -2621,6 +2680,7 @@ fn push_general_search_clause_and_between_tokens_within_group() {
             phrase: false,
             exclude: false,
             is_extension: false,
+            extension: None,
         },
         GeneralSearchToken {
             text: "satin".to_string(),
@@ -2628,6 +2688,7 @@ fn push_general_search_clause_and_between_tokens_within_group() {
             phrase: false,
             exclude: false,
             is_extension: false,
+            extension: None,
         },
     ];
     let groups = vec![tokens];
@@ -2637,6 +2698,113 @@ fn push_general_search_clause_and_between_tokens_within_group() {
     let sql = builder.sql();
     assert!(sql.as_str().contains(" AND "));
     assert!(sql.as_str().matches("LOWER(d.filename) LIKE").count() >= 2);
+}
+
+#[test]
+fn push_general_search_clause_compound_filename_queries_design_files_by_pattern() {
+    let mut builder = QueryBuilder::<Sqlite>::new("SELECT * FROM designs");
+    let tokens = vec![GeneralSearchToken {
+        text: "Cake 3.jef".to_string(),
+        pattern: "%cake 3.jef%".to_string(),
+        phrase: false,
+        exclude: false,
+        is_extension: false,
+        extension: Some("jef".to_string()),
+    }];
+    let groups = vec![tokens];
+
+    push_general_search_clause(&mut builder, true, false, false, &groups);
+
+    let sql = builder.sql();
+    assert!(sql.as_str().contains("EXISTS (SELECT 1 FROM design_files df WHERE df.design_id = d.id AND LOWER(df.filename) LIKE"));
+}
+
+#[tokio::test]
+async fn search_finds_designs_by_sibling_extension_and_compound_filename() {
+    let pool = test_pool().await;
+
+    // Design primary is Cake.pes, but has sibling Cake.jef and master Cake.eof
+    let design_id: i64 = sqlx::query_scalar(
+        "INSERT INTO designs (filename, filepath) VALUES ('Cake.pes', '/Designs/Cake.pes') RETURNING id",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("insert design");
+
+    sqlx::query(
+        "INSERT INTO design_files (design_id, filepath, filename, extension, file_type, is_primary) \
+         VALUES (?, '/Designs/Cake.pes', 'Cake.pes', 'pes', 'stitch', 1)",
+    )
+    .bind(design_id)
+    .execute(&pool)
+    .await
+    .expect("insert pes design_file");
+
+    sqlx::query(
+        "INSERT INTO design_files (design_id, filepath, filename, extension, file_type, is_primary) \
+         VALUES (?, '/Designs/Cake.jef', 'Cake.jef', 'jef', 'stitch', 0)",
+    )
+    .bind(design_id)
+    .execute(&pool)
+    .await
+    .expect("insert jef design_file");
+
+    sqlx::query(
+        "INSERT INTO design_files (design_id, filepath, filename, extension, file_type, is_primary) \
+         VALUES (?, '/Designs/Cake.eof', 'Cake.eof', 'eof', 'master', 0)",
+    )
+    .bind(design_id)
+    .execute(&pool)
+    .await
+    .expect("insert eof design_file");
+
+    let run_search = |q: &str| {
+        get_designs_page_with_pool(
+            &pool,
+            Some(GetDesignsPayload {
+                q: Some(q.to_string()),
+                search_file_name: Some(true),
+                search_tags: Some(false),
+                search_folder_name: Some(false),
+                page: Some(1),
+                page_size: Some(10),
+                ..Default::default()
+            }),
+        )
+    };
+
+    // 1. Wildcard extension matches sibling JEF
+    let res_wildcard = run_search("*.jef").await.expect("search *.jef");
+    assert_eq!(res_wildcard.total, 1);
+    assert_eq!(res_wildcard.items[0].filename, "Cake.pes");
+
+    // 2. Dotted extension matches sibling JEF
+    let res_dot = run_search(".jef").await.expect("search .jef");
+    assert_eq!(res_dot.total, 1);
+    assert_eq!(res_dot.items[0].filename, "Cake.pes");
+
+    // 3. Bare unambiguous extension matches sibling JEF
+    let res_bare = run_search("jef").await.expect("search jef");
+    assert_eq!(res_bare.total, 1);
+    assert_eq!(res_bare.items[0].filename, "Cake.pes");
+
+    // 4. Compound filename matches sibling JEF
+    let res_compound = run_search("Cake.jef").await.expect("search Cake.jef");
+    assert_eq!(res_compound.total, 1);
+    assert_eq!(res_compound.items[0].filename, "Cake.pes");
+
+    // 5. Master file extension matches sibling EOF
+    let res_master = run_search("*.eof").await.expect("search *.eof");
+    assert_eq!(res_master.total, 1);
+    assert_eq!(res_master.items[0].filename, "Cake.pes");
+
+    // 6. Non-existent format returns 0
+    let res_dst = run_search("*.dst").await.expect("search *.dst");
+    assert_eq!(res_dst.total, 0);
+
+    // 7. Ambiguous format ("art") typed bare does not match as an extension
+    let res_art = run_search("art").await.expect("search art");
+    assert_eq!(res_art.total, 0);
 }
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ recommend_hoop_for_design Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬

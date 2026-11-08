@@ -12,7 +12,8 @@ Type into the search box at the top of [Browse](#/browse):
 - **Exact phrase**: `"cross stitch"` (matches the exact phrase).
 - **Exclusion**: `-applique` (excludes designs containing that word).
 - **OR search**: `rose OR tulip` (matches designs containing either term).
-- **Wildcard**: `*.pes` or `flower*.jef` (matches specific file patterns).
+- **File extensions & wildcards**: `*.pes`, `.jef`, or bare `pes` (matches designs possessing that file format, including sibling formats when another format is displayed as primary). For ambiguous formats like Bernina `.art` or Embrilliance `.be`, prefix with a dot or wildcard (e.g. `.art`, `*.art`) to distinguish them from everyday words.
+- **Specific file names**: `Cake 3.jef` or `flower*.pes` (finds designs matching the full file name across all paired format files).
 - **Search scopes**: Tick or untick **File name**, **Folder name**, or **Tags** beneath the search box to restrict where the query looks.
 
 To cancel a running search on a large catalogue, press <kbd>Escape</kbd> or click the red **Cancel** button in the search bar. Click the **✕** button to clear the search text.
