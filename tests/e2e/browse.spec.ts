@@ -250,7 +250,7 @@ test.describe("initial load", () => {
     await expect(page.locator("p.browse-general-help")).toContainText(
       "Supports Google-like syntax",
     );
-    await expect(unverifiedOnly(page)).not.toBeChecked();
+    await expect(verificationSelect(page)).toHaveValue("all");
 
     // Sort/direction defaults and the disabled reset action.
     await expect(sortSelect(page)).toHaveValue("name");
@@ -297,9 +297,13 @@ test.describe("additional filters drawer", () => {
       ).toBeVisible();
     }
     await expect(
-      drawer(page).locator("p", { hasText: "Designs with no preview image" }),
-    ).toContainText("the file may be corrupt or unreadable.");
-    await expect(needsAttention(page)).not.toBeChecked();
+      drawer(page).locator("p", {
+        hasText: "Filter by designs that cannot be drawn",
+      }),
+    ).toContainText(
+      "Filter by designs that cannot be drawn, exceed hoop boundaries",
+    );
+    await expect(needsAttention(page)).toHaveValue("off");
 
     await summary.click();
     await expect(drawer(page).locator("span:text-is('Designer')")).toBeHidden();
@@ -375,7 +379,7 @@ test.describe("needs attention", () => {
     await openBrowse(page);
     await openFilters(page);
 
-    await needsAttention(page).check();
+    await needsAttention(page).selectOption("all");
     await search(page, "Cake 3");
     await expect(selectionHeader(page)).toContainText("0 designs found", {
       timeout: 20_000,
@@ -385,7 +389,7 @@ test.describe("needs attention", () => {
     ).toBeVisible();
 
     await resetButton(page).click();
-    await expect(needsAttention(page)).not.toBeChecked();
+    await expect(needsAttention(page)).toHaveValue("off");
     await expect(page.locator("#browse-q")).toHaveValue("");
   });
 });
@@ -518,7 +522,9 @@ test.describe("reference filters", () => {
     const chipsContainer = page.locator('[data-testid="active-filter-chips"]');
     await expect(chipsContainer).toBeVisible();
     await expect(chipsContainer).toContainText("Designer: Thistlebury Stitch");
-    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveText("1");
+    await expect(
+      page.locator('[data-testid="additional-filters-count-badge"]'),
+    ).toHaveText("1");
 
     // Close accordion - chip should remain visible
     await page.locator("summary.browse-additional-summary").click();
@@ -526,25 +532,33 @@ test.describe("reference filters", () => {
     await expect(chipsContainer).toContainText("Designer: Thistlebury Stitch");
 
     // Click chip dismiss button
-    const removeBtn = page.locator('[data-testid="active-filter-remove-designer-Thistlebury Stitch"]');
+    const removeBtn = page.locator(
+      '[data-testid="active-filter-remove-designer-Thistlebury Stitch"]',
+    );
     await removeBtn.click();
 
     // Chip disappears, badge disappears
     await expect(chipsContainer).toHaveCount(0);
-    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid="additional-filters-count-badge"]'),
+    ).toHaveCount(0);
 
     // Reopen and select multiple filters to verify "Clear all"
     await openFilters(page);
     await optionCheckbox(page, "Designer", "Thistlebury Stitch").click();
     await optionCheckbox(page, "Source", "Threadwise Guild").click();
-    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveText("2");
+    await expect(
+      page.locator('[data-testid="additional-filters-count-badge"]'),
+    ).toHaveText("2");
     await expect(chipsContainer).toContainText("Designer: Thistlebury Stitch");
     await expect(chipsContainer).toContainText("Source: Threadwise Guild");
 
     // Click "Clear all" in active chips row
     await page.locator('[data-testid="active-filters-clear-all"]').click();
     await expect(chipsContainer).toHaveCount(0);
-    await expect(page.locator('[data-testid="additional-filters-count-badge"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid="additional-filters-count-badge"]'),
+    ).toHaveCount(0);
   });
 
   test("filters by hoop, minimum rating and stitched status", async ({
@@ -588,15 +602,15 @@ test.describe("reference filters", () => {
     // Filter by max height only: height <= 50mm
     await maxHeightInput(page).fill("50");
     await page.locator("form.browse-search-shell").dispatchEvent("submit");
-    await expectTitlesContain(page, ["Cake Applique 2.jef"]);
+    await expectTitlesContain(page, ["Bean X.jef"]);
     await expect(browseCard(page, "ZZ-broken.pes")).toHaveCount(0);
 
-    // Filter by min width only: width >= 100mm
+    // Filter by min width only: width >= 80mm
     await maxHeightInput(page).fill("");
-    await minWidthInput(page).fill("100");
+    await minWidthInput(page).fill("80");
     await page.locator("form.browse-search-shell").dispatchEvent("submit");
     await expectTitlesContain(page, ["Cake 3.jef"]);
-    await expect(browseCard(page, "Cake Applique 2.jef")).toHaveCount(0);
+    await expect(browseCard(page, "Bean X.jef")).toHaveCount(0);
 
     // Reset filters restores all cards and clears inputs
     await resetButton(page).click();
@@ -647,8 +661,8 @@ test.describe("verification filtering", () => {
     await openFilters(page);
     await imageTagStatusSelect(page).selectOption("verified");
     await stitchingTagStatusSelect(page).selectOption("unverified");
-    // Cake 3 - to be verified.jef has image = 1, stitching = 0
-    await expectTitles(page, ["Cake 3 - to be verified.jef"]);
+    // Cake 3 Cross Stitch Fred.jef has image = 1, stitching = 0
+    await expectTitles(page, ["Cake 3 Cross Stitch Fred.jef"]);
 
     // Reset filters
     await resetButton(page).click();
@@ -814,7 +828,7 @@ test.describe("card presentation", () => {
     );
     await expect(verifiedBadge).toBeVisible();
     await expect(verifiedBadge).toContainText("✓");
-    await expect(verifiedBadge).toHaveClass(/bg-green-500/);
+    await expect(verifiedBadge).toHaveClass(/badge-status-verified/);
 
     // Image verified, stitching unverified -> amber half indicator.
     await search(page, "Cross Stitch Fred");
@@ -824,7 +838,7 @@ test.describe("card presentation", () => {
     ).locator('[aria-label="Image Verified, Stitching Unverified"]');
     await expect(imageVerifiedBadge).toBeVisible();
     await expect(imageVerifiedBadge).toContainText("◐");
-    await expect(imageVerifiedBadge).toHaveClass(/bg-amber-400/);
+    await expect(imageVerifiedBadge).toHaveClass(/badge-status-warn/);
 
     // Neither group verified -> red unverified indicator with white circle.
     await search(page, "to be verified");
@@ -832,7 +846,7 @@ test.describe("card presentation", () => {
     const unverifiedBadge = unverified.locator('[aria-label="Unverified"]');
     await expect(unverifiedBadge).toBeVisible();
     await expect(unverifiedBadge).toContainText("○");
-    await expect(unverifiedBadge).toHaveClass(/bg-red-500/);
+    await expect(unverifiedBadge).toHaveClass(/badge-status-error/);
     await expect(unverified.locator('[aria-label="Verified"]')).toHaveCount(0);
     await expect(
       unverified.locator('[aria-label="Image Verified, Stitching Unverified"]'),
@@ -957,13 +971,13 @@ test.describe("additional filter controls", () => {
     await hoopSelect(page).selectOption("Hoop B");
     await ratingSelect(page).selectOption("4");
     await stitchedSelect(page).selectOption("yes");
-    await unverifiedOnly(page).check();
-    await needsAttention(page).check();
+    await verificationSelect(page).selectOption("unverified");
+    await needsAttention(page).selectOption("all");
 
     await resetButton(page).click();
     await expect(page.locator("#browse-q")).toHaveValue("");
-    await expect(unverifiedOnly(page)).not.toBeChecked();
-    await expect(needsAttention(page)).not.toBeChecked();
+    await expect(verificationSelect(page)).toHaveValue("all");
+    await expect(needsAttention(page)).toHaveValue("off");
     await expect(hoopSelect(page)).toHaveValue("");
     await expect(ratingSelect(page)).toHaveValue("");
     await expect(stitchedSelect(page)).toHaveValue("");
@@ -1092,8 +1106,12 @@ test.describe("tag chooser semantics", () => {
     await page.getByRole("button", { name: "Choose tags" }).click();
 
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText("Image tags")).toBeVisible();
-    await expect(dialog.getByText("Stitching tags")).toBeVisible();
+    await expect(
+      dialog.locator(".tag-chooser-section-title-image"),
+    ).toBeVisible();
+    await expect(
+      dialog.locator(".tag-chooser-section-title-stitching"),
+    ).toBeVisible();
 
     await expect(
       dialog.getByRole("button", { name: "Close tag chooser" }),
@@ -1328,7 +1346,7 @@ test.describe("needs attention combinations", () => {
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
 
     // Both flagged designs are unverified, so the AND intersection is unchanged.
-    await unverifiedOnly(page).check();
+    await verificationSelect(page).selectOption("unverified");
     await expectTitles(page, ["ZZ-broken-2.pes", "ZZ-broken.pes"]);
   });
 

@@ -49,9 +49,15 @@ test.describe("Master outline folder stitch file pairing", () => {
     fs.writeFileSync(path.join(testFolder, "Daisy.eof"), "dummy-eof-content");
 
     // Copy valid Bean.pes as Daisy.pes
-    const fixturePath = path.resolve("tests/Test Designs/Bean.pes");
-    if (fs.existsSync(fixturePath)) {
-      fs.copyFileSync(fixturePath, path.join(testFolder, "Daisy.pes"));
+    const fixturePes = path.resolve("tests/Test Designs/Bean.pes");
+    if (fs.existsSync(fixturePes)) {
+      fs.copyFileSync(fixturePes, path.join(testFolder, "Daisy.pes"));
+    }
+
+    // Copy valid Bean.jef as Daisy.jef (sibling format)
+    const fixtureJef = path.resolve("tests/Test Designs/Bean.jef");
+    if (fs.existsSync(fixtureJef)) {
+      fs.copyFileSync(fixtureJef, path.join(testFolder, "Daisy.jef"));
     }
 
     masterDesignId = withRetry(() => {
@@ -118,6 +124,31 @@ test.describe("Master outline folder stitch file pairing", () => {
     const previewImg = page.locator("img[alt*='Daisy']");
     await expect(previewImg).toBeVisible({ timeout: 10_000 });
 
+    // Verify format badges for all paired files are visible
+    await expect(
+      page.locator('[data-testid="open-format-eof-btn"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="open-format-pes-btn"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="open-format-jef-btn"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="open-format-eof-btn"]'),
+    ).toContainText("Master (EOF)");
+    await expect(
+      page.locator('[data-testid="open-format-pes-btn"]'),
+    ).toContainText("PES");
+    await expect(
+      page.locator('[data-testid="open-format-jef-btn"]'),
+    ).toContainText("JEF");
+
+    // Verify single Show in Explorer button is rendered
+    await expect(
+      page.locator('[data-testid="show-in-explorer-btn"]'),
+    ).toBeVisible();
+
     // Verify database record has been upgraded in place
     const row = withRetry(() => {
       const db = getTestDb();
@@ -143,5 +174,31 @@ test.describe("Master outline folder stitch file pairing", () => {
     expect(row.master_filepath).toBe("PairTestFolder/Daisy.eof");
     expect(row.is_master_only).toBe(0);
     expect(row.notes).toBe("Folder pair test note");
+
+    // Verify design_files table entries
+    const files = withRetry(() => {
+      const db = getTestDb();
+      try {
+        return db
+          .prepare(
+            "SELECT file_type, extension, filename, is_primary FROM design_files WHERE design_id = ? ORDER BY id ASC",
+          )
+          .all(masterDesignId) as Array<{
+          file_type: string;
+          extension: string;
+          filename: string;
+          is_primary: number;
+        }>;
+      } finally {
+        db.close();
+      }
+    });
+
+    expect(files.length).toBe(3);
+    expect(files.map((f) => f.extension)).toEqual(
+      expect.arrayContaining(["eof", "pes", "jef"]),
+    );
+    const primaryStitch = files.find((f) => f.is_primary === 1);
+    expect(primaryStitch?.extension).toBe("pes");
   });
 });

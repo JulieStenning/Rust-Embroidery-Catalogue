@@ -901,3 +901,33 @@ async fn run_migrations_creates_preview_error_index() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_creates_design_files_table_and_indexes() {
+    let tmp = unique_tmp_dir("design-files-migration");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("design_files.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='design_files'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query design_files table");
+    assert_eq!(count.0, 1, "design_files table should exist");
+
+    let idx_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_design_files_design_id'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query ix_design_files_design_id");
+    assert_eq!(idx_count.0, 1, "ix_design_files_design_id should exist");
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}

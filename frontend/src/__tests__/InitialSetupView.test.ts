@@ -309,6 +309,34 @@ describe("InitialSetupView.svelte", () => {
     });
   });
 
+  it("allows selecting preferred stitch format and saves preferred_stitch_format: jef", async () => {
+    const onInitialSetupCompleted = vi.fn();
+    render(InitialSetupView, { props: { onInitialSetupCompleted } });
+    await tick();
+
+    for (let i = 0; i < 3; i += 1) {
+      await fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+      await tick();
+    }
+
+    const select = screen.getByTestId("initial-setup-preferred-stitch-format-select");
+    expect(select).toHaveValue("pes");
+    await fireEvent.change(select, { target: { value: "jef" } });
+    expect(select).toHaveValue("jef");
+
+    await fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    expect(saveSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferred_stitch_format: "jef",
+      })
+    );
+    expect(completeInitialSetupMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onInitialSetupCompleted).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("back navigates through the steps", async () => {
     render(InitialSetupView, {
       props: { onInitialSetupCompleted: vi.fn() },

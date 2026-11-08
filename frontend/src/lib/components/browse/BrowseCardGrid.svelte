@@ -223,14 +223,6 @@
                       </span>
                     {/if}
                   </div>
-                  {#if item.masterFilepath && !item.isMasterOnly}
-                    <span
-                      class="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--surface-card-subtle)] text-[var(--text-brand)] border border-[var(--border-default)] mt-1"
-                      title={`Master file: ${item.masterFilepath}`}
-                    >
-                      🎨 Master: .{item.masterFilepath.split(".").pop()?.toLowerCase()}
-                    </span>
-                  {/if}
                   <p
                     class="browse-card-hoop text-xs font-semibold mt-1 text-[var(--text-secondary)]"
                   >

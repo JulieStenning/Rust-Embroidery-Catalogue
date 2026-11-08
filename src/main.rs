@@ -574,6 +574,7 @@ fn main() {
             routes::designs::delete_design,
             routes::designs::bulk_delete_designs,
             routes::designs::open_design_in_editor,
+            routes::designs::open_design_file_in_editor,
             routes::designs::open_design_master_in_editor,
             routes::designs::scan_folder_for_stitch_files,
             routes::designs::open_design_in_explorer,

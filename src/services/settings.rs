@@ -18,6 +18,7 @@ pub const KEY_AI_WORKERS: &str = "ai.workers";
 pub const KEY_AI_FREE_TIER: &str = "ai.free_tier";
 pub const KEY_IMPORT_LAST_BROWSE_FOLDER: &str = "import.last_browse_folder";
 pub const KEY_IMPORT_ENABLED_MASTER_FORMATS: &str = "import.enabled_master_formats";
+pub const KEY_IMPORT_PREFERRED_STITCH_FORMAT: &str = "import.preferred_stitch_format";
 pub const KEY_IMPORT_ZIP_ALPHABETS: &str = "import.zip_alphabets";
 pub const KEY_PREVIEW_3D_PROFILE: &str = "image.preview_3d_profile";
 pub const KEY_DB_IDLE_CHECK_INTERVAL_SECS: &str = "db.idle_check_interval_secs";
@@ -35,6 +36,7 @@ pub struct SettingsViewModel {
     pub ai_free_tier: bool,
     pub import_last_browse_folder: String,
     pub enabled_master_formats: String,
+    pub preferred_stitch_format: String,
     pub zip_alphabets: bool,
     pub can_configure_data_root: bool,
     pub data_root: String,
@@ -63,6 +65,8 @@ pub struct SaveSettingsRequest {
     pub ai_free_tier: bool,
     #[serde(default)]
     pub enabled_master_formats: String,
+    #[serde(default)]
+    pub preferred_stitch_format: String,
     #[serde(default)]
     pub zip_alphabets: bool,
     pub data_root: String,
@@ -108,6 +112,8 @@ pub(crate) async fn get_settings_view_model_inner(
         get_setting_with_default(&mut conn, KEY_IMPORT_LAST_BROWSE_FOLDER).await?;
     let enabled_master_formats =
         get_setting_with_default(&mut conn, KEY_IMPORT_ENABLED_MASTER_FORMATS).await?;
+    let preferred_stitch_format =
+        get_setting_with_default(&mut conn, KEY_IMPORT_PREFERRED_STITCH_FORMAT).await?;
     let zip_alphabets =
         is_truthy(&get_setting_with_default(&mut conn, KEY_IMPORT_ZIP_ALPHABETS).await?);
     let db_idle_check_interval_secs =
@@ -144,6 +150,7 @@ pub(crate) async fn get_settings_view_model_inner(
         ai_free_tier,
         import_last_browse_folder,
         enabled_master_formats,
+        preferred_stitch_format,
         zip_alphabets,
         can_configure_data_root,
         data_root,
@@ -183,6 +190,8 @@ pub(crate) async fn save_settings_view_model_inner(
     let ai_batch_size = normalize_optional_batch_size(&request.ai_batch_size);
     let ai_delay = normalize_optional_delay(&request.ai_delay);
     let enabled_master_formats = normalize_master_formats(&request.enabled_master_formats);
+    let preferred_stitch_format =
+        normalize_preferred_stitch_format(&request.preferred_stitch_format);
 
     let pool = app_state.db_pool().map_err(AppError::database)?;
     let mut conn = pool
@@ -216,6 +225,12 @@ pub(crate) async fn save_settings_view_model_inner(
         &mut conn,
         KEY_IMPORT_ENABLED_MASTER_FORMATS,
         &enabled_master_formats,
+    )
+    .await?;
+    upsert_setting(
+        &mut conn,
+        KEY_IMPORT_PREFERRED_STITCH_FORMAT,
+        &preferred_stitch_format,
     )
     .await?;
     upsert_setting(
@@ -380,6 +395,7 @@ pub(crate) async fn upsert_setting(
 }
 
 pub const DEFAULT_ENABLED_MASTER_FORMATS: &str = "";
+pub const DEFAULT_PREFERRED_STITCH_FORMAT: &str = "pes";
 
 pub(crate) fn default_for_key(key: &str) -> &'static str {
     match key {
@@ -391,6 +407,7 @@ pub(crate) fn default_for_key(key: &str) -> &'static str {
         KEY_AI_WORKERS => "",
         KEY_AI_FREE_TIER => "false",
         KEY_IMPORT_ENABLED_MASTER_FORMATS => DEFAULT_ENABLED_MASTER_FORMATS,
+        KEY_IMPORT_PREFERRED_STITCH_FORMAT => DEFAULT_PREFERRED_STITCH_FORMAT,
         KEY_IMPORT_ZIP_ALPHABETS => "true",
         KEY_PREVIEW_3D_PROFILE => "balanced",
         // Matches crate::services::db_health::DEFAULT_IDLE_CHECK_INTERVAL_SECS.
@@ -410,10 +427,20 @@ pub(crate) fn description_for_key(key: &str) -> &'static str {
         KEY_AI_FREE_TIER => "Whether your Gemini API key is on the free tier. Free-tier keys have strict per-minute and per-day limits; the app stops hard on 429 and tells you how long to wait.",
         KEY_IMPORT_LAST_BROWSE_FOLDER => "Most recently used folder for the bulk import picker.",
         KEY_IMPORT_ENABLED_MASTER_FORMATS => "Comma-separated list of enabled digitising/master file extensions to scan and pair.",
+        KEY_IMPORT_PREFERRED_STITCH_FORMAT => "Preferred machine stitch file format (e.g. pes, jef, vp3) for primary preview rendering and editor launch priority.",
         KEY_IMPORT_ZIP_ALPHABETS => "Whether to compress full alphabet/font sets into a ZIP archive and import representative samples only.",
         KEY_PREVIEW_3D_PROFILE => "3D preview style profile for native rendering: soft, balanced, or high-contrast.",
         KEY_DB_IDLE_CHECK_INTERVAL_SECS => "Interval in seconds between automatic database fragmentation checks (default 1800).",
         _ => "",
+    }
+}
+
+pub(crate) fn normalize_preferred_stitch_format(raw: &str) -> String {
+    let cleaned = raw.trim().trim_start_matches('.').to_ascii_lowercase();
+    if cleaned.is_empty() {
+        DEFAULT_PREFERRED_STITCH_FORMAT.to_string()
+    } else {
+        cleaned
     }
 }
 

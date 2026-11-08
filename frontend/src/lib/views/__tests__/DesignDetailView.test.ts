@@ -23,6 +23,7 @@ const adapterMocks = vi.hoisted(() => ({
   removeDesignFromProject: vi.fn(),
   bulkDeleteDesigns: vi.fn(),
   openDesignInEditor: vi.fn(),
+  openDesignFileInEditor: vi.fn(),
   openDesignMasterInEditor: vi.fn(),
   openDesignInExplorer: vi.fn(),
   renderDesign3dPreview: vi.fn(),
@@ -1806,6 +1807,86 @@ describe("DesignDetailView", () => {
           screen.queryByTestId("check-folder-stitch-files-banner-btn")
         ).not.toBeInTheDocument();
       });
+    });
+
+    it("renders prioritized format badges and opens specific file in editor", async () => {
+      adapterMocks.openDesignFileInEditor.mockResolvedValue({
+        source: "rust",
+        persisted: true,
+        result: { success: true },
+        message: "Opened rose-border-01.jef in editor.",
+      });
+
+      adapterMocks.getDesignDetail.mockResolvedValue(
+        detailResponse({
+          id: 42,
+          filename: "rose-border-01.pes",
+          filepath: "C:/designs/rose-border-01.pes",
+          masterFilepath: "C:/designs/rose-border-01.eof",
+          isMasterOnly: false,
+          files: [
+            {
+              id: 101,
+              designId: 42,
+              fileType: "master",
+              extension: "eof",
+              filename: "rose-border-01.eof",
+              filepath: "C:/designs/rose-border-01.eof",
+              isPrimary: false,
+              stitchCount: null,
+            },
+            {
+              id: 102,
+              designId: 42,
+              fileType: "stitch",
+              extension: "pes",
+              filename: "rose-border-01.pes",
+              filepath: "C:/designs/rose-border-01.pes",
+              isPrimary: true,
+              stitchCount: 10000,
+            },
+            {
+              id: 103,
+              designId: 42,
+              fileType: "stitch",
+              extension: "jef",
+              filename: "rose-border-01.jef",
+              filepath: "C:/designs/rose-border-01.jef",
+              isPrimary: false,
+              stitchCount: 9950,
+            },
+          ],
+        })
+      );
+      renderDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("open-format-eof-btn")).toBeInTheDocument();
+        expect(screen.getByTestId("open-format-pes-btn")).toBeInTheDocument();
+        expect(screen.getByTestId("open-format-jef-btn")).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId("open-format-eof-btn")).toHaveTextContent("Master (EOF)");
+      expect(screen.getByTestId("open-format-pes-btn")).toHaveTextContent("PES");
+      expect(screen.getByTestId("open-format-jef-btn")).toHaveTextContent("JEF");
+      expect(screen.getByTestId("open-format-jef-btn")).toHaveAttribute(
+        "title",
+        expect.stringContaining("9,950 stitches")
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("open-format-jef-btn"));
+
+      await waitFor(() => {
+        expect(adapterMocks.openDesignFileInEditor).toHaveBeenCalledWith(103);
+        expect(toastMock.addToast).toHaveBeenCalledWith(
+          "Opened rose-border-01.jef in editor.",
+          "success"
+        );
+      });
+
+      // Verify single Show in Explorer button is present
+      expect(screen.getByTestId("show-in-explorer-btn")).toBeInTheDocument();
     });
 
     it("calls scanFolderForStitchFiles and refreshes design when files are paired", async () => {

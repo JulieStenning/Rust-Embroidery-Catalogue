@@ -509,6 +509,34 @@ async fn test_pool() -> SqlitePool {
 		.await
 		.expect("failed to create project_designs table");
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS design_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            design_id INTEGER NOT NULL REFERENCES designs(id) ON DELETE CASCADE,
+            filepath TEXT NOT NULL UNIQUE,
+            filename TEXT NOT NULL,
+            extension TEXT NOT NULL,
+            file_type TEXT NOT NULL,
+            is_primary INTEGER NOT NULL DEFAULT 0,
+            stitch_count INTEGER,
+            width_mm REAL,
+            height_mm REAL,
+            color_count INTEGER,
+            color_change_count INTEGER,
+            file_size_bytes INTEGER,
+            file_hash_blake3 TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS ix_design_files_design_id ON design_files(design_id);
+        CREATE INDEX IF NOT EXISTS ix_design_files_filepath ON design_files(filepath);
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .expect("failed to create design_files table");
+
     sqlx::query("INSERT INTO designers (name) VALUES ('Acme Designer')")
         .execute(&pool)
         .await
@@ -3598,6 +3626,154 @@ async fn scan_folder_for_stitch_files_reports_zero_when_no_stitch_files_found() 
     assert_eq!(summary.paired_count, 0);
     assert!(!summary.current_design_paired);
     assert!(summary.message.contains("No matching stitch files found"));
+
+    if let Some(val) = prior_db_url {
+        std::env::set_var("DATABASE_URL", val);
+    } else {
+        std::env::remove_var("DATABASE_URL");
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[serial]
+async fn scan_folder_for_stitch_files_pairs_multiple_stitch_formats_without_loss() {
+    let tmp = std::env::temp_dir().join(format!(
+        "pair-multi-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let base_dir = tmp.join("MachineEmbroideryDesigns");
+    let flowers_dir = base_dir.join("Flowers");
+    std::fs::create_dir_all(&flowers_dir).expect("create test dirs");
+
+    let candidates = [
+        "dev_data/MachineEmbroideryDesigns/Test Designs/Bean.pes",
+        "tests/Test Assets/Bean.pes",
+    ];
+    let fixture = candidates
+        .iter()
+        .map(std::path::Path::new)
+        .find(|p| p.exists());
+
+    // Write Daisy.pes
+    let pes_target = flowers_dir.join("Daisy.pes");
+    if let Some(f) = fixture {
+        std::fs::copy(f, &pes_target).expect("copy Bean.pes fixture");
+    } else {
+        std::fs::write(&pes_target, b"test-pes-content").expect("write dummy pes");
+    }
+
+    // Write Daisy.jef
+    let jef_target = flowers_dir.join("Daisy.jef");
+    std::fs::write(&jef_target, b"test-jef-content").expect("write dummy jef");
+
+    // Write Daisy.eof
+    let eof_target = flowers_dir.join("Daisy.eof");
+    std::fs::write(&eof_target, b"test-eof-content").expect("write dummy eof");
+
+    let db_path = tmp.join("test.db");
+    let prior_db_url = std::env::var("DATABASE_URL").ok();
+    std::env::set_var("DATABASE_URL", format!("sqlite://{}", db_path.display()));
+
+    let pool = test_pool().await;
+
+    // Create settings table and set preferred format to jef
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, description TEXT)",
+    )
+    .execute(&pool)
+    .await
+    .expect("create settings table");
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.preferred_stitch_format', 'jef')",
+    )
+    .execute(&pool)
+    .await
+    .expect("set preferred format");
+
+    let insert_res = sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only, notes) \
+         VALUES ('Daisy.eof', 'Flowers/Daisy.eof', 'Flowers/Daisy.eof', 1, 'Multi format notes')",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert master design");
+    let design_id = insert_res.last_insert_rowid();
+
+    let result = scan_folder_for_stitch_files_with_pool(&pool, design_id).await;
+    assert!(
+        result.is_ok(),
+        "Folder scan should succeed: {:?}",
+        result.err()
+    );
+
+    let summary = result.unwrap();
+    assert_eq!(summary.paired_count, 1);
+    assert!(summary.current_design_paired);
+
+    // Verify designs row upgraded to preferred format (Daisy.jef)
+    let (filename, filepath, master_filepath, is_master_only) =
+        sqlx::query_as::<_, (String, String, Option<String>, bool)>(
+            "SELECT filename, filepath, master_filepath, is_master_only FROM designs WHERE id = ?",
+        )
+        .bind(design_id)
+        .fetch_one(&pool)
+        .await
+        .expect("query design");
+
+    assert_eq!(filename, "Daisy.jef");
+    assert_eq!(filepath, "Flowers/Daisy.jef");
+    assert_eq!(master_filepath.as_deref(), Some("Flowers/Daisy.eof"));
+    assert!(!is_master_only);
+
+    // Verify design_files has 3 entries: eof, jef, pes
+    let files: Vec<(String, String, String, bool)> = sqlx::query_as(
+        "SELECT filepath, extension, file_type, is_primary FROM design_files WHERE design_id = ? ORDER BY extension",
+    )
+    .bind(design_id)
+    .fetch_all(&pool)
+    .await
+    .expect("query design_files");
+
+    assert_eq!(files.len(), 3, "All 3 formats must be in design_files");
+    assert_eq!(files[0].1, "eof");
+    assert_eq!(files[0].2, "master");
+    assert_eq!(files[1].1, "jef");
+    assert_eq!(files[1].2, "stitch");
+    assert!(files[1].3, "preferred jef should be primary");
+    assert_eq!(files[2].1, "pes");
+    assert_eq!(files[2].2, "stitch");
+    assert!(!files[2].3, "pes should be secondary");
+
+    // Verify get_design_detail returns files in prioritized order: master -> preferred (jef) -> others (pes)
+    let detail = get_design_detail_with_pool(&pool, design_id)
+        .await
+        .expect("get detail")
+        .expect("detail exists");
+
+    assert_eq!(detail.files.len(), 3);
+    assert_eq!(detail.files[0].extension, "eof");
+    assert_eq!(detail.files[1].extension, "jef");
+    assert_eq!(detail.files[2].extension, "pes");
+
+    // Verify open_design_file_in_editor_with_pool succeeds with launch suppressed
+    let prior_disable = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+    std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", "true");
+    let launch_res = open_design_file_in_editor_with_pool(&pool, detail.files[0].id).await;
+    if let Some(val) = prior_disable {
+        std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
+    } else {
+        std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
+    }
+    assert!(
+        launch_res.is_ok(),
+        "Launch should succeed in suppressed test mode"
+    );
+    assert!(launch_res.unwrap().suppressed);
 
     if let Some(val) = prior_db_url {
         std::env::set_var("DATABASE_URL", val);

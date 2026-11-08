@@ -44,17 +44,6 @@ You need free space on the drive at least equal to the current database size.
 
 ---
 
-## Move your catalogue to another drive
-
-1. Make a backup in [Admin → System Maintenance → Backup](#/admin/system/backup).
-2. Under **Catalogue Storage**, click **Browse…** and choose the new folder.
-3. Wait while your catalogue is copied. Click **Cancel** at any point to stop and leave everything where it was.
-4. Click **Restart now**.
-
-Your original embroidery files outside the catalogue are never touched.
-
----
-
 ## Include files from your digitising software
 
 By default, only machine stitch files (such as `.pes` or `.dst`) are imported. You can also import the working files from your digitising software.
@@ -64,6 +53,17 @@ By default, only machine stitch files (such as `.pes` or `.dst`) are imported. Y
 3. Click **Save settings**.
 
 This applies to your next import. Where a working file sits next to a stitch file with the same name, they appear together as one design.
+
+---
+
+## Choose your preferred stitch format
+
+If you own embroidery packs containing multiple machine stitch formats (for instance both `.pes` for a Brother machine and `.jef` for a Janome machine) in the same folder, you can choose which format is prioritised for preview rendering and editor launch.
+
+1. Under **Preferred Stitch Format**, select your primary machine stitch format from the dropdown list (e.g. **PES**, **JEF**, **VP3**, **DST**, **EXP**, or **HUS**).
+2. Click **Save settings**.
+
+When importing designs with multiple sibling formats in the same folder, the catalogue pairs them into a single design card, prioritising your selected format for previews and detail calculations while preserving all formats for individual launch.
 
 ---
 
@@ -78,6 +78,17 @@ Embroidery alphabets can contain hundreds of letter files.
 2. Click **Save settings**.
 
 This applies to your next import.
+
+---
+
+## Move your catalogue to another drive
+
+1. Make a backup in [Admin → System Maintenance → Backup](#/admin/system/backup).
+2. Under **Catalogue Storage**, click **Browse…** and choose the new folder.
+3. Wait while your catalogue is copied. Click **Cancel** at any point to stop and leave everything where it was.
+4. Click **Restart now**.
+
+Your original embroidery files outside the catalogue are never touched.
 
 ---
 

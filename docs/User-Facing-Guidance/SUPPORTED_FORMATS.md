@@ -23,7 +23,7 @@ Standard machine stitch formats are parsed directly by the built-in reader engin
 
 You can enable detection for working design files created in popular digitising software under [Admin → Settings](#/admin/system/settings):
 
-- **Paired Designs**: When a master file sits in the same folder as a matching machine stitch file (e.g. `flower.eof` and `flower.pes`), they appear together as a single design card with a **Master** badge.
+- **Paired Designs**: When a master file sits in the same folder as matching machine stitch files (e.g. `flower.eof`, `flower.pes`, and `flower.jef`), they appear together as a single design card displaying the primary stitch file representation and hoop size. The digitising master and sibling stitch formats can be individually inspected and opened from the design detail page.
 - **Master-Only Designs**: If only the master file exists, it is catalogued with a placeholder and marked for export to a machine stitch format.
 
 | Format | Software | Notes |

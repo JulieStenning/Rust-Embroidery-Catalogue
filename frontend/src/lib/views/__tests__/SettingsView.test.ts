@@ -66,6 +66,7 @@ const defaultModel: SettingsViewModel = {
   ai_free_tier: false,
   import_last_browse_folder: "",
   enabled_master_formats: "",
+  preferred_stitch_format: "pes",
   zip_alphabets: false,
   can_configure_data_root: true,
   data_root: "D:\\EmbroideryData",
@@ -292,6 +293,7 @@ describe("SettingsView.svelte", () => {
         ai_workers: "",
         ai_free_tier: false,
         enabled_master_formats: "",
+        preferred_stitch_format: "pes",
         zip_alphabets: false,
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
@@ -334,6 +336,7 @@ describe("SettingsView.svelte", () => {
         ai_workers: "",
         ai_free_tier: false,
         enabled_master_formats: "",
+        preferred_stitch_format: "pes",
         zip_alphabets: false,
         data_root: "D:\\EmbroideryData",
         db_idle_check_interval_secs: "1800",
@@ -363,6 +366,34 @@ describe("SettingsView.svelte", () => {
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalledWith(
         expect.objectContaining({ ai_free_tier: true })
+      );
+    });
+  });
+
+  it("saves preferred_stitch_format when changed to jef", async () => {
+    saveSettingsMock.mockResolvedValue({
+      source: "rust",
+      saved: true,
+      message: "All good.",
+      persisted: true,
+    });
+
+    renderView();
+    await waitForSettingsLoaded();
+
+    const select = screen.getByTestId("settings-preferred-stitch-format-select");
+    expect(select).toHaveValue("pes");
+
+    await fireEvent.change(select, { target: { value: "jef" } });
+    await tick();
+
+    const form = document.querySelector("form");
+    if (!form) throw new Error("Settings form not found");
+    await fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ preferred_stitch_format: "jef" })
       );
     });
   });

@@ -14,6 +14,7 @@
     addDesignToProject,
     removeDesignFromProject,
     openDesignInEditor,
+    openDesignFileInEditor,
     openDesignMasterInEditor,
     openDesignInExplorer,
     renderDesign3dPreview,
@@ -368,6 +369,20 @@
 
     detailSaving = true;
     const result = await openDesignInEditor(detailItem.id);
+    detailSaving = false;
+    addToast(result.message, !result.persisted || !result?.result?.success ? "error" : "success");
+  }
+
+  async function launchFileInEditor(file) {
+    if (!file?.id || detailSaving) {
+      if (file?.fileType === "master") {
+        return launchDetailMasterInEditor();
+      }
+      return launchDetailInEditor();
+    }
+
+    detailSaving = true;
+    const result = await openDesignFileInEditor(file.id);
     detailSaving = false;
     addToast(result.message, !result.persisted || !result?.result?.success ? "error" : "success");
   }
@@ -777,44 +792,73 @@
 
         <!-- Action buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
-          {#if detailItem.masterFilepath && !detailItem.isMasterOnly}
-            <button
-              class="menu-button-ghost"
-              onclick={launchDetailMasterInEditor}
-              disabled={detailSaving}
-            >
-              <span aria-hidden="true" class="text-[10px]">🎨</span> Open Master File
-            </button>
-            <button
-              class="menu-button-ghost"
-              onclick={launchDetailInEditor}
-              disabled={detailSaving}
-            >
-              <span aria-hidden="true" class="text-[10px]">&#9998;</span> Open Stitch File
-            </button>
+          {#if detailItem.files && detailItem.files.length > 0}
+            {#each detailItem.files as file}
+              <button
+                type="button"
+                class="menu-button-ghost text-xs px-2.5 py-1.5 flex items-center gap-1.5"
+                onclick={() => launchFileInEditor(file)}
+                disabled={detailSaving}
+                title="{file.filename}{file.stitchCount != null
+                  ? ` • ${file.stitchCount.toLocaleString()} stitches`
+                  : ''} — Click to open in editor"
+                data-testid="open-format-{file.extension}-btn"
+              >
+                <span aria-hidden="true" class="text-[10px]"
+                  >{file.fileType === "master" ? "🎨" : "🧵"}</span
+                >
+                <span>
+                  {file.fileType === "master"
+                    ? `Master (${file.extension.toUpperCase()})`
+                    : file.extension.toUpperCase()}
+                </span>
+              </button>
+            {/each}
           {:else}
-            <button
-              class="menu-button-ghost"
-              onclick={launchDetailInEditor}
-              disabled={detailSaving}
-            >
-              <span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor
-            </button>
+            {#if detailItem.masterFilepath && !detailItem.isMasterOnly}
+              <button
+                class="menu-button-ghost"
+                onclick={launchDetailMasterInEditor}
+                disabled={detailSaving}
+                data-testid="open-master-file-btn"
+              >
+                <span aria-hidden="true" class="text-[10px]">🎨</span> Open Master File
+              </button>
+              <button
+                class="menu-button-ghost"
+                onclick={launchDetailInEditor}
+                disabled={detailSaving}
+                data-testid="open-stitch-file-btn"
+              >
+                <span aria-hidden="true" class="text-[10px]">&#9998;</span> Open Stitch File
+              </button>
+            {:else}
+              <button
+                class="menu-button-ghost"
+                onclick={launchDetailInEditor}
+                disabled={detailSaving}
+                data-testid="open-in-editor-btn"
+              >
+                <span aria-hidden="true" class="text-[10px]">&#9998;</span> Open in Editor
+              </button>
+            {/if}
           {/if}
-          <button class="menu-button-ghost" onclick={launchDetailInExplorer} disabled={detailSaving}
+          <button
+            class="menu-button-ghost"
+            onclick={launchDetailInExplorer}
+            disabled={detailSaving}
+            data-testid="show-in-explorer-btn"
             ><span aria-hidden="true" class="text-[10px]">&#128193;</span> Show in Explorer</button
           >
-          {#if detailItem.isMasterOnly}
-            <button
-              class="menu-button-primary text-xs px-2.5 py-1.5"
-              data-testid="check-folder-stitch-files-action-btn"
-              onclick={checkFolderForStitchFiles}
-              disabled={detailSaving || detailScanningFolder}
-            >
-              <span aria-hidden="true" class="text-[10px]">🧵</span>
-              {detailScanningFolder ? "Scanning folder…" : "Check Folder for Stitch Files"}
-            </button>
-          {/if}
+          <button
+            class="menu-button-primary text-xs px-2.5 py-1.5"
+            data-testid="check-folder-stitch-files-action-btn"
+            onclick={checkFolderForStitchFiles}
+            disabled={detailSaving || detailScanningFolder}
+          >
+            <span aria-hidden="true" class="text-[10px]">🧵</span>
+            {detailScanningFolder ? "Scanning folder…" : "Check Folder for Stitch Files"}
+          </button>
           {#if !detailItem.isMasterOnly}
             <button
               class="menu-button-primary text-xs px-2.5 py-1.5"

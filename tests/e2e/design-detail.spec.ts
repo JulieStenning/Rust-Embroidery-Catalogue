@@ -139,7 +139,11 @@ test.describe.serial("Design Detail & Design Print Views", () => {
 
     // Left column: Action buttons
     await expect(
-      leftColumn(page).getByRole("button", { name: /Open in Editor/i }),
+      leftColumn(page)
+        .locator(
+          '[data-testid^="open-format-"], [data-testid="open-in-editor-btn"]',
+        )
+        .first(),
     ).toBeVisible();
     await expect(
       leftColumn(page).getByRole("button", { name: /Show in Explorer/i }),
@@ -577,9 +581,11 @@ test.describe.serial("Design Detail & Design Print Views", () => {
   }) => {
     await openDesignDetail(page, richDesignId);
 
-    const openEditorBtn = leftColumn(page).getByRole("button", {
-      name: /Open in Editor/i,
-    });
+    const openEditorBtn = leftColumn(page)
+      .locator(
+        '[data-testid^="open-format-"], [data-testid="open-in-editor-btn"]',
+      )
+      .first();
     await openEditorBtn.click();
     await expect(
       page

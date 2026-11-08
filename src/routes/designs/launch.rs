@@ -358,6 +358,73 @@ pub async fn open_design_master_in_editor(
     open_design_master_in_editor_with_pool(&state.db_pool()?, design_id).await
 }
 
+pub(crate) async fn open_design_file_in_editor_with_pool(
+    pool: &SqlitePool,
+    file_id: i64,
+) -> Result<LaunchDesignResult, String> {
+    let row = sqlx::query_as::<_, (i64, String)>(
+        "SELECT design_id, filepath FROM design_files WHERE id = ? LIMIT 1",
+    )
+    .bind(file_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let (design_id, filepath) = match row {
+        Some(r) => r,
+        None => {
+            return Err(format!(
+                "Design file with id={} not found in database.",
+                file_id
+            ))
+        }
+    };
+
+    let full_path = resolve_design_full_path(&filepath);
+    let attempted = full_path.to_string_lossy().to_string();
+
+    if external_launches_disabled() {
+        return Ok(LaunchDesignResult {
+            design_id,
+            attempted_path: attempted,
+            opened_path: None,
+            suppressed: true,
+            success: false,
+            message: "External launches are disabled in this runtime context.".to_string(),
+        });
+    }
+
+    if !full_path.is_file() {
+        return Err(format!(
+            "Design file not found on disk: {}",
+            full_path.display()
+        ));
+    }
+
+    match open_with_default_app(&full_path) {
+        Ok(_) => Ok(LaunchDesignResult {
+            design_id,
+            attempted_path: attempted.clone(),
+            opened_path: Some(attempted),
+            suppressed: false,
+            success: true,
+            message: "Launched design file in external editor.".to_string(),
+        }),
+        Err(err) => Err(format!(
+            "Could not launch file in external editor: {err}. Path: {}",
+            full_path.display()
+        )),
+    }
+}
+
+#[tauri::command]
+pub async fn open_design_file_in_editor(
+    state: State<'_, AppState>,
+    file_id: i64,
+) -> Result<LaunchDesignResult, String> {
+    open_design_file_in_editor_with_pool(&state.db_pool()?, file_id).await
+}
+
 #[tauri::command]
 pub async fn open_design_in_explorer(
     state: State<'_, AppState>,

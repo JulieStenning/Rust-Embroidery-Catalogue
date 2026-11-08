@@ -54,6 +54,8 @@
   let formatsLoaded = $state(false);
   /** Whether to compress alphabet and font packages during import (defaults to true) */
   let zipAlphabets = $state(true);
+  /** Preferred machine stitch format (defaults to "pes") */
+  let preferredStitchFormat = $state("pes");
 
   /** Whether the visible flow includes a leading Data Location step. */
   const hasDataFirstFlow = $derived(needsDataStep && dataStepFirst);
@@ -173,6 +175,9 @@
       enabledMasterFormats = settingsRes.model.enabled_master_formats || "";
       if (typeof settingsRes.model.zip_alphabets === "boolean") {
         zipAlphabets = settingsRes.model.zip_alphabets;
+      }
+      if (settingsRes.model.preferred_stitch_format) {
+        preferredStitchFormat = settingsRes.model.preferred_stitch_format;
       }
     }
     formatsLoaded = true;
@@ -298,6 +303,7 @@
             ai_workers: base.ai_workers || "",
             ai_free_tier: Boolean(base.ai_free_tier),
             enabled_master_formats: enabledMasterFormats,
+            preferred_stitch_format: preferredStitchFormat,
             zip_alphabets: zipAlphabets,
             data_root: base.data_root || "",
             db_idle_check_interval_secs: base.db_idle_check_interval_secs || "1800",
@@ -417,6 +423,32 @@
     {:else if step === formatStepIndex}
       <div class="space-y-5" data-testid="initial-setup-formats-view">
         <MasterFormatsSelector bind:value={enabledMasterFormats} />
+        <div class="pt-4 border-t border-[var(--border-default)] space-y-2">
+          <label
+            for="initial-setup-preferred-stitch-format"
+            class="block text-sm font-semibold text-[var(--text-primary)]"
+          >
+            Preferred Machine Stitch Format
+          </label>
+          <p class="text-xs text-[var(--text-muted)]">
+            When multiple stitch formats exist in a folder, your preferred format is prioritised for
+            preview rendering and editor launch.
+          </p>
+          <select
+            id="initial-setup-preferred-stitch-format"
+            bind:value={preferredStitchFormat}
+            disabled={finishing}
+            class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-72"
+            data-testid="initial-setup-preferred-stitch-format-select"
+          >
+            <option value="pes">PES (Brother, Baby Lock, Bernina)</option>
+            <option value="jef">JEF (Janome, Elna, Kenmore)</option>
+            <option value="vp3">VP3 (Husqvarna Viking, Pfaff)</option>
+            <option value="dst">DST (Tajima / Commercial)</option>
+            <option value="exp">EXP (Melco, Bernina)</option>
+            <option value="hus">HUS (Husqvarna)</option>
+          </select>
+        </div>
         <div class="pt-4 border-t border-[var(--border-default)]">
           <AlphabetCompressionSetting
             bind:checked={zipAlphabets}

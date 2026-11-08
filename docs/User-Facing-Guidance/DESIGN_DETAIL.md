@@ -34,8 +34,12 @@ Saving tags automatically marks the design as human-verified, protecting it from
 
 ## Open design or show in Explorer
 
-- Click **Open in Editor** to launch the stitch file with your computer's default embroidery software.
-- Click **Show in Explorer** to reveal the design file in Windows File Explorer.
+- **Open in Editor**: Click **Open in Editor** to launch the stitch file with your computer's default embroidery software.
+- **Multiple formats & badges**: When a design folder contains multiple machine stitch formats (such as `.pes` and `.jef`) alongside digitising master files (such as `.eof`), clickable badges are shown for each format:
+  - Hover over any badge to see its individual stitch count.
+  - Click any format badge to launch that specific file directly in your default software.
+  - Badges are ordered with your master format first (e.g. `Master (EOF)`), followed by stitch formats prioritised according to your preferred stitch format setting in [Admin → Settings](#/admin/system/settings).
+- **Show in Explorer**: Click **Show in Explorer** to reveal the design file and its sibling formats in Windows File Explorer.
 
 ---
 

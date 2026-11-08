@@ -31,7 +31,7 @@
    * Subset of SaveSettingsRequest that is both editable in the form and
    * actually persisted by `saveSettings` (deliberately excludes `data_root`,
    * which is only ever changed via the catalogue migration -> restart flow).
-   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; enabled_master_formats: string; zip_alphabets: boolean; db_idle_check_interval_secs: string; }} EditableSettingsValues
+   * @typedef {{ google_api_key: string; ai_batch_size: string; ai_delay: string; ai_gemini_model: string; ai_commit_every: string; ai_workers: string; ai_free_tier: boolean; enabled_master_formats: string; preferred_stitch_format: string; zip_alphabets: boolean; db_idle_check_interval_secs: string; }} EditableSettingsValues
    */
 
   const MASTER_FORMAT_PRESETS = [
@@ -110,6 +110,7 @@
   let settingsAiFreeTier = $state(false);
   let settingsEnabledMasterFormats = $state("");
   let settingsCustomMasterFormats = $state("");
+  let settingsPreferredStitchFormat = $state("pes");
   let settingsZipAlphabets = $state(false);
   /** @type {string[]} */
   let settingsGeminiModels = $state([]);
@@ -234,6 +235,7 @@
       ai_workers: settingsNumericToString(settingsAiWorkers),
       ai_free_tier: settingsAiFreeTier,
       enabled_master_formats: normalizeMasterFormats(settingsEnabledMasterFormats),
+      preferred_stitch_format: settingsPreferredStitchFormat,
       zip_alphabets: settingsZipAlphabets,
       db_idle_check_interval_secs: settingsNumericToString(settingsDbIdleCheckIntervalSecs),
     };
@@ -262,6 +264,7 @@
       cur.ai_workers !== base.ai_workers ||
       cur.ai_free_tier !== base.ai_free_tier ||
       cur.enabled_master_formats !== base.enabled_master_formats ||
+      cur.preferred_stitch_format !== base.preferred_stitch_format ||
       cur.zip_alphabets !== base.zip_alphabets ||
       cur.db_idle_check_interval_secs !== base.db_idle_check_interval_secs
     );
@@ -289,6 +292,7 @@
     const currentSet = parseMasterFormatsSet(settingsEnabledMasterFormats);
     const customExts = [...currentSet].filter((ext) => !knownExts.has(ext));
     settingsCustomMasterFormats = customExts.join(", ");
+    settingsPreferredStitchFormat = String(model?.preferred_stitch_format || "pes").toLowerCase();
     settingsZipAlphabets = Boolean(model?.zip_alphabets);
     settingsDbIdleCheckIntervalSecs = String(model?.db_idle_check_interval_secs || "1800");
     settingsCanConfigureDataRoot = Boolean(model?.can_configure_data_root);
@@ -1129,11 +1133,152 @@
           </div>
         </div>
 
-        <!-- 4. Catalogue Storage -->
+        <!-- 4. Digitising & Format Rules -->
         <div
-          class="border-b border-[var(--border-default)] pb-6 space-y-4"
-          data-testid="settings-catalogue-storage-section"
+          class="border-b border-[var(--border-default)] pb-6 space-y-5"
+          data-testid="settings-format-rules-section"
         >
+          <div data-testid="settings-master-formats-section">
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+            >
+              <span>🧵</span>
+              <span>Digitising &amp; Master File Formats</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)] mb-3">
+              Select the digitising software and master working formats you use. When scanning and
+              importing, these editable source files will be paired alongside machine stitch files.
+              Unchecked formats are ignored.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              {#each MASTER_FORMAT_PRESETS as preset}
+                <label
+                  class="flex items-start gap-2.5 p-2.5 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
+                  data-testid={`master-format-preset-${preset.id}`}
+                >
+                  <input
+                    type="checkbox"
+                    class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
+                    checked={isPresetEnabled(preset)}
+                    onchange={() => togglePreset(preset)}
+                    disabled={busyActive}
+                  />
+                  <div>
+                    <span class="font-medium text-[var(--text-primary)] block">{preset.name}</span>
+                    <span class="text-xs text-[var(--text-muted)] font-mono">{preset.desc}</span>
+                  </div>
+                </label>
+              {/each}
+            </div>
+            <div>
+              <label
+                for="settings-custom-master-formats"
+                class="block text-xs font-semibold text-[var(--text-secondary)] mb-1"
+              >
+                Additional / Custom extensions <span class="font-normal text-[var(--text-muted)]"
+                  >(comma-separated)</span
+                >
+              </label>
+              <input
+                id="settings-custom-master-formats"
+                type="text"
+                value={settingsCustomMasterFormats}
+                oninput={(e) =>
+                  handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
+                placeholder="e.g. pxf, pat"
+                disabled={busyActive}
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-1.5 text-sm font-mono w-full sm:w-80"
+                data-testid="settings-custom-master-formats"
+              />
+              <p class="mt-1 text-xs text-[var(--text-muted)]">
+                Active formats: <span class="font-mono text-[var(--text-brand)]"
+                  >{settingsEnabledMasterFormats || "none"}</span
+                >
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="border-t border-[var(--border-default)] pt-5"
+            data-testid="settings-preferred-format-section"
+          >
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+            >
+              <span>🧵</span>
+              <span>Preferred Stitch Format</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)] mb-3">
+              Select your primary machine stitch format. When multiple stitch formats exist for a
+              design, your preferred format is prioritised for preview rendering and editor launch.
+            </p>
+            <div class="space-y-2">
+              <label
+                for="settings-preferred-stitch-format"
+                class="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
+              >
+                Primary Stitch Format
+              </label>
+              <select
+                id="settings-preferred-stitch-format"
+                bind:value={settingsPreferredStitchFormat}
+                disabled={busyActive}
+                class="settings-input border border-[var(--border-default)] rounded px-3 py-2 text-sm w-72"
+                data-testid="settings-preferred-stitch-format-select"
+              >
+                <option value="pes">PES (Brother, Baby Lock, Bernina)</option>
+                <option value="jef">JEF (Janome, Elna, Kenmore)</option>
+                <option value="vp3">VP3 (Husqvarna Viking, Pfaff)</option>
+                <option value="dst">DST (Tajima / Commercial)</option>
+                <option value="exp">EXP (Melco, Bernina)</option>
+                <option value="hus">HUS (Husqvarna)</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            class="border-t border-[var(--border-default)] pt-5"
+            data-testid="settings-alphabet-compression-section"
+          >
+            <h2
+              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
+            >
+              <span>🔤</span>
+              <span>Alphabet &amp; Font Compression</span>
+            </h2>
+            <p class="text-sm text-[var(--text-secondary)] mb-3">
+              Choose how digital embroidery font and alphabet packages are catalogued during import.
+            </p>
+            <label
+              class="flex items-start gap-2.5 p-3 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
+              data-testid="settings-zip-alphabets-label"
+            >
+              <input
+                type="checkbox"
+                class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
+                checked={settingsZipAlphabets}
+                onchange={(e) =>
+                  (settingsZipAlphabets = /** @type {HTMLInputElement} */ (e.target).checked)}
+                disabled={busyActive}
+                data-testid="settings-zip-alphabets-checkbox"
+              />
+              <div>
+                <span class="font-medium text-[var(--text-primary)] block">
+                  Compress full alphabet sets and catalogue preview samples only
+                </span>
+                <span class="text-xs text-[var(--text-secondary)] block mt-0.5">
+                  When enabled, imports detect alphabet collections and compress the full font set
+                  into a companion .zip archive (or copy an existing companion .zip) in the designs
+                  folder. Only representative preview glyphs (Upper A, Lower a, 9, and all
+                  punctuation &amp; symbol glyphs) for each size are catalogued in the database.
+                </span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 5. Catalogue Storage -->
+        <div class="space-y-4" data-testid="settings-catalogue-storage-section">
           <div>
             <h2
               class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
@@ -1210,109 +1355,6 @@
                 >{settingsLogFolder}</code
               >
             </div>
-          </div>
-        </div>
-
-        <!-- 5. Digitising & Format Rules -->
-        <div class="space-y-5" data-testid="settings-format-rules-section">
-          <div data-testid="settings-master-formats-section">
-            <h2
-              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
-            >
-              <span>🧵</span>
-              <span>Digitising &amp; Master File Formats</span>
-            </h2>
-            <p class="text-sm text-[var(--text-secondary)] mb-3">
-              Select the digitising software and master working formats you use. When scanning and
-              importing, these editable source files will be paired alongside machine stitch files.
-              Unchecked formats are ignored.
-            </p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              {#each MASTER_FORMAT_PRESETS as preset}
-                <label
-                  class="flex items-start gap-2.5 p-2.5 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
-                  data-testid={`master-format-preset-${preset.id}`}
-                >
-                  <input
-                    type="checkbox"
-                    class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
-                    checked={isPresetEnabled(preset)}
-                    onchange={() => togglePreset(preset)}
-                    disabled={busyActive}
-                  />
-                  <div>
-                    <span class="font-medium text-[var(--text-primary)] block">{preset.name}</span>
-                    <span class="text-xs text-[var(--text-muted)] font-mono">{preset.desc}</span>
-                  </div>
-                </label>
-              {/each}
-            </div>
-            <div>
-              <label
-                for="settings-custom-master-formats"
-                class="block text-xs font-semibold text-[var(--text-secondary)] mb-1"
-              >
-                Additional / Custom extensions <span class="font-normal text-[var(--text-muted)]"
-                  >(comma-separated)</span
-                >
-              </label>
-              <input
-                id="settings-custom-master-formats"
-                type="text"
-                value={settingsCustomMasterFormats}
-                oninput={(e) =>
-                  handleCustomFormatsChange(/** @type {HTMLInputElement} */ (e.target).value)}
-                placeholder="e.g. pxf, pat"
-                disabled={busyActive}
-                class="settings-input border border-[var(--border-default)] rounded px-3 py-1.5 text-sm font-mono w-full sm:w-80"
-                data-testid="settings-custom-master-formats"
-              />
-              <p class="mt-1 text-xs text-[var(--text-muted)]">
-                Active formats: <span class="font-mono text-[var(--text-brand)]"
-                  >{settingsEnabledMasterFormats || "none"}</span
-                >
-              </p>
-            </div>
-          </div>
-
-          <div
-            class="border-t border-[var(--border-default)] pt-5"
-            data-testid="settings-alphabet-compression-section"
-          >
-            <h2
-              class="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-1.5"
-            >
-              <span>🔤</span>
-              <span>Alphabet &amp; Font Compression</span>
-            </h2>
-            <p class="text-sm text-[var(--text-secondary)] mb-3">
-              Choose how digital embroidery font and alphabet packages are catalogued during import.
-            </p>
-            <label
-              class="flex items-start gap-2.5 p-3 rounded border border-[var(--border-default)] bg-[var(--surface-card-subtle)] hover:bg-[var(--surface-hover)] cursor-pointer text-sm text-[var(--text-primary)] transition-colors"
-              data-testid="settings-zip-alphabets-label"
-            >
-              <input
-                type="checkbox"
-                class="mt-0.5 rounded border-[var(--border-default)] accent-[var(--text-brand)] cursor-pointer"
-                checked={settingsZipAlphabets}
-                onchange={(e) =>
-                  (settingsZipAlphabets = /** @type {HTMLInputElement} */ (e.target).checked)}
-                disabled={busyActive}
-                data-testid="settings-zip-alphabets-checkbox"
-              />
-              <div>
-                <span class="font-medium text-[var(--text-primary)] block">
-                  Compress full alphabet sets and catalogue preview samples only
-                </span>
-                <span class="text-xs text-[var(--text-secondary)] block mt-0.5">
-                  When enabled, imports detect alphabet collections and compress the full font set
-                  into a companion .zip archive (or copy an existing companion .zip) in the designs
-                  folder. Only representative preview glyphs (Upper A, Lower a, 9, and all
-                  punctuation &amp; symbol glyphs) for each size are catalogued in the database.
-                </span>
-              </div>
-            </label>
           </div>
         </div>
 

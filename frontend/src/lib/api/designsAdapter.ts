@@ -646,6 +646,33 @@ export async function openDesignInEditor(designId: number | string) {
 }
 
 /**
+ * @param {number | string} fileId
+ */
+export async function openDesignFileInEditor(fileId: number | string) {
+  const normalizedId = Number(fileId);
+
+  try {
+    const result = await invokeLoose("open_design_file_in_editor", {
+      fileId: normalizedId,
+    });
+    return {
+      source: "rust",
+      persisted: true,
+      result,
+      message: String(result?.message || "Open file in editor action completed."),
+    };
+  } catch (error) {
+    return {
+      source: "mock",
+      persisted: false,
+      result: null,
+      message: `Could not open file in editor: ${error}`,
+      error: String(error),
+    };
+  }
+}
+
+/**
  * @param {number | string} designId
  */
 export async function openDesignMasterInEditor(designId: number | string) {

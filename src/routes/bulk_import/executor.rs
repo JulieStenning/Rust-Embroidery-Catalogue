@@ -11,7 +11,7 @@ use super::session::{
     BULK_IMPORT_STOP_REQUESTED, DEFAULT_IMPORT_COMMIT_BATCH_SIZE,
 };
 use super::types::BulkImportConfirmWire;
-use crate::services::{image_generation, stitch_identifier, tagging};
+use crate::services::{design_metadata, image_generation, stitch_identifier, tagging};
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -31,6 +31,7 @@ struct ImportExecutionCtx<'a> {
     designer_names_map: &'a HashMap<i64, String>,
     preview_3d: bool,
     preview_3d_profile: &'a str,
+    preferred_stitch_format: &'a str,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -214,6 +215,91 @@ async fn persist_stitch_design(
     };
     *total_db_insert_ms += db_insert_elapsed_ms;
 
+    let ext = Path::new(stored_filepath)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO design_files (
+            design_id, filepath, filename, extension, file_type, is_primary,
+            stitch_count, width_mm, height_mm, color_count, color_change_count,
+            file_size_bytes, file_hash_blake3, updated_at
+        ) VALUES (?, ?, ?, ?, 'stitch', 1, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(filepath) DO UPDATE SET
+            design_id = excluded.design_id,
+            filename = excluded.filename,
+            extension = excluded.extension,
+            file_type = excluded.file_type,
+            is_primary = excluded.is_primary,
+            stitch_count = excluded.stitch_count,
+            width_mm = excluded.width_mm,
+            height_mm = excluded.height_mm,
+            color_count = excluded.color_count,
+            color_change_count = excluded.color_change_count,
+            file_size_bytes = excluded.file_size_bytes,
+            file_hash_blake3 = excluded.file_hash_blake3,
+            updated_at = datetime('now')
+        "#,
+    )
+    .bind(design_id)
+    .bind(stored_filepath)
+    .bind(&filename)
+    .bind(&ext)
+    .bind(image_result.stitch_count)
+    .bind(image_result.width_mm)
+    .bind(image_result.height_mm)
+    .bind(image_result.color_count)
+    .bind(image_result.color_change_count)
+    .bind(file_size_bytes)
+    .bind(file_hash_blake3.as_ref())
+    .execute(&mut **tx)
+    .await;
+
+    if let Some(mf) = stored_master_filepath {
+        if !mf.trim().is_empty() {
+            let mf_fname = Path::new(mf)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(mf)
+                .to_string();
+            let mf_ext = Path::new(mf)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let mf_path =
+                designs_base_path.join(mf.strip_prefix("/MachineEmbroideryDesigns/").unwrap_or(mf));
+            let mf_size: Option<i64> = compute_file_size(&mf_path).ok();
+            let mf_hash: Option<String> = compute_file_hash_blake3(&mf_path).ok();
+            let _ = sqlx::query(
+                r#"
+                INSERT INTO design_files (
+                    design_id, filepath, filename, extension, file_type, is_primary,
+                    file_size_bytes, file_hash_blake3, updated_at
+                ) VALUES (?, ?, ?, ?, 'master', 0, ?, ?, datetime('now'))
+                ON CONFLICT(filepath) DO UPDATE SET
+                    design_id = excluded.design_id,
+                    filename = excluded.filename,
+                    extension = excluded.extension,
+                    file_type = excluded.file_type,
+                    file_size_bytes = COALESCE(excluded.file_size_bytes, design_files.file_size_bytes),
+                    file_hash_blake3 = COALESCE(excluded.file_hash_blake3, design_files.file_hash_blake3),
+                    updated_at = datetime('now')
+                "#,
+            )
+            .bind(design_id)
+            .bind(mf)
+            .bind(&mf_fname)
+            .bind(&mf_ext)
+            .bind(mf_size)
+            .bind(mf_hash.as_ref())
+            .execute(&mut **tx)
+            .await;
+        }
+    }
+
     let t_tag = Instant::now();
     let mut excluded_names: Vec<&str> = Vec::new();
     if let Some(src_id) = source_id {
@@ -331,6 +417,37 @@ async fn persist_master_design(
 
     let design_id = insert_result.last_insert_rowid();
 
+    let ext = Path::new(stored_filepath)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO design_files (
+            design_id, filepath, filename, extension, file_type, is_primary,
+            file_size_bytes, file_hash_blake3, updated_at
+        ) VALUES (?, ?, ?, ?, 'master', 1, ?, ?, datetime('now'))
+        ON CONFLICT(filepath) DO UPDATE SET
+            design_id = excluded.design_id,
+            filename = excluded.filename,
+            extension = excluded.extension,
+            file_type = excluded.file_type,
+            is_primary = excluded.is_primary,
+            file_size_bytes = excluded.file_size_bytes,
+            file_hash_blake3 = excluded.file_hash_blake3,
+            updated_at = datetime('now')
+        "#,
+    )
+    .bind(design_id)
+    .bind(stored_filepath)
+    .bind(&filename)
+    .bind(&ext)
+    .bind(file_size_bytes)
+    .bind(file_hash_blake3.as_ref())
+    .execute(&mut **tx)
+    .await;
+
     let t_tag = Instant::now();
     let mut excluded_names: Vec<&str> = Vec::new();
     if let Some(src_id) = source_id {
@@ -403,6 +520,14 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
             .unwrap_or_default();
     let enabled_master_formats =
         crate::services::settings::parse_enabled_master_formats(&master_formats_setting);
+
+    let preferred_format_setting =
+        sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
+            .bind(crate::services::settings::KEY_IMPORT_PREFERRED_STITCH_FORMAT)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_else(|| "pes".to_string());
 
     let zip_alphabets_setting =
         sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ? LIMIT 1")
@@ -521,6 +646,7 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
         designer_names_map: &designer_names_map,
         preview_3d,
         preview_3d_profile,
+        preferred_stitch_format: &preferred_format_setting,
     };
 
     let _guard = crate::services::backfill::BackfillRunningGuard::new();
@@ -692,6 +818,144 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     None
                 };
 
+                if existing_design_id.is_none() && !stem.is_empty() {
+                    let existing_stitch_id: Option<i64> = sqlx::query_scalar(
+                        "SELECT id FROM designs WHERE (filepath LIKE ? OR filepath LIKE ?) AND is_master_only = 0 LIMIT 1",
+                    )
+                    .bind(&pattern_suffix)
+                    .bind(format!("/MachineEmbroideryDesigns/{}", pattern_suffix))
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .unwrap_or(None);
+
+                    if let Some(stitch_id) = existing_stitch_id {
+                        let fname = Path::new(&stored_filepath)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or(&stored_filepath)
+                            .to_string();
+                        let s_parsed = design_metadata::parse_design_file_lenient(path_obj);
+                        let designs_base = get_designs_base_path();
+                        let s_path = designs_base.join(
+                            stored_filepath
+                                .strip_prefix("/MachineEmbroideryDesigns/")
+                                .unwrap_or(&stored_filepath),
+                        );
+                        let s_size: Option<i64> = compute_file_size(&s_path).ok();
+                        let s_hash: Option<String> = compute_file_hash_blake3(&s_path).ok();
+                        let is_pref = norm_ext.eq_ignore_ascii_case(ctx.preferred_stitch_format);
+
+                        if is_pref {
+                            let _ = sqlx::query(
+                                "UPDATE design_files SET is_primary = 0 WHERE design_id = ? AND file_type = 'stitch'",
+                            )
+                            .bind(stitch_id)
+                            .execute(&mut *tx)
+                            .await;
+
+                            if s_parsed.parsed.image_data.is_some() {
+                                let s_hoop_id: Option<i64> = match (
+                                    s_parsed.parsed.width_mm,
+                                    s_parsed.parsed.height_mm,
+                                ) {
+                                    (Some(w), Some(h)) => sqlx::query_scalar::<_, i64>(
+                                        r#"
+                                            SELECT h.id
+                                            FROM hoops h
+                                            WHERE
+                                                (
+                                                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                                                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                                                )
+                                                OR (
+                                                    CAST(h.max_width_mm AS REAL) >= CAST(? AS REAL)
+                                                    AND CAST(h.max_height_mm AS REAL) >= CAST(? AS REAL)
+                                                )
+                                            ORDER BY
+                                                (CAST(h.max_width_mm AS REAL) * CAST(h.max_height_mm AS REAL)) ASC,
+                                                CAST(h.max_width_mm AS REAL) ASC,
+                                                CAST(h.max_height_mm AS REAL) ASC,
+                                                h.name COLLATE NOCASE ASC
+                                            LIMIT 1
+                                        "#,
+                                    )
+                                    .bind(w)
+                                    .bind(h)
+                                    .bind(h)
+                                    .bind(w)
+                                    .fetch_optional(&mut *tx)
+                                    .await
+                                    .unwrap_or(None),
+                                    _ => None,
+                                };
+
+                                let _ = sqlx::query(
+                                    "UPDATE designs SET filename = ?, filepath = ?, hoop_id = COALESCE(?, hoop_id), \
+                                     image_data = ?, image_type = ?, \
+                                     width_mm = ?, height_mm = ?, stitch_count = ?, color_count = ?, color_change_count = ?, \
+                                     file_size_bytes = ?, file_hash_blake3 = ? WHERE id = ?",
+                                )
+                                .bind(&fname)
+                                .bind(&stored_filepath)
+                                .bind(s_hoop_id)
+                                .bind(s_parsed.parsed.image_data)
+                                .bind(s_parsed.parsed.image_type)
+                                .bind(s_parsed.parsed.width_mm)
+                                .bind(s_parsed.parsed.height_mm)
+                                .bind(s_parsed.parsed.stitch_count)
+                                .bind(s_parsed.parsed.color_count)
+                                .bind(s_parsed.parsed.color_change_count)
+                                .bind(s_size)
+                                .bind(s_hash.as_ref())
+                                .bind(stitch_id)
+                                .execute(&mut *tx)
+                                .await;
+                            }
+                        }
+
+                        let _ = sqlx::query(
+                            r#"
+                            INSERT INTO design_files (
+                                design_id, filepath, filename, extension, file_type, is_primary,
+                                stitch_count, width_mm, height_mm, color_count, color_change_count,
+                                file_size_bytes, file_hash_blake3, updated_at
+                            ) VALUES (?, ?, ?, ?, 'stitch', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                            ON CONFLICT(filepath) DO UPDATE SET
+                                design_id = excluded.design_id,
+                                filename = excluded.filename,
+                                extension = excluded.extension,
+                                file_type = excluded.file_type,
+                                is_primary = excluded.is_primary,
+                                stitch_count = excluded.stitch_count,
+                                width_mm = excluded.width_mm,
+                                height_mm = excluded.height_mm,
+                                color_count = excluded.color_count,
+                                color_change_count = excluded.color_change_count,
+                                file_size_bytes = excluded.file_size_bytes,
+                                file_hash_blake3 = excluded.file_hash_blake3,
+                                updated_at = datetime('now')
+                            "#,
+                        )
+                        .bind(stitch_id)
+                        .bind(&stored_filepath)
+                        .bind(&fname)
+                        .bind(&norm_ext)
+                        .bind(if is_pref { 1 } else { 0 })
+                        .bind(s_parsed.parsed.stitch_count)
+                        .bind(s_parsed.parsed.width_mm)
+                        .bind(s_parsed.parsed.height_mm)
+                        .bind(s_parsed.parsed.color_count)
+                        .bind(s_parsed.parsed.color_change_count)
+                        .bind(s_size)
+                        .bind(s_hash.as_ref())
+                        .execute(&mut *tx)
+                        .await;
+
+                        processed_count += 1;
+                        continue;
+                    }
+                }
+
                 // Fallback: Check if matching master file exists on disk
                 if stored_master_filepath.is_none() && !stem.is_empty() {
                     for master_ext in &enabled_master_formats {
@@ -778,6 +1042,46 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                         .await
                         .map_err(|e| e.to_string())?;
                     total_db_insert_ms += t_upd.elapsed().as_millis();
+
+                    let filename = Path::new(file_path)
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or(file_path)
+                        .to_string();
+                    let designs_base_path = get_designs_base_path();
+                    let stored_path = designs_base_path.join(
+                        stored_filepath
+                            .strip_prefix("/MachineEmbroideryDesigns/")
+                            .unwrap_or(&stored_filepath),
+                    );
+                    let file_size_bytes: Option<i64> = compute_file_size(&stored_path).ok();
+                    let file_hash_blake3: Option<String> =
+                        compute_file_hash_blake3(&stored_path).ok();
+
+                    let _ = sqlx::query(
+                        r#"
+                        INSERT INTO design_files (
+                            design_id, filepath, filename, extension, file_type, is_primary,
+                            file_size_bytes, file_hash_blake3, updated_at
+                        ) VALUES (?, ?, ?, ?, 'master', 0, ?, ?, datetime('now'))
+                        ON CONFLICT(filepath) DO UPDATE SET
+                            design_id = excluded.design_id,
+                            filename = excluded.filename,
+                            extension = excluded.extension,
+                            file_type = excluded.file_type,
+                            file_size_bytes = excluded.file_size_bytes,
+                            file_hash_blake3 = excluded.file_hash_blake3,
+                            updated_at = datetime('now')
+                        "#,
+                    )
+                    .bind(stitch_id)
+                    .bind(&stored_filepath)
+                    .bind(&filename)
+                    .bind(&norm_ext)
+                    .bind(file_size_bytes)
+                    .bind(file_hash_blake3.as_ref())
+                    .execute(&mut *tx)
+                    .await;
                 } else {
                     let _ = persist_master_design(
                         &mut tx,

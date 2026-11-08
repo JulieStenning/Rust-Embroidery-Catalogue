@@ -226,6 +226,38 @@ export interface DesignTagDetail {
   tag_group: string | null;
 }
 
+export interface DesignFileDetailWire {
+  id: number;
+  design_id: number;
+  filepath: string;
+  filename: string;
+  extension: string;
+  file_type: string;
+  is_primary: boolean;
+  stitch_count: number | null;
+  width_mm: number | null;
+  height_mm: number | null;
+  color_count: number | null;
+  color_change_count: number | null;
+  file_size_bytes: number | null;
+}
+
+export interface DesignFileDetail {
+  id: number;
+  designId: number;
+  filepath: string;
+  filename: string;
+  extension: string;
+  fileType: string;
+  isPrimary: boolean;
+  stitchCount: number | null;
+  widthMm: number | null;
+  heightMm: number | null;
+  colorCount: number | null;
+  colorChangeCount: number | null;
+  fileSizeBytes: number | null;
+}
+
 export interface DesignDetailWire {
   id: number;
   filename: string;
@@ -253,6 +285,7 @@ export interface DesignDetailWire {
   date_added: string | null;
   date_updated?: string | null;
   preview_error?: string | null;
+  files?: DesignFileDetailWire[];
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
   available_projects: ProjectListItem[];
@@ -289,6 +322,7 @@ export interface DesignDetail {
   stitchingTagsVerified: boolean;
   dateAdded: string | null;
   dateUpdated?: string | null;
+  files?: DesignFileDetail[];
   tags: DesignTagDetail[];
   projects: ProjectListItem[];
   availableProjects: ProjectListItem[];
@@ -370,6 +404,7 @@ export interface SettingsViewModel {
   ai_free_tier: boolean;
   import_last_browse_folder: string;
   enabled_master_formats: string;
+  preferred_stitch_format: string;
   zip_alphabets: boolean;
   can_configure_data_root: boolean;
   data_root: string;
@@ -391,6 +426,7 @@ export interface SaveSettingsRequest {
   ai_workers: string;
   ai_free_tier: boolean;
   enabled_master_formats?: string;
+  preferred_stitch_format?: string;
   zip_alphabets?: boolean;
   data_root: string;
   db_idle_check_interval_secs?: string;
@@ -1313,6 +1349,23 @@ export function mapDesignDetailFromWire(wire: DesignDetailWire): DesignDetail {
     stitchingTagsVerified: Boolean(wire.stitching_tags_verified),
     dateAdded: wire.date_added ?? null,
     dateUpdated: wire.date_updated ?? null,
+    files: Array.isArray(wire.files)
+      ? wire.files.map((f) => ({
+          id: Number(f.id),
+          designId: Number(f.design_id),
+          filepath: String(f.filepath || ""),
+          filename: String(f.filename || ""),
+          extension: String(f.extension || ""),
+          fileType: String(f.file_type || "stitch"),
+          isPrimary: Boolean(f.is_primary),
+          stitchCount: f.stitch_count != null ? Number(f.stitch_count) : null,
+          widthMm: f.width_mm != null ? Number(f.width_mm) : null,
+          heightMm: f.height_mm != null ? Number(f.height_mm) : null,
+          colorCount: f.color_count != null ? Number(f.color_count) : null,
+          colorChangeCount: f.color_change_count != null ? Number(f.color_change_count) : null,
+          fileSizeBytes: f.file_size_bytes != null ? Number(f.file_size_bytes) : null,
+        }))
+      : [],
     tags: Array.isArray(wire.tags) ? wire.tags : [],
     projects: Array.isArray(wire.projects) ? wire.projects : [],
     availableProjects: Array.isArray(wire.available_projects) ? wire.available_projects : [],

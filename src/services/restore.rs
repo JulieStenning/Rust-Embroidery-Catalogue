@@ -490,6 +490,19 @@ async fn referenced_design_paths(
             }
         }
     }
+
+    let df_rows: Vec<String> = sqlx::query_scalar("SELECT filepath FROM design_files")
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+    for fp in df_rows {
+        if !fp.trim().is_empty() {
+            let full = mnt::resolve_design_full_path(designs_root, &fp);
+            if let Ok(relative) = full.strip_prefix(designs_root) {
+                referenced.insert(relative.to_path_buf());
+            }
+        }
+    }
     Ok(referenced)
 }
 

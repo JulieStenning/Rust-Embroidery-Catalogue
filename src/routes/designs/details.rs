@@ -38,6 +38,7 @@ pub struct DesignDetail {
     pub date_added: Option<String>,
     pub date_updated: Option<String>,
     pub preview_error: Option<String>,
+    pub files: Vec<DesignFileDetail>,
     pub tags: Vec<DesignTagDetail>,
     pub projects: Vec<ProjectListItem>,
     pub available_projects: Vec<ProjectListItem>,
@@ -75,6 +76,23 @@ struct DesignDetailRow {
     date_added: Option<String>,
     date_updated: Option<String>,
     pub preview_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct DesignFileDetail {
+    pub id: i64,
+    pub design_id: i64,
+    pub filepath: String,
+    pub filename: String,
+    pub extension: String,
+    pub file_type: String,
+    pub is_primary: bool,
+    pub stitch_count: Option<i64>,
+    pub width_mm: Option<f64>,
+    pub height_mm: Option<f64>,
+    pub color_count: Option<i64>,
+    pub color_change_count: Option<i64>,
+    pub file_size_bytes: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -258,6 +276,120 @@ pub(crate) async fn get_design_detail_with_pool(
         }
     }
 
+    let preferred_format: String = sqlx::query_scalar(
+        "SELECT value FROM settings WHERE key = 'import.preferred_stitch_format'",
+    )
+    .fetch_optional(pool)
+    .await
+    .unwrap_or_default()
+    .unwrap_or_else(|| "pes".to_string());
+
+    let mut db_files = sqlx::query_as::<_, DesignFileDetail>(
+        r#"
+        SELECT
+            id,
+            design_id,
+            filepath,
+            filename,
+            extension,
+            file_type,
+            is_primary,
+            stitch_count,
+            CAST(width_mm AS REAL) AS width_mm,
+            CAST(height_mm AS REAL) AS height_mm,
+            color_count,
+            color_change_count,
+            file_size_bytes
+        FROM design_files
+        WHERE design_id = ?
+        "#,
+    )
+    .bind(row.id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let files = if db_files.is_empty() {
+        let mut synth = Vec::new();
+        if let Some(mf) = &row.master_filepath {
+            if !mf.trim().is_empty() {
+                let p = std::path::Path::new(mf);
+                let ext = p
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                let fname = p
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(mf)
+                    .to_string();
+                synth.push(DesignFileDetail {
+                    id: 0,
+                    design_id: row.id,
+                    filepath: crate::paths::canonical_design_rel(mf),
+                    filename: fname,
+                    extension: ext,
+                    file_type: "master".to_string(),
+                    is_primary: row.is_master_only,
+                    stitch_count: None,
+                    width_mm: None,
+                    height_mm: None,
+                    color_count: None,
+                    color_change_count: None,
+                    file_size_bytes: None,
+                });
+            }
+        }
+        if !row.is_master_only && !row.filepath.trim().is_empty() {
+            let p = std::path::Path::new(&row.filepath);
+            let ext = p
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let fname = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&row.filename)
+                .to_string();
+            synth.push(DesignFileDetail {
+                id: 0,
+                design_id: row.id,
+                filepath: crate::paths::canonical_design_rel(&row.filepath),
+                filename: fname,
+                extension: ext,
+                file_type: "stitch".to_string(),
+                is_primary: true,
+                stitch_count: row.stitch_count,
+                width_mm: row.width_mm,
+                height_mm: row.height_mm,
+                color_count: row.color_count,
+                color_change_count: row.color_change_count,
+                file_size_bytes: None,
+            });
+        }
+        synth
+    } else {
+        db_files.sort_by(|a, b| {
+            let a_is_master = a.file_type.eq_ignore_ascii_case("master");
+            let b_is_master = b.file_type.eq_ignore_ascii_case("master");
+            if a_is_master != b_is_master {
+                return b_is_master.cmp(&a_is_master);
+            }
+            let a_is_pref = a.extension.eq_ignore_ascii_case(&preferred_format);
+            let b_is_pref = b.extension.eq_ignore_ascii_case(&preferred_format);
+            if a_is_pref != b_is_pref {
+                return b_is_pref.cmp(&a_is_pref);
+            }
+            if a.is_primary != b.is_primary {
+                return b.is_primary.cmp(&a.is_primary);
+            }
+            a.extension.cmp(&b.extension)
+        });
+        db_files
+    };
+
     Ok(Some(DesignDetail {
         id: row.id,
         filename: row.filename,
@@ -287,6 +419,7 @@ pub(crate) async fn get_design_detail_with_pool(
         date_added: row.date_added,
         date_updated: row.date_updated,
         preview_error,
+        files,
         tags,
         projects,
         available_projects,

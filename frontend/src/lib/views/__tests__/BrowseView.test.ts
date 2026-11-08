@@ -3119,13 +3119,14 @@ describe("BrowseView", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders paired design badge when master_filepath is present", async () => {
+    it("renders paired design with stitch filename and hoop without master badge overlay", async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([
           {
             id: 102,
             filename: "flower.pes",
             filepath: "flower.pes",
+            hoop: "Hoop A",
             is_master_only: false,
             master_filepath: "flower.eof",
           },
@@ -3135,7 +3136,8 @@ describe("BrowseView", () => {
       renderBrowse();
 
       expect(await screen.findByText("flower.pes")).toBeInTheDocument();
-      expect(screen.getByText("🎨 Master: .eof")).toBeInTheDocument();
+      expect(screen.getByText("Hoop A")).toBeInTheDocument();
+      expect(screen.queryByText(/Master: \.eof/)).toBeNull();
     });
 
     it("renders design exceeds hoop banner when preview_error is design_exceeds_hoop", async () => {

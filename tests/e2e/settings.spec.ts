@@ -121,7 +121,10 @@ test.describe.serial("application settings", () => {
 
     // Catalogue storage controls are visible and enabled
     const dataRootInput = page.locator("#settings-data-root");
-    const browseButton = page.getByRole("button", { name: "Browse…", exact: true });
+    const browseButton = page.getByRole("button", {
+      name: "Browse…",
+      exact: true,
+    });
     await expect(dataRootInput).toBeVisible();
     await expect(dataRootInput).toBeEnabled();
     await expect(browseButton).toBeVisible();
@@ -175,7 +178,7 @@ test.describe.serial("application settings", () => {
     page,
   }) => {
     await gotoRoute(page, "#/admin/system/settings");
-    const freeTierCheckbox = page.locator('input[type="checkbox"]');
+    const freeTierCheckbox = page.getByRole("checkbox", { name: /free tier/i });
     const workersInput = page.locator("#settings-ai-workers");
     const delayInput = page.locator("#settings-ai-delay");
 
@@ -292,14 +295,13 @@ test.describe.serial("application settings", () => {
     // Master formats section heading
     await expect(
       page.getByRole("heading", {
-        name: "Digitising & Master File Formats (Optional)",
+        name: /Digitising & Master File Formats/,
       }),
     ).toBeVisible();
 
     const embirdPreset = page.getByTestId("master-format-preset-embird");
-    const hatchPreset = page.getByTestId("master-format-preset-hatch");
-    const customInput = page.getByTestId("custom-master-format-input");
-    const customAddBtn = page.getByTestId("custom-master-format-add");
+    const hatchPreset = page.getByTestId("master-format-preset-wilcom_hatch");
+    const customInput = page.getByTestId("settings-custom-master-formats");
     const saveButton = page.getByRole("button", { name: "Save settings" });
     const dirtyHint = page.getByTestId("settings-dirty-hint");
 
@@ -308,8 +310,7 @@ test.describe.serial("application settings", () => {
     await hatchPreset.click();
 
     // Add a custom format (.can)
-    await customInput.fill(".can");
-    await customAddBtn.click();
+    await customInput.fill("can");
 
     await expect(dirtyHint).toBeVisible();
     await saveButton.click();
@@ -320,20 +321,21 @@ test.describe.serial("application settings", () => {
     // Reload page to verify persistence
     await page.reload();
     await expect(
-      page.getByTestId("master-format-preset-embird"),
-    ).toHaveAttribute("aria-pressed", "true");
+      page
+        .getByTestId("master-format-preset-embird")
+        .locator('input[type="checkbox"]'),
+    ).toBeChecked();
     await expect(
-      page.getByTestId("master-format-preset-hatch"),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByText(".can")).toBeVisible();
+      page
+        .getByTestId("master-format-preset-wilcom_hatch")
+        .locator('input[type="checkbox"]'),
+    ).toBeChecked();
+    await expect(customInput).toHaveValue("can");
 
     // Reset master formats back to clean empty state
     await page.getByTestId("master-format-preset-embird").click();
-    await page.getByTestId("master-format-preset-hatch").click();
-    const removeCanTag = page.getByTestId("remove-master-format-can");
-    if (await removeCanTag.isVisible()) {
-      await removeCanTag.click();
-    }
+    await page.getByTestId("master-format-preset-wilcom_hatch").click();
+    await customInput.fill("");
     await saveButton.click();
     await expect(page.getByText("Settings saved successfully.")).toBeVisible();
   });
@@ -343,10 +345,7 @@ test.describe.serial("application settings", () => {
   }) => {
     await gotoRoute(page, "#/admin/system/settings");
 
-    // Maintenance & diagnostics section is present
-    await expect(
-      page.getByRole("heading", { name: /Maintenance & Diagnostics/i }),
-    ).toBeVisible();
+    // Maintenance section is present
     await expect(
       page.getByRole("heading", { name: "Database Maintenance" }),
     ).toBeVisible();
@@ -363,6 +362,7 @@ test.describe.serial("application settings", () => {
     await expect(compactButton).toBeEnabled();
 
     await compactButton.click();
+    await page.getByTestId("compact-confirm-compact-only").click();
 
     // Assert completion toast with pages reclaimed
     await expect(
@@ -377,41 +377,27 @@ test.describe.serial("application settings", () => {
 
     // Storage locations section
     await expect(
-      page.getByRole("heading", { name: "Storage Locations" }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(
-        "The catalogue database and imported embroidery files live under",
-      ),
+      page.getByRole("heading", { name: "Active Storage Locations" }),
     ).toBeVisible();
 
-    const metaCard = page.locator(".settings-meta");
-
-    // Monospace code blocks for paths
-    const codeBlocks = metaCard.locator("code.settings-code");
-    await expect(codeBlocks).toHaveCount(3);
-
-    // Catalogue data location
+    // Catalogue data location, database, and log paths
+    await expect(page.getByText("Data Root", { exact: true })).toBeVisible();
     await expect(
-      metaCard.getByText("Catalogue data location", { exact: true }),
+      page.getByText("Database File", { exact: true }),
     ).toBeVisible();
-    // Database path
-    await expect(metaCard.getByText("Database", { exact: true })).toBeVisible();
-    // Log folder
-    await expect(
-      metaCard.getByText("Log folder", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText("Log Folder", { exact: true })).toBeVisible();
 
     // Contextual cross-links in the form
-    const form = page.locator("form.settings-form");
-    const helpLink = form.getByRole("link", {
+    const helpLink = page.getByRole("link", {
       name: "Press here for more information.",
     });
     await expect(helpLink).toHaveAttribute("href", "#/help");
 
-    const batchOpsLink = form.getByRole("link", {
-      name: "Batch Operations",
-    });
+    const batchOpsLink = page
+      .getByTestId("settings-gemini-section")
+      .getByRole("link", {
+        name: "Batch Operations",
+      });
     await expect(batchOpsLink).toHaveAttribute(
       "href",
       "#/admin/batch-operations",
@@ -462,7 +448,9 @@ test.describe.serial("application settings", () => {
 
     const modal = page.getByTestId("compact-confirm-modal");
     await expect(modal).toBeVisible();
-    await expect(page.getByText("Optimise & Compact Database")).toBeVisible();
+    await expect(
+      modal.getByRole("heading", { name: "Optimise & Compact Database" }),
+    ).toBeVisible();
     await expect(page.getByText(/What it does:/i)).toBeVisible();
     await expect(page.getByText(/Protection:/i)).toBeVisible();
     await expect(page.getByText(/Disk space:/i)).toBeVisible();
@@ -482,4 +470,3 @@ test.describe.serial("application settings", () => {
     await expect(modal).toBeHidden();
   });
 });
-
