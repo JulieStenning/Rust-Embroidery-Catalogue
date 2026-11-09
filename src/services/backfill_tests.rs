@@ -1268,6 +1268,12 @@ async fn clear_stitching_all_removes_tags_from_every_design() {
         .await
         .unwrap();
 
+    // Also set design 3 to verified without any stitching tags
+    sqlx::query("UPDATE designs SET stitching_tags_verified = 1 WHERE id = 3")
+        .execute(&pool)
+        .await
+        .unwrap();
+
     let cleared = clear_stitching_tags(&pool, "all").await.unwrap();
     assert_eq!(cleared.len(), 2);
     assert!(cleared.contains(&1));
@@ -1285,6 +1291,13 @@ async fn clear_stitching_all_removes_tags_from_every_design() {
             .await
             .unwrap();
     assert_eq!(d2_verified, 0);
+
+    let d3_verified: i64 =
+        sqlx::query_scalar("SELECT stitching_tags_verified FROM designs WHERE id = 3")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(d3_verified, 0);
 }
 
 #[tokio::test]

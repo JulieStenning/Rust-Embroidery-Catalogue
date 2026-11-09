@@ -1563,18 +1563,13 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
         );
     }
 
-    if mode == "all" && !ids.is_empty() {
-        let mut query = QueryBuilder::<Sqlite>::new(
-            "UPDATE designs SET stitching_tags_verified = 0 WHERE id IN (",
-        );
-        let mut separated = query.separated(", ");
-        for id in &ids {
-            separated.push_bind(*id);
-        }
-        query.push(")");
-        query.build().execute(pool).await.map_err(|e| {
-            AppError::database(format!("failed to reset stitching_tags_verified: {e}"))
-        })?;
+    if mode == "all" {
+        sqlx::query(
+            "UPDATE designs SET stitching_tags_verified = 0 WHERE stitching_tags_verified = 1",
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to reset stitching_tags_verified: {e}")))?;
     }
 
     Ok(ids)
