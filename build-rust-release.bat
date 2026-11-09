@@ -16,7 +16,17 @@ where cargo >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Rust cargo was not found in PATH.
     echo Install Rust from https://rustup.rs and retry.
-    pause
+    if not "%RUST_APP_NO_PAUSE%"=="1" pause
+    exit /b 1
+)
+
+echo.
+echo [Rust Build] Updating and sanitising delivery seed database...
+cargo run --bin seed-tool -- --migrate
+if errorlevel 1 (
+    echo.
+    echo ERROR: Seed database update or sanitisation failed. Aborting release build.
+    if not "%RUST_APP_NO_PAUSE%"=="1" pause
     exit /b 1
 )
 

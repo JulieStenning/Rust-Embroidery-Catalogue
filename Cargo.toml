@@ -21,6 +21,11 @@ name = "keygen"
 path = "src/bin/keygen.rs"
 test = false
 
+[[bin]]
+name = "seed-tool"
+path = "src/bin/seed_tool.rs"
+test = false
+
 [[bench]]
 name = "rendering_and_parsing"
 harness = false

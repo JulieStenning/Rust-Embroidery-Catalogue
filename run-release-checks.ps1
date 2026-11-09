@@ -72,7 +72,11 @@ Write-Host "--> Running Prettier Format Check and updating ugly files..." -Foreg
 npx prettier --write frontend/src | Out-Null
 npx prettier --check frontend/src 2>&1 | Out-File ./audit-logs/format-prettier-results.txt
 
-# 4. License Asset Generation & Build
+# 4. Seed Database Quality Gate
+Write-Host "--> Verifying Delivery Seed Database Migrations & Sanitisation..." -ForegroundColor Yellow
+cargo run --bin seed-tool -- --check 2>&1 | Out-File ./audit-logs/seed-database-audit.txt
+
+# 5. License Asset Generation & Build
 Write-Host "--> Generating License Assets..." -ForegroundColor Yellow
 $env:FORCE_COLOR=0; npm run generate:licences 2>&1 | Out-File ./audit-logs/license-assets.txt
 Write-Host "--> Executing Release Build. This will take time ..." -ForegroundColor Yellow
@@ -81,14 +85,14 @@ $ErrorActionPreference = "SilentlyContinue"
 ./build-rust-release.bat 2>&1 | Tee-Object -FilePath ./audit-logs/build-results.txt
 $ErrorActionPreference = "Continue"
 
-# 5. Checksum Generation
+# 6. Checksum Generation
 Write-Host "--> Computing Installer SHA-256 Checksums..." -ForegroundColor Yellow
 Get-ChildItem -Path "target/release/bundle" -Recurse -File -Include *.exe, *.msi | Get-FileHash -Algorithm SHA256 | Out-File ./audit-logs/checksums.txt
 
 Write-Host "`nAll checks complete! Audit files saved to ./audit-logs/" -ForegroundColor Green
 Get-Content ./audit-logs/checksums.txt
 
-# 6. Execute Release Audit Verification
+# 7. Execute Release Audit Verification
 Write-Host "--> Verifying Release Audit Logs..." -ForegroundColor Yellow
 ./verify-release-logs.ps1
 

@@ -79,7 +79,9 @@ The script `verify-release-logs.ps1` identifies successful and failing scripts. 
 
   **Migration Gate**
 * [ ]  Classify release type per migration policies.
-* [ ]  Compile and run the release to validate all SQL files in `migrations/`and Pass clean DB startup smoke test .
+* [ ]  **Update Delivery Seed Database:** Run `cargo run --bin seed-tool -- --migrate`. This updates `src-tauri/resources/EmbroideryCatalogue.db` with all migrations in `migrations/`, verifies zero licence details or user designs are stored, defragments pages via `VACUUM`, and preserves starter tags and synonyms. Verify status with `cargo run --bin seed-tool -- --check`.
+* [ ]  Confirm updated `src-tauri/resources/EmbroideryCatalogue.db` is committed to git.
+* [ ]  Compile and run the release to validate all SQL files in `migrations/` and pass clean DB startup smoke test.
 * [ ]  Pass existing DB upgrade smoke test by checking pages that use the updates in the database.
 * [ ]  Verify custom data-root persistence via `config.json` bootstrap location. Do this with a fresh installation.
 * [ ]  Confirm rollback/backup guidance for destructive migrations. -- Do this for the first upgrade release

@@ -73,6 +73,7 @@ Thumbs.db
 # ==========================================
 # Local Data & Dev Scratch Files
 # ==========================================
+*.db.bak
 data/
 dev_data/
 src-tauri/resources/tags insert.sql

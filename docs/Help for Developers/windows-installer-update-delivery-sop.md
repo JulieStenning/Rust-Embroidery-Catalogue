@@ -89,7 +89,7 @@ Use [portable-usb-update-delivery-sop.md](portable-usb-update-delivery-sop.md) f
 - Evidence: scenario results and startup log excerpts.
 - Item C1 - Build installer artifact.
 - Run build-rust-release.bat (cargo tauri build) and confirm installer output location under target/release/bundle/.
-- Ensure build includes required bundled resources, especially src-tauri/resources/EmbroideryCatalogue.db (seed database with starter tags).
+- Ensure build includes required bundled resources, especially src-tauri/resources/EmbroideryCatalogue.db (seed database with starter tags, updated and sanitised via `cargo run --bin seed-tool -- --migrate`).
 - Output: candidate installer artifact path and build timestamp.
 - Item C2 - Gate C1 pass/fail decision.
 - Pass when installer exists and build has no unresolved error.
