@@ -153,19 +153,19 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
 ) -> Result<bool, String> {
     // Refuse to start if a run is already in progress or a batch operation is active.
     if maintenance_running.load(Ordering::SeqCst) {
-        tracing::info!("DB health check skipped — maintenance already running");
+        tracing::debug!("DB health check skipped — maintenance already running");
         return Ok(false);
     }
 
     if let Some(state) = app_handle.try_state::<crate::AppState>() {
         if state.maintenance_running.load(Ordering::SeqCst) {
-            tracing::info!("DB health check skipped — AppState maintenance already running");
+            tracing::debug!("DB health check skipped — AppState maintenance already running");
             return Ok(false);
         }
     }
 
     if crate::services::backfill::is_backfill_running() {
-        tracing::info!("DB health check skipped — batch operation is actively running");
+        tracing::debug!("DB health check skipped — batch operation is actively running");
         return Ok(false);
     }
 
@@ -178,7 +178,7 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
         DEFAULT_MIN_RECLAIMABLE_BYTES,
     );
 
-    tracing::info!(
+    tracing::debug!(
         "DB health check — page_count={}, freelist_count={}, free_ratio={:.3}, \
          reclaimable_bytes={}",
         snapshot.page_count,
@@ -196,7 +196,7 @@ pub async fn check_and_schedule_maintenance<R: tauri::Runtime>(
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        tracing::info!("DB health check — lost race, another run is already active");
+        tracing::debug!("DB health check — lost race, another run is already active");
         return Ok(false);
     }
 

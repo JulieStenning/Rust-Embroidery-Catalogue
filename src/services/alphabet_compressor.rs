@@ -61,7 +61,7 @@ pub fn compress_or_copy_alphabet(
     if dest_zip.exists() {
         if let Ok(meta) = fs::metadata(&dest_zip) {
             if meta.len() > 0 {
-                tracing::info!(
+                tracing::debug!(
                     "Destination alphabet archive already exists at '{}' — skipping recompression",
                     dest_zip.display()
                 );

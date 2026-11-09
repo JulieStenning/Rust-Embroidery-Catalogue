@@ -220,11 +220,6 @@ fn main() {
             std::process::exit(1);
         }
     };
-    tracing::info!(
-        "Embroidery Catalogue starting - mode={:?}, data_root={}",
-        app_paths.mode,
-        app_paths.data_root.display()
-    );
 
     // Determine whether we are in database-recovery mode. This happens in
     // Installed mode when a data root has been configured but the derived
@@ -238,13 +233,7 @@ fn main() {
     // the stale configured root so no `logs` folder is created under e.g.
     // `F:\` before the user re-points the real location.
     let log_dir = if recovery_mode {
-        let fallback = paths::recovery_log_dir();
-        tracing::info!(
-            "Database recovery mode: logging to fallback temp dir {} instead of {}",
-            fallback.display(),
-            app_paths.log_dir.display()
-        );
-        fallback
+        paths::recovery_log_dir()
     } else {
         app_paths.log_dir.clone()
     };
@@ -255,7 +244,21 @@ fn main() {
             std::process::exit(1);
         }
     };
-    tracing::info!("Logging initialised - log_dir={}", log_dir.display());
+    tracing::info!(
+        "Embroidery Catalogue v{} starting (os={}, arch={}) - mode={:?}, data_root={}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        app_paths.mode,
+        app_paths.data_root.display()
+    );
+    if recovery_mode {
+        tracing::warn!(
+            "Database recovery mode: logging to fallback temp dir {} instead of configured {}",
+            log_dir.display(),
+            app_paths.log_dir.display()
+        );
+    }
 
     // Prune log files older than the retention threshold (14 days).
     match logging::prune_old_log_files(&log_dir, logging::LOG_RETENTION_DURATION) {
@@ -277,7 +280,8 @@ fn main() {
 
     // Build bootstrap config from resolved paths
     let bootstrap_config = config::BootstrapConfig::from_app_paths(&app_paths);
-    tracing::info!("Parsed bootstrap configuration: {:#?}", bootstrap_config);
+    tracing::info!("Database URL: {}", bootstrap_config.database_url);
+    tracing::debug!("Parsed bootstrap configuration: {:?}", bootstrap_config);
 
     // Export the resolved database URL as DATABASE_URL so that
     // path-derivation helpers (bulk_import, designs, fingerprint, maintenance)
@@ -421,7 +425,7 @@ fn main() {
                                         }
                                     });
                                     let startup_reset = routes::bulk_import::reset_bulk_import_context_store_for_startup();
-                                    tracing::info!(
+                                    tracing::debug!(
                                         "Bulk import context startup reset: cleared={}, active={}, resets={}, at_ms={}",
                                         startup_reset.cleared_context_count,
                                         startup_reset.active_context_count,
@@ -524,7 +528,7 @@ fn main() {
                                 .maintenance_running
                                 .load(std::sync::atomic::Ordering::SeqCst)
                         {
-                            tracing::info!(
+                            tracing::debug!(
                                 "Idle DB health check deferred — batch operation or maintenance is in progress"
                             );
                             continue;

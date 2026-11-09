@@ -130,7 +130,7 @@ pub(crate) async fn filter_existing_scanned_files(
 
     if path_survivors.is_empty() {
         if excluded_by_path > 0 {
-            tracing::info!(
+            tracing::debug!(
                 "Preview dedup: excluded_by_path={} excluded_by_triple=0 imported=0",
                 excluded_by_path
             );
@@ -245,7 +245,7 @@ pub(crate) async fn filter_existing_scanned_files(
     }
 
     if excluded_by_path > 0 || excluded_by_triple > 0 {
-        tracing::info!(
+        tracing::debug!(
             "Preview dedup: excluded_by_path={} excluded_by_triple={} imported={}",
             excluded_by_path,
             excluded_by_triple,

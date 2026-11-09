@@ -244,7 +244,7 @@ pub(crate) fn ensure_file_in_designs_base(
         let dest_hash = compute_file_hash_blake3(&dest).unwrap_or_default();
 
         if dest_size == source_size && dest_hash == source_hash {
-            tracing::info!(
+            tracing::debug!(
                 "Import file '{}' content-identical to existing '{}' — reusing stored path",
                 source.display(),
                 dest.display()

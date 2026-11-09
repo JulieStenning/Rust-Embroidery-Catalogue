@@ -1140,14 +1140,19 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
 
     let total_elapsed_ms = import_start.elapsed().as_millis();
     tracing::info!(
-        "[TIMING] Bulk import complete: total={}ms | image_gen={}ms | db_insert={}ms | tagging={}ms | commits={}ms | persisted={} skipped={}",
+        "Bulk import complete: persisted={}, skipped={}, failed={}, elapsed={}ms",
+        persisted_design_count,
+        processed_count.saturating_sub(persisted_design_count),
+        failed_decode_count,
+        total_elapsed_ms,
+    );
+    tracing::debug!(
+        "[TIMING] Bulk import breakdown: total={}ms | image_gen={}ms | db_insert={}ms | tagging={}ms | commits={}ms",
         total_elapsed_ms,
         total_image_gen_ms,
         total_db_insert_ms,
         total_tagging_ms,
         total_commit_ms,
-        persisted_design_count,
-        processed_count.saturating_sub(persisted_design_count),
     );
 
     let final_stage = if stopped { "stopped" } else { "completed" };
