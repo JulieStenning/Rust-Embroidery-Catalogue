@@ -1307,9 +1307,8 @@
             <p class="text-sm text-[var(--text-secondary)]">
               Large catalogue data lives under a single home folder.
               {#if settingsCanConfigureDataRoot}
-                You can point this to a different location. Changes apply after
-                restarting the app, and any missing managed files are copied into the new location
-                automatically.
+                You can point this to a different location. Changes apply after restarting the app,
+                and any missing managed files are copied into the new location automatically.
               {:else}
                 In {settingsAppMode} mode this location follows the application folder automatically.
               {/if}

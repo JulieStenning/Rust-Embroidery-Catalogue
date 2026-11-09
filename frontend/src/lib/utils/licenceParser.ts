@@ -24,10 +24,8 @@ export function parseRustLicencesHtml(html: string): DependencyItem[] {
       const items: DependencyItem[] = [];
 
       cards.forEach((card) => {
-        const licenceName =
-          card.querySelector(".license-name")?.textContent?.trim() || "Unknown";
-        const text =
-          card.querySelector(".license-text pre")?.textContent?.trim() || "";
+        const licenceName = card.querySelector(".license-name")?.textContent?.trim() || "Unknown";
+        const text = card.querySelector(".license-text pre")?.textContent?.trim() || "";
         const listItems = card.querySelectorAll(".license-crates li");
 
         listItems.forEach((li) => {
@@ -52,9 +50,7 @@ export function parseRustLicencesHtml(html: string): DependencyItem[] {
         });
       });
 
-      return items.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-      );
+      return items.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
     } catch {
       // Fall through to regex-based parser
     }
@@ -77,9 +73,7 @@ export function parseRustLicencesHtmlRegex(html: string): DependencyItem[] {
     const nameMatch = cardContent.match(
       /<span[^>]*class=["'][^"']*license-name[^"']*["'][^>]*>([\s\S]*?)<\/span>/i
     );
-    const licenceName = nameMatch
-      ? nameMatch[1].replace(/<[^>]+>/g, "").trim()
-      : "Unknown";
+    const licenceName = nameMatch ? nameMatch[1].replace(/<[^>]+>/g, "").trim() : "Unknown";
 
     const textMatch = cardContent.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
     const text = textMatch
@@ -97,9 +91,7 @@ export function parseRustLicencesHtmlRegex(html: string): DependencyItem[] {
     while ((liMatch = liRegex.exec(cardContent)) !== null) {
       const liContent = liMatch[1];
       const strongMatch = liContent.match(/<strong[^>]*>([\s\S]*?)<\/strong>/i);
-      const name = strongMatch
-        ? strongMatch[1].replace(/<[^>]+>/g, "").trim()
-        : "";
+      const name = strongMatch ? strongMatch[1].replace(/<[^>]+>/g, "").trim() : "";
       if (!name) continue;
 
       const verMatch = liContent.match(/\(v([^)]+)\)/i);
@@ -118,8 +110,5 @@ export function parseRustLicencesHtmlRegex(html: string): DependencyItem[] {
     }
   }
 
-  return items.sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-  );
+  return items.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
-

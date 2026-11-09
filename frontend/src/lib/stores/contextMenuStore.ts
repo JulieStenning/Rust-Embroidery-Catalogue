@@ -59,4 +59,3 @@ export function openContextMenu(options: OpenContextMenuOptions): void {
 export function closeContextMenu(): void {
   contextMenu.set({ ...initialState });
 }
-

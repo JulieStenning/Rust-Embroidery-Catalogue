@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     listDesigners,
     createDesigner,
@@ -89,13 +89,14 @@
       }
 
       newDesignerName = "";
-      designerNameInput?.focus();
       addToast("Designer added.", "success");
       await loadDesigners(true);
     } finally {
       addingDesigner = false;
       endBusy();
     }
+    await tick();
+    designerNameInput?.focus();
   }
 
   /** @param {AdminEntityRow} designer */
@@ -178,8 +179,23 @@
     }
   }
 
-  function clearNewDesignerForm() {
+  /**
+   * @param {KeyboardEvent} event
+   * @param {number} designerId
+   */
+  function handleEditKeydown(event, designerId) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveDesignerEdit(designerId);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEditDesigner();
+    }
+  }
+
+  async function clearNewDesignerForm() {
     newDesignerName = "";
+    await tick();
     designerNameInput?.focus();
   }
 
@@ -202,11 +218,13 @@
   <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add New Designer</h2>
   <form class="flex gap-2" onsubmit={addDesigner}>
     <input
+      id="admin-designer-name"
       bind:this={designerNameInput}
       type="text"
       bind:value={newDesignerName}
       required
       disabled={anyActionBusy}
+      aria-label="New designer name"
       placeholder="New designer name..."
       class="admin-input flex-1 border rounded px-3 py-2 text-sm disabled:opacity-50"
     />
@@ -247,6 +265,8 @@
                   type="text"
                   bind:value={editingDesignerName}
                   disabled={anyActionBusy}
+                  aria-label="Edit designer name"
+                  onkeydown={(e) => handleEditKeydown(e, designer.id)}
                   class="admin-input border rounded px-2 py-1 text-sm w-full font-sans disabled:opacity-50"
                 />
               {:else}

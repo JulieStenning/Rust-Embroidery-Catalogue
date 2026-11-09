@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     listHoops,
     createHoop,
@@ -116,13 +116,14 @@
       newHoopName = "";
       newHoopWidth = 0;
       newHoopHeight = 0;
-      hoopNameInput?.focus();
       addToast("Hoop added.", "success");
       await loadHoops(true);
     } finally {
       addingHoop = false;
       endBusy();
     }
+    await tick();
+    hoopNameInput?.focus();
   }
 
   /** @param {HoopRow} hoop */
@@ -218,10 +219,25 @@
     }
   }
 
-  function clearNewHoopForm() {
+  /**
+   * @param {KeyboardEvent} event
+   * @param {number} hoopId
+   */
+  function handleEditKeydown(event, hoopId) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveHoopEdit(hoopId);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEditHoop();
+    }
+  }
+
+  async function clearNewHoopForm() {
     newHoopName = "";
     newHoopWidth = 0;
     newHoopHeight = 0;
+    await tick();
     hoopNameInput?.focus();
   }
 
@@ -329,6 +345,8 @@
                 <input
                   type="text"
                   bind:value={editingHoopName}
+                  aria-label="Edit hoop name"
+                  onkeydown={(e) => handleEditKeydown(e, hoop.id)}
                   class="admin-input border rounded px-2 py-1 text-sm w-full font-sans"
                 />
               {:else}
@@ -342,6 +360,8 @@
                   min="1"
                   step="1"
                   bind:value={editingHoopWidth}
+                  aria-label="Edit hoop max width in millimetres"
+                  onkeydown={(e) => handleEditKeydown(e, hoop.id)}
                   class="admin-input border rounded px-2 py-1 text-sm w-28 text-right font-mono"
                 />
               {:else}
@@ -355,6 +375,8 @@
                   min="1"
                   step="1"
                   bind:value={editingHoopHeight}
+                  aria-label="Edit hoop max height in millimetres"
+                  onkeydown={(e) => handleEditKeydown(e, hoop.id)}
                   class="admin-input border rounded px-2 py-1 text-sm w-28 text-right font-mono"
                 />
               {:else}

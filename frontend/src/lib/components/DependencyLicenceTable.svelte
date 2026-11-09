@@ -236,9 +236,4 @@
   {/if}
 </div>
 
-<LicenceTermsModal
-  open={isModalOpen}
-  item={activeModalItem}
-  onClose={closeTermsModal}
-/>
-
+<LicenceTermsModal open={isModalOpen} item={activeModalItem} onClose={closeTermsModal} />

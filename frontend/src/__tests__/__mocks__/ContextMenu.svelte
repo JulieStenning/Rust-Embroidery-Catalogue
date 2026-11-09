@@ -2,4 +2,3 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <div data-testid="context-menu-mock">Context Menu</div>
-

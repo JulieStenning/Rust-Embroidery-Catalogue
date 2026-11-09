@@ -113,6 +113,8 @@ describe("TagWordMatchModal.svelte", () => {
 
     expect(commandAdapter.addTagSynonyms).toHaveBeenCalledWith(10, "cat, dog");
     expect(onMatchesChanged).toHaveBeenCalled();
+    expect(input).toHaveValue("");
+    expect(document.activeElement).toBe(input);
   });
 
   it("deletes a single keyword when clicking remove button", async () => {

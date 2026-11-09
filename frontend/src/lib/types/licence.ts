@@ -18,4 +18,3 @@ export interface DependencyItem {
   repository: string;
   text?: string;
 }
-

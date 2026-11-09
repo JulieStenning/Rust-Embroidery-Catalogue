@@ -270,6 +270,35 @@ describe("TagWordMatchesView.svelte", () => {
     await tick();
 
     expect(commandAdapter.addTagSynonyms).toHaveBeenCalledWith(1, "lion, tiger");
+    expect(document.activeElement).toBe(wordsInput);
+  });
+
+  it("submits inline add and retains focus on the inline input", async () => {
+    vi.mocked(commandAdapter.addTagSynonyms).mockResolvedValueOnce({
+      source: "rust",
+      persisted: true,
+      item: [
+        { id: 101, keyword: "dog" },
+        { id: 102, keyword: "cat" },
+        { id: 103, keyword: "lion" },
+      ],
+    });
+
+    render(TagWordMatchesView);
+    await screen.findByRole("heading", { name: "Tag Word Matches" });
+
+    const inlineInput = screen.getByLabelText("Add word for Animals");
+    await fireEvent.input(inlineInput, { target: { value: "lion" } });
+    await tick();
+
+    const form = inlineInput.closest("form");
+    if (!form) throw new Error("Inline form not found");
+    await fireEvent.submit(form);
+    await tick();
+
+    expect(commandAdapter.addTagSynonyms).toHaveBeenCalledWith(1, "lion");
+    expect(inlineInput).toHaveValue("");
+    expect(document.activeElement).toBe(inlineInput);
   });
 
   it("handles quick add error when API fails", async () => {

@@ -580,6 +580,45 @@ describe("AdminDesignersView.svelte", () => {
     });
   });
 
+  it("saves inline edit when Enter is pressed in the edit input", async () => {
+    updateDesignerMock.mockResolvedValue({ persisted: true, item: { id: 1 }, source: "rust" });
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await tick();
+
+    const editInput = screen.getByDisplayValue("The Rose Studio");
+    await fireEvent.input(editInput, { target: { value: "Rose Updated" } });
+    await fireEvent.keyDown(editInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(updateDesignerMock).toHaveBeenCalledWith(1, "Rose Updated");
+    });
+    expect(addToastMock).toHaveBeenCalledWith("Designer updated.", "success");
+  });
+
+  it("cancels inline edit when Escape is pressed in the edit input", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("The Rose Studio")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await tick();
+
+    const editInput = screen.getByDisplayValue("The Rose Studio");
+    await fireEvent.keyDown(editInput, { key: "Escape" });
+    await tick();
+
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(3);
+  });
+
   it("handles a list response without an items property", async () => {
     listDesignersMock.mockResolvedValue({ source: "rust" });
 

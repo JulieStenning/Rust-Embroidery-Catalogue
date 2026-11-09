@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     listSources,
     createSource,
@@ -89,13 +89,14 @@
       }
 
       newSourceName = "";
-      sourceNameInput?.focus();
       addToast("Source added.", "success");
       await loadSources(true);
     } finally {
       addingSource = false;
       endBusy();
     }
+    await tick();
+    sourceNameInput?.focus();
   }
 
   /** @param {AdminEntityRow} source */
@@ -178,8 +179,23 @@
     }
   }
 
-  function clearNewSourceForm() {
+  /**
+   * @param {KeyboardEvent} event
+   * @param {number} sourceId
+   */
+  function handleEditKeydown(event, sourceId) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveSourceEdit(sourceId);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEditSource();
+    }
+  }
+
+  async function clearNewSourceForm() {
     newSourceName = "";
+    await tick();
     sourceNameInput?.focus();
   }
 
@@ -200,11 +216,13 @@
   <h2 class="text-sm font-semibold text-[var(--text-primary)] mb-3">Add New Source</h2>
   <form class="flex gap-2" onsubmit={addSource}>
     <input
+      id="admin-source-name"
       bind:this={sourceNameInput}
       type="text"
       bind:value={newSourceName}
       required
       disabled={anyActionBusy}
+      aria-label="New source name"
       placeholder="e.g. Purchased, Downloaded..."
       class="admin-input flex-1 border rounded px-3 py-2 text-sm disabled:opacity-50"
     />
@@ -245,6 +263,8 @@
                   type="text"
                   bind:value={editingSourceName}
                   disabled={anyActionBusy}
+                  aria-label="Edit source name"
+                  onkeydown={(e) => handleEditKeydown(e, source.id)}
                   class="admin-input border rounded px-2 py-1 text-sm w-full font-sans disabled:opacity-50"
                 />
               {:else}

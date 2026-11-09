@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { listTags, createTag } from "../api/commandAdapter";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { addToast } from "../stores/toastStore.js";
@@ -109,18 +109,20 @@
       }
 
       newTagDescription = "";
-      tagDescriptionInput?.focus();
       addToast("Tag added.", "success");
       await loadTags(true);
     } finally {
       addingTag = false;
       endBusy();
     }
+    await tick();
+    tagDescriptionInput?.focus();
   }
 
-  function clearNewTagForm() {
+  async function clearNewTagForm() {
     newTagDescription = "";
     recentlyCreatedTag = null;
+    await tick();
     tagDescriptionInput?.focus();
   }
 

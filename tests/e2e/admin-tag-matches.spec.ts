@@ -172,6 +172,9 @@ test.describe("manage tag word matches", () => {
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
+    await expect(wordsInput).toHaveValue("");
+    await expect(wordsInput).toBeFocused();
+
     // Word should appear in the Quick Add card chips
     const existingSection = page.getByTestId("quick-add-existing-matches");
     await expect(existingSection.getByText(uniqueWord)).toBeVisible();
@@ -200,6 +203,43 @@ test.describe("manage tag word matches", () => {
 
     // Confirm it is removed
     await expect(reloadedCard.getByText(uniqueWord)).toBeHidden();
+  });
+
+  test("adds a word match by pressing return and retains focus in quick add input", async ({
+    page,
+  }) => {
+    await gotoRoute(page, "#/admin/data/tag-matches");
+    await expect(
+      page.getByRole("heading", { name: "Tag Word Matches" }),
+    ).toBeVisible();
+
+    const uniqueWord = `pwret${Date.now()}`;
+
+    // Select "Animals" tag
+    const combobox = page.locator("#quick-add-tag-combobox");
+    await combobox.click();
+    await combobox.fill("Animals");
+    await page.getByRole("option", { name: "Animals" }).click();
+
+    // Type in words input and press Enter
+    const wordsInput = page.locator("#quick-add-words-input");
+    await wordsInput.fill(uniqueWord);
+    await wordsInput.press("Enter");
+
+    // Word appears and focus stays in wordsInput ready for next entry
+    await expect(
+      page.getByTestId("quick-add-existing-matches").getByText(uniqueWord),
+    ).toBeVisible();
+    await expect(wordsInput).toHaveValue("");
+    await expect(wordsInput).toBeFocused();
+
+    // Clean up
+    const animalsCard = page.locator('[data-testid^="tag-match-card-"]', {
+      has: page.getByRole("heading", { name: "Animals" }),
+    });
+    const removeBtn = animalsCard.getByLabel(`Remove ${uniqueWord}`);
+    await removeBtn.click();
+    await expect(animalsCard.getByText(uniqueWord)).toBeHidden();
   });
 
   test("filters displayed groups by search text and tag group", async ({

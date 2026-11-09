@@ -10,11 +10,7 @@
     onClose?: () => void;
   }
 
-  let {
-    open = false,
-    item = null,
-    onClose = () => {},
-  }: Props = $props();
+  let { open = false, item = null, onClose = () => {} }: Props = $props();
 
   let copied = $state(false);
   let copyTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -135,8 +131,7 @@
         {#if item.text}
           <pre
             data-testid="licence-terms-text"
-            class="whitespace-pre-wrap text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 font-mono shadow-inner max-h-[50vh] overflow-y-auto select-text"
-          >{item.text}</pre>
+            class="whitespace-pre-wrap text-xs text-[var(--text-secondary)] bg-[var(--surface-card-subtle)] border border-[var(--border-default)] rounded-lg p-4 font-mono shadow-inner max-h-[50vh] overflow-y-auto select-text">{item.text}</pre>
         {:else}
           <p class="text-sm text-[var(--text-muted)] italic">
             Full licence text is not bundled locally for this dependency. Please refer to the
@@ -174,4 +169,3 @@
     </div>
   </div>
 {/if}
-

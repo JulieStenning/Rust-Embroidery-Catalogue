@@ -576,6 +576,45 @@ describe("AdminSourcesView.svelte", () => {
     });
   });
 
+  it("saves inline edit when Enter is pressed in the edit input", async () => {
+    updateSourceMock.mockResolvedValue({ persisted: true, item: { id: 1 }, source: "rust" });
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Purchased")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await tick();
+
+    const editInput = screen.getByDisplayValue("Purchased");
+    await fireEvent.input(editInput, { target: { value: "Purchased Updated" } });
+    await fireEvent.keyDown(editInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(updateSourceMock).toHaveBeenCalledWith(1, "Purchased Updated");
+    });
+    expect(addToastMock).toHaveBeenCalledWith("Source updated.", "success");
+  });
+
+  it("cancels inline edit when Escape is pressed in the edit input", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Purchased")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await tick();
+
+    const editInput = screen.getByDisplayValue("Purchased");
+    await fireEvent.keyDown(editInput, { key: "Escape" });
+    await tick();
+
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(4);
+  });
+
   it("handles a list response without an items property", async () => {
     listSourcesMock.mockResolvedValue({ source: "rust" });
 

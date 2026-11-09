@@ -60,7 +60,9 @@ describe("DependencyLicenceTable", () => {
     await fireEvent.input(searchInput, { target: { value: "rusq" } });
     await tick();
 
-    expect(screen.getByTestId("dependency-count-summary")).toHaveTextContent("Showing 1 of 3 crates");
+    expect(screen.getByTestId("dependency-count-summary")).toHaveTextContent(
+      "Showing 1 of 3 crates"
+    );
     expect(screen.getByText("rusqlite")).toBeInTheDocument();
     expect(screen.queryByText("tauri")).not.toBeInTheDocument();
     expect(screen.queryByText("serde")).not.toBeInTheDocument();
@@ -78,7 +80,9 @@ describe("DependencyLicenceTable", () => {
     await fireEvent.change(select, { target: { value: "Apache-2.0" } });
     await tick();
 
-    expect(screen.getByTestId("dependency-count-summary")).toHaveTextContent("Showing 1 of 3 crates");
+    expect(screen.getByTestId("dependency-count-summary")).toHaveTextContent(
+      "Showing 1 of 3 crates"
+    );
     expect(screen.getByText("tauri")).toBeInTheDocument();
     expect(screen.queryByText("rusqlite")).not.toBeInTheDocument();
   });
@@ -96,7 +100,9 @@ describe("DependencyLicenceTable", () => {
     await tick();
 
     expect(screen.getByTestId("licence-terms-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("licence-terms-text")).toHaveTextContent("MIT License text for rusqlite");
+    expect(screen.getByTestId("licence-terms-text")).toHaveTextContent(
+      "MIT License text for rusqlite"
+    );
 
     const closeBtn = screen.getByTestId("close-licence-terms-modal");
     await fireEvent.click(closeBtn);
@@ -136,4 +142,3 @@ describe("DependencyLicenceTable", () => {
     );
   });
 });
-

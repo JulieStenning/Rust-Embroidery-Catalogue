@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { describe, it, expect } from "vitest";
-import {
-  parseRustLicencesHtml,
-  parseRustLicencesHtmlRegex,
-} from "../licenceParser";
+import { parseRustLicencesHtml, parseRustLicencesHtmlRegex } from "../licenceParser";
 
 const SAMPLE_HTML = `
 <div class="licenses-list">
@@ -112,4 +109,3 @@ describe("licenceParser", () => {
     expect(items[0].licence).toBe("BSD-3-Clause");
   });
 });
-

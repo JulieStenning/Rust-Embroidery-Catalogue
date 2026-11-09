@@ -534,7 +534,8 @@
           live migration.
         </li>
         <li>
-          <strong>Diagnostic Logs:</strong> View and open your application log folder directly in File Explorer from
+          <strong>Diagnostic Logs:</strong> View and open your application log folder directly in
+          File Explorer from
           <em>Active Storage Locations</em>. Logs older than 14 days are automatically cleared down.
         </li>
         <li>

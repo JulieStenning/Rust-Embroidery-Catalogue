@@ -4,6 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
+import { tick } from "svelte";
 import AdminHoopsView from "../AdminHoopsView.svelte";
 
 // ---------------------------------------------------------------------------
@@ -554,5 +555,44 @@ describe("AdminHoopsView.svelte", () => {
     await waitFor(() => {
       expect(addToastMock).toHaveBeenCalledWith("Could not delete hoop: boom", "error");
     });
+  });
+
+  it("saves inline edit when Enter is pressed in an edit input", async () => {
+    updateHoopMock.mockResolvedValue({ persisted: true, item: { id: 1 }, source: "rust" });
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("5x7 Hoop")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await tick();
+
+    const nameInput = screen.getByLabelText("Edit hoop name");
+    await fireEvent.input(nameInput, { target: { value: "5x7 Updated" } });
+    await fireEvent.keyDown(nameInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(updateHoopMock).toHaveBeenCalledWith(1, "5x7 Updated", 130, 180);
+    });
+    expect(addToastMock).toHaveBeenCalledWith("Hoop updated.", "success");
+  });
+
+  it("cancels inline edit when Escape is pressed in an edit input", async () => {
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("5x7 Hoop")).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await tick();
+
+    const nameInput = screen.getByLabelText("Edit hoop name");
+    await fireEvent.keyDown(nameInput, { key: "Escape" });
+    await tick();
+
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(2);
   });
 });

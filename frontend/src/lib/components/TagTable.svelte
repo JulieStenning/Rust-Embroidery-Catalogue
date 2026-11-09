@@ -45,6 +45,20 @@
     editingTagDescription = "";
   }
 
+  /**
+   * @param {KeyboardEvent} event
+   * @param {TagRow} tag
+   */
+  function handleEditKeydown(event, tag) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveEdit(tag);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEdit();
+    }
+  }
+
   /** @param {TagRow} tag */
   async function saveEdit(tag) {
     if (anyRowBusy) return;
@@ -152,6 +166,8 @@
               <input
                 type="text"
                 bind:value={editingTagDescription}
+                aria-label="Edit tag description"
+                onkeydown={(e) => handleEditKeydown(e, tag)}
                 class="admin-input border rounded px-2 py-1 text-sm w-full font-sans"
               />
             {:else}

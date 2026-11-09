@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     listTagSynonymsGrouped,
     addTagSynonyms,
@@ -215,6 +215,8 @@
       quickAddSaving = false;
       endBusy();
     }
+    await tick();
+    document.getElementById("quick-add-words-input")?.focus();
   }
 
   /**
@@ -251,6 +253,8 @@
       inlineSaving[tagId] = false;
       endBusy();
     }
+    await tick();
+    document.getElementById(`inline-words-input-${tagId}`)?.focus();
   }
 
   /**
@@ -663,10 +667,12 @@
             class="flex items-center gap-2 pt-1"
           >
             <input
+              id={`inline-words-input-${group.tag_id}`}
               type="text"
               bind:value={inlineWordsInput[group.tag_id]}
               placeholder="+ Add word (e.g. alias) and press Enter..."
               disabled={Boolean(inlineSaving[group.tag_id])}
+              aria-label={`Add word for ${group.tag_description}`}
               class="admin-input border rounded-lg px-2.5 py-1 text-xs w-64 bg-[var(--surface-primary)] text-[var(--text-primary)] border-[var(--border-default)] focus:border-[var(--brand-primary)] focus:outline-none"
             />
             {#if (inlineWordsInput[group.tag_id] || "").trim().length > 0}

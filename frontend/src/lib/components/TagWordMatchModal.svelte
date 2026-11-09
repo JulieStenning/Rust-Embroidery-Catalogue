@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <script>
+  import { tick } from "svelte";
   import {
     listTagSynonymsGrouped,
     addTagSynonyms,
@@ -42,6 +43,8 @@
   /** @type {number | null} */
   let activeTagId = $state(null);
   let wordsInput = $state("");
+  /** @type {HTMLInputElement | null} */
+  let wordsInputElement = $state(null);
   let isSaving = $state(false);
   let isLoading = $state(false);
   /** @type {number | null} */
@@ -62,6 +65,9 @@
       wordsInput = "";
       if (activeTagId) {
         loadTagKeywords(activeTagId);
+        tick().then(() => {
+          wordsInputElement?.focus();
+        });
       } else {
         currentKeywords = [];
       }
@@ -117,6 +123,8 @@
       isSaving = false;
       endBusy();
     }
+    await tick();
+    wordsInputElement?.focus();
   }
 
   /** @param {number} synonymId */
@@ -274,6 +282,7 @@
             <div class="flex gap-2">
               <input
                 id="modal-words-input"
+                bind:this={wordsInputElement}
                 type="text"
                 bind:value={wordsInput}
                 placeholder="e.g. frog, toad, newt"

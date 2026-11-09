@@ -209,7 +209,9 @@ describe("AboutDocumentView", () => {
 
       expect(within(tab).getByText("svelte")).toBeInTheDocument();
       expect(within(tab).queryByText("@esbuild/win32-x64")).not.toBeInTheDocument();
-      expect(within(tab).getByTestId("dependency-count-summary")).toHaveTextContent("Showing 1 of 2 packages");
+      expect(within(tab).getByTestId("dependency-count-summary")).toHaveTextContent(
+        "Showing 1 of 2 packages"
+      );
     });
 
     it("opens and closes the licence terms modal", async () => {
@@ -219,7 +221,9 @@ describe("AboutDocumentView", () => {
       await tick();
 
       const rustTab = screen.getByTestId("licence-rust-tab");
-      const viewTermsBtn = within(rustTab).getByRole("button", { name: "View licence terms for tokio" });
+      const viewTermsBtn = within(rustTab).getByRole("button", {
+        name: "View licence terms for tokio",
+      });
 
       await fireEvent.click(viewTermsBtn);
       await tick();
