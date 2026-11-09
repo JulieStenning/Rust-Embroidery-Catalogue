@@ -16,7 +16,7 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for rust modules:
    - If an existing (historical) row is better than the new measurement in ANY one metric, KEEP that better row and INSERT a new row directly below it with the latest metrics (Line %, Function %, Region %), today's date (YYYY-MM-DD), and "[PENDING REVIEW]" in Status, so I can compare progress. Never delete a row that is better than the latest measurement on any metric.
    - Only when the new measurement is equal-or-better than the existing row in ALL metrics, overwrite that row in place with the latest metrics and today's date (no extra row is needed). Set the status to [ACCEPTED] and write a reason for the acceptance.
 5. Order rows by module including file path. When a module has multiple rows, keep them contiguous with the newest directly below its previous row.
-6. Do NOT attempt to write, modify, or generate unit tests for any files. Do not write or edit source code files—only update COVERAGE_EXCEPTIONS.md.
+
 
 ---
 
@@ -67,11 +67,8 @@ Instructions for updating COVERAGE_EXCEPTIONS.md for Playwright E2E coverage:
 
 ---
 
-Prompt to update tests to increase coverage:
-@ModuleName has a NumberHere% function/line/region coverage. Can it be improved? Use information in @/.clinerules for information on how to write the tests. Explain your reasons if the coverage should be under 100%. If you changed a test, update @/docs/policies/testing/COVERAGE_EXCEPTIONS.md with the new coverage at the end of the task.
-
 For Antigravity:
-You can see the coverage details for @ModuleName in [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md). Can we improve the coverage? I don't want to add tests for the sake of it. If we can increase the coverage, please write a plan. The plan should include updating [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) using the rules in [Coverage Report Update Prompts.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/Help%20for%20Developers/Coverage%20Report%20Update%20Prompts.md).
+You can see the coverage details for the app in [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md). Can we improve the coverage? I don't want to add tests for the sake of it. If we can increase the coverage, please write a plan and then execute the plan. The plan should include updating [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) using the rules in [Coverage Report Update Prompts.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/Help%20for%20Developers/Coverage%20Report%20Update%20Prompts.md).
 
 If we cannot improve the coverage, please update [COVERAGE_EXCEPTIONS.md](file:///d:/My%20Software%20Development/Rust-Embroidery-Catalogue/docs/policies/testing/COVERAGE_EXCEPTIONS.md) to say [ACCEPTED] and add the reason why.
 
