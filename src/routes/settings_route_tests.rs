@@ -1091,3 +1091,26 @@ fn list_gemini_models_for_client_surfaces_http_error() {
         .expect_err("http error should surface");
     assert!(err.contains("500"));
 }
+
+#[tokio::test]
+#[serial_test::serial]
+async fn open_log_folder_inner_creates_dir_and_succeeds_when_launches_suppressed() {
+    let tmp = std::env::temp_dir().join("embroidery_test_open_log_folder");
+    let _ = std::fs::remove_dir_all(&tmp);
+
+    let prior = std::env::var("EMBROIDERY_DISABLE_EXTERNAL_OPEN").ok();
+    std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", "true");
+
+    let result = super::open_log_folder_inner(&tmp).await;
+    assert!(result.is_ok());
+    assert!(result.unwrap());
+    assert!(tmp.is_dir());
+
+    if let Some(val) = prior {
+        std::env::set_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN", val);
+    } else {
+        std::env::remove_var("EMBROIDERY_DISABLE_EXTERNAL_OPEN");
+    }
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}

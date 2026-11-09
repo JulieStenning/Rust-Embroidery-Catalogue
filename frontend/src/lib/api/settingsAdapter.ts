@@ -724,3 +724,18 @@ export async function listenCatalogueStorageMigrationProgress(
   );
   return unlisten;
 }
+
+/**
+ * Open the application log directory in the platform's default file manager.
+ *
+ * @returns {Promise<{ success: boolean; error?: string }>}
+ */
+export async function openLogFolder(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const success = await invokeLoose<boolean>("open_log_folder");
+    return { success: Boolean(success) };
+  } catch (error) {
+    console.info("open_log_folder failed.", error);
+    return { success: false, error: String(error) };
+  }
+}

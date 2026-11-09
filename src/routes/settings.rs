@@ -158,6 +158,47 @@ pub async fn set_google_api_key(
 ) -> Result<bool, String> {
     set_google_api_key_inner(&state, api_key).await
 }
+
+pub(crate) async fn open_log_folder_inner(log_dir: &std::path::Path) -> Result<bool, String> {
+    if !log_dir.exists() {
+        std::fs::create_dir_all(log_dir)
+            .map_err(|e| format!("Failed to create log directory: {e}"))?;
+    }
+
+    if crate::routes::designs::launch::external_launches_disabled() {
+        return Ok(true);
+    }
+
+    if cfg!(target_os = "windows") {
+        let open_target = crate::paths::normalize_windows_explorer_target(
+            &log_dir
+                .canonicalize()
+                .unwrap_or_else(|_| log_dir.to_path_buf()),
+        );
+        std::process::Command::new("explorer.exe")
+            .arg(&open_target)
+            .spawn()
+            .map_err(|e| format!("Failed to open Explorer: {e}"))?;
+    } else if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+            .arg(log_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {e}"))?;
+    } else {
+        std::process::Command::new("xdg-open")
+            .arg(log_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {e}"))?;
+    }
+
+    Ok(true)
+}
+
+/// Open the application log folder in the platform's default file manager.
+#[tauri::command]
+pub async fn open_log_folder(state: State<'_, AppState>) -> Result<bool, String> {
+    open_log_folder_inner(&state.paths.log_dir).await
+}
 #[cfg(test)]
 #[path = "settings_route_tests.rs"]
 mod tests;

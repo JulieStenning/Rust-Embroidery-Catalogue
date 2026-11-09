@@ -90,6 +90,79 @@ pub fn init_logging(log_dir: &Path) -> Result<LogGuard, AppError> {
     }
 }
 
+/// Default log retention duration (14 days).
+pub const LOG_RETENTION_DURATION: std::time::Duration = std::time::Duration::from_secs(14 * 86_400);
+
+/// Log retention in days.
+pub const LOG_RETENTION_DAYS: u64 = 14;
+
+/// Prune log files inside `log_dir` that are older than `max_age_duration`.
+///
+/// Daily application logs (`app.*.log`) and backfill logs (`backfill_*.log`)
+/// are evaluated. The age is determined from the file's last modified timestamp.
+/// If an old file cannot be removed (e.g. locked by a running process or
+/// permission denied), a warning is logged and pruning continues for other files.
+///
+/// Returns the number of files successfully deleted.
+pub fn prune_old_log_files(
+    log_dir: &Path,
+    max_age_duration: std::time::Duration,
+) -> Result<usize, AppError> {
+    if !log_dir.is_dir() {
+        return Ok(0);
+    }
+
+    let entries = std::fs::read_dir(log_dir).map_err(|err| {
+        AppError::io(format!(
+            "failed to read log directory {}: {err}",
+            log_dir.display()
+        ))
+    })?;
+
+    let now = std::time::SystemTime::now();
+    let mut pruned_count = 0;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        let is_target_log = (file_name.starts_with("app.") || file_name.starts_with("backfill_"))
+            && file_name.ends_with(".log");
+        if !is_target_log {
+            continue;
+        }
+
+        let is_expired = match entry.metadata().and_then(|m| m.modified()) {
+            Ok(modified) => match now.duration_since(modified) {
+                Ok(age) => age >= max_age_duration,
+                Err(_) => false,
+            },
+            Err(_) => false,
+        };
+
+        if is_expired {
+            match std::fs::remove_file(&path) {
+                Ok(()) => {
+                    pruned_count += 1;
+                    tracing::info!("Pruned old log file: {}", path.display());
+                }
+                Err(err) => {
+                    tracing::warn!("Could not remove old log file {}: {err}", path.display());
+                }
+            }
+        }
+    }
+
+    Ok(pruned_count)
+}
+
 impl LogGuard {
     /// Create a dummy `LogGuard` for use in tests where a real logging
     /// setup is not needed. Connects to `std::io::sink()` to avoid
@@ -198,5 +271,68 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&base);
+    }
+
+    #[test]
+    fn test_prune_old_log_files() {
+        let log_dir = std::env::temp_dir().join("embroidery_logging_prune_test");
+        let _ = std::fs::remove_dir_all(&log_dir);
+        std::fs::create_dir_all(&log_dir).expect("create test log dir");
+
+        let fresh_file = log_dir.join("app.2026-11-08.log");
+        let old_file = log_dir.join("app.2026-10-01.log");
+        let fresh_backfill = log_dir.join("backfill_info.log");
+        let old_backfill = log_dir.join("backfill_errors.log");
+        let unrelated_file = log_dir.join("notes.txt");
+
+        std::fs::write(&fresh_file, b"fresh log").expect("write fresh");
+        std::fs::write(&old_file, b"old log").expect("write old");
+        std::fs::write(&fresh_backfill, b"fresh backfill").expect("write fresh backfill");
+        std::fs::write(&old_backfill, b"old backfill").expect("write old backfill");
+        std::fs::write(&unrelated_file, b"keep me").expect("write unrelated");
+
+        // Set mtime of old_file and old_backfill to 20 days ago
+        let now = std::time::SystemTime::now();
+        let twenty_days_ago = now - std::time::Duration::from_secs(20 * 86_400);
+        let file = std::fs::File::options()
+            .write(true)
+            .open(&old_file)
+            .expect("open old");
+        file.set_modified(twenty_days_ago).expect("set old mtime");
+
+        let bf_file = std::fs::File::options()
+            .write(true)
+            .open(&old_backfill)
+            .expect("open old backfill");
+        bf_file
+            .set_modified(twenty_days_ago)
+            .expect("set old backfill mtime");
+
+        // Set mtime of unrelated_file to 20 days ago as well (should not be pruned because not app.*.log or backfill_*.log)
+        let un_file = std::fs::File::options()
+            .write(true)
+            .open(&unrelated_file)
+            .expect("open unrelated");
+        un_file
+            .set_modified(twenty_days_ago)
+            .expect("set unrelated mtime");
+
+        let pruned = prune_old_log_files(&log_dir, std::time::Duration::from_secs(14 * 86_400))
+            .expect("prune should succeed");
+        assert_eq!(
+            pruned, 2,
+            "should have pruned exactly 2 old log files (1 daily log + 1 backfill log)"
+        );
+
+        assert!(fresh_file.exists(), "fresh log file must still exist");
+        assert!(!old_file.exists(), "old log file must be pruned");
+        assert!(
+            fresh_backfill.exists(),
+            "fresh backfill log must still exist"
+        );
+        assert!(!old_backfill.exists(), "old backfill log must be pruned");
+        assert!(unrelated_file.exists(), "unrelated file must not be pruned");
+
+        let _ = std::fs::remove_dir_all(&log_dir);
     }
 }

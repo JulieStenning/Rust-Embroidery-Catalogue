@@ -534,6 +534,10 @@
           live migration.
         </li>
         <li>
+          <strong>Diagnostic Logs:</strong> View and open your application log folder directly in File Explorer from
+          <em>Active Storage Locations</em>. Logs older than 14 days are automatically cleared down.
+        </li>
+        <li>
           <strong>Product licence:</strong> Manage licence activation in
           <a href="#/about" class="text-[var(--text-brand)] hover:underline">About</a>, or view
           open-source licences in

@@ -56,6 +56,7 @@ import {
   listTags,
   openDesignInEditor,
   openDesignInExplorer,
+  openLogFolder,
   precheckImportWire,
   previewImportFromRoot,
   previewImportFromRoots,
@@ -1664,6 +1665,20 @@ describe("commandAdapter settings", () => {
     expect(result.source).toBe("rust");
     expect(result.path).toBeNull();
     expect(result.error).toBe("cancelled");
+  });
+
+  it("openLogFolder invokes open_log_folder and returns success", async () => {
+    invokeMock.mockResolvedValue(true);
+
+    const result = await openLogFolder();
+
+    expect(invokeMock).toHaveBeenCalledWith("open_log_folder");
+    expect(result.success).toBe(true);
+
+    mockReject(new Error("failed to spawn explorer"));
+    const failResult = await openLogFolder();
+    expect(failResult.success).toBe(false);
+    expect(failResult.error).toContain("failed to spawn explorer");
   });
 
   it("listGeminiModels passes apiKey and returns the model list", async () => {

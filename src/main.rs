@@ -257,6 +257,21 @@ fn main() {
     };
     tracing::info!("Logging initialised - log_dir={}", log_dir.display());
 
+    // Prune log files older than the retention threshold (14 days).
+    match logging::prune_old_log_files(&log_dir, logging::LOG_RETENTION_DURATION) {
+        Ok(count) if count > 0 => {
+            tracing::info!(
+                "Pruned {} old log file(s) exceeding {}-day retention limit",
+                count,
+                logging::LOG_RETENTION_DAYS
+            );
+        }
+        Ok(_) => {}
+        Err(err) => {
+            tracing::warn!("Failed to prune old log files on startup: {}", err);
+        }
+    }
+
     // Load .env file if present (best-effort; not required in production)
     load_dotenv();
 
@@ -530,6 +545,13 @@ fn main() {
                         {
                             tracing::warn!("Idle DB health check failed: {}", err);
                         }
+
+                        // Periodic background log file retention pruning.
+                        let log_dir = idle_handle.state::<AppState>().paths.log_dir.clone();
+                        let _ = logging::prune_old_log_files(
+                            &log_dir,
+                            logging::LOG_RETENTION_DURATION,
+                        );
                     }
                 });
             }
@@ -595,6 +617,7 @@ fn main() {
             routes::settings::browse_settings_data_root,
             routes::settings::get_google_api_key,
             routes::settings::set_google_api_key,
+            routes::settings::open_log_folder,
             routes::licence::get_licence_status,
             routes::licence::activate_licence,
             routes::licence::deactivate_licence,

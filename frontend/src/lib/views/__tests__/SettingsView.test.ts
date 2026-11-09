@@ -23,6 +23,7 @@ const cancelCatalogueStorageMigrationMock = vi.hoisted(() => vi.fn());
 const listenCatalogueStorageMigrationProgressMock = vi.hoisted(() => vi.fn());
 const getDbStatsMock = vi.hoisted(() => vi.fn());
 const compactDatabaseMock = vi.hoisted(() => vi.fn());
+const openLogFolderMock = vi.hoisted(() => vi.fn());
 const listGeminiModelsMock = vi.hoisted(() => vi.fn());
 const testGeminiModelMock = vi.hoisted(() => vi.fn());
 const runDatabaseBackupMock = vi.hoisted(() => vi.fn());
@@ -39,6 +40,7 @@ vi.mock("../../api/commandAdapter", () => ({
   listenCatalogueStorageMigrationProgress: listenCatalogueStorageMigrationProgressMock,
   getDbStats: getDbStatsMock,
   compactDatabase: compactDatabaseMock,
+  openLogFolder: openLogFolderMock,
   listGeminiModels: listGeminiModelsMock,
   testGeminiModel: testGeminiModelMock,
 }));
@@ -120,6 +122,7 @@ describe("SettingsView.svelte", () => {
     addToastMock.mockClear();
     mockSettings();
     mockDbStats();
+    openLogFolderMock.mockResolvedValue({ success: true });
   });
 
   afterEach(() => {
@@ -187,6 +190,34 @@ describe("SettingsView.svelte", () => {
     });
 
     infoSpy.mockRestore();
+  });
+
+  it("renders the Open Folder button for the log directory and calls openLogFolder on click", async () => {
+    openLogFolderMock.mockResolvedValue({ success: true });
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const openLogBtn = screen.getByTestId("settings-open-log-folder-button");
+    expect(openLogBtn).toBeInTheDocument();
+    expect(openLogBtn).toHaveTextContent("Open Folder");
+
+    await fireEvent.click(openLogBtn);
+
+    expect(openLogFolderMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error toast if opening the log folder fails", async () => {
+    openLogFolderMock.mockResolvedValue({ success: false, error: "Failed to open Explorer" });
+    renderView();
+
+    await waitForSettingsLoaded();
+
+    const openLogBtn = screen.getByTestId("settings-open-log-folder-button");
+    await fireEvent.click(openLogBtn);
+
+    expect(openLogFolderMock).toHaveBeenCalledTimes(1);
+    expect(addToastMock).toHaveBeenCalledWith("Failed to open Explorer", "error");
   });
 
   it("applies fallback defaults and hides data-root controls when the model is empty", async () => {

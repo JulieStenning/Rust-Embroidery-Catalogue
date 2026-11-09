@@ -386,6 +386,10 @@ test.describe.serial("application settings", () => {
       page.getByText("Database File", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Log Folder", { exact: true })).toBeVisible();
+    const openLogBtn = page.getByTestId("settings-open-log-folder-button");
+    await expect(openLogBtn).toBeVisible();
+    await expect(openLogBtn).toHaveText("Open Folder");
+    await openLogBtn.click();
 
     // Contextual cross-links in the form
     const helpLink = page.getByRole("link", {
@@ -424,7 +428,7 @@ test.describe.serial("application settings", () => {
     await saveButton.click();
 
     await expect(page.getByTestId("settings-dirty-hint")).toBeHidden();
-    await expect(page.getByText("Settings saved successfully.")).toBeVisible();
+    await expect(page.getByText("Settings saved successfully.").last()).toBeVisible();
 
     // Verify clean state on reload
     await page.reload();

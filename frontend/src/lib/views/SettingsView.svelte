@@ -15,6 +15,7 @@
     listenCatalogueStorageMigrationProgress,
     getDbStats,
     compactDatabase,
+    openLogFolder,
   } from "../api/commandAdapter";
   import { runDatabaseBackup } from "../api/backupAdapter";
   import ConfirmCompactDatabaseModal from "../components/ConfirmCompactDatabaseModal.svelte";
@@ -672,6 +673,23 @@
     }
   }
 
+  let isOpeningLogFolder = $state(false);
+
+  async function handleOpenLogFolder() {
+    if (isOpeningLogFolder || busyActive || isCompacting) return;
+    isOpeningLogFolder = true;
+    try {
+      const result = await openLogFolder();
+      if (!result.success && result.error) {
+        addToast(result.error, "error");
+      }
+    } catch (error) {
+      addToast(String(error), "error");
+    } finally {
+      isOpeningLogFolder = false;
+    }
+  }
+
   onMount(() => {
     loadSettingsFromBackend();
     loadDbStats();
@@ -1289,7 +1307,7 @@
             <p class="text-sm text-[var(--text-secondary)]">
               Large catalogue data lives under a single home folder.
               {#if settingsCanConfigureDataRoot}
-                For desktop installs you can point this to a different location. Changes apply after
+                You can point this to a different location. Changes apply after
                 restarting the app, and any missing managed files are copied into the new location
                 automatically.
               {:else}
@@ -1351,9 +1369,20 @@
             </div>
             <div>
               <span class="block text-[var(--text-muted)] font-medium mb-0.5">Log Folder</span>
-              <code class="block font-mono text-[var(--text-secondary)] break-all"
-                >{settingsLogFolder}</code
-              >
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <code class="font-mono text-[var(--text-secondary)] break-all"
+                  >{settingsLogFolder}</code
+                >
+                <button
+                  type="button"
+                  class="menu-button-secondary text-xs px-2.5 py-1 font-medium whitespace-nowrap shrink-0"
+                  onclick={handleOpenLogFolder}
+                  disabled={busyActive || isCompacting || isOpeningLogFolder}
+                  data-testid="settings-open-log-folder-button"
+                >
+                  {isOpeningLogFolder ? "Opening…" : "Open Folder"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

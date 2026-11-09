@@ -92,10 +92,22 @@ Your original embroidery files outside the catalogue are never touched.
 
 ---
 
+## Find your diagnostic log files
+
+When troubleshooting an issue, you may be asked to provide your application log file. The catalogue automatically clears down old log files older than 14 days to keep disk space tidy.
+
+1. Go to [Admin → Settings](#/admin/system/settings).
+2. Scroll down to **Active Storage Locations**.
+3. Next to **Log Folder**, click **Open Folder** to view your log files in Windows File Explorer.
+4. Attach the latest `app.<date>.log` file to your support message.
+
+---
+
 ## If something goes wrong
 
 | Problem | What to do |
 |---|---|
+| Asked to send a diagnostic log file | In [Admin → Settings](#/admin/system/settings), scroll to **Active Storage Locations** and click **Open Folder** next to **Log Folder**. |
 | AI tagging shows "429 Too Many Requests" errors | Tick **My Google API key is on the free tier**, or set **Workers** to 1 and **Delay between Gemini calls** to 10. Save, then try again. |
 | **Test model** fails | Check the key in Google AI Studio and your internet connection. Click **Refresh** to reload the list of models. |
 | **Test model** can't be clicked | Enter an API key first, and wait for any running task to finish. |

@@ -2156,6 +2156,7 @@ fn append_log_line(path: &Path, line: &str) {
 }
 
 pub fn log_info(message: String) {
+    tracing::info!(target: "backfill", "{message}");
     append_log_line(
         &info_log_path(),
         &format!("{}\t{}", now_epoch_seconds(), message),
@@ -2163,6 +2164,7 @@ pub fn log_info(message: String) {
 }
 
 pub fn log_error(message: String) {
+    tracing::error!(target: "backfill", "{message}");
     append_log_line(
         &error_log_path(),
         &format!("{}\t{}", now_epoch_seconds(), message),
