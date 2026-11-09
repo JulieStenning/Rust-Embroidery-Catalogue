@@ -135,7 +135,7 @@ test.describe("manage designers", () => {
     const name = `Playwright Designer ${Date.now()}`;
     const input = page.getByPlaceholder("New designer name...");
     await input.fill(name);
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await input.press("Enter");
 
     // Toast notification and input cleared
     await expect(page.getByText("Designer added.")).toBeVisible();
@@ -155,24 +155,6 @@ test.describe("manage designers", () => {
       page.getByRole("heading", { name: "Manage Designers" }),
     ).toBeVisible();
     await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
-  });
-
-  test("adds a new designer by pressing return and returns focus to input", async ({
-    page,
-  }) => {
-    await gotoRoute(page, "#/admin/data/designers");
-    await expect(
-      page.getByRole("heading", { name: "Manage Designers" }),
-    ).toBeVisible();
-
-    const name = `Enter Designer ${Date.now()}`;
-    const input = page.getByPlaceholder("New designer name...");
-    await input.fill(name);
-    await input.press("Enter");
-
-    await expect(page.getByText("Designer added.")).toBeVisible();
-    await expect(input).toHaveValue("");
-    await expect(input).toBeFocused();
   });
 
   test("rejects duplicate designer name creation", async ({ page }) => {

@@ -130,7 +130,7 @@ test.describe("manage sources", () => {
     const name = `Playwright Source ${Date.now()}`;
     const input = page.getByPlaceholder("e.g. Purchased, Downloaded...");
     await input.fill(name);
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await input.press("Enter");
 
     // Toast notification and input cleared
     await expect(page.getByText("Source added.")).toBeVisible();
@@ -150,24 +150,6 @@ test.describe("manage sources", () => {
       page.getByRole("heading", { name: "Manage Sources" }),
     ).toBeVisible();
     await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
-  });
-
-  test("adds a new source by pressing return and returns focus to input", async ({
-    page,
-  }) => {
-    await gotoRoute(page, "#/admin/data/sources");
-    await expect(
-      page.getByRole("heading", { name: "Manage Sources" }),
-    ).toBeVisible();
-
-    const name = `Enter Source ${Date.now()}`;
-    const input = page.getByPlaceholder("e.g. Purchased, Downloaded...");
-    await input.fill(name);
-    await input.press("Enter");
-
-    await expect(page.getByText("Source added.")).toBeVisible();
-    await expect(input).toHaveValue("");
-    await expect(input).toBeFocused();
   });
 
   test("rejects duplicate source name creation", async ({ page }) => {

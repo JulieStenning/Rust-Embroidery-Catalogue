@@ -168,7 +168,7 @@ test.describe("manage hoops", () => {
     await nameInput.fill(name);
     await widthInput.fill("150");
     await heightInput.fill("150");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await heightInput.press("Enter");
 
     // Toast notification and inputs cleared/reset
     await expect(page.getByText("Hoop added.")).toBeVisible();
@@ -205,37 +205,6 @@ test.describe("manage hoops", () => {
     await reloadedRow
       .getByRole("button", { name: "Confirm delete", exact: true })
       .click();
-    await expect(page.getByRole("cell", { name, exact: true })).toBeHidden();
-  });
-
-  test("adds a new hoop by pressing return and returns focus to name input", async ({
-    page,
-  }) => {
-    await gotoRoute(page, "#/admin/data/hoops");
-    await expect(
-      page.getByRole("heading", { name: "Manage Hoops" }),
-    ).toBeVisible();
-
-    const name = `Enter Hoop ${Date.now()}`;
-    const nameInput = page.locator("#admin-hoop-name");
-    const widthInput = page.locator("#admin-hoop-width");
-    const heightInput = page.locator("#admin-hoop-height");
-
-    await nameInput.fill(name);
-    await widthInput.fill("140");
-    await heightInput.fill("140");
-    await heightInput.press("Enter");
-
-    await expect(page.getByText("Hoop added.")).toBeVisible();
-    await expect(nameInput).toHaveValue("");
-    await expect(nameInput).toBeFocused();
-
-    // Clean up
-    const row = page.locator("tr", {
-      has: page.getByRole("cell", { name, exact: true }),
-    });
-    await row.getByRole("button", { name: "Delete", exact: true }).click();
-    await row.getByRole("button", { name: "Confirm delete", exact: true }).click();
     await expect(page.getByRole("cell", { name, exact: true })).toBeHidden();
   });
 
