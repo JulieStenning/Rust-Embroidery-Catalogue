@@ -1221,7 +1221,9 @@ async fn clear_stitching_unverified_removes_tags_from_unverified() {
         .await
         .unwrap();
 
-    let cleared = clear_stitching_tags(&pool, "unverified").await.unwrap();
+    let cleared = clear_stitching_tags(&pool, "unverified", false)
+        .await
+        .unwrap();
     assert_eq!(cleared, vec![1]);
 
     let count: i64 =
@@ -1242,7 +1244,9 @@ async fn clear_stitching_unverified_leaves_verified_alone() {
         .await
         .unwrap();
 
-    let cleared = clear_stitching_tags(&pool, "unverified").await.unwrap();
+    let cleared = clear_stitching_tags(&pool, "unverified", false)
+        .await
+        .unwrap();
     assert!(cleared.is_empty());
 
     let count: i64 =
@@ -1274,7 +1278,7 @@ async fn clear_stitching_all_removes_tags_from_every_design() {
         .await
         .unwrap();
 
-    let cleared = clear_stitching_tags(&pool, "all").await.unwrap();
+    let cleared = clear_stitching_tags(&pool, "all", false).await.unwrap();
     assert_eq!(cleared.len(), 2);
     assert!(cleared.contains(&1));
     assert!(cleared.contains(&2));
@@ -1301,6 +1305,49 @@ async fn clear_stitching_all_removes_tags_from_every_design() {
 }
 
 #[tokio::test]
+async fn clear_stitching_missing_previews_only_clears_only_missing_previews() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    // Set design 1 to have an image (not missing preview)
+    sqlx::query("UPDATE designs SET image_data = X'89504E47' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // design 3 has image_data NULL (missing preview), unverified
+    // Give both design 1 and design 3 stitching tags
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (1, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (3, 2)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Clear stitching with missing_previews_only = true
+    let cleared = clear_stitching_tags(&pool, "unverified", true)
+        .await
+        .unwrap();
+    assert_eq!(cleared, vec![3]);
+
+    // Design 1 tag remains
+    let count1: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 1 AND tag_id = 2")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(count1, 1);
+
+    // Design 3 tag was cleared
+    let count3: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM design_tags WHERE design_id = 3 AND tag_id = 2")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(count3, 0);
+}
+
+#[tokio::test]
 async fn clear_stitching_unknown_mode_falls_back_to_unverified() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
@@ -1313,7 +1360,7 @@ async fn clear_stitching_unknown_mode_falls_back_to_unverified() {
     // The caller (run_unified_backfill) only invokes clear_stitching_tags
     // for "unverified" or "all". An unknown mode is treated conservatively
     // like "unverified": it clears from unverified designs only.
-    let cleared = clear_stitching_tags(&pool, "unknown").await.unwrap();
+    let cleared = clear_stitching_tags(&pool, "unknown", false).await.unwrap();
     assert_eq!(cleared, vec![1]);
 
     let count: i64 =
@@ -1324,27 +1371,49 @@ async fn clear_stitching_unknown_mode_falls_back_to_unverified() {
     assert_eq!(count, 0);
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────
 // DB helper: select_stitching_candidates
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────
 
 #[tokio::test]
 async fn select_stitching_candidates_excludes_designs_with_stitching_tags() {
     let pool = make_test_pool().await;
     seed_basic(&pool).await;
-    // design 1 has no stitching tag â€” should be candidate
-    // design 2 has image tag but no stitching tag â€” should be candidate
+    // design 1 has no stitching tag — should be candidate
+    // design 2 has image tag but no stitching tag — should be candidate
     // Give design 3 a stitching tag
     sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (3, 2)")
         .execute(&pool)
         .await
         .unwrap();
 
-    let candidates = select_stitching_candidates(&pool, 100, 0).await.unwrap();
+    let candidates = select_stitching_candidates(&pool, 100, 0, false)
+        .await
+        .unwrap();
     let ids: Vec<i64> = candidates.iter().map(|c| c.id).collect();
     assert!(ids.contains(&1));
     assert!(ids.contains(&2));
     assert!(!ids.contains(&3));
+}
+
+#[tokio::test]
+async fn select_stitching_candidates_missing_previews_only_filters_image_data() {
+    let pool = make_test_pool().await;
+    seed_basic(&pool).await;
+    // Set design 1 to have an image (not missing preview)
+    sqlx::query("UPDATE designs SET image_data = X'89504E47' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // design 2 and 3 have image_data NULL
+
+    let candidates = select_stitching_candidates(&pool, 100, 0, true)
+        .await
+        .unwrap();
+    let ids: Vec<i64> = candidates.iter().map(|c| c.id).collect();
+    assert!(!ids.contains(&1));
+    assert!(ids.contains(&2));
+    assert!(ids.contains(&3));
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2166,6 +2235,7 @@ async fn run_unified_backfill_combined_actions() {
                 stitching: Some(StitchingActionOptions {
                     clear_stitching_mode: None,
                     enabled: Some(true),
+                    missing_previews_only: None,
                 }),
                 images: None,
                 color_counts: Some(ColorCountsActionOptions {
@@ -2261,6 +2331,7 @@ async fn run_unified_backfill_no_actions_enabled_processes_zero() {
                 stitching: Some(StitchingActionOptions {
                     clear_stitching_mode: None,
                     enabled: Some(false),
+                    missing_previews_only: None,
                 }),
                 images: Some(ImageActionOptions {
                     redo: Some(false),
@@ -2316,6 +2387,7 @@ async fn run_unified_backfill_stitching_clear_unverified_removes_from_unverified
                 stitching: Some(StitchingActionOptions {
                     clear_stitching_mode: Some("unverified".to_string()),
                     enabled: Some(true),
+                    missing_previews_only: None,
                 }),
                 images: None,
                 color_counts: None,
@@ -2366,6 +2438,7 @@ async fn run_unified_backfill_stitching_clear_all_removes_from_verified_designs(
                 stitching: Some(StitchingActionOptions {
                     clear_stitching_mode: Some("all".to_string()),
                     enabled: Some(true),
+                    missing_previews_only: None,
                 }),
                 images: None,
                 color_counts: None,
@@ -2609,6 +2682,7 @@ async fn run_unified_backfill_file_dependent_actions_write_back() {
                 stitching: Some(StitchingActionOptions {
                     clear_stitching_mode: Some("unverified".to_string()),
                     enabled: Some(true),
+                    missing_previews_only: None,
                 }),
                 images: Some(ImageActionOptions {
                     redo: Some(true),

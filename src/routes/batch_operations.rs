@@ -326,6 +326,7 @@ pub async fn run_stitching_backfill(
             stitching: Some(backfill::StitchingActionOptions {
                 clear_stitching_mode,
                 enabled: Some(true),
+                missing_previews_only: None,
             }),
             images: None,
             color_counts: None,
@@ -390,6 +391,7 @@ pub async fn run_maintenance_batch(
                 Some(backfill::StitchingActionOptions {
                     clear_stitching_mode: Some(clear_mode),
                     enabled: Some(true),
+                    missing_previews_only: Some(missing_previews_only),
                 })
             } else {
                 None

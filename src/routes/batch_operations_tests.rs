@@ -905,3 +905,82 @@ async fn test_count_tagging_candidates_defaults_and_options() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn test_run_maintenance_batch_missing_previews_stitching_isolation() {
+    let _guard = lock_env();
+
+    let pool = test_pool().await;
+    // Insert unique tag for stitching
+    let tag_id: i64 = sqlx::query_scalar(
+        "INSERT INTO tags (description, tag_group) VALUES ('Custom Stitch Isolation Test', 'stitching') RETURNING id",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Insert design 960001 with missing preview (image_data is NULL)
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_data, stitching_tags_verified) VALUES (960001, 'missing_prev.pes', 'missing_prev.pes', NULL, 0)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Insert design 960002 with preview (image_data is NOT NULL)
+    sqlx::query("INSERT INTO designs (id, filename, filepath, image_data, stitching_tags_verified) VALUES (960002, 'has_prev.pes', 'has_prev.pes', X'89504E470D0A1A0A', 0)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Tag both designs with the stitching tag
+    sqlx::query("INSERT INTO design_tags (design_id, tag_id) VALUES (960001, ?), (960002, ?)")
+        .bind(tag_id)
+        .bind(tag_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let tmp = std::env::temp_dir().join("batch-operations-test-maint-stitching-iso");
+    std::fs::create_dir_all(&tmp).ok();
+    let app_state = make_app_state(pool.clone(), &tmp);
+
+    let app = tauri::test::mock_app();
+    app.manage(app_state);
+    let state = app.state::<AppState>();
+
+    // Run maintenance with missing_previews scope and detect_stitching_tags = true
+    let summary = run_maintenance_batch(
+        state.clone(),
+        Some(MaintenanceBatchRequest {
+            scope: Some("missing_previews".to_string()),
+            generate_previews: Some(false),
+            recalc_color_counts: Some(false),
+            recalc_hoop_dimensions: Some(false),
+            detect_stitching_tags: Some(true),
+            stitching_clear_mode: Some("unverified".to_string()),
+            batch_size: Some(10),
+            commit_every: Some(10),
+            workers: Some(1),
+        }),
+    )
+    .await
+    .unwrap();
+
+    // Design 960002 (with preview) must STILL have its stitching tag untouched!
+    let count_has_preview: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM design_tags WHERE design_id = 960002 AND tag_id = ?",
+    )
+    .bind(tag_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        count_has_preview, 1,
+        "Design with preview image should not have its stitching tag cleared"
+    );
+
+    // Processed count should reflect only the missing preview design (960001)
+    assert_eq!(summary.processed, 1);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}

@@ -116,12 +116,15 @@ pub struct TaggingActionOptions {
     pub enabled: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct StitchingActionOptions {
     /// Values: "none", "unverified", or "all". Controls whether stitching
     /// tags are cleared before re-detection and which designs are affected.
     pub clear_stitching_mode: Option<String>,
     pub enabled: Option<bool>,
+    /// When true, only designs with no stored preview (`image_data IS NULL`) are
+    /// processed — the "missing previews" population scope on the Maintenance tab.
+    pub missing_previews_only: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -614,12 +617,13 @@ pub async fn run_unified_backfill_with_progress(
                 stitching_prior_count
             ));
 
+            let missing_previews_only = stitching_action.missing_previews_only.unwrap_or(false);
             let clear_mode = stitching_action
                 .clear_stitching_mode
                 .as_deref()
                 .unwrap_or("none");
             if clear_mode == "unverified" || clear_mode == "all" {
-                let cleared = clear_stitching_tags(pool, clear_mode).await?;
+                let cleared = clear_stitching_tags(pool, clear_mode, missing_previews_only).await?;
                 let cleared_count = cleared.len();
                 touched_design_ids.extend(cleared);
                 let after_clear_count = count_stitching_tags(pool).await?;
@@ -634,15 +638,20 @@ pub async fn run_unified_backfill_with_progress(
                 .cloned()
                 .collect::<HashSet<String>>();
             let default_stitching_tag_id = get_default_stitching_tag_id(pool).await?;
-            // Page through ALL matching designs in ascending-id batches of
+            // Page through matching designs in ascending-id batches of
             // `batch_size`, mirroring the fingerprint backfill.
             let mut stitching_cursor: i64 = 0;
             loop {
                 if STOP_REQUESTED.load(Ordering::SeqCst) {
                     break;
                 }
-                let stitching_candidates =
-                    select_stitching_candidates(pool, batch_size, stitching_cursor).await?;
+                let stitching_candidates = select_stitching_candidates(
+                    pool,
+                    batch_size,
+                    stitching_cursor,
+                    missing_previews_only,
+                )
+                .await?;
                 if stitching_candidates.is_empty() {
                     break;
                 }
@@ -1518,20 +1527,44 @@ pub(crate) async fn count_missing_previews(pool: &SqlitePool) -> Result<i64, App
             .map_err(|e| AppError::database(format!("failed to count missing previews: {e}")))?;
     Ok(count)
 }
-async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>, AppError> {
+pub(crate) async fn clear_stitching_tags(
+    pool: &SqlitePool,
+    mode: &str,
+    missing_previews_only: bool,
+) -> Result<Vec<i64>, AppError> {
     // Determine which designs have stitching tags to clear.
-    let select_sql = if mode == "all" {
-        "SELECT DISTINCT dt.design_id AS id
-		 FROM design_tags dt
-		 JOIN tags t ON t.id = dt.tag_id
-		 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'"
-    } else {
-        "SELECT DISTINCT dt.design_id AS id
-		 FROM design_tags dt
-		 JOIN designs d ON d.id = dt.design_id
-		 JOIN tags t ON t.id = dt.tag_id
-		 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'
-		   AND COALESCE(d.stitching_tags_verified, 0) = 0"
+    let select_sql = match (mode == "all", missing_previews_only) {
+        (true, false) => {
+            "SELECT DISTINCT dt.design_id AS id
+			 FROM design_tags dt
+			 JOIN tags t ON t.id = dt.tag_id
+			 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'"
+        }
+        (true, true) => {
+            "SELECT DISTINCT dt.design_id AS id
+			 FROM design_tags dt
+			 JOIN designs d ON d.id = dt.design_id
+			 JOIN tags t ON t.id = dt.tag_id
+			 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'
+			   AND d.image_data IS NULL"
+        }
+        (false, false) => {
+            "SELECT DISTINCT dt.design_id AS id
+			 FROM design_tags dt
+			 JOIN designs d ON d.id = dt.design_id
+			 JOIN tags t ON t.id = dt.tag_id
+			 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'
+			   AND COALESCE(d.stitching_tags_verified, 0) = 0"
+        }
+        (false, true) => {
+            "SELECT DISTINCT dt.design_id AS id
+			 FROM design_tags dt
+			 JOIN designs d ON d.id = dt.design_id
+			 JOIN tags t ON t.id = dt.tag_id
+			 WHERE lower(COALESCE(t.tag_group, '')) = 'stitching'
+			   AND COALESCE(d.stitching_tags_verified, 0) = 0
+			   AND d.image_data IS NULL"
+        }
     };
 
     let rows = sqlx::query(select_sql)
@@ -1540,13 +1573,26 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
         .map_err(|e| AppError::database(format!("failed to load stitching tag candidates: {e}")))?;
 
     // Delete stitching tags according to the chosen mode.
-    let delete_sql = if mode == "all" {
-        "DELETE FROM design_tags
-		 WHERE tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
-    } else {
-        "DELETE FROM design_tags
-		 WHERE design_id IN (SELECT id FROM designs WHERE COALESCE(stitching_tags_verified, 0) = 0)
-		   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+    let delete_sql = match (mode == "all", missing_previews_only) {
+        (true, false) => {
+            "DELETE FROM design_tags
+			 WHERE tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+        }
+        (true, true) => {
+            "DELETE FROM design_tags
+			 WHERE design_id IN (SELECT id FROM designs WHERE image_data IS NULL)
+			   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+        }
+        (false, false) => {
+            "DELETE FROM design_tags
+			 WHERE design_id IN (SELECT id FROM designs WHERE COALESCE(stitching_tags_verified, 0) = 0)
+			   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+        }
+        (false, true) => {
+            "DELETE FROM design_tags
+			 WHERE design_id IN (SELECT id FROM designs WHERE COALESCE(stitching_tags_verified, 0) = 0 AND image_data IS NULL)
+			   AND tag_id IN (SELECT id FROM tags WHERE lower(COALESCE(tag_group, '')) = 'stitching')"
+        }
     };
 
     sqlx::query(delete_sql)
@@ -1564,23 +1610,39 @@ async fn clear_stitching_tags(pool: &SqlitePool, mode: &str) -> Result<Vec<i64>,
     }
 
     if mode == "all" {
-        sqlx::query(
-            "UPDATE designs SET stitching_tags_verified = 0 WHERE stitching_tags_verified = 1",
-        )
-        .execute(pool)
-        .await
-        .map_err(|e| AppError::database(format!("failed to reset stitching_tags_verified: {e}")))?;
+        let reset_sql = if missing_previews_only {
+            "UPDATE designs SET stitching_tags_verified = 0 WHERE stitching_tags_verified = 1 AND image_data IS NULL"
+        } else {
+            "UPDATE designs SET stitching_tags_verified = 0 WHERE stitching_tags_verified = 1"
+        };
+        sqlx::query(reset_sql).execute(pool).await.map_err(|e| {
+            AppError::database(format!("failed to reset stitching_tags_verified: {e}"))
+        })?;
     }
 
     Ok(ids)
 }
 
-async fn select_stitching_candidates(
+pub(crate) async fn select_stitching_candidates(
     pool: &SqlitePool,
     limit: i64,
     min_id: i64,
+    missing_previews_only: bool,
 ) -> Result<Vec<StitchingCandidate>, AppError> {
-    let rows = sqlx::query(
+    let query_sql = if missing_previews_only {
+        "SELECT d.id, d.filename, d.filepath
+		 FROM designs d
+		 WHERE NOT EXISTS (
+		   SELECT 1
+		   FROM design_tags dt
+		   JOIN tags t ON t.id = dt.tag_id
+		   WHERE dt.design_id = d.id AND lower(COALESCE(t.tag_group, '')) = 'stitching'
+		 )
+		 AND d.image_data IS NULL
+		 AND d.id > ?
+		 ORDER BY d.id ASC
+		 LIMIT ?"
+    } else {
         "SELECT d.id, d.filename, d.filepath
 		 FROM designs d
 		 WHERE NOT EXISTS (
@@ -1591,13 +1653,15 @@ async fn select_stitching_candidates(
 		 )
 		 AND d.id > ?
 		 ORDER BY d.id ASC
-		 LIMIT ?",
-    )
-    .bind(min_id)
-    .bind(limit)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::database(format!("failed to select stitching candidates: {e}")))?;
+		 LIMIT ?"
+    };
+
+    let rows = sqlx::query(query_sql)
+        .bind(min_id)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::database(format!("failed to select stitching candidates: {e}")))?;
 
     let mut candidates = Vec::new();
     for row in rows {
@@ -1617,7 +1681,7 @@ async fn select_stitching_candidates(
 }
 
 #[derive(Debug, Clone)]
-struct StitchingCandidate {
+pub(crate) struct StitchingCandidate {
     id: i64,
     filename: String,
     filepath: String,

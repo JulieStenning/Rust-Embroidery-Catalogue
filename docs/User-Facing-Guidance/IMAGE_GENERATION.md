@@ -10,9 +10,9 @@ Previews are created automatically when designs are imported. If some designs ar
 
 1. Open [Admin → Batch Operations](#/admin/batch-operations).
 2. Click the **Maintenance & File Processing** tab.
-3. Under **Target Scope**, choose **Entire collection** or **Specific folder(s)**.
+3. Under **Target Scope**, choose **Designs missing preview images only**.
 4. Tick **Generate preview images**.
-5. Click **Start Maintenance**, then confirm.
+5. Click **Review & Start Maintenance**, then confirm.
 
 ---
 
@@ -22,7 +22,7 @@ To refresh previews after changing display settings or if thumbnails appear out 
 
 1. Open [Admin → Batch Operations](#/admin/batch-operations) → **Maintenance & File Processing**.
 2. Tick **Generate preview images**.
-3. Click **Start Maintenance**, then confirm.
+3. Click **Review & Start Maintenance**, then confirm.
 4. Keep the app open while the images are refreshed.
 
 ---
