@@ -30,3 +30,7 @@ frontend/src/lib/assets/npm-licences.json text eol=lf
 frontend/src/**/*.ts text eol=lf
 frontend/src/**/*.svelte text eol=lf
 frontend/src/**/*.js text eol=lf
+
+# Migration files MUST use LF endings across all platforms so SQLx compile-time
+# SHA-384 checksums match the _sqlx_migrations tracking table consistently.
+migrations/*.sql text eol=lf
