@@ -2334,12 +2334,15 @@ describe("BrowseView", () => {
 
       // Initially on page 1.
       expect(paginationNode()).toHaveAttribute("data-current-page", "1");
+      expect(adapterMocks.getDesignIds).toHaveBeenCalledTimes(1);
 
       // Click Next → page 2.
       await fireEvent.click(screen.getByRole("button", { name: "Next" }));
       await tick();
 
       expect(paginationNode()).toHaveAttribute("data-current-page", "2");
+      // Changing pages preserves filtered IDs without repeating getDesignIds
+      expect(adapterMocks.getDesignIds).toHaveBeenCalledTimes(1);
     });
 
     it("clamps current page when filtered count shrinks", async () => {

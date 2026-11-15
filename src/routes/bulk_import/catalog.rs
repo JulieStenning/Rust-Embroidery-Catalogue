@@ -90,25 +90,21 @@ pub(crate) async fn filter_existing_scanned_files(
         return Ok(scanned_files);
     }
 
-    let existing_paths = sqlx::query_scalar::<_, String>("SELECT filepath FROM designs")
-        .fetch_all(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+    let existing_path_rows: Vec<(String, Option<String>)> =
+        sqlx::query_as("SELECT filepath, master_filepath FROM designs")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    let existing_master_paths = sqlx::query_scalar::<_, Option<String>>(
-        "SELECT master_filepath FROM designs WHERE master_filepath IS NOT NULL",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let mut existing_path_set: HashSet<String> = existing_paths
-        .into_iter()
-        .map(|path| normalize_path_for_match(&path))
-        .collect();
-
-    for master_path in existing_master_paths.into_iter().flatten() {
-        existing_path_set.insert(normalize_path_for_match(&master_path));
+    let mut existing_path_set: HashSet<String> =
+        HashSet::with_capacity(existing_path_rows.len() * 2);
+    for (filepath, master_filepath) in existing_path_rows {
+        existing_path_set.insert(normalize_path_for_match(&filepath));
+        if let Some(mf) = master_filepath {
+            if !mf.trim().is_empty() {
+                existing_path_set.insert(normalize_path_for_match(&mf));
+            }
+        }
     }
 
     let mut path_survivors: Vec<scanning::ScannedFile> = Vec::with_capacity(scanned_files.len());

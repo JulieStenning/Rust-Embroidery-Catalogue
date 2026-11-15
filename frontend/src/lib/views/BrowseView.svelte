@@ -211,6 +211,7 @@
   // scroll position after the detail round-trip.
   /** @type {number[]} */
   let browseDesignIds = $state([]);
+  let browseLastFilterSignature = "";
   let browseSessionRestored = $state(false);
   let scrollRestorePending = $state(true);
 
@@ -449,7 +450,7 @@
     }
   }
 
-  async function loadBrowseItems(force = false) {
+  async function loadBrowseItems(force = false, forceIdsReload = false) {
     if (browseLoading && !force) return;
 
     browseLoading = true;
@@ -521,12 +522,32 @@
               : undefined,
         },
       };
+
+      const filterSignature = JSON.stringify({
+        q: payload.q,
+        search_file_name: payload.search_file_name,
+        search_tags: payload.search_tags,
+        search_folder_name: payload.search_folder_name,
+        unverified_only: payload.unverified_only,
+        verification_status: payload.verification_status,
+        sort_by: payload.sort_by,
+        sort_dir: payload.sort_dir,
+        additional_filters: payload.additional_filters,
+      });
+      const shouldFetchIds =
+        forceIdsReload || filterSignature !== browseLastFilterSignature;
+
       const [result, fullIds] = await Promise.all([
         getBrowseDesigns(payload),
-        Promise.resolve(getDesignIds(payload)).catch(() => []),
+        shouldFetchIds
+          ? Promise.resolve(getDesignIds(payload)).catch(() => [])
+          : Promise.resolve(browseDesignIds),
       ]);
       if (currentRequestId !== browseSearchRequestId) {
         return;
+      }
+      if (shouldFetchIds) {
+        browseLastFilterSignature = filterSignature;
       }
       const rawItems = getResponseItems(result);
       const normalizedItems = rawItems.map(normalizeCardItem).filter((item) => item !== null);
@@ -974,7 +995,7 @@
           "success"
         );
         closeBulkTagModal(true);
-        await loadBrowseItems(true);
+        await loadBrowseItems(true, true);
       } else {
         addToast(result?.error || "Could not bulk update tags.", "error");
         closeBulkTagModal(true);
@@ -1043,7 +1064,7 @@
         anyFailed ? "warning" : "success"
       );
       closeBulkProjectModal();
-      await loadBrowseItems(true);
+      await loadBrowseItems(true, true);
     } catch (e) {
       addToast(`Bulk project add failed: ${e}`, "error");
     } finally {
@@ -1066,7 +1087,7 @@
           `${result.verified_count ?? result.updated} design(s) marked verified.`,
           "success"
         );
-        await loadBrowseItems(true);
+        await loadBrowseItems(true, true);
       } else {
         addToast(result?.error || "Could not verify designs.", "error");
       }
@@ -1104,7 +1125,7 @@
     }
     browseSelectedIds.clear();
     browseDeleteConfirmOpen = false;
-    loadBrowseItems(true);
+    loadBrowseItems(true, true);
   }
 
   function clearBrowseSelection() {
@@ -1180,7 +1201,7 @@
       ...browseCardProjectPendingById,
       [targetDesignId]: {},
     };
-    await loadBrowseItems(true);
+    await loadBrowseItems(true, true);
   }
 
   function getBrowseCardProjectDropdowns() {
@@ -1237,7 +1258,7 @@
     const tagChanges = tagChangeStore.consumeFlags();
     if (tagChanges.designsNeedRefresh) {
       untrack(() => {
-        loadBrowseItems(true);
+        loadBrowseItems(true, true);
         loadBrowseTags();
       });
     } else if (tagChanges.tagsNeedRefresh) {
@@ -1249,7 +1270,7 @@
     // Full reload still needed for import/deletion flows
     if (!browseHasLoaded || browseNeedsRefresh) {
       untrack(() => {
-        loadBrowseItems(true);
+        loadBrowseItems(true, browseNeedsRefresh);
         browseNeedsRefresh = false;
       });
     }

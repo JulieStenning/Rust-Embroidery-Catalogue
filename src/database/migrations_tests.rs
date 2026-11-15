@@ -933,6 +933,45 @@ async fn run_migrations_creates_design_files_table_and_indexes() {
 }
 
 #[tokio::test]
+async fn run_migrations_creates_stem_lookup_covering_index() {
+    let tmp = unique_tmp_dir("stem-lookup-index");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("stem_lookup_index.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("run migrations");
+
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='ix_designs_stem_lookup'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("query ix_designs_stem_lookup index");
+    assert_eq!(count.0, 1, "ix_designs_stem_lookup index should exist");
+
+    // Verify EXPLAIN QUERY PLAN uses the covering index for stem lookups
+    let eqp: Vec<(i64, i64, i64, String)> = sqlx::query_as(
+        "EXPLAIN QUERY PLAN SELECT id, filepath, master_filepath, is_master_only FROM designs",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("explain query plan");
+    let plan = eqp
+        .iter()
+        .map(|r| r.3.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        plan.contains("ix_designs_stem_lookup"),
+        "expected query plan to use covering index ix_designs_stem_lookup, got: {plan}"
+    );
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
 async fn run_migrations_reconciles_crlf_checksums_and_succeeds() {
     let tmp = unique_tmp_dir("crlf-reconcile");
     std::fs::create_dir_all(&tmp).expect("create temp dir");
