@@ -538,86 +538,6 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
             .unwrap_or_default();
     let zip_alphabets = crate::services::settings::is_truthy(&zip_alphabets_setting);
 
-    if zip_alphabets {
-        let mut processed_folders: HashSet<String> = HashSet::new();
-        for file_path in &confirm_wire.wire.selected_files {
-            let parent_dir = Path::new(file_path)
-                .parent()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default();
-
-            if parent_dir.is_empty() || processed_folders.contains(&parent_dir) {
-                continue;
-            }
-            processed_folders.insert(parent_dir.clone());
-
-            let parent_path = Path::new(&parent_dir);
-            if !parent_path.is_dir() {
-                continue;
-            }
-
-            let has_bx = std::fs::read_dir(parent_path)
-                .map(|entries| {
-                    entries.filter_map(Result::ok).any(|e| {
-                        e.path()
-                            .extension()
-                            .is_some_and(|ext| ext.eq_ignore_ascii_case("bx"))
-                    })
-                })
-                .unwrap_or(false);
-
-            let companion_zip =
-                crate::services::alphabet_detector::find_companion_zip_in_dir(parent_path);
-
-            let folder_files: Vec<String> = std::fs::read_dir(parent_path)
-                .map(|entries| {
-                    entries
-                        .filter_map(Result::ok)
-                        .filter(|e| e.path().is_file())
-                        .map(|e| e.path().to_string_lossy().to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            let analysis = crate::services::alphabet_detector::analyze_alphabet_folder(
-                &parent_dir,
-                &folder_files,
-                has_bx,
-                companion_zip
-                    .as_ref()
-                    .map(|p| p.to_string_lossy().to_string()),
-            );
-
-            if analysis.is_alphabet {
-                if let Ok(prospective) = super::paths::compute_prospective_stored_filepath(
-                    file_path,
-                    &confirm_wire.wire.root_paths,
-                ) {
-                    let rel_parent = Path::new(&prospective)
-                        .parent()
-                        .map(|p| p.to_string_lossy().trim_start_matches('/').to_string())
-                        .unwrap_or_default();
-
-                    let dest_folder = get_designs_base_path().join(rel_parent);
-                    if let Err(err) =
-                        crate::services::alphabet_compressor::compress_or_copy_alphabet(
-                            parent_path,
-                            &dest_folder,
-                            companion_zip.as_deref(),
-                        )
-                    {
-                        tracing::error!(
-                            "Failed to compress alphabet folder '{}' to '{}': {}",
-                            parent_dir,
-                            dest_folder.display(),
-                            err
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     let source_names_map: HashMap<i64, String> =
         sqlx::query_as::<_, (i64, String)>("SELECT id, name FROM sources")
             .fetch_all(pool)
@@ -652,13 +572,12 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
     let _guard = crate::services::backfill::BackfillRunningGuard::new();
     let total_count = confirm_wire.wire.selected_files.len();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
-    BULK_IMPORT_STOP_REQUESTED.store(false, Ordering::SeqCst);
+    let mut stopped = BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst);
     let mut persisted_design_count = 0usize;
     let mut committed_design_count = 0usize;
     let mut failed_decode_count = 0usize;
     let mut persisted_since_last_commit = 0usize;
     let mut processed_count = 0usize;
-    let mut stopped = false;
 
     // Timing accumulators
     let import_start = Instant::now();
@@ -721,6 +640,7 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
         }
     }
     let mut consumed_master_files: HashSet<String> = HashSet::new();
+    let mut processed_alphabet_folders: HashSet<String> = HashSet::new();
     let all_files = confirm_wire.wire.selected_files.clone();
     let mut chunk_start = 0usize;
 
@@ -745,6 +665,104 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
             }
 
             let path_obj = Path::new(file_path);
+            let parent_dir = path_obj
+                .parent()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            if zip_alphabets
+                && !parent_dir.is_empty()
+                && !processed_alphabet_folders.contains(&parent_dir)
+            {
+                processed_alphabet_folders.insert(parent_dir.clone());
+                let parent_path = Path::new(&parent_dir);
+                if parent_path.is_dir() {
+                    let has_bx = std::fs::read_dir(parent_path)
+                        .map(|entries| {
+                            entries.filter_map(Result::ok).any(|e| {
+                                e.path()
+                                    .extension()
+                                    .is_some_and(|ext| ext.eq_ignore_ascii_case("bx"))
+                            })
+                        })
+                        .unwrap_or(false);
+
+                    let companion_zip =
+                        crate::services::alphabet_detector::find_companion_zip_in_dir(parent_path);
+
+                    let folder_files: Vec<String> = std::fs::read_dir(parent_path)
+                        .map(|entries| {
+                            entries
+                                .filter_map(Result::ok)
+                                .filter(|e| e.path().is_file())
+                                .map(|e| e.path().to_string_lossy().to_string())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+
+                    let analysis = crate::services::alphabet_detector::analyze_alphabet_folder(
+                        &parent_dir,
+                        &folder_files,
+                        has_bx,
+                        companion_zip
+                            .as_ref()
+                            .map(|p| p.to_string_lossy().to_string()),
+                    );
+
+                    if analysis.is_alphabet {
+                        if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
+                            stopped = true;
+                            break;
+                        }
+
+                        emit_progress(
+                            "archiving_alphabet",
+                            processed_count,
+                            persisted_design_count,
+                            committed_design_count,
+                            failed_decode_count,
+                            Some(&parent_dir),
+                        );
+
+                        if let Ok(prospective) = super::paths::compute_prospective_stored_filepath(
+                            file_path,
+                            &confirm_wire.wire.root_paths,
+                        ) {
+                            let rel_parent = Path::new(&prospective)
+                                .parent()
+                                .map(|p| p.to_string_lossy().trim_start_matches('/').to_string())
+                                .unwrap_or_default();
+
+                            let dest_folder = get_designs_base_path().join(rel_parent);
+                            if let Err(err) =
+                                crate::services::alphabet_compressor::compress_or_copy_alphabet_with_cancel(
+                                    parent_path,
+                                    &dest_folder,
+                                    companion_zip.as_deref(),
+                                    Some(&BULK_IMPORT_STOP_REQUESTED),
+                                )
+                            {
+                                if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
+                                    stopped = true;
+                                    break;
+                                }
+                                tracing::error!(
+                                    "Failed to compress alphabet folder '{}' to '{}': {}",
+                                    parent_dir,
+                                    dest_folder.display(),
+                                    err
+                                );
+                            }
+                        }
+
+                        if BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst) {
+                            stopped = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
             let ext_str = path_obj.extension().and_then(|e| e.to_str()).unwrap_or("");
             let norm_ext = ext_str.trim_start_matches('.').to_ascii_lowercase();
             let is_master_file = enabled_master_formats.contains(&norm_ext);
@@ -1164,5 +1182,6 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
         failed_decode_count,
         None,
     );
+    BULK_IMPORT_STOP_REQUESTED.store(false, Ordering::SeqCst);
     Ok((persisted_design_count, failed_decode_count))
 }

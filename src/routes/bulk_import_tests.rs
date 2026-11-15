@@ -3586,3 +3586,150 @@ fn scanning_with_progress_and_cancel_invokes_callback() {
 
     let _ = fs::remove_dir_all(&root);
 }
+
+#[tokio::test]
+#[serial]
+async fn persist_bulk_import_archives_alphabet_interleaved() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-alphabet-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('import.zip_alphabets', 'true') ON CONFLICT(key) DO UPDATE SET value = 'true'",
+    )
+    .execute(&pool)
+    .await
+    .expect("setting should insert");
+
+    let source_dir = tmp.join("source");
+    let font_dir = source_dir.join("My_Alphabet");
+    fs::create_dir_all(&font_dir).expect("temp dir should be created");
+
+    let a_path = font_dir.join("Upper_A.pes");
+    let b_path = font_dir.join("Upper_B.pes");
+    let bx_path = font_dir.join("Font.bx");
+
+    let fixture = Path::new(FIXTURES_DIR).join("Bean.pes");
+    if fixture.exists() {
+        fs::copy(&fixture, &a_path).expect("fixture copy");
+        fs::copy(&fixture, &b_path).expect("fixture copy");
+    } else {
+        fs::write(&a_path, b"dummy-a").expect("write a");
+        fs::write(&b_path, b"dummy-b").expect("write b");
+    }
+    fs::write(&bx_path, b"dummy-bx").expect("write bx");
+
+    let wire = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![a_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+
+    let (persisted, failed) = persist_bulk_import_confirm_wire(&pool, &wire, None)
+        .await
+        .expect("import should succeed");
+
+    assert_eq!(persisted, 1);
+    assert_eq!(failed, 0);
+
+    let dest_alphabet_zip = super::paths::get_designs_base_path()
+        .join("source")
+        .join("My_Alphabet")
+        .join("My_Alphabet.zip");
+    assert!(
+        dest_alphabet_zip.exists(),
+        "Companion alphabet zip should exist at '{}'",
+        dest_alphabet_zip.display()
+    );
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+#[serial]
+async fn persist_bulk_import_stops_when_flag_set() {
+    let previous = std::env::var("DATABASE_URL").ok();
+    let tmp = std::env::temp_dir().join(format!(
+        "rec-bi-stop-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(tmp.join("Database")).expect("create Database dir");
+    fs::create_dir_all(tmp.join("MachineEmbroideryDesigns")).expect("create designs dir");
+    let url = format!(
+        "sqlite:///{}/Database/EmbroideryCatalogue.db",
+        tmp.to_string_lossy().replace('\\', "/")
+    );
+    std::env::set_var("DATABASE_URL", &url);
+
+    let pool = import_test_pool().await;
+
+    let source_dir = tmp.join("source");
+    let font_dir = source_dir.join("Stop_Alphabet");
+    fs::create_dir_all(&font_dir).expect("temp dir should be created");
+
+    let a_path = font_dir.join("Upper_A.pes");
+    fs::write(&a_path, b"dummy").expect("write file");
+
+    super::session::BULK_IMPORT_STOP_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst);
+
+    let wire = BulkImportConfirmWire {
+        wire: BulkImportWire {
+            root_paths: vec![source_dir.to_string_lossy().to_string()],
+            global_designer_id: None,
+            global_source_id: None,
+            per_folder_assignments: vec![],
+            selected_files: vec![a_path.to_string_lossy().to_string()],
+            create_on_import: true,
+        },
+        context_token: None,
+        canonical_confirm: true,
+    };
+
+    let (persisted, failed) = persist_bulk_import_confirm_wire(&pool, &wire, None)
+        .await
+        .expect("import should return cleanly on stop");
+
+    assert_eq!(
+        persisted, 0,
+        "No designs should be persisted when stopped immediately"
+    );
+    assert_eq!(failed, 0);
+
+    super::session::BULK_IMPORT_STOP_REQUESTED.store(false, std::sync::atomic::Ordering::SeqCst);
+
+    match previous {
+        Some(value) => std::env::set_var("DATABASE_URL", value),
+        None => std::env::remove_var("DATABASE_URL"),
+    }
+    let _ = fs::remove_dir_all(&tmp);
+}

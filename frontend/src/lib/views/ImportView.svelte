@@ -1260,6 +1260,10 @@
               : "Generating preview images...";
           return;
         }
+        if (stage === "archiving_alphabet" || stage === "archivingAlphabet") {
+          importProgressStatus = `Archiving alphabet: ${currentFilename}...`;
+          return;
+        }
         if ((stage === "processing_file" || stage === "processingFile") && total > 0) {
           importProgressStatus = `Processing ${Math.min(processed + 1, total)}/${total}: ${currentFilename}`;
           return;

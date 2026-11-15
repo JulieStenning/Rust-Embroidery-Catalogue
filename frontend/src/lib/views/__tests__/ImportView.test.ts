@@ -1796,6 +1796,41 @@ describe("ImportView bulk import progress events", () => {
     resolveAction(actionResponse());
   });
 
+  it("renders the archiving_alphabet stage status on the import button", async () => {
+    let resolveAction!: (v: unknown) => void;
+    adapterMocks.runPrecheckAction.mockReturnValue(
+      new Promise((r) => {
+        resolveAction = r;
+      })
+    );
+    const { container } = renderHarness("#/import");
+    await gotoStep3(container);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Import Designs" }));
+    await waitFor(() =>
+      expect(eventMocks.listen).toHaveBeenCalledWith("bulk-import-progress", expect.any(Function))
+    );
+
+    const handler = eventMocks.listen.mock.calls.find(
+      (call) => call[0] === "bulk-import-progress"
+    )?.[1] as (event: { payload: Record<string, unknown> }) => void;
+    handler({
+      payload: {
+        stage: "archiving_alphabet",
+        current_file: "C:/Embroidery/Monogram_Alphabet",
+      },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Running Import... Archiving alphabet: Monogram_Alphabet...",
+        })
+      ).toBeInTheDocument()
+    );
+    resolveAction(actionResponse());
+  });
+
   it("renders generating_images and batch_committed stages", async () => {
     let resolveAction!: (v: unknown) => void;
     adapterMocks.runPrecheckAction.mockReturnValue(

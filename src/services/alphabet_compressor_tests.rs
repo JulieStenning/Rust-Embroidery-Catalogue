@@ -4,6 +4,7 @@
 use super::*;
 use std::fs::{self, File};
 use std::io::Read;
+use std::sync::atomic::AtomicBool;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn unique_temp_dir(prefix: &str) -> PathBuf {
@@ -106,6 +107,37 @@ fn test_destination_existing_zip_is_idempotent() {
         .read_to_end(&mut content)
         .unwrap();
     assert_eq!(content, b"pre-existing archive content");
+
+    let _ = fs::remove_dir_all(&src_path);
+    let _ = fs::remove_dir_all(&dest_path);
+}
+
+#[test]
+fn test_compress_aborts_and_cleans_up_on_stop_flag() {
+    let src_path = unique_temp_dir("alphabet_stop_src");
+    let dest_path = unique_temp_dir("alphabet_stop_dest");
+
+    // Create sample files
+    fs::write(src_path.join("Upper_A.pes"), b"dummy A content").unwrap();
+    fs::write(src_path.join("Upper_B.pes"), b"dummy B content").unwrap();
+
+    let stop_flag = AtomicBool::new(true);
+
+    let result =
+        compress_or_copy_alphabet_with_cancel(&src_path, &dest_path, None, Some(&stop_flag));
+
+    assert!(result.is_err(), "Expected compression to be cancelled");
+    assert!(result.unwrap_err().contains("cancelled"));
+
+    // Verify partial zip does NOT exist in destination
+    let expected_zip = dest_path.join(format!(
+        "{}.zip",
+        src_path.file_name().unwrap().to_str().unwrap()
+    ));
+    assert!(
+        !expected_zip.exists(),
+        "Partial or aborted zip should be deleted on cancel"
+    );
 
     let _ = fs::remove_dir_all(&src_path);
     let _ = fs::remove_dir_all(&dest_path);

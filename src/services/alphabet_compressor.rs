@@ -13,6 +13,7 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
@@ -25,6 +26,24 @@ pub fn compress_or_copy_alphabet(
     dest_folder: &Path,
     companion_zip: Option<&Path>,
 ) -> Result<PathBuf, String> {
+    compress_or_copy_alphabet_with_cancel(source_folder, dest_folder, companion_zip, None)
+}
+
+/// Compresses files from an alphabet folder into a `.zip` archive or copies an existing
+/// companion `.zip` to the destination folder, checking an optional cancellation flag.
+/// If cancelled, partial destination archives are removed to prevent data corruption.
+pub fn compress_or_copy_alphabet_with_cancel(
+    source_folder: &Path,
+    dest_folder: &Path,
+    companion_zip: Option<&Path>,
+    stop_flag: Option<&AtomicBool>,
+) -> Result<PathBuf, String> {
+    if let Some(flag) = stop_flag {
+        if flag.load(Ordering::SeqCst) {
+            return Err("Alphabet compression cancelled before starting".to_string());
+        }
+    }
+
     if !source_folder.exists() || !source_folder.is_dir() {
         return Err(format!(
             "Source folder does not exist or is not a directory: '{}'",
@@ -73,6 +92,12 @@ pub fn compress_or_copy_alphabet(
     // If source folder has an existing companion zip, copy it
     if let Some(src_zip) = companion_zip {
         if src_zip.exists() && src_zip.is_file() {
+            if let Some(flag) = stop_flag {
+                if flag.load(Ordering::SeqCst) {
+                    return Err("Alphabet copy cancelled".to_string());
+                }
+            }
+
             tracing::info!(
                 "Copying existing companion alphabet archive from '{}' to '{}'",
                 src_zip.display(),
@@ -105,9 +130,27 @@ pub fn compress_or_copy_alphabet(
         .compression_method(CompressionMethod::Deflated)
         .unix_permissions(0o644);
 
-    compress_folder_recursive(source_folder, source_folder, &mut zip_writer, options)?;
+    let compression_result = compress_folder_recursive(
+        source_folder,
+        source_folder,
+        &mut zip_writer,
+        options,
+        stop_flag,
+    );
+
+    if let Err(err) = compression_result {
+        // Drop writer to release file handle before attempting removal
+        drop(zip_writer);
+        if dest_zip.exists() {
+            let _ = fs::remove_file(&dest_zip);
+        }
+        return Err(err);
+    }
 
     zip_writer.finish().map_err(|e| {
+        if dest_zip.exists() {
+            let _ = fs::remove_file(&dest_zip);
+        }
         format!(
             "Failed to finalize zip archive '{}': {}",
             dest_zip.display(),
@@ -124,7 +167,14 @@ fn compress_folder_recursive<W: Write + io::Seek>(
     current_dir: &Path,
     zip_writer: &mut ZipWriter<W>,
     options: SimpleFileOptions,
+    stop_flag: Option<&AtomicBool>,
 ) -> Result<(), String> {
+    if let Some(flag) = stop_flag {
+        if flag.load(Ordering::SeqCst) {
+            return Err("Alphabet compression cancelled".to_string());
+        }
+    }
+
     let entries = fs::read_dir(current_dir).map_err(|e| {
         format!(
             "Failed to read directory '{}': {}",
@@ -134,6 +184,12 @@ fn compress_folder_recursive<W: Write + io::Seek>(
     })?;
 
     for entry_res in entries {
+        if let Some(flag) = stop_flag {
+            if flag.load(Ordering::SeqCst) {
+                return Err("Alphabet compression cancelled".to_string());
+            }
+        }
+
         let entry = entry_res.map_err(|e| e.to_string())?;
         let path = entry.path();
 
@@ -145,7 +201,7 @@ fn compress_folder_recursive<W: Write + io::Seek>(
         }
 
         if path.is_dir() {
-            compress_folder_recursive(base_dir, &path, zip_writer, options)?;
+            compress_folder_recursive(base_dir, &path, zip_writer, options, stop_flag)?;
         } else if path.is_file() {
             let rel_path = path
                 .strip_prefix(base_dir)
@@ -170,6 +226,12 @@ fn compress_folder_recursive<W: Write + io::Seek>(
 
             let mut buffer = [0u8; 16384];
             loop {
+                if let Some(flag) = stop_flag {
+                    if flag.load(Ordering::SeqCst) {
+                        return Err("Alphabet compression cancelled".to_string());
+                    }
+                }
+
                 let n = f
                     .read(&mut buffer)
                     .map_err(|e| format!("Failed to read file '{}': {}", path.display(), e))?;
