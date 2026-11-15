@@ -527,17 +527,22 @@ describe("global UI lock during long-running tasks", () => {
       expect(screen.getByText("Browse")).toBeInTheDocument();
     });
     expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "false");
 
     beginBusy("Backing up");
     await tick();
     expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("Import").className).toContain("menu-link-disabled");
     expect(screen.getByText("System")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Licence").className).toContain("menu-link-disabled");
 
     endBusy();
     await tick();
     expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText("Import").className).not.toContain("menu-link-disabled");
+    expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("Licence").className).not.toContain("menu-link-disabled");
   });
 });
 

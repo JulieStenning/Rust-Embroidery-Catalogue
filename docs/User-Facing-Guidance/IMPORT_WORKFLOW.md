@@ -46,6 +46,7 @@ The app scans subfolders automatically, detects supported stitch files (e.g. `.p
 |---|---|
 | A folder shows "No supported embroidery files found" | Check that your folder contains supported stitch files. See [Supported Formats](SUPPORTED_FORMATS.md). |
 | You want to stop an import in progress | Click **Stop running**. Designs already saved remain safely in your catalogue; uncommitted files are skipped. |
+| Navigation and footer links are disabled | Top navigation links and footer links (including [Licence](#/about/licence)) are temporarily locked while an import is running to protect catalogue integrity. They re-enable automatically once the import completes or is stopped. |
 | You left the import screen and came back | Your scan and review selections are preserved while the app stays open. If the session expired, click **Scan folder(s)** again. |
 | Designs from your digitising software are not detected | Enable your digitising format (e.g. Embird, Hatch, Bernina, Embrilliance) in [Admin → Settings](#/admin/system/settings) under **Digitising & Master File Formats**. |
 

@@ -158,6 +158,13 @@
     return `menu-link menu-link-admin ${isActive ? "menu-link-active" : ""}${disabled}`;
   }
 
+  function footerLinkClass() {
+    const disabled = busyActive
+      ? " menu-link-disabled footer-link-disabled opacity-50 cursor-not-allowed"
+      : " hover:underline";
+    return `text-[var(--text-brand)] font-medium${disabled}`;
+  }
+
   syncRouteFromHash();
 </script>
 
@@ -169,7 +176,7 @@
     <div class="menu-primary-group flex items-center gap-4">
       <a
         href="#/designs"
-        class="menu-brand flex items-center gap-1.5 font-bold text-lg text-white"
+        class={`menu-brand flex items-center gap-1.5 font-bold text-lg text-white${busyActive ? " menu-link-disabled" : ""}`}
         aria-disabled={busyActive}
         onclick={guardNavClick}
       >
@@ -303,14 +310,14 @@
     <span aria-hidden="true">•</span>
     <a
       href="#/about"
-      class="hover:underline text-[var(--text-brand)] font-medium"
+      class={footerLinkClass()}
       aria-disabled={busyActive}
       onclick={guardNavClick}>About</a
     >
     <span aria-hidden="true">•</span>
     <a
       href="#/about/licence"
-      class="hover:underline text-[var(--text-brand)] font-medium"
+      class={footerLinkClass()}
       aria-disabled={busyActive}
       onclick={guardNavClick}>Licence</a
     >

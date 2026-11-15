@@ -86,6 +86,30 @@ test.describe("main navigation", () => {
     );
   });
 
+  test("footer links route to About and Licence views", async ({ page }) => {
+    await expectMainView(page);
+
+    const licenceLink = page.getByRole("link", { name: "Licence" });
+    await expect(licenceLink).toBeVisible();
+    await licenceLink.click();
+    await expect(
+      page.getByRole("navigation", { name: "Licence information" }),
+    ).toBeVisible();
+
+    const aboutLink = page.getByRole("link", { name: "About", exact: true });
+    await expect(aboutLink).toBeVisible();
+    await aboutLink.click();
+    await expect(
+      page.getByRole("heading", { name: /Product Licence/i }),
+    ).toBeVisible();
+
+    // Return to Browse for subsequent specs
+    await clickNav(page, "Browse");
+    await expect(
+      page.getByRole("heading", { name: "Browse Designs" }),
+    ).toBeVisible();
+  });
+
   test("suppresses browser context menu on chrome and displays tailored text context menu on inputs", async ({
     page,
   }) => {

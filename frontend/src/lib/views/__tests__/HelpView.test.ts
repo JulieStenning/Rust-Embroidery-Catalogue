@@ -245,6 +245,7 @@ describe("HelpView", () => {
       expect(section.getByText("Tag check before import:")).toBeInTheDocument();
       expect(section.getByText("Tagging during import:")).toBeInTheDocument();
       expect(section.getByText("Alphabet & font compression:")).toBeInTheDocument();
+      expect(section.getByText("Navigation locking:")).toBeInTheDocument();
 
       const guideLink = section.getByRole("link", {
         name: "Read full guide → Import Workflow Guide",

@@ -254,6 +254,10 @@
           <strong>Alphabet &amp; font compression:</strong> Scanned alphabet collections are automatically
           compressed into companion zip archives, cataloguing representative sample glyphs only.
         </li>
+        <li>
+          <strong>Navigation locking:</strong> Header navigation and footer links are temporarily locked
+          during an active import to protect catalogue integrity, re-enabling automatically once the process completes.
+        </li>
       </ul>
       <p class="pt-2 border-t border-[var(--border-default)] text-xs">
         <a

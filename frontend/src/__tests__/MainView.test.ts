@@ -152,15 +152,19 @@ describe("MainView.svelte", () => {
       expect(screen.getByText("Browse")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Browse").className).toContain("menu-link-disabled");
       expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Import").className).toContain("menu-link-disabled");
       expect(screen.getByText("Projects")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Help")).toHaveAttribute("aria-disabled", "true");
       // Admin hub nav
       expect(screen.getByText("Manage Data")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("Batch Operations")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByText("System")).toHaveAttribute("aria-disabled", "true");
-      // Footer
+      // Brand & Footer
+      expect(screen.getByRole("link", { name: /Embroidery Catalogue/i }).className).toContain("menu-link-disabled");
       expect(screen.getByText("About")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("About").className).toContain("menu-link-disabled");
       expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Licence").className).toContain("menu-link-disabled");
     });
 
     it("blocks a nav-link CLICK while busy via the control-layer guard", () => {
@@ -173,6 +177,11 @@ describe("MainView.svelte", () => {
       // suppressed and the Import view is NOT mounted.
       fireEvent.click(screen.getByText("Import"));
       expect(screen.queryByTestId("import-view")).not.toBeInTheDocument();
+      expect(screen.getByTestId("browse-view")).toBeInTheDocument();
+
+      // Footer licence link is equally blocked
+      fireEvent.click(screen.getByText("Licence"));
+      expect(screen.queryByTestId("about-document-view")).not.toBeInTheDocument();
       expect(screen.getByTestId("browse-view")).toBeInTheDocument();
     });
 
@@ -193,15 +202,21 @@ describe("MainView.svelte", () => {
     it("reactively clears the lock once busy ends, restoring normal navigation", async () => {
       render(MainView);
       expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
+      expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "false");
 
       beginBusy("Backing up");
       await tick();
       expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Import").className).toContain("menu-link-disabled");
+      expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Licence").className).toContain("menu-link-disabled");
 
       endBusy();
       await tick();
       expect(screen.getByText("Import")).toHaveAttribute("aria-disabled", "false");
       expect(screen.getByText("Import").className).not.toContain("menu-link-disabled");
+      expect(screen.getByText("Licence")).toHaveAttribute("aria-disabled", "false");
+      expect(screen.getByText("Licence").className).not.toContain("menu-link-disabled");
     });
   });
 
