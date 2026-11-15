@@ -3733,3 +3733,86 @@ async fn persist_bulk_import_stops_when_flag_set() {
     }
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn extract_stem_key_normalises_various_path_formats() {
+    use super::catalog::extract_stem_key;
+
+    assert_eq!(
+        extract_stem_key("/MachineEmbroideryDesigns/Florals/Rose.pes"),
+        ("florals".to_string(), "rose".to_string())
+    );
+    assert_eq!(
+        extract_stem_key("MachineEmbroideryDesigns/Florals/Rose.pes"),
+        ("florals".to_string(), "rose".to_string())
+    );
+    assert_eq!(
+        extract_stem_key("Florals/Rose.pes"),
+        ("florals".to_string(), "rose".to_string())
+    );
+    assert_eq!(
+        extract_stem_key("Florals\\Rose.pes"),
+        ("florals".to_string(), "rose".to_string())
+    );
+    assert_eq!(
+        extract_stem_key("Rose.pes"),
+        ("".to_string(), "rose".to_string())
+    );
+    assert_eq!(
+        extract_stem_key("/MachineEmbroideryDesigns/Rose.pes"),
+        ("".to_string(), "rose".to_string())
+    );
+    assert_eq!(
+        extract_stem_key("/MachineEmbroideryDesigns/Alphabets/Fonts/A.jef"),
+        ("alphabets/fonts".to_string(), "a".to_string())
+    );
+}
+
+#[tokio::test]
+async fn load_catalogue_stem_index_populates_entries() {
+    use super::catalog::load_catalogue_stem_index;
+
+    let pool = import_test_pool().await;
+
+    // Seed a master-only design
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only) \
+         VALUES ('Dragon.art', '/MachineEmbroideryDesigns/Fantasy/Dragon.art', '/MachineEmbroideryDesigns/Fantasy/Dragon.art', 1)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed master design");
+
+    // Seed a stitch design with an attached master file
+    sqlx::query(
+        "INSERT INTO designs (filename, filepath, master_filepath, is_master_only) \
+         VALUES ('Rose.pes', '/MachineEmbroideryDesigns/Florals/Rose.pes', '/MachineEmbroideryDesigns/Florals/Rose.art', 0)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed stitch design");
+
+    let stem_map = load_catalogue_stem_index(&pool)
+        .await
+        .expect("load stem index");
+
+    // Verify master-only design indexed under (fantasy, dragon)
+    let dragon_entry = stem_map
+        .get(&("fantasy".to_string(), "dragon".to_string()))
+        .expect("dragon should be indexed");
+    assert!(dragon_entry.is_master_only);
+    assert_eq!(
+        dragon_entry.master_filepath.as_deref(),
+        Some("/MachineEmbroideryDesigns/Fantasy/Dragon.art")
+    );
+
+    // Verify stitch design indexed under (florals, rose)
+    let rose_entry = stem_map
+        .get(&("florals".to_string(), "rose".to_string()))
+        .expect("rose should be indexed");
+    assert!(!rose_entry.is_master_only);
+    assert_eq!(
+        rose_entry.master_filepath.as_deref(),
+        Some("/MachineEmbroideryDesigns/Florals/Rose.art")
+    );
+}

@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Julie Stenning
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use super::catalog::{load_default_stitching_tag_id, load_stitching_tag_lookup, load_tag_catalog};
+use super::catalog::{
+    extract_stem_key, load_catalogue_stem_index, load_default_stitching_tag_id,
+    load_stitching_tag_lookup, load_tag_catalog, CatalogueStemEntry,
+};
 use super::inference::{resolve_assignment_for_file, resolve_bulk_import_assignments};
 use super::paths::{
     compute_file_hash_blake3, compute_file_size, ensure_file_in_designs_base, get_designs_base_path,
@@ -571,6 +574,7 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
 
     let _guard = crate::services::backfill::BackfillRunningGuard::new();
     let total_count = confirm_wire.wire.selected_files.len();
+    let mut catalogue_stem_map = load_catalogue_stem_index(pool).await?;
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut stopped = BULK_IMPORT_STOP_REQUESTED.load(Ordering::SeqCst);
     let mut persisted_design_count = 0usize;
@@ -795,11 +799,8 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("");
-                let pattern_suffix = if parent.is_empty() {
-                    format!("{stem}.%")
-                } else {
-                    format!("{parent}/{stem}.%")
-                };
+
+                let (db_parent_key, db_stem_key) = extract_stem_key(&stored_filepath);
 
                 let paired_master_src = selected_master_map.get(&(parent_key, stem_key)).cloned();
                 let mut stored_master_filepath: Option<String> = if let Some(master_src) =
@@ -813,19 +814,23 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     None
                 };
 
-                // Check if an existing master-only design exists in SQLite for this stem
-                let existing_master_row: Option<(i64, Option<String>)> = if !stem.is_empty() {
-                    sqlx::query_as(
-                        "SELECT id, master_filepath FROM designs WHERE (filepath LIKE ? OR master_filepath LIKE ?) AND is_master_only = 1 LIMIT 1",
-                    )
-                    .bind(&pattern_suffix)
-                    .bind(&pattern_suffix)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .unwrap_or(None)
+                let existing_stem_entry = if !db_stem_key.is_empty() {
+                    catalogue_stem_map.get(&(db_parent_key.clone(), db_stem_key.clone()))
                 } else {
                     None
                 };
+
+                // Check if an existing master-only design exists in SQLite for this stem
+                let existing_master_row: Option<(i64, Option<String>)> =
+                    if let Some(entry) = existing_stem_entry {
+                        if entry.is_master_only {
+                            Some((entry.id, entry.master_filepath.clone()))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
 
                 let existing_design_id = if let Some((id, existing_mf)) = existing_master_row {
                     if stored_master_filepath.is_none() {
@@ -836,15 +841,16 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     None
                 };
 
-                if existing_design_id.is_none() && !stem.is_empty() {
-                    let existing_stitch_id: Option<i64> = sqlx::query_scalar(
-                        "SELECT id FROM designs WHERE (filepath LIKE ? OR filepath LIKE ?) AND is_master_only = 0 LIMIT 1",
-                    )
-                    .bind(&pattern_suffix)
-                    .bind(format!("/MachineEmbroideryDesigns/{}", pattern_suffix))
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .unwrap_or(None);
+                if existing_design_id.is_none() && !db_stem_key.is_empty() {
+                    let existing_stitch_id: Option<i64> = if let Some(entry) = existing_stem_entry {
+                        if !entry.is_master_only {
+                            Some(entry.id)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
 
                     if let Some(stitch_id) = existing_stitch_id {
                         let fname = Path::new(&stored_filepath)
@@ -1007,7 +1013,7 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     }
                 }
 
-                let _ = persist_stitch_design(
+                let persisted_id = persist_stitch_design(
                     &mut tx,
                     file_path,
                     &stored_filepath,
@@ -1020,33 +1026,43 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     &mut failed_decode_count,
                 )
                 .await?;
+
+                if !db_stem_key.is_empty() {
+                    catalogue_stem_map.insert(
+                        (db_parent_key, db_stem_key),
+                        CatalogueStemEntry {
+                            id: persisted_id,
+                            is_master_only: false,
+                            master_filepath: stored_master_filepath.clone(),
+                        },
+                    );
+                }
             } else {
                 let stored_filepath =
                     ensure_file_in_designs_base(file_path, &confirm_wire.wire.root_paths)?;
 
-                let parent = Path::new(&stored_filepath)
-                    .parent()
-                    .map(|p| p.to_string_lossy().replace('\\', "/"))
-                    .unwrap_or_default();
-                let stem = Path::new(&stored_filepath)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("");
-                let pattern_suffix = if parent.is_empty() {
-                    format!("{stem}.%")
-                } else {
-                    format!("{parent}/{stem}.%")
-                };
+                let (db_parent_key, db_stem_key) = extract_stem_key(&stored_filepath);
 
-                let existing_stitch_id: Option<i64> = if !stem.is_empty() {
-                    sqlx::query_scalar(
-                        "SELECT id FROM designs WHERE (filepath LIKE ? OR filepath LIKE ?) AND is_master_only = 0 AND (master_filepath IS NULL OR master_filepath = '') LIMIT 1",
-                    )
-                    .bind(&pattern_suffix)
-                    .bind(format!("/MachineEmbroideryDesigns/{}", pattern_suffix))
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .unwrap_or(None)
+                let existing_stitch_id: Option<i64> = if !db_stem_key.is_empty() {
+                    if let Some(entry) =
+                        catalogue_stem_map.get(&(db_parent_key.clone(), db_stem_key.clone()))
+                    {
+                        if !entry.is_master_only
+                            && (entry.master_filepath.is_none()
+                                || entry
+                                    .master_filepath
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .trim()
+                                    .is_empty())
+                        {
+                            Some(entry.id)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 };
@@ -1100,8 +1116,16 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                     .bind(file_hash_blake3.as_ref())
                     .execute(&mut *tx)
                     .await;
+
+                    if !db_stem_key.is_empty() {
+                        if let Some(entry) =
+                            catalogue_stem_map.get_mut(&(db_parent_key, db_stem_key))
+                        {
+                            entry.master_filepath = Some(stored_filepath.clone());
+                        }
+                    }
                 } else {
-                    let _ = persist_master_design(
+                    let master_id = persist_master_design(
                         &mut tx,
                         file_path,
                         &stored_filepath,
@@ -1110,6 +1134,17 @@ pub(crate) async fn persist_bulk_import_confirm_wire(
                         &mut total_tagging_ms,
                     )
                     .await?;
+
+                    if !db_stem_key.is_empty() {
+                        catalogue_stem_map.insert(
+                            (db_parent_key, db_stem_key),
+                            CatalogueStemEntry {
+                                id: master_id,
+                                is_master_only: true,
+                                master_filepath: Some(stored_filepath.clone()),
+                            },
+                        );
+                    }
                 }
             }
 

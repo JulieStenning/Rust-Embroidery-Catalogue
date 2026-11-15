@@ -255,3 +255,65 @@ pub(crate) async fn filter_existing_scanned_files(
 
     Ok(result)
 }
+
+#[derive(Debug, Clone)]
+pub(crate) struct CatalogueStemEntry {
+    pub id: i64,
+    pub is_master_only: bool,
+    pub master_filepath: Option<String>,
+}
+
+pub(crate) type CatalogueStemMap = HashMap<(String, String), CatalogueStemEntry>;
+
+pub(crate) fn extract_stem_key(filepath: &str) -> (String, String) {
+    let norm = filepath.replace('\\', "/");
+    let trimmed = norm.strip_prefix('/').unwrap_or(&norm);
+    let stripped = trimmed
+        .strip_prefix("MachineEmbroideryDesigns/")
+        .unwrap_or(trimmed);
+    let p = Path::new(stripped);
+    let parent = p
+        .parent()
+        .map(|d| d.to_string_lossy().replace('\\', "/").to_ascii_lowercase())
+        .unwrap_or_default();
+    let stem = p
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    (parent, stem)
+}
+
+pub(crate) async fn load_catalogue_stem_index(
+    pool: &SqlitePool,
+) -> Result<CatalogueStemMap, String> {
+    let rows: Vec<(i64, String, Option<String>, i64)> =
+        sqlx::query_as("SELECT id, filepath, master_filepath, is_master_only FROM designs")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+    let mut map: CatalogueStemMap = HashMap::with_capacity(rows.len());
+    for (id, filepath, master_filepath, is_master_only_int) in rows {
+        let is_master_only = is_master_only_int != 0;
+        let entry = CatalogueStemEntry {
+            id,
+            is_master_only,
+            master_filepath: master_filepath.clone(),
+        };
+
+        let primary_key = extract_stem_key(&filepath);
+        if !primary_key.1.is_empty() {
+            map.insert(primary_key, entry.clone());
+        }
+
+        if let Some(ref mf) = master_filepath {
+            let master_key = extract_stem_key(mf);
+            if !master_key.1.is_empty() {
+                map.entry(master_key).or_insert(entry);
+            }
+        }
+    }
+
+    Ok(map)
+}
