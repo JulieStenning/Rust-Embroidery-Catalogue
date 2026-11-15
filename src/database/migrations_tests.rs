@@ -931,3 +931,67 @@ async fn run_migrations_creates_design_files_table_and_indexes() {
     pool.close().await;
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn run_migrations_reconciles_crlf_checksums_and_succeeds() {
+    let tmp = unique_tmp_dir("crlf-reconcile");
+    std::fs::create_dir_all(&tmp).expect("create temp dir");
+    let db_path = tmp.join("crlf_reconcile.db");
+    std::fs::write(&db_path, []).expect("create empty db file");
+
+    let pool = on_disk_pool(&db_path).await;
+    run_migrations(&pool).await.expect("initial migrations");
+
+    let canonical_checksum: Vec<u8> =
+        sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = 20260503000000")
+            .fetch_one(&pool)
+            .await
+            .expect("fetch initial canonical checksum");
+
+    // Compute the CRLF hash for migration 20260503000000
+    let migrator = sqlx::migrate!("./migrations");
+    let initial_migration = migrator
+        .iter()
+        .find(|m| m.version == 20260503000000)
+        .expect("find initial migration");
+    let lf_sql = initial_migration.sql.as_ref().replace("\r\n", "\n");
+    let crlf_sql = lf_sql.replace('\n', "\r\n");
+    let mut hasher = sha2::Sha384::new();
+    hasher.update(crlf_sql.as_bytes());
+    let crlf_checksum = hasher.finalize();
+
+    // Verify CRLF checksum differs from the canonical LF checksum
+    assert_ne!(
+        canonical_checksum.as_slice(),
+        &crlf_checksum[..],
+        "CRLF checksum must differ from LF checksum"
+    );
+
+    // Corrupt the tracking table with the CRLF checksum as happened on Windows
+    sqlx::query("UPDATE _sqlx_migrations SET checksum = ? WHERE version = 20260503000000")
+        .bind(&crlf_checksum[..])
+        .execute(&pool)
+        .await
+        .expect("corrupt with CRLF checksum");
+
+    // Running migrations must reconcile the checksum and succeed without VersionMismatch
+    let result = run_migrations(&pool).await;
+    assert!(
+        result.is_ok(),
+        "run_migrations should reconcile CRLF checksum and succeed: {:?}",
+        result
+    );
+
+    let reconciled_checksum: Vec<u8> =
+        sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = 20260503000000")
+            .fetch_one(&pool)
+            .await
+            .expect("fetch reconciled checksum");
+    assert_eq!(
+        reconciled_checksum, canonical_checksum,
+        "checksum should be reconciled to canonical LF hash"
+    );
+
+    pool.close().await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}

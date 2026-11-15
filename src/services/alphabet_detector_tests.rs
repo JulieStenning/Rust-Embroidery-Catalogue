@@ -387,3 +387,232 @@ fn test_find_companion_zip_in_dir() {
     std::fs::write(pes_dir.join("PeasAndCarrots.zip"), b"dummy").unwrap();
     assert_eq!(find_companion_zip_in_dir(&pes_dir), None);
 }
+
+#[test]
+fn test_classify_glyph_name_anders_font_and_multi_word_fonts() {
+    // Anders Font letters and numbers
+    assert_eq!(
+        classify_glyph_name("Anders Font Alpha A 1 Inch.jef"),
+        GlyphCategory::UpperA
+    );
+    assert_eq!(
+        classify_glyph_name("Anders Font Alpha B 1 Inch.jef"),
+        GlyphCategory::OtherUpperLetter('B')
+    );
+    assert_eq!(
+        classify_glyph_name("Anders Font Alpha Z 3 Inch.jef"),
+        GlyphCategory::OtherUpperLetter('Z')
+    );
+    assert_eq!(
+        classify_glyph_name("Anders Font Number 9 1 Inch.jef"),
+        GlyphCategory::Digit9
+    );
+    assert_eq!(
+        classify_glyph_name("Anders Font Number 0 1 Inch.jef"),
+        GlyphCategory::OtherDigit('0')
+    );
+    assert_eq!(
+        classify_glyph_name("Anders Font Bonus Ampersand 1 Inch.jef"),
+        GlyphCategory::PunctuationOrSymbol
+    );
+    assert_eq!(
+        classify_glyph_name("Anders Font Bonus Question 2 Inch.jef"),
+        GlyphCategory::PunctuationOrSymbol
+    );
+
+    // Multi-word font names
+    assert_eq!(
+        classify_glyph_name("The Shire Font Alpha Upper C 2 Inch.jef"),
+        GlyphCategory::OtherUpperLetter('C')
+    );
+    assert_eq!(
+        classify_glyph_name("The Shire Font Alpha Lower a 1 Inch.jef"),
+        GlyphCategory::LowerA
+    );
+    assert_eq!(
+        classify_glyph_name("Winter Dream Font Alpha Lower a 1 Inch.jef"),
+        GlyphCategory::LowerA
+    );
+    assert_eq!(
+        classify_glyph_name("Space Star Font Alpha Upper A 1 Inch.jef"),
+        GlyphCategory::UpperA
+    );
+    assert_eq!(
+        classify_glyph_name("Space Star Font Alpha Upper B 1 Inch.jef"),
+        GlyphCategory::OtherUpperLetter('B')
+    );
+}
+
+#[test]
+fn test_classify_glyph_name_explicit_lower_with_capitalised_letter() {
+    // Explicit Lower indicator must override single capital letter token
+    assert_eq!(
+        classify_glyph_name("Lower A 1 Inch.jef"),
+        GlyphCategory::LowerA
+    );
+    assert_eq!(
+        classify_glyph_name("Lower A 1_5 Inch.jef"),
+        GlyphCategory::LowerA
+    );
+    assert_eq!(
+        classify_glyph_name("Lower B 1 Inch.jef"),
+        GlyphCategory::OtherLowerLetter('b')
+    );
+    assert_eq!(
+        classify_glyph_name("Upper A 1 Inch.jef"),
+        GlyphCategory::UpperA
+    );
+    assert_eq!(
+        classify_glyph_name("Upper B 1 Inch.jef"),
+        GlyphCategory::OtherUpperLetter('B')
+    );
+}
+
+#[test]
+fn test_path_contains_subfont_and_alpha_keywords() {
+    assert!(path_contains_alphabet_keyword(
+        "MonogramMegaPackJEF/53 Bonus Subfont JEF"
+    ));
+    assert!(path_contains_alphabet_keyword(
+        "Embroidery Super Deal/Subfonts/Package1"
+    ));
+    assert!(path_contains_alphabet_keyword("FontDealIVJEF/AndersFont"));
+    assert!(path_contains_alphabet_keyword("Alpha/Classic"));
+}
+
+#[test]
+fn test_analyze_alphabet_folder_anders_font_full_set() {
+    let mut files = Vec::new();
+    // 3 sizes of letters A-Z
+    for ch in 'A'..='Z' {
+        for size in 1..=3 {
+            files.push(format!("Anders Font Alpha {} {} Inch.jef", ch, size));
+        }
+    }
+    // 3 sizes of numbers 0-9
+    for digit in 0..=9 {
+        for size in 1..=3 {
+            files.push(format!("Anders Font Number {} {} Inch.jef", digit, size));
+        }
+    }
+    // Bonus punctuation
+    for punct in &[
+        "Ampersand",
+        "Dash",
+        "Dollar",
+        "Exclamation",
+        "Period",
+        "Question",
+    ] {
+        for size in 1..=3 {
+            files.push(format!("Anders Font Bonus {} {} Inch.jef", punct, size));
+        }
+    }
+
+    let result = analyze_alphabet_folder(
+        "H:/Embroidery Designs/Alphabets/Embroidery Super Deal/FontDealIVJEF/FontDealIVJEF/AndersFont",
+        &files,
+        false,
+        None,
+    );
+
+    assert!(result.is_alphabet);
+
+    // Samples: 3 sizes of Alpha A, 3 sizes of Number 9, and 3 sizes of 6 punctuation marks
+    // Total samples = 3 + 3 + (6 * 3) = 24
+    assert_eq!(result.sample_files.len(), 24);
+    assert!(result
+        .sample_files
+        .contains(&"Anders Font Alpha A 1 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Anders Font Alpha A 2 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Anders Font Alpha A 3 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Anders Font Number 9 1 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Anders Font Bonus Ampersand 1 Inch.jef".to_string()));
+
+    // Compressible: 25 letters (B-Z) * 3 sizes = 75, plus 9 numbers (0-8) * 3 sizes = 27
+    // Total compressible = 75 + 27 = 102
+    assert_eq!(result.compressible_files.len(), 102);
+    assert!(result
+        .compressible_files
+        .contains(&"Anders Font Alpha B 1 Inch.jef".to_string()));
+    assert!(result
+        .compressible_files
+        .contains(&"Anders Font Alpha Z 3 Inch.jef".to_string()));
+    assert!(result
+        .compressible_files
+        .contains(&"Anders Font Number 0 1 Inch.jef".to_string()));
+    assert!(result
+        .compressible_files
+        .contains(&"Anders Font Number 8 3 Inch.jef".to_string()));
+
+    // No non-glyph other files
+    assert_eq!(result.other_files.len(), 0);
+}
+
+#[test]
+fn test_analyze_alphabet_folder_subfont_package() {
+    let mut files = Vec::new();
+    for ch in 'A'..='Z' {
+        files.push(format!("Upper {} 1 Inch.jef", ch));
+        files.push(format!("Upper {} 1_5 Inch.jef", ch));
+        files.push(format!("Upper {} 2 Inch.jef", ch));
+        files.push(format!("Lower {} 1 Inch.jef", ch));
+        files.push(format!("Lower {} 1_5 Inch.jef", ch));
+        files.push(format!("Lower {} 2 Inch.jef", ch));
+    }
+
+    let result = analyze_alphabet_folder(
+        "H:/Embroidery Designs/Embroidery Super Deal/MonogramMegaPackJEF/MonogramMegaPackJEF/53 Bonus Subfont JEF",
+        &files,
+        false,
+        None,
+    );
+
+    assert!(result.is_alphabet);
+
+    // Samples: Upper A (3 sizes) + Lower A (3 sizes) = 6 sample files
+    assert_eq!(result.sample_files.len(), 6);
+    assert!(result
+        .sample_files
+        .contains(&"Upper A 1 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Upper A 1_5 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Upper A 2 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Lower A 1 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Lower A 1_5 Inch.jef".to_string()));
+    assert!(result
+        .sample_files
+        .contains(&"Lower A 2 Inch.jef".to_string()));
+
+    // Compressible: (25 upper + 25 lower) * 3 sizes = 150 compressible files
+    assert_eq!(result.compressible_files.len(), 150);
+    assert!(result
+        .compressible_files
+        .contains(&"Upper B 1 Inch.jef".to_string()));
+    assert!(result
+        .compressible_files
+        .contains(&"Lower B 1 Inch.jef".to_string()));
+    assert!(result
+        .compressible_files
+        .contains(&"Upper Z 2 Inch.jef".to_string()));
+    assert!(result
+        .compressible_files
+        .contains(&"Lower Z 2 Inch.jef".to_string()));
+
+    assert_eq!(result.other_files.len(), 0);
+}

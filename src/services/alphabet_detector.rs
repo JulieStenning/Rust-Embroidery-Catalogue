@@ -55,12 +55,20 @@ pub const ALPHABET_KEYWORDS: &[&str] = &[
     "alphabets",
     "font",
     "fonts",
+    "subfont",
+    "subfonts",
+    "alpha",
+    "alphas",
     "monogram",
     "monograms",
     "initials",
+    "letter",
     "letters",
+    "number",
     "numbers",
+    "numeral",
     "numerals",
+    "digit",
     "digits",
 ];
 
@@ -306,6 +314,28 @@ pub fn extract_size_key(text: &str) -> Option<String> {
     None
 }
 
+/// Returns true if the token matches a known font or alphabet package keyword.
+pub fn is_font_or_alphabet_keyword(token: &str) -> bool {
+    let lower = token.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "font"
+            | "fonts"
+            | "subfont"
+            | "subfonts"
+            | "alphabet"
+            | "alphabets"
+            | "alpha"
+            | "alphas"
+            | "monogram"
+            | "monograms"
+            | "letter"
+            | "letters"
+            | "bonus"
+    ) || (lower.len() > 4 && lower.ends_with("font"))
+        || (lower.len() > 5 && lower.ends_with("fonts"))
+}
+
 /// Classifies a single filename into its corresponding [`GlyphCategory`].
 pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
     let path = Path::new(filename);
@@ -317,16 +347,9 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
     let norm_stem = normalize_stem_delimiters(stem);
     let lower_stem = norm_stem.to_ascii_lowercase();
 
-    // Check punctuation words first
+    // Check exact punctuation word matches first
     for word in PUNCTUATION_WORDS {
-        if lower_stem == *word
-            || lower_stem.ends_with(&format!("_{}", word))
-            || lower_stem.ends_with(&format!("-{}", word))
-            || lower_stem.ends_with(&format!(" {}", word))
-            || lower_stem.starts_with(&format!("{}_", word))
-            || lower_stem.starts_with(&format!("{}-", word))
-            || lower_stem.starts_with(&format!("{} ", word))
-        {
+        if lower_stem == *word {
             return GlyphCategory::PunctuationOrSymbol;
         }
     }
@@ -358,9 +381,11 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
         return GlyphCategory::PunctuationOrSymbol;
     }
 
-    let mut is_upper_indicator = false;
-    let mut is_lower_indicator = false;
-    let mut is_number_indicator = false;
+    let mut has_explicit_upper = false;
+    let mut has_explicit_lower = false;
+    let mut has_explicit_number = false;
+    let mut has_font_keyword = false;
+    let mut has_punctuation_token = false;
     let mut detected_letter: Option<char> = None;
     let mut detected_digit: Option<char> = None;
     let mut descriptive_word_count = 0usize;
@@ -371,22 +396,24 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
             t_lower.as_str(),
             "upper" | "uppercase" | "caps" | "cap" | "uc"
         ) {
-            is_upper_indicator = true;
+            has_explicit_upper = true;
             continue;
         }
         if matches!(t_lower.as_str(), "lower" | "lowercase" | "small" | "lc") {
-            is_lower_indicator = true;
+            has_explicit_lower = true;
             continue;
         }
         if matches!(t_lower.as_str(), "number" | "num" | "digit") {
-            is_number_indicator = true;
+            has_explicit_number = true;
             continue;
         }
-        if matches!(t_lower.as_str(), "font" | "alphabet" | "bonus") {
+        if is_font_or_alphabet_keyword(token) {
+            has_font_keyword = true;
             continue;
         }
         if is_punctuation_token(token) {
-            return GlyphCategory::PunctuationOrSymbol;
+            has_punctuation_token = true;
+            continue;
         }
 
         // Single letter or digit token
@@ -394,11 +421,6 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
             let ch = token.chars().next().unwrap();
             if ch.is_ascii_alphabetic() {
                 detected_letter = Some(ch);
-                if ch.is_ascii_uppercase() {
-                    is_upper_indicator = true;
-                } else if ch.is_ascii_lowercase() {
-                    is_lower_indicator = true;
-                }
             } else if ch.is_ascii_digit() {
                 detected_digit = Some(ch);
             }
@@ -417,9 +439,9 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
             if is_match && ch.is_ascii_alphabetic() {
                 detected_letter = Some(ch);
                 if is_upper {
-                    is_upper_indicator = true;
+                    has_explicit_upper = true;
                 } else {
-                    is_lower_indicator = true;
+                    has_explicit_lower = true;
                 }
             } else {
                 descriptive_word_count += 1;
@@ -427,30 +449,33 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
         }
     }
 
+    let has_font_or_glyph_context =
+        has_font_keyword || has_explicit_upper || has_explicit_lower || has_explicit_number;
+
     // Files with multiple descriptive words are designs rather than font glyphs
-    if descriptive_word_count >= 2 {
+    // unless they have an explicit font or glyph indicator (in which case descriptive
+    // words represent the font family name).
+    if !has_font_or_glyph_context && descriptive_word_count >= 2 {
         return GlyphCategory::NonGlyph;
     }
 
-    // Trailing digits without explicit number indicators on non-isolated tokens are design variations
-    if let Some(digit) = detected_digit {
-        if !is_number_indicator && descriptive_word_count > 0 {
-            return GlyphCategory::NonGlyph;
-        }
-        if digit == '9' {
-            return GlyphCategory::Digit9;
-        }
-        return GlyphCategory::OtherDigit(digit);
-    }
-
     if let Some(ch) = detected_letter {
-        if !is_upper_indicator && !is_lower_indicator && descriptive_word_count > 0 {
+        if !has_font_or_glyph_context && descriptive_word_count > 0 {
             return GlyphCategory::NonGlyph;
         }
+
+        let is_lower = if has_explicit_lower && !has_explicit_upper {
+            true
+        } else if has_explicit_upper && !has_explicit_lower {
+            false
+        } else {
+            ch.is_ascii_lowercase()
+        };
+
         let upper_ch = ch.to_ascii_uppercase();
         let lower_ch = ch.to_ascii_lowercase();
 
-        if is_lower_indicator && !is_upper_indicator {
+        if is_lower {
             if lower_ch == 'a' {
                 return GlyphCategory::LowerA;
             }
@@ -461,6 +486,22 @@ pub fn classify_glyph_name(filename: &str) -> GlyphCategory {
             return GlyphCategory::UpperA;
         }
         return GlyphCategory::OtherUpperLetter(upper_ch);
+    }
+
+    // Trailing digits without explicit number indicators on non-isolated tokens are design variations
+    if let Some(digit) = detected_digit {
+        if !has_explicit_number && descriptive_word_count > 0 {
+            return GlyphCategory::NonGlyph;
+        }
+        if digit == '9' {
+            return GlyphCategory::Digit9;
+        }
+        return GlyphCategory::OtherDigit(digit);
+    }
+
+    // Punctuation or symbol glyph in font package
+    if has_punctuation_token {
+        return GlyphCategory::PunctuationOrSymbol;
     }
 
     GlyphCategory::NonGlyph
@@ -484,6 +525,17 @@ pub fn analyze_alphabet_folder(
     }
     if companion_zip.is_some() {
         reasons.push("Folder contains matching companion .zip archive".to_string());
+    }
+
+    let any_file_has_keyword = file_paths.iter().any(|p| {
+        Path::new(p)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(path_contains_alphabet_keyword)
+            .unwrap_or(false)
+    });
+    if any_file_has_keyword && !has_keyword {
+        reasons.push("Filenames contain alphabet/font keyword".to_string());
     }
 
     // Map files by detected size key: size_key -> Vec<(file_path, GlyphCategory)>
@@ -520,7 +572,7 @@ pub fn analyze_alphabet_folder(
         ));
     }
 
-    let is_alphabet = (has_keyword && glyph_count > 0)
+    let is_alphabet = ((has_keyword || any_file_has_keyword) && glyph_count > 0)
         || (folder_has_bx && glyph_count > 0)
         || (companion_zip.is_some() && glyph_count > 0)
         || cluster_heuristic;

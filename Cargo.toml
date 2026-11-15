@@ -40,6 +40,7 @@ sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate"] }
 tokio = { version = "1.53", features = ["full"] }
 serde_json = "1.0"
 blake3 = "1.8"
+sha2 = "0.10"
 tauri = { version = "2.11", features = [] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 
