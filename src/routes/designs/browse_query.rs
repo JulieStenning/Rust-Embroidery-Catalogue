@@ -426,6 +426,9 @@ pub(crate) fn push_browse_filters(
                 }
                 "cannot_draw" => {
                     push_where_clause(query_builder, &mut has_where);
+                    // Keep COALESCE around is_master_only so SQLite uses the partial
+                    // index `ix_designs_image_data_null` instead of scanning nearly
+                    // the entire table via `ix_designs_is_master_only` (is_master_only = 0).
                     query_builder
                         .push("COALESCE(d.is_master_only, 0) = 0 AND d.image_data IS NULL");
                 }
@@ -435,7 +438,10 @@ pub(crate) fn push_browse_filters(
                 }
                 "master_only" => {
                     push_where_clause(query_builder, &mut has_where);
-                    query_builder.push("COALESCE(d.is_master_only, 0) = 1");
+                    // `is_master_only` is NOT NULL DEFAULT 0 with an index
+                    // (`ix_designs_is_master_only`). Avoid wrapping it in COALESCE
+                    // so SQLite performs an index SEARCH instead of a full table scan.
+                    query_builder.push("d.is_master_only = 1");
                 }
                 _ => {}
             }

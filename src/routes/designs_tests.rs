@@ -3202,6 +3202,98 @@ async fn browse_needs_attention_filter_returns_only_designs_without_preview() {
     assert_eq!(result_exceeds_hoop.items[0].filename, "oversized.pes");
 }
 
+#[tokio::test]
+async fn browse_needs_attention_master_only_uses_index_search_and_cannot_draw_uses_partial_index() {
+    let pool = test_pool().await;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS ix_designs_is_master_only ON designs(is_master_only)")
+        .execute(&pool)
+        .await
+        .expect("create ix_designs_is_master_only");
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS ix_designs_image_data_null ON designs(id) WHERE image_data IS NULL",
+    )
+    .execute(&pool)
+    .await
+    .expect("create ix_designs_image_data_null");
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS ix_designs_filename ON designs(filename COLLATE NOCASE)",
+    )
+    .execute(&pool)
+    .await
+    .expect("create ix_designs_filename");
+
+    // Verify `master_only` COUNT and page queries both SEARCH via `ix_designs_is_master_only`
+    // rather than scanning the full `designs` table.
+    let master_payload = GetDesignsPayload {
+        additional_filters: Some(BrowseAdditionalFiltersPayload {
+            needs_attention: Some("master_only".to_string()),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let mut count_qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM designs d",
+    );
+    push_browse_filters(&mut count_qb, &master_payload);
+    let count_plan: Vec<(i64, i64, i64, String)> = count_qb
+        .build_query_as()
+        .fetch_all(&pool)
+        .await
+        .expect("explain master_only count");
+    assert!(
+        count_plan.iter().any(|(_, _, _, detail)| {
+            detail.contains("SEARCH") && detail.contains("ix_designs_is_master_only")
+        }),
+        "master_only COUNT should SEARCH via ix_designs_is_master_only, got: {count_plan:?}"
+    );
+
+    let sort_clause = browse_sort_clause(None, None);
+    let mut page_qb =
+        sqlx::QueryBuilder::<sqlx::Sqlite>::new("EXPLAIN QUERY PLAN SELECT d.id FROM designs d");
+    push_browse_filters(&mut page_qb, &master_payload);
+    page_qb.push(" ORDER BY ");
+    page_qb.push(sort_clause.as_str());
+    page_qb.push(" LIMIT 50 OFFSET 0");
+    let page_plan: Vec<(i64, i64, i64, String)> = page_qb
+        .build_query_as()
+        .fetch_all(&pool)
+        .await
+        .expect("explain master_only page");
+    assert!(
+        page_plan.iter().any(|(_, _, _, detail)| {
+            detail.contains("SEARCH") && detail.contains("ix_designs_is_master_only")
+        }),
+        "master_only page query should SEARCH via ix_designs_is_master_only, got: {page_plan:?}"
+    );
+
+    // Verify `cannot_draw` still uses the partial index `ix_designs_image_data_null`
+    // instead of scanning all `is_master_only = 0` rows.
+    let cannot_draw_payload = GetDesignsPayload {
+        additional_filters: Some(BrowseAdditionalFiltersPayload {
+            needs_attention: Some("cannot_draw".to_string()),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let mut cannot_draw_qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM designs d",
+    );
+    push_browse_filters(&mut cannot_draw_qb, &cannot_draw_payload);
+    let cannot_draw_plan: Vec<(i64, i64, i64, String)> = cannot_draw_qb
+        .build_query_as()
+        .fetch_all(&pool)
+        .await
+        .expect("explain cannot_draw count");
+    assert!(
+        cannot_draw_plan
+            .iter()
+            .any(|(_, _, _, detail)| detail.contains("ix_designs_image_data_null")),
+        "cannot_draw should use ix_designs_image_data_null, got: {cannot_draw_plan:?}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // classify_tag_ids
 // ---------------------------------------------------------------------------
