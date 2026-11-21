@@ -50,7 +50,9 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
         .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Normal)
         .foreign_keys(true)
-        .pragma("auto_vacuum", "INCREMENTAL");
+        .pragma("auto_vacuum", "INCREMENTAL")
+        .pragma("cache_size", "-65536")
+        .pragma("temp_store", "MEMORY");
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
@@ -63,6 +65,12 @@ pub async fn establish_connection(paths: &AppPaths) -> Result<SqlitePool, Connec
                     .execute(&mut *conn)
                     .await?;
                 sqlx::query("PRAGMA synchronous = NORMAL")
+                    .execute(&mut *conn)
+                    .await?;
+                sqlx::query("PRAGMA cache_size = -65536")
+                    .execute(&mut *conn)
+                    .await?;
+                sqlx::query("PRAGMA temp_store = MEMORY")
                     .execute(&mut *conn)
                     .await?;
                 Ok(())
@@ -158,7 +166,7 @@ async fn configure_pragmas(
     match read_auto_vacuum_mode(pool).await {
         Ok(mode) => {
             tracing::info!(
-                "SQLite PRAGMA configuration complete — database={}, auto_vacuum={}, journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=30000",
+                "SQLite PRAGMA configuration complete — database={}, auto_vacuum={}, journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=30000, cache_size=-65536, temp_store=MEMORY",
                 database_url, mode
             );
         }
@@ -278,12 +286,23 @@ mod tests {
                         .fetch_one(&pool_clone)
                         .await
                         .expect("foreign_keys query should succeed");
-                (row.0, timeout, foreign_keys)
+                let (cache_size,): (i64,) =
+                    sqlx::query_as("SELECT cache_size FROM pragma_cache_size")
+                        .fetch_one(&pool_clone)
+                        .await
+                        .expect("cache_size query should succeed");
+                let (temp_store,): (i64,) =
+                    sqlx::query_as("SELECT temp_store FROM pragma_temp_store")
+                        .fetch_one(&pool_clone)
+                        .await
+                        .expect("temp_store query should succeed");
+                (row.0, timeout, foreign_keys, cache_size, temp_store)
             }));
         }
 
         for (i, handle) in handles.into_iter().enumerate() {
-            let (res, timeout, foreign_keys) = handle.await.expect("task join should succeed");
+            let (res, timeout, foreign_keys, cache_size, temp_store) =
+                handle.await.expect("task join should succeed");
             assert_eq!(res, i as i64);
             assert_eq!(
                 timeout, 30000,
@@ -292,6 +311,14 @@ mod tests {
             assert_eq!(
                 foreign_keys, 1,
                 "every connection in the pool must inherit foreign_keys = ON"
+            );
+            assert_eq!(
+                cache_size, -65536,
+                "every connection in the pool must inherit cache_size = -65536"
+            );
+            assert_eq!(
+                temp_store, 2,
+                "every connection in the pool must inherit temp_store = MEMORY (2)"
             );
         }
 

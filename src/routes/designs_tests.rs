@@ -4042,3 +4042,105 @@ async fn scan_folder_for_stitch_files_pairs_multiple_stitch_formats_without_loss
     }
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[tokio::test]
+async fn browse_query_plans_use_covering_indexes_without_table_scans_or_temp_btrees() {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect in-memory sqlite");
+
+    crate::database::migrations::run_migrations(&pool)
+        .await
+        .expect("run migrations");
+
+    // Seed enough rows so ANALYZE records meaningful table/index statistics.
+    for i in 1..=30 {
+        sqlx::query(
+            "INSERT INTO designs (filename, filepath, image_tags_verified, stitching_tags_verified) \
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(format!("design_{i:02}.pes"))
+        .bind(format!("Folder_{}/design_{i:02}.pes", i % 5))
+        .bind(if i % 4 == 0 { 1 } else { 0 })
+        .bind(if i % 3 == 0 { 1 } else { 0 })
+        .execute(&pool)
+        .await
+        .expect("seed design");
+    }
+    sqlx::query("ANALYZE designs")
+        .execute(&pool)
+        .await
+        .expect("analyze designs");
+
+    async fn explain_details(pool: &sqlx::SqlitePool, sql: &str) -> Vec<String> {
+        let rows: Vec<(i64, i64, i64, String)> =
+            sqlx::query_as(sqlx::AssertSqlSafe(format!("EXPLAIN QUERY PLAN {sql}")))
+                .fetch_all(pool)
+                .await
+                .unwrap_or_else(|e| panic!("EXPLAIN failed for `{sql}`: {e}"));
+        rows.into_iter().map(|r| r.3).collect()
+    }
+
+    // 1. Default name sort must NOT duplicate filename or create a temp B-tree.
+    let name_sort = super::browse_query::browse_sort_clause(None, None);
+    assert_eq!(name_sort, "d.filename COLLATE NOCASE ASC, d.id ASC");
+    let plan = explain_details(
+        &pool,
+        &format!("SELECT d.id FROM designs d ORDER BY {name_sort} LIMIT 50 OFFSET 0"),
+    )
+    .await;
+    let joined = plan.join(" | ");
+    assert!(
+        joined.contains("COVERING INDEX ix_designs_filename"),
+        "expected covering filename index, got: {joined}"
+    );
+    assert!(
+        !joined.contains("TEMP B-TREE"),
+        "default name sort must not use TEMP B-TREE, got: {joined}"
+    );
+
+    // 2. Folder sort ASC & DESC (including with unverified filter) must use covering folder indexes
+    //    with no table scan and no temp B-tree.
+    for (dir, expected_idx) in [
+        ("asc", "ix_designs_folder_asc"),
+        ("desc", "ix_designs_folder_desc"),
+    ] {
+        let folder_sort = super::browse_query::browse_sort_clause(Some("folder"), Some(dir));
+        for where_sql in [
+            "",
+            " WHERE (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+        ] {
+            let plan = explain_details(
+                &pool,
+                &format!(
+                    "SELECT d.id FROM designs d{where_sql} ORDER BY {folder_sort} LIMIT 50 OFFSET 0"
+                ),
+            )
+            .await;
+            let joined = plan.join(" | ");
+            assert!(
+                joined.contains(&format!("COVERING INDEX {expected_idx}")),
+                "expected covering index {expected_idx} for folder {dir} ({where_sql}), got: {joined}"
+            );
+            assert!(
+                !joined.contains("TEMP B-TREE"),
+                "folder sort {dir} ({where_sql}) must not use TEMP B-TREE, got: {joined}"
+            );
+        }
+    }
+
+    // 3. Unverified COUNT(*) and unfiltered COUNT(*) must use covering indexes (never SCAN d).
+    for sql in [
+        "SELECT COUNT(*) FROM designs d",
+        "SELECT COUNT(*) FROM designs d WHERE (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+    ] {
+        let plan = explain_details(&pool, sql).await;
+        let joined = plan.join(" | ");
+        assert!(
+            joined.contains("COVERING INDEX"),
+            "expected COVERING INDEX for `{sql}`, got: {joined}"
+        );
+    }
+}

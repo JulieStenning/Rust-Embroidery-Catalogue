@@ -212,6 +212,9 @@
   /** @type {number[]} */
   let browseDesignIds = $state([]);
   let browseLastFilterSignature = "";
+  let browseDesignIdsLoadedSignature = "";
+  /** @type {SearchPayload | null} */
+  let browseLastPayload = null;
   let browseSessionRestored = $state(false);
   let scrollRestorePending = $state(true);
 
@@ -263,6 +266,9 @@
       if (Array.isArray(snap.designIds)) {
         browseDesignIds = [...snap.designIds];
       }
+      if (typeof snap.designIdsLoadedSignature === "string") {
+        browseDesignIdsLoadedSignature = snap.designIdsLoadedSignature;
+      }
     }
     browseSessionStore.patchSession({
       filters: cloneBrowseFilters(browseFilters),
@@ -270,6 +276,7 @@
       total: browseTotal,
       totalPages: browseTotalPages,
       designIds: browseDesignIds,
+      designIdsLoadedSignature: browseDesignIdsLoadedSignature,
     });
   });
 
@@ -371,6 +378,7 @@
     browseFilters = {
       ...browseFilters,
       [key]: value,
+      ...(key === "verificationStatus" ? { unverifiedOnly: value === "unverified" } : {}),
     };
     browseCurrentPage = 1;
     // The backend is authoritative for filtering and sorting, so every filter
@@ -534,21 +542,19 @@
         sort_dir: payload.sort_dir,
         additional_filters: payload.additional_filters,
       });
-      const shouldFetchIds =
+      const filtersChanged =
         forceIdsReload || filterSignature !== browseLastFilterSignature;
 
-      const [result, fullIds] = await Promise.all([
-        getBrowseDesigns(payload),
-        shouldFetchIds
-          ? Promise.resolve(getDesignIds(payload)).catch(() => [])
-          : Promise.resolve(browseDesignIds),
-      ]);
+      // Fetch only the current page while browsing; the full ordered ID list
+      // for detail-view Prev/Next navigation is loaded lazily when a design is
+      // opened so large catalogues never pay a full-set sort/IPC round-trip on
+      // every startup, filter change, or sort change.
+      const result = await getBrowseDesigns(payload);
       if (currentRequestId !== browseSearchRequestId) {
         return;
       }
-      if (shouldFetchIds) {
-        browseLastFilterSignature = filterSignature;
-      }
+      browseLastFilterSignature = filterSignature;
+      browseLastPayload = payload;
       const rawItems = getResponseItems(result);
       const normalizedItems = rawItems.map(normalizeCardItem).filter((item) => item !== null);
       browseItems = /** @type {BrowseDesignCard[]} */ (normalizedItems);
@@ -556,13 +562,13 @@
       browseTotalPages = Math.max(1, Number(result?.total_pages ?? 1));
       browseCurrentPage = Math.max(1, Number(result?.page ?? browseCurrentPage));
       browseHasLoaded = true;
-      // The full filtered id list drives the detail view's Prev/Next across the
-      // whole result set. If the ids query is unavailable/empty, fall back to
-      // the current page's ids (previous behaviour).
-      browseDesignIds =
-        Array.isArray(fullIds) && fullIds.length > 0
-          ? fullIds.map(Number).filter((id) => Number.isFinite(id))
-          : normalizedItems.map((item) => item.id).filter((id) => Number.isFinite(id));
+      const pageIds = normalizedItems.map((item) => item.id).filter((id) => Number.isFinite(id));
+      if (filtersChanged || browseDesignIdsLoadedSignature !== filterSignature) {
+        browseDesignIds = pageIds;
+        // When all matching results fit on a single page, pageIds is already
+        // the complete filtered ID list — no separate get_design_ids call needed.
+        browseDesignIdsLoadedSignature = browseTotalPages <= 1 ? filterSignature : "";
+      }
       restoreBrowseScrollOnce();
     } catch {
       if (currentRequestId !== browseSearchRequestId) {
@@ -1220,9 +1226,33 @@
     const designId = Number(item.id);
     if (!Number.isFinite(designId) || designId <= 0) return;
 
-    // The full filtered id list is already in the browse session store (kept
-    // fresh by loadBrowseItems); MainView derives the detail view's Prev/Next
-    // context from it. Capture scroll so it can be restored on return.
+    // Lazily populate the full filtered ID list for detail-view Prev/Next
+    // navigation only when the user actually opens a design and the result set
+    // spans multiple pages.
+    if (
+      browseLastPayload &&
+      browseLastFilterSignature &&
+      browseDesignIdsLoadedSignature !== browseLastFilterSignature
+    ) {
+      const targetSignature = browseLastFilterSignature;
+      const targetPayload = browseLastPayload;
+      Promise.resolve(getDesignIds(targetPayload))
+        .then((fullIds) => {
+          if (!Array.isArray(fullIds) || fullIds.length === 0) return;
+          const normalizedIds = fullIds.map(Number).filter((id) => Number.isFinite(id));
+          if (normalizedIds.length === 0) return;
+          browseDesignIdsLoadedSignature = targetSignature;
+          browseSessionStore.patchSession({
+            designIds: normalizedIds,
+            designIdsLoadedSignature: targetSignature,
+          });
+        })
+        .catch(() => {
+          // Keep page-scoped IDs as fallback if full ID fetch fails.
+        });
+    }
+
+    // Capture scroll so it can be restored on return.
     captureBrowseScroll();
     navigateTo(`#/designs/${item.id}`);
   }

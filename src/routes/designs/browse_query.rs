@@ -156,7 +156,10 @@ pub(crate) fn browse_sort_clause(sort_by: Option<&str>, sort_dir: Option<&str>) 
         Some(sort) if sort.eq_ignore_ascii_case("date_updated") => {
             "COALESCE(d.date_updated, d.date_added, '')"
         }
-        _ => "d.filename COLLATE NOCASE",
+        // Default name sort: omit the redundant `d.filename COLLATE NOCASE ASC`
+        // tiebreaker so SQLite can walk `ix_designs_filename` directly without
+        // creating a temporary B-tree.
+        _ => return format!("d.filename COLLATE NOCASE {direction}, d.id ASC"),
     };
 
     format!("{column} {direction}, d.filename COLLATE NOCASE ASC, d.id ASC")

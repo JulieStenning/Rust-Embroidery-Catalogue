@@ -55,7 +55,6 @@
   /** @param {Event & { currentTarget: HTMLSelectElement }} e */
   function onVerificationChange(e) {
     onUpdateFilter("verificationStatus", e.currentTarget.value);
-    onUpdateFilter("unverifiedOnly", e.currentTarget.value === "unverified");
   }
 </script>
 

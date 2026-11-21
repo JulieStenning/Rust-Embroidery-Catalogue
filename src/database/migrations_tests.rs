@@ -709,8 +709,9 @@ async fn run_migrations_creates_browse_sort_indexes() {
         "ix_designs_date_added_desc",
         "ix_designs_date_updated_asc",
         "ix_designs_date_updated_desc",
-        "ix_designs_filepath_nocase_asc",
-        "ix_designs_filepath_nocase_desc",
+        "ix_designs_folder_asc",
+        "ix_designs_folder_desc",
+        "ix_designs_verification_flags",
         "ix_designs_rating_asc",
         "ix_designs_rating_desc",
         "ix_designs_stitched_asc",
@@ -728,6 +729,21 @@ async fn run_migrations_creates_browse_sort_indexes() {
             .await
             .unwrap_or_else(|e| panic!("query {} index failed: {}", idx_name, e));
         assert_eq!(count.0, 1, "{} index should exist", idx_name);
+    }
+
+    for dropped_idx in [
+        "ix_designs_filepath_nocase_asc",
+        "ix_designs_filepath_nocase_desc",
+    ] {
+        let query = format!(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='{}'",
+            dropped_idx
+        );
+        let count: (i64,) = sqlx::query_as(sqlx::AssertSqlSafe(query))
+            .fetch_one(&pool)
+            .await
+            .unwrap_or_else(|e| panic!("query {} index failed: {}", dropped_idx, e));
+        assert_eq!(count.0, 0, "{} index should have been dropped", dropped_idx);
     }
 
     pool.close().await;

@@ -27,6 +27,8 @@ export interface BrowseSessionState {
   totalPages: number;
   /** Ordered full filtered design-id list used for Next/Prev in the detail view. */
   designIds: number[];
+  /** Filter signature for which `designIds` already holds the full filtered list. */
+  designIdsLoadedSignature: string;
   /** Last browse scroll position, restored on return. */
   scrollY: number;
 }
@@ -70,6 +72,7 @@ function createInitialState(): BrowseSessionState {
     total: 0,
     totalPages: 1,
     designIds: [],
+    designIdsLoadedSignature: "",
     scrollY: 0,
   };
 }
@@ -130,6 +133,7 @@ function createBrowseSessionStore() {
         total: 0,
         totalPages: 1,
         designIds: [],
+        designIdsLoadedSignature: "",
         scrollY: 0,
       });
     },

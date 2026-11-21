@@ -2332,17 +2332,52 @@ describe("BrowseView", () => {
       await settle();
       await tick();
 
-      // Initially on page 1.
+      // Initially on page 1 — getDesignIds is deferred until opening a design detail.
       expect(paginationNode()).toHaveAttribute("data-current-page", "1");
-      expect(adapterMocks.getDesignIds).toHaveBeenCalledTimes(1);
+      expect(adapterMocks.getDesignIds).not.toHaveBeenCalled();
 
       // Click Next → page 2.
       await fireEvent.click(screen.getByRole("button", { name: "Next" }));
       await tick();
 
       expect(paginationNode()).toHaveAttribute("data-current-page", "2");
-      // Changing pages preserves filtered IDs without repeating getDesignIds
+      // Changing pages does not trigger eager getDesignIds.
+      expect(adapterMocks.getDesignIds).not.toHaveBeenCalled();
+    });
+
+    it("lazily fetches getDesignIds when opening a design from a multi-page result set", async () => {
+      const fullIdList = Array.from({ length: PAGE_SIZE + 1 }, (_, i) => i + 1);
+      adapterMocks.getDesignIds.mockResolvedValue(fullIdList);
+      renderPaginated(PAGE_SIZE + 1);
+
+      await settle();
+      await tick();
+
+      expect(adapterMocks.getDesignIds).not.toHaveBeenCalled();
+
+      const firstCardTitle = screen.getByText("design-1.pes");
+      await fireEvent.click(firstCardTitle);
+      await settle();
+
       expect(adapterMocks.getDesignIds).toHaveBeenCalledTimes(1);
+      expect(get(browseSessionStore).designIds).toEqual(fullIdList);
+    });
+
+    it("dispatches only a single browse request when changing verification status", async () => {
+      renderBrowse();
+      await settle();
+      await tick();
+
+      const callsBefore = adapterMocks.getBrowseDesigns.mock.calls.length;
+      const select = screen.getByLabelText(/verification status/i) as HTMLSelectElement;
+      await fireEvent.change(select, { target: { value: "unverified" } });
+      await settle();
+      await tick();
+
+      expect(adapterMocks.getBrowseDesigns.mock.calls.length - callsBefore).toBe(1);
+      const lastPayload = adapterMocks.getBrowseDesigns.mock.calls.at(-1)?.[0];
+      expect(lastPayload?.verification_status).toBe("unverified");
+      expect(lastPayload?.unverified_only).toBe(true);
     });
 
     it("clamps current page when filtered count shrinks", async () => {
