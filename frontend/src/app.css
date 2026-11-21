@@ -2311,6 +2311,34 @@ body:has(.browse-design-checkbox:checked) .browse-bulk-bar {
   overflow: hidden;
 }
 
+.tag-chooser-backdrop-inspectable {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.tag-chooser-dialog.is-dragging {
+  cursor: grabbing;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.42);
+}
+
+.tag-chooser-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.tag-chooser-dialog.is-dragging .tag-chooser-drag-handle {
+  cursor: grabbing;
+}
+
+.tag-chooser-drag-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
 .tag-chooser-header {
   display: flex;
   align-items: center;

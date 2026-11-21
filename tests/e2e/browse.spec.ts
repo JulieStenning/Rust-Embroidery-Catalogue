@@ -1412,6 +1412,48 @@ test.describe("batch mutations", () => {
     await expect(card.locator(".browse-card-tags")).toContainText("Food");
   });
 
+  test("the Choose tags modal can be dragged by its header and re-centred", async ({
+    page,
+  }) => {
+    await openBrowse(page);
+    await page.locator(".browse-design-checkbox").first().check();
+    await page.getByRole("button", { name: "Choose tags" }).click();
+
+    const modalCard = page.getByTestId("bulk-tag-modal-dialog");
+    const header = page.getByTestId("bulk-tag-modal-header");
+    await expect(modalCard).toBeVisible();
+
+    const before = await modalCard.boundingBox();
+    const headerBox = await header.boundingBox();
+    expect(before).not.toBeNull();
+    expect(headerBox).not.toBeNull();
+
+    const startX = headerBox!.x + headerBox!.width / 2;
+    const startY = headerBox!.y + headerBox!.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 120, startY + 50, { steps: 5 });
+    await page.mouse.up();
+
+    const afterDrag = await modalCard.boundingBox();
+    expect(afterDrag).not.toBeNull();
+    expect(Math.abs(afterDrag!.x - (before!.x + 120))).toBeLessThanOrEqual(4);
+    expect(Math.abs(afterDrag!.y - (before!.y + 50))).toBeLessThanOrEqual(4);
+
+    // Double-clicking the header re-centres the modal.
+    await header.dblclick();
+    const afterReset = await modalCard.boundingBox();
+    expect(afterReset).not.toBeNull();
+    expect(Math.abs(afterReset!.x - before!.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(afterReset!.y - before!.y)).toBeLessThanOrEqual(2);
+
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Cancel" })
+      .click();
+    await expect(modalCard).toBeHidden();
+  });
+
   test("Verify tags marks the selection verified", async ({ page }) => {
     await openBrowse(page);
     await search(page, "to be verified");

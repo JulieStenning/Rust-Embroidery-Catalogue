@@ -514,6 +514,35 @@ test.describe.serial("Design Detail & Design Print Views", () => {
       tagModal.getByRole("heading", { name: "Choose Tags for This Design" }),
     ).toBeVisible();
 
+    // Drag modal by its header to inspect the design underneath, then re-centre.
+    const modalHeader = page.getByTestId("tag-selection-modal-header");
+    const beforeDrag = await tagModal.boundingBox();
+    const headerBox = await modalHeader.boundingBox();
+    expect(beforeDrag).not.toBeNull();
+    expect(headerBox).not.toBeNull();
+
+    const startX = headerBox!.x + headerBox!.width / 2;
+    const startY = headerBox!.y + headerBox!.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 110, startY + 45, { steps: 5 });
+    await page.mouse.up();
+
+    const afterDrag = await tagModal.boundingBox();
+    expect(afterDrag).not.toBeNull();
+    expect(Math.abs(afterDrag!.x - (beforeDrag!.x + 110))).toBeLessThanOrEqual(
+      4,
+    );
+    expect(Math.abs(afterDrag!.y - (beforeDrag!.y + 45))).toBeLessThanOrEqual(
+      4,
+    );
+
+    await modalHeader.dblclick();
+    const afterReset = await tagModal.boundingBox();
+    expect(afterReset).not.toBeNull();
+    expect(Math.abs(afterReset!.x - beforeDrag!.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(afterReset!.y - beforeDrag!.y)).toBeLessThanOrEqual(2);
+
     // Filter tags with search input
     const searchInput = tagModal.getByPlaceholder("🔍 Search or create tag...");
     await searchInput.fill("Applique");

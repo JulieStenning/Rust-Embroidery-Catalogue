@@ -5,6 +5,7 @@
   import { createTag, setDesignTags } from "../api/commandAdapter";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
+  import { draggableModal } from "../utils/modalDrag";
 
   /**
    * @typedef {Object} TagOption
@@ -230,21 +231,28 @@
   >
     <button
       type="button"
-      class="tag-chooser-backdrop"
+      class="tag-chooser-backdrop tag-chooser-backdrop-inspectable"
       aria-label="Close tag chooser"
       onclick={handleOverlayClick}
     ></button>
 
-    <div class="tag-chooser-dialog">
+    <div use:draggableModal class="tag-chooser-dialog" data-testid="tag-selection-modal-dialog">
       <!-- Header with search -->
       <div
         class="tag-chooser-header"
         style="display:flex;flex-direction:column;align-items:stretch;gap:0.5rem;"
       >
-        <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div
+          class="tag-chooser-drag-handle"
+          data-modal-drag-handle
+          data-testid="tag-selection-modal-header"
+          title="Drag to move; double-click to re-centre"
+          style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;"
+        >
           <h2 id="tag-modal-title" class="text-lg font-semibold" style="margin:0;">
             Choose Tags for This Design
           </h2>
+          <span class="tag-chooser-drag-hint" aria-hidden="true">⋮⋮ Drag</span>
         </div>
 
         <!-- Search + Quick-create -->

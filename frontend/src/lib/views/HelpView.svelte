@@ -99,7 +99,7 @@
         <li>
           <strong>Fast tag verification:</strong> Search with <em>Unverified only</em> ticked to
           cluster similar designs, select a batch, and use <strong>Choose tags...</strong> to verify tags
-          in bulk.
+          in bulk. You can drag the tag window by its title bar to inspect thumbnails underneath.
         </li>
       </ul>
       <div
@@ -256,7 +256,8 @@
         </li>
         <li>
           <strong>Navigation locking:</strong> Header navigation and footer links are temporarily locked
-          during an active import to protect catalogue integrity, re-enabling automatically once the process completes.
+          during an active import to protect catalogue integrity, re-enabling automatically once the process
+          completes.
         </li>
       </ul>
       <p class="pt-2 border-t border-[var(--border-default)] text-xs">

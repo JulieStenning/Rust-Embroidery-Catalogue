@@ -17,9 +17,10 @@ The selected designs are marked as verified without changing their current tags.
 
 1. Select one or more designs in [Browse](#/browse).
 2. In the bottom action bar, click **Choose tags…**.
-3. In the tag window, tick the tags you want applied to the selected designs.
-4. Tick or untick **Verify image tags** and **Verify stitching tags** as needed (both are ticked by default).
-5. Click **Apply tags**.
+3. Drag the tag window by its title bar if you want to move it aside and inspect thumbnails underneath (double-click the title bar to re-centre it).
+4. In the tag window, tick the tags you want applied to the selected designs.
+5. Tick or untick **Verify image tags** and **Verify stitching tags** as needed (both are ticked by default).
+6. Click **Apply tags**.
 
 The chosen tag set replaces the tags on all selected designs.
 

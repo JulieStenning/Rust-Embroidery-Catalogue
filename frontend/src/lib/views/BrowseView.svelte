@@ -26,6 +26,7 @@
   import BrowseFilterPanel from "../components/browse/BrowseFilterPanel.svelte";
   import BrowseSelectionBar from "../components/browse/BrowseSelectionBar.svelte";
   import BrowseCardGrid from "../components/browse/BrowseCardGrid.svelte";
+  import BrowseBulkTagModal from "../components/browse/BrowseBulkTagModal.svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { designSessionStore } from "../stores/designSessionStore.js";
@@ -33,7 +34,6 @@
   import { tagChangeStore } from "../stores/tagChangeStore.js";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
-  import { portalToBody } from "../utils/portal.js";
 
   /** @typedef {import("../types/ipc").BrowseDesignCard} BrowseDesignCard */
   /** @typedef {import("../types/ipc").BrowseDesignSummaryWire} BrowseDesignSummaryWire */
@@ -542,8 +542,7 @@
         sort_dir: payload.sort_dir,
         additional_filters: payload.additional_filters,
       });
-      const filtersChanged =
-        forceIdsReload || filterSignature !== browseLastFilterSignature;
+      const filtersChanged = forceIdsReload || filterSignature !== browseLastFilterSignature;
 
       // Fetch only the current page while browsing; the full ordered ID list
       // for detail-view Prev/Next navigation is loaded lazily when a design is
@@ -1513,189 +1512,36 @@
 />
 
 <!-- Browse Bulk Tag Modal -->
-{#if browseBulkModalOpen}
-  {@const groupedTagOptions = browseGroupedTagOptions}
-  <!-- svelte-ignore a11y_interactive_supports_focus -->
-  <div
-    use:portalToBody
-    class="tag-chooser-overlay no-print"
-    role="dialog"
-    aria-modal="true"
-    aria-busy={browseApplyingTags}
-    aria-labelledby="bulk-tag-title"
-    onkeydown={(event) => {
-      if (event.key === "Escape" && !browseApplyingTags) {
-        closeBulkTagModal();
-      }
-    }}
-  >
-    <button
-      type="button"
-      class="tag-chooser-backdrop"
-      aria-label="Close tag chooser"
-      onclick={() => closeBulkTagModal()}
-      disabled={browseApplyingTags}
-    ></button>
-    <div class="tag-chooser-dialog">
-      <div class="tag-chooser-header">
-        <h2
-          id="bulk-tag-title"
-          class="text-lg font-bold text-[var(--text-primary)]"
-          style="margin:0;"
-        >
-          Choose Tags for Selected Designs
-        </h2>
-      </div>
-      <div class="tag-chooser-body">
-        <p class="text-xs text-[var(--text-muted)] font-semibold" style="margin:0 0 0.75rem 0;">
-          {browseSelectedCount} design{browseSelectedCount === 1 ? "" : "s"} selected.
-        </p>
-
-        <div class="tag-chooser-section" style="margin-bottom:0.75rem;">
-          <div class="tag-chooser-header-options">
-            <label class="tag-chooser-option" style="font-weight:600;">
-              <input
-                type="checkbox"
-                checked={browseBulkClearAll}
-                disabled={browseApplyingTags}
-                onchange={(event) => {
-                  browseBulkClearAll = event.currentTarget.checked;
-                  // Untagged = replace mode: wipe every on-screen tag selection so
-                  // the design will end up empty. Any tag ticked afterwards becomes
-                  // the new (replacement) tag set, applied only when 'Apply tags'
-                  // is pressed. Cancel never touches the database.
-                  browseBulkTagAddIds = [];
-                  browseBulkTagRemoveIds = [];
-                  browseBulkTagIndeterminateIds = [];
-                }}
-              />
-              <span>Untagged (clear all tags)</span>
-            </label>
-
-            <label class="tag-chooser-option" style="font-weight:600;">
-              <input
-                type="checkbox"
-                data-testid="bulk-verify-image-checkbox"
-                checked={browseBulkVerifyImage}
-                disabled={browseApplyingTags}
-                onchange={(event) => {
-                  browseBulkVerifyImage = event.currentTarget.checked;
-                }}
-              />
-              <span>Verify image tags</span>
-            </label>
-
-            <label class="tag-chooser-option" style="font-weight:600;">
-              <input
-                type="checkbox"
-                data-testid="bulk-verify-stitching-checkbox"
-                checked={browseBulkVerifyStitching}
-                disabled={browseApplyingTags}
-                onchange={(event) => {
-                  browseBulkVerifyStitching = event.currentTarget.checked;
-                }}
-              />
-              <span>Verify stitching tags</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="tag-chooser-sections">
-          {#if groupedTagOptions.image.length > 0}
-            <section class="tag-chooser-section">
-              <p class="tag-chooser-section-title tag-chooser-section-title-image font-semibold">
-                Image tags
-              </p>
-              <div class="tag-chooser-grid">
-                {#each groupedTagOptions.image as tagOption (tagOption.id)}
-                  <button
-                    type="button"
-                    class="tag-chooser-option"
-                    role="checkbox"
-                    aria-checked={tagChooserAria(tagOption.id)}
-                    disabled={browseApplyingTags}
-                    onclick={() => toggleTagChooserSelection(tagOption.id)}
-                  >
-                    <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
-                    <span>{tagOption.description}</span>
-                  </button>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          {#if groupedTagOptions.stitching.length > 0}
-            <section class="tag-chooser-section">
-              <p
-                class="tag-chooser-section-title tag-chooser-section-title-stitching font-semibold"
-              >
-                Stitching tags
-              </p>
-              <div class="tag-chooser-grid">
-                {#each groupedTagOptions.stitching as tagOption (tagOption.id)}
-                  <button
-                    type="button"
-                    class="tag-chooser-option"
-                    role="checkbox"
-                    aria-checked={tagChooserAria(tagOption.id)}
-                    disabled={browseApplyingTags}
-                    onclick={() => toggleTagChooserSelection(tagOption.id)}
-                  >
-                    <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
-                    <span>{tagOption.description}</span>
-                  </button>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          {#if groupedTagOptions.unclassified.length > 0}
-            <section class="tag-chooser-section">
-              <p
-                class="tag-chooser-section-title tag-chooser-section-title-unclassified font-semibold"
-              >
-                Unclassified tags
-              </p>
-              <div class="tag-chooser-grid">
-                {#each groupedTagOptions.unclassified as tagOption (tagOption.id)}
-                  <button
-                    type="button"
-                    class="tag-chooser-option"
-                    role="checkbox"
-                    aria-checked={tagChooserAria(tagOption.id)}
-                    disabled={browseApplyingTags}
-                    onclick={() => toggleTagChooserSelection(tagOption.id)}
-                  >
-                    <span class="tag-chooser-box">{tagChooserGlyph(tagOption.id)}</span>
-                    <span>{tagOption.description}</span>
-                  </button>
-                {/each}
-              </div>
-            </section>
-          {/if}
-        </div>
-      </div>
-      <div class="tag-chooser-footer">
-        <button
-          type="button"
-          class="menu-button-secondary"
-          onclick={() => closeBulkTagModal()}
-          disabled={browseApplyingTags}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="menu-button-primary"
-          onclick={applySharedTagChooser}
-          disabled={browseApplyingTags}
-        >
-          {browseApplyingTags ? "Applying tags..." : "Apply tags"}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<BrowseBulkTagModal
+  open={browseBulkModalOpen}
+  applying={browseApplyingTags}
+  selectedCount={browseSelectedCount}
+  groupedTagOptions={browseGroupedTagOptions}
+  clearAll={browseBulkClearAll}
+  verifyImage={browseBulkVerifyImage}
+  verifyStitching={browseBulkVerifyStitching}
+  {tagChooserAria}
+  {tagChooserGlyph}
+  onClearAllChange={(checked) => {
+    browseBulkClearAll = checked;
+    // Untagged = replace mode: wipe every on-screen tag selection so
+    // the design will end up empty. Any tag ticked afterwards becomes
+    // the new (replacement) tag set, applied only when 'Apply tags'
+    // is pressed. Cancel never touches the database.
+    browseBulkTagAddIds = [];
+    browseBulkTagRemoveIds = [];
+    browseBulkTagIndeterminateIds = [];
+  }}
+  onVerifyImageChange={(checked) => {
+    browseBulkVerifyImage = checked;
+  }}
+  onVerifyStitchingChange={(checked) => {
+    browseBulkVerifyStitching = checked;
+  }}
+  onToggleTag={toggleTagChooserSelection}
+  onClose={() => closeBulkTagModal()}
+  onApply={applySharedTagChooser}
+/>
 
 <!-- Shared Delete Modal -->
 <DeleteDesignsModal

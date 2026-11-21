@@ -23,10 +23,10 @@ Click any design card in [Browse](#/browse) to open its detail page. Here you ca
 
 ## Edit and verify tags
 
-1. Expand the **Tags** section.
-2. Review the assigned **Image Tags** and **Stitching Tags**.
-3. Tick or untick checkboxes to change tags, or type in the tag box to add new tags.
-4. Click **Save Tags**.
+1. In the **Tags** card, click **Choose tags…**.
+2. Drag the tag window by its title bar if you want to move it aside and inspect the design preview underneath (double-click the title bar to re-centre it).
+3. Tick or untick checkboxes to change **Image tags** and **Stitching tags**, or type in the search box to filter or create a new tag.
+4. Click **Done**.
 
 Saving tags automatically marks the design as human-verified, protecting it from being altered by automated batch tagging.
 
