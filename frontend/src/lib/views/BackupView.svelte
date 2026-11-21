@@ -19,6 +19,7 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
   import { resetRestoreProgress } from "../stores/restoreProgressStore.js";
   import { initRestoreProgressEvents } from "../services/restoreEvents.js";
   import { initDatabaseBackupCompletedEvent } from "../services/backupEvents.js";
@@ -446,6 +447,7 @@
       return;
     }
     const count = Number(result?.design_count || 0).toLocaleString();
+    browseSessionStore.clear();
     addToast(`Database restored (${count} designs).`, "success");
   }
 

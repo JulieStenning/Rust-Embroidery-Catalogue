@@ -3199,6 +3199,94 @@ describe("BrowseView", () => {
       expect(screen.getByText(/Design is larger than the saved hoop/i)).toBeInTheDocument();
     });
   });
+
+  describe("session cache on remount (returning from Design Detail)", () => {
+    beforeEach(() => {
+      sessionMock.designSessionStore.consumePatches.mockReturnValue({});
+    });
+
+    it("reuses cached cards, previews, and reference data without re-querying when nothing changed", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "cached-rose.pes", rating: 3 })])
+      );
+      adapterMocks.getBrowseDesignPreviews.mockResolvedValue({
+        items: [{ id: 1, data_url: "data:image/png;base64,AAA" }],
+      });
+
+      const first = renderBrowse();
+      expect(await screen.findByText("cached-rose.pes")).toBeInTheDocument();
+      // Wait for the preview image to finish loading and mirror into browseSessionStore.
+      expect(await screen.findByAltText("cached-rose.pes")).toBeInTheDocument();
+      await tick();
+
+      const designCallsAfterFirstMount = adapterMocks.getBrowseDesigns.mock.calls.length;
+      const previewCallsAfterFirstMount = adapterMocks.getBrowseDesignPreviews.mock.calls.length;
+      const tagCallsAfterFirstMount = adapterMocks.getBrowseTags.mock.calls.length;
+      const projectCallsAfterFirstMount = adapterMocks.getBrowseProjects.mock.calls.length;
+      const designerCallsAfterFirstMount = adapterMocks.listDesigners.mock.calls.length;
+      const sourceCallsAfterFirstMount = adapterMocks.listSources.mock.calls.length;
+      const hoopCallsAfterFirstMount = adapterMocks.listHoops.mock.calls.length;
+
+      first.unmount();
+
+      renderBrowse();
+      expect(await screen.findByText("cached-rose.pes")).toBeInTheDocument();
+      await tick();
+
+      expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(designCallsAfterFirstMount);
+      expect(adapterMocks.getBrowseDesignPreviews).toHaveBeenCalledTimes(
+        previewCallsAfterFirstMount
+      );
+      expect(adapterMocks.getBrowseTags).toHaveBeenCalledTimes(tagCallsAfterFirstMount);
+      expect(adapterMocks.getBrowseProjects).toHaveBeenCalledTimes(projectCallsAfterFirstMount);
+      expect(adapterMocks.listDesigners).toHaveBeenCalledTimes(designerCallsAfterFirstMount);
+      expect(adapterMocks.listSources).toHaveBeenCalledTimes(sourceCallsAfterFirstMount);
+      expect(adapterMocks.listHoops).toHaveBeenCalledTimes(hoopCallsAfterFirstMount);
+    });
+
+    it("patches cached cards in-place on remount without re-querying getBrowseDesigns", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "patched-rose.pes", rating: 2 })])
+      );
+
+      const first = renderBrowse();
+      expect(await screen.findByText("patched-rose.pes")).toBeInTheDocument();
+      expect(screen.getByLabelText("Rating 2 out of 5")).toBeInTheDocument();
+      first.unmount();
+
+      sessionMock.designSessionStore.consumePatches.mockReturnValueOnce({
+        1: { rating: 5 },
+      });
+
+      renderBrowse();
+      expect(await screen.findByText("patched-rose.pes")).toBeInTheDocument();
+      expect(screen.getByLabelText("Rating 5 out of 5")).toBeInTheDocument();
+      expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-queries on remount after browseSessionStore.invalidateCache() while preserving filters", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 1, filename: "before-invalidation.pes" })])
+      );
+
+      const first = renderBrowse();
+      expect(await screen.findByText("before-invalidation.pes")).toBeInTheDocument();
+      browseSessionStore.patchSession({
+        filters: { ...get(browseSessionStore).filters, q: "floral" },
+      });
+      first.unmount();
+
+      browseSessionStore.invalidateCache();
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([design({ id: 2, filename: "after-invalidation.pes" })])
+      );
+
+      renderBrowse();
+      expect(await screen.findByText("after-invalidation.pes")).toBeInTheDocument();
+      expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(2);
+      expect(get(browseSessionStore).filters.q).toBe("floral");
+    });
+  });
 });
 
 // Helper to select the first page items.

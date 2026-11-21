@@ -11,6 +11,7 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
 
@@ -89,6 +90,7 @@
       }
 
       newDesignerName = "";
+      browseSessionStore.invalidateReferenceData();
       addToast("Designer added.", "success");
       await loadDesigners(true);
     } finally {
@@ -131,6 +133,7 @@
       }
 
       cancelEditDesigner();
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       addToast("Designer updated.", "success");
       await loadDesigners(true);
     } finally {
@@ -171,6 +174,7 @@
         return;
       }
       pendingDeleteDesignerId = null;
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       addToast("Designer deleted.", "success");
       await loadDesigners(true);
     } finally {

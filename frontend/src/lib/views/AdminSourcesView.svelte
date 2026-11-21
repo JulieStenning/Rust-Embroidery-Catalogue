@@ -11,6 +11,7 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
 
   /** @typedef {{ id: number, name: string, designCount: number }} AdminEntityRow */
 
@@ -89,6 +90,7 @@
       }
 
       newSourceName = "";
+      browseSessionStore.invalidateReferenceData();
       addToast("Source added.", "success");
       await loadSources(true);
     } finally {
@@ -131,6 +133,7 @@
       }
 
       cancelEditSource();
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       addToast("Source updated.", "success");
       await loadSources(true);
     } finally {
@@ -171,6 +174,7 @@
         return;
       }
       pendingDeleteSourceId = null;
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       addToast("Source deleted.", "success");
       await loadSources(true);
     } finally {

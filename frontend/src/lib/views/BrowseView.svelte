@@ -269,6 +269,38 @@
       if (typeof snap.designIdsLoadedSignature === "string") {
         browseDesignIdsLoadedSignature = snap.designIdsLoadedSignature;
       }
+      if (snap.hasLoaded) {
+        browseItems = Array.isArray(snap.items) ? [...snap.items] : [];
+        browseHasLoaded = true;
+        browseLastFilterSignature =
+          typeof snap.lastFilterSignature === "string" ? snap.lastFilterSignature : "";
+        browseLastPayload = snap.lastPayload ?? null;
+        browsePreviewById =
+          snap.previewById && typeof snap.previewById === "object" ? { ...snap.previewById } : {};
+        if (!untrack(() => browseNeedsRefresh)) {
+          untrack(() => restoreBrowseScrollOnce());
+        }
+      }
+      if (snap.tagsLoaded) {
+        browseTagOptions = Array.isArray(snap.tagOptions) ? [...snap.tagOptions] : [];
+        browseTagsLoaded = true;
+      }
+      if (snap.projectsLoaded) {
+        browseProjects = Array.isArray(snap.projects) ? [...snap.projects] : [];
+        browseProjectsLoaded = true;
+      }
+      if (snap.filterReferenceLoaded) {
+        browseDesignerFilterOptions = Array.isArray(snap.designerFilterOptions)
+          ? [...snap.designerFilterOptions]
+          : [];
+        browseSourceFilterOptions = Array.isArray(snap.sourceFilterOptions)
+          ? [...snap.sourceFilterOptions]
+          : [];
+        browseHoopFilterOptions = Array.isArray(snap.hoopFilterOptions)
+          ? [...snap.hoopFilterOptions]
+          : [];
+        browseFilterReferenceLoaded = true;
+      }
     }
     browseSessionStore.patchSession({
       filters: cloneBrowseFilters(browseFilters),
@@ -277,6 +309,19 @@
       totalPages: browseTotalPages,
       designIds: browseDesignIds,
       designIdsLoadedSignature: browseDesignIdsLoadedSignature,
+      items: browseItems,
+      hasLoaded: browseHasLoaded,
+      lastFilterSignature: browseLastFilterSignature,
+      lastPayload: browseLastPayload,
+      previewById: browsePreviewById,
+      tagOptions: browseTagOptions,
+      tagsLoaded: browseTagsLoaded,
+      projects: browseProjects,
+      projectsLoaded: browseProjectsLoaded,
+      designerFilterOptions: browseDesignerFilterOptions,
+      sourceFilterOptions: browseSourceFilterOptions,
+      hoopFilterOptions: browseHoopFilterOptions,
+      filterReferenceLoaded: browseFilterReferenceLoaded,
     });
   });
 
@@ -712,24 +757,36 @@
    * @param {Record<number, MutationPatch>} patches
    */
   function applyPatchesToBrowse(patches) {
+    let itemsChanged = false;
+    const nextItems = [...browseItems];
+    let previewsChanged = false;
+    const nextPreviews = { ...browsePreviewById };
+
     for (const [idStr, patch] of Object.entries(patches)) {
       const id = Number(idStr);
-      const index = browseItems.findIndex((item) => item.id === id);
+      const index = nextItems.findIndex((item) => item.id === id);
       if (index !== -1) {
         const { hoop, ...restPatch } = patch;
-        browseItems[index] = {
-          ...browseItems[index],
+        nextItems[index] = {
+          ...nextItems[index],
           ...restPatch,
           ...(hoop !== undefined ? { hoop: hoop ?? "" } : {}),
         };
+        itemsChanged = true;
       }
 
       // Invalidate cached preview for this card so it re-fetches if needed
-      if (id in browsePreviewById) {
-        const nextPreviews = { ...browsePreviewById };
+      if (id in nextPreviews) {
         delete nextPreviews[id];
-        browsePreviewById = nextPreviews;
+        previewsChanged = true;
       }
+    }
+
+    if (itemsChanged) {
+      browseItems = nextItems;
+    }
+    if (previewsChanged) {
+      browsePreviewById = nextPreviews;
     }
   }
 

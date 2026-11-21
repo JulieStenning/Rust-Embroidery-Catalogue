@@ -11,6 +11,7 @@
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
   import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
   import { HOOP_UNKNOWN_FILTER } from "../utils/hoopConstants.js";
 
   /** @typedef {{ id: number, name: string, maxWidthMm: number, maxHeightMm: number, designCount: number }} HoopRow */
@@ -116,6 +117,7 @@
       newHoopName = "";
       newHoopWidth = 0;
       newHoopHeight = 0;
+      browseSessionStore.invalidateReferenceData();
       addToast("Hoop added.", "success");
       await loadHoops(true);
     } finally {
@@ -171,6 +173,7 @@
       }
 
       cancelEditHoop();
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       addToast("Hoop updated.", "success");
       await loadHoops(true);
     } finally {
@@ -211,6 +214,7 @@
         return;
       }
       pendingDeleteHoopId = null;
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       addToast("Hoop deleted.", "success");
       await loadHoops(true);
     } finally {

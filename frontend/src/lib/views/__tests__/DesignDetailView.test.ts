@@ -45,10 +45,11 @@ const sessionMock = vi.hoisted(() => ({
 }));
 vi.mock("../../stores/designSessionStore", () => sessionMock);
 
-// Mock the browse session store — the delete flow calls removeDesignId().
+// Mock the browse session store — delete calls removeDesignId(), folder scan calls invalidateCache().
 const browseSessionMock = vi.hoisted(() => ({
   browseSessionStore: {
     removeDesignId: vi.fn(),
+    invalidateCache: vi.fn(),
   },
 }));
 vi.mock("../../stores/browseSessionStore", () => browseSessionMock);

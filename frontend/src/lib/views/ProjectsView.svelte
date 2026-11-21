@@ -13,6 +13,7 @@
     getProjectPrintView,
   } from "../api/commandAdapter";
   import { addToast } from "../stores/toastStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
   import ConfirmDeleteProjectModal from "../components/ConfirmDeleteProjectModal.svelte";
 
   let { currentUiKind, projectDetailId, projectPrintId, navigateTo } = $props();
@@ -102,6 +103,7 @@
 
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
+      browseSessionStore.invalidateReferenceData();
       projectNewName = "";
       projectNewDescription = "";
       await loadProjects(true);
@@ -175,6 +177,7 @@
 
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       projectDetailOriginalName = name;
       projectDetailOriginalDescription = projectDetailDescription;
       await refreshProjectDetailView();
@@ -201,6 +204,7 @@
 
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
       await loadProjects(true);
       navigateTo("#/projects");
     }
@@ -218,6 +222,7 @@
 
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
+      browseSessionStore.invalidateCache();
       await refreshProjectDetailView();
     }
   }

@@ -1395,3 +1395,43 @@ describe("browse refresh from tag changes", () => {
     expect(adapterMock.getBrowseDesigns).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Browse ↔ Design Detail round-trip caching
+// ---------------------------------------------------------------------------
+describe("browse to design detail round-trip caching", () => {
+  it("does not re-query getBrowseDesigns when returning from Design Detail with no changes", async () => {
+    adapterMock.getBrowseDesigns.mockResolvedValue(
+      browseResponse([wireCard({ id: 42, filename: "tulip.pes" })])
+    );
+    adapterMock.getDesignDetail.mockResolvedValue({
+      source: "rust",
+      item: { ...baseDetail, id: 42, filename: "tulip.pes" },
+    });
+
+    renderAtHash("#/designs");
+
+    expect(await screen.findByText("tulip.pes")).toBeInTheDocument();
+    expect(adapterMock.getBrowseDesigns).toHaveBeenCalledTimes(1);
+
+    // Navigate to Design Detail.
+    window.location.hash = "#/designs/42";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    const backButton = await screen.findByRole("button", { name: /Back to Browse/i });
+    expect(backButton).toBeInTheDocument();
+
+    // Return to Browse without making any changes.
+    await fireEvent.click(backButton);
+    fireEvent(window, new HashChangeEvent("hashchange"));
+
+    expect(
+      await screen.findByRole("heading", { name: "Browse Designs" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("tulip.pes")).toBeInTheDocument();
+    await tick();
+
+    // No new backend query should have been issued.
+    expect(adapterMock.getBrowseDesigns).toHaveBeenCalledTimes(1);
+  });
+});

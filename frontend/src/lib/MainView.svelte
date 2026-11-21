@@ -93,6 +93,7 @@
   function handleImportCompleted(importedCount) {
     if (importedCount >= 1) {
       browseNeedsRefresh = true;
+      browseSessionStore.invalidateCache({ includeReferenceData: true });
     }
   }
 

@@ -7,6 +7,7 @@
   import { splitTagsByGroup } from "../utils/tagHelpers.js";
   import { addToast } from "../stores/toastStore.js";
   import { beginBusy, endBusy, busyState } from "../stores/busyStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
   import TagTable from "../components/TagTable.svelte";
   import TagWordMatchModal from "../components/TagWordMatchModal.svelte";
 
@@ -109,6 +110,7 @@
       }
 
       newTagDescription = "";
+      browseSessionStore.invalidateReferenceData();
       addToast("Tag added.", "success");
       await loadTags(true);
     } finally {

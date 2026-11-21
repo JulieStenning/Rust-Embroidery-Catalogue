@@ -508,6 +508,7 @@
         );
       }
 
+      browseSessionStore.invalidateCache();
       await loadTaggingLogEntries();
       await loadScopeCounts();
     } catch (e) {
@@ -556,6 +557,7 @@
         );
       }
 
+      browseSessionStore.invalidateCache();
       await loadTaggingLogEntries();
       await loadScopeCounts();
       await loadMissingPreviewCount();

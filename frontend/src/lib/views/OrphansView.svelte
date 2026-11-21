@@ -15,6 +15,7 @@
   import ConfirmDeleteOrphansModal from "../components/ConfirmDeleteOrphansModal.svelte";
   import { addToast } from "../stores/toastStore.js";
   import { busyState, beginBusy, endBusy } from "../stores/busyStore.js";
+  import { browseSessionStore } from "../stores/browseSessionStore.js";
 
   // Global UI lock: reflects busyState.active so secondary controls can be
   // disabled while a long-running task runs.
@@ -140,6 +141,7 @@
 
         showDeleteModal = false;
         addToast(`${result.deleted} record(s) deleted.`, "success");
+        browseSessionStore.invalidateCache();
         clearOrphanState();
       } finally {
         endBusy();
@@ -159,6 +161,7 @@
 
         showDeleteModal = false;
         addToast(`${result.deleted} record(s) deleted.`, "success");
+        browseSessionStore.invalidateCache();
         if (orphanSelectedIds.length >= orphanTotal) {
           clearOrphanState();
         } else {

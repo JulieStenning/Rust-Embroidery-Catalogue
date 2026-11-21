@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { writable } from "svelte/store";
-import type { BrowseFilterState } from "../types/ipc";
+import type {
+  BrowseDesignCard,
+  BrowseFilterState,
+  BrowseTagOption,
+  ProjectListItem,
+  SearchPayload,
+} from "../types/ipc";
 
 // ---------------------------------------------------------------------------
 // Browse session state
@@ -31,6 +37,27 @@ export interface BrowseSessionState {
   designIdsLoadedSignature: string;
   /** Last browse scroll position, restored on return. */
   scrollY: number;
+  /** Cached browse page cards so returning from Design Detail avoids re-querying. */
+  items: BrowseDesignCard[];
+  /** True once the current page snapshot has been loaded from the backend. */
+  hasLoaded: boolean;
+  /** Filter signature corresponding to the cached `items`. */
+  lastFilterSignature: string;
+  /** Last search payload corresponding to the cached `items`. */
+  lastPayload: SearchPayload | null;
+  /** Cached preview data URLs keyed by design id. */
+  previewById: Record<number, string | null>;
+  /** Cached tag filter options. */
+  tagOptions: BrowseTagOption[];
+  tagsLoaded: boolean;
+  /** Cached project options for card dropdowns and bulk actions. */
+  projects: ProjectListItem[];
+  projectsLoaded: boolean;
+  /** Cached reference-data filter dropdown options. */
+  designerFilterOptions: string[];
+  sourceFilterOptions: string[];
+  hoopFilterOptions: string[];
+  filterReferenceLoaded: boolean;
 }
 
 function defaultFilters(): BrowseFilterState {
@@ -74,6 +101,19 @@ function createInitialState(): BrowseSessionState {
     designIds: [],
     designIdsLoadedSignature: "",
     scrollY: 0,
+    items: [],
+    hasLoaded: false,
+    lastFilterSignature: "",
+    lastPayload: null,
+    previewById: {},
+    tagOptions: [],
+    tagsLoaded: false,
+    projects: [],
+    projectsLoaded: false,
+    designerFilterOptions: [],
+    sourceFilterOptions: [],
+    hoopFilterOptions: [],
+    filterReferenceLoaded: false,
   };
 }
 
@@ -115,7 +155,55 @@ function createBrowseSessionStore() {
       );
     },
 
-    /** Discard the browse snapshot (used on explicit filter reset). */
+    /**
+     * Mark the cached browse page (and optionally reference-data dropdowns)
+     * dirty so the next visit to Browse re-queries the backend while preserving
+     * the user's active filters, current page, and scroll position.
+     */
+    invalidateCache(options?: { includeReferenceData?: boolean }) {
+      const includeReferenceData = Boolean(options?.includeReferenceData);
+      update((state) => ({
+        ...state,
+        items: [],
+        hasLoaded: false,
+        lastFilterSignature: "",
+        lastPayload: null,
+        previewById: {},
+        designIdsLoadedSignature: "",
+        ...(includeReferenceData
+          ? {
+              tagOptions: [],
+              tagsLoaded: false,
+              projects: [],
+              projectsLoaded: false,
+              designerFilterOptions: [],
+              sourceFilterOptions: [],
+              hoopFilterOptions: [],
+              filterReferenceLoaded: false,
+            }
+          : {}),
+      }));
+    },
+
+    /**
+     * Mark cached reference-data dropdown options (tags, projects, designers,
+     * sources, hoops) dirty without discarding the cached browse cards.
+     */
+    invalidateReferenceData() {
+      update((state) => ({
+        ...state,
+        tagOptions: [],
+        tagsLoaded: false,
+        projects: [],
+        projectsLoaded: false,
+        designerFilterOptions: [],
+        sourceFilterOptions: [],
+        hoopFilterOptions: [],
+        filterReferenceLoaded: false,
+      }));
+    },
+
+    /** Discard the browse snapshot (used on explicit filter reset or DB restore). */
     clear() {
       set(createInitialState());
     },
@@ -128,13 +216,8 @@ function createBrowseSessionStore() {
       mode: "all" | "cannot_draw" | "exceeds_hoop" | "master_only" = "cannot_draw"
     ) {
       set({
+        ...createInitialState(),
         filters: { ...defaultFilters(), needsAttention: mode },
-        currentPage: 1,
-        total: 0,
-        totalPages: 1,
-        designIds: [],
-        designIdsLoadedSignature: "",
-        scrollY: 0,
       });
     },
   };

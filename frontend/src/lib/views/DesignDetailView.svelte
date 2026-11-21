@@ -414,6 +414,7 @@
     detailSaving = false;
     addToast(result.message, result.persisted ? "success" : "error");
     if (result.persisted) {
+      designSessionStore.trackMutation(detailItem.id, {});
       const refreshedImage = await getDesignImageDataUrl(detailItem.id);
       if (refreshedImage?.item?.data_url) {
         detailItem = {
@@ -462,6 +463,9 @@
       if (result.persisted && result.result) {
         const { pairedCount, currentDesignPaired, message } = result.result;
         addToast(message, pairedCount > 0 ? "success" : "info");
+        if (pairedCount > 0) {
+          browseSessionStore.invalidateCache();
+        }
         if (currentDesignPaired) {
           await refreshDetailAfterAction();
         }
