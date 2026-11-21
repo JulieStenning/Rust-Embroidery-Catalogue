@@ -3,6 +3,7 @@
 
 import { writable } from "svelte/store";
 import type { MutationPatch } from "../types/ipc";
+import { browseSessionStore } from "./browseSessionStore";
 
 // ---------------------------------------------------------------------------
 // Types (mirrored in index.d.ts for wider usage, but self-contained here)
@@ -60,6 +61,9 @@ function createDesignSessionStore() {
           pendingPatches: nextPatches,
         };
       });
+      // Ensure returning to Browse re-runs the authoritative backend query so
+      // active filters (e.g. Unverified only) and sort orders reflect the edit.
+      browseSessionStore.markDesignsDirty(designId);
     },
 
     /**

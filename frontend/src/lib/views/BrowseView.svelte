@@ -269,14 +269,15 @@
       if (typeof snap.designIdsLoadedSignature === "string") {
         browseDesignIdsLoadedSignature = snap.designIdsLoadedSignature;
       }
+      if (snap.previewById && typeof snap.previewById === "object") {
+        browsePreviewById = { ...snap.previewById };
+      }
       if (snap.hasLoaded) {
         browseItems = Array.isArray(snap.items) ? [...snap.items] : [];
         browseHasLoaded = true;
         browseLastFilterSignature =
           typeof snap.lastFilterSignature === "string" ? snap.lastFilterSignature : "";
         browseLastPayload = snap.lastPayload ?? null;
-        browsePreviewById =
-          snap.previewById && typeof snap.previewById === "object" ? { ...snap.previewById } : {};
         if (!untrack(() => browseNeedsRefresh)) {
           untrack(() => restoreBrowseScrollOnce());
         }

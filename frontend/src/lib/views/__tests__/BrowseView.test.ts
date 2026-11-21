@@ -3264,6 +3264,49 @@ describe("BrowseView", () => {
       expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(1);
     });
 
+    it("re-queries getBrowseDesigns on remount after markDesignsDirty (e.g. marking verified in Design Detail) while preserving filters and unchanged previews", async () => {
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({ id: 1, filename: "verified-rose.pes", image_tags_verified: false }),
+          design({ id: 2, filename: "still-unverified.pes", image_tags_verified: false }),
+        ])
+      );
+      adapterMocks.getBrowseDesignPreviews.mockResolvedValue({
+        items: [
+          { id: 1, data_url: "data:image/png;base64,AAA" },
+          { id: 2, data_url: "data:image/png;base64,BBB" },
+        ],
+      });
+
+      const first = renderBrowse();
+      expect(await screen.findByText("verified-rose.pes")).toBeInTheDocument();
+      expect(await screen.findByAltText("still-unverified.pes")).toBeInTheDocument();
+      await tick();
+
+      browseSessionStore.patchSession({
+        filters: { ...get(browseSessionStore).filters, verificationStatus: "unverified" },
+      });
+      first.unmount();
+
+      // Simulate DesignDetailView mutating design 1 (e.g. marking verified).
+      browseSessionStore.markDesignsDirty(1);
+      adapterMocks.getBrowseDesigns.mockResolvedValue(
+        listResponse([
+          design({ id: 2, filename: "still-unverified.pes", image_tags_verified: false }),
+        ])
+      );
+
+      renderBrowse();
+      await waitFor(() => {
+        expect(adapterMocks.getBrowseDesigns).toHaveBeenCalledTimes(2);
+      });
+      expect(screen.queryByText("verified-rose.pes")).not.toBeInTheDocument();
+      expect(screen.getByText("still-unverified.pes")).toBeInTheDocument();
+      // Unchanged card 2 kept its cached preview, so no extra preview fetch was needed.
+      expect(adapterMocks.getBrowseDesignPreviews).toHaveBeenCalledTimes(1);
+      expect(get(browseSessionStore).filters.verificationStatus).toBe("unverified");
+    });
+
     it("re-queries on remount after browseSessionStore.invalidateCache() while preserving filters", async () => {
       adapterMocks.getBrowseDesigns.mockResolvedValue(
         listResponse([design({ id: 1, filename: "before-invalidation.pes" })])

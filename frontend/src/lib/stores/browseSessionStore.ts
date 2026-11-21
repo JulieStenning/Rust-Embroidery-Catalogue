@@ -156,6 +156,28 @@ function createBrowseSessionStore() {
     },
 
     /**
+     * Mark the cached browse page dirty after a design mutation (e.g. verifying
+     * tags, changing rating/metadata, or regenerating a preview in Design Detail)
+     * so returning to Browse re-runs the backend query while preserving active
+     * filters, page, scroll position, reference data, and unchanged card previews.
+     */
+    markDesignsDirty(designId?: number) {
+      update((state) => {
+        let nextPreviews = state.previewById;
+        if (designId !== undefined && designId in state.previewById) {
+          nextPreviews = { ...state.previewById };
+          delete nextPreviews[designId];
+        }
+        return {
+          ...state,
+          hasLoaded: false,
+          designIdsLoadedSignature: "",
+          previewById: nextPreviews,
+        };
+      });
+    },
+
+    /**
      * Mark the cached browse page (and optionally reference-data dropdowns)
      * dirty so the next visit to Browse re-queries the backend while preserving
      * the user's active filters, current page, and scroll position.
