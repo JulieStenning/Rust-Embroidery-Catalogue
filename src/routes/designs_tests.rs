@@ -4101,8 +4101,8 @@ async fn browse_query_plans_use_covering_indexes_without_table_scans_or_temp_btr
         "default name sort must not use TEMP B-TREE, got: {joined}"
     );
 
-    // 2. Folder sort ASC & DESC (including with unverified filter) must use covering folder indexes
-    //    with no table scan and no temp B-tree.
+    // 2. Folder sort ASC & DESC (including with unverified filter and folder-name text search)
+    //    must use covering folder indexes with no table-heap lookups and no temp B-tree.
     for (dir, expected_idx) in [
         ("asc", "ix_designs_folder_asc"),
         ("desc", "ix_designs_folder_desc"),
@@ -4111,6 +4111,8 @@ async fn browse_query_plans_use_covering_indexes_without_table_scans_or_temp_btr
         for where_sql in [
             "",
             " WHERE (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+            " WHERE (((LOWER(d.filepath) LIKE '%folder_1%')))",
+            " WHERE (((LOWER(d.filepath) LIKE '%folder_1%'))) AND (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
         ] {
             let plan = explain_details(
                 &pool,
@@ -4131,10 +4133,34 @@ async fn browse_query_plans_use_covering_indexes_without_table_scans_or_temp_btr
         }
     }
 
-    // 3. Unverified COUNT(*) and unfiltered COUNT(*) must use covering indexes (never SCAN d).
+    // 3. Name sort with filename/folder search + unverified filter must use covering filename index.
+    for where_sql in [
+        " WHERE (((LOWER(d.filename) LIKE '%design_0%'))) AND (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+        " WHERE (((LOWER(d.filepath) LIKE '%folder_1%'))) AND (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+    ] {
+        let plan = explain_details(
+            &pool,
+            &format!("SELECT d.id FROM designs d{where_sql} ORDER BY {name_sort} LIMIT 50 OFFSET 0"),
+        )
+        .await;
+        let joined = plan.join(" | ");
+        assert!(
+            joined.contains("COVERING INDEX ix_designs_filename"),
+            "expected covering filename index for name sort ({where_sql}), got: {joined}"
+        );
+        assert!(
+            !joined.contains("TEMP B-TREE"),
+            "name sort ({where_sql}) must not use TEMP B-TREE, got: {joined}"
+        );
+    }
+
+    // 4. COUNT(*) queries (unfiltered, unverified, and folder/filename text search + unverified)
+    //    must use covering indexes (never a full table scan `SCAN d`).
     for sql in [
         "SELECT COUNT(*) FROM designs d",
         "SELECT COUNT(*) FROM designs d WHERE (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+        "SELECT COUNT(*) FROM designs d WHERE (((LOWER(d.filepath) LIKE '%folder_1%'))) AND (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
+        "SELECT COUNT(*) FROM designs d WHERE (((LOWER(d.filename) LIKE '%design_0%'))) AND (d.image_tags_verified = 0 OR d.stitching_tags_verified = 0)",
     ] {
         let plan = explain_details(&pool, sql).await;
         let joined = plan.join(" | ");
